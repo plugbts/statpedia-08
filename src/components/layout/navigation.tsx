@@ -14,7 +14,7 @@ export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="w-4 h-4" /> },
     { id: 'predictions', label: 'Predictions', icon: <Target className="w-4 h-4" />, badge: '12' },
-    { id: 'alt-props', label: 'Alt Props', icon: <TrendingUp className="w-4 h-4" />, badge: '100%' },
+    { id: 'player-props', label: 'Player Props', icon: <TrendingUp className="w-4 h-4" />, badge: 'NEW' },
     { id: 'analytics', label: 'Analytics', icon: <TrendingUp className="w-4 h-4" /> },
     { id: 'backtest', label: 'Backtest', icon: <Calendar className="w-4 h-4" /> },
   ];
@@ -38,7 +38,7 @@ export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
             <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
               <BarChart3 className="w-5 h-5 text-white" />
             </div>
-            <h1 className="text-xl font-bold text-foreground">PropAnalytics</h1>
+            <h1 className="text-xl font-bold text-foreground">Statpedia</h1>
           </div>
 
           {/* Main Navigation */}

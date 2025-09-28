@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { AuthPage } from '@/components/auth/auth-page';
+import { PlayerPropsTab } from '@/components/player-props/player-props-tab';
 import { Navigation } from '@/components/layout/navigation';
 import { StatsOverview } from '@/components/analytics/stats-overview';
 import { PredictionCard } from '@/components/analytics/prediction-card';
@@ -11,6 +13,17 @@ import heroImage from '@/assets/hero-analytics.jpg';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [user, setUser] = useState<any>(null);
+  const [userSubscription, setUserSubscription] = useState('free');
+
+  const handleAuthSuccess = (userData: any, subscription: string) => {
+    setUser(userData);
+    setUserSubscription(subscription);
+  };
+
+  if (!user) {
+    return <AuthPage onAuthSuccess={handleAuthSuccess} />;
+  }
 
   // Mock data - replace with real API calls
   const mockPredictions = [
@@ -246,10 +259,10 @@ const Index = () => {
               </Badge>
             </div>
             <h1 className="text-4xl lg:text-6xl font-bold text-foreground mb-4 animate-fade-in">
-              Advanced Sports
+              Welcome to Statpedia
               <br />
               <span className="bg-gradient-primary bg-clip-text text-transparent">
-                Betting Analytics
+                {user.displayName}
               </span>
             </h1>
             <p className="text-xl text-muted-foreground mb-6 animate-slide-up">
@@ -314,8 +327,8 @@ const Index = () => {
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'dashboard' && renderDashboard()}
-        {activeTab === 'alt-props' && renderAltProps()}
-        {activeTab !== 'dashboard' && activeTab !== 'alt-props' && (
+        {activeTab === 'player-props' && <PlayerPropsTab userSubscription={userSubscription} />}
+        {activeTab !== 'dashboard' && activeTab !== 'player-props' && (
           <div className="text-center py-16">
             <h2 className="text-2xl font-bold text-foreground mb-4">
               {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Coming Soon

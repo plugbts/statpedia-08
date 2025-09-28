@@ -1,0 +1,285 @@
+import React from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { SportIcon } from '@/components/ui/sport-icon';
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  Activity, 
+  Clock, 
+  MapPin, 
+  AlertTriangle,
+  Eye,
+  EyeOff,
+  BarChart3,
+  Target
+} from 'lucide-react';
+
+interface PlayerPropCardProps {
+  id: string;
+  sport: 'baseball' | 'basketball' | 'college-basketball' | 'college-football' | 'football' | 'hockey' | 'mlb' | 'nba' | 'nfl' | 'nhl' | 'wnba';
+  playerName: string;
+  team: string;
+  opponent: string;
+  propType: string;
+  line: number;
+  hitRate: number;
+  gamesTracked: number;
+  avgActualValue: number;
+  odds: string;
+  recentForm: string;
+  homeAway: 'home' | 'away';
+  injuryStatus: string;
+  weatherConditions: string;
+  potentialAssists: number;
+  potentialRebounds: number;
+  potentialThrees: number;
+  avgMinutes: number;
+  freeThrowAttempts: number;
+  defensiveRating: number;
+  offensiveRating: number;
+  usageRate: number;
+  paceFactor: number;
+  restDays: number;
+  isSubscribed: boolean;
+  isSelected: boolean;
+  onToggleSelect: () => void;
+}
+
+export const PlayerPropCard: React.FC<PlayerPropCardProps> = ({
+  id,
+  sport,
+  playerName,
+  team,
+  opponent,
+  propType,
+  line,
+  hitRate,
+  gamesTracked,
+  avgActualValue,
+  odds,
+  recentForm,
+  homeAway,
+  injuryStatus,
+  weatherConditions,
+  potentialAssists,
+  potentialRebounds,
+  potentialThrees,
+  avgMinutes,
+  freeThrowAttempts,
+  defensiveRating,
+  offensiveRating,
+  usageRate,
+  paceFactor,
+  restDays,
+  isSubscribed,
+  isSelected,
+  onToggleSelect
+}) => {
+  const getHitRateColor = (rate: number) => {
+    if (rate >= 80) return 'text-success';
+    if (rate >= 65) return 'text-warning';
+    return 'text-destructive';
+  };
+
+  const getHitRateBadge = (rate: number) => {
+    if (rate >= 80) return 'bg-gradient-success';
+    if (rate >= 65) return 'bg-gradient-accent';
+    return 'bg-destructive';
+  };
+
+  const isHealthy = injuryStatus.toLowerCase() === 'healthy';
+  const isOver = avgActualValue > line;
+
+  return (
+    <Card 
+      className={`bg-gradient-card border transition-all duration-300 hover:shadow-card-hover ${
+        isSelected ? 'ring-2 ring-primary border-primary/50' : 'border-border/50'
+      } ${!isSubscribed ? 'relative' : ''}`}
+    >
+      {!isSubscribed && (
+        <div className="absolute inset-0 bg-background/60 backdrop-blur-sm rounded-lg z-10 flex items-center justify-center">
+          <div className="text-center space-y-2">
+            <EyeOff className="h-8 w-8 text-muted-foreground mx-auto" />
+            <p className="text-sm text-muted-foreground">Upgrade to view details</p>
+          </div>
+        </div>
+      )}
+
+      <CardHeader className="space-y-4">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <SportIcon sport={sport} className="h-8 w-8" />
+            <div>
+              <CardTitle className="text-lg">{playerName}</CardTitle>
+              <CardDescription>{team} vs {opponent}</CardDescription>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Badge className={getHitRateBadge(hitRate)}>
+              {hitRate.toFixed(1)}%
+            </Badge>
+            <Button
+              variant={isSelected ? "default" : "outline"}
+              size="sm"
+              onClick={onToggleSelect}
+              className={isSelected ? "bg-gradient-primary" : ""}
+            >
+              {isSelected ? <Eye className="h-4 w-4" /> : <Target className="h-4 w-4" />}
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Prop Type</span>
+            <span className="font-medium">{propType}</span>
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Line</span>
+            <span className="font-bold text-lg">{line}</span>
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Odds</span>
+            <span className="font-medium">{odds}</span>
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-6">
+        {/* Performance Metrics */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Hit Rate</span>
+            <span className={`font-bold ${getHitRateColor(hitRate)}`}>
+              {hitRate.toFixed(1)}% ({gamesTracked} games)
+            </span>
+          </div>
+          
+          <Progress value={hitRate} className="h-2" />
+          
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="flex items-center gap-2">
+              <Activity className="h-3 w-3 text-muted-foreground" />
+              <span className="text-muted-foreground">Avg:</span>
+              <span className="font-medium">{avgActualValue}</span>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              {isOver ? (
+                <TrendingUp className="h-3 w-3 text-success" />
+              ) : (
+                <TrendingDown className="h-3 w-3 text-destructive" />
+              )}
+              <span className="text-muted-foreground">vs Line:</span>
+              <span className={isOver ? 'text-success' : 'text-destructive'}>
+                {isOver ? '+' : ''}{(avgActualValue - line).toFixed(1)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Advanced Metrics Grid */}
+        {isSubscribed && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-muted-foreground">Advanced Metrics</span>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              {sport === 'nba' && (
+                <>
+                  <div className="bg-muted/50 rounded p-2">
+                    <div className="text-muted-foreground">Potential Assists</div>
+                    <div className="font-bold">{potentialAssists.toFixed(1)}</div>
+                  </div>
+                  
+                  <div className="bg-muted/50 rounded p-2">
+                    <div className="text-muted-foreground">Potential Rebounds</div>
+                    <div className="font-bold">{potentialRebounds.toFixed(1)}</div>
+                  </div>
+                  
+                  <div className="bg-muted/50 rounded p-2">
+                    <div className="text-muted-foreground">Potential 3's</div>
+                    <div className="font-bold">{potentialThrees.toFixed(1)}</div>
+                  </div>
+                  
+                  <div className="bg-muted/50 rounded p-2">
+                    <div className="text-muted-foreground">Avg Minutes</div>
+                    <div className="font-bold">{avgMinutes.toFixed(1)}</div>
+                  </div>
+                  
+                  <div className="bg-muted/50 rounded p-2">
+                    <div className="text-muted-foreground">Usage Rate</div>
+                    <div className="font-bold">{usageRate.toFixed(1)}%</div>
+                  </div>
+                  
+                  <div className="bg-muted/50 rounded p-2">
+                    <div className="text-muted-foreground">FT Attempts</div>
+                    <div className="font-bold">{freeThrowAttempts.toFixed(1)}</div>
+                  </div>
+                </>
+              )}
+              
+              <div className="bg-muted/50 rounded p-2">
+                <div className="text-muted-foreground">Pace Factor</div>
+                <div className="font-bold">{paceFactor.toFixed(1)}</div>
+              </div>
+              
+              <div className="bg-muted/50 rounded p-2">
+                <div className="text-muted-foreground">Rest Days</div>
+                <div className="font-bold">{restDays}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Situational Factors */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium text-muted-foreground">Situation</span>
+          </div>
+          
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline" className="text-xs">
+              <MapPin className="h-3 w-3 mr-1" />
+              {homeAway === 'home' ? 'Home' : 'Away'}
+            </Badge>
+            
+            <Badge variant="outline" className="text-xs">
+              <Clock className="h-3 w-3 mr-1" />
+              {weatherConditions}
+            </Badge>
+            
+            <Badge 
+              variant="outline" 
+              className={`text-xs ${
+                isHealthy ? 'border-success text-success' : 'border-warning text-warning'
+              }`}
+            >
+              {isHealthy ? (
+                <Activity className="h-3 w-3 mr-1" />
+              ) : (
+                <AlertTriangle className="h-3 w-3 mr-1" />
+              )}
+              {injuryStatus}
+            </Badge>
+          </div>
+        </div>
+
+        {/* Recent Form */}
+        <div className="p-3 bg-muted/30 rounded-lg">
+          <div className="text-sm font-medium text-muted-foreground mb-1">Recent Form</div>
+          <div className="text-sm">{recentForm}</div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
