@@ -29,6 +29,8 @@ const Index = () => {
         { name: 'GSW Def Rating', value: '112.4', rank: 18, isPositive: true },
         { name: 'H2H vs GSW', value: '29.2 PPG', isPositive: true },
         { name: 'vs Draymond', value: '31.8 PPG', isPositive: true },
+        { name: 'Post-Injury Avg', value: '24.1 PPG', isPositive: false },
+        { name: 'Injury Minutes', value: '28.5 MPG', isPositive: false },
         { name: 'Last 5 vs GSW', value: '4-1 Over', isPositive: true },
         { name: 'Home Court', value: '+2.4 PPG', isPositive: true },
       ]
@@ -47,6 +49,8 @@ const Index = () => {
         { name: 'vs MIA Pass D', value: '245.8 YPG', rank: 24, isPositive: true },
         { name: 'H2H vs MIA', value: '289.4 YPG', isPositive: true },
         { name: 'vs X. Howard', value: '312.1 YPG', isPositive: true },
+        { name: 'Post-Shoulder', value: '251.2 YPG', isPositive: false },
+        { name: 'Injury Snaps', value: '68%', isPositive: false },
         { name: 'Weather', value: 'Dome', isPositive: true },
         { name: 'Last 3 vs MIA', value: '2-1 Over', isPositive: true },
         { name: 'Division Game', value: '+18.2 YPG', isPositive: true },
@@ -66,6 +70,8 @@ const Index = () => {
         { name: 'vs LAS Pace', value: '94.2', rank: 8, isPositive: true },
         { name: 'H2H vs LAS', value: '9.7 APG', isPositive: true },
         { name: 'vs A. Wilson', value: '10.2 APG', isPositive: true },
+        { name: 'Post-Ankle', value: '8.9 APG', isPositive: true },
+        { name: 'Injury Minutes', value: '32.1 MPG', isPositive: true },
         { name: 'Season vs LAS', value: '2-0 Over', isPositive: true },
         { name: 'Home Court', value: '+1.2 APG', isPositive: true },
         { name: 'Rest Days', value: '2 days', isPositive: true },
@@ -114,6 +120,106 @@ const Index = () => {
       profit: 80.00
     }
   ];
+
+  const mockAltProps = [
+    {
+      sport: 'nba',
+      player: 'Giannis Antetokounmpo',
+      team: 'MIL',
+      opponent: 'PHI',
+      prop: 'Rebounds',
+      line: 10.5,
+      prediction: 'over' as const,
+      confidence: 100,
+      odds: '-120',
+      factors: [
+        { name: 'vs PHI Rebounds', value: '12.8 RPG', rank: 1, isPositive: true },
+        { name: 'H2H vs PHI', value: '13.4 RPG', isPositive: true },
+        { name: 'vs Embiid Out', value: '14.2 RPG', isPositive: true },
+        { name: 'Last 10 vs PHI', value: '10-0 Over', isPositive: true },
+        { name: 'Home Court', value: '+1.8 RPG', isPositive: true },
+        { name: 'B2B Advantage', value: '12.1 RPG', isPositive: true },
+      ]
+    },
+    {
+      sport: 'nfl',
+      player: 'Christian McCaffrey',
+      team: 'SF',
+      opponent: 'SEA',
+      prop: 'Rushing Yards',
+      line: 89.5,
+      prediction: 'over' as const,
+      confidence: 100,
+      odds: '-110',
+      factors: [
+        { name: 'vs SEA Rush D', value: '142.8 YPG', rank: 28, isPositive: true },
+        { name: 'H2H vs SEA', value: '127.3 YPG', isPositive: true },
+        { name: 'Division Games', value: '131.5 YPG', isPositive: true },
+        { name: 'Last 10 vs SEA', value: '10-0 Over', isPositive: true },
+        { name: 'Home Dome', value: '+12.4 YPG', isPositive: true },
+        { name: 'Weather', value: 'Perfect', isPositive: true },
+      ]
+    },
+    {
+      sport: 'nhl',
+      player: 'David Pastrnak',
+      team: 'BOS',
+      opponent: 'MTL',
+      prop: 'Shots on Goal',
+      line: 3.5,
+      prediction: 'over' as const,
+      confidence: 100,
+      odds: '+105',
+      factors: [
+        { name: 'vs MTL SOG', value: '4.8 SOG', rank: 2, isPositive: true },
+        { name: 'H2H vs MTL', value: '5.2 SOG', isPositive: true },
+        { name: 'vs Price Out', value: '5.7 SOG', isPositive: true },
+        { name: 'Last 10 vs MTL', value: '10-0 Over', isPositive: true },
+        { name: 'Home Ice', value: '+0.9 SOG', isPositive: true },
+        { name: 'Line Chemistry', value: '4.9 SOG', isPositive: true },
+      ]
+    }
+  ];
+
+  const renderAltProps = () => (
+    <div className="space-y-8">
+      {/* Alt Props Header */}
+      <div className="bg-gradient-card border border-border/50 rounded-xl p-8">
+        <div className="text-center">
+          <Badge variant="default" className="bg-gradient-success mb-4">
+            <TrendingUp className="w-3 h-3 mr-1" />
+            100% HIT RATE
+          </Badge>
+          <h1 className="text-3xl lg:text-4xl font-bold text-foreground mb-4">
+            Alternative Props
+          </h1>
+          <p className="text-lg text-muted-foreground mb-6">
+            Ultra-reliable props with 100% hit rate over the last 10 games.
+            These are the safest bets with consistent patterns.
+          </p>
+        </div>
+      </div>
+
+      {/* Alt Props Grid */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-foreground">Perfect Track Record Props</h2>
+          <Badge variant="default" className="bg-gradient-success">
+            <TrendingUp className="w-3 h-3 mr-1" />
+            3 AVAILABLE
+          </Badge>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          {mockAltProps.map((prediction, index) => (
+            <PredictionCard
+              key={index}
+              {...prediction}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 
   const renderDashboard = () => (
     <div className="space-y-8">
@@ -208,7 +314,8 @@ const Index = () => {
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'dashboard' && renderDashboard()}
-        {activeTab !== 'dashboard' && (
+        {activeTab === 'alt-props' && renderAltProps()}
+        {activeTab !== 'dashboard' && activeTab !== 'alt-props' && (
           <div className="text-center py-16">
             <h2 className="text-2xl font-bold text-foreground mb-4">
               {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Coming Soon

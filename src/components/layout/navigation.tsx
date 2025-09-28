@@ -14,6 +14,7 @@ export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="w-4 h-4" /> },
     { id: 'predictions', label: 'Predictions', icon: <Target className="w-4 h-4" />, badge: '12' },
+    { id: 'alt-props', label: 'Alt Props', icon: <TrendingUp className="w-4 h-4" />, badge: '100%' },
     { id: 'analytics', label: 'Analytics', icon: <TrendingUp className="w-4 h-4" /> },
     { id: 'backtest', label: 'Backtest', icon: <Calendar className="w-4 h-4" /> },
   ];
