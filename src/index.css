@@ -2,39 +2,54 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Sports Analytics Design System - Professional Dark Theme */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Main backgrounds - Deep navy theme */
+    --background: 217 33% 7%;
+    --foreground: 213 30% 95%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    /* Card backgrounds with depth */
+    --card: 217 33% 10%;
+    --card-foreground: 213 30% 95%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    /* Popover elements */
+    --popover: 217 33% 12%;
+    --popover-foreground: 213 30% 95%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Primary - Electric blue for key actions */
+    --primary: 217 91% 60%;
+    --primary-foreground: 217 33% 7%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Secondary - Muted blue-gray */
+    --secondary: 217 25% 20%;
+    --secondary-foreground: 213 30% 85%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Muted elements */
+    --muted: 217 25% 15%;
+    --muted-foreground: 217 15% 65%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Accent - Bright cyan for highlights */
+    --accent: 191 91% 55%;
+    --accent-foreground: 217 33% 7%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    /* Success for wins and positive metrics */
+    --success: 142 71% 45%;
+    --success-foreground: 217 33% 7%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    /* Warning for neutral/caution states */
+    --warning: 45 93% 58%;
+    --warning-foreground: 217 33% 7%;
+
+    /* Destructive for losses and negative metrics */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 217 33% 7%;
+
+    /* Border and input elements */
+    --border: 217 25% 25%;
+    --input: 217 25% 18%;
+    --ring: 217 91% 60%;
 
     --radius: 0.5rem;
 
@@ -53,36 +68,40 @@ All colors MUST be HSL.
     --sidebar-border: 220 13% 91%;
 
     --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Professional gradients for depth and visual hierarchy */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(217 91% 45%));
+    --gradient-card: linear-gradient(145deg, hsl(var(--card)), hsl(217 33% 12%));
+    --gradient-success: linear-gradient(135deg, hsl(var(--success)), hsl(142 71% 35%));
+    --gradient-accent: linear-gradient(135deg, hsl(var(--accent)), hsl(191 91% 45%));
+
+    /* 3D shadows for depth */
+    --shadow-card: 0 4px 12px -2px hsl(217 33% 3% / 0.3), 0 2px 8px -2px hsl(217 33% 3% / 0.2);
+    --shadow-card-hover: 0 8px 24px -4px hsl(217 33% 3% / 0.4), 0 4px 16px -4px hsl(217 33% 3% / 0.3);
+    --shadow-glow: 0 0 32px hsl(var(--primary) / 0.15);
+    --shadow-success: 0 0 24px hsl(var(--success) / 0.2);
+
+    /* Interactive states */
+    --card-hover: 217 33% 13%;
+    --border-hover: 217 25% 35%;
+
+    /* Typography scale */
+    --font-heading: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-body: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: "JetBrains Mono", "Fira Code", monospace;
+
+    /* Animation curves */
+    --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-out: cubic-bezier(0.0, 0, 0.2, 1);
+
+    /* Radius system */
+    --radius: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    /* Dark mode inherits the same professional theme */
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
