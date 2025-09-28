@@ -6,110 +6,198 @@
 
 @layer base {
   :root {
-    /* Main backgrounds - Deep navy theme */
-    --background: 217 33% 7%;
-    --foreground: 213 30% 95%;
+    /* Ultra-Dark Professional Theme with 3D Effects */
+    --background: 220 27% 4%;
+    --foreground: 220 9% 95%;
 
-    /* Card backgrounds with depth */
-    --card: 217 33% 10%;
-    --card-foreground: 213 30% 95%;
+    /* Deep card backgrounds with 3D depth */
+    --card: 220 27% 6%;
+    --card-foreground: 220 9% 95%;
+    --card-hover: 220 27% 8%;
 
     /* Popover elements */
-    --popover: 217 33% 12%;
-    --popover-foreground: 213 30% 95%;
+    --popover: 220 27% 8%;
+    --popover-foreground: 220 9% 95%;
 
-    /* Primary - Electric blue for key actions */
-    --primary: 217 91% 60%;
-    --primary-foreground: 217 33% 7%;
+    /* Primary - Electric cyan with glow */
+    --primary: 191 100% 50%;
+    --primary-foreground: 220 27% 4%;
+    --primary-glow: 191 100% 70%;
 
-    /* Secondary - Muted blue-gray */
-    --secondary: 217 25% 20%;
-    --secondary-foreground: 213 30% 85%;
+    /* Secondary - Deep purple-blue */
+    --secondary: 260 35% 15%;
+    --secondary-foreground: 220 9% 85%;
 
     /* Muted elements */
-    --muted: 217 25% 15%;
-    --muted-foreground: 217 15% 65%;
+    --muted: 220 27% 10%;
+    --muted-foreground: 220 9% 60%;
 
-    /* Accent - Bright cyan for highlights */
-    --accent: 191 91% 55%;
-    --accent-foreground: 217 33% 7%;
+    /* Accent - Neon purple */
+    --accent: 280 100% 65%;
+    --accent-foreground: 220 27% 4%;
 
-    /* Success for wins and positive metrics */
-    --success: 142 71% 45%;
-    --success-foreground: 217 33% 7%;
+    /* Success - Neon green */
+    --success: 142 100% 45%;
+    --success-foreground: 220 27% 4%;
 
-    /* Warning for neutral/caution states */
-    --warning: 45 93% 58%;
-    --warning-foreground: 217 33% 7%;
+    /* Warning - Electric orange */
+    --warning: 30 100% 55%;
+    --warning-foreground: 220 27% 4%;
 
-    /* Destructive for losses and negative metrics */
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 217 33% 7%;
+    /* Destructive - Neon red */
+    --destructive: 0 100% 55%;
+    --destructive-foreground: 220 27% 4%;
 
-    /* Border and input elements */
-    --border: 217 25% 25%;
-    --input: 217 25% 18%;
-    --ring: 217 91% 60%;
+    /* Border and input with 3D effects */
+    --border: 220 27% 18%;
+    --border-hover: 220 27% 25%;
+    --input: 220 27% 8%;
+    --ring: 191 100% 50%;
 
-    --radius: 0.5rem;
-
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
-    /* Professional gradients for depth and visual hierarchy */
-    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(217 91% 45%));
-    --gradient-card: linear-gradient(145deg, hsl(var(--card)), hsl(217 33% 12%));
-    --gradient-success: linear-gradient(135deg, hsl(var(--success)), hsl(142 71% 35%));
-    --gradient-accent: linear-gradient(135deg, hsl(var(--accent)), hsl(191 91% 45%));
-
-    /* 3D shadows for depth */
-    --shadow-card: 0 4px 12px -2px hsl(217 33% 3% / 0.3), 0 2px 8px -2px hsl(217 33% 3% / 0.2);
-    --shadow-card-hover: 0 8px 24px -4px hsl(217 33% 3% / 0.4), 0 4px 16px -4px hsl(217 33% 3% / 0.3);
-    --shadow-glow: 0 0 32px hsl(var(--primary) / 0.15);
-    --shadow-success: 0 0 24px hsl(var(--success) / 0.2);
-
-    /* Interactive states */
-    --card-hover: 217 33% 13%;
-    --border-hover: 217 25% 35%;
-
-    /* Typography scale */
-    --font-heading: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
-    --font-body: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
-    --font-mono: "JetBrains Mono", "Fira Code", monospace;
-
-    /* Animation curves */
-    --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
-    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-    --ease-out: cubic-bezier(0.0, 0, 0.2, 1);
-
-    /* Radius system */
     --radius: 12px;
     --radius-lg: 16px;
-    --radius-xl: 20px;
+    --radius-xl: 24px;
+
+    /* Sidebar variables */
+    --sidebar-background: 220 27% 5%;
+    --sidebar-foreground: 220 9% 90%;
+    --sidebar-primary: 191 100% 50%;
+    --sidebar-primary-foreground: 220 27% 4%;
+    --sidebar-accent: 220 27% 10%;
+    --sidebar-accent-foreground: 220 9% 90%;
+    --sidebar-border: 220 27% 15%;
+    --sidebar-ring: 191 100% 50%;
+
+    /* Premium 3D gradients with depth and glow */
+    --gradient-primary: linear-gradient(135deg, hsl(191 100% 50%), hsl(191 100% 70%), hsl(280 100% 65%));
+    --gradient-card: linear-gradient(145deg, hsl(220 27% 6%) 0%, hsl(220 27% 8%) 50%, hsl(220 27% 6%) 100%);
+    --gradient-success: linear-gradient(135deg, hsl(142 100% 45%), hsl(142 100% 55%));
+    --gradient-accent: linear-gradient(135deg, hsl(280 100% 65%), hsl(300 100% 70%));
+    --gradient-glass: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+
+    /* Professional 3D shadows with multiple layers */
+    --shadow-3d: 
+      0 1px 2px rgba(0,0,0,0.8),
+      0 2px 4px rgba(0,0,0,0.6),
+      0 4px 8px rgba(0,0,0,0.4),
+      0 8px 16px rgba(0,0,0,0.2);
+    
+    --shadow-3d-hover: 
+      0 2px 4px rgba(0,0,0,0.9),
+      0 4px 8px rgba(0,0,0,0.7),
+      0 8px 16px rgba(0,0,0,0.5),
+      0 16px 32px rgba(0,0,0,0.3),
+      0 0 40px rgba(191,255,255,0.3);
+
+    --shadow-glow: 
+      0 0 20px rgba(191,255,255,0.4),
+      0 0 40px rgba(191,255,255,0.2),
+      0 0 60px rgba(191,255,255,0.1);
+
+    --shadow-success: 
+      0 0 20px rgba(0,255,146,0.4),
+      0 0 40px rgba(0,255,146,0.2);
+
+    --shadow-neon-purple: 
+      0 0 20px rgba(191,0,255,0.4),
+      0 0 40px rgba(191,0,255,0.2);
+
+    /* Glass morphism effects */
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-blur: blur(20px);
+
+    /* Premium typography system */
+    --font-display: "Orbitron", "Inter", system-ui, sans-serif;
+    --font-heading: "Rajdhani", "Inter", system-ui, sans-serif;
+    --font-body: "Space Grotesk", "Inter", system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", "Fira Code", monospace;
+
+    /* Advanced animation curves */
+    --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    --ease-out: cubic-bezier(0.0, 0, 0.2, 1);
+
+    /* 3D transform values */
+    --transform-3d: perspective(1000px);
+    --rotate-3d: rotateX(5deg) rotateY(-5deg);
   }
 
   .dark {
-    /* Dark mode inherits the same professional theme */
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Enhanced dark mode with deeper shadows and stronger contrasts */
+    --sidebar-background: 220 27% 3%;
+    --sidebar-foreground: 220 9% 95%;
+    --sidebar-primary: 191 100% 50%;
+    --sidebar-primary-foreground: 220 27% 4%;
+    --sidebar-accent: 220 27% 8%;
+    --sidebar-accent-foreground: 220 9% 95%;
+    --sidebar-border: 220 27% 12%;
+    --sidebar-ring: 191 100% 50%;
+  }
+
+  /* Premium 3D UI Classes */
+  .glass-morphism {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+  }
+
+  .perspective-3d {
+    transform: var(--transform-3d);
+  }
+
+  .rotate-3d {
+    transform: var(--rotate-3d);
+  }
+
+  .hover-3d {
+    transition: transform 0.3s var(--ease-spring), box-shadow 0.3s var(--ease-smooth);
+  }
+
+  .hover-3d:hover {
+    transform: translateY(-4px) rotateX(2deg) rotateY(-2deg);
+    box-shadow: var(--shadow-3d-hover);
+  }
+
+  .glow-effect {
+    position: relative;
+  }
+
+  .glow-effect::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    background: var(--gradient-primary);
+    border-radius: inherit;
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.3s var(--ease-smooth);
+  }
+
+  .glow-effect:hover::before {
+    opacity: 0.5;
+  }
+
+  /* Enhanced typography classes */
+  .font-display {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    text-shadow: 0 0 20px rgba(191, 255, 255, 0.3);
+  }
+
+  .font-heading {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .font-body-premium {
+    font-family: var(--font-body);
+    font-weight: 400;
+    letter-spacing: 0.01em;
   }
 }
 
@@ -119,6 +207,31 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-body-premium;
+    background-image: 
+      radial-gradient(circle at 20% 50%, rgba(191, 255, 255, 0.03) 0%, transparent 50%),
+      radial-gradient(circle at 80% 50%, rgba(191, 0, 255, 0.03) 0%, transparent 50%),
+      radial-gradient(circle at 40% 80%, rgba(0, 255, 146, 0.02) 0%, transparent 50%);
+    background-attachment: fixed;
+  }
+
+  /* Enhanced scrollbar for premium feel */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(45deg, hsl(var(--primary)), hsl(var(--accent)));
+    border-radius: 4px;
+    box-shadow: 0 0 10px rgba(191, 255, 255, 0.3);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    box-shadow: 0 0 20px rgba(191, 255, 255, 0.5);
   }
 }

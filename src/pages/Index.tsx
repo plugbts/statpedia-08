@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AuthPage } from '@/components/auth/auth-page';
 import { PlayerPropsTab } from '@/components/player-props/player-props-tab';
+import { MatrixBackground } from '@/components/effects/matrix-background';
 import { Navigation } from '@/components/layout/navigation';
 import { StatsOverview } from '@/components/analytics/stats-overview';
 import { PredictionCard } from '@/components/analytics/prediction-card';
@@ -258,23 +259,23 @@ const Index = () => {
                 BACKTESTED
               </Badge>
             </div>
-            <h1 className="text-4xl lg:text-6xl font-bold text-foreground mb-4 animate-fade-in">
+            <h1 className="text-4xl lg:text-6xl font-display font-bold text-foreground mb-4 animate-fade-in animate-neon-pulse">
               Welcome to Statpedia
               <br />
-              <span className="bg-gradient-primary bg-clip-text text-transparent">
+              <span className="bg-gradient-primary bg-clip-text text-transparent animate-hologram">
                 {user.displayName}
               </span>
             </h1>
-            <p className="text-xl text-muted-foreground mb-6 animate-slide-up">
+            <p className="text-xl text-muted-foreground mb-6 animate-slide-up font-body">
               AI-powered predictions with 73.4% accuracy across 50,000+ backtested games.
-              Live odds, advanced metrics, and professional-grade analytics.
+              Experience the future of sports analytics.
             </p>
             <div className="flex items-center gap-4 animate-slide-up" style={{ animationDelay: '200ms' }}>
-              <Button size="lg" className="bg-gradient-primary hover:shadow-glow transition-all duration-300">
+              <Button size="lg" variant="premium" className="shadow-glow hover:animate-neon-pulse">
                 <TrendingUp className="w-4 h-4 mr-2" />
                 View Today's Picks
               </Button>
-              <Button variant="outline" size="lg">
+              <Button variant="outline" size="lg" className="glass-morphism">
                 Backtest Results
               </Button>
             </div>
@@ -322,10 +323,11 @@ const Index = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
+      <MatrixBackground />
       <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
       
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         {activeTab === 'dashboard' && renderDashboard()}
         {activeTab === 'player-props' && <PlayerPropsTab userSubscription={userSubscription} />}
         {activeTab !== 'dashboard' && activeTab !== 'player-props' && (

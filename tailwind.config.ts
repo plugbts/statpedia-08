@@ -14,6 +14,9 @@ export default {
     },
     extend: {
       fontFamily: {
+        'display': ['Orbitron', 'Inter', 'system-ui', 'sans-serif'],
+        'heading': ['Rajdhani', 'Inter', 'system-ui', 'sans-serif'],
+        'body': ['Space Grotesk', 'Inter', 'system-ui', 'sans-serif'],
         sans: ["Inter", "system-ui", "sans-serif"],
         mono: ["JetBrains Mono", "Fira Code", "monospace"],
       },
@@ -76,12 +79,14 @@ export default {
         'gradient-card': 'var(--gradient-card)',
         'gradient-success': 'var(--gradient-success)',
         'gradient-accent': 'var(--gradient-accent)',
+        'gradient-glass': 'var(--gradient-glass)',
       },
       boxShadow: {
-        'card': 'var(--shadow-card)',
-        'card-hover': 'var(--shadow-card-hover)',
+        '3d': 'var(--shadow-3d)',
+        '3d-hover': 'var(--shadow-3d-hover)',
         'glow': 'var(--shadow-glow)',
         'success': 'var(--shadow-success)',
+        'neon-purple': 'var(--shadow-neon-purple)',
       },
       borderRadius: {
         lg: "var(--radius-lg)",
@@ -122,6 +127,20 @@ export default {
         "float": {
           "0%, 100%": { transform: "translateY(0px)" },
           "50%": { transform: "translateY(-6px)" }
+        },
+        "neon-pulse": {
+          "0%, 100%": { boxShadow: "0 0 20px rgba(191, 255, 255, 0.4)" },
+          "50%": { boxShadow: "0 0 40px rgba(191, 255, 255, 0.8)" }
+        },
+        "matrix-rain": {
+          "0%": { transform: "translateY(-100%)", opacity: "0" },
+          "10%": { opacity: "1" },
+          "90%": { opacity: "1" },
+          "100%": { transform: "translateY(100vh)", opacity: "0" }
+        },
+        "hologram": {
+          "0%, 100%": { transform: "rotateY(0deg)" },
+          "50%": { transform: "rotateY(180deg)" }
         }
       },
       animation: {
@@ -132,6 +151,9 @@ export default {
         "scale-in": "scale-in 0.3s var(--ease-out)",
         "glow-pulse": "glow-pulse 2s ease-in-out infinite",
         "float": "float 3s ease-in-out infinite",
+        "neon-pulse": "neon-pulse 2s ease-in-out infinite",
+        "matrix-rain": "matrix-rain 3s linear infinite",
+        "hologram": "hologram 4s ease-in-out infinite",
       },
     },
   },
