@@ -97,9 +97,9 @@ export const PredictionCard = ({
 
         {/* Key Factors */}
         <div className="space-y-2">
-          <h4 className="text-sm font-medium text-foreground">Key Factors</h4>
-          <div className="grid grid-cols-2 gap-2">
-            {factors.slice(0, 4).map((factor, index) => (
+          <h4 className="text-sm font-medium text-foreground">Key Factors & H2H Stats</h4>
+          <div className="grid grid-cols-1 gap-2">
+            {factors.slice(0, 6).map((factor, index) => (
               <div key={index} className="flex items-center justify-between text-xs">
                 <span className="text-muted-foreground">{factor.name}</span>
                 <div className="flex items-center gap-1">

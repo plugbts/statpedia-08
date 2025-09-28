@@ -27,8 +27,10 @@ const Index = () => {
       factors: [
         { name: 'vs GSW Pace', value: '102.3', rank: 3, isPositive: true },
         { name: 'GSW Def Rating', value: '112.4', rank: 18, isPositive: true },
-        { name: 'LAL Off Rating', value: '118.2', rank: 7, isPositive: true },
-        { name: 'Recent Form', value: '28.4 PPG', isPositive: true },
+        { name: 'H2H vs GSW', value: '29.2 PPG', isPositive: true },
+        { name: 'vs Draymond', value: '31.8 PPG', isPositive: true },
+        { name: 'Last 5 vs GSW', value: '4-1 Over', isPositive: true },
+        { name: 'Home Court', value: '+2.4 PPG', isPositive: true },
       ]
     },
     {
@@ -43,9 +45,11 @@ const Index = () => {
       odds: '-115',
       factors: [
         { name: 'vs MIA Pass D', value: '245.8 YPG', rank: 24, isPositive: true },
+        { name: 'H2H vs MIA', value: '289.4 YPG', isPositive: true },
+        { name: 'vs X. Howard', value: '312.1 YPG', isPositive: true },
         { name: 'Weather', value: 'Dome', isPositive: true },
-        { name: 'BUF Pass Off', value: '278.3 YPG', rank: 5, isPositive: true },
-        { name: 'Injury Report', value: 'Clean', isPositive: true },
+        { name: 'Last 3 vs MIA', value: '2-1 Over', isPositive: true },
+        { name: 'Division Game', value: '+18.2 YPG', isPositive: true },
       ]
     },
     {
@@ -60,9 +64,11 @@ const Index = () => {
       odds: '+105',
       factors: [
         { name: 'vs LAS Pace', value: '94.2', rank: 8, isPositive: true },
-        { name: 'Season Avg', value: '8.9 APG', isPositive: true },
-        { name: 'Last 5 Games', value: '9.4 APG', isPositive: true },
+        { name: 'H2H vs LAS', value: '9.7 APG', isPositive: true },
+        { name: 'vs A. Wilson', value: '10.2 APG', isPositive: true },
+        { name: 'Season vs LAS', value: '2-0 Over', isPositive: true },
         { name: 'Home Court', value: '+1.2 APG', isPositive: true },
+        { name: 'Rest Days', value: '2 days', isPositive: true },
       ]
     }
   ];
