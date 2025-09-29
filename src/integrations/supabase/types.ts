@@ -14,16 +14,409 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      bet_tracking: {
+        Row: {
+          amount: number
+          bet_type: string
+          id: string
+          legs_hit: number | null
+          legs_total: number | null
+          odds: string | null
+          payout: number | null
+          placed_at: string
+          settled_at: string | null
+          sportsbook: string | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          bet_type: string
+          id?: string
+          legs_hit?: number | null
+          legs_total?: number | null
+          odds?: string | null
+          payout?: number | null
+          placed_at?: string
+          settled_at?: string | null
+          sportsbook?: string | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          bet_type?: string
+          id?: string
+          legs_hit?: number | null
+          legs_total?: number | null
+          odds?: string | null
+          payout?: number | null
+          placed_at?: string
+          settled_at?: string | null
+          sportsbook?: string | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      comments: {
+        Row: {
+          content: string
+          created_at: string
+          downvotes: number | null
+          id: string
+          post_id: string | null
+          prediction_id: string | null
+          prop_id: string | null
+          updated_at: string
+          upvotes: number | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          downvotes?: number | null
+          id?: string
+          post_id?: string | null
+          prediction_id?: string | null
+          prop_id?: string | null
+          updated_at?: string
+          upvotes?: number | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          downvotes?: number | null
+          id?: string
+          post_id?: string | null
+          prediction_id?: string | null
+          prop_id?: string | null
+          updated_at?: string
+          upvotes?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "social_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      friendships: {
+        Row: {
+          created_at: string
+          friend_id: string
+          id: string
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          friend_id: string
+          id?: string
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          friend_id?: string
+          id?: string
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          bankroll: number | null
+          bio: string | null
+          created_at: string
+          display_name: string | null
+          has_used_trial: boolean | null
+          id: string
+          is_muted: boolean | null
+          karma: number | null
+          push_notifications_enabled: boolean | null
+          roi_visible: boolean | null
+          subscription_end_date: string | null
+          subscription_start_date: string | null
+          subscription_tier: string | null
+          total_bets: number | null
+          total_predictions: number | null
+          trial_end_date: string | null
+          trial_start_date: string | null
+          updated_at: string
+          user_id: string
+          won_bets: number | null
+          won_predictions: number | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          bankroll?: number | null
+          bio?: string | null
+          created_at?: string
+          display_name?: string | null
+          has_used_trial?: boolean | null
+          id?: string
+          is_muted?: boolean | null
+          karma?: number | null
+          push_notifications_enabled?: boolean | null
+          roi_visible?: boolean | null
+          subscription_end_date?: string | null
+          subscription_start_date?: string | null
+          subscription_tier?: string | null
+          total_bets?: number | null
+          total_predictions?: number | null
+          trial_end_date?: string | null
+          trial_start_date?: string | null
+          updated_at?: string
+          user_id: string
+          won_bets?: number | null
+          won_predictions?: number | null
+        }
+        Update: {
+          avatar_url?: string | null
+          bankroll?: number | null
+          bio?: string | null
+          created_at?: string
+          display_name?: string | null
+          has_used_trial?: boolean | null
+          id?: string
+          is_muted?: boolean | null
+          karma?: number | null
+          push_notifications_enabled?: boolean | null
+          roi_visible?: boolean | null
+          subscription_end_date?: string | null
+          subscription_start_date?: string | null
+          subscription_tier?: string | null
+          total_bets?: number | null
+          total_predictions?: number | null
+          trial_end_date?: string | null
+          trial_start_date?: string | null
+          updated_at?: string
+          user_id?: string
+          won_bets?: number | null
+          won_predictions?: number | null
+        }
+        Relationships: []
+      }
+      promo_code_usage: {
+        Row: {
+          id: string
+          promo_code_id: string
+          used_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          promo_code_id: string
+          used_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          promo_code_id?: string
+          used_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_code_usage_promo_code_id_fkey"
+            columns: ["promo_code_id"]
+            isOneToOne: false
+            referencedRelation: "promo_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promo_codes: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          discount_type: string
+          discount_value: number | null
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          trial_days: number | null
+          usage_limit: number | null
+          used_count: number | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          discount_type: string
+          discount_value?: number | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          trial_days?: number | null
+          usage_limit?: number | null
+          used_count?: number | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          discount_type?: string
+          discount_value?: number | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          trial_days?: number | null
+          usage_limit?: number | null
+          used_count?: number | null
+        }
+        Relationships: []
+      }
+      social_posts: {
+        Row: {
+          content: string
+          created_at: string
+          downvotes: number | null
+          id: string
+          updated_at: string
+          upvotes: number | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          downvotes?: number | null
+          id?: string
+          updated_at?: string
+          upvotes?: number | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          downvotes?: number | null
+          id?: string
+          updated_at?: string
+          upvotes?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_predictions: {
+        Row: {
+          created_at: string
+          game_date: string
+          id: string
+          is_correct: boolean | null
+          prediction: string
+          prop_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          game_date: string
+          id?: string
+          is_correct?: boolean | null
+          prediction: string
+          prop_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          game_date?: string
+          id?: string
+          is_correct?: boolean | null
+          prediction?: string
+          prop_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      votes: {
+        Row: {
+          comment_id: string | null
+          created_at: string
+          id: string
+          post_id: string | null
+          user_id: string
+          vote_type: string
+        }
+        Insert: {
+          comment_id?: string | null
+          created_at?: string
+          id?: string
+          post_id?: string | null
+          user_id: string
+          vote_type: string
+        }
+        Update: {
+          comment_id?: string | null
+          created_at?: string
+          id?: string
+          post_id?: string | null
+          user_id?: string
+          vote_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "votes_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "votes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "social_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +543,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const
