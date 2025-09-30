@@ -1,56 +1,55 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
-import nbaLogo from '@/assets/logos/nba-logo.png';
-import nflLogo from '@/assets/logos/nfl-logo.png';
-import mlbLogo from '@/assets/logos/mlb-logo.png';
-import nhlLogo from '@/assets/logos/nhl-logo.png';
-import wnbaLogo from '@/assets/logos/wnba-logo.png';
-import ncaaLogo from '@/assets/logos/ncaa-logo.png';
+import { 
+  Circle, 
+  Hexagon, 
+  Square, 
+  Triangle,
+  Target,
+  Trophy
+} from 'lucide-react';
 
-const sportLogos = {
-  basketball: nbaLogo,
-  football: nflLogo,
-  hockey: nhlLogo,
-  baseball: mlbLogo,
-  nba: nbaLogo,
-  nfl: nflLogo,
-  nhl: nhlLogo,
-  mlb: mlbLogo,
-  wnba: wnbaLogo,
-  'college-basketball': ncaaLogo,
-  'college-football': ncaaLogo,
+const sportIcons = {
+  basketball: Circle,
+  football: Hexagon,
+  hockey: Square,
+  baseball: Circle,
+  nba: Circle,
+  nfl: Hexagon,
+  nhl: Square,
+  mlb: Circle,
+  wnba: Circle,
+  'college-basketball': Circle,
+  'college-football': Hexagon,
 } as const;
 
 interface SportIconProps {
-  sport: keyof typeof sportLogos;
+  sport: keyof typeof sportIcons;
   className?: string;
   size?: 'sm' | 'md' | 'lg';
 }
 
 const sizeClasses = {
-  sm: 'w-6 h-6',
-  md: 'w-8 h-8',
-  lg: 'w-12 h-12',
+  sm: 'w-4 h-4',
+  md: 'w-6 h-6',
+  lg: 'w-8 h-8',
 };
 
 export const SportIcon = ({ sport, className, size = 'md' }: SportIconProps) => {
-  const logoSrc = sportLogos[sport] || nbaLogo;
+  const IconComponent = sportIcons[sport] || Target;
   
   return (
     <div className={cn(
-      'flex items-center justify-center rounded-md bg-transparent transition-all duration-300 hover:scale-110',
+      'flex items-center justify-center rounded-lg bg-muted/20 border border-border/30 transition-all duration-200 hover:bg-muted/30 hover:scale-105',
       sizeClasses[size],
       className
     )}>
-      <img 
-        src={logoSrc} 
-        alt={`${sport} logo`}
-        className="w-full h-full object-contain opacity-90 hover:opacity-100 transition-all duration-300"
-        style={{ 
-          filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.15))',
-          imageRendering: 'crisp-edges'
-        }}
-      />
+      <IconComponent className={cn(
+        'text-foreground/80',
+        size === 'sm' && 'w-3 h-3',
+        size === 'md' && 'w-4 h-4', 
+        size === 'lg' && 'w-5 h-5'
+      )} />
     </div>
   );
 };
