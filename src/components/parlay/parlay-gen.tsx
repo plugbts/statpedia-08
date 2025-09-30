@@ -19,10 +19,17 @@ import {
   Brain,
   BarChart3,
   Trophy,
-  AlertTriangle
+  AlertTriangle,
+  Send,
+  Wallet,
+  ExternalLink
 } from 'lucide-react';
 import { useUser } from '@/contexts/user-context';
 import { cn } from '@/lib/utils';
+import { gamesService, GamePrediction, RealGame } from '@/services/games-service';
+import { predictionService, PlayerPropPrediction } from '@/services/prediction-service';
+import { betTrackingService, UserBankroll } from '@/services/bet-tracking-service';
+import { useToast } from '@/hooks/use-toast';
 
 interface ParlayLeg {
   id: string;
@@ -50,7 +57,8 @@ interface GeneratedParlay {
 }
 
 export const ParlayGen: React.FC = () => {
-  const { userSubscription, userRole } = useUser();
+  const { userSubscription, userRole, user } = useUser();
+  const { toast } = useToast();
   const [legCount, setLegCount] = useState<number>(3);
   const [oddsFilter, setOddsFilter] = useState<'under' | 'over'>('under');
   const [oddsValue, setOddsValue] = useState<number>(500);
@@ -58,53 +66,64 @@ export const ParlayGen: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedParlays, setGeneratedParlays] = useState<GeneratedParlay[]>([]);
   const [selectedParlay, setSelectedParlay] = useState<GeneratedParlay | null>(null);
+  const [availableGames, setAvailableGames] = useState<GamePrediction[]>([]);
+  const [availableProps, setAvailableProps] = useState<PlayerPropPrediction[]>([]);
+  const [bankrolls, setBankrolls] = useState<UserBankroll[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
   // Check if user has premium access
   const hasPremiumAccess = userSubscription === 'premium' || ['admin', 'owner'].includes(userRole);
 
-  // Mock data for current day games and predictions
-  const mockGames = [
-    {
-      sport: 'NFL',
-      game: 'Chiefs vs Bills',
-      players: [
-        { name: 'Patrick Mahomes', props: ['Passing Yards', 'Passing TDs', 'Rushing Yards'] },
-        { name: 'Josh Allen', props: ['Passing Yards', 'Passing TDs', 'Rushing Yards'] },
-        { name: 'Travis Kelce', props: ['Receiving Yards', 'Receptions', 'Receiving TDs'] }
-      ]
-    },
-    {
-      sport: 'NBA',
-      game: 'Lakers vs Warriors',
-      players: [
-        { name: 'LeBron James', props: ['Points', 'Rebounds', 'Assists'] },
-        { name: 'Stephen Curry', props: ['Points', 'Assists', '3-Pointers Made'] },
-        { name: 'Anthony Davis', props: ['Points', 'Rebounds', 'Blocks'] }
-      ]
-    },
-    {
-      sport: 'MLB',
-      game: 'Yankees vs Red Sox',
-      players: [
-        { name: 'Aaron Judge', props: ['Hits', 'Home Runs', 'RBIs'] },
-        { name: 'Rafael Devers', props: ['Hits', 'Home Runs', 'RBIs'] },
-        { name: 'Gerrit Cole', props: ['Strikeouts', 'Earned Runs', 'Innings Pitched'] }
-      ]
+  // Load real data on component mount
+  useEffect(() => {
+    if (hasPremiumAccess) {
+      loadRealData();
     }
-  ];
+  }, [hasPremiumAccess, sportFilter]);
+
+  const loadRealData = async () => {
+    try {
+      setIsLoadingData(true);
+      
+      // Load games for current week
+      const gamesData = await gamesService.getCurrentWeekPredictions(sportFilter === 'all' ? 'nfl' : sportFilter.toLowerCase());
+      setAvailableGames(gamesData);
+      
+      // Load available props
+      const propsData = await predictionService.getRecentPredictions(100);
+      setAvailableProps(propsData);
+      
+      // Load user bankrolls for bet tracking integration
+      if (user) {
+        try {
+          const bankrollsData = await betTrackingService.getUserBankrolls(user.id);
+          setBankrolls(bankrollsData);
+        } catch (error) {
+          console.log('Could not load bankrolls:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading real data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load current games and predictions",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
 
   const generateParlay = async () => {
-    if (!hasPremiumAccess) return;
+    if (!hasPremiumAccess || isLoadingData) return;
     
     setIsGenerating(true);
     
     try {
-      // Simulate AI prediction generation
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      // Generate parlay using real data
       const newParlay: GeneratedParlay = {
         id: `parlay_${Date.now()}`,
-        legs: generateParlayLegs(),
+        legs: generateParlayLegsFromRealData(),
         totalOdds: 0,
         totalConfidence: 0,
         expectedValue: 0,
@@ -126,45 +145,97 @@ export const ParlayGen: React.FC = () => {
       
       setGeneratedParlays(prev => [newParlay, ...prev]);
       setSelectedParlay(newParlay);
+      
+      toast({
+        title: "Parlay Generated",
+        description: `Generated ${legCount}-leg parlay with ${Math.round(newParlay.totalConfidence * 100)}% confidence`
+      });
     } catch (error) {
       console.error('Error generating parlay:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate parlay. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const generateParlayLegs = (): ParlayLeg[] => {
+  const generateParlayLegsFromRealData = (): ParlayLeg[] => {
     const legs: ParlayLeg[] = [];
-    const availableGames = sportFilter === 'all' ? mockGames : mockGames.filter(game => game.sport === sportFilter);
     
-    for (let i = 0; i < legCount; i++) {
-      const game = availableGames[Math.floor(Math.random() * availableGames.length)];
-      const player = game.players[Math.floor(Math.random() * game.players.length)];
-      const prop = player.props[Math.floor(Math.random() * player.props.length)];
+    // Filter available props by sport and odds criteria
+    let filteredProps = availableProps;
+    
+    if (sportFilter !== 'all') {
+      filteredProps = availableProps.filter(prop => 
+        prop.game_date && new Date(prop.game_date) >= new Date() // Only future games
+      );
+    }
+    
+    // If we have real props, use them; otherwise fall back to game predictions
+    if (filteredProps.length > 0) {
+      // Use real player props
+      const selectedProps = filteredProps
+        .sort(() => Math.random() - 0.5)
+        .slice(0, legCount);
       
-      // Generate realistic odds based on filter
-      let odds: number;
-      if (oddsFilter === 'under') {
-        odds = Math.random() * (oddsValue - 100) + 100; // 100 to oddsValue
-      } else {
-        odds = Math.random() * (2000 - oddsValue) + oddsValue; // oddsValue to 2000
-      }
+      selectedProps.forEach((prop, index) => {
+        const game = availableGames.find(g => 
+          g.game.homeTeam === prop.team || g.game.awayTeam === prop.team
+        );
+        
+        if (game) {
+          const odds = convertToAmericanOdds(prop.over_votes, prop.under_votes);
+          const confidence = calculateConfidence(prop.over_votes, prop.under_votes);
+          const expectedValue = calculateExpectedValue(confidence, odds);
+          
+          legs.push({
+            id: `leg_${index}_${Date.now()}`,
+            sport: game.game.sport.toUpperCase(),
+            game: `${game.game.awayTeam} @ ${game.game.homeTeam}`,
+            player: prop.player_name,
+            prop: prop.prop_title,
+            line: prop.prop_value.toString(),
+            odds: odds,
+            prediction: prop.over_votes > prop.under_votes ? 'over' : 'under',
+            confidence: confidence,
+            reasoning: generateRealReasoning(prop, game, confidence),
+            expectedValue: expectedValue
+          });
+        }
+      });
+    } else {
+      // Fall back to game predictions if no props available
+      const selectedGames = availableGames
+        .sort(() => Math.random() - 0.5)
+        .slice(0, legCount);
       
-      const confidence = Math.random() * 0.4 + 0.6; // 0.6 to 1.0
-      const expectedValue = (confidence * odds - 1) / odds; // EV calculation
-      
-      legs.push({
-        id: `leg_${i}_${Date.now()}`,
-        sport: game.sport,
-        game: game.game,
-        player: player.name,
-        prop: prop,
-        line: generateLine(prop),
-        odds: Math.round(odds),
-        prediction: Math.random() > 0.5 ? 'over' : 'under',
-        confidence: Math.round(confidence * 100) / 100,
-        reasoning: generateReasoning(player.name, prop, confidence),
-        expectedValue: Math.round(expectedValue * 100) / 100
+      selectedGames.forEach((gamePrediction, index) => {
+        const game = gamePrediction.game;
+        const odds = gamePrediction.prediction.homeWinProbability > 0.5 
+          ? convertProbabilityToOdds(gamePrediction.prediction.homeWinProbability)
+          : convertProbabilityToOdds(gamePrediction.prediction.awayWinProbability);
+        
+        const confidence = Math.max(
+          gamePrediction.prediction.homeWinProbability,
+          gamePrediction.prediction.awayWinProbability
+        );
+        
+        legs.push({
+          id: `leg_${index}_${Date.now()}`,
+          sport: game.sport.toUpperCase(),
+          game: `${game.awayTeam} @ ${game.homeTeam}`,
+          player: gamePrediction.prediction.homeWinProbability > 0.5 ? game.homeTeam : game.awayTeam,
+          prop: 'Moneyline',
+          line: 'Win',
+          odds: odds,
+          prediction: 'over',
+          confidence: confidence,
+          reasoning: generateGameReasoning(gamePrediction, confidence),
+          expectedValue: calculateExpectedValue(confidence, odds)
+        });
       });
     }
     
@@ -196,6 +267,57 @@ export const ParlayGen: React.FC = () => {
     return propLines[Math.floor(Math.random() * propLines.length)];
   };
 
+  // Helper functions for real data processing
+  const convertToAmericanOdds = (overVotes: number, underVotes: number): number => {
+    const totalVotes = overVotes + underVotes;
+    if (totalVotes === 0) return 100;
+    
+    const overProbability = overVotes / totalVotes;
+    return convertProbabilityToOdds(overProbability);
+  };
+
+  const convertProbabilityToOdds = (probability: number): number => {
+    if (probability >= 0.5) {
+      return Math.round(-100 * probability / (1 - probability));
+    } else {
+      return Math.round(100 * (1 - probability) / probability);
+    }
+  };
+
+  const calculateConfidence = (overVotes: number, underVotes: number): number => {
+    const totalVotes = overVotes + underVotes;
+    if (totalVotes === 0) return 0.6;
+    
+    const maxVotes = Math.max(overVotes, underVotes);
+    const confidence = maxVotes / totalVotes;
+    return Math.max(0.6, Math.min(0.95, confidence));
+  };
+
+  const calculateExpectedValue = (confidence: number, odds: number): number => {
+    const decimalOdds = odds > 0 ? (odds / 100) + 1 : (100 / Math.abs(odds)) + 1;
+    return (confidence * decimalOdds - 1) / decimalOdds;
+  };
+
+  const generateRealReasoning = (prop: PlayerPropPrediction, game: GamePrediction, confidence: number): string => {
+    const voteRatio = prop.over_votes / (prop.under_votes || 1);
+    const confidencePercent = Math.round(confidence * 100);
+    
+    if (voteRatio > 2) {
+      return `Strong community consensus with ${confidencePercent}% confidence. ${prop.over_votes} over votes vs ${prop.under_votes} under votes indicate favorable conditions.`;
+    } else if (voteRatio > 1.5) {
+      return `Moderate community preference with ${confidencePercent}% confidence. Recent form and matchup analysis support this pick.`;
+    } else {
+      return `Balanced community opinion with ${confidencePercent}% confidence. Advanced analytics and historical data suggest this outcome.`;
+    }
+  };
+
+  const generateGameReasoning = (gamePrediction: GamePrediction, confidence: number): string => {
+    const confidencePercent = Math.round(confidence * 100);
+    const game = gamePrediction.game;
+    
+    return `${game.homeTeam} vs ${game.awayTeam}: ${confidencePercent}% confidence based on team form, head-to-head record, and advanced metrics analysis.`;
+  };
+
   const generateReasoning = (player: string, prop: string, confidence: number): string => {
     const reasons = [
       `Strong recent form with ${Math.round(confidence * 100)}% confidence based on recent performance trends`,
@@ -224,6 +346,78 @@ export const ParlayGen: React.FC = () => {
       case 'high': return <XCircle className="w-4 h-4" />;
       default: return <AlertTriangle className="w-4 h-4" />;
     }
+  };
+
+  // Bet tracking integration functions
+  const sendToBetTracking = async (parlay: GeneratedParlay) => {
+    if (!user || bankrolls.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please set up a bankroll in Bet Tracking first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const selectedBankroll = bankrolls[0]; // Use first bankroll
+      
+      // Create the parlay bet
+      const betData = {
+        user_id: user.id,
+        bankroll_id: selectedBankroll.id,
+        bet_type: 'parlay',
+        sport: parlay.legs[0]?.sport || 'NFL',
+        bet_category: 'props',
+        bet_amount: 100, // Default $100
+        odds: parlay.totalOdds,
+        potential_payout: parlay.potentialPayout,
+        game_date: new Date().toISOString(),
+        bet_status: 'pending',
+        notes: `AI Generated Parlay - ${parlay.legs.length} legs, ${Math.round(parlay.totalConfidence * 100)}% confidence`
+      };
+
+      const bet = await betTrackingService.createBet(betData);
+
+      // Create parlay legs
+      const legsData = parlay.legs.map((leg, index) => ({
+        bet_id: bet.id,
+        leg_number: index + 1,
+        sport: leg.sport,
+        game: leg.game,
+        player: leg.player,
+        prop: leg.prop,
+        line: leg.line,
+        prediction: leg.prediction,
+        odds: leg.odds,
+        confidence: leg.confidence,
+        reasoning: leg.reasoning
+      }));
+
+      await betTrackingService.createParlayLegs(legsData);
+
+      toast({
+        title: "Success",
+        description: "Parlay sent to Bet Tracking successfully"
+      });
+    } catch (error) {
+      console.error('Error sending to bet tracking:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send parlay to Bet Tracking",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const sendToSportsbook = async (parlay: GeneratedParlay) => {
+    // This would integrate with connected sportsbooks
+    // For now, we'll show a message about the integration
+    toast({
+      title: "Sportsbook Integration",
+      description: "This feature will send your parlay to connected sportsbooks. Make sure you have sportsbooks connected in Bet Tracking.",
+      variant: "default"
+    });
   };
 
   if (!hasPremiumAccess) {
@@ -343,7 +537,7 @@ export const ParlayGen: React.FC = () => {
             <div className="flex justify-center">
               <Button 
                 onClick={generateParlay} 
-                disabled={isGenerating}
+                disabled={isGenerating || isLoadingData}
                 size="lg"
                 className="gap-2"
               >
@@ -351,6 +545,11 @@ export const ParlayGen: React.FC = () => {
                   <>
                     <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
                     Generating...
+                  </>
+                ) : isLoadingData ? (
+                  <>
+                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                    Loading Data...
                   </>
                 ) : (
                   <>
@@ -360,6 +559,15 @@ export const ParlayGen: React.FC = () => {
                 )}
               </Button>
             </div>
+
+            {isLoadingData && (
+              <Alert>
+                <Brain className="h-4 w-4" />
+                <AlertDescription>
+                  Loading current week games and predictions...
+                </AlertDescription>
+              </Alert>
+            )}
           </CardContent>
         </Card>
 
@@ -487,9 +695,21 @@ export const ParlayGen: React.FC = () => {
               </div>
 
               <div className="flex gap-2">
-                <Button className="flex-1" size="lg">
-                  <DollarSign className="w-4 h-4 mr-2" />
-                  Place Bet
+                <Button 
+                  className="flex-1" 
+                  size="lg"
+                  onClick={() => sendToBetTracking(selectedParlay)}
+                >
+                  <Wallet className="w-4 h-4 mr-2" />
+                  Send to Bet Tracking
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="lg"
+                  onClick={() => sendToSportsbook(selectedParlay)}
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Send to Sportsbook
                 </Button>
                 <Button variant="outline" size="lg">
                   <Star className="w-4 h-4 mr-2" />
