@@ -300,7 +300,7 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
                         <p className="text-sm font-medium truncate">{getUserDisplayName()}</p>
                         <VerifiedCheckmark role={userRole} size="sm" />
                       </div>
-                      <p className="text-xs text-muted-foreground truncate">{userIdentity?.email || getUserUsername()}</p>
+                      <p className="text-xs text-muted-foreground truncate">@{getUserUsername()}</p>
                     </div>
                     {userRole !== 'user' && (
                       <Badge 

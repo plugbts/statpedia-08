@@ -62,7 +62,8 @@ export const SocialTab: React.FC<SocialTabProps> = ({ onReturnToDashboard }) => 
     getUserDisplayName, 
     getUserUsername, 
     getUserInitials,
-    updateUserIdentity 
+    updateUserIdentity,
+    refreshUserIdentity 
   } = useUser();
   
   const [activeTab, setActiveTab] = useState('feed');
@@ -227,6 +228,9 @@ export const SocialTab: React.FC<SocialTabProps> = ({ onReturnToDashboard }) => 
       const profile = await socialService.createOrUpdateUserProfile(user.id, username, user.email);
       setUserProfile(profile);
       setShowUsernamePrompt(false);
+      
+      // Refresh user identity in context to update username across the app
+      await refreshUserIdentity();
       
       // Reload all data now that profile is set up
       await loadInitialData();

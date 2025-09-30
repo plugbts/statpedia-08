@@ -353,8 +353,18 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         setUserSubscription(identity.subscription_tier || 'free');
         setUserRole(identity.role || 'user');
       }
+      
+      logSecurityEvent('USER_IDENTITY_REFRESHED', {
+        userId: user.id,
+        hasUsername: !!identity?.username,
+        username: identity?.username || 'none'
+      });
     } catch (error) {
       console.error('Error refreshing user identity:', error);
+      logSecurityEvent('USER_IDENTITY_REFRESH_ERROR', {
+        userId: user.id,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   };
 
