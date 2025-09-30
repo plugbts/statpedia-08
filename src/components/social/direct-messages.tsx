@@ -12,7 +12,7 @@ import {
   Send, 
   Search, 
   MoreVertical,
-  Block,
+  Shield,
   UserPlus,
   Check,
   X,
@@ -397,7 +397,7 @@ export const DirectMessages: React.FC<DirectMessagesProps> = ({ userId }) => {
                   onClick={() => handleBlockUser(selectedConversation.otherParticipant.id)}
                   className="text-destructive hover:text-destructive"
                 >
-                  <Block className="w-4 h-4" />
+                  <Shield className="w-4 h-4" />
                 </Button>
               </div>
             </CardHeader>
