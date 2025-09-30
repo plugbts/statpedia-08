@@ -105,6 +105,23 @@ export function UserManagement() {
 
   useEffect(() => {
     loadUsers();
+    
+    // Set up periodic refresh every 30 seconds to keep usernames in sync
+    const refreshInterval = setInterval(() => {
+      loadUsers();
+    }, 30000);
+    
+    // Listen for user context refresh events
+    const handleUserContextRefresh = () => {
+      loadUsers();
+    };
+    
+    window.addEventListener('userContextRefresh', handleUserContextRefresh);
+    
+    return () => {
+      clearInterval(refreshInterval);
+      window.removeEventListener('userContextRefresh', handleUserContextRefresh);
+    };
   }, []);
 
   useEffect(() => {
@@ -441,18 +458,59 @@ export function UserManagement() {
 
   const syncUsernameWithSocial = async (userId: string, newUsername: string) => {
     try {
-      // Update username in user_profiles table
-      const { error: userProfileError } = await supabase
+      // First, check if user profile exists
+      const { data: existingProfile } = await supabase
         .from('user_profiles')
-        .update({ username: newUsername })
-        .eq('user_id', userId);
+        .select('*')
+        .eq('user_id', userId)
+        .single();
 
-      if (userProfileError) throw userProfileError;
+      if (existingProfile) {
+        // Update existing profile
+        const { error: userProfileError } = await supabase
+          .from('user_profiles')
+          .update({ 
+            username: newUsername,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', userId);
+
+        if (userProfileError) throw userProfileError;
+      } else {
+        // Create new profile with username
+        const user = users.find(u => u.id === userId);
+        if (!user) throw new Error('User not found');
+
+        const { error: createError } = await supabase
+          .from('user_profiles')
+          .insert({
+            user_id: userId,
+            username: newUsername,
+            display_name: user.display_name,
+            role: user.role,
+            karma: 0,
+            roi_percentage: 0,
+            total_posts: 0,
+            total_comments: 0,
+            is_muted: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+
+        if (createError) throw createError;
+      }
 
       // Update local state
       setUsers(prev => prev.map(user => 
         user.id === userId ? { ...user, username: newUsername } : user
       ));
+
+      // Refresh user context if this is the current user
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (currentUser && currentUser.id === userId) {
+        // Trigger user context refresh
+        window.dispatchEvent(new CustomEvent('userContextRefresh'));
+      }
 
       logSecurityEvent('USERNAME_SYNCED', {
         targetUserId: userId,
@@ -464,11 +522,99 @@ export function UserManagement() {
         title: "Success",
         description: "Username synced with social tab"
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to sync username:', error);
       toast({
         title: "Error",
-        description: "Failed to sync username with social tab",
+        description: `Failed to sync username: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const syncAllUsernames = async () => {
+    try {
+      let syncedCount = 0;
+      let errorCount = 0;
+
+      for (const user of users) {
+        try {
+          // Check if user has a profile in user_profiles
+          const { data: existingProfile } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('user_id', user.id)
+            .single();
+
+          if (!existingProfile) {
+            // Create profile for user
+            const { error: createError } = await supabase
+              .from('user_profiles')
+              .insert({
+                user_id: user.id,
+                username: user.username,
+                display_name: user.display_name,
+                role: user.role,
+                karma: 0,
+                roi_percentage: 0,
+                total_posts: 0,
+                total_comments: 0,
+                is_muted: false,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              });
+
+            if (!createError) {
+              syncedCount++;
+            } else {
+              errorCount++;
+            }
+          } else if (existingProfile.username !== user.username) {
+            // Update username if different
+            const { error: updateError } = await supabase
+              .from('user_profiles')
+              .update({ 
+                username: user.username,
+                updated_at: new Date().toISOString()
+              })
+              .eq('user_id', user.id);
+
+            if (!updateError) {
+              syncedCount++;
+            } else {
+              errorCount++;
+            }
+          } else {
+            syncedCount++;
+          }
+        } catch (userError) {
+          console.error(`Failed to sync user ${user.id}:`, userError);
+          errorCount++;
+        }
+      }
+
+      // Refresh user context
+      window.dispatchEvent(new CustomEvent('userContextRefresh'));
+
+      logSecurityEvent('ALL_USERNAMES_SYNCED', {
+        syncedCount,
+        errorCount,
+        totalUsers: users.length,
+        adminRole: userRole
+      });
+
+      toast({
+        title: "Sync Complete",
+        description: `Synced ${syncedCount} users. ${errorCount > 0 ? `${errorCount} errors occurred.` : 'All users synced successfully.'}`
+      });
+
+      // Reload users to get updated data
+      loadUsers();
+    } catch (error: any) {
+      console.error('Failed to sync all usernames:', error);
+      toast({
+        title: "Error",
+        description: `Failed to sync usernames: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive"
       });
     }
@@ -531,16 +677,20 @@ export function UserManagement() {
             Manage user accounts, roles, and permissions
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={loadUsers} variant="outline" size="sm">
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
-          </Button>
-          <Button variant="outline" size="sm">
-            <Download className="w-4 h-4 mr-2" />
-            Export
-          </Button>
-        </div>
+                <div className="flex gap-2">
+                  <Button onClick={loadUsers} variant="outline" size="sm">
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Refresh
+                  </Button>
+                  <Button onClick={syncAllUsernames} variant="outline" size="sm">
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Sync All Usernames
+                  </Button>
+                  <Button variant="outline" size="sm">
+                    <Download className="w-4 h-4 mr-2" />
+                    Export
+                  </Button>
+                </div>
       </div>
 
       {/* Stats Cards */}

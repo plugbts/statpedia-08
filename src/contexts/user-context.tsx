@@ -284,7 +284,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
     // Check for existing session with timeout
     const sessionPromise = supabase.auth.getSession();
-    const timeoutPromise = new Promise((resolve) => 
+    const timeoutPromise = new Promise((resolve) =>
       setTimeout(() => resolve({ data: { session: null } }), 5000)
     );
 
@@ -298,6 +298,21 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Listen for user context refresh events
+  useEffect(() => {
+    const handleUserContextRefresh = () => {
+      if (user) {
+        refreshUserIdentity();
+      }
+    };
+
+    window.addEventListener('userContextRefresh', handleUserContextRefresh);
+    
+    return () => {
+      window.removeEventListener('userContextRefresh', handleUserContextRefresh);
+    };
+  }, [user, refreshUserIdentity]);
 
   // User identification methods
   const getUserDisplayName = (): string => {

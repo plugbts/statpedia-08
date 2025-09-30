@@ -232,6 +232,9 @@ export const SocialTab: React.FC<SocialTabProps> = ({ onReturnToDashboard }) => 
       // Refresh user identity in context to update username across the app
       await refreshUserIdentity();
       
+      // Trigger user context refresh event for admin panel and other components
+      window.dispatchEvent(new CustomEvent('userContextRefresh'));
+      
       // Reload all data now that profile is set up
       await loadInitialData();
     } catch (error: any) {

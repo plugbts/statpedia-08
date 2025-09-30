@@ -40,6 +40,7 @@ import {
 import { socialService, type UserProfile, type Post, type Comment, type KarmaHistory } from '@/services/social-service';
 import { useToast } from '@/hooks/use-toast';
 import { useUser } from '@/contexts/user-context';
+import { supabase } from '@/integrations/supabase/client';
 
 export const SocialAdmin: React.FC = () => {
   const { userRole, validateUserAccess, getMaskedEmail, logSecurityEvent } = useUser();
@@ -74,28 +75,55 @@ export const SocialAdmin: React.FC = () => {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [usersData, postsData, commentsData] = await Promise.all([
-        socialService.getAllUsers(),
-        socialService.getPosts(100),
-        socialService.getComments('post', '', 100)
-      ]);
-
-      setUsers(usersData);
-      setPosts(postsData);
+      
+      // Load users
+      const usersData = await socialService.getAllUsers(100);
+      setUsers(usersData || []);
+      
+      // Load posts
+      const postsData = await socialService.getPosts(100);
+      setPosts(postsData || []);
+      
+      // Load comments - we need to get all comments, so we'll use a different approach
+      let commentsData: Comment[] = [];
+      try {
+        // Try to get comments from all posts
+        const { data: comments, error: commentsError } = await supabase
+          .from('comments')
+          .select(`
+            *,
+            user_profile:user_profiles(*)
+          `)
+          .order('created_at', { ascending: false })
+          .limit(100);
+        
+        if (!commentsError && comments) {
+          commentsData = comments;
+        }
+      } catch (commentError) {
+        console.warn('Could not load comments:', commentError);
+      }
+      
       setComments(commentsData);
       
       logSecurityEvent('SOCIAL_ADMIN_DATA_LOADED', { 
-        userCount: usersData.length,
-        postCount: postsData.length,
+        userCount: usersData?.length || 0,
+        postCount: postsData?.length || 0,
         commentCount: commentsData.length,
         adminRole: userRole 
       });
     } catch (error: any) {
       console.error('Failed to load admin data:', error);
-      if (error?.code !== 'PGRST116' && !error?.message?.includes('relation')) {
+      
+      // Set empty arrays on error to prevent UI crashes
+      setUsers([]);
+      setPosts([]);
+      setComments([]);
+      
+      if (error?.code !== 'PGRST116' && !error?.message?.includes('relation') && !error?.message?.includes('schema cache')) {
         toast({
           title: "Error",
-          description: "Failed to load admin data",
+          description: "Failed to load admin data. Some features may not be available.",
           variant: "destructive"
         });
       }
@@ -112,14 +140,18 @@ export const SocialAdmin: React.FC = () => {
 
     try {
       const results = await socialService.searchUsers(searchQuery);
-      setUsers(results);
+      setUsers(results || []);
     } catch (error: any) {
       console.error('Failed to search users:', error);
-      toast({
-        title: "Error",
-        description: "Failed to search users",
-        variant: "destructive"
-      });
+      setUsers([]);
+      
+      if (error?.code !== 'PGRST116' && !error?.message?.includes('relation') && !error?.message?.includes('schema cache')) {
+        toast({
+          title: "Error",
+          description: "Failed to search users",
+          variant: "destructive"
+        });
+      }
     }
   };
 
@@ -159,11 +191,20 @@ export const SocialAdmin: React.FC = () => {
       loadData();
     } catch (error: any) {
       console.error('Failed to adjust karma:', error);
-      toast({
-        title: "Error",
-        description: "Failed to adjust karma",
-        variant: "destructive"
-      });
+      
+      if (error?.code !== 'PGRST116' && !error?.message?.includes('relation') && !error?.message?.includes('schema cache')) {
+        toast({
+          title: "Error",
+          description: "Failed to adjust karma. Please try again.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Warning",
+          description: "Karma adjustment may not be available. Database tables may not be set up.",
+          variant: "destructive"
+        });
+      }
     }
   };
 
@@ -184,11 +225,20 @@ export const SocialAdmin: React.FC = () => {
       loadData();
     } catch (error: any) {
       console.error('Failed to mute user:', error);
-      toast({
-        title: "Error",
-        description: "Failed to mute user",
-        variant: "destructive"
-      });
+      
+      if (error?.code !== 'PGRST116' && !error?.message?.includes('relation') && !error?.message?.includes('schema cache')) {
+        toast({
+          title: "Error",
+          description: "Failed to mute user. Please try again.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Warning",
+          description: "User muting may not be available. Database tables may not be set up.",
+          variant: "destructive"
+        });
+      }
     }
   };
 
@@ -202,11 +252,20 @@ export const SocialAdmin: React.FC = () => {
       loadData();
     } catch (error: any) {
       console.error('Failed to unmute user:', error);
-      toast({
-        title: "Error",
-        description: "Failed to unmute user",
-        variant: "destructive"
-      });
+      
+      if (error?.code !== 'PGRST116' && !error?.message?.includes('relation') && !error?.message?.includes('schema cache')) {
+        toast({
+          title: "Error",
+          description: "Failed to unmute user. Please try again.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Warning",
+          description: "User unmuting may not be available. Database tables may not be set up.",
+          variant: "destructive"
+        });
+      }
     }
   };
 
@@ -220,11 +279,20 @@ export const SocialAdmin: React.FC = () => {
       loadData();
     } catch (error: any) {
       console.error('Failed to delete comment:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete comment",
-        variant: "destructive"
-      });
+      
+      if (error?.code !== 'PGRST116' && !error?.message?.includes('relation') && !error?.message?.includes('schema cache')) {
+        toast({
+          title: "Error",
+          description: "Failed to delete comment. Please try again.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Warning",
+          description: "Comment deletion may not be available. Database tables may not be set up.",
+          variant: "destructive"
+        });
+      }
     }
   };
 
