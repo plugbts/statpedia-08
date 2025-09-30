@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { youtubeAudioExtractor } from '@/services/youtube-audio-extractor';
+import { youtubeDirectPlayer } from '@/services/youtube-direct-player';
 
 interface BackgroundMusicOptions {
   enabled?: boolean;
@@ -12,29 +12,53 @@ export const useBackgroundMusic = (options: BackgroundMusicOptions = {}) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [needsUserInteraction, setNeedsUserInteraction] = useState(true);
-  const sourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const isInitialized = useRef(false);
 
-  // Start YouTube-inspired music
+  // YouTube video URL
+  const YOUTUBE_VIDEO_URL = 'https://www.youtube.com/watch?v=I3j8tOvjvlc';
+
+  // Initialize YouTube player
+  const initializePlayer = useCallback(async () => {
+    if (isInitialized.current) return;
+
+    try {
+      await youtubeDirectPlayer.initialize();
+      isInitialized.current = true;
+      console.log('YouTube player initialized');
+    } catch (error) {
+      console.error('Failed to initialize YouTube player:', error);
+    }
+  }, []);
+
+  // Start YouTube music
   const startYouTubeMusic = useCallback(async () => {
     try {
-      // Clean up existing audio
-      if (sourceRef.current) {
-        youtubeAudioExtractor.stopAudio(sourceRef.current);
-        sourceRef.current = null;
+      if (!isInitialized.current) {
+        await initializePlayer();
       }
 
-      // Play YouTube-inspired audio
-      const source = await youtubeAudioExtractor.playYouTubeAudio(120, isMuted ? 0 : volume, loop);
-      
-      if (source) {
-        sourceRef.current = source;
-        setIsPlaying(true);
-        console.log('YouTube-inspired background music started');
+      // Stop any existing audio
+      youtubeDirectPlayer.stopAudio();
+
+      // Play the actual YouTube video audio
+      const success = await youtubeDirectPlayer.playYouTubeAudio(
+        YOUTUBE_VIDEO_URL,
+        isMuted ? 0 : volume,
+        (playing) => {
+          console.log('YouTube player state changed:', playing ? 'PLAYING' : 'PAUSED');
+          setIsPlaying(playing);
+        }
+      );
+
+      if (success) {
+        console.log('YouTube video audio started:', YOUTUBE_VIDEO_URL);
+      } else {
+        console.error('Failed to start YouTube video audio');
       }
     } catch (error) {
-      console.error('Failed to start YouTube-inspired music:', error);
+      console.error('Failed to start YouTube music:', error);
     }
-  }, [volume, isMuted, loop]);
+  }, [volume, isMuted, initializePlayer]);
 
   // Start music
   const startMusic = useCallback(() => {
@@ -52,13 +76,9 @@ export const useBackgroundMusic = (options: BackgroundMusicOptions = {}) => {
 
   // Stop music
   const stopMusic = useCallback(() => {
-    if (sourceRef.current) {
-      youtubeAudioExtractor.stopAudio(sourceRef.current);
-      sourceRef.current = null;
-    }
-    
+    youtubeDirectPlayer.stopAudio();
     setIsPlaying(false);
-    console.log('YouTube-inspired background music stopped');
+    console.log('YouTube video audio stopped');
   }, []);
 
   // Toggle music
@@ -66,9 +86,7 @@ export const useBackgroundMusic = (options: BackgroundMusicOptions = {}) => {
     const newMutedState = !isMuted;
     setIsMuted(newMutedState);
     
-    if (sourceRef.current) {
-      youtubeAudioExtractor.setVolume(sourceRef.current, newMutedState ? 0 : volume);
-    }
+    youtubeDirectPlayer.setVolume(newMutedState ? 0 : volume);
   }, [isMuted, volume]);
 
   // Toggle play/pause
@@ -83,10 +101,10 @@ export const useBackgroundMusic = (options: BackgroundMusicOptions = {}) => {
         startMusic();
       }, 100);
     } else if (isPlaying) {
-      console.log('Stopping YouTube-inspired music');
+      console.log('Stopping YouTube video audio');
       stopMusic();
     } else {
-      console.log('Starting YouTube-inspired music');
+      console.log('Starting YouTube video audio');
       startMusic();
     }
   }, [needsUserInteraction, isPlaying, startMusic, stopMusic]);
@@ -113,9 +131,7 @@ export const useBackgroundMusic = (options: BackgroundMusicOptions = {}) => {
 
   // Handle mute state changes
   useEffect(() => {
-    if (sourceRef.current) {
-      youtubeAudioExtractor.setVolume(sourceRef.current, isMuted ? 0 : volume);
-    }
+    youtubeDirectPlayer.setVolume(isMuted ? 0 : volume);
   }, [isMuted, volume]);
 
   // Save mute preference to localStorage
@@ -157,10 +173,7 @@ export const useBackgroundMusic = (options: BackgroundMusicOptions = {}) => {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (sourceRef.current) {
-        youtubeAudioExtractor.stopAudio(sourceRef.current);
-      }
-      youtubeAudioExtractor.cleanup();
+      youtubeDirectPlayer.cleanup();
     };
   }, []);
 
