@@ -172,7 +172,9 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   // Load user identity when user changes
   useEffect(() => {
     const loadUserIdentity = async () => {
+      console.log('UserContext: Loading user identity, user:', user?.id);
       if (!user) {
+        console.log('UserContext: No user, setting defaults');
         setUserIdentity(null);
         setUserSubscription('free');
         setUserRole('user');
@@ -271,6 +273,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('UserContext: Auth state change:', event, 'User:', session?.user?.id);
         if (event === 'SIGNED_IN' && session?.user) {
           setUser(session.user);
         } else if (event === 'SIGNED_OUT') {
