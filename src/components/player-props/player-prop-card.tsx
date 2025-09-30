@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { SportIcon } from '@/components/ui/sport-icon';
+import { PlayerHeadshot } from '@/components/ui/player-headshot';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -148,11 +149,18 @@ export const PlayerPropCard: React.FC<PlayerPropCardProps> = ({
 
       <CardHeader className="space-y-4">
         <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <SportIcon sport={sport} className="h-8 w-8" />
-            <div>
-              <CardTitle className="text-lg">{playerName}</CardTitle>
-              <CardDescription>{team} vs {opponent}</CardDescription>
+          <div className="flex items-center gap-4">
+            <PlayerHeadshot 
+              playerName={playerName}
+              sport={sport}
+              playerId={id}
+            />
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <SportIcon sport={sport} className="h-6 w-6" />
+                <CardTitle className="text-lg">{playerName}</CardTitle>
+              </div>
+              <CardDescription className="mt-1">{team} vs {opponent}</CardDescription>
             </div>
           </div>
           
