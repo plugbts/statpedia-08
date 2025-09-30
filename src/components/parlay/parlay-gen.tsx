@@ -298,6 +298,30 @@ export const ParlayGen: React.FC = () => {
     return (confidence * decimalOdds - 1) / decimalOdds;
   };
 
+  // Format numbers to be concise
+  const formatNumber = (value: number, type: 'odds' | 'payout' | 'value' | 'percentage'): string => {
+    if (type === 'odds') {
+      if (value > 0) return `+${Math.round(value)}`;
+      return Math.round(value).toString();
+    }
+    
+    if (type === 'payout') {
+      if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+      if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
+      return Math.round(value).toString();
+    }
+    
+    if (type === 'value') {
+      return value.toFixed(2);
+    }
+    
+    if (type === 'percentage') {
+      return `${Math.round(value)}%`;
+    }
+    
+    return value.toString();
+  };
+
   const generateRealReasoning = (prop: PlayerPropPrediction, game: GamePrediction, confidence: number): string => {
     const voteRatio = prop.over_votes / (prop.under_votes || 1);
     const confidencePercent = Math.round(confidence * 100);
@@ -604,19 +628,19 @@ export const ParlayGen: React.FC = () => {
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div className="flex items-center gap-2">
                         <TrendingUp className="w-4 h-4 text-green-500" />
-                        <span>Total Odds: {parlay.totalOdds.toFixed(2)}x</span>
+                        <span>Total Odds: {formatNumber(parlay.totalOdds, 'odds')}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Target className="w-4 h-4 text-blue-500" />
-                        <span>Confidence: {Math.round(parlay.totalConfidence * 100)}%</span>
+                        <span>Confidence: {formatNumber(parlay.totalConfidence, 'percentage')}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <BarChart3 className="w-4 h-4 text-purple-500" />
-                        <span>EV: {parlay.expectedValue.toFixed(3)}</span>
+                        <span>EV: {formatNumber(parlay.expectedValue, 'value')}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <DollarSign className="w-4 h-4 text-yellow-500" />
-                        <span>Payout: ${parlay.potentialPayout.toFixed(0)}</span>
+                        <span>Payout: ${formatNumber(parlay.potentialPayout, 'payout')}</span>
                       </div>
                     </div>
                   </CardContent>
@@ -641,19 +665,19 @@ export const ParlayGen: React.FC = () => {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-primary">{selectedParlay.totalOdds.toFixed(2)}x</div>
+                  <div className="text-2xl font-bold text-primary">{formatNumber(selectedParlay.totalOdds, 'odds')}</div>
                   <div className="text-sm text-muted-foreground">Total Odds</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-green-500">{Math.round(selectedParlay.totalConfidence * 100)}%</div>
+                  <div className="text-2xl font-bold text-green-500">{formatNumber(selectedParlay.totalConfidence, 'percentage')}</div>
                   <div className="text-sm text-muted-foreground">Confidence</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-500">{selectedParlay.expectedValue.toFixed(3)}</div>
+                  <div className="text-2xl font-bold text-purple-500">{formatNumber(selectedParlay.expectedValue, 'value')}</div>
                   <div className="text-sm text-muted-foreground">Expected Value</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-yellow-500">${selectedParlay.potentialPayout.toFixed(0)}</div>
+                  <div className="text-2xl font-bold text-yellow-500">${formatNumber(selectedParlay.potentialPayout, 'payout')}</div>
                   <div className="text-sm text-muted-foreground">Potential Payout</div>
                 </div>
               </div>
@@ -681,12 +705,12 @@ export const ParlayGen: React.FC = () => {
                         </div>
                       </div>
                       <div className="text-right ml-4">
-                        <div className="text-lg font-bold">{leg.odds}x</div>
+                        <div className="text-lg font-bold">{formatNumber(leg.odds, 'odds')}</div>
                         <div className="text-sm text-muted-foreground">
-                          {Math.round(leg.confidence * 100)}% confidence
+                          {formatNumber(leg.confidence, 'percentage')} confidence
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          EV: {leg.expectedValue.toFixed(3)}
+                          EV: {formatNumber(leg.expectedValue, 'value')}
                         </div>
                       </div>
                     </div>

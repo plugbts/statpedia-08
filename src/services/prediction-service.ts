@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { espnAPIService, ESPNProp } from './espn-api-service';
 
 export interface PlayerPropPrediction {
   id: string;
@@ -67,6 +68,53 @@ export interface PredictionPollData {
 }
 
 class PredictionService {
+  private cache = new Map<string, { data: any; timestamp: number }>();
+  private cacheTimeout = 2 * 60 * 1000; // 2 minutes for more frequent updates
+
+  // Format numbers to be concise
+  private formatNumber(value: number, type: 'odds' | 'payout' | 'value' | 'percentage'): string {
+    if (type === 'odds') {
+      if (value > 0) return `+${Math.round(value)}`;
+      return Math.round(value).toString();
+    }
+    
+    if (type === 'payout') {
+      if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+      if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
+      return Math.round(value).toString();
+    }
+    
+    if (type === 'value') {
+      return value.toFixed(2);
+    }
+    
+    if (type === 'percentage') {
+      return `${Math.round(value)}%`;
+    }
+    
+    return value.toString();
+  }
+
+  // Format odds for display
+  formatOdds(odds: number): string {
+    return this.formatNumber(odds, 'odds');
+  }
+
+  // Format payout for display
+  formatPayout(payout: number): string {
+    return this.formatNumber(payout, 'payout');
+  }
+
+  // Format value for display
+  formatValue(value: number): string {
+    return this.formatNumber(value, 'value');
+  }
+
+  // Format percentage for display
+  formatPercentage(percentage: number): string {
+    return this.formatNumber(percentage * 100, 'percentage');
+  }
+
   // Create a new player prop prediction
   async createPrediction(predictionData: Omit<PlayerPropPrediction, 'id' | 'over_votes' | 'under_votes' | 'total_votes' | 'created_at' | 'updated_at'>): Promise<PlayerPropPrediction> {
     try {
