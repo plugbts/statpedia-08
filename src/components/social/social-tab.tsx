@@ -21,6 +21,7 @@ import {
   Settings,
   RefreshCw,
   Image,
+  ImageIcon,
   Palette,
   Shield,
   X
@@ -37,6 +38,8 @@ import { BetSlipCard } from './bet-slip-card';
 import { BetSlipNotifications } from './bet-slip-notifications';
 import { DirectMessages } from './direct-messages';
 import { BlockedUsers } from './blocked-users';
+import { FileAttachment } from './file-attachment';
+import { PostAttachments } from './post-attachments';
 import { betSlipSharingService, type SharedBetSlip } from '@/services/bet-slip-sharing';
 import { messagingService } from '@/services/messaging-service';
 import { useToast } from '@/hooks/use-toast';
@@ -71,6 +74,8 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
   const [karmaTutorialChecked, setKarmaTutorialChecked] = useState(false);
   const [sharedBetSlips, setSharedBetSlips] = useState<SharedBetSlip[]>([]);
   const [isLoadingBetSlips, setIsLoadingBetSlips] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [showFileAttachment, setShowFileAttachment] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -527,9 +532,23 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
 
     try {
       setIsSubmitting(true);
-      await socialService.createPost(userProfile.user_id, newPost.trim());
+      
+      // Create the post first
+      const post = await socialService.createPost(userProfile.user_id, newPost.trim());
+      
+      // Upload attachments if any
+      if (attachedFiles.length > 0) {
+        for (const file of attachedFiles) {
+          const attachmentType = file.type.startsWith('image/') ? 'image' : 
+                                file.type.startsWith('video/') ? 'video' : 'document';
+          await socialService.createPostAttachment(post.id, userProfile.user_id, file, attachmentType);
+        }
+      }
       
       setNewPost('');
+      setAttachedFiles([]);
+      setShowFileAttachment(false);
+      
       toast({
         title: "Success",
         description: "Post created successfully"
@@ -552,6 +571,35 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    if (!userProfile) return;
+    
+    try {
+      await socialService.deletePost(postId, userProfile.user_id);
+      
+      toast({
+        title: "Success",
+        description: "Post deleted successfully"
+      });
+      
+      // Reload posts
+      const postsData = await socialService.getPosts();
+      const personalizedPosts: PersonalizedPost[] = postsData.map(post => ({
+        ...post,
+        score: 0,
+        reason: 'recent'
+      }));
+      setPosts(personalizedPosts);
+    } catch (error: any) {
+      console.error('Failed to delete post:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete post",
+        variant: "destructive"
+      });
     }
   };
 
@@ -711,11 +759,37 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
                       maxLength={150}
                       className="min-h-[80px] resize-none"
                     />
+                    
+                    {/* File Attachments */}
+                    {showFileAttachment && (
+                      <FileAttachment
+                        onFilesSelected={(files) => setAttachedFiles(files)}
+                        maxFiles={4}
+                        maxFileSize={10}
+                      />
+                    )}
+                    
                     <div className="flex justify-between items-center">
-                      <span className="text-xs text-muted-foreground">
-                        {newPost.length}/150 characters
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {newPost.length}/150 characters
+                        </span>
+                        {attachedFiles.length > 0 && (
+                          <Badge variant="secondary" className="text-xs">
+                            {attachedFiles.length} file(s) attached
+                          </Badge>
+                        )}
+                      </div>
                       <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowFileAttachment(!showFileAttachment)}
+                          className="gap-2"
+                        >
+                          <ImageIcon className="w-4 h-4" />
+                          {showFileAttachment ? 'Hide Files' : 'Attach Files'}
+                        </Button>
                         <BetSlipSharer 
                           userId={userProfile?.user_id || ''} 
                           onBetSlipShared={(betSlip) => {
@@ -793,7 +867,13 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
                       
                       <p className="text-sm">{post.content}</p>
                       
-                      <div className="flex items-center gap-4">
+                      {/* Post Attachments */}
+                      {post.attachments && post.attachments.length > 0 && (
+                        <PostAttachments attachments={post.attachments} />
+                      )}
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
                         <div className="flex items-center gap-1">
                           <Button
                             variant="ghost"
@@ -821,6 +901,19 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
                             <Star className="w-3 h-3" />
                             <span>Score: {post.score.toFixed(2)}</span>
                           </div>
+                        )}
+                        </div>
+                        
+                        {/* Delete button for post owner */}
+                        {userProfile && post.user_id === userProfile.user_id && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeletePost(post.id)}
+                            className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
                         )}
                       </div>
                     </div>

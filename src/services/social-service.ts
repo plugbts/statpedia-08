@@ -23,6 +23,19 @@ export interface UserProfile {
   updated_at: string;
 }
 
+export interface PostAttachment {
+  id: string;
+  post_id: string;
+  user_id: string;
+  file_name: string;
+  file_type: string;
+  file_size: number;
+  file_url: string;
+  thumbnail_url?: string;
+  attachment_type: 'image' | 'video' | 'document';
+  created_at: string;
+}
+
 export interface Post {
   id: string;
   user_id: string;
@@ -36,6 +49,7 @@ export interface Post {
   updated_at: string;
   user_profile?: UserProfile;
   user_vote?: 'upvote' | 'downvote';
+  attachments?: PostAttachment[];
 }
 
 export interface Comment {
@@ -232,7 +246,7 @@ class SocialService {
   }
 
   // Posts Management
-  async createPost(userId: string, content: string): Promise<Post> {
+  async createPost(userId: string, content: string, attachments?: PostAttachment[]): Promise<Post> {
     if (content.length > 150) {
       throw new Error('Post content must be 150 characters or less');
     }
@@ -247,6 +261,64 @@ class SocialService {
         net_score: 0,
         is_deleted: false
       })
+      .select(`
+        *,
+        user_profile:user_profiles(*),
+        attachments:post_attachments(*)
+      `)
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  async deletePost(postId: string, userId: string): Promise<void> {
+    const { error } = await supabase
+      .from('posts')
+      .update({
+        is_deleted: true,
+        deleted_at: new Date().toISOString()
+      })
+      .eq('id', postId)
+      .eq('user_id', userId);
+
+    if (error) throw error;
+  }
+
+  async createPostAttachment(
+    postId: string, 
+    userId: string, 
+    file: File, 
+    attachmentType: 'image' | 'video' | 'document'
+  ): Promise<PostAttachment> {
+    // Upload file to Supabase Storage
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+    const filePath = `post-attachments/${userId}/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('post-attachments')
+      .upload(filePath, file);
+
+    if (uploadError) throw uploadError;
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('post-attachments')
+      .getPublicUrl(filePath);
+
+    // Create attachment record
+    const { data, error } = await supabase
+      .from('post_attachments')
+      .insert([{
+        post_id: postId,
+        user_id: userId,
+        file_name: file.name,
+        file_type: file.type,
+        file_size: file.size,
+        file_url: publicUrl,
+        attachment_type: attachmentType
+      }])
       .select()
       .single();
 
@@ -260,7 +332,8 @@ class SocialService {
         .from('posts')
         .select(`
           *,
-          user_profile:user_profiles(*)
+          user_profile:user_profiles(*),
+          attachments:post_attachments(*)
         `)
         .eq('is_deleted', false)
         .order('created_at', { ascending: false })
