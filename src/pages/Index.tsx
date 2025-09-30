@@ -472,7 +472,7 @@ const Index = () => {
       </div>
 
       {/* Previous Day Wins */}
-      <PreviousDayWins showAllTimeStats={true} />
+      <PreviousDayWins />
 
       {/* Feature Tooltip */}
       {showFeatureTooltip && (

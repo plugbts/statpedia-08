@@ -36,7 +36,6 @@ export const PreviousDayWins = ({
 }: PreviousDayWinsProps) => {
   const [previousDayWins, setPreviousDayWins] = useState<PredictionResult[]>([]);
   const [previousDayStats, setPreviousDayStats] = useState<WinStats | null>(null);
-  const [allTimeStats, setAllTimeStats] = useState<WinStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -49,11 +48,9 @@ export const PreviousDayWins = ({
       // Get real previous day wins
       const wins = predictionTracker.getPreviousDayWins();
       const stats = predictionTracker.getPreviousDayStats();
-      const allTime = predictionTracker.getAllTimeStats();
       
       setPreviousDayWins(wins);
       setPreviousDayStats(stats);
-      setAllTimeStats(allTime);
     } catch (error) {
       console.error('Error loading previous day data:', error);
     } finally {
@@ -89,31 +86,31 @@ export const PreviousDayWins = ({
               </h2>
               <p className="text-sm text-muted-foreground">
                 {loading ? 'Calculating statistics...' : 
-                  `${displayStats.wins} wins • ${displayStats.losses} losses • ${displayStats.pushes} pushes • ${displayStats.winRate.toFixed(1)}% win rate`
+                  `${displayStats?.wins || 0} wins • ${displayStats?.losses || 0} losses • ${displayStats?.pushes || 0} pushes • ${(displayStats?.winRate || 0).toFixed(1)}% win rate`
                 }
               </p>
             </div>
           </div>
           <div className="text-right">
             <p className="text-2xl font-bold text-success font-mono">
-              {loading ? '...' : `+$${displayStats.totalProfit.toFixed(2)}`}
+              {loading ? '...' : `+$${(displayStats?.totalProfit || 0).toFixed(2)}`}
             </p>
             <Badge variant="default" className="bg-gradient-success">
               <CheckCircle className="w-3 h-3 mr-1" />
-              {displayStats.wins} WINS
+              {displayStats?.wins || 0} WINS
             </Badge>
           </div>
         </div>
 
         {/* Detailed Stats */}
-        {!loading && displayStats.totalPredictions > 0 && (
+        {!loading && displayStats && displayStats.totalPredictions > 0 && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card className="p-4 bg-gradient-card border-border/50">
               <div className="flex items-center gap-2">
                 <Target className="w-4 h-4 text-success" />
                 <div>
                   <p className="text-xs text-muted-foreground">Total Picks</p>
-                  <p className="text-lg font-bold text-foreground">{displayStats.totalPredictions}</p>
+                  <p className="text-lg font-bold text-foreground">{displayStats?.totalPredictions || 0}</p>
                 </div>
               </div>
             </Card>
@@ -122,7 +119,7 @@ export const PreviousDayWins = ({
                 <CheckCircle className="w-4 h-4 text-success" />
                 <div>
                   <p className="text-xs text-muted-foreground">Win Rate</p>
-                  <p className="text-lg font-bold text-success">{displayStats.winRate.toFixed(1)}%</p>
+                  <p className="text-lg font-bold text-success">{(displayStats?.winRate || 0).toFixed(1)}%</p>
                 </div>
               </div>
             </Card>
@@ -131,7 +128,7 @@ export const PreviousDayWins = ({
                 <DollarSign className="w-4 h-4 text-success" />
                 <div>
                   <p className="text-xs text-muted-foreground">Profit</p>
-                  <p className="text-lg font-bold text-success">+${displayStats.totalProfit.toFixed(2)}</p>
+                  <p className="text-lg font-bold text-success">+${(displayStats?.totalProfit || 0).toFixed(2)}</p>
                 </div>
               </div>
             </Card>
@@ -141,7 +138,7 @@ export const PreviousDayWins = ({
                 <div>
                   <p className="text-xs text-muted-foreground">Avg Odds</p>
                   <p className="text-lg font-bold text-foreground">
-                    {displayStats.averageOdds > 0 ? '+' : ''}{displayStats.averageOdds.toFixed(0)}
+                    {(displayStats?.averageOdds || 0) > 0 ? '+' : ''}{(displayStats?.averageOdds || 0).toFixed(0)}
                   </p>
                 </div>
               </div>
@@ -212,13 +209,13 @@ export const PreviousDayWins = ({
           <div className="text-center py-8">
             <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <p className="text-muted-foreground">
-              {displayStats.totalPredictions === 0 
+              {(displayStats?.totalPredictions || 0) === 0 
                 ? 'No predictions tracked from yesterday' 
                 : 'No winning predictions from yesterday'
               }
             </p>
             <p className="text-sm text-muted-foreground mt-1">
-              {displayStats.totalPredictions === 0 
+              {(displayStats?.totalPredictions || 0) === 0 
                 ? 'Start making predictions to track your performance!' 
                 : 'Check back after today\'s games complete!'
               }
@@ -226,31 +223,31 @@ export const PreviousDayWins = ({
           </div>
         )}
 
-        {/* All Time Stats Toggle */}
-        {!loading && allTimeStats && allTimeStats.totalPredictions > 0 && (
+        {/* Previous Day Summary */}
+        {!loading && displayStats && displayStats.totalPredictions > 0 && (
           <div className="mt-6 p-4 bg-gradient-card border border-border/50 rounded-lg">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-foreground">All-Time Performance</h3>
+              <h3 className="text-lg font-semibold text-foreground">Yesterday's Summary</h3>
               <Badge variant="outline" className="text-xs">
-                {allTimeStats.totalPredictions} total picks
+                {displayStats.totalPredictions} picks made
               </Badge>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
                 <p className="text-muted-foreground">Win Rate</p>
-                <p className="text-lg font-bold text-success">{allTimeStats.winRate.toFixed(1)}%</p>
+                <p className="text-lg font-bold text-success">{(displayStats.winRate || 0).toFixed(1)}%</p>
               </div>
               <div>
                 <p className="text-muted-foreground">Total Profit</p>
-                <p className="text-lg font-bold text-success">+${allTimeStats.totalProfit.toFixed(2)}</p>
+                <p className="text-lg font-bold text-success">+${(displayStats.totalProfit || 0).toFixed(2)}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">Wins</p>
-                <p className="text-lg font-bold text-foreground">{allTimeStats.wins}</p>
+                <p className="text-lg font-bold text-foreground">{displayStats.wins || 0}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">Losses</p>
-                <p className="text-lg font-bold text-foreground">{allTimeStats.losses}</p>
+                <p className="text-lg font-bold text-foreground">{displayStats.losses || 0}</p>
               </div>
             </div>
           </div>
