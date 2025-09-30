@@ -260,23 +260,23 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl lg:text-6xl font-display font-bold text-foreground mb-4 animate-fade-in">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl lg:text-5xl font-display font-bold text-foreground mb-3 animate-fade-in">
             Choose Your Plan
           </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto animate-fade-in" style={{ animationDelay: '100ms' }}>
-            Unlock the full power of Statpedia with our premium plans. Get access to advanced predictions, detailed analysis, and exclusive features.
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto animate-fade-in" style={{ animationDelay: '100ms' }}>
+            Unlock the full power of Statpedia with our premium plans.
           </p>
         </div>
 
         {/* Billing Toggle */}
-        <div className="flex justify-center mb-8 animate-fade-in" style={{ animationDelay: '200ms' }}>
+        <div className="flex justify-center mb-6 animate-fade-in" style={{ animationDelay: '200ms' }}>
           <div className="bg-muted/50 rounded-lg p-1 flex">
             <Button
               variant={billingCycle === 'monthly' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setBillingCycle('monthly')}
-              className="px-6"
+              className="px-4 text-sm"
             >
               Monthly
             </Button>
@@ -284,21 +284,21 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
               variant={billingCycle === 'yearly' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setBillingCycle('yearly')}
-              className="px-6"
+              className="px-4 text-sm"
             >
               Yearly
-              <Badge variant="secondary" className="ml-2 text-xs">Save 20%</Badge>
+              <Badge variant="secondary" className="ml-1 text-xs">Save 20%</Badge>
             </Button>
           </div>
         </div>
 
         {/* Plans Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12 max-w-6xl mx-auto">
           {plans.map((plan, index) => (
             <Card
               key={plan.id}
               className={cn(
-                "relative transition-all duration-300 hover:shadow-2xl hover:-translate-y-2 cursor-pointer animate-fade-in",
+                "relative transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 cursor-pointer animate-fade-in h-full",
                 plan.popular && "ring-2 ring-primary shadow-glow",
                 currentSubscription === plan.id && "ring-2 ring-green-500 bg-green-500/5",
                 "bg-gradient-card border-border/50"
@@ -323,21 +323,21 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
                 </div>
               )}
 
-              <CardHeader className="text-center pb-4">
-                <div className={cn("w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4", plan.gradient)}>
-                  <plan.icon className="w-8 h-8 text-white" />
+              <CardHeader className="text-center pb-3">
+                <div className={cn("w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3", plan.gradient)}>
+                  <plan.icon className="w-6 h-6 text-white" />
                 </div>
-                <CardTitle className="text-2xl font-bold text-foreground">{plan.name}</CardTitle>
-                <CardDescription className="text-muted-foreground">{plan.description}</CardDescription>
+                <CardTitle className="text-xl font-bold text-foreground">{plan.name}</CardTitle>
+                <CardDescription className="text-sm text-muted-foreground">{plan.description}</CardDescription>
                 
-                <div className="mt-4">
+                <div className="mt-3">
                   <div className="flex items-baseline justify-center">
-                    <span className="text-4xl font-bold text-foreground">${getPlanPrice(plan)}</span>
-                    <span className="text-muted-foreground ml-1">{getBillingText(plan)}</span>
+                    <span className="text-3xl font-bold text-foreground">${getPlanPrice(plan)}</span>
+                    <span className="text-muted-foreground ml-1 text-sm">{getBillingText(plan)}</span>
                   </div>
                   {plan.originalPrice && billingCycle === 'monthly' && (
-                    <div className="flex items-center justify-center gap-2 mt-2">
-                      <span className="text-sm text-muted-foreground line-through">${plan.originalPrice}</span>
+                    <div className="flex items-center justify-center gap-2 mt-1">
+                      <span className="text-xs text-muted-foreground line-through">${plan.originalPrice}</span>
                       <Badge variant="secondary" className="text-xs">
                         {plan.discount}% OFF
                       </Badge>
@@ -346,23 +346,28 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
                 </div>
               </CardHeader>
 
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  {plan.features.map((feature, featureIndex) => (
-                    <div key={featureIndex} className="flex items-start gap-3">
-                      <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                      <span className="text-sm text-foreground">{feature}</span>
+              <CardContent className="space-y-3 flex-1 flex flex-col">
+                <div className="space-y-2 flex-1">
+                  {plan.features.slice(0, 6).map((feature, featureIndex) => (
+                    <div key={featureIndex} className="flex items-start gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                      <span className="text-xs text-foreground">{feature}</span>
                     </div>
                   ))}
+                  {plan.features.length > 6 && (
+                    <div className="text-xs text-muted-foreground text-center">
+                      +{plan.features.length - 6} more features
+                    </div>
+                  )}
                 </div>
 
                 {plan.limitations && (
-                  <div className="space-y-2 pt-4 border-t">
-                    <h4 className="text-sm font-medium text-muted-foreground">Limitations:</h4>
-                    {plan.limitations.map((limitation, index) => (
-                      <div key={index} className="flex items-start gap-3">
-                        <X className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
-                        <span className="text-sm text-muted-foreground">{limitation}</span>
+                  <div className="space-y-1 pt-2 border-t">
+                    <h4 className="text-xs font-medium text-muted-foreground">Limitations:</h4>
+                    {plan.limitations.slice(0, 2).map((limitation, index) => (
+                      <div key={index} className="flex items-start gap-2">
+                        <X className="w-3 h-3 text-red-500 mt-0.5 flex-shrink-0" />
+                        <span className="text-xs text-muted-foreground">{limitation}</span>
                       </div>
                     ))}
                   </div>
@@ -370,7 +375,7 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
 
                 <Button
                   className={cn(
-                    "w-full mt-6",
+                    "w-full mt-4",
                     plan.id === 'free' ? "bg-muted text-muted-foreground cursor-not-allowed" : plan.gradient,
                     currentSubscription === plan.id && "bg-green-500 hover:bg-green-600"
                   )}
@@ -403,7 +408,7 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
                 Complete Your Subscription
               </AlertDialogTitle>
               <AlertDialogDescription>
-                You're upgrading to the {selectedPlanData?.name} plan for ${getPlanPrice(selectedPlanData!)} {getBillingText(selectedPlanData!)}.
+                You're upgrading to the {selectedPlanData?.name} plan for ${getPlanPrice(selectedPlanData)} {getBillingText(selectedPlanData)}.
               </AlertDialogDescription>
             </AlertDialogHeader>
 
