@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
 import { SubscriptionOverlay } from '@/components/ui/subscription-overlay';
 import { PlayerAnalysisOverlay } from './player-analysis-overlay';
+import { PlayerPropCardAd } from '@/components/ads/ad-placements';
 import { useNavigate } from 'react-router-dom';
 import { 
   TrendingUp, 
@@ -942,8 +943,15 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
 
       {/* Props Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {(filteredProps || []).map((prop) => (
-          <div key={prop.id} className="relative">
+        {(filteredProps || []).map((prop, index) => (
+          <React.Fragment key={prop.id}>
+            {/* Player Prop Card Ad - Show after every 4 cards */}
+            {index > 0 && index % 4 === 0 && (
+              <div className="col-span-full">
+                <PlayerPropCardAd userSubscription={userSubscription} />
+              </div>
+            )}
+            <div className="relative">
             <Card className={cn(
               "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer",
               !isSubscribed && "blur-sm"
@@ -1048,6 +1056,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
             onUpgrade={handleUpgrade}
           />
           </div>
+          </React.Fragment>
         ))}
       </div>
 

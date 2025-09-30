@@ -29,14 +29,16 @@ import { bannerService, type BannerSettings } from '@/services/banner-service';
 import { BannerEditor } from '@/components/social/banner-editor';
 import { UserPredictionStats } from '@/components/predictions/user-prediction-stats';
 import { KarmaTutorialPopup } from '@/components/ui/karma-tutorial-popup';
+import { SocialFeedAd } from '@/components/ads/ad-placements';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
 interface SocialTabProps {
   userRole?: string;
+  userSubscription?: string;
 }
 
-export const SocialTab: React.FC<SocialTabProps> = ({ userRole }) => {
+export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription = 'free' }) => {
   const [activeTab, setActiveTab] = useState('feed');
   const [posts, setPosts] = useState<PersonalizedPost[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -707,6 +709,11 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole }) => {
                 </CardContent>
               </Card>
             ))
+            )}
+            
+            {/* Social Feed Ad - Show after every 3 posts */}
+            {posts.length > 0 && posts.length % 3 === 0 && (
+              <SocialFeedAd userSubscription={userSubscription} />
             )}
           </div>
         </TabsContent>
