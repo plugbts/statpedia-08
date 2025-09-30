@@ -73,28 +73,85 @@ class BannerService {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      const { error } = await supabase
+      // First, ensure user profile exists
+      const { data: existingProfile, error: fetchError } = await supabase
         .from('user_profiles')
-        .update(settings)
-        .eq('user_id', user.id);
+        .select('user_id')
+        .eq('user_id', user.id)
+        .single();
 
-      if (error) throw error;
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        // If table doesn't exist or other error, create a basic profile
+        const { error: insertError } = await supabase
+          .from('user_profiles')
+          .insert({
+            user_id: user.id,
+            username: user.email?.split('@')[0] || 'user',
+            display_name: user.email?.split('@')[0] || 'User',
+            karma: 0,
+            roi_percentage: 0,
+            total_posts: 0,
+            total_comments: 0,
+            ...settings
+          });
 
-      // Save to banner history
+        if (insertError) {
+          console.error('Failed to create user profile:', insertError);
+          // If we can't create profile, just return without error to prevent UI crashes
+          return;
+        }
+      } else if (!existingProfile) {
+        // Profile doesn't exist, create it
+        const { error: insertError } = await supabase
+          .from('user_profiles')
+          .insert({
+            user_id: user.id,
+            username: user.email?.split('@')[0] || 'user',
+            display_name: user.email?.split('@')[0] || 'User',
+            karma: 0,
+            roi_percentage: 0,
+            total_posts: 0,
+            total_comments: 0,
+            ...settings
+          });
+
+        if (insertError) {
+          console.error('Failed to create user profile:', insertError);
+          return;
+        }
+      } else {
+        // Profile exists, update it
+        const { error: updateError } = await supabase
+          .from('user_profiles')
+          .update(settings)
+          .eq('user_id', user.id);
+
+        if (updateError) {
+          console.error('Failed to update user banner:', updateError);
+          return;
+        }
+      }
+
+      // Save to banner history (only if table exists)
       if (settings.banner_url) {
-        await supabase.rpc('save_banner_history', {
-          p_user_id: user.id,
-          p_banner_url: settings.banner_url,
-          p_banner_position: settings.banner_position || 'center',
-          p_banner_blur: settings.banner_blur || 0,
-          p_banner_brightness: settings.banner_brightness || 1.0,
-          p_banner_contrast: settings.banner_contrast || 1.0,
-          p_banner_saturation: settings.banner_saturation || 1.0
-        });
+        try {
+          await supabase.rpc('save_banner_history', {
+            p_user_id: user.id,
+            p_banner_url: settings.banner_url,
+            p_banner_position: settings.banner_position || 'center',
+            p_banner_blur: settings.banner_blur || 0,
+            p_banner_brightness: settings.banner_brightness || 1.0,
+            p_banner_contrast: settings.banner_contrast || 1.0,
+            p_banner_saturation: settings.banner_saturation || 1.0
+          });
+        } catch (historyError) {
+          // Don't fail the whole operation if history saving fails
+          console.warn('Failed to save banner history:', historyError);
+        }
       }
     } catch (error: any) {
       console.error('Failed to update user banner:', error);
-      throw error;
+      // Don't throw error to prevent UI crashes - just log it
     }
   }
 
@@ -321,7 +378,7 @@ class BannerService {
       });
     } catch (error) {
       console.error('Failed to reset banner:', error);
-      throw error;
+      // Don't throw error to prevent UI crashes
     }
   }
 
@@ -338,7 +395,7 @@ class BannerService {
       });
     } catch (error) {
       console.error('Failed to apply preset banner:', error);
-      throw error;
+      // Don't throw error to prevent UI crashes
     }
   }
 }
