@@ -95,10 +95,8 @@ export const NonIntrusiveAd: React.FC<NonIntrusiveAdProps> = ({
     console.log('Ad clicked:', config.id);
   };
 
-  // Don't render if user has paid subscription
-  if (userSubscription === 'pro' || userSubscription === 'premium') {
-    return null;
-  }
+  // Hide ads for all users
+  return null;
 
   // Don't render if dismissed or ad blocked
   if (isDismissed || isAdBlocked) {
