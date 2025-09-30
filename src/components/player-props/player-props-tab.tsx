@@ -296,10 +296,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
   }, [filterSettings]);
 
   // Use real data from API, fallback to mock data if needed
-  const allPlayerProps = realPlayerProps.length > 0 ? realPlayerProps : generateMockProps();
+  const allPlayerProps = (realPlayerProps && realPlayerProps.length > 0) ? realPlayerProps : generateMockProps();
 
   // Filter and sort props based on current settings
-  const filteredProps = allPlayerProps
+  const filteredProps = (allPlayerProps || [])
     .filter((prop) => {
       // Search filter
       if (searchQuery && !prop.playerName.toLowerCase().includes(searchQuery.toLowerCase())) {
@@ -455,7 +455,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
             className="gap-2"
           >
             {showMyPicks ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
-            My Picks ({myPicks.length})
+            My Picks ({(myPicks || []).length})
           </Button>
         </div>
       </div>
@@ -524,7 +524,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {SORT_OPTIONS.map(option => (
+                        {(SORT_OPTIONS || []).map(option => (
                           <SelectItem key={option.value} value={option.value}>
                             {option.label}
                           </SelectItem>
@@ -618,7 +618,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                 <div className="space-y-3">
                   <h3 className="font-semibold">Sportsbooks</h3>
                   <div className="grid grid-cols-2 gap-2">
-                    {SPORTSBOOKS.map(sportsbook => (
+                    {(SPORTSBOOKS || []).map(sportsbook => (
                       <div key={sportsbook.id} className="flex items-center space-x-2">
                         <Checkbox
                           id={sportsbook.id}
@@ -670,7 +670,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
         <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
         <span className="text-sm font-medium text-muted-foreground">Sort by:</span>
         <div className="flex gap-1">
-          {SORT_OPTIONS.map(option => (
+          {(SORT_OPTIONS || []).map(option => (
             <Button
               key={option.value}
               variant={filterSettings.sortBy === option.value ? "default" : "ghost"}
@@ -704,15 +704,15 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BookmarkCheck className="w-5 h-5" />
-              My Picks ({myPicks.length})
+              My Picks ({(myPicks || []).length})
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {myPicks.length === 0 ? (
+            {(myPicks || []).length === 0 ? (
               <p className="text-muted-foreground text-center py-4">No picks added yet</p>
             ) : (
               <div className="space-y-3">
-                {myPicks.map(pick => (
+                {(myPicks || []).map(pick => (
                   <div key={pick.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                     <div className="flex items-center gap-3">
                       <div>
@@ -724,7 +724,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="flex gap-1">
-                        {pick.prop.sportsbooks.map(sportsbookId => (
+                        {(pick.prop.sportsbooks || []).map(sportsbookId => (
                           <Button
                             key={sportsbookId}
                             size="sm"
@@ -758,7 +758,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
 
       {/* Props Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {filteredProps.map((prop) => (
+        {(filteredProps || []).map((prop) => (
           <Card key={prop.id} className={cn(
             "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer relative",
             !isSubscribed && "blur-sm"
@@ -803,7 +803,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                 <div className="flex items-center gap-2">
                   <span className="font-medium">{prop.odds}</span>
                   <div className="flex gap-1">
-                    {prop.sportsbooks.map(sportsbookId => (
+                    {(prop.sportsbooks || []).map(sportsbookId => (
                       <Button
                         key={sportsbookId}
                         size="sm"
@@ -847,7 +847,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
         ))}
       </div>
 
-      {filteredProps.length === 0 && (
+      {(filteredProps || []).length === 0 && (
         <div className="text-center py-12">
           <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-foreground mb-2">No props found</h3>
