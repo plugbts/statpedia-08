@@ -45,6 +45,13 @@
   -webkit-backdrop-filter: blur(4px);
 }
 
+/* Force blur effect for subscription gate */
+.subscription-blur {
+  backdrop-filter: blur(15px) !important;
+  -webkit-backdrop-filter: blur(15px) !important;
+  filter: blur(0px); /* Ensure content isn't blurred */
+}
+
 /* Sports Analytics Design System - Professional Dark Theme */
 
 @layer base {
