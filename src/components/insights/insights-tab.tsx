@@ -304,11 +304,11 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
     {/* Subscription overlay for free users - outside the blurred card */}
     <SubscriptionOverlay
       isVisible={!isSubscribed}
-      icon={<BarChart3 className="w-6 h-6 text-primary" />}
+      icon={<BarChart3 className="w-5 h-5 text-primary" />}
       title="Premium Content"
       description="Subscribe to view insights"
       buttonText="Upgrade to Premium"
-      size="compact"
+      size="small"
     />
     </div>
   );
@@ -353,11 +353,11 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
     {/* Subscription overlay for free users - outside the blurred card */}
     <SubscriptionOverlay
       isVisible={!isSubscribed}
-      icon={<Users className="w-6 h-6 text-primary" />}
+      icon={<Users className="w-5 h-5 text-primary" />}
       title="Premium Content"
       description="Subscribe to view insights"
       buttonText="Upgrade to Premium"
-      size="compact"
+      size="small"
     />
     </div>
   );
