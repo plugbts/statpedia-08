@@ -15,8 +15,9 @@ export const PlayerHeadshot: React.FC<PlayerHeadshotProps> = ({
   className = ''
 }) => {
   // Generate ESPN headshot URL based on sport and player ID
-  const getHeadshotUrl = () => {
-    if (!playerId) return null;
+  // Try both PNG and JPEG formats
+  const getHeadshotUrls = () => {
+    if (!playerId) return [];
     
     const sportMap: Record<string, string> = {
       'nba': 'nba',
@@ -33,7 +34,11 @@ export const PlayerHeadshot: React.FC<PlayerHeadshotProps> = ({
     };
     
     const espnSport = sportMap[sport] || 'nba';
-    return `https://a.espncdn.com/i/headshots/${espnSport}/players/full/${playerId}.png`;
+    return [
+      `https://a.espncdn.com/i/headshots/${espnSport}/players/full/${playerId}.png`,
+      `https://a.espncdn.com/i/headshots/${espnSport}/players/full/${playerId}.jpg`,
+      `https://a.espncdn.com/combiner/i?img=/i/headshots/${espnSport}/players/full/${playerId}.png`,
+    ];
   };
 
   const getInitials = () => {
@@ -45,7 +50,18 @@ export const PlayerHeadshot: React.FC<PlayerHeadshotProps> = ({
       .slice(0, 2);
   };
 
-  const headshotUrl = getHeadshotUrl();
+  const headshotUrls = getHeadshotUrls();
+  const [currentUrlIndex, setCurrentUrlIndex] = React.useState(0);
+  const [imageError, setImageError] = React.useState(false);
+
+  const handleImageError = () => {
+    // Try next URL format if available
+    if (currentUrlIndex < headshotUrls.length - 1) {
+      setCurrentUrlIndex(prev => prev + 1);
+    } else {
+      setImageError(true);
+    }
+  };
 
   return (
     <div className={`relative group ${className}`}>
@@ -67,15 +83,12 @@ export const PlayerHeadshot: React.FC<PlayerHeadshotProps> = ({
           
           {/* Avatar */}
           <Avatar className="relative w-16 h-16 border-2 border-card shadow-3d transition-all duration-300 group-hover:shadow-3d-hover group-hover:border-primary/50">
-            {headshotUrl ? (
+            {headshotUrls.length > 0 && !imageError ? (
               <AvatarImage 
-                src={headshotUrl} 
+                src={headshotUrls[currentUrlIndex]} 
                 alt={playerName}
                 className="object-cover object-top"
-                onError={(e) => {
-                  // Fallback to initials on error
-                  e.currentTarget.style.display = 'none';
-                }}
+                onError={handleImageError}
               />
             ) : null}
             <AvatarFallback className="bg-gradient-card text-foreground font-heading text-lg border border-border/50">
