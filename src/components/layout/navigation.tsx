@@ -267,20 +267,20 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
             </Button>
 
             {/* Notification Bell */}
-            <NotificationBell userId={userEmail || ''} />
+            <NotificationBell userId={userIdentity?.email || ''} />
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-1 hover-scale cursor-pointer p-1 rounded-md hover:bg-muted/50 transition-colors">
                   <Avatar className="h-7 w-7 border border-primary/20">
                     <AvatarFallback className="bg-gradient-primary text-white text-xs">
-                      {displayName?.[0]?.toUpperCase() || userEmail?.[0]?.toUpperCase() || 'U'}
+                      {getUserInitials()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="hidden sm:block">
                     <div className="flex items-center gap-1">
                       <p className="text-xs font-medium text-foreground truncate max-w-20">
-                        {displayName || userEmail?.split('@')[0]}
+                        {getUserDisplayName()}
                       </p>
                       <VerifiedCheckmark role={userRole} size="sm" />
                     </div>
@@ -292,15 +292,15 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
                   <div className="flex items-center gap-2 w-full">
                     <Avatar className="h-8 w-8 border border-primary/20">
                       <AvatarFallback className="bg-gradient-primary text-white text-sm">
-                        {displayName?.[0]?.toUpperCase() || userEmail?.[0]?.toUpperCase() || 'U'}
+                        {getUserInitials()}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium truncate">{displayName || userEmail?.split('@')[0]}</p>
+                        <p className="text-sm font-medium truncate">{getUserDisplayName()}</p>
                         <VerifiedCheckmark role={userRole} size="sm" />
                       </div>
-                      <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
+                      <p className="text-xs text-muted-foreground truncate">{userIdentity?.email || getUserUsername()}</p>
                     </div>
                     {userRole !== 'user' && (
                       <Badge 
