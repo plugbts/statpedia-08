@@ -23,7 +23,9 @@ export const SubscriptionGatePopup: React.FC<SubscriptionGatePopupProps> = ({
 
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-black via-gray-900 to-black flex items-start justify-center z-50 pt-16 sm:pt-20 px-4">
-      <div className="relative">
+      {/* Blur overlay for entire screen */}
+      <div className="absolute inset-0 backdrop-blur-lg bg-black/30"></div>
+      <div className="relative z-10">
         {/* 3D Effect Container */}
         <div className="relative transform perspective-1000">
           {/* Main Card with 3D effect */}
