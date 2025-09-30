@@ -99,7 +99,7 @@ class UserIdentificationService {
       if (fallbackProfile && !fallbackError) {
         // Determine role based on email
         let role = 'user';
-        if (fallbackProfile.email === 'plug@statpedia.com' || fallbackProfile.email === 'plug@plugbts.com' || fallbackProfile.email === 'plugbts@gmail.com') {
+        if (fallbackProfile.email === 'plug@statpedia.com' || fallbackProfile.email === 'plug@plugbts.com' || fallbackProfile.email === 'plugbts@gmail.com' || fallbackProfile.email === 'lifesplugg@gmail.com') {
           role = 'owner';
         } else if (fallbackProfile.email?.includes('admin')) {
           role = 'admin';
@@ -127,7 +127,7 @@ class UserIdentificationService {
       if (user && user.id === userId) {
         // Determine role based on email
         let role = 'user';
-        if (user.email === 'plug@statpedia.com' || user.email === 'plug@plugbts.com' || user.email === 'plugbts@gmail.com') {
+        if (user.email === 'plug@statpedia.com' || user.email === 'plug@plugbts.com' || user.email === 'plugbts@gmail.com' || user.email === 'lifesplugg@gmail.com') {
           role = 'owner';
         } else if (user.email?.includes('admin')) {
           role = 'admin';

@@ -72,7 +72,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           // If no identity found, create a basic one
           // Determine role based on email
           let role = 'user';
-          if (user.email === 'plug@statpedia.com' || user.email === 'plug@plugbts.com' || user.email === 'plugbts@gmail.com') {
+          if (user.email === 'plug@statpedia.com' || user.email === 'plug@plugbts.com' || user.email === 'plugbts@gmail.com' || user.email === 'lifesplugg@gmail.com') {
             role = 'owner';
           } else if (user.email?.includes('admin')) {
             role = 'admin';
@@ -99,7 +99,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         // Create a fallback identity to prevent loading loop
         // Determine role based on email
         let role = 'user';
-        if (user.email === 'plug@statpedia.com' || user.email === 'plug@plugbts.com' || user.email === 'plugbts@gmail.com') {
+        if (user.email === 'plug@statpedia.com' || user.email === 'plug@plugbts.com' || user.email === 'plugbts@gmail.com' || user.email === 'lifesplugg@gmail.com') {
           role = 'owner';
         } else if (user.email?.includes('admin')) {
           role = 'admin';
