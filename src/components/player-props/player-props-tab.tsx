@@ -39,22 +39,28 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
       
       const allProps: any[] = [];
       
-      // Fetch odds for multiple sports
-      for (const sport of sports.slice(0, 4)) { // Get first 4 active sports
+      // Fetch odds for multiple sports - get ALL games in next 7 days
+      for (const sport of sports.slice(0, 6)) { // Get first 6 active sports
         const sportKey = sport.key;
         const odds = await fetchOdds(sportKey);
         
-        // Transform API data to component format
+        // Transform ALL API data to component format
         const transformedProps = transformOddsToProps(odds, sportKey);
         allProps.push(...transformedProps);
       }
+      
+      // Sort by game date
+      allProps.sort((a, b) => {
+        if (!a.gameDate || !b.gameDate) return 0;
+        return new Date(a.gameDate).getTime() - new Date(b.gameDate).getTime();
+      });
       
       setRealProps(allProps);
       
       if (allProps.length > 0) {
         toast({
           title: 'Live Data Loaded',
-          description: `Loaded ${allProps.length} player props from The Odds API`,
+          description: `Loaded ${allProps.length} player props from the next 7 days`,
         });
       } else {
         toast({
@@ -110,6 +116,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                 homeAway: isHome ? 'home' as const : 'away' as const,
                 injuryStatus: 'Healthy',
                 weatherConditions: sport === 'nfl' ? 'Clear' : 'Indoor',
+                gameDate: game.commence_time, // ISO date from API
                 potentialAssists: 5 + Math.random() * 5,
                 potentialRebounds: 5 + Math.random() * 5,
                 potentialThrees: 2 + Math.random() * 3,
@@ -127,7 +134,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
       });
     });
     
-    return transformed.slice(0, 20); // Limit to 20 props per sport
+    return transformed.slice(0, 100); // Limit to 100 props per sport for performance
   };
 
   // Filter props based on subscription
@@ -244,7 +251,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
             </h1>
             <p className="text-muted-foreground">
               {isSubscribed 
-                ? `Comprehensive analysis of ${totalProps} player props with advanced metrics. Only showing active seasons and healthy players.`
+                ? `Comprehensive analysis of ${totalProps} player props from the next 7 days. Only showing active seasons and healthy players.`
                 : `Showing 2 of ${totalProps} props. Upgrade to see all with full analysis.`
               }
             </p>

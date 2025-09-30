@@ -79,24 +79,30 @@ const Index = () => {
       const sports = await fetchInSeasonSports();
       const allPredictions: any[] = [];
       
-      // Fetch odds for each active sport
-      for (const sport of sports.slice(0, 3)) { // Limit to first 3 sports to save API calls
+      // Fetch odds for each active sport - get ALL games in next week
+      for (const sport of sports.slice(0, 5)) { // Get up to 5 sports
         const sportKey = sport.key;
         const odds = await fetchOdds(sportKey);
         
-        // Transform odds to predictions
-        odds.slice(0, 4).forEach((game: any) => {
+        // Transform ALL odds to predictions (not just first 4)
+        odds.forEach((game: any) => {
           const prediction = transformGameToPrediction(game, sportKey);
           if (prediction) allPredictions.push(prediction);
         });
       }
+      
+      // Sort by game date
+      allPredictions.sort((a, b) => {
+        if (!a.gameDate || !b.gameDate) return 0;
+        return new Date(a.gameDate).getTime() - new Date(b.gameDate).getTime();
+      });
       
       setRealPredictions(allPredictions);
       
       if (allPredictions.length > 0) {
         toast({
           title: 'Live Predictions Loaded',
-          description: `Loaded ${allPredictions.length} predictions from The Odds API`,
+          description: `Loaded ${allPredictions.length} predictions from the next 7 days`,
         });
       }
     } catch (err) {
@@ -138,6 +144,7 @@ const Index = () => {
         prediction: 'over' as const,
         confidence: 70 + Math.random() * 20,
         odds: overOutcome?.price > 0 ? `+${overOutcome.price}` : `${overOutcome.price}`,
+        gameDate: game.commence_time, // ISO date from API
         factors: [
           { name: 'Recent Form', value: 'Strong', isPositive: true },
           { name: 'Head to Head', value: 'Favorable', isPositive: true },
@@ -309,7 +316,7 @@ const Index = () => {
       {/* Today's Top Predictions */}
       <div className="space-y-6 animate-fade-in" style={{ animationDelay: '300ms' }}>
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-foreground">Today's Live Predictions</h2>
+          <h2 className="text-2xl font-bold text-foreground">This Week's Live Predictions</h2>
           <div className="flex items-center gap-2">
             <Badge variant="default" className="bg-gradient-accent hover-scale">
               <TrendingUp className="w-3 h-3 mr-1" />
@@ -346,11 +353,11 @@ const Index = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {realPredictions.slice(0, 12).map((prediction, index) => (
+            {realPredictions.slice(0, 50).map((prediction, index) => (
               <div 
                 key={index}
                 className="animate-scale-in"
-                style={{ animationDelay: `${400 + index * 100}ms` }}
+                style={{ animationDelay: `${400 + (index % 12) * 100}ms` }}
               >
                 <PredictionCard
                   {...prediction}

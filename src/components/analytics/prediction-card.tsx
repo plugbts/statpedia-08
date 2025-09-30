@@ -1,4 +1,5 @@
 import React from 'react';
+import { format, parseISO } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +24,7 @@ interface PredictionCardProps {
     isPositive: boolean;
   }>;
   status?: 'pending' | 'won' | 'lost';
+  gameDate?: string; // ISO date string
 }
 
 export const PredictionCard = ({
@@ -36,9 +38,31 @@ export const PredictionCard = ({
   confidence,
   odds,
   factors,
-  status = 'pending'
+  status = 'pending',
+  gameDate
 }: PredictionCardProps) => {
   const navigate = useNavigate();
+
+  const formatGameDate = () => {
+    if (!gameDate) return null;
+    try {
+      const date = parseISO(gameDate);
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+      const gameDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      
+      if (gameDay.getTime() === today.getTime()) {
+        return `Today ${format(date, 'h:mm a')}`;
+      } else if (gameDay.getTime() === tomorrow.getTime()) {
+        return `Tomorrow ${format(date, 'h:mm a')}`;
+      } else {
+        return format(date, 'MMM d, h:mm a');
+      }
+    } catch (e) {
+      return null;
+    }
+  };
 
   const getStatusColor = () => {
     switch (status) {
@@ -95,6 +119,11 @@ export const PredictionCard = ({
               <p className="text-sm text-muted-foreground">
                 {team} vs {opponent}
               </p>
+              {gameDate && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  🕐 {formatGameDate()}
+                </p>
+              )}
             </div>
           </div>
           <Badge variant={getStatusColor() as any} className="gap-1 hover-scale">

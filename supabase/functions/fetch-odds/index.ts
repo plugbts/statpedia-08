@@ -21,8 +21,14 @@ serve(async (req) => {
     const sport = url.searchParams.get('sport') || '';
     const regions = 'us';
     const markets = 'h2h,spreads,totals,player_props';
+    
+    // Date filtering - get games within next 7 days
+    const now = new Date();
+    const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const dateFrom = now.toISOString();
+    const dateTo = weekFromNow.toISOString();
 
-    console.log(`Fetching from The Odds API - Endpoint: ${endpoint}, Sport: ${sport}`);
+    console.log(`Fetching from The Odds API - Endpoint: ${endpoint}, Sport: ${sport}, Date Range: ${dateFrom} to ${dateTo}`);
 
     let oddsApiUrl = '';
     
@@ -30,11 +36,11 @@ serve(async (req) => {
       // Get list of in-season sports
       oddsApiUrl = `https://api.the-odds-api.com/v4/sports?apiKey=${apiKey}`;
     } else if (endpoint === 'odds' && sport) {
-      // Get odds for specific sport
-      oddsApiUrl = `https://api.the-odds-api.com/v4/sports/${sport}/odds?apiKey=${apiKey}&regions=${regions}&markets=${markets}`;
+      // Get odds for specific sport with date filtering
+      oddsApiUrl = `https://api.the-odds-api.com/v4/sports/${sport}/odds?apiKey=${apiKey}&regions=${regions}&markets=${markets}&dateFormat=iso&commenceTimeFrom=${dateFrom}&commenceTimeTo=${dateTo}`;
     } else if (endpoint === 'events' && sport) {
-      // Get events for specific sport
-      oddsApiUrl = `https://api.the-odds-api.com/v4/sports/${sport}/events?apiKey=${apiKey}`;
+      // Get events for specific sport with date filtering
+      oddsApiUrl = `https://api.the-odds-api.com/v4/sports/${sport}/events?apiKey=${apiKey}&dateFormat=iso&commenceTimeFrom=${dateFrom}&commenceTimeTo=${dateTo}`;
     } else if (endpoint === 'player-props' && sport) {
       // Get player props for specific sport (event)
       const eventId = url.searchParams.get('eventId');
