@@ -552,15 +552,15 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                 Filters
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
+            <DialogContent className="max-w-4xl max-h-[90vh] w-[95vw] sm:w-[90vw] md:w-[80vw] lg:w-[70vw] xl:w-[60vw]">
+              <DialogHeader className="sticky top-0 bg-background z-10 pb-2">
                 <DialogTitle>Filter Settings</DialogTitle>
               </DialogHeader>
-              <div className="space-y-6">
+              <div className="space-y-4 overflow-y-auto max-h-[calc(90vh-120px)] pr-2">
                 {/* Multi-Level Sort Settings */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-semibold">Sort By (Up to 3 levels)</h3>
+                    <h3 className="font-semibold text-sm">Sort By (Up to 3 levels)</h3>
                     <Button
                       variant="outline"
                       size="sm"
@@ -573,20 +573,21 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                         }
                       }}
                       disabled={(filterSettings.sortCriteria || []).length >= 3}
+                      className="text-xs px-2 py-1 h-7"
                     >
-                      Add Sort Level
+                      Add Level
                     </Button>
                   </div>
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {(filterSettings.sortCriteria || []).map((criteria, index) => (
-                      <div key={index} className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="w-8 h-8 flex items-center justify-center">
+                      <div key={index} className="flex items-center gap-2 p-2 bg-muted/30 rounded-lg">
+                        <div className="flex items-center gap-1">
+                          <Badge variant="outline" className="w-6 h-6 flex items-center justify-center text-xs">
                             {index + 1}
                           </Badge>
-                          <span className="text-sm font-medium">Priority {index + 1}</span>
+                          <span className="text-xs font-medium">P{index + 1}</span>
                         </div>
-                        <div className="flex-1 grid grid-cols-2 gap-3">
+                        <div className="flex-1 grid grid-cols-2 gap-2">
                           <Select 
                             value={criteria.field} 
                             onValueChange={(value) => {
@@ -595,12 +596,12 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                               setFilterSettings(prev => ({ ...prev, sortCriteria: newCriteria }));
                             }}
                           >
-                            <SelectTrigger>
+                            <SelectTrigger className="h-8 text-xs">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                               {(SORT_OPTIONS || []).map(option => (
-                                <SelectItem key={option.value} value={option.value}>
+                                <SelectItem key={option.value} value={option.value} className="text-xs">
                                   {option.label}
                                 </SelectItem>
                               ))}
@@ -614,16 +615,16 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                               setFilterSettings(prev => ({ ...prev, sortCriteria: newCriteria }));
                             }}
                           >
-                            <SelectTrigger>
+                            <SelectTrigger className="h-8 text-xs">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="asc">Ascending</SelectItem>
-                              <SelectItem value="desc">Descending</SelectItem>
+                              <SelectItem value="asc" className="text-xs">Asc</SelectItem>
+                              <SelectItem value="desc" className="text-xs">Desc</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
-                        <div className="flex flex-col gap-1">
+                        <div className="flex flex-col gap-0.5">
                           <Button
                             variant="ghost"
                             size="sm"
@@ -635,9 +636,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                               }
                             }}
                             disabled={index === 0}
-                            className="p-1 h-6 w-6"
+                            className="p-1 h-5 w-5"
                           >
-                            <ArrowUp className="w-3 h-3" />
+                            <ArrowUp className="w-2.5 h-2.5" />
                           </Button>
                           <Button
                             variant="ghost"
@@ -650,9 +651,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                               }
                             }}
                             disabled={index === (filterSettings.sortCriteria || []).length - 1}
-                            className="p-1 h-6 w-6"
+                            className="p-1 h-5 w-5"
                           >
-                            <ArrowDown className="w-3 h-3" />
+                            <ArrowDown className="w-2.5 h-2.5" />
                           </Button>
                         </div>
                         <Button
@@ -662,9 +663,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                             const newCriteria = filterSettings.sortCriteria.filter((_, i) => i !== index);
                             setFilterSettings(prev => ({ ...prev, sortCriteria: newCriteria }));
                           }}
-                          className="text-destructive hover:text-destructive"
+                          className="text-destructive hover:text-destructive text-xs px-2 py-1 h-6"
                         >
-                          Remove
+                          ×
                         </Button>
                       </div>
                     ))}
@@ -683,34 +684,34 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                     checked={filterSettings.showAltProps}
                     onCheckedChange={(checked) => setFilterSettings(prev => ({ ...prev, showAltProps: !!checked }))}
                   />
-                  <label htmlFor="altProps" className="text-sm font-medium">
+                  <label htmlFor="altProps" className="text-xs font-medium">
                     Show Alternative Props
                   </label>
                 </div>
 
                 {/* Over/Under Filter */}
-                <div className="space-y-3">
-                  <h3 className="font-semibold">Over/Under</h3>
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-sm">Over/Under</h3>
                   <Select 
                     value={filterSettings.overUnder} 
                     onValueChange={(value: 'all' | 'over' | 'under') => setFilterSettings(prev => ({ ...prev, overUnder: value }))}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All</SelectItem>
-                      <SelectItem value="over">Over Only</SelectItem>
-                      <SelectItem value="under">Under Only</SelectItem>
+                      <SelectItem value="all" className="text-xs">All</SelectItem>
+                      <SelectItem value="over" className="text-xs">Over Only</SelectItem>
+                      <SelectItem value="under" className="text-xs">Under Only</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 {/* Odds Range */}
-                <div className="space-y-3">
-                  <h3 className="font-semibold">Odds Range</h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm text-muted-foreground">
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-sm">Odds Range</h3>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs text-muted-foreground">
                       <span>Min: {filterSettings.minOdds}</span>
                       <span>Max: {filterSettings.maxOdds}</span>
                     </div>
@@ -726,10 +727,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                 </div>
 
                 {/* Hit Rate Range */}
-                <div className="space-y-3">
-                  <h3 className="font-semibold">Hit Rate Range</h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm text-muted-foreground">
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-sm">Hit Rate Range</h3>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs text-muted-foreground">
                       <span>Min: {filterSettings.minHitRate}%</span>
                       <span>Max: {filterSettings.maxHitRate}%</span>
                     </div>
@@ -745,11 +746,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                 </div>
 
                 {/* Sportsbook Filter */}
-                <div className="space-y-3">
-                  <h3 className="font-semibold">Sportsbooks</h3>
-                  <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-sm">Sportsbooks</h3>
+                  <div className="grid grid-cols-2 gap-1">
                     {(SPORTSBOOKS || []).map(sportsbook => (
-                      <div key={sportsbook.id} className="flex items-center space-x-2">
+                      <div key={sportsbook.id} className="flex items-center space-x-1">
                         <Checkbox
                           id={sportsbook.id}
                           checked={filterSettings.sportsbooks.includes(sportsbook.id)}
@@ -767,8 +768,8 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                             }
                           }}
                         />
-                        <label htmlFor={sportsbook.id} className="text-sm font-medium flex items-center gap-2">
-                          <span className={cn("w-4 h-4 rounded text-white text-xs flex items-center justify-center", sportsbook.color)}>
+                        <label htmlFor={sportsbook.id} className="text-xs font-medium flex items-center gap-1">
+                          <span className={cn("w-3 h-3 rounded text-white text-xs flex items-center justify-center", sportsbook.color)}>
                             {sportsbook.icon}
                           </span>
                           {sportsbook.name}
@@ -779,14 +780,14 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                 </div>
 
                 {/* Save/Load Buttons */}
-                <div className="flex gap-2 pt-4">
-                  <Button onClick={handleSaveFilters} className="gap-2">
-                    <Save className="w-4 h-4" />
-                    Save Filters
+                <div className="flex gap-2 pt-2">
+                  <Button onClick={handleSaveFilters} className="gap-1 text-xs h-8">
+                    <Save className="w-3 h-3" />
+                    Save
                   </Button>
-                  <Button onClick={handleLoadFilters} variant="outline" className="gap-2">
-                    <Download className="w-4 h-4" />
-                    Load Filters
+                  <Button onClick={handleLoadFilters} variant="outline" className="gap-1 text-xs h-8">
+                    <Download className="w-3 h-3" />
+                    Load
                   </Button>
                 </div>
               </div>
@@ -796,40 +797,40 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
       </div>
 
       {/* Multi-Level Sort Bar */}
-      <div className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg">
-        <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
-        <span className="text-sm font-medium text-muted-foreground">Sort by:</span>
-        <div className="flex gap-2 flex-wrap">
+      <div className="flex items-center gap-1 p-2 bg-muted/30 rounded-lg">
+        <ArrowUpDown className="w-3 h-3 text-muted-foreground" />
+        <span className="text-xs font-medium text-muted-foreground">Sort:</span>
+        <div className="flex gap-1 flex-wrap">
           {(filterSettings.sortCriteria || []).map((criteria, index) => {
             const option = SORT_OPTIONS.find(opt => opt.value === criteria.field);
             return (
-              <div key={index} className="flex items-center gap-1">
-                <Badge variant="outline" className="text-xs">
+              <div key={index} className="flex items-center gap-0.5">
+                <Badge variant="outline" className="text-xs w-4 h-4 p-0 flex items-center justify-center">
                   {index + 1}
                 </Badge>
                 <Button
                   variant="default"
                   size="sm"
-                  className="text-xs gap-1"
+                  className="text-xs gap-0.5 h-6 px-2"
                 >
                   {option?.label || criteria.field}
-                  {criteria.order === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                  {criteria.order === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />}
                 </Button>
               </div>
             );
           })}
           {(filterSettings.sortCriteria || []).length === 0 && (
-            <span className="text-sm text-muted-foreground italic">No sorting applied</span>
+            <span className="text-xs text-muted-foreground italic">No sorting applied</span>
           )}
         </div>
         <Button
           variant="outline"
           size="sm"
           onClick={() => setShowFilterDialog(true)}
-          className="ml-auto gap-1"
+          className="ml-auto gap-1 text-xs h-6 px-2"
         >
           <Settings className="w-3 h-3" />
-          Configure
+          Config
         </Button>
       </div>
 
