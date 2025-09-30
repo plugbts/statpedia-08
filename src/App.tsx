@@ -12,6 +12,7 @@ import { Settings } from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import { SubscriptionPlans } from "./components/auth/subscription-plans";
 import { SupportCenter } from "./components/support/support-center";
+import { UserProvider } from "@/contexts/user-context";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
@@ -225,25 +226,27 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <SyncProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/admin" element={<Admin />} />
-              <Route path="/prediction-detail" element={<PredictionDetail />} />
-              <Route path="/settings" element={<SettingsWrapper />} />
-              <Route path="/subscription" element={<SubscriptionPlans onSubscriptionSuccess={(plan) => {
-                console.log('Subscription successful:', plan);
-                // Handle successful subscription
-              }} />} />
-              <Route path="/support" element={<SupportCenterWrapper />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </SyncProvider>
+        <UserProvider>
+          <SyncProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/admin" element={<Admin />} />
+                <Route path="/prediction-detail" element={<PredictionDetail />} />
+                <Route path="/settings" element={<SettingsWrapper />} />
+                <Route path="/subscription" element={<SubscriptionPlans onSubscriptionSuccess={(plan) => {
+                  console.log('Subscription successful:', plan);
+                  // Handle successful subscription
+                }} />} />
+                <Route path="/support" element={<SupportCenterWrapper />} />
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </SyncProvider>
+        </UserProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

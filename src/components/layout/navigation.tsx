@@ -12,21 +12,27 @@ import { cn } from '@/lib/utils';
 import { VerifiedCheckmark } from '@/components/ui/verified-checkmark';
 import { useBackgroundMusic } from '@/hooks/use-background-music';
 import { MusicTipBubble } from '@/components/ui/music-tip-bubble';
+import { useUser } from '@/contexts/user-context';
+import { UserDisplay } from '@/components/ui/user-display';
 
 interface NavigationProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
   onSportChange?: (sport: string) => void;
   selectedSport?: string;
-  userEmail?: string;
-  displayName?: string;
-  userRole?: string;
-  userSubscription?: string;
   onLogout?: () => void;
   predictionsCount?: number;
 }
 
-export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSport = 'nfl', userEmail, displayName, userRole = 'user', userSubscription = 'free', onLogout, predictionsCount = 0 }: NavigationProps) => {
+export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSport = 'nfl', onLogout, predictionsCount = 0 }: NavigationProps) => {
+  const { 
+    userIdentity, 
+    userRole, 
+    userSubscription, 
+    getUserDisplayName, 
+    getUserUsername, 
+    getUserInitials 
+  } = useUser();
   const { isPlaying, needsUserInteraction, togglePlayPause } = useBackgroundMusic({ enabled: true, volume: 0.08 });
   const [showMusicTip, setShowMusicTip] = useState(false);
   const [hasShownTip, setHasShownTip] = useState(false);

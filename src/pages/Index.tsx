@@ -29,13 +29,21 @@ import { SocialTab } from '@/components/social/social-tab';
 import { MostLikely } from '@/components/mlb/most-likely';
 import { PredictionsTab } from '@/components/predictions/predictions-tab';
 import { HeaderBannerAd, InFeedAd, FooterBannerAd, MobileBannerAd } from '@/components/ads/ad-placements';
+import { useUser } from '@/contexts/user-context';
 
 const Index = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [user, setUser] = useState<User | null>(null);
-  const [userSubscription, setUserSubscription] = useState('free');
-  const [userRole, setUserRole] = useState('user'); // user, mod, admin, owner
+  const { 
+    user, 
+    userIdentity, 
+    userSubscription, 
+    userRole, 
+    isLoading: userLoading,
+    getUserDisplayName,
+    getUserUsername,
+    getUserInitials
+  } = useUser();
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSport, setSelectedSport] = useState('nfl');
   const [realPredictions, setRealPredictions] = useState<any[]>([]);

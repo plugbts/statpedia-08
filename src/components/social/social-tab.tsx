@@ -45,6 +45,8 @@ import { betSlipSharingService, type SharedBetSlip } from '@/services/bet-slip-s
 import { messagingService } from '@/services/messaging-service';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useUser } from '@/contexts/user-context';
+import { UserDisplay } from '@/components/ui/user-display';
 
 interface SocialTabProps {
   userRole?: string;
@@ -52,7 +54,17 @@ interface SocialTabProps {
   onReturnToDashboard?: () => void;
 }
 
-export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription = 'free', onReturnToDashboard }) => {
+export const SocialTab: React.FC<SocialTabProps> = ({ onReturnToDashboard }) => {
+  const { 
+    userIdentity, 
+    userRole, 
+    userSubscription, 
+    getUserDisplayName, 
+    getUserUsername, 
+    getUserInitials,
+    updateUserIdentity 
+  } = useUser();
+  
   const [activeTab, setActiveTab] = useState('feed');
   const [posts, setPosts] = useState<PersonalizedPost[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -774,15 +786,18 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
               <CardContent className="p-4">
                 <div className="flex gap-4">
                   <div className="flex flex-col items-center gap-2">
-                    <Avatar className="w-12 h-12">
-                      <AvatarImage src={userProfile.avatar_url} />
-                      <AvatarFallback className="text-sm font-medium">
-                        {getInitials(userProfile.display_name || userProfile.username)}
-                      </AvatarFallback>
-                    </Avatar>
+                    <UserDisplay 
+                      userIdentity={userIdentity}
+                      showAvatar={true}
+                      showUsername={false}
+                      showRole={false}
+                      showSubscription={false}
+                      size="lg"
+                      variant="compact"
+                    />
                     <div className="text-center">
                       <div className="text-xs font-medium text-foreground">
-                        {userProfile.display_name || userProfile.username}
+                        {getUserDisplayName()}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {userProfile.karma} karma
