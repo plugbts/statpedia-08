@@ -30,10 +30,10 @@ export function useLiveGames(sport: string, options: { autoFetch?: boolean; refr
       
       const filteredGames = freeGames.filter(game => {
         const gameDate = new Date(game.date);
-        // Include games from one week ago to one month from now, excluding finished
+        // Include games from one week ago to one month from now, only upcoming and live
         return gameDate >= oneWeekAgo && 
                gameDate <= oneMonthFromNow && 
-               game.status !== 'finished';
+               ['upcoming', 'live'].includes(game.status);
       });
       
       setGames(filteredGames);

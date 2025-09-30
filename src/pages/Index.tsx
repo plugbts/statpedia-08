@@ -97,7 +97,7 @@ const Index = () => {
     setShowTodaysPicks(true);
     
     // Smooth scroll to the Today's Picks section
-    setTimeout(() => {
+          setTimeout(() => {
       const todaysPicksElement = document.getElementById('todays-picks-section');
       if (todaysPicksElement) {
         todaysPicksElement.scrollIntoView({ 
@@ -266,9 +266,9 @@ const Index = () => {
       
       const filteredPredictions = gamePredictions.filter(prediction => {
         const gameDate = new Date(prediction.game.date);
-        return gameDate >= oneWeekAgo && 
-               gameDate <= oneMonthFromNow && 
-               prediction.game.status !== 'finished';
+        const isInRange = gameDate >= oneWeekAgo && gameDate <= oneMonthFromNow;
+        const isRelevantStatus = ['upcoming', 'live'].includes(prediction.game.status);
+        return isInRange && isRelevantStatus;
       });
       
       // Transform to dashboard format with proper home/away team display
