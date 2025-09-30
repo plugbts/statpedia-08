@@ -6,9 +6,10 @@ import { Navigation } from '@/components/layout/navigation';
 import { StatsOverview } from '@/components/analytics/stats-overview';
 import { PredictionCard } from '@/components/analytics/prediction-card';
 import { PreviousDayWins } from '@/components/analytics/previous-day-wins';
+import { SyncTest } from '@/components/sync/sync-test';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, Zap, BarChart3 } from 'lucide-react';
+import { TrendingUp, Zap, BarChart3, Settings } from 'lucide-react';
 import heroImage from '@/assets/hero-analytics.jpg';
 import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@supabase/supabase-js';
@@ -377,6 +378,20 @@ const Index = () => {
     </div>
   );
 
+  const renderSyncTest = () => (
+    <div className="space-y-8">
+      <div className="text-center">
+        <h1 className="text-3xl font-bold text-foreground mb-4">
+          Sync Integration Test
+        </h1>
+        <p className="text-muted-foreground">
+          Test the real-time synchronization between Loveable and Supabase
+        </p>
+      </div>
+      <SyncTest />
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-background relative">
       <MatrixBackground />
@@ -385,7 +400,8 @@ const Index = () => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         {activeTab === 'dashboard' && renderDashboard()}
         {activeTab === 'player-props' && <PlayerPropsTab userSubscription={userSubscription} />}
-        {activeTab !== 'dashboard' && activeTab !== 'player-props' && (
+        {activeTab === 'sync-test' && renderSyncTest()}
+        {activeTab !== 'dashboard' && activeTab !== 'player-props' && activeTab !== 'sync-test' && (
           <div className="text-center py-16">
             <h2 className="text-2xl font-bold text-foreground mb-4">
               {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Coming Soon

@@ -2,7 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { SportIcon } from '@/components/ui/sport-icon';
-import { BarChart3, Target, TrendingUp, Calendar, Settings } from 'lucide-react';
+import { BarChart3, Target, TrendingUp, Calendar, Settings, Wifi } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface NavigationProps {
@@ -17,6 +17,7 @@ export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
     { id: 'player-props', label: 'Player Props', icon: <TrendingUp className="w-4 h-4" />, badge: 'NEW' },
     { id: 'analytics', label: 'Analytics', icon: <TrendingUp className="w-4 h-4" /> },
     { id: 'backtest', label: 'Backtest', icon: <Calendar className="w-4 h-4" /> },
+    { id: 'sync-test', label: 'Sync Test', icon: <Wifi className="w-4 h-4" />, badge: 'DEV' },
   ];
 
   const sports = [

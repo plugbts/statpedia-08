@@ -15,4 +15,11 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  define: {
+    // Ensure environment variables are available
+    'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(process.env.VITE_SUPABASE_URL || "https://rfdrifnsfobqlzorcesn.supabase.co"),
+    'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(process.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZHJpZm5zZm9icWx6b3JjZXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwNDg4MzYsImV4cCI6MjA3NDYyNDgzNn0.oUzP1pTapCMEaaPXzia2uqn-m3L9BRR82_RYcUXqykI"),
+    'import.meta.env.VITE_LOVEABLE_PROJECT_ID': JSON.stringify(process.env.VITE_LOVEABLE_PROJECT_ID || "statpedia-08"),
+    'import.meta.env.VITE_LOVEABLE_API_URL': JSON.stringify(process.env.VITE_LOVEABLE_API_URL || "https://api.loveable.dev"),
+  },
 }));
