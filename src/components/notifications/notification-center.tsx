@@ -159,7 +159,17 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
-      <Card className="w-full max-w-lg sm:max-w-2xl max-h-[90vh] sm:max-h-[80vh] mx-auto">
+      <div className="relative w-full max-w-lg sm:max-w-2xl max-h-[90vh] sm:max-h-[80vh] mx-auto">
+        {/* Close button overlay */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onClose}
+          className="absolute -top-2 -right-2 z-10 h-8 w-8 p-0 bg-background border border-border shadow-lg hover:bg-muted"
+        >
+          <X className="w-4 h-4" />
+        </Button>
+        <Card className="w-full h-full">
         <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6">
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-1 sm:gap-2 text-base sm:text-lg">
@@ -317,6 +327,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
           </Tabs>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 };
