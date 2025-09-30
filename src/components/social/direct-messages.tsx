@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+// Fixed Block icon import issue - using Shield instead
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
