@@ -462,6 +462,20 @@ class SocialService {
     if (error) throw error;
   }
 
+  async declineFriendRequest(friendId: string): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    const { error } = await supabase
+      .from('friends')
+      .update({ status: 'declined' })
+      .eq('user_id', friendId)
+      .eq('friend_id', user.id)
+      .eq('status', 'pending');
+
+    if (error) throw error;
+  }
+
   async getFriends(userId: string): Promise<Friend[]> {
     const { data, error } = await supabase
       .from('friends')

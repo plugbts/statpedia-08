@@ -601,6 +601,12 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
         )}
       </div>
 
+      {/* Debug Info */}
+      <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
+        Debug: userProfile={userProfile ? 'loaded' : 'not loaded'}, activeTab={activeTab}, 
+        friendRequests={friendRequests.length}, friends={friends.length}
+      </div>
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="feed">Feed</TabsTrigger>
@@ -714,6 +720,7 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
                           {isSubmitting ? 'Posting...' : 'Post'}
                         </Button>
                       </div>
+                      {/* Debug: BetSlipSharer should be visible above */}
                     </div>
                   </div>
                 </div>
