@@ -6,8 +6,8 @@ import { SportIcon } from '@/components/ui/sport-icon';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { NotificationBell } from '@/components/notifications/notification-bell';
-import { SubscriptionGatePopup } from '@/components/ui/subscription-gate-popup';
-import { BarChart3, Target, TrendingUp, Calendar, Settings, Wifi, LogOut, MoreVertical, Zap, Brain, Play, Pause, CreditCard, MessageCircle, Wallet, Users } from 'lucide-react';
+import { SubscriptionOverlay } from '@/components/ui/subscription-overlay';
+import { BarChart3, Target, TrendingUp, Calendar, Settings, Wifi, LogOut, MoreVertical, Zap, Brain, Play, Pause, CreditCard, MessageCircle, Wallet, Users, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { VerifiedCheckmark } from '@/components/ui/verified-checkmark';
 import { useBackgroundMusic } from '@/hooks/use-background-music';
@@ -29,7 +29,7 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
   const { isPlaying, needsUserInteraction, togglePlayPause } = useBackgroundMusic({ enabled: true, volume: 0.08 });
   const [showMusicTip, setShowMusicTip] = useState(false);
   const [hasShownTip, setHasShownTip] = useState(false);
-  const [showSubscriptionGate, setShowSubscriptionGate] = useState(false);
+  const [showSubscriptionOverlay, setShowSubscriptionOverlay] = useState(false);
   const [lockedFeature, setLockedFeature] = useState<{ name: string; description: string } | null>(null);
 
   // Premium features configuration
@@ -51,21 +51,22 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
   const handlePremiumFeatureClick = (featureId: string) => {
     if (!hasProAccess && premiumFeatures[featureId as keyof typeof premiumFeatures]) {
       setLockedFeature(premiumFeatures[featureId as keyof typeof premiumFeatures]);
-      setShowSubscriptionGate(true);
+      setShowSubscriptionOverlay(true);
     } else {
       onTabChange(featureId);
     }
   };
 
-  // Handle subscription gate actions
+  // Handle subscription overlay actions
   const handleSubscribe = () => {
-    setShowSubscriptionGate(false);
+    setShowSubscriptionOverlay(false);
     onTabChange('plans');
   };
 
-  const handleCloseSubscriptionGate = () => {
-    setShowSubscriptionGate(false);
+  const handleCloseSubscriptionOverlay = () => {
+    setShowSubscriptionOverlay(false);
     setLockedFeature(null);
+    onTabChange('dashboard');
   };
 
   // Show music tip when music starts playing (only once per session)
@@ -357,15 +358,29 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
         duration={10000}
       />
 
-      {/* Subscription Gate Popup */}
-      {lockedFeature && (
-        <SubscriptionGatePopup
-          isVisible={showSubscriptionGate}
-          onClose={handleCloseSubscriptionGate}
-          onSubscribe={handleSubscribe}
-          featureName={lockedFeature.name}
-          featureDescription={lockedFeature.description}
-        />
+      {/* Subscription Overlay */}
+      {showSubscriptionOverlay && lockedFeature && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="relative">
+            <SubscriptionOverlay
+              isVisible={true}
+              icon={<Target className="w-8 h-8 text-primary" />}
+              title={`${lockedFeature.name} - Pro Feature`}
+              description={lockedFeature.description}
+              buttonText="Subscribe to Pro"
+              size="default"
+              onUpgrade={handleSubscribe}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCloseSubscriptionOverlay}
+              className="absolute -top-2 -right-2 z-10 h-8 w-8 p-0 bg-background border border-border shadow-lg hover:bg-muted"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
       )}
     </nav>
   );

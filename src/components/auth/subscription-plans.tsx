@@ -14,7 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { trialAbusePreventionService } from '@/services/trial-abuse-prevention';
 
 interface SubscriptionPlansProps {
-  onSubscriptionSuccess: (plan: string) => void;
+  onSubscriptionSuccess: (plan: string, billingFrequency?: 'monthly' | 'weekly') => void;
   onLogout?: () => void;
 }
 
@@ -35,6 +35,7 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
     reason: string;
     abuseType: string;
   } | null>(null);
+  const [billingFrequency, setBillingFrequency] = useState<'monthly' | 'weekly'>('monthly');
 
   // Payment form state
   const [paymentData, setPaymentData] = useState({
@@ -179,6 +180,7 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
       id: 'pro',
       name: 'Pro',
       price: 29.99,
+      weeklyPrice: 14.99,
       description: 'Full access to all predictions and analysis',
       icon: Zap,
       features: [
@@ -199,6 +201,7 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
       id: 'premium',
       name: 'Premium',
       price: 49.99,
+      weeklyPrice: 24.99,
       description: 'Professional-grade analytics for serious bettors',
       icon: Crown,
       features: [
@@ -218,17 +221,19 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
     }
   ];
 
-  const handlePlanSelect = (planId: string) => {
+  const handlePlanSelect = (planId: string, frequency: 'monthly' | 'weekly' = 'monthly') => {
     if (planId === 'free') {
       // Free plan - no payment needed
       onSubscriptionSuccess(planId);
     } else if (planId === 'free_trial') {
       // Free trial - requires card but no payment
       setSelectedPlan(planId);
+      setBillingFrequency('monthly');
       setShowPaymentForm(true);
     } else {
       // Paid plan - show payment form
       setSelectedPlan(planId);
+      setBillingFrequency(frequency);
       setShowPaymentForm(true);
     }
   };
@@ -268,7 +273,7 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
           if (promoError) console.error('Promo code tracking error:', promoError);
         }
 
-        onSubscriptionSuccess('free_trial');
+        onSubscriptionSuccess('free_trial', 'monthly');
         setShowPaymentForm(false);
         setSelectedPlan('');
         navigate('/');
@@ -276,7 +281,10 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
       }
 
       // Handle regular subscription with promo code
-      let finalPrice = plans.find(p => p.id === selectedPlan)?.price || 0;
+      const selectedPlanData = plans.find(p => p.id === selectedPlan);
+      let finalPrice = billingFrequency === 'weekly' 
+        ? (selectedPlanData as any)?.weeklyPrice || selectedPlanData?.price || 0
+        : selectedPlanData?.price || 0;
       
       if (promoType === 'percentage' && promoDiscount > 0) {
         finalPrice = finalPrice * (1 - promoDiscount / 100);
@@ -301,7 +309,7 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
       }
 
       // Success - call the subscription success callback
-      onSubscriptionSuccess(selectedPlan);
+      onSubscriptionSuccess(selectedPlan, billingFrequency);
       setShowPaymentForm(false);
       setSelectedPlan('');
       
@@ -320,7 +328,7 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
 
   const handleConfirmExit = () => {
     setShowExitConfirmation(false);
-    onSubscriptionSuccess('free');
+    onSubscriptionSuccess('free', 'monthly');
     // Navigate back to dashboard after selecting free plan
     navigate('/');
   };
@@ -451,93 +459,107 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         {plans.map((plan) => {
           const IconComponent = plan.icon;
+          const hasWeeklyOption = plan.id !== 'free' && plan.id !== 'free_trial' && (plan as any).weeklyPrice;
           
           return (
-            <Card 
-              key={plan.id}
-              className={`relative bg-gradient-card border-border/50 transition-all duration-300 hover:shadow-card-hover ${
-                plan.popular ? 'ring-2 ring-primary/50' : ''
-              }`}
-            >
-              {plan.popular && (
-                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                  <Badge className="bg-gradient-primary">
-                    Most Popular
-                  </Badge>
-                </div>
-              )}
-              
-              <CardHeader className="text-center pb-4">
-                <div className={`inline-flex items-center justify-center w-10 h-10 rounded-lg ${plan.gradient} mb-3 mx-auto`}>
-                  <IconComponent className="h-5 w-5 text-white" />
-                </div>
-                
-                <CardTitle className="text-xl font-bold">{plan.name}</CardTitle>
-                <CardDescription className="text-sm">{plan.description}</CardDescription>
-                
-                <div className="py-3">
-                  <div className="text-3xl font-bold text-foreground">
-                    ${plan.price}
-                    {plan.price > 0 && <span className="text-base text-muted-foreground">/month</span>}
-                  </div>
-                  {plan.price === 0 && (
-                    <div className="text-sm text-muted-foreground">Forever</div>
-                  )}
-                  {(plan as any).originalPrice && (
-                    <div className="text-sm text-muted-foreground">
-                      ${(plan as any).originalPrice}/month after trial
-                    </div>
-                  )}
-                </div>
-              </CardHeader>
-              
-              <CardContent className="space-y-3 pt-0">
-                <div className="space-y-1.5">
-                  {plan.features.slice(0, 6).map((feature, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <CheckCircle className="h-3.5 w-3.5 text-success shrink-0" />
-                      <span className="text-xs text-foreground">{feature}</span>
-                    </div>
-                  ))}
-                  {plan.features.length > 6 && (
-                    <div className="text-xs text-muted-foreground">
-                      +{plan.features.length - 6} more features
-                    </div>
-                  )}
-                </div>
-
-                {plan.limitations && (
-                  <div className="pt-1 space-y-1">
-                    <div className="text-xs font-medium text-muted-foreground">Limitations:</div>
-                    {plan.limitations.slice(0, 3).map((limitation, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <div className="h-3 w-3 shrink-0 rounded-full bg-destructive/20 flex items-center justify-center">
-                          <div className="h-0.5 w-0.5 bg-destructive rounded-full"></div>
-                        </div>
-                        <span className="text-xs text-muted-foreground">{limitation}</span>
-                      </div>
-                    ))}
+            <div key={plan.id} className="space-y-4">
+              <Card 
+                className={`relative bg-gradient-card border-border/50 transition-all duration-300 hover:shadow-card-hover ${
+                  plan.popular ? 'ring-2 ring-primary/50' : ''
+                }`}
+              >
+                {plan.popular && (
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                    <Badge className="bg-gradient-primary">
+                      Most Popular
+                    </Badge>
                   </div>
                 )}
+                
+                <CardHeader className="text-center pb-4">
+                  <div className={`inline-flex items-center justify-center w-10 h-10 rounded-lg ${plan.gradient} mb-3 mx-auto`}>
+                    <IconComponent className="h-5 w-5 text-white" />
+                  </div>
+                  
+                  <CardTitle className="text-xl font-bold">{plan.name}</CardTitle>
+                  <CardDescription className="text-sm">{plan.description}</CardDescription>
+                  
+                  <div className="py-3">
+                    <div className="text-3xl font-bold text-foreground">
+                      ${plan.price}
+                      {plan.price > 0 && <span className="text-base text-muted-foreground">/month</span>}
+                    </div>
+                    {plan.price === 0 && (
+                      <div className="text-sm text-muted-foreground">Forever</div>
+                    )}
+                    {(plan as any).originalPrice && (
+                      <div className="text-sm text-muted-foreground">
+                        ${(plan as any).originalPrice}/month after trial
+                      </div>
+                    )}
+                  </div>
+                </CardHeader>
+                
+                <CardContent className="space-y-3 pt-0">
+                  <div className="space-y-1.5">
+                    {plan.features.slice(0, 6).map((feature, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <CheckCircle className="h-3.5 w-3.5 text-success shrink-0" />
+                        <span className="text-xs text-foreground">{feature}</span>
+                      </div>
+                    ))}
+                    {plan.features.length > 6 && (
+                      <div className="text-xs text-muted-foreground">
+                        +{plan.features.length - 6} more features
+                      </div>
+                    )}
+                  </div>
 
-                <div className="pt-3">
-                  <Button 
-                    onClick={() => handlePlanSelect(plan.id)}
-                    variant={plan.id === 'free' ? 'outline' : 'default'}
-                    size="sm"
-                    className={plan.id === 'free' ? 'w-full' : `w-full ${plan.gradient} hover:shadow-glow transition-all duration-300`}
-                    disabled={plan.id === 'free' || (plan as any).disabled}
-                  >
-                    {plan.buttonText}
-                  </Button>
-                  {(plan as any).requiresCard && (
-                    <p className="text-xs text-muted-foreground mt-1.5 text-center">
-                      Card required (no charge)
-                    </p>
+                  {plan.limitations && (
+                    <div className="pt-1 space-y-1">
+                      <div className="text-xs font-medium text-muted-foreground">Limitations:</div>
+                      {plan.limitations.slice(0, 3).map((limitation, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <div className="h-3 w-3 shrink-0 rounded-full bg-destructive/20 flex items-center justify-center">
+                            <div className="h-0.5 w-0.5 bg-destructive rounded-full"></div>
+                          </div>
+                          <span className="text-xs text-muted-foreground">{limitation}</span>
+                        </div>
+                      ))}
+                    </div>
                   )}
-                </div>
-              </CardContent>
-            </Card>
+
+                  <div className="pt-3 space-y-2">
+                    <Button 
+                      onClick={() => handlePlanSelect(plan.id, 'monthly')}
+                      variant={plan.id === 'free' ? 'outline' : 'default'}
+                      size="sm"
+                      className={plan.id === 'free' ? 'w-full' : `w-full ${plan.gradient} hover:shadow-glow transition-all duration-300`}
+                      disabled={plan.id === 'free' || (plan as any).disabled}
+                    >
+                      {plan.buttonText}
+                    </Button>
+                    
+                    {hasWeeklyOption && (
+                      <Button 
+                        onClick={() => handlePlanSelect(plan.id, 'weekly')}
+                        variant="outline"
+                        size="sm"
+                        className="w-full border-primary/50 hover:bg-primary/10"
+                      >
+                        ${(plan as any).weeklyPrice}/week
+                      </Button>
+                    )}
+                    
+                    {(plan as any).requiresCard && (
+                      <p className="text-xs text-muted-foreground mt-1.5 text-center">
+                        Card required (no charge)
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           );
         })}
       </div>
