@@ -31,12 +31,6 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
     zipCode: '',
     country: ''
   });
-  const [gateway, setGateway] = useState({
-    merchantId: '',
-    apiKey: '',
-    secretKey: '',
-    endpoint: ''
-  });
 
   const formatCardNumber = (value: string) => {
     return value.replace(/\s/g, '').replace(/(.{4})/g, '$1 ').trim();
@@ -75,9 +69,8 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
         throw new Error('Please fill in all card details');
       }
 
-      if (!gateway.merchantId || !gateway.apiKey) {
-        throw new Error('Payment gateway not configured. Please set up your merchant account.');
-      }
+      // In production, payment processing must be handled by a secure backend
+      throw new Error('Payment processing not configured. Please integrate a secure payment processor like Stripe.');
 
       // Simulate payment processing
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -162,10 +155,9 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
 
       {/* Payment Methods */}
       <Tabs defaultValue="card" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="card">Credit Card</TabsTrigger>
           <TabsTrigger value="paypal">PayPal</TabsTrigger>
-          <TabsTrigger value="gateway">Gateway Setup</TabsTrigger>
         </TabsList>
 
         {/* Credit Card Tab */}
@@ -292,91 +284,6 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
               >
                 {isProcessing ? 'Redirecting...' : 'Pay with PayPal'}
               </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Gateway Setup Tab */}
-        <TabsContent value="gateway" className="space-y-4">
-          <Card className="bg-gradient-card border-border/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="h-5 w-5" />
-                Payment Gateway Configuration
-              </CardTitle>
-              <CardDescription>
-                Configure where payments will be processed and funds will be deposited
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="merchantId">Merchant ID</Label>
-                  <Input
-                    id="merchantId"
-                    placeholder="Your merchant account ID"
-                    value={gateway.merchantId}
-                    onChange={(e) => setGateway(prev => ({ ...prev, merchantId: e.target.value }))}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="apiKey">API Key</Label>
-                  <Input
-                    id="apiKey"
-                    type="password"
-                    placeholder="Your payment processor API key"
-                    value={gateway.apiKey}
-                    onChange={(e) => setGateway(prev => ({ ...prev, apiKey: e.target.value }))}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="secretKey">Secret Key</Label>
-                  <Input
-                    id="secretKey"
-                    type="password"
-                    placeholder="Your payment processor secret key"
-                    value={gateway.secretKey}
-                    onChange={(e) => setGateway(prev => ({ ...prev, secretKey: e.target.value }))}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="endpoint">Payment Endpoint</Label>
-                  <Input
-                    id="endpoint"
-                    placeholder="https://api.paymentprocessor.com/v1/charges"
-                    value={gateway.endpoint}
-                    onChange={(e) => setGateway(prev => ({ ...prev, endpoint: e.target.value }))}
-                  />
-                </div>
-
-                <Alert className="border-success bg-success/10">
-                  <Shield className="h-4 w-4" />
-                  <AlertDescription>
-                    <strong>Recommended Processors:</strong>
-                    <ul className="mt-2 space-y-1">
-                      <li>• Stripe - industry standard, excellent security</li>
-                      <li>• Square - easy setup, good for small businesses</li>
-                      <li>• PayPal Pro - familiar brand, global acceptance</li>
-                      <li>• Authorize.Net - established, enterprise-grade</li>
-                    </ul>
-                  </AlertDescription>
-                </Alert>
-
-                <Button 
-                  onClick={() => {
-                    toast({
-                      title: "Gateway Configured",
-                      description: "Payment gateway settings saved successfully",
-                    });
-                  }}
-                  className="w-full bg-gradient-success hover:shadow-success"
-                >
-                  Save Gateway Settings
-                </Button>
-              </div>
             </CardContent>
           </Card>
         </TabsContent>
