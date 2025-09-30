@@ -39,8 +39,10 @@ import {
 } from 'lucide-react';
 import { socialService, type UserProfile, type Post, type Comment, type KarmaHistory } from '@/services/social-service';
 import { useToast } from '@/hooks/use-toast';
+import { useUser } from '@/contexts/user-context';
 
 export const SocialAdmin: React.FC = () => {
+  const { userRole, validateUserAccess, getMaskedEmail, logSecurityEvent } = useUser();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -51,6 +53,19 @@ export const SocialAdmin: React.FC = () => {
   const [muteDuration, setMuteDuration] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+
+  // Check if user has admin access
+  if (!validateUserAccess('admin')) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center">
+          <Shield className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-semibold">Access Denied</h3>
+          <p className="text-muted-foreground">You don't have permission to access social administration.</p>
+        </div>
+      </div>
+    );
+  }
 
   useEffect(() => {
     loadData();
@@ -68,6 +83,13 @@ export const SocialAdmin: React.FC = () => {
       setUsers(usersData);
       setPosts(postsData);
       setComments(commentsData);
+      
+      logSecurityEvent('SOCIAL_ADMIN_DATA_LOADED', { 
+        userCount: usersData.length,
+        postCount: postsData.length,
+        commentCount: commentsData.length,
+        adminRole: userRole 
+      });
     } catch (error: any) {
       console.error('Failed to load admin data:', error);
       if (error?.code !== 'PGRST116' && !error?.message?.includes('relation')) {
@@ -120,6 +142,12 @@ export const SocialAdmin: React.FC = () => {
         amount, 
         'admin_adjustment'
       );
+
+      logSecurityEvent('USER_KARMA_ADJUSTED', {
+        targetUserId: selectedUser.user_id,
+        adjustment: amount,
+        adminRole: userRole
+      });
 
       toast({
         title: "Success",
