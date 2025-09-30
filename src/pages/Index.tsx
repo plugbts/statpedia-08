@@ -25,6 +25,7 @@ import { useToast } from '@/hooks/use-toast';
 import { predictionTracker } from '@/services/prediction-tracker';
 import { SeasonalVideoBackground } from '@/components/ui/seasonal-video-background';
 import { BetTrackingTab } from '@/components/bet-tracking/bet-tracking-tab';
+import { SocialTab } from '@/components/social/social-tab';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -991,9 +992,10 @@ const Index = () => {
         {activeTab === 'player-props' && <PlayerPropsTab userSubscription={userSubscription} userRole={userRole} />}
         {activeTab === 'insights' && <InsightsTab selectedSport={selectedSport} userRole={userRole} userSubscription={userSubscription} />}
         {activeTab === 'bet-tracking' && <BetTrackingTab userRole={userRole} />}
+        {activeTab === 'social' && <SocialTab userRole={userRole} />}
         {activeTab === 'strikeout-center' && <StrikeoutCenter />}
         {activeTab === 'sync-test' && renderSyncTest()}
-        {activeTab !== 'dashboard' && activeTab !== 'player-props' && activeTab !== 'insights' && activeTab !== 'bet-tracking' && activeTab !== 'strikeout-center' && activeTab !== 'sync-test' && (
+        {activeTab !== 'dashboard' && activeTab !== 'player-props' && activeTab !== 'insights' && activeTab !== 'bet-tracking' && activeTab !== 'social' && activeTab !== 'strikeout-center' && activeTab !== 'sync-test' && (
           <div className="text-center py-16">
             <h2 className="text-2xl font-bold text-foreground mb-4">
               {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Coming Soon

@@ -3,13 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Users, Ban, Gift, Activity, Mail, AlertTriangle } from "lucide-react";
+import { Shield, Users, Ban, Gift, Activity, Mail, AlertTriangle, MessageSquare } from "lucide-react";
 import { UserManagement } from "@/components/admin/user-management";
 import { DiscordManagement } from "@/components/admin/discord-management";
 import { PromoCodesAdmin } from "@/components/admin/promo-codes-admin";
 import { EmailCampaignsAdmin } from "@/components/admin/email-campaigns-admin";
 import { TrialAbuseAdmin } from "@/components/admin/trial-abuse-admin";
 import { AuditLogs } from "@/components/admin/audit-logs";
+import { SocialAdmin } from "@/components/admin/social-admin";
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -74,7 +75,7 @@ export default function Admin() {
         </div>
 
         <Tabs defaultValue="users" className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="users">
               <Users className="h-4 w-4 mr-2" />
               Users
@@ -98,6 +99,10 @@ export default function Admin() {
             <TabsTrigger value="logs">
               <Ban className="h-4 w-4 mr-2" />
               Audit Logs
+            </TabsTrigger>
+            <TabsTrigger value="social">
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Social
             </TabsTrigger>
           </TabsList>
 
@@ -123,6 +128,10 @@ export default function Admin() {
 
           <TabsContent value="logs" className="space-y-4">
             <AuditLogs />
+          </TabsContent>
+
+          <TabsContent value="social" className="space-y-4">
+            <SocialAdmin />
           </TabsContent>
         </Tabs>
       </div>
