@@ -10,6 +10,7 @@ import { PredictionCard } from '@/components/analytics/prediction-card';
 import { PreviousDayWins } from '@/components/analytics/previous-day-wins';
 import { SyncTest } from '@/components/sync/sync-test';
 import { FeatureTooltip } from '@/components/onboarding/feature-tooltip';
+import { CommentsSection } from '@/components/ui/comments-section';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, Zap, BarChart3, Settings, RefreshCw } from 'lucide-react';
@@ -637,13 +638,16 @@ const Index = () => {
         )}
       </div>
 
-      {/* Previous Day Wins */}
-      <PreviousDayWins />
+          {/* Previous Day Wins */}
+          <PreviousDayWins />
 
-      {/* Feature Tooltip */}
-      {showFeatureTooltip && (
-        <FeatureTooltip onDismiss={handleDismissTooltip} />
-      )}
+          {/* Comments Section */}
+          <CommentsSection className="mt-8" />
+
+          {/* Feature Tooltip */}
+          {showFeatureTooltip && (
+            <FeatureTooltip onDismiss={handleDismissTooltip} />
+          )}
     </div>
   );
 

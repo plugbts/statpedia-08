@@ -6,6 +6,7 @@ import { SportIcon } from '@/components/ui/sport-icon';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { BarChart3, Target, TrendingUp, Calendar, Settings, Wifi, LogOut, MoreVertical, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { VerifiedCheckmark } from '@/components/ui/verified-checkmark';
 
 interface NavigationProps {
   activeTab: string;
@@ -138,16 +139,22 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
                     </AvatarFallback>
                   </Avatar>
                   <div className="hidden lg:block">
-                    <p className="text-sm font-medium text-foreground">
-                      {displayName || userEmail?.split('@')[0]}
-                    </p>
+                    <div className="flex items-center">
+                      <p className="text-sm font-medium text-foreground">
+                        {displayName || userEmail?.split('@')[0]}
+                      </p>
+                      <VerifiedCheckmark role={userRole} />
+                    </div>
                   </div>
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48 bg-card/95 backdrop-blur-md border-border/50 z-[100]">
                 <DropdownMenuItem className="flex flex-col items-start gap-1 py-2">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium">{displayName || userEmail?.split('@')[0]}</p>
+                    <div className="flex items-center">
+                      <p className="text-sm font-medium">{displayName || userEmail?.split('@')[0]}</p>
+                      <VerifiedCheckmark role={userRole} />
+                    </div>
                     {userRole !== 'user' && (
                       <Badge 
                         variant={userRole === 'owner' ? 'default' : 'secondary'} 
