@@ -40,6 +40,7 @@ const Index = () => {
   const [selectedSport, setSelectedSport] = useState('nfl');
   const [realPredictions, setRealPredictions] = useState<any[]>([]);
   const [isLoadingPredictions, setIsLoadingPredictions] = useState(false);
+  const [predictionsCount, setPredictionsCount] = useState(0);
   const [showFeatureTooltip, setShowFeatureTooltip] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [showTodaysPicks, setShowTodaysPicks] = useState(false);
@@ -990,6 +991,7 @@ const Index = () => {
         userRole={userRole}
         userSubscription={userSubscription}
         onLogout={handleLogout}
+        predictionsCount={predictionsCount}
       />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         {/* Header Banner Ad */}
@@ -999,7 +1001,7 @@ const Index = () => {
         <MobileBannerAd userSubscription={userSubscription} />
         
         {activeTab === 'dashboard' && renderDashboard()}
-        {activeTab === 'predictions' && <PredictionsTab selectedSport={selectedSport} userRole={userRole} userSubscription={userSubscription} />}
+        {activeTab === 'predictions' && <PredictionsTab selectedSport={selectedSport} userRole={userRole} userSubscription={userSubscription} onPredictionsCountChange={setPredictionsCount} />}
         {activeTab === 'player-props' && <PlayerPropsTab userSubscription={userSubscription} userRole={userRole} />}
         {activeTab === 'insights' && <InsightsTab selectedSport={selectedSport} userRole={userRole} userSubscription={userSubscription} />}
         {activeTab === 'bet-tracking' && <BetTrackingTab userRole={userRole} />}

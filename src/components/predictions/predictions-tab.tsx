@@ -47,6 +47,7 @@ interface PredictionsTabProps {
   selectedSport: string;
   userRole?: string;
   userSubscription?: string;
+  onPredictionsCountChange?: (count: number) => void;
 }
 
 interface AdvancedPrediction extends GamePrediction {
@@ -64,7 +65,8 @@ interface AdvancedPrediction extends GamePrediction {
 export const PredictionsTab: React.FC<PredictionsTabProps> = ({ 
   selectedSport, 
   userRole = 'user', 
-  userSubscription = 'free' 
+  userSubscription = 'free',
+  onPredictionsCountChange
 }) => {
   const [predictions, setPredictions] = useState<AdvancedPrediction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -78,6 +80,8 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
   const [shouldShowPredictions, setShouldShowPredictions] = useState(true);
   const [offseasonMessage, setOffseasonMessage] = useState('');
   const [seasonLoading, setSeasonLoading] = useState(true);
+  const [selectedPrediction, setSelectedPrediction] = useState<AdvancedPrediction | null>(null);
+  const [showPredictionModal, setShowPredictionModal] = useState(false);
   const { toast } = useToast();
 
   const isSubscribed = userRole === 'owner' || userSubscription !== 'free';
@@ -227,6 +231,11 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
 
       setPredictions(enhancedPredictions);
       
+      // Notify parent component about predictions count
+      if (onPredictionsCountChange) {
+        onPredictionsCountChange(enhancedPredictions.length);
+      }
+      
       toast({
         title: 'Predictions Updated',
         description: `Loaded ${enhancedPredictions.length} advanced predictions for ${selectedSport?.toUpperCase() || 'Unknown Sport'}`,
@@ -253,6 +262,20 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
     setPredictions(prev => prev.map(p => 
       p.id === predictionId ? { ...p, isBookmarked: newBookmarked.has(predictionId) } : p
     ));
+  };
+
+  const handlePredictionClick = (prediction: AdvancedPrediction) => {
+    setSelectedPrediction(prediction);
+    setShowPredictionModal(true);
+  };
+
+  const addToPicks = (prediction: AdvancedPrediction) => {
+    // Add to user's picks (implement this based on your picks system)
+    toast({
+      title: 'Added to Picks',
+      description: `${prediction.homeTeam} vs ${prediction.awayTeam} added to your picks`,
+    });
+    setShowPredictionModal(false);
   };
 
   const filteredPredictions = predictions.filter(prediction => {
@@ -431,10 +454,17 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
       {!isLoading && sortedPredictions.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {sortedPredictions.map((prediction) => (
-            <Card key={prediction.id} className="relative overflow-hidden">
+            <Card 
+              key={prediction.id} 
+              className="relative overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
+              onClick={() => handlePredictionClick(prediction)}
+            >
               {/* Bookmark Button */}
               <button
-                onClick={() => toggleBookmark(prediction.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleBookmark(prediction.id);
+                }}
                 className="absolute top-3 right-3 z-10 p-1 rounded-full hover:bg-muted/50 transition-colors"
               >
                 {prediction.isBookmarked ? (
@@ -586,6 +616,211 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
           }}>
             Clear Filters
           </Button>
+        </div>
+      )}
+
+      {/* Prediction Detail Modal */}
+      {showPredictionModal && selectedPrediction && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-card border border-border/50 rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-foreground">
+                  {selectedPrediction.homeTeam || 'Home Team'} vs {selectedPrediction.awayTeam || 'Away Team'}
+                </h2>
+                <p className="text-muted-foreground">
+                  {selectedPrediction.sport?.toUpperCase() || 'Unknown Sport'} • {selectedPrediction.date ? new Date(selectedPrediction.date).toLocaleDateString() : 'TBD'}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowPredictionModal(false)}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left Column - Basic Info */}
+              <div className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Prediction Summary</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-medium">Confidence</span>
+                          <span className={`text-sm font-bold ${getConfidenceColor(selectedPrediction.confidence || 0)}`}>
+                            {selectedPrediction.confidence || 0}%
+                          </span>
+                        </div>
+                        <Progress value={selectedPrediction.confidence || 0} className="h-2" />
+                      </div>
+                      
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-medium">Value Rating</span>
+                          <span className="text-sm font-bold text-primary">
+                            {selectedPrediction.valueRating || 0}/5
+                          </span>
+                        </div>
+                        <div className="flex">
+                          {Array.from({ length: 5 }, (_, i) => (
+                            <Star 
+                              key={i} 
+                              className={cn(
+                                "w-3 h-3",
+                                i < Math.floor(selectedPrediction.valueRating || 0) 
+                                  ? "text-yellow-400 fill-current" 
+                                  : "text-muted-foreground"
+                              )} 
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Risk Level</span>
+                      <Badge className={cn("text-xs", getRiskColor(selectedPrediction.riskLevel))}>
+                        {selectedPrediction.riskLevel?.toUpperCase() || 'UNKNOWN'}
+                      </Badge>
+                    </div>
+
+                    {selectedPrediction.analysis && (
+                      <div className="space-y-2">
+                        <div className="text-sm">
+                          <span className="font-medium">Predicted Score: </span>
+                          <span className="text-muted-foreground">
+                            {selectedPrediction.homeTeam} {Math.round(selectedPrediction.analysis.predictedHomeScore)} - 
+                            {Math.round(selectedPrediction.analysis.predictedAwayScore)} {selectedPrediction.awayTeam}
+                          </span>
+                        </div>
+                        
+                        <div className="text-sm">
+                          <span className="font-medium">AI Recommendation: </span>
+                          <span className="text-muted-foreground">
+                            {selectedPrediction.analysis.recommendation}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Cross-Reference Analysis */}
+                {selectedPrediction.crossReference && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Cross-Reference Analysis</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="text-sm">
+                        <span className="font-medium">Model Consensus: </span>
+                        <span className="text-muted-foreground">
+                          {selectedPrediction.crossReference.consensus}
+                        </span>
+                      </div>
+                      
+                      <div className="text-sm">
+                        <span className="font-medium">Agreement: </span>
+                        <span className="text-muted-foreground">
+                          {selectedPrediction.crossReference.agreement.toFixed(0)}%
+                        </span>
+                      </div>
+
+                      <div className="text-sm">
+                        <span className="font-medium">Risk Level: </span>
+                        <span className="text-muted-foreground">
+                          {selectedPrediction.crossReference.riskLevel.toUpperCase()}
+                        </span>
+                      </div>
+
+                      <div className="text-sm">
+                        <span className="font-medium">Reasoning: </span>
+                        <span className="text-muted-foreground">
+                          {selectedPrediction.crossReference.reasoning}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              {/* Right Column - Detailed Analysis */}
+              <div className="space-y-4">
+                {/* Key Factors */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Key Factors</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {(selectedPrediction.factors || []).map((factor, index) => (
+                        <div key={index} className="text-sm text-muted-foreground flex items-start gap-2">
+                          <span className="text-primary font-bold">•</span>
+                          <span>{factor}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Model Breakdown */}
+                {selectedPrediction.crossReference?.modelBreakdown && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Model Breakdown</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {selectedPrediction.crossReference.modelBreakdown.map((model, index) => (
+                          <div key={index} className="border rounded-lg p-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="font-medium text-sm">{model.model}</span>
+                              <Badge variant="outline" className="text-xs">
+                                {model.confidence.toFixed(0)}% confidence
+                              </Badge>
+                            </div>
+                            <div className="text-sm text-muted-foreground mb-2">
+                              Recommendation: {model.recommendation.toUpperCase()}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              Factors: {model.factors.join(', ')}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={() => addToPicks(selectedPrediction)}
+                    className="flex-1"
+                  >
+                    <Target className="w-4 h-4 mr-2" />
+                    Add to Picks
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => toggleBookmark(selectedPrediction.id)}
+                  >
+                    {selectedPrediction.isBookmarked ? (
+                      <BookmarkCheck className="w-4 h-4" />
+                    ) : (
+                      <Bookmark className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

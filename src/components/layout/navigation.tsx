@@ -23,9 +23,10 @@ interface NavigationProps {
   userRole?: string;
   userSubscription?: string;
   onLogout?: () => void;
+  predictionsCount?: number;
 }
 
-export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSport = 'nfl', userEmail, displayName, userRole = 'user', userSubscription = 'free', onLogout }: NavigationProps) => {
+export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSport = 'nfl', userEmail, displayName, userRole = 'user', userSubscription = 'free', onLogout, predictionsCount = 0 }: NavigationProps) => {
   const { isPlaying, needsUserInteraction, togglePlayPause } = useBackgroundMusic({ enabled: true, volume: 0.08 });
   const [showMusicTip, setShowMusicTip] = useState(false);
   const [hasShownTip, setHasShownTip] = useState(false);
@@ -79,7 +80,7 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="w-4 h-4" /> },
-    { id: 'predictions', label: 'Predictions', icon: <Target className="w-4 h-4" />, badge: '12' },
+    { id: 'predictions', label: 'Predictions', icon: <Target className="w-4 h-4" />, badge: predictionsCount > 100 ? '100+' : predictionsCount.toString() },
     { id: 'player-props', label: 'Player Props', icon: <TrendingUp className="w-4 h-4" />, badge: 'NEW' },
     { id: 'insights', label: 'Insights', icon: <Brain className="w-4 h-4" />, badge: 'HOT' },
     { id: 'bet-tracking', label: 'Bet Tracking', icon: <Wallet className="w-4 h-4" />, badge: 'NEW' },
