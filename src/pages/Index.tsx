@@ -122,7 +122,10 @@ const Index = () => {
   }, [user, activeTab]);
 
   const simulatePreviousDayResults = () => {
-    // Create some demo predictions for yesterday
+    // Clear all existing data to reset wins to 0
+    predictionTracker.clearAllData();
+    
+    // Create some demo predictions for yesterday (but with 0 wins to reset)
     const demoPredictions = [
       {
         id: 'demo-1',
@@ -150,31 +153,14 @@ const Index = () => {
         gameDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
         status: 'pending' as const,
       },
-      {
-        id: 'demo-3',
-        sport: 'nba',
-        player: 'LeBron James',
-        team: 'LAL',
-        opponent: 'GSW',
-        prop: 'Points',
-        line: 25.5,
-        prediction: 'over' as const,
-        odds: '-110',
-        gameDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-        status: 'pending' as const,
-      },
     ];
 
-    // Add predictions to tracker
+    // Add predictions to tracker but don't simulate wins (keep at 0)
     demoPredictions.forEach(pred => {
       predictionTracker.addPrediction(pred);
     });
 
-    // Simulate results
-    const results = predictionTracker.simulatePreviousDayResults(demoPredictions);
-    results.forEach(result => {
-      predictionTracker.updatePredictionResult(result.id, result.actualValue!);
-    });
+    // Don't simulate results - keep wins at 0 for reset
   };
 
   const loadRealPredictions = async () => {
@@ -183,17 +169,26 @@ const Index = () => {
       const sports = await fetchInSeasonSports();
       const allPredictions: any[] = [];
       
-      // Fetch odds for each active sport - get ALL games in next week
-      for (const sport of sports.slice(0, 5)) { // Get up to 5 sports
+      // Fetch odds for each active sport - get ALL games in current week
+      for (const sport of sports.slice(0, 6)) { // Get up to 6 sports for more variety
         const sportKey = sport.key;
         const odds = await fetchOdds(sportKey);
         
-        // Transform ALL odds to predictions (not just first 4)
+        // Transform ALL odds to predictions for the current week
         odds.forEach((game: any) => {
           const prediction = transformGameToPrediction(game, sportKey);
-          allPredictions.push(prediction);
+          if (prediction) {
+            allPredictions.push(prediction);
+          }
         });
       }
+      
+      // Sort predictions by game date to show this week's games first
+      allPredictions.sort((a, b) => {
+        const dateA = new Date(a.gameDate || Date.now());
+        const dateB = new Date(b.gameDate || Date.now());
+        return dateA.getTime() - dateB.getTime();
+      });
       
       setRealPredictions(allPredictions);
     } catch (error) {
@@ -211,15 +206,27 @@ const Index = () => {
   const transformGameToPrediction = (game: any, sportKey: string) => {
     const homeTeam = game.home_team || 'Home Team';
     const awayTeam = game.away_team || 'Away Team';
+    const gameDate = game.commence_time || new Date().toISOString();
+    
+    // Generate more realistic predictions based on sport
+    const props = {
+      nfl: ['Passing Yards', 'Rushing Yards', 'Receiving Yards', 'Touchdowns', 'Game Total'],
+      nba: ['Points', 'Rebounds', 'Assists', '3-Pointers Made', 'Game Total'],
+      mlb: ['Hits', 'Runs', 'Strikeouts', 'Home Runs', 'Game Total'],
+      nhl: ['Goals', 'Assists', 'Shots on Goal', 'Saves', 'Game Total'],
+    };
+    
+    const sportProps = props[sportKey as keyof typeof props] || ['Game Total'];
+    const selectedProp = sportProps[Math.floor(Math.random() * sportProps.length)];
     
     return {
-      id: `${game.id}-${Date.now()}`,
+      id: `${game.id}-${Date.now()}-${Math.random()}`,
       sport: sportKey,
       player: `${homeTeam} vs ${awayTeam}`,
       team: homeTeam,
       opponent: awayTeam,
-      prop: 'Game Total',
-      line: Math.random() * 20 + 200,
+      prop: selectedProp,
+      line: Math.random() * 20 + (sportKey === 'nfl' ? 200 : sportKey === 'nba' ? 220 : 8),
       prediction: Math.random() > 0.5 ? 'over' : 'under',
       confidence: Math.floor(Math.random() * 30) + 70,
       odds: Math.random() > 0.5 ? '-110' : '+105',
@@ -229,7 +236,7 @@ const Index = () => {
         { name: 'Weather', value: 'Perfect', isPositive: true },
       ],
       status: 'pending',
-      gameDate: new Date().toISOString(),
+      gameDate: gameDate,
     };
   };
 
@@ -269,8 +276,8 @@ const Index = () => {
     return <AuthPage onAuthSuccess={handleAuthSuccess} />;
   }
 
-  // Use real predictions data from sports API
-  const currentPredictions = predictions || [];
+  // Use real predictions data from sports API - prioritize realPredictions over hook data
+  const currentPredictions = realPredictions.length > 0 ? realPredictions : (predictions || []);
 
   const mockWins = [
     {
@@ -419,42 +426,54 @@ const Index = () => {
       {/* Stats Overview */}
       <StatsOverview
         totalPredictions={realPredictions.length * 100} // Simulated historical count
-        winRate={73.4}
-        dailyWins={realPredictions.filter(p => p.confidence >= 75).length}
-        weeklyWins={realPredictions.length * 5}
+        winRate={0} // Reset to 0
+        dailyWins={0} // Reset to 0
+        weeklyWins={0} // Reset to 0
         averageOdds="-108"
-        totalProfit={4293}
+        totalProfit={0} // Reset to 0
         todaysPredictions={realPredictions.length}
       />
 
       {/* Today's Top Predictions */}
       <div className="space-y-6 animate-fade-in" style={{ animationDelay: '300ms' }}>
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-foreground">Today's Top Predictions</h2>
-          <Badge variant="default" className="bg-gradient-accent">
-            <TrendingUp className="w-3 h-3 mr-1" />
-            {currentPredictions.length} ACTIVE
-          </Badge>
+          <h2 className="text-2xl font-bold text-foreground">This Week's Predictions</h2>
+          <div className="flex items-center gap-2">
+            <Badge variant="default" className="bg-gradient-accent">
+              <TrendingUp className="w-3 h-3 mr-1" />
+              {currentPredictions.length} ACTIVE
+            </Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadRealPredictions}
+              disabled={isLoadingPredictions}
+            >
+              {isLoadingPredictions ? (
+                <>
+                  <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-3 h-3 mr-1" />
+                  Refresh
+                </>
+              )}
+            </Button>
+          </div>
         </div>
-        {sportsLoading ? (
+        {isLoadingPredictions ? (
           <div className="flex items-center justify-center py-12">
             <div className="flex items-center gap-2">
               <RefreshCw className="h-5 w-5 animate-spin" />
               <span className="text-muted-foreground">Loading live predictions...</span>
             </div>
           </div>
-        ) : sportsError ? (
-          <div className="text-center py-12">
-            <p className="text-red-500 mb-4">Error loading predictions: {sportsError}</p>
-            <Button onClick={refetchSportsData} variant="outline">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Retry
-            </Button>
-          </div>
         ) : currentPredictions.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground mb-4">No predictions available for {selectedSport.toUpperCase()}</p>
-            <Button onClick={refetchSportsData} variant="outline">
+            <Button onClick={loadRealPredictions} variant="outline">
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
             </Button>
