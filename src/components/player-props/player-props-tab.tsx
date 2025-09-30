@@ -37,7 +37,6 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 interface PlayerPropsTabProps {
-  selectedSport: string;
   userSubscription: string;
   userRole?: string;
 }
@@ -114,9 +113,9 @@ const SORT_OPTIONS = [
   { value: 'hitRate', label: 'Hit Rate' },
 ];
 
-export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport, userSubscription, userRole = 'user' }) => {
+export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription, userRole = 'user' }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [sportFilter, setSportFilter] = useState(selectedSport);
+  const [sportFilter, setSportFilter] = useState('nba');
   const [propTypeFilter, setPropTypeFilter] = useState('all');
   const [selectedProps, setSelectedProps] = useState<string[]>([]);
   const [realProps, setRealProps] = useState<PlayerProp[]>([]);
@@ -150,13 +149,13 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport, u
     loading: propsLoading,
     error: propsError,
     refetch: refetchProps,
-  } = usePlayerProps(selectedSport);
+  } = usePlayerProps(sportFilter);
 
   // Generate mock data with all required fields
   const generateMockProps = (): PlayerProp[] => [
     {
       id: '1',
-      sport: selectedSport,
+      sport: 'nba',
       playerName: 'LeBron James',
       team: 'LAL',
       opponent: 'GSW',
@@ -178,7 +177,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport, u
     },
     {
       id: '2',
-      sport: selectedSport,
+      sport: 'nba',
       playerName: 'Stephen Curry',
       team: 'GSW',
       opponent: 'LAL',
@@ -200,7 +199,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport, u
     },
     {
       id: '3',
-      sport: selectedSport,
+      sport: 'nba',
       playerName: 'Anthony Davis',
       team: 'LAL',
       opponent: 'GSW',
@@ -222,7 +221,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport, u
     },
     {
       id: '4',
-      sport: selectedSport,
+      sport: 'nba',
       playerName: 'Klay Thompson',
       team: 'GSW',
       opponent: 'LAL',
@@ -244,7 +243,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport, u
     },
     {
       id: '5',
-      sport: selectedSport,
+      sport: 'nba',
       playerName: 'Russell Westbrook',
       team: 'LAC',
       opponent: 'PHX',
@@ -329,22 +328,12 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport, u
     localStorage.setItem('statpedia_prop_filters', JSON.stringify(filterSettings));
   }, [filterSettings]);
 
-  // Update sport filter when selectedSport changes
-  useEffect(() => {
-    setSportFilter(selectedSport);
-  }, [selectedSport]);
-
   // Use real data from API, fallback to mock data if needed
   const allPlayerProps = (realPlayerProps && realPlayerProps.length > 0) ? realPlayerProps : generateMockProps();
 
   // Filter and sort props based on current settings
   const filteredProps = (allPlayerProps || [])
     .filter((prop) => {
-      // Sport filter - only show props for selected sport
-      if (prop.sport.toLowerCase() !== selectedSport.toLowerCase()) {
-        return false;
-      }
-
       // Search filter
       if (searchQuery && !prop.playerName.toLowerCase().includes(searchQuery.toLowerCase())) {
         return false;

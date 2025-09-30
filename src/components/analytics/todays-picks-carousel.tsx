@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 interface TodaysPicksCarouselProps {
   predictions: any[];
   isSubscribed: boolean;
-  onClose?: () => void;
+  onClose: () => void;
   sport: string;
 }
 
@@ -145,15 +145,13 @@ export const TodaysPicksCarousel = ({
           <Badge variant="default" className="bg-gradient-accent">
             {predictions.length} PICKS
           </Badge>
-          {onClose && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onClose}
-            >
-              Close
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onClose}
+          >
+            Close
+          </Button>
         </div>
       </div>
 
