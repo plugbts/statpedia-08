@@ -44,9 +44,7 @@ class BannerService {
       return data || [];
     } catch (error: any) {
       console.error('Failed to get banner presets:', error);
-      if (error?.code !== 'PGRST116' && !error?.message?.includes('function does not exist')) {
-        throw error;
-      }
+      // Return empty array instead of throwing to prevent UI errors
       return [];
     }
   }

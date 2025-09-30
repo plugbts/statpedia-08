@@ -508,6 +508,8 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
   const closeBannerEditor = () => {
     setShowBannerEditor(false);
     setCurrentBanner(null);
+    // Ensure we're on the profile tab when closing banner editor
+    setActiveTab('profile');
   };
 
   const handleSearch = async () => {
@@ -687,12 +689,6 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
         )}
       </div>
 
-      {/* Debug Info */}
-      <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
-        Debug: userProfile={userProfile ? 'loaded' : 'not loaded'}, activeTab={activeTab}, 
-        friendRequests={friendRequests.length}, friends={friends.length}, 
-        karmaTutorialChecked={karmaTutorialChecked ? 'yes' : 'no'}, showKarmaTutorial={showKarmaTutorial ? 'yes' : 'no'}
-      </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="grid w-full grid-cols-7 gap-1">

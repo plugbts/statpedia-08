@@ -194,19 +194,19 @@ export const BannerEditor: React.FC<BannerEditorProps> = ({
 
       {/* Banner Preview */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Preview</CardTitle>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-xs">Preview</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-3">
           <div 
-            className="w-full h-32 rounded-lg border overflow-hidden relative"
+            className="w-full h-16 rounded border overflow-hidden relative"
             style={bannerStyles}
           >
             {!bannerSettings.banner_url && (
               <div className="w-full h-full bg-muted flex items-center justify-center text-muted-foreground">
                 <div className="text-center">
-                  <Image className="w-8 h-8 mx-auto mb-2" />
-                  <p className="text-sm">No banner selected</p>
+                  <Image className="w-4 h-4 mx-auto mb-1" />
+                  <p className="text-xs">No banner selected</p>
                 </div>
               </div>
             )}
