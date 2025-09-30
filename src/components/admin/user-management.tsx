@@ -66,7 +66,7 @@ interface UserStats {
 }
 
 export function UserManagement() {
-  const { userRole, validateUserAccess, getMaskedEmail, logSecurityEvent } = useUser();
+  const { userRole, validateUserAccess, getMaskedEmail, logSecurityEvent, isOwnerEmail } = useUser();
   const [users, setUsers] = useState<UserData[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserData[]>([]);
   const [stats, setStats] = useState<UserStats>({
@@ -129,12 +129,30 @@ export function UserManagement() {
       // Combine data
       const usersData: UserData[] = profiles.map(profile => {
         const userProfile = userProfiles?.find(up => up.user_id === profile.user_id);
+        
+        // Determine role based on email (for owner accounts)
+        let role = userProfile?.role || 'user';
+        if (profile.email && isOwnerEmail(profile.email)) {
+          role = 'owner';
+        } else if (profile.email?.includes('admin')) {
+          role = 'admin';
+        } else if (profile.email?.includes('mod')) {
+          role = 'mod';
+        }
+        
+        // Get username with better fallback
+        let username = userProfile?.username;
+        if (!username) {
+          // Try to get from email prefix
+          username = profile.email?.split('@')[0] || `user_${profile.user_id.slice(0, 8)}`;
+        }
+        
         return {
           id: profile.user_id,
           email: profile.email || '',
           display_name: profile.display_name || profile.email?.split('@')[0] || 'Unknown',
-          username: userProfile?.username || profile.email?.split('@')[0] || 'unknown',
-          role: userProfile?.role || 'user',
+          username: username,
+          role: role,
           subscription_tier: profile.subscription_tier || 'free',
           created_at: profile.created_at,
           last_sign_in: profile.last_sign_in || profile.created_at,
@@ -209,13 +227,44 @@ export function UserManagement() {
 
   const handleRoleChange = async (userId: string, newRole: string) => {
     try {
-      // Update in user_profiles table
-      const { error } = await supabase
+      // First, check if user profile exists
+      const { data: existingProfile } = await supabase
         .from('user_profiles')
-        .update({ role: newRole })
-        .eq('user_id', userId);
+        .select('*')
+        .eq('user_id', userId)
+        .single();
 
-      if (error) throw error;
+      if (existingProfile) {
+        // Update existing profile
+        const { error } = await supabase
+          .from('user_profiles')
+          .update({ role: newRole })
+          .eq('user_id', userId);
+
+        if (error) throw error;
+      } else {
+        // Create new profile with role
+        const user = users.find(u => u.id === userId);
+        if (!user) throw new Error('User not found');
+
+        const { error } = await supabase
+          .from('user_profiles')
+          .insert({
+            user_id: userId,
+            username: user.username,
+            display_name: user.display_name,
+            role: newRole,
+            karma: 0,
+            roi_percentage: 0,
+            total_posts: 0,
+            total_comments: 0,
+            is_muted: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+
+        if (error) throw error;
+      }
 
       // Update local state
       setUsers(prev => prev.map(user => 
@@ -236,7 +285,7 @@ export function UserManagement() {
       console.error('Failed to update role:', error);
       toast({
         title: "Error",
-        description: "Failed to update user role",
+        description: `Failed to update user role: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive"
       });
     }
@@ -244,12 +293,44 @@ export function UserManagement() {
 
   const handleMuteToggle = async (userId: string, isMuted: boolean) => {
     try {
-      const { error } = await supabase
+      // First, check if user profile exists
+      const { data: existingProfile } = await supabase
         .from('user_profiles')
-        .update({ is_muted: isMuted })
-        .eq('user_id', userId);
+        .select('*')
+        .eq('user_id', userId)
+        .single();
 
-      if (error) throw error;
+      if (existingProfile) {
+        // Update existing profile
+        const { error } = await supabase
+          .from('user_profiles')
+          .update({ is_muted: isMuted })
+          .eq('user_id', userId);
+
+        if (error) throw error;
+      } else {
+        // Create new profile with mute status
+        const user = users.find(u => u.id === userId);
+        if (!user) throw new Error('User not found');
+
+        const { error } = await supabase
+          .from('user_profiles')
+          .insert({
+            user_id: userId,
+            username: user.username,
+            display_name: user.display_name,
+            role: user.role,
+            karma: 0,
+            roi_percentage: 0,
+            total_posts: 0,
+            total_comments: 0,
+            is_muted: isMuted,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+
+        if (error) throw error;
+      }
 
       setUsers(prev => prev.map(user => 
         user.id === userId ? { ...user, is_muted: isMuted } : user
@@ -269,7 +350,7 @@ export function UserManagement() {
       console.error('Failed to toggle mute:', error);
       toast({
         title: "Error",
-        description: "Failed to update user mute status",
+        description: `Failed to update user mute status: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive"
       });
     }
