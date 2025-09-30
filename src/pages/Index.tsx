@@ -70,6 +70,16 @@ const Index = () => {
     setUserSubscription(subscription);
   };
 
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      setUserSubscription('free');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -395,7 +405,13 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background relative">
       <MatrixBackground />
-      <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
+      <Navigation 
+        activeTab={activeTab} 
+        onTabChange={setActiveTab}
+        userEmail={user.email}
+        displayName={user.user_metadata?.display_name}
+        onLogout={handleLogout}
+      />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         {activeTab === 'dashboard' && renderDashboard()}

@@ -143,6 +143,31 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
           // fetchProfileAndRedirect will be called by onAuthStateChange
         }
       } else {
+        // Check if display name is already taken
+        const { data: existingProfile, error: checkError } = await supabase
+          .from('profiles')
+          .select('display_name')
+          .eq('display_name', formData.displayName)
+          .maybeSingle();
+
+        if (checkError && checkError.code !== 'PGRST116') {
+          toast({
+            title: "Error",
+            description: "Failed to verify display name availability",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (existingProfile) {
+          toast({
+            title: "Display Name Unavailable",
+            description: "This display name is already in use. Please choose a different one.",
+            variant: "destructive",
+          });
+          return;
+        }
+
         // Signup
         const redirectUrl = `${window.location.origin}/`;
         
@@ -235,11 +260,27 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      toast({
+        title: "Logged Out",
+        description: "You have been successfully logged out",
+      });
+      setAuthMode('login');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
   if (authMode === 'plans') {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="w-full max-w-6xl">
-          <SubscriptionPlans onSubscriptionSuccess={handleSubscriptionSuccess} />
+          <SubscriptionPlans 
+            onSubscriptionSuccess={handleSubscriptionSuccess} 
+            onLogout={handleLogout}
+          />
         </div>
       </div>
     );

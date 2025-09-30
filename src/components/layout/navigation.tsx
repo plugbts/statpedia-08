@@ -1,16 +1,20 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { SportIcon } from '@/components/ui/sport-icon';
-import { BarChart3, Target, TrendingUp, Calendar, Settings, Wifi } from 'lucide-react';
+import { BarChart3, Target, TrendingUp, Calendar, Settings, Wifi, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface NavigationProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
+  userEmail?: string;
+  displayName?: string;
+  onLogout?: () => void;
 }
 
-export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
+export const Navigation = ({ activeTab, onTabChange, userEmail, displayName, onLogout }: NavigationProps) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="w-4 h-4" /> },
     { id: 'predictions', label: 'Predictions', icon: <Target className="w-4 h-4" />, badge: '12' },
@@ -66,7 +70,36 @@ export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
             ))}
           </div>
 
-          {/* Sports Filter */}
+          {/* User Profile and Logout */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Avatar className="h-8 w-8 border-2 border-primary/20">
+                <AvatarFallback className="bg-gradient-primary text-white text-sm">
+                  {displayName?.[0]?.toUpperCase() || userEmail?.[0]?.toUpperCase() || 'U'}
+                </AvatarFallback>
+              </Avatar>
+              <div className="hidden md:block">
+                <p className="text-sm font-medium text-foreground">
+                  {displayName || userEmail?.split('@')[0]}
+                </p>
+              </div>
+            </div>
+            {onLogout && (
+              <Button
+                onClick={onLogout}
+                variant="ghost"
+                size="sm"
+                className="gap-2 text-muted-foreground hover:text-foreground"
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="hidden md:inline">Logout</span>
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Sports Filter */}
+        <div className="flex items-center justify-center gap-1 py-2">
           <div className="flex items-center gap-1">
             {sports.map((sport) => (
               <Button

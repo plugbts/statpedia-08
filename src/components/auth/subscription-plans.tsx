@@ -8,9 +8,10 @@ import { CheckCircle, Star, Zap, Crown, Shield, X } from 'lucide-react';
 
 interface SubscriptionPlansProps {
   onSubscriptionSuccess: (plan: string) => void;
+  onLogout?: () => void;
 }
 
-export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscriptionSuccess }) => {
+export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscriptionSuccess, onLogout }) => {
   const [showExitConfirmation, setShowExitConfirmation] = useState(false);
 
   const plans = [
@@ -101,14 +102,26 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
   return (
     <>
       <div className="space-y-8 relative">
-        {/* Exit button */}
-        <button
-          onClick={handleExitClick}
-          className="absolute -top-4 left-4 z-10 p-2 rounded-full bg-background border border-border hover:bg-accent transition-colors"
-          aria-label="Skip subscription"
-        >
-          <X className="h-5 w-5 text-foreground" />
-        </button>
+        {/* Exit and Logout buttons */}
+        <div className="absolute -top-4 left-4 z-10 flex gap-2">
+          <button
+            onClick={handleExitClick}
+            className="p-2 rounded-full bg-background border border-border hover:bg-accent transition-colors"
+            aria-label="Skip subscription"
+          >
+            <X className="h-5 w-5 text-foreground" />
+          </button>
+          {onLogout && (
+            <Button
+              onClick={onLogout}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+            >
+              Logout
+            </Button>
+          )}
+        </div>
 
         <div className="text-center space-y-4">
           <h2 className="text-3xl font-bold text-foreground mb-4">
