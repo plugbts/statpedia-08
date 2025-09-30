@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { freeSportsAPIService } from '@/services/free-sports-api';
+import { siteScraperService } from '@/services/site-scraper';
 import { gamesService } from '@/services/games-service';
 import { predictionService } from '@/services/prediction-service';
 
@@ -19,8 +19,8 @@ export function useLiveGames(sport: string, options: { autoFetch?: boolean; refr
       setLoading(true);
       setError(null);
       
-      // Get real games from free sports API
-      const freeGames = await freeSportsAPIService.getCurrentWeekGames(sport);
+      // Get real games from site scraper
+      const freeGames = await siteScraperService.getGamesFromPropFinder(sport);
       
       // Filter for current and future games only
       const now = new Date();
@@ -77,7 +77,7 @@ export function usePlayers(sport: string, teamId?: string) {
       setError(null);
       
       // Get players from current week games
-      const games = await freeSportsAPIService.getCurrentWeekGames(sport);
+      const games = await siteScraperService.getGamesFromPropFinder(sport);
       const allPlayers: any[] = [];
       
       // Extract players from games
@@ -139,8 +139,8 @@ export function usePlayerProps(sport: string, market?: string) {
       setLoading(true);
       setError(null);
       
-      // Get real props from free sports API
-      const freeProps = await freeSportsAPIService.getPlayerProps(sport);
+      // Get real props from site scraper
+      const freeProps = await siteScraperService.getPropsFromOutlier(sport);
       
       // Filter for current and future games only
       const now = new Date();

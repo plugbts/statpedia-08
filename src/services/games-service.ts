@@ -1,7 +1,7 @@
 // Games Service for fetching real sports data
 // Integrates with ESPN API to get current week's games
 
-import { freeSportsAPIService, FreeGame, FreePlayerProp } from './free-sports-api';
+import { siteScraperService } from './site-scraper';
 
 export interface RealGame {
   id: string;
@@ -110,16 +110,54 @@ class GamesService {
       return cached.data;
     }
 
-    // Use free sports API only - no fallbacks
-    const freeGames = await freeSportsAPIService.getCurrentWeekGames(sport);
-    const realGames = this.convertFreeGamesToRealGames(freeGames);
+    // Use real site scraper only - no fallbacks
+    const scrapedGames = await siteScraperService.getGamesFromPropFinder(sport);
+    const realGames = this.convertScrapedGamesToRealGames(scrapedGames);
     
     this.cache.set(cacheKey, { data: realGames, timestamp: now });
     return realGames;
   }
 
-  // Convert free games to RealGame format
-  private convertFreeGamesToRealGames(freeGames: FreeGame[]): RealGame[] {
+  // Convert scraped games to RealGame format
+  private convertScrapedGamesToRealGames(scrapedGames: any[]): RealGame[] {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const twoWeeksFromNow = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
+    
+    return scrapedGames
+      .filter(game => {
+        const gameDate = new Date(game.date);
+        return gameDate >= today && gameDate <= twoWeeksFromNow && 
+               (game.status === 'upcoming' || game.status === 'live');
+      })
+      .map(game => ({
+        id: game.id,
+        homeTeam: game.homeTeam,
+        awayTeam: game.awayTeam,
+        sport: game.sport,
+        date: game.date,
+        time: game.time,
+        homeOdds: game.homeOdds,
+        awayOdds: game.awayOdds,
+        drawOdds: game.drawOdds,
+        homeRecord: game.homeRecord,
+        awayRecord: game.awayRecord,
+        homeForm: this.generateFormData(),
+        awayForm: this.generateFormData(),
+        h2hData: this.generateH2HData(),
+        venue: game.venue || 'TBD',
+        weather: this.generateWeatherData(),
+        injuries: this.generateInjuryData(),
+        trends: this.generateTrendData(),
+        keyStats: this.generateKeyStats(),
+        league: game.sport,
+        season: '2025',
+        week: this.getCurrentWeek()
+      }));
+  }
+
+  // Convert free games to RealGame format (legacy)
+  private convertFreeGamesToRealGames(freeGames: any[]): RealGame[] {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const twoWeeksFromNow = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
