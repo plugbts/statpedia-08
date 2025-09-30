@@ -36,14 +36,12 @@ export const SubscriptionGatePopup: React.FC<SubscriptionGatePopupProps> = ({
   if (!isVisible) return null;
 
   return (
-    <>
-      {/* Blur overlay for entire screen */}
-      <div 
-        className="fixed inset-0 bg-black/60 z-[9998] subscription-blur"
-      ></div>
+    <div className="fixed inset-0 z-[9999]">
+      {/* Dark overlay with blur effect */}
+      <div className="subscription-gate-blur"></div>
       
       {/* Popup container */}
-      <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-16 sm:pt-20 px-4">
+      <div className="relative z-[9999] flex items-start justify-center pt-16 sm:pt-20 px-4 h-full">
         <div className="relative">
         {/* 3D Effect Container */}
         <div className="relative transform perspective-1000">
