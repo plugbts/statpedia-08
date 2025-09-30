@@ -29,6 +29,22 @@
   animation: float 3s ease-in-out infinite;
 }
 
+/* Enhanced blur effects for subscription gate */
+.backdrop-blur-lg {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.backdrop-blur-md {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.backdrop-blur-sm {
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
 /* Sports Analytics Design System - Professional Dark Theme */
 
 @layer base {
