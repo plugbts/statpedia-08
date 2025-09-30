@@ -6,6 +6,7 @@ import { SportIcon } from '@/components/ui/sport-icon';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { NotificationBell } from '@/components/notifications/notification-bell';
+import { SubscriptionGatePopup } from '@/components/ui/subscription-gate-popup';
 import { BarChart3, Target, TrendingUp, Calendar, Settings, Wifi, LogOut, MoreVertical, Zap, Brain, Play, Pause, CreditCard, MessageCircle, Wallet, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { VerifiedCheckmark } from '@/components/ui/verified-checkmark';
@@ -20,13 +21,52 @@ interface NavigationProps {
   userEmail?: string;
   displayName?: string;
   userRole?: string;
+  userSubscription?: string;
   onLogout?: () => void;
 }
 
-export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSport = 'nfl', userEmail, displayName, userRole = 'user', onLogout }: NavigationProps) => {
+export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSport = 'nfl', userEmail, displayName, userRole = 'user', userSubscription = 'free', onLogout }: NavigationProps) => {
   const { isPlaying, needsUserInteraction, togglePlayPause } = useBackgroundMusic({ enabled: true, volume: 0.08 });
   const [showMusicTip, setShowMusicTip] = useState(false);
   const [hasShownTip, setHasShownTip] = useState(false);
+  const [showSubscriptionGate, setShowSubscriptionGate] = useState(false);
+  const [lockedFeature, setLockedFeature] = useState<{ name: string; description: string } | null>(null);
+
+  // Premium features configuration
+  const premiumFeatures = {
+    'strikeout-center': {
+      name: 'Strikeout Center',
+      description: 'Advanced MLB strikeout analysis with AI-powered predictions and detailed pitcher performance metrics.'
+    },
+    'most-likely': {
+      name: 'Most Likely',
+      description: 'AI-driven probability analysis showing which players are most likely to hit or miss their targets.'
+    }
+  };
+
+  // Check if user has access to premium features
+  const hasProAccess = userSubscription === 'pro' || userSubscription === 'premium' || ['mod', 'admin', 'owner'].includes(userRole);
+
+  // Handle premium feature access
+  const handlePremiumFeatureClick = (featureId: string) => {
+    if (!hasProAccess && premiumFeatures[featureId as keyof typeof premiumFeatures]) {
+      setLockedFeature(premiumFeatures[featureId as keyof typeof premiumFeatures]);
+      setShowSubscriptionGate(true);
+    } else {
+      onTabChange(featureId);
+    }
+  };
+
+  // Handle subscription gate actions
+  const handleSubscribe = () => {
+    setShowSubscriptionGate(false);
+    onTabChange('plans');
+  };
+
+  const handleCloseSubscriptionGate = () => {
+    setShowSubscriptionGate(false);
+    setLockedFeature(null);
+  };
 
   // Show music tip when music starts playing (only once per session)
   useEffect(() => {
@@ -140,7 +180,7 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
                 {extraItems.map((item) => (
                   <DropdownMenuItem
                     key={item.id}
-                    onClick={() => onTabChange(item.id)}
+                    onClick={() => handlePremiumFeatureClick(item.id)}
                     className="gap-2 cursor-pointer"
                   >
                     {item.icon}
@@ -149,6 +189,14 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
                       <Badge variant="secondary" className="ml-auto text-xs">
                         {item.badge}
                       </Badge>
+                    )}
+                    {/* Show lock icon for premium features if user doesn't have access */}
+                    {!hasProAccess && (item.id === 'strikeout-center' || item.id === 'most-likely') && (
+                      <div className="ml-auto">
+                        <div className="w-3 h-3 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 flex items-center justify-center">
+                          <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                        </div>
+                      </div>
                     )}
                   </DropdownMenuItem>
                 ))}
@@ -308,6 +356,17 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
         onClose={() => setShowMusicTip(false)}
         duration={10000}
       />
+
+      {/* Subscription Gate Popup */}
+      {lockedFeature && (
+        <SubscriptionGatePopup
+          isVisible={showSubscriptionGate}
+          onClose={handleCloseSubscriptionGate}
+          onSubscribe={handleSubscribe}
+          featureName={lockedFeature.name}
+          featureDescription={lockedFeature.description}
+        />
+      )}
     </nav>
   );
 };

@@ -987,6 +987,7 @@ const Index = () => {
         userEmail={user.email}
         displayName={user.user_metadata?.display_name}
         userRole={userRole}
+        userSubscription={userSubscription}
         onLogout={handleLogout}
       />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
