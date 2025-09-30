@@ -113,6 +113,67 @@ class SocialService {
     return data;
   }
 
+  async updateUsername(userId: string, newUsername: string): Promise<UserProfile> {
+    // Check if username is already taken
+    const { data: existingUser } = await supabase
+      .from('user_profiles')
+      .select('id')
+      .eq('username', newUsername)
+      .neq('user_id', userId)
+      .single();
+
+    if (existingUser) {
+      throw new Error('Username is already taken');
+    }
+
+    // Validate username format
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(newUsername)) {
+      throw new Error('Username must be 3-20 characters long and contain only letters, numbers, and underscores');
+    }
+
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .update({ username: newUsername })
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  async updateDisplayName(userId: string, newDisplayName: string): Promise<UserProfile> {
+    if (newDisplayName.length > 50) {
+      throw new Error('Display name must be 50 characters or less');
+    }
+
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .update({ display_name: newDisplayName })
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  async updateBio(userId: string, newBio: string): Promise<UserProfile> {
+    if (newBio.length > 200) {
+      throw new Error('Bio must be 200 characters or less');
+    }
+
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .update({ bio: newBio })
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
   async getUserProfile(userId: string): Promise<UserProfile | null> {
     const { data, error } = await supabase
       .from('user_profiles')

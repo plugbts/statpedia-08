@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -42,6 +43,11 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedType, setFeedType] = useState<'personalized' | 'trending'>('personalized');
   const [algorithmInsights, setAlgorithmInsights] = useState<any>(null);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editUsername, setEditUsername] = useState('');
+  const [editDisplayName, setEditDisplayName] = useState('');
+  const [editBio, setEditBio] = useState('');
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -76,17 +82,21 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole }) => {
       try {
         profile = await socialService.getUserProfile(user.id);
         if (!profile) {
-          // Create profile if it doesn't exist
-          profile = await socialService.createUserProfile(user.id, user.email?.split('@')[0] || 'user');
+          // Create profile if it doesn't exist using user's metadata or email
+          const displayName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'user';
+          const username = user.user_metadata?.username || user.email?.split('@')[0] || 'user';
+          profile = await socialService.createUserProfile(user.id, username, displayName);
         }
       } catch (error: any) {
         console.log('Profile service error (expected if tables missing):', error);
         // Create a default profile for UI
+        const displayName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'user';
+        const username = user.user_metadata?.username || user.email?.split('@')[0] || 'user';
         profile = {
           id: '',
           user_id: user.id,
-          username: user.email?.split('@')[0] || 'user',
-          display_name: user.email?.split('@')[0] || 'user',
+          username: username,
+          display_name: displayName,
           bio: '',
           avatar_url: '',
           karma: 0,
@@ -205,6 +215,66 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole }) => {
       await recommendationService.trackInteraction(interactionType, 'post', postId);
     } catch (error) {
       console.error('Failed to track interaction:', error);
+    }
+  };
+
+  const startEditingProfile = () => {
+    if (userProfile) {
+      setEditUsername(userProfile.username);
+      setEditDisplayName(userProfile.display_name || '');
+      setEditBio(userProfile.bio || '');
+      setIsEditingProfile(true);
+    }
+  };
+
+  const cancelEditingProfile = () => {
+    setIsEditingProfile(false);
+    setEditUsername('');
+    setEditDisplayName('');
+    setEditBio('');
+  };
+
+  const saveProfileChanges = async () => {
+    if (!userProfile) return;
+
+    try {
+      setIsUpdatingProfile(true);
+      
+      // Update username if changed
+      if (editUsername !== userProfile.username) {
+        await socialService.updateUsername(userProfile.user_id, editUsername);
+      }
+      
+      // Update display name if changed
+      if (editDisplayName !== (userProfile.display_name || '')) {
+        await socialService.updateDisplayName(userProfile.user_id, editDisplayName);
+      }
+      
+      // Update bio if changed
+      if (editBio !== (userProfile.bio || '')) {
+        await socialService.updateBio(userProfile.user_id, editBio);
+      }
+
+      // Reload profile data
+      const updatedProfile = await socialService.getUserProfile(userProfile.user_id);
+      if (updatedProfile) {
+        setUserProfile(updatedProfile);
+      }
+
+      setIsEditingProfile(false);
+      toast({
+        title: "Success",
+        description: "Profile updated successfully"
+      });
+    } catch (error: any) {
+      console.error('Failed to update profile:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update profile",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUpdatingProfile(false);
     }
   };
 
@@ -411,11 +481,23 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole }) => {
           {userProfile && (
             <Card>
               <CardContent className="p-4">
-                <div className="flex gap-3">
-                  <Avatar className="w-10 h-10">
-                    <AvatarImage src={userProfile.avatar_url} />
-                    <AvatarFallback>{getInitials(userProfile.display_name || userProfile.username)}</AvatarFallback>
-                  </Avatar>
+                <div className="flex gap-4">
+                  <div className="flex flex-col items-center gap-2">
+                    <Avatar className="w-12 h-12">
+                      <AvatarImage src={userProfile.avatar_url} />
+                      <AvatarFallback className="text-sm font-medium">
+                        {getInitials(userProfile.display_name || userProfile.username)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="text-center">
+                      <div className="text-xs font-medium text-foreground">
+                        {userProfile.display_name || userProfile.username}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {userProfile.karma} karma
+                      </div>
+                    </div>
+                  </div>
                   <div className="flex-1 space-y-3">
                     <Textarea
                       placeholder="Share your thoughts... (max 150 characters)"
@@ -666,10 +748,18 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole }) => {
           {userProfile ? (
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="w-5 h-5" />
-                  Your Profile
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <User className="w-5 h-5" />
+                    Your Profile
+                  </CardTitle>
+                  {!isEditingProfile && (
+                    <Button variant="outline" size="sm" onClick={startEditingProfile}>
+                      <Settings className="w-4 h-4 mr-2" />
+                      Edit Profile
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-4">
@@ -679,9 +769,76 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole }) => {
                       {getInitials(userProfile.display_name || userProfile.username)}
                     </AvatarFallback>
                   </Avatar>
-                  <div>
-                    <h3 className="text-xl font-bold">{userProfile.display_name || userProfile.username}</h3>
-                    <p className="text-muted-foreground">@{userProfile.username}</p>
+                  <div className="flex-1">
+                    {isEditingProfile ? (
+                      <div className="space-y-3">
+                        <div>
+                          <Label htmlFor="display-name">Display Name</Label>
+                          <Input
+                            id="display-name"
+                            value={editDisplayName}
+                            onChange={(e) => setEditDisplayName(e.target.value)}
+                            placeholder="Enter your display name"
+                            maxLength={50}
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {editDisplayName.length}/50 characters
+                          </p>
+                        </div>
+                        <div>
+                          <Label htmlFor="username">Username</Label>
+                          <Input
+                            id="username"
+                            value={editUsername}
+                            onChange={(e) => setEditUsername(e.target.value)}
+                            placeholder="Enter your username"
+                            maxLength={20}
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Username must be 3-20 characters, letters, numbers, and underscores only
+                          </p>
+                        </div>
+                        <div>
+                          <Label htmlFor="bio">Bio</Label>
+                          <Textarea
+                            id="bio"
+                            value={editBio}
+                            onChange={(e) => setEditBio(e.target.value)}
+                            placeholder="Tell us about yourself..."
+                            maxLength={200}
+                            className="min-h-[80px] resize-none"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {editBio.length}/200 characters
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={saveProfileChanges}
+                            disabled={isUpdatingProfile}
+                            size="sm"
+                          >
+                            {isUpdatingProfile ? 'Saving...' : 'Save Changes'}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={cancelEditingProfile}
+                            disabled={isUpdatingProfile}
+                            size="sm"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <h3 className="text-xl font-bold">{userProfile.display_name || userProfile.username}</h3>
+                        <p className="text-muted-foreground">@{userProfile.username}</p>
+                        {userProfile.bio && (
+                          <p className="text-sm text-muted-foreground mt-2">{userProfile.bio}</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -706,13 +863,6 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole }) => {
                     <div className="text-sm text-muted-foreground">Comments</div>
                   </div>
                 </div>
-
-                {userProfile.bio && (
-                  <div>
-                    <h4 className="font-medium mb-2">Bio</h4>
-                    <p className="text-sm text-muted-foreground">{userProfile.bio}</p>
-                  </div>
-                )}
               </CardContent>
             </Card>
           ) : (
