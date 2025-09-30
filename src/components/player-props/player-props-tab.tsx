@@ -43,6 +43,7 @@ import { cn } from '@/lib/utils';
 interface PlayerPropsTabProps {
   userSubscription: string;
   userRole?: string;
+  selectedSport: string;
 }
 
 interface PlayerProp {
@@ -128,10 +129,10 @@ const SORT_OPTIONS = [
   { value: 'roiPercentage', label: 'ROI%' },
 ];
 
-export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription, userRole = 'user' }) => {
+export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription, userRole = 'user', selectedSport }) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  const [sportFilter, setSportFilter] = useState('nba');
+  const [sportFilter, setSportFilter] = useState(selectedSport);
   const [propTypeFilter, setPropTypeFilter] = useState('all');
   const [selectedProps, setSelectedProps] = useState<string[]>([]);
   const [realProps, setRealProps] = useState<PlayerProp[]>([]);
@@ -164,6 +165,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
   const isSubscribed = userRole === 'owner' || userSubscription !== 'free';
   const { fetchInSeasonSports, fetchOdds, loading, error, isSeasonActive } = useOddsAPI();
   const { toast } = useToast();
+
+  // Update sportFilter when selectedSport changes
+  useEffect(() => {
+    setSportFilter(selectedSport);
+  }, [selectedSport]);
 
   // Use real player props data from sports API
   const {

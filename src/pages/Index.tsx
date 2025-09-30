@@ -963,7 +963,7 @@ const Index = () => {
         
         {activeTab === 'dashboard' && renderDashboard()}
         {activeTab === 'predictions' && <PredictionsTab selectedSport={selectedSport} userRole={userRole} userSubscription={userSubscription} onPredictionsCountChange={setPredictionsCount} />}
-        {activeTab === 'player-props' && <PlayerPropsTab userSubscription={userSubscription} userRole={userRole} />}
+        {activeTab === 'player-props' && <PlayerPropsTab userSubscription={userSubscription} userRole={userRole} selectedSport={selectedSport} />}
         {activeTab === 'insights' && <InsightsTab selectedSport={selectedSport} userRole={userRole} userSubscription={userSubscription} />}
         {activeTab === 'bet-tracking' && <BetTrackingTab userRole={userRole} />}
         {activeTab === 'social' && <SocialTab userRole={userRole} userSubscription={userSubscription} onReturnToDashboard={() => {
