@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CheckCircle, Star, Zap, Crown, Shield, X, CreditCard, Lock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface SubscriptionPlansProps {
   onSubscriptionSuccess: (plan: string) => void;
@@ -15,6 +16,7 @@ interface SubscriptionPlansProps {
 }
 
 export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscriptionSuccess, onLogout }) => {
+  const navigate = useNavigate();
   const [showExitConfirmation, setShowExitConfirmation] = useState(false);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string>('');
@@ -124,6 +126,9 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
       onSubscriptionSuccess(selectedPlan);
       setShowPaymentForm(false);
       setSelectedPlan('');
+      
+      // Navigate back to dashboard after successful payment
+      navigate('/');
     } catch (error) {
       console.error('Payment failed:', error);
     } finally {
@@ -138,6 +143,8 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
   const handleConfirmExit = () => {
     setShowExitConfirmation(false);
     onSubscriptionSuccess('free');
+    // Navigate back to dashboard after selecting free plan
+    navigate('/');
   };
 
   const handleCancelExit = () => {
