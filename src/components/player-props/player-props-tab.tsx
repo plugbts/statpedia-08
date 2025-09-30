@@ -173,7 +173,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
       usageRate: 0,
       paceFactor: 68.9,
       restDays: 7
-=======
+    }
+  ];
+
   // Load real data on mount
   useEffect(() => {
     loadRealData();
@@ -226,7 +228,6 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
       });
     } finally {
       setIsLoadingData(false);
->>>>>>> 30eebb5e1e3dcf933aaf7819876dc8646d007ad4
     }
   };
 
