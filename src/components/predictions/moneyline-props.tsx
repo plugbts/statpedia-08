@@ -11,7 +11,7 @@ import {
   BarChart3, 
   Brain, 
   Zap,
-  Calendar,
+  Calendar as CalendarIcon,
   Users,
   Activity,
   AlertCircle,
@@ -245,7 +245,7 @@ export const MoneylineProps: React.FC<MoneylinePropsProps> = ({
                       </div>
                       <div className="text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
+                          <CalendarIcon className="w-3 h-3" />
                           {new Date(game.date).toLocaleDateString()}
                         </div>
                         <div className="flex items-center gap-1">
