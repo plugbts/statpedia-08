@@ -629,7 +629,7 @@ const Index = () => {
             <h1 className="text-4xl lg:text-6xl font-display font-bold text-foreground mb-4 animate-fade-in">
               Welcome to Statpedia
               <br />
-              <span className="bg-gradient-primary bg-clip-text text-transparent animate-scale-in" style={{ animationDelay: '100ms' }}>
+              <span className="bg-gradient-primary bg-clip-text text-transparent animate-scale-in display-name-gradient" style={{ animationDelay: '100ms' }}>
                 {user.user_metadata?.display_name || user.email?.split('@')[0]}
               </span>
             </h1>

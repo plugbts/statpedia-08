@@ -296,6 +296,14 @@
     .bg-gradient-accent {
       background: var(--gradient-accent);
     }
+    
+    /* Display name gradient for light mode - better contrast */
+    .display-name-gradient {
+      background: linear-gradient(135deg, #1e40af, #7c3aed, #1e3a8a);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
   }
 
   /* Premium 3D UI Classes */
