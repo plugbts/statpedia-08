@@ -131,6 +131,6 @@ export const SubscriptionGatePopup: React.FC<SubscriptionGatePopupProps> = ({
         </div>
         </div>
       </div>
-    </>
+    </div>
   );
 };
