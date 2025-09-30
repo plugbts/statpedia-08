@@ -23,7 +23,7 @@ export const SubscriptionOverlay = ({
 
   return (
     <div className={cn(
-      "absolute inset-0 bg-gradient-to-br from-background/80 to-background/60 backdrop-blur-sm rounded-lg flex items-center justify-center z-10",
+      "absolute inset-0 bg-gradient-to-br from-background/90 to-background/70 rounded-lg flex items-center justify-center z-20",
       className
     )}>
       <div className="text-center">
