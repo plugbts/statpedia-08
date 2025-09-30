@@ -184,6 +184,12 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         return;
       }
 
+      // Add timeout to prevent infinite loading
+      const timeoutId = setTimeout(() => {
+        console.log('UserContext: Timeout reached, setting loading to false');
+        setIsLoading(false);
+      }, 10000); // 10 second timeout
+
       // Check rate limiting
       if (!checkRateLimit()) {
         logSecurityEvent('RATE_LIMIT_BLOCKED', { userId: user.id });
@@ -264,6 +270,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         setUserSubscription('free');
         setUserRole(role);
       } finally {
+        clearTimeout(timeoutId);
         setIsLoading(false);
       }
     };
@@ -301,7 +308,16 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       }
     });
 
-    return () => subscription.unsubscribe();
+    // Fallback timeout to ensure loading state is never stuck
+    const fallbackTimeout = setTimeout(() => {
+      console.log('UserContext: Fallback timeout reached, forcing loading to false');
+      setIsLoading(false);
+    }, 15000); // 15 second fallback
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(fallbackTimeout);
+    };
   }, []);
 
   // User actions - Define before useEffect that uses them
