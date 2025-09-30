@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { espnAPIService } from '@/services/espn-api-service';
+import { freeSportsAPIService } from '@/services/free-sports-api';
 import { gamesService } from '@/services/games-service';
 import { predictionService } from '@/services/prediction-service';
 
@@ -19,8 +19,8 @@ export function useLiveGames(sport: string, options: { autoFetch?: boolean; refr
       setLoading(true);
       setError(null);
       
-      // Get real games from ESPN API
-      const espnGames = await espnAPIService.getCurrentWeekGames(sport);
+      // Get real games from free sports API
+      const freeGames = await freeSportsAPIService.getCurrentWeekGames(sport);
       
       // Filter for future and current day games only
       const now = new Date();
@@ -28,10 +28,10 @@ export function useLiveGames(sport: string, options: { autoFetch?: boolean; refr
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
       
-      const filteredGames = espnGames.filter(game => {
+      const filteredGames = freeGames.filter(game => {
         const gameDate = new Date(game.date);
         // Include games from today onwards (future and current day)
-        return gameDate >= today && game.status !== 'final';
+        return gameDate >= today && game.status !== 'finished';
       });
       
       setGames(filteredGames);
@@ -76,7 +76,7 @@ export function usePlayers(sport: string, teamId?: string) {
       setError(null);
       
       // Get players from current week games
-      const games = await espnAPIService.getCurrentWeekGames(sport);
+      const games = await freeSportsAPIService.getCurrentWeekGames(sport);
       const allPlayers: any[] = [];
       
       // Extract players from games
@@ -84,24 +84,24 @@ export function usePlayers(sport: string, teamId?: string) {
         // Add home team players
         if (game.homeTeam) {
           allPlayers.push({
-            id: `${game.homeTeam.id}-home`,
-            name: game.homeTeam.name,
-            team: game.homeTeam.abbreviation,
+            id: `${game.homeTeamAbbr}-home`,
+            name: game.homeTeam,
+            team: game.homeTeamAbbr,
             position: 'Player',
             sport: sport.toUpperCase(),
-            logo: game.homeTeam.logo
+            logo: ''
           });
         }
         
         // Add away team players
         if (game.awayTeam) {
           allPlayers.push({
-            id: `${game.awayTeam.id}-away`,
-            name: game.awayTeam.name,
-            team: game.awayTeam.abbreviation,
+            id: `${game.awayTeamAbbr}-away`,
+            name: game.awayTeam,
+            team: game.awayTeamAbbr,
             position: 'Player',
             sport: sport.toUpperCase(),
-            logo: game.awayTeam.logo
+            logo: ''
           });
         }
       });
@@ -138,15 +138,15 @@ export function usePlayerProps(sport: string, market?: string) {
       setLoading(true);
       setError(null);
       
-      // Get real props from ESPN API
-      const espnProps = await espnAPIService.getCurrentWeekProps(sport);
+      // Get real props from free sports API
+      const freeProps = await freeSportsAPIService.getPlayerProps(sport);
       
       // Filter for future games only
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       
-      const filteredProps = espnProps.filter(prop => {
-        const gameDate = new Date(prop.game_date || prop.lastUpdated);
+      const filteredProps = freeProps.filter(prop => {
+        const gameDate = new Date(prop.gameDate);
         return gameDate >= today;
       });
       

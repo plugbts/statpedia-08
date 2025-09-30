@@ -404,9 +404,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
       }
 
       // Odds filter
-      const numericOdds = parseInt(prop.odds.replace(/[+-]/, ''));
-      if (numericOdds < filterSettings.minOdds || numericOdds > filterSettings.maxOdds) {
-        return false;
+      if (prop.odds && typeof prop.odds === 'string') {
+        const numericOdds = parseInt(prop.odds.replace(/[+-]/, ''));
+        if (numericOdds < filterSettings.minOdds || numericOdds > filterSettings.maxOdds) {
+          return false;
+        }
       }
 
       // Hit rate filter
@@ -426,7 +428,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
         opponent: prop.opponent,
         gameDate: new Date().toISOString(),
         hitRate: prop.hitRate,
-        recentForm: prop.recentForm ? parseFloat(prop.recentForm.replace('%', '')) / 100 : 0.5,
+        recentForm: prop.recentForm && typeof prop.recentForm === 'string' ? parseFloat(prop.recentForm.replace('%', '')) / 100 : 0.5,
         restDays: prop.restDays || 1,
         injuryStatus: prop.injuryStatus || 'healthy'
       });
@@ -469,7 +471,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
             opponent: a.opponent,
             gameDate: new Date().toISOString(),
             hitRate: a.hitRate,
-            recentForm: a.recentForm ? parseFloat(a.recentForm.replace('%', '')) / 100 : 0.5,
+            recentForm: a.recentForm && typeof a.recentForm === 'string' ? parseFloat(a.recentForm.replace('%', '')) / 100 : 0.5,
             restDays: a.restDays || 1,
             injuryStatus: a.injuryStatus || 'healthy'
           });
@@ -485,7 +487,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
             opponent: b.opponent,
             gameDate: new Date().toISOString(),
             hitRate: b.hitRate,
-            recentForm: b.recentForm ? parseFloat(b.recentForm.replace('%', '')) / 100 : 0.5,
+            recentForm: b.recentForm && typeof b.recentForm === 'string' ? parseFloat(b.recentForm.replace('%', '')) / 100 : 0.5,
             restDays: b.restDays || 1,
             injuryStatus: b.injuryStatus || 'healthy'
           });
