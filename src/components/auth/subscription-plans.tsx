@@ -301,7 +301,7 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
   return (
     <>
       <div className="min-h-screen bg-background overflow-y-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 relative">
+        <div className="max-w-8xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8 relative">
         {/* Exit and Logout buttons */}
         <div className="absolute -top-4 left-4 z-10 flex gap-2">
           <button
@@ -323,34 +323,34 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
           )}
         </div>
 
-        <div className="text-center space-y-4">
-          <h2 className="text-3xl font-bold text-foreground mb-4">
+        <div className="text-center space-y-3">
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-3">
             Choose Your Plan
           </h2>
-          <p className="text-lg text-muted-foreground">
+          <p className="text-base sm:text-lg text-muted-foreground">
             Unlock the full power of Statpedia with detailed player prop analysis
           </p>
-          <Alert className="max-w-2xl mx-auto border-warning bg-warning/10">
+          <Alert className="max-w-4xl mx-auto border-warning bg-warning/10">
             <Shield className="h-4 w-4" />
-            <AlertDescription>
+            <AlertDescription className="text-sm">
               Payment processing is not yet configured. For production use, please integrate a secure payment processor like Stripe.
             </AlertDescription>
           </Alert>
         </div>
 
         {/* Promo Code Section */}
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           <Card className="bg-gradient-card border-border/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Gift className="h-5 w-5 text-primary" />
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Gift className="h-4 w-4 text-primary" />
                 Promo Code
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-sm">
                 Have a promo code? Enter it below to get discounts or free trials.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               <div className="flex gap-2">
                 <Input
                   placeholder="Enter promo code"
@@ -360,9 +360,11 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
                     validatePromoCode(e.target.value);
                   }}
                   className="flex-1"
+                  size="sm"
                 />
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={() => validatePromoCode(promoCode)}
                   disabled={!promoCode.trim()}
                 >
@@ -370,10 +372,10 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
                 </Button>
               </div>
               {promoDiscount > 0 && promoType && (
-                <div className="mt-3 p-3 bg-success/10 border border-success/20 rounded-lg">
+                <div className="mt-2 p-2 bg-success/10 border border-success/20 rounded-lg">
                   <div className="flex items-center gap-2 text-success">
-                    <CheckCircle className="h-4 w-4" />
-                    <span className="font-medium">
+                    <CheckCircle className="h-3.5 w-3.5" />
+                    <span className="text-sm font-medium">
                       {promoType === 'percentage' 
                         ? `${promoDiscount}% discount applied!`
                         : 'Free trial unlocked!'
@@ -386,7 +388,7 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
           </Card>
         </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         {plans.map((plan) => {
           const IconComponent = plan.icon;
           
@@ -405,61 +407,72 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
                 </div>
               )}
               
-              <CardHeader className="text-center">
-                <div className={`inline-flex items-center justify-center w-12 h-12 rounded-lg ${plan.gradient} mb-4 mx-auto`}>
-                  <IconComponent className="h-6 w-6 text-white" />
+              <CardHeader className="text-center pb-4">
+                <div className={`inline-flex items-center justify-center w-10 h-10 rounded-lg ${plan.gradient} mb-3 mx-auto`}>
+                  <IconComponent className="h-5 w-5 text-white" />
                 </div>
                 
-                <CardTitle className="text-2xl font-bold">{plan.name}</CardTitle>
-                <CardDescription>{plan.description}</CardDescription>
+                <CardTitle className="text-xl font-bold">{plan.name}</CardTitle>
+                <CardDescription className="text-sm">{plan.description}</CardDescription>
                 
-                <div className="py-4">
-                  <div className="text-4xl font-bold text-foreground">
+                <div className="py-3">
+                  <div className="text-3xl font-bold text-foreground">
                     ${plan.price}
-                    {plan.price > 0 && <span className="text-lg text-muted-foreground">/month</span>}
+                    {plan.price > 0 && <span className="text-base text-muted-foreground">/month</span>}
                   </div>
                   {plan.price === 0 && (
                     <div className="text-sm text-muted-foreground">Forever</div>
                   )}
+                  {(plan as any).originalPrice && (
+                    <div className="text-sm text-muted-foreground line-through">
+                      ${(plan as any).originalPrice}/month after trial
+                    </div>
+                  )}
                 </div>
               </CardHeader>
               
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  {plan.features.map((feature, index) => (
+              <CardContent className="space-y-3 pt-0">
+                <div className="space-y-1.5">
+                  {plan.features.slice(0, 6).map((feature, index) => (
                     <div key={index} className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-success shrink-0" />
-                      <span className="text-sm text-foreground">{feature}</span>
+                      <CheckCircle className="h-3.5 w-3.5 text-success shrink-0" />
+                      <span className="text-xs text-foreground">{feature}</span>
                     </div>
                   ))}
+                  {plan.features.length > 6 && (
+                    <div className="text-xs text-muted-foreground">
+                      +{plan.features.length - 6} more features
+                    </div>
+                  )}
                 </div>
 
                 {plan.limitations && (
-                  <div className="pt-2 space-y-2">
-                    <div className="text-sm font-medium text-muted-foreground">Limitations:</div>
-                    {plan.limitations.map((limitation, index) => (
+                  <div className="pt-1 space-y-1">
+                    <div className="text-xs font-medium text-muted-foreground">Limitations:</div>
+                    {plan.limitations.slice(0, 3).map((limitation, index) => (
                       <div key={index} className="flex items-center gap-2">
-                        <div className="h-4 w-4 shrink-0 rounded-full bg-destructive/20 flex items-center justify-center">
-                          <div className="h-1 w-1 bg-destructive rounded-full"></div>
+                        <div className="h-3 w-3 shrink-0 rounded-full bg-destructive/20 flex items-center justify-center">
+                          <div className="h-0.5 w-0.5 bg-destructive rounded-full"></div>
                         </div>
-                        <span className="text-sm text-muted-foreground">{limitation}</span>
+                        <span className="text-xs text-muted-foreground">{limitation}</span>
                       </div>
                     ))}
                   </div>
                 )}
 
-                <div className="pt-4">
+                <div className="pt-3">
                   <Button 
                     onClick={() => handlePlanSelect(plan.id)}
                     variant={plan.id === 'free' ? 'outline' : 'default'}
+                    size="sm"
                     className={plan.id === 'free' ? 'w-full' : `w-full ${plan.gradient} hover:shadow-glow transition-all duration-300`}
                     disabled={plan.id === 'free' || (plan as any).disabled}
                   >
                     {plan.buttonText}
                   </Button>
                   {(plan as any).requiresCard && (
-                    <p className="text-xs text-muted-foreground mt-2 text-center">
-                      Requires debit/credit card (no charge during trial)
+                    <p className="text-xs text-muted-foreground mt-1.5 text-center">
+                      Card required (no charge)
                     </p>
                   )}
                 </div>
