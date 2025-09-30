@@ -50,6 +50,7 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
   const getExtraItems = () => {
     const items = [
       { id: 'strikeout-center', label: 'Strikeout Center', icon: <Zap className="w-4 h-4" />, badge: 'MLB' },
+      { id: 'most-likely', label: 'Most Likely', icon: <Target className="w-4 h-4" />, badge: 'MLB' },
       { id: 'analytics', label: 'Analytics', icon: <TrendingUp className="w-4 h-4" /> },
       { id: 'backtest', label: 'Backtest', icon: <Calendar className="w-4 h-4" /> },
     ];
