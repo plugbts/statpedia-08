@@ -71,6 +71,8 @@ interface UserProviderProps {
 }
 
 export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
+  console.log('UserProvider: Component rendering');
+  
   const [user, setUser] = useState<User | null>(null);
   const [userIdentity, setUserIdentity] = useState<UserIdentity | null>(null);
   const [isLoading, setIsLoading] = useState(true);

@@ -34,6 +34,8 @@ import { HeaderBannerAd, InFeedAd, FooterBannerAd, MobileBannerAd } from '@/comp
 import { useUser } from '@/contexts/user-context';
 
 const Index = () => {
+  console.log('Index: Component rendering');
+  
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('dashboard');
   const { 
