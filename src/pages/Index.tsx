@@ -158,6 +158,8 @@ const Index = () => {
   const handleTabChange = (tab: string) => {
     if (tab === 'admin') {
       navigate('/admin');
+    } else if (tab === 'settings') {
+      navigate('/settings');
     } else {
       setActiveTab(tab);
     }
