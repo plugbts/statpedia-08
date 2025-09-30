@@ -19,19 +19,16 @@ export const SubscriptionGatePopup: React.FC<SubscriptionGatePopupProps> = ({
   featureName,
   featureDescription
 }) => {
-  // Apply blur to body when popup is visible
+  // Prevent body scrolling when popup is visible
   useEffect(() => {
     if (isVisible) {
-      document.body.style.filter = 'blur(10px)';
       document.body.style.overflow = 'hidden';
     } else {
-      document.body.style.filter = 'none';
       document.body.style.overflow = 'unset';
     }
 
     // Cleanup on unmount
     return () => {
-      document.body.style.filter = 'none';
       document.body.style.overflow = 'unset';
     };
   }, [isVisible]);
@@ -39,10 +36,20 @@ export const SubscriptionGatePopup: React.FC<SubscriptionGatePopupProps> = ({
   if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-16 sm:pt-20 px-4">
-      {/* Clear background overlay to ensure popup is in foreground */}
-      <div className="absolute inset-0 bg-transparent"></div>
-      <div className="relative z-10">
+    <div className="fixed inset-0 z-[9999]">
+      {/* Blur overlay for entire screen - sits behind popup */}
+      <div 
+        className="absolute inset-0 bg-black/50"
+        style={{
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          zIndex: 1
+        }}
+      ></div>
+      
+      {/* Popup container - sits in front of blur */}
+      <div className="relative z-10 flex items-start justify-center pt-16 sm:pt-20 px-4 h-full">
+        <div className="relative">
         {/* 3D Effect Container */}
         <div className="relative transform perspective-1000">
           {/* Main Card with 3D effect */}
@@ -128,6 +135,7 @@ export const SubscriptionGatePopup: React.FC<SubscriptionGatePopupProps> = ({
           <div className="absolute -top-4 -right-8 w-2 h-2 bg-orange-400 rounded-full opacity-60 animate-bounce delay-500"></div>
           <div className="absolute -bottom-4 -left-3 w-2 h-2 bg-purple-400 rounded-full opacity-50 animate-bounce delay-1000"></div>
           <div className="absolute -bottom-2 -right-4 w-1.5 h-1.5 bg-blue-400 rounded-full opacity-40 animate-bounce delay-1500"></div>
+        </div>
         </div>
       </div>
     </div>
