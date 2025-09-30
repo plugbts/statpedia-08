@@ -217,8 +217,23 @@ export const MoneylineProps: React.FC<MoneylinePropsProps> = ({
         </TabsList>
 
         <TabsContent value="games" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {predictions.map((prediction) => {
+          {predictions.length === 0 && !isLoading ? (
+            <Card className="p-8 text-center">
+              <CardContent>
+                <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No Games Available</h3>
+                <p className="text-muted-foreground mb-4">
+                  No {selectedSport.toUpperCase()} games found for the current week.
+                </p>
+                <Button onClick={loadPredictions} variant="outline">
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Try Again
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {predictions.map((prediction) => {
               const game = prediction.game;
               const pred = prediction.prediction;
               
@@ -364,7 +379,8 @@ export const MoneylineProps: React.FC<MoneylinePropsProps> = ({
                 </Card>
               );
             })}
-          </div>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="analysis" className="space-y-4">
