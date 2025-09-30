@@ -122,13 +122,13 @@ class GamesService {
   private convertFreeGamesToRealGames(freeGames: FreeGame[]): RealGame[] {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const oneMonthFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const twoWeeksFromNow = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
     
     return freeGames
       .filter(game => {
         const gameDate = new Date(game.date);
-        return gameDate >= oneWeekAgo && gameDate <= oneMonthFromNow;
+        // Only include current and future games
+        return gameDate >= today && gameDate <= twoWeeksFromNow;
       })
       .map(game => ({
       id: game.id,

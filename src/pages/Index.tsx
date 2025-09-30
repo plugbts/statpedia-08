@@ -258,17 +258,16 @@ const Index = () => {
       // Get real predictions from games service using free sports API
       const gamePredictions = await gamesService.getCurrentWeekPredictions(selectedSport);
       
-      // Filter for future and current day games only
+      // Filter for current and future games only
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const oneMonthFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+      const twoWeeksFromNow = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
       
       const filteredPredictions = gamePredictions.filter(prediction => {
         const gameDate = new Date(prediction.game.date);
-        return gameDate >= oneWeekAgo && 
-               gameDate <= oneMonthFromNow && 
-               prediction.game.status !== 'finished';
+        return gameDate >= today && 
+               gameDate <= twoWeeksFromNow && 
+               ['upcoming', 'live'].includes(prediction.game.status);
       });
       
       // Transform to dashboard format with proper home/away team display

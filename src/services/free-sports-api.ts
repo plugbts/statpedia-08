@@ -39,8 +39,8 @@ class FreeSportsAPIService {
   private cache = new Map<string, { data: any; timestamp: number }>();
   private cacheTimeout = 2 * 60 * 1000; // 2 minutes
 
-  // ESPN API endpoints (free, no auth required)
-  private espnEndpoints = {
+  // ESPN API base endpoints (free, no auth required)
+  private espnBaseEndpoints = {
     nfl: 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard',
     nba: 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard',
     mlb: 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard',
@@ -48,6 +48,23 @@ class FreeSportsAPIService {
     ncaaf: 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard',
     ncaab: 'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard'
   };
+
+  // Get ESPN endpoint with dynamic date range for current week's upcoming games
+  private getESPNEndpoint(sport: string): string {
+    const baseEndpoint = this.espnBaseEndpoints[sport.toLowerCase() as keyof typeof this.espnBaseEndpoints];
+    if (!baseEndpoint) {
+      throw new Error(`Unsupported sport: ${sport}`);
+    }
+
+    // Calculate date range: today to 14 days from now to get current and next week's games
+    const today = new Date();
+    const twoWeeksFromNow = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
+    
+    const startDate = today.toISOString().split('T')[0].replace(/-/g, '');
+    const endDate = twoWeeksFromNow.toISOString().split('T')[0].replace(/-/g, '');
+    
+    return `${baseEndpoint}?dates=${startDate}-${endDate}`;
+  }
 
   // The Odds API (free tier - 500 requests/month)
   private oddsAPIKey = import.meta.env.VITE_THE_ODDS_API_KEY || 'free';
@@ -68,10 +85,7 @@ class FreeSportsAPIService {
 
   // Get current week games from ESPN API
   async getCurrentWeekGames(sport: string): Promise<FreeGame[]> {
-    const endpoint = this.espnEndpoints[sport.toLowerCase() as keyof typeof this.espnEndpoints];
-    if (!endpoint) {
-      throw new Error(`Unsupported sport: ${sport}`);
-    }
+    const endpoint = this.getESPNEndpoint(sport);
 
     return this.getCachedData(`games_${sport}`, async () => {
       try {
@@ -100,18 +114,17 @@ class FreeSportsAPIService {
   private parseESPNGames(events: any[], sport: string): FreeGame[] {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const oneMonthFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const twoWeeksFromNow = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
 
     return events
       .filter(event => {
         const eventDate = new Date(event.date);
         
-        // Include games from one week ago to one month from now, excluding final games
-        const isInDateRange = eventDate >= oneWeekAgo && eventDate <= oneMonthFromNow;
-        const isNotFinal = event.status.type.name !== 'STATUS_FINAL';
+        // Include only upcoming and live games from today onwards
+        const isInDateRange = eventDate >= today && eventDate <= twoWeeksFromNow;
+        const isRelevantStatus = ['STATUS_SCHEDULED', 'STATUS_IN_PROGRESS'].includes(event.status.type.name);
         
-        return isInDateRange && isNotFinal;
+        return isInDateRange && isRelevantStatus;
       })
       .map(event => {
         const homeTeam = event.competitions[0]?.competitors?.find((c: any) => c.homeAway === 'home');
