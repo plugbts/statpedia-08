@@ -34,7 +34,8 @@ import {
   Download,
   Share2,
   Bookmark,
-  BookmarkCheck
+  BookmarkCheck,
+  X
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
