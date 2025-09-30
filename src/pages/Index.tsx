@@ -70,8 +70,14 @@ const Index = () => {
   const handleViewTodaysPicks = () => {
     console.log('View Today\'s Picks clicked!');
     console.log('Current showTodaysPicks state:', showTodaysPicks);
+    console.log('Current selectedSport:', selectedSport);
     setShowTodaysPicks(true);
     console.log('Setting showTodaysPicks to true');
+    
+    // Check state after a brief delay
+    setTimeout(() => {
+      console.log('State after delay:', showTodaysPicks);
+    }, 100);
   };
 
   const getTodaysTopPicks = () => {
@@ -361,10 +367,12 @@ const Index = () => {
     setCurrentPage(1);
   }, [allPredictions.length]);
 
-  // Close today's picks when sport changes
+  // Track showTodaysPicks state changes
   useEffect(() => {
-    setShowTodaysPicks(false);
-  }, [selectedSport]);
+    console.log('showTodaysPicks state changed to:', showTodaysPicks);
+  }, [showTodaysPicks]);
+
+  // Note: Sport change handling is done in handleSportChange function
 
   if (isLoading) {
     return (
