@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Shield, Users, Ban, Gift, Activity } from "lucide-react";
 import { UserManagement } from "@/components/admin/user-management";
 import { DiscordManagement } from "@/components/admin/discord-management";
-import { PromoCodeManagement } from "@/components/admin/promo-code-management";
+import { PromoCodesAdmin } from "@/components/admin/promo-codes-admin";
 import { AuditLogs } from "@/components/admin/audit-logs";
 
 export default function Admin() {
@@ -100,7 +100,7 @@ export default function Admin() {
           </TabsContent>
 
           <TabsContent value="promos" className="space-y-4">
-            <PromoCodeManagement />
+            <PromoCodesAdmin />
           </TabsContent>
 
           <TabsContent value="logs" className="space-y-4">

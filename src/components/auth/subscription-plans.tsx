@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,8 +7,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CheckCircle, Star, Zap, Crown, Shield, X, CreditCard, Lock } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CheckCircle, Star, Zap, Crown, Shield, X, CreditCard, Lock, Gift, Percent, Calendar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SubscriptionPlansProps {
   onSubscriptionSuccess: (plan: string) => void;
@@ -21,6 +23,12 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [hasUsedFreeTrial, setHasUsedFreeTrial] = useState(false);
+  const [promoCode, setPromoCode] = useState('');
+  const [promoDiscount, setPromoDiscount] = useState(0);
+  const [promoType, setPromoType] = useState<'percentage' | 'free_trial' | null>(null);
+  const [showPromoTab, setShowPromoTab] = useState(false);
 
   // Payment form state
   const [paymentData, setPaymentData] = useState({
@@ -34,6 +42,58 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
     state: '',
     zipCode: ''
   });
+
+  // Check user's free trial status
+  useEffect(() => {
+    const checkUserStatus = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setUser(session.user);
+        // Check if user has used free trial
+        const { data: trialData } = await supabase
+          .from('user_trials')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .single();
+        
+        setHasUsedFreeTrial(!!trialData);
+      }
+    };
+    
+    checkUserStatus();
+  }, []);
+
+  // Validate promo code
+  const validatePromoCode = async (code: string) => {
+    if (!code.trim()) {
+      setPromoDiscount(0);
+      setPromoType(null);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('promo_codes')
+      .select('*')
+      .eq('code', code.toUpperCase())
+      .eq('is_active', true)
+      .single();
+
+    if (error || !data) {
+      setPromoDiscount(0);
+      setPromoType(null);
+      return;
+    }
+
+    // Check if promo code has expired
+    if (data.expires_at && new Date(data.expires_at) < new Date()) {
+      setPromoDiscount(0);
+      setPromoType(null);
+      return;
+    }
+
+    setPromoDiscount(data.discount_value);
+    setPromoType(data.discount_type);
+  };
 
   const plans = [
     {
@@ -58,6 +118,28 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
       buttonText: 'Current Plan',
       gradient: 'bg-gradient-accent',
       popular: false
+    },
+    {
+      id: 'free_trial',
+      name: '3-Day Free Trial',
+      price: 0,
+      originalPrice: 19.99,
+      description: 'Try Pro features for 3 days, then $19.99/month',
+      icon: Calendar,
+      features: [
+        'All Pro features for 3 days',
+        'Unlimited predictions',
+        'Complete player prop analysis',
+        'Deep statistical insights',
+        'Advanced metrics dashboard',
+        'Real-time odds tracking',
+        'Cancel anytime during trial'
+      ],
+      buttonText: hasUsedFreeTrial ? 'Trial Already Used' : 'Start Free Trial',
+      gradient: 'bg-gradient-primary',
+      popular: true,
+      requiresCard: true,
+      disabled: hasUsedFreeTrial
     },
     {
       id: 'pro',
@@ -106,6 +188,10 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
     if (planId === 'free') {
       // Free plan - no payment needed
       onSubscriptionSuccess(planId);
+    } else if (planId === 'free_trial') {
+      // Free trial - requires card but no payment
+      setSelectedPlan(planId);
+      setShowPaymentForm(true);
     } else {
       // Paid plan - show payment form
       setSelectedPlan(planId);
@@ -114,13 +200,72 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
   };
 
   const handlePaymentSubmit = async () => {
-    if (!selectedPlan) return;
+    if (!selectedPlan || !user) return;
 
     setIsProcessing(true);
     
     try {
+      // Handle free trial
+      if (selectedPlan === 'free_trial') {
+        // Record free trial usage
+        const { error: trialError } = await supabase
+          .from('user_trials')
+          .insert({
+            user_id: user.id,
+            plan_id: 'pro',
+            started_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days
+            status: 'active'
+          });
+
+        if (trialError) throw trialError;
+
+        // Record promo code usage if applicable
+        if (promoCode && promoType) {
+          const { error: promoError } = await supabase
+            .from('promo_code_usage')
+            .insert({
+              user_id: user.id,
+              promo_code: promoCode.toUpperCase(),
+              used_at: new Date().toISOString(),
+              discount_type: promoType,
+              discount_value: promoDiscount
+            });
+
+          if (promoError) console.error('Promo code tracking error:', promoError);
+        }
+
+        onSubscriptionSuccess('free_trial');
+        setShowPaymentForm(false);
+        setSelectedPlan('');
+        navigate('/');
+        return;
+      }
+
+      // Handle regular subscription with promo code
+      let finalPrice = plans.find(p => p.id === selectedPlan)?.price || 0;
+      
+      if (promoType === 'percentage' && promoDiscount > 0) {
+        finalPrice = finalPrice * (1 - promoDiscount / 100);
+      }
+
       // Simulate payment processing
       await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Record promo code usage if applicable
+      if (promoCode && promoType) {
+        const { error: promoError } = await supabase
+          .from('promo_code_usage')
+          .insert({
+            user_id: user.id,
+            promo_code: promoCode.toUpperCase(),
+            used_at: new Date().toISOString(),
+            discount_type: promoType,
+            discount_value: promoDiscount
+          });
+
+        if (promoError) console.error('Promo code tracking error:', promoError);
+      }
 
       // Success - call the subscription success callback
       onSubscriptionSuccess(selectedPlan);
@@ -155,7 +300,8 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
 
   return (
     <>
-      <div className="space-y-8 relative">
+      <div className="min-h-screen bg-background overflow-y-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 relative">
         {/* Exit and Logout buttons */}
         <div className="absolute -top-4 left-4 z-10 flex gap-2">
           <button
@@ -190,6 +336,54 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
               Payment processing is not yet configured. For production use, please integrate a secure payment processor like Stripe.
             </AlertDescription>
           </Alert>
+        </div>
+
+        {/* Promo Code Section */}
+        <div className="max-w-2xl mx-auto">
+          <Card className="bg-gradient-card border-border/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Gift className="h-5 w-5 text-primary" />
+                Promo Code
+              </CardTitle>
+              <CardDescription>
+                Have a promo code? Enter it below to get discounts or free trials.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Enter promo code"
+                  value={promoCode}
+                  onChange={(e) => {
+                    setPromoCode(e.target.value);
+                    validatePromoCode(e.target.value);
+                  }}
+                  className="flex-1"
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => validatePromoCode(promoCode)}
+                  disabled={!promoCode.trim()}
+                >
+                  Apply
+                </Button>
+              </div>
+              {promoDiscount > 0 && promoType && (
+                <div className="mt-3 p-3 bg-success/10 border border-success/20 rounded-lg">
+                  <div className="flex items-center gap-2 text-success">
+                    <CheckCircle className="h-4 w-4" />
+                    <span className="font-medium">
+                      {promoType === 'percentage' 
+                        ? `${promoDiscount}% discount applied!`
+                        : 'Free trial unlocked!'
+                      }
+                    </span>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -259,10 +453,15 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
                     onClick={() => handlePlanSelect(plan.id)}
                     variant={plan.id === 'free' ? 'outline' : 'default'}
                     className={plan.id === 'free' ? 'w-full' : `w-full ${plan.gradient} hover:shadow-glow transition-all duration-300`}
-                    disabled={plan.id === 'free'}
+                    disabled={plan.id === 'free' || (plan as any).disabled}
                   >
                     {plan.buttonText}
                   </Button>
+                  {(plan as any).requiresCard && (
+                    <p className="text-xs text-muted-foreground mt-2 text-center">
+                      Requires debit/credit card (no charge during trial)
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -274,6 +473,7 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
           <p className="text-sm text-muted-foreground">
             All plans include a 7-day money-back guarantee. Cancel anytime.
           </p>
+        </div>
         </div>
       </div>
 
@@ -296,7 +496,15 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
               </Button>
             </div>
             <AlertDialogDescription>
-              You're upgrading to the {selectedPlanData?.name} plan for ${selectedPlanData?.price}/month.
+              {selectedPlan === 'free_trial' 
+                ? `You're starting a 3-day free trial of the Pro plan. No charge during trial.`
+                : `You're upgrading to the ${selectedPlanData?.name} plan for $${selectedPlanData?.price}/month.`
+              }
+              {promoDiscount > 0 && promoType === 'percentage' && (
+                <span className="block mt-2 text-success">
+                  {promoDiscount}% discount applied! Final price: ${((selectedPlanData?.price || 0) * (1 - promoDiscount / 100)).toFixed(2)}
+                </span>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
 
