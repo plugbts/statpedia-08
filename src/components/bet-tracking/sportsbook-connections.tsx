@@ -12,14 +12,11 @@ import {
   Plus, 
   CheckCircle, 
   XCircle, 
-  AlertCircle,
-  RefreshCw,
-  Settings,
-  Trash2,
-  Eye,
-  EyeOff
+  AlertCircle, 
+  RefreshCw, 
+  Trash2
 } from 'lucide-react';
-import { betTrackingService, type SportsbookConnection } from '@/services/bet-tracking-service';
+import { sportsbookOAuthService, type OAuthConnection } from '@/services/sportsbook-oauth-service';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -30,18 +27,13 @@ interface SportsbookConnectionsProps {
 export const SportsbookConnections: React.FC<SportsbookConnectionsProps> = ({
   onConnectionUpdate
 }) => {
-  const [connections, setConnections] = useState<SportsbookConnection[]>([]);
+  const [oauthConnections, setOauthConnections] = useState<OAuthConnection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showConnectionForm, setShowConnectionForm] = useState(false);
   const [selectedSportsbook, setSelectedSportsbook] = useState<string>('');
   const [connectionForm, setConnectionForm] = useState({
-    account_username: '',
-    api_key: '',
-    api_secret: '',
     sync_frequency: 'daily'
   });
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [showApiSecret, setShowApiSecret] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const { toast } = useToast();
 
@@ -55,16 +47,17 @@ export const SportsbookConnections: React.FC<SportsbookConnectionsProps> = ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const connectionsData = await betTrackingService.getUserSportsbookConnections(user.id);
-      setConnections(connectionsData);
+      // Load OAuth connections only
+      const oauthConnectionsData = await sportsbookOAuthService.getUserOAuthConnections(user.id);
+      setOauthConnections(oauthConnectionsData);
     } catch (error: any) {
       console.error('Failed to load connections:', error);
       
       // Handle specific database errors gracefully
       if (error?.code === 'PGRST116' || error?.message?.includes('relation') || error?.message?.includes('does not exist')) {
         // Table doesn't exist yet, this is expected for new installations
-        console.log('Sportsbook connections table not yet created, showing empty state');
-        setConnections([]);
+        console.log('OAuth connections table not yet created, showing empty state');
+        setOauthConnections([]);
       } else {
         toast({
           title: "Error",
@@ -104,19 +97,16 @@ export const SportsbookConnections: React.FC<SportsbookConnectionsProps> = ({
   const handleConnectSportsbook = (sportsbookName: string) => {
     setSelectedSportsbook(sportsbookName);
     setConnectionForm({
-      account_username: '',
-      api_key: '',
-      api_secret: '',
       sync_frequency: 'daily'
     });
     setShowConnectionForm(true);
   };
 
   const handleCreateConnection = async () => {
-    if (!selectedSportsbook || !connectionForm.account_username || !connectionForm.api_key) {
+    if (!selectedSportsbook) {
       toast({
         title: "Error",
-        description: "Please fill in all required fields",
+        description: "Please select a sportsbook",
         variant: "destructive"
       });
       return;
@@ -127,51 +117,19 @@ export const SportsbookConnections: React.FC<SportsbookConnectionsProps> = ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Test the connection first
-      const testResult = await testSportsbookConnection(selectedSportsbook, connectionForm);
+      // Use OAuth flow (like Pikkit)
+      const { url, state } = sportsbookOAuthService.generateAuthUrl(selectedSportsbook);
       
-      if (!testResult.success) {
-        toast({
-          title: "Connection Failed",
-          description: testResult.error || "Failed to connect to sportsbook",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Create the connection
-      const connection = await betTrackingService.createSportsbookConnection({
-        user_id: user.id,
-        sportsbook_name: selectedSportsbook,
-        account_username: connectionForm.account_username,
-        connection_status: 'connected',
-        sync_frequency: connectionForm.sync_frequency as any,
-        api_credentials: {
-          api_key: connectionForm.api_key,
-          api_secret: connectionForm.api_secret || undefined
-        }
-      });
-
-      toast({
-        title: "Success",
-        description: `Successfully connected to ${formatSportsbookName(selectedSportsbook)}`
-      });
-
-      setShowConnectionForm(false);
-      setSelectedSportsbook('');
-      setConnectionForm({
-        account_username: '',
-        api_key: '',
-        api_secret: '',
-        sync_frequency: 'daily'
-      });
-      loadConnections();
-      onConnectionUpdate();
-    } catch (error) {
+      // Create OAuth connection record
+      await sportsbookOAuthService.createOAuthConnection(user.id, selectedSportsbook, state);
+      
+      // Redirect to OAuth URL
+      window.location.href = url;
+    } catch (error: any) {
       console.error('Failed to create connection:', error);
       toast({
         title: "Error",
-        description: "Failed to create sportsbook connection",
+        description: error.message || "Failed to create sportsbook connection",
         variant: "destructive"
       });
     } finally {
@@ -179,30 +137,10 @@ export const SportsbookConnections: React.FC<SportsbookConnectionsProps> = ({
     }
   };
 
-  const testSportsbookConnection = async (sportsbook: string, credentials: any) => {
-    // Simulate API connection test
-    // In a real implementation, this would make actual API calls to the sportsbook
-    return new Promise<{ success: boolean; error?: string }>((resolve) => {
-      setTimeout(() => {
-        // Simulate different outcomes based on sportsbook
-        if (credentials.api_key.length < 10) {
-          resolve({ success: false, error: "Invalid API key format" });
-        } else if (sportsbook === 'draftkings' && !credentials.api_key.startsWith('dk_')) {
-          resolve({ success: false, error: "DraftKings API key must start with 'dk_'" });
-        } else if (sportsbook === 'fanduel' && !credentials.api_key.startsWith('fd_')) {
-          resolve({ success: false, error: "FanDuel API key must start with 'fd_'" });
-        } else {
-          resolve({ success: true });
-        }
-      }, 2000);
-    });
-  };
 
   const handleDisconnectConnection = async (connectionId: string) => {
     try {
-      await betTrackingService.updateSportsbookConnection(connectionId, {
-        connection_status: 'disconnected'
-      });
+      await sportsbookOAuthService.disconnectOAuthConnection(connectionId);
       
       toast({
         title: "Success",
@@ -211,11 +149,11 @@ export const SportsbookConnections: React.FC<SportsbookConnectionsProps> = ({
       
       loadConnections();
       onConnectionUpdate();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to disconnect:', error);
       toast({
         title: "Error",
-        description: "Failed to disconnect sportsbook",
+        description: error.message || "Failed to disconnect sportsbook",
         variant: "destructive"
       });
     }
@@ -223,23 +161,29 @@ export const SportsbookConnections: React.FC<SportsbookConnectionsProps> = ({
 
   const handleSyncConnection = async (connectionId: string) => {
     try {
-      // Update last sync time
-      await betTrackingService.updateSportsbookConnection(connectionId, {
-        last_sync_at: new Date().toISOString()
-      });
+      // Use OAuth sync (like Pikkit)
+      const result = await sportsbookOAuthService.syncBetsFromSportsbook(connectionId);
       
-      toast({
-        title: "Success",
-        description: "Sportsbook data synced successfully"
-      });
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: `Synced ${result.bets_synced} bets from sportsbook`
+        });
+      } else {
+        toast({
+          title: "Sync Failed",
+          description: result.error || "Failed to sync sportsbook data",
+          variant: "destructive"
+        });
+      }
       
       loadConnections();
       onConnectionUpdate();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to sync:', error);
       toast({
         title: "Error",
-        description: "Failed to sync sportsbook data",
+        description: error.message || "Failed to sync sportsbook data",
         variant: "destructive"
       });
     }
@@ -285,37 +229,34 @@ export const SportsbookConnections: React.FC<SportsbookConnectionsProps> = ({
             Available Sportsbooks
           </CardTitle>
           <CardDescription>
-            Connect your accounts to automatically sync betting data
+            Connect your accounts using OAuth (like Pikkit) to automatically sync betting data
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {betTrackingService.getSportsbookOptions().map((sportsbook) => (
+            {sportsbookOAuthService.getSupportedSportsbooks().map((sportsbook) => (
               <Card key={sportsbook.value} className="cursor-pointer hover:shadow-md transition-shadow">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="font-medium">{sportsbook.label}</h4>
                       <p className="text-sm text-muted-foreground">
-                        {sportsbook.value === 'draftkings' && 'Daily sync available'}
-                        {sportsbook.value === 'fanduel' && 'Real-time odds tracking'}
-                        {sportsbook.value === 'betmgm' && 'Live bet monitoring'}
-                        {sportsbook.value === 'caesars' && 'Historical data access'}
-                        {sportsbook.value === 'bet365' && 'Global sports coverage'}
-                        {sportsbook.value === 'pointsbet' && 'Points-based betting'}
-                        {sportsbook.value === 'betrivers' && 'Rivers Casino integration'}
-                        {sportsbook.value === 'unibet' && 'European markets'}
-                        {sportsbook.value === 'fox_bet' && 'FOX Sports integration'}
-                        {sportsbook.value === 'other' && 'Custom integration'}
+                        {sportsbook.oauth_available ? 'OAuth connection available' : 'Coming soon'}
                       </p>
+                      {sportsbook.oauth_available && (
+                        <Badge variant="default" className="mt-1 text-xs">
+                          OAuth Ready
+                        </Badge>
+                      )}
                     </div>
                     <Button 
                       size="sm" 
                       variant="outline" 
                       onClick={() => handleConnectSportsbook(sportsbook.value)}
+                      disabled={!sportsbook.oauth_available}
                     >
                       <Link className="w-4 h-4 mr-2" />
-                      Connect
+                      {sportsbook.oauth_available ? 'Connect' : 'Coming Soon'}
                     </Button>
                   </div>
                 </CardContent>
@@ -325,30 +266,28 @@ export const SportsbookConnections: React.FC<SportsbookConnectionsProps> = ({
         </CardContent>
       </Card>
 
-      {/* Current Connections */}
-      {connections.length > 0 && (
+      {/* Current OAuth Connections */}
+      {oauthConnections.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Connected Accounts</CardTitle>
             <CardDescription>
-              Your currently connected sportsbook accounts
+              Your currently connected sportsbook accounts using OAuth
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {connections.map((connection) => (
+              {oauthConnections.map((connection) => (
                 <div key={connection.id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div className="flex items-center gap-3">
                     {getStatusIcon(connection.connection_status)}
                     <div>
-                      <div className="font-medium">
+                      <div className="font-medium flex items-center gap-2">
                         {formatSportsbookName(connection.sportsbook_name)}
+                        <Badge variant="outline" className="text-xs">
+                          OAuth
+                        </Badge>
                       </div>
-                      {connection.account_username && (
-                        <div className="text-sm text-muted-foreground">
-                          @{connection.account_username}
-                        </div>
-                      )}
                       <div className="text-xs text-muted-foreground">
                         Connected {new Date(connection.created_at).toLocaleDateString()}
                       </div>
@@ -425,62 +364,23 @@ export const SportsbookConnections: React.FC<SportsbookConnectionsProps> = ({
               Connect to {formatSportsbookName(selectedSportsbook)}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Enter your API credentials to connect your sportsbook account
+              Connect using OAuth (like Pikkit) for secure, automatic bet syncing
             </AlertDialogDescription>
           </AlertDialogHeader>
-          
+
           <div className="space-y-4">
-            <div>
-              <Label htmlFor="account_username">Account Username</Label>
-              <Input
-                id="account_username"
-                value={connectionForm.account_username}
-                onChange={(e) => setConnectionForm({ ...connectionForm, account_username: e.target.value })}
-                placeholder="Enter your sportsbook username"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="api_key">API Key *</Label>
-              <div className="relative">
-                <Input
-                  id="api_key"
-                  type={showApiKey ? "text" : "password"}
-                  value={connectionForm.api_key}
-                  onChange={(e) => setConnectionForm({ ...connectionForm, api_key: e.target.value })}
-                  placeholder={selectedSportsbook === 'draftkings' ? 'dk_...' : selectedSportsbook === 'fanduel' ? 'fd_...' : 'Enter API key'}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowApiKey(!showApiKey)}
-                >
-                  {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="api_secret">API Secret (Optional)</Label>
-              <div className="relative">
-                <Input
-                  id="api_secret"
-                  type={showApiSecret ? "text" : "password"}
-                  value={connectionForm.api_secret}
-                  onChange={(e) => setConnectionForm({ ...connectionForm, api_secret: e.target.value })}
-                  placeholder="Enter API secret if required"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowApiSecret(!showApiSecret)}
-                >
-                  {showApiSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
+            <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="text-white text-sm font-bold">O</span>
+                </div>
+                <div>
+                  <h4 className="font-medium text-blue-900 dark:text-blue-100">OAuth Connection</h4>
+                  <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                    You'll be redirected to {formatSportsbookName(selectedSportsbook)} to securely authorize the connection. 
+                    No passwords or API keys needed!
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -501,35 +401,26 @@ export const SportsbookConnections: React.FC<SportsbookConnectionsProps> = ({
               </Select>
             </div>
 
-            {/* API Key Format Help */}
+            {/* OAuth Benefits */}
             <div className="p-3 bg-muted rounded-lg">
-              <h4 className="font-medium text-sm mb-2">API Key Format:</h4>
+              <h4 className="font-medium text-sm mb-2">OAuth Benefits:</h4>
               <div className="text-xs text-muted-foreground space-y-1">
-                {selectedSportsbook === 'draftkings' && (
-                  <div>• DraftKings: Must start with "dk_"</div>
-                )}
-                {selectedSportsbook === 'fanduel' && (
-                  <div>• FanDuel: Must start with "fd_"</div>
-                )}
-                {selectedSportsbook === 'betmgm' && (
-                  <div>• BetMGM: Must start with "mgm_"</div>
-                )}
-                {selectedSportsbook === 'caesars' && (
-                  <div>• Caesars: Must start with "czr_"</div>
-                )}
-                <div>• Minimum 10 characters required</div>
-                <div>• Contact your sportsbook for API access</div>
+                <div>• Secure authentication without sharing passwords</div>
+                <div>• Automatic bet data synchronization</div>
+                <div>• Real-time updates from your sportsbook</div>
+                <div>• No need to manage API keys</div>
+                <div>• Works like Pikkit and other professional tools</div>
               </div>
             </div>
           </div>
 
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleCreateConnection} 
+            <AlertDialogAction
+              onClick={handleCreateConnection}
               disabled={isConnecting}
             >
-              {isConnecting ? 'Connecting...' : 'Connect'}
+              {isConnecting ? 'Redirecting...' : 'Connect with OAuth'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
