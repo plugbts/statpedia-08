@@ -1,7 +1,7 @@
 // Season Service
 // Uses ESPN API to determine if sports are in season, including regular season, playoffs, and postseason
 
-import { espnApiService, ESPNSeasonInfo } from './espn-api-service';
+import { espnAPIService, ESPNSeasonInfo } from './espn-api-service';
 
 export interface SeasonInfo {
   sport: string;
@@ -94,7 +94,7 @@ class SeasonService {
 
   public async isSportInSeason(sport: string): Promise<boolean> {
     try {
-      return await espnApiService.isSportInSeason(sport);
+      return await espnAPIService.isSportInSeason(sport);
     } catch (error) {
       console.warn(`ESPN API failed for ${sport}, using fallback data:`, error);
       const fallback = this.fallbackData[sport.toLowerCase()];
@@ -107,7 +107,7 @@ class SeasonService {
 
   public async getSeasonInfo(sport: string): Promise<SeasonInfo | null> {
     try {
-      const espnInfo = await espnApiService.getSeasonInfo(sport);
+      const espnInfo = await espnAPIService.getSeasonInfo(sport);
       if (espnInfo) {
         return this.convertESPNToSeasonInfo(espnInfo);
       }
@@ -132,7 +132,7 @@ class SeasonService {
 
   public async shouldShowMoneylinePredictions(sport: string): Promise<boolean> {
     try {
-      return await espnApiService.shouldShowMoneylinePredictions(sport);
+      return await espnAPIService.shouldShowMoneylinePredictions(sport);
     } catch (error) {
       console.warn(`ESPN API failed for ${sport}, using fallback logic:`, error);
       const seasonType = await this.getSeasonType(sport);
@@ -142,7 +142,7 @@ class SeasonService {
 
   public async getOffseasonMessage(sport: string): Promise<string> {
     try {
-      return await espnApiService.getOffseasonMessage(sport);
+      return await espnAPIService.getOffseasonMessage(sport);
     } catch (error) {
       console.warn(`ESPN API failed for ${sport}, using fallback message:`, error);
       const seasonInfo = this.fallbackData[sport.toLowerCase()];
@@ -160,7 +160,7 @@ class SeasonService {
 
   public async getCurrentSeasonSports(): Promise<string[]> {
     try {
-      return await espnApiService.getCurrentSeasonSports();
+      return await espnAPIService.getCurrentSeasonSports();
     } catch (error) {
       console.warn('ESPN API failed, using fallback data:', error);
       return Object.keys(this.fallbackData).filter(sport => {
@@ -173,7 +173,7 @@ class SeasonService {
 
   public async getOffseasonSports(): Promise<string[]> {
     try {
-      return await espnApiService.getOffseasonSports();
+      return await espnAPIService.getOffseasonSports();
     } catch (error) {
       console.warn('ESPN API failed, using fallback data:', error);
       return Object.keys(this.fallbackData).filter(sport => {

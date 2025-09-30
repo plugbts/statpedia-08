@@ -401,6 +401,82 @@ class ESPNAPIService {
     return this.formatNumber(percentage * 100, 'percentage');
   }
 
+  // Check if sport is in season
+  async isSportInSeason(sport: string): Promise<boolean> {
+    try {
+      const seasonInfo = await this.getSeasonInfo(sport);
+      return seasonInfo.isInSeason;
+    } catch (error) {
+      console.error(`Error checking if ${sport} is in season:`, error);
+      return false;
+    }
+  }
+
+  // Check if should show moneyline predictions
+  async shouldShowMoneylinePredictions(sport: string): Promise<boolean> {
+    try {
+      const seasonInfo = await this.getSeasonInfo(sport);
+      return seasonInfo.isInSeason;
+    } catch (error) {
+      console.error(`Error checking moneyline predictions for ${sport}:`, error);
+      return false;
+    }
+  }
+
+  // Get offseason message
+  async getOffseasonMessage(sport: string): Promise<string> {
+    try {
+      const seasonInfo = await this.getSeasonInfo(sport);
+      if (seasonInfo.isInSeason) {
+        return `${sport.toUpperCase()} season is currently active`;
+      } else {
+        const nextSeason = new Date(seasonInfo.seasonStart);
+        return `${sport.toUpperCase()} season will begin ${nextSeason.toLocaleDateString()}`;
+      }
+    } catch (error) {
+      console.error(`Error getting offseason message for ${sport}:`, error);
+      return `${sport.toUpperCase()} season information not available`;
+    }
+  }
+
+  // Get current season sports
+  async getCurrentSeasonSports(): Promise<string[]> {
+    const sports = ['nfl', 'nba', 'mlb', 'nhl'];
+    const inSeasonSports: string[] = [];
+    
+    for (const sport of sports) {
+      try {
+        const isInSeason = await this.isSportInSeason(sport);
+        if (isInSeason) {
+          inSeasonSports.push(sport);
+        }
+      } catch (error) {
+        console.warn(`Error checking ${sport} season status:`, error);
+      }
+    }
+    
+    return inSeasonSports;
+  }
+
+  // Get offseason sports
+  async getOffseasonSports(): Promise<string[]> {
+    const sports = ['nfl', 'nba', 'mlb', 'nhl'];
+    const offseasonSports: string[] = [];
+    
+    for (const sport of sports) {
+      try {
+        const isInSeason = await this.isSportInSeason(sport);
+        if (!isInSeason) {
+          offseasonSports.push(sport);
+        }
+      } catch (error) {
+        console.warn(`Error checking ${sport} season status:`, error);
+      }
+    }
+    
+    return offseasonSports;
+  }
+
   // Clear cache
   clearCache(): void {
     this.cache.clear();
