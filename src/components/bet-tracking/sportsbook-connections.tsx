@@ -47,26 +47,23 @@ export const SportsbookConnections: React.FC<SportsbookConnectionsProps> = ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Load OAuth connections only
-      const oauthConnectionsData = await sportsbookOAuthService.getUserOAuthConnections(user.id);
+      // Load OAuth connections with individual error handling
+      let oauthConnectionsData: OAuthConnection[] = [];
+      
+      try {
+        oauthConnectionsData = await sportsbookOAuthService.getUserOAuthConnections(user.id);
+      } catch (error: any) {
+        console.log('OAuth connections service error (expected if tables missing):', error);
+      }
+
       setOauthConnections(oauthConnectionsData);
     } catch (error: any) {
-      console.error('Failed to load connections:', error);
-      
-      // Handle specific database errors gracefully
-      if (error?.code === 'PGRST116' || error?.message?.includes('relation') || error?.message?.includes('does not exist')) {
-        // Table doesn't exist yet, this is expected for new installations
-        console.log('OAuth connections table not yet created, showing empty state');
-        setOauthConnections([]);
-      } else {
-        console.error('Unexpected error loading connections:', error);
-        // Only show toast for unexpected errors
-        toast({
-          title: "Error",
-          description: "Failed to load sportsbook connections",
-          variant: "destructive"
-        });
-      }
+      console.error('Unexpected error in loadConnections:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load sportsbook connections",
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }

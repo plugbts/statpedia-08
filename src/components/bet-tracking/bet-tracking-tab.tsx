@@ -51,11 +51,41 @@ export const BetTrackingTab: React.FC<BetTrackingTabProps> = ({ userRole }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const [bankrollsData, statsData, analyticsData] = await Promise.all([
-        betTrackingService.getUserBankrolls(user.id),
-        betTrackingService.getBettingStats(user.id),
-        betTrackingService.getMonthlyAnalytics(user.id)
-      ]);
+      // Load each service individually to handle errors gracefully
+      let bankrollsData: UserBankroll[] = [];
+      let statsData: BettingStats = {
+        total_bets: 0,
+        won_bets: 0,
+        lost_bets: 0,
+        push_bets: 0,
+        total_wagered: 0,
+        total_won: 0,
+        net_profit: 0,
+        win_percentage: 0,
+        roi_percentage: 0,
+        statpedia_bets: 0,
+        statpedia_wins: 0,
+        statpedia_win_percentage: 0
+      };
+      let analyticsData: MonthlyAnalytics[] = [];
+
+      try {
+        bankrollsData = await betTrackingService.getUserBankrolls(user.id);
+      } catch (error: any) {
+        console.log('Bankrolls service error (expected if tables missing):', error);
+      }
+
+      try {
+        statsData = await betTrackingService.getBettingStats(user.id);
+      } catch (error: any) {
+        console.log('Stats service error (expected if tables missing):', error);
+      }
+
+      try {
+        analyticsData = await betTrackingService.getMonthlyAnalytics(user.id);
+      } catch (error: any) {
+        console.log('Analytics service error (expected if tables missing):', error);
+      }
 
       setBankrolls(bankrollsData);
       setStats(statsData);
@@ -65,36 +95,12 @@ export const BetTrackingTab: React.FC<BetTrackingTabProps> = ({ userRole }) => {
         setSelectedBankroll(bankrollsData[0]);
       }
     } catch (error: any) {
-      console.error('Failed to load bet tracking data:', error);
-      
-      // Handle database errors gracefully
-      if (error?.code === 'PGRST116' || error?.message?.includes('relation') || error?.message?.includes('does not exist') || error?.message?.includes('function')) {
-        console.log('Bet tracking tables not yet created, showing empty state');
-        setBankrolls([]);
-        setStats({
-          total_bets: 0,
-          won_bets: 0,
-          lost_bets: 0,
-          push_bets: 0,
-          total_wagered: 0,
-          total_won: 0,
-          net_profit: 0,
-          win_percentage: 0,
-          roi_percentage: 0,
-          statpedia_bets: 0,
-          statpedia_wins: 0,
-          statpedia_win_percentage: 0
-        });
-        setMonthlyAnalytics([]);
-      } else {
-        console.error('Unexpected error loading bet tracking data:', error);
-        // Only show toast for unexpected errors
-        toast({
-          title: "Error",
-          description: "Failed to load bet tracking data",
-          variant: "destructive"
-        });
-      }
+      console.error('Unexpected error in loadData:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load bet tracking data",
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }
@@ -106,43 +112,44 @@ export const BetTrackingTab: React.FC<BetTrackingTabProps> = ({ userRole }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const [statsData, analyticsData] = await Promise.all([
-        betTrackingService.getBettingStats(user.id, bankroll.id),
-        betTrackingService.getMonthlyAnalytics(user.id, bankroll.id)
-      ]);
+      // Load each service individually to handle errors gracefully
+      let statsData: BettingStats = {
+        total_bets: 0,
+        won_bets: 0,
+        lost_bets: 0,
+        push_bets: 0,
+        total_wagered: 0,
+        total_won: 0,
+        net_profit: 0,
+        win_percentage: 0,
+        roi_percentage: 0,
+        statpedia_bets: 0,
+        statpedia_wins: 0,
+        statpedia_win_percentage: 0
+      };
+      let analyticsData: MonthlyAnalytics[] = [];
+
+      try {
+        statsData = await betTrackingService.getBettingStats(user.id, bankroll.id);
+      } catch (error: any) {
+        console.log('Stats service error for bankroll change (expected if tables missing):', error);
+      }
+
+      try {
+        analyticsData = await betTrackingService.getMonthlyAnalytics(user.id, bankroll.id);
+      } catch (error: any) {
+        console.log('Analytics service error for bankroll change (expected if tables missing):', error);
+      }
 
       setStats(statsData);
       setMonthlyAnalytics(analyticsData);
     } catch (error: any) {
-      console.error('Failed to load bankroll data:', error);
-      
-      // Handle database errors gracefully
-      if (error?.code === 'PGRST116' || error?.message?.includes('relation') || error?.message?.includes('does not exist') || error?.message?.includes('function')) {
-        console.log('Bet tracking tables not yet created for bankroll change');
-        setStats({
-          total_bets: 0,
-          won_bets: 0,
-          lost_bets: 0,
-          push_bets: 0,
-          total_wagered: 0,
-          total_won: 0,
-          net_profit: 0,
-          win_percentage: 0,
-          roi_percentage: 0,
-          statpedia_bets: 0,
-          statpedia_wins: 0,
-          statpedia_win_percentage: 0
-        });
-        setMonthlyAnalytics([]);
-      } else {
-        console.error('Unexpected error loading bankroll data:', error);
-        // Only show toast for unexpected errors
-        toast({
-          title: "Error",
-          description: "Failed to load bankroll data",
-          variant: "destructive"
-        });
-      }
+      console.error('Unexpected error in handleBankrollChange:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load bankroll data",
+        variant: "destructive"
+      });
     }
   };
 
