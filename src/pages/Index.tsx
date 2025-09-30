@@ -510,18 +510,18 @@ const Index = () => {
               Experience the future of sports analytics.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 animate-slide-up" style={{ animationDelay: '200ms' }}>
-              <Button 
-                size="lg" 
-                className="bg-gradient-primary hover:shadow-glow" 
+              <button 
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-heading font-medium h-11 px-8 bg-gradient-primary text-primary-foreground shadow-3d hover:shadow-glow animate-neon-pulse"
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
+                  console.log('Direct button click!');
                   handleViewTodaysPicks();
                 }}
               >
                 <TrendingUp className="w-5 h-5 mr-2" />
                 View Today's Picks
-              </Button>
+              </button>
               <Button size="lg" variant="outline" className="hover-scale">
                 <Settings className="w-5 h-5 mr-2" />
                 Customize Alerts
