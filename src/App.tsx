@@ -22,6 +22,19 @@ const SettingsWrapper = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Load theme preference on app start
+    const savedTheme = localStorage.getItem('statpedia-theme');
+    if (savedTheme) {
+      const html = document.documentElement;
+      if (savedTheme === 'light') {
+        html.classList.remove('dark');
+        html.classList.add('light');
+      } else {
+        html.classList.remove('light');
+        html.classList.add('dark');
+      }
+    }
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
@@ -117,6 +130,21 @@ const SyncProvider = ({ children }: { children: React.ReactNode }) => {
 };
 
 const App = () => {
+  // Initialize theme on app start
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('statpedia-theme');
+    const html = document.documentElement;
+    
+    if (savedTheme === 'light') {
+      html.classList.remove('dark');
+      html.classList.add('light');
+    } else {
+      // Default to dark mode if no preference saved
+      html.classList.remove('light');
+      html.classList.add('dark');
+    }
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

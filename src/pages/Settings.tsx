@@ -148,12 +148,24 @@ export const Settings: React.FC<SettingsProps> = ({ user, userRole = 'user', onU
     setIsDarkMode(isDark);
     localStorage.setItem('statpedia-theme', isDark ? 'dark' : 'light');
     
-    // Apply theme to document
+    // Apply theme to document with smooth transition
+    const html = document.documentElement;
+    
+    // Add transition class for smooth theme switching
+    html.style.transition = 'all 0.3s ease-in-out';
+    
     if (isDark) {
-      document.documentElement.classList.add('dark');
+      html.classList.remove('light');
+      html.classList.add('dark');
     } else {
-      document.documentElement.classList.remove('dark');
+      html.classList.remove('dark');
+      html.classList.add('light');
     }
+    
+    // Remove transition after animation completes
+    setTimeout(() => {
+      html.style.transition = '';
+    }, 300);
     
     toast({
       title: "Theme Updated",
@@ -573,12 +585,24 @@ export const Settings: React.FC<SettingsProps> = ({ user, userRole = 'user', onU
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className={`p-4 rounded-lg border-2 ${isDarkMode ? 'border-primary bg-primary/10' : 'border-border'}`}>
-                    <div className="w-full h-20 bg-gray-900 rounded mb-2"></div>
+                    <div className="w-full h-20 bg-gradient-to-br from-gray-900 to-gray-800 rounded mb-2 relative overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-purple-500/20"></div>
+                      <div className="absolute top-2 left-2 w-3 h-3 bg-cyan-400 rounded-full"></div>
+                      <div className="absolute top-2 right-2 w-2 h-2 bg-purple-400 rounded-full"></div>
+                      <div className="absolute bottom-2 left-2 w-8 h-1 bg-gray-700 rounded"></div>
+                      <div className="absolute bottom-2 right-2 w-6 h-1 bg-gray-600 rounded"></div>
+                    </div>
                     <h4 className="font-medium text-foreground">Dark Theme</h4>
                     <p className="text-sm text-muted-foreground">Easy on the eyes</p>
                   </div>
                   <div className={`p-4 rounded-lg border-2 ${!isDarkMode ? 'border-primary bg-primary/10' : 'border-border'}`}>
-                    <div className="w-full h-20 bg-gray-100 rounded mb-2"></div>
+                    <div className="w-full h-20 bg-gradient-to-br from-blue-50 to-white rounded mb-2 relative overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10"></div>
+                      <div className="absolute top-2 left-2 w-3 h-3 bg-blue-500 rounded-full"></div>
+                      <div className="absolute top-2 right-2 w-2 h-2 bg-purple-500 rounded-full"></div>
+                      <div className="absolute bottom-2 left-2 w-8 h-1 bg-gray-200 rounded"></div>
+                      <div className="absolute bottom-2 right-2 w-6 h-1 bg-gray-300 rounded"></div>
+                    </div>
                     <h4 className="font-medium text-foreground">Light Theme</h4>
                     <p className="text-sm text-muted-foreground">Clean and bright</p>
                   </div>

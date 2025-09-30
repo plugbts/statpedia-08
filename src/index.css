@@ -145,6 +145,159 @@
     --sidebar-ring: 191 100% 50%;
   }
 
+  .light {
+    /* Bright Professional Light Theme */
+    --background: 0 0% 100%;
+    --foreground: 220 27% 4%;
+
+    /* Light card backgrounds with subtle depth */
+    --card: 0 0% 98%;
+    --card-foreground: 220 27% 4%;
+    --card-hover: 0 0% 95%;
+
+    /* Popover elements */
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 27% 4%;
+
+    /* Primary - Bright blue with glow */
+    --primary: 210 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 210 100% 60%;
+
+    /* Secondary - Light purple-blue */
+    --secondary: 220 20% 90%;
+    --secondary-foreground: 220 27% 20%;
+
+    /* Muted elements */
+    --muted: 220 20% 95%;
+    --muted-foreground: 220 9% 40%;
+
+    /* Accent - Bright purple */
+    --accent: 280 100% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Success - Bright green */
+    --success: 142 100% 40%;
+    --success-foreground: 0 0% 100%;
+
+    /* Warning - Bright orange */
+    --warning: 30 100% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    /* Destructive - Bright red */
+    --destructive: 0 100% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Border and input with light effects */
+    --border: 220 20% 85%;
+    --border-hover: 220 20% 75%;
+    --input: 220 20% 95%;
+    --ring: 210 100% 50%;
+
+    /* Sidebar variables for light mode */
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 220 27% 4%;
+    --sidebar-primary: 210 100% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 20% 90%;
+    --sidebar-accent-foreground: 220 27% 20%;
+    --sidebar-border: 220 20% 85%;
+    --sidebar-ring: 210 100% 50%;
+
+    /* Light mode gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(210 100% 50%), hsl(210 100% 60%), hsl(280 100% 60%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 98%) 0%, hsl(0 0% 100%) 50%, hsl(0 0% 95%) 100%);
+    --gradient-success: linear-gradient(135deg, hsl(142 100% 40%), hsl(142 100% 50%));
+    --gradient-accent: linear-gradient(135deg, hsl(280 100% 60%), hsl(300 100% 65%));
+    --gradient-glass: linear-gradient(135deg, rgba(0,0,0,0.05), rgba(0,0,0,0.02));
+
+    /* Light mode shadows */
+    --shadow-3d: 
+      0 1px 2px rgba(0,0,0,0.1),
+      0 2px 4px rgba(0,0,0,0.08),
+      0 4px 8px rgba(0,0,0,0.06),
+      0 8px 16px rgba(0,0,0,0.04);
+    
+    --shadow-3d-hover: 
+      0 2px 4px rgba(0,0,0,0.15),
+      0 4px 8px rgba(0,0,0,0.12),
+      0 8px 16px rgba(0,0,0,0.08),
+      0 16px 32px rgba(0,0,0,0.06),
+      0 0 40px rgba(33,150,243,0.2);
+
+    --shadow-glow: 
+      0 0 20px rgba(33,150,243,0.3),
+      0 0 40px rgba(33,150,243,0.15),
+      0 0 60px rgba(33,150,243,0.08);
+
+    --shadow-success: 
+      0 0 20px rgba(34,197,94,0.3),
+      0 0 40px rgba(34,197,94,0.15);
+
+    --shadow-neon-purple: 
+      0 0 20px rgba(168,85,247,0.3),
+      0 0 40px rgba(168,85,247,0.15);
+
+    /* Light mode glass effects */
+    --glass-bg: rgba(0, 0, 0, 0.02);
+    --glass-border: rgba(0, 0, 0, 0.05);
+    --glass-blur: blur(20px);
+  }
+
+  /* Light mode specific overrides */
+  .light {
+    /* Ensure all text is dark in light mode */
+    color-scheme: light;
+    
+    /* Override any dark mode specific styles */
+    .bg-background {
+      background-color: hsl(var(--background));
+    }
+    
+    .text-foreground {
+      color: hsl(var(--foreground));
+    }
+    
+    .bg-card {
+      background-color: hsl(var(--card));
+    }
+    
+    .text-card-foreground {
+      color: hsl(var(--card-foreground));
+    }
+    
+    .border-border {
+      border-color: hsl(var(--border));
+    }
+    
+    /* Matrix background should be subtle in light mode */
+    .matrix-bg {
+      opacity: 0.1;
+    }
+    
+    /* Ensure proper contrast for all elements */
+    .text-muted-foreground {
+      color: hsl(var(--muted-foreground));
+    }
+    
+    /* Light mode gradients */
+    .bg-gradient-primary {
+      background: var(--gradient-primary);
+    }
+    
+    .bg-gradient-card {
+      background: var(--gradient-card);
+    }
+    
+    .bg-gradient-success {
+      background: var(--gradient-success);
+    }
+    
+    .bg-gradient-accent {
+      background: var(--gradient-accent);
+    }
+  }
+
   /* Premium 3D UI Classes */
   .glass-morphism {
     background: var(--glass-bg);
