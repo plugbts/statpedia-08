@@ -7,7 +7,7 @@ interface BackgroundMusicOptions {
 }
 
 export const useBackgroundMusic = (options: BackgroundMusicOptions = {}) => {
-  const { enabled = true, volume = 0.015, loop = true } = options; // Very low volume (1.5%)
+  const { enabled = true, volume = 0.05, loop = true } = options; // Low volume (5%)
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -16,7 +16,7 @@ export const useBackgroundMusic = (options: BackgroundMusicOptions = {}) => {
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
 
   // Create YouTube background music using a more direct approach
-  const createYouTubeMusic = useCallback(async () => {
+  const createYouTubeMusic = useCallback(() => {
     try {
       // Clean up existing audio if it exists
       if (audioRef.current) {
@@ -91,7 +91,7 @@ export const useBackgroundMusic = (options: BackgroundMusicOptions = {}) => {
       source.start();
       setIsPlaying(true);
       
-      console.log('YouTube-style ambient background music started');
+      console.log('YouTube-style ambient background music started with volume:', currentVolume);
       
       return () => {
         try {
@@ -107,11 +107,11 @@ export const useBackgroundMusic = (options: BackgroundMusicOptions = {}) => {
   }, [volume, isMuted, loop]);
 
   // Start/stop background music
-  const startMusic = useCallback(async () => {
+  const startMusic = useCallback(() => {
+    console.log('startMusic called - enabled:', enabled, 'isMuted:', isMuted);
     if (!enabled || isMuted) return;
     
-    const cleanup = await createYouTubeMusic();
-    return cleanup;
+    createYouTubeMusic();
   }, [enabled, isMuted, createYouTubeMusic]);
 
   const stopMusic = useCallback(() => {
@@ -151,14 +151,9 @@ export const useBackgroundMusic = (options: BackgroundMusicOptions = {}) => {
   // Auto-start music when component mounts (if enabled and not muted)
   useEffect(() => {
     if (enabled && !isMuted) {
-      const cleanup = startMusic();
-      return () => {
-        if (cleanup) {
-          cleanup.then(cleanupFn => cleanupFn && cleanupFn());
-        }
-      };
+      startMusic();
     }
-  }, [enabled, startMusic]);
+  }, [enabled, isMuted, startMusic]);
 
   // Handle mute state changes
   useEffect(() => {

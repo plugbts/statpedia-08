@@ -21,7 +21,7 @@ interface NavigationProps {
 }
 
 export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSport = 'nfl', userEmail, displayName, userRole = 'user', onLogout }: NavigationProps) => {
-  const { isMuted, toggleMusic } = useBackgroundMusic({ enabled: true, volume: 0.03 });
+  const { isMuted, toggleMusic } = useBackgroundMusic({ enabled: true, volume: 0.08 });
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="w-4 h-4" /> },
     { id: 'predictions', label: 'Predictions', icon: <Target className="w-4 h-4" />, badge: '12' },
