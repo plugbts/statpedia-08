@@ -491,13 +491,13 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
   return (
     <div className="space-y-6">
       {/* Header with My Picks Toggle */}
-      <div className="flex items-center justify-between">
-        <div>
+        <div className="flex items-center justify-between">
+          <div>
           <h1 className="text-3xl font-bold text-foreground">Player Props</h1>
-          <p className="text-muted-foreground">
+            <p className="text-muted-foreground">
             Advanced player prop analysis and filtering
-          </p>
-        </div>
+            </p>
+          </div>
         <div className="flex items-center gap-2">
           <Button
             variant={showMyPicks ? "default" : "outline"}
@@ -513,42 +513,42 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
       {/* Search and Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1">
-          <div className="relative">
+            <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-            <Input
+              <Input
               placeholder="Search players..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
           </div>
-        </div>
-        
+            </div>
+            
         <div className="flex gap-2">
           <Select value={sportFilter} onValueChange={setSportFilter}>
             <SelectTrigger className="w-32">
               <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="nba">NBA</SelectItem>
-              <SelectItem value="nfl">NFL</SelectItem>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nba">NBA</SelectItem>
+                <SelectItem value="nfl">NFL</SelectItem>
               <SelectItem value="mlb">MLB</SelectItem>
-              <SelectItem value="nhl">NHL</SelectItem>
-            </SelectContent>
-          </Select>
+                <SelectItem value="nhl">NHL</SelectItem>
+              </SelectContent>
+            </Select>
 
           <Select value={propTypeFilter} onValueChange={setPropTypeFilter}>
             <SelectTrigger className="w-32">
               <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Props</SelectItem>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Props</SelectItem>
               <SelectItem value="Points">Points</SelectItem>
               <SelectItem value="Assists">Assists</SelectItem>
               <SelectItem value="Rebounds">Rebounds</SelectItem>
               <SelectItem value="3-Pointers Made">3-Pointers</SelectItem>
-            </SelectContent>
-          </Select>
+              </SelectContent>
+            </Select>
 
           <Dialog open={showFilterDialog} onOpenChange={setShowFilterDialog}>
             <DialogTrigger asChild>
@@ -566,10 +566,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-sm">Sort By (Up to 3 levels)</h3>
-                    <Button
-                      variant="outline"
+            <Button 
+              variant="outline" 
                       size="sm"
-                      onClick={() => {
+              onClick={() => {
                         if ((filterSettings.sortCriteria || []).length < 3) {
                           setFilterSettings(prev => ({
                             ...prev,
@@ -581,15 +581,15 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                       className="text-xs px-2 py-1 h-7"
                     >
                       Add Level
-                    </Button>
-                  </div>
+            </Button>
+          </div>
                   <div className="space-y-2">
                     {(filterSettings.sortCriteria || []).map((criteria, index) => (
                       <div key={index} className="flex items-center gap-2 p-2 bg-muted/30 rounded-lg">
                         <div className="flex items-center gap-1">
                           <Badge variant="outline" className="w-6 h-6 flex items-center justify-center text-xs">
                             {index + 1}
-                          </Badge>
+            </Badge>
                           <span className="text-xs font-medium">P{index + 1}</span>
                         </div>
                         <div className="flex-1 grid grid-cols-2 gap-2">
@@ -729,7 +729,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                       className="w-full"
                     />
                   </div>
-                </div>
+        </div>
 
                 {/* Hit Rate Range */}
                 <div className="space-y-2">
@@ -748,7 +748,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                       className="w-full"
                     />
                   </div>
-                </div>
+        </div>
 
                 {/* Sportsbook Filter */}
                 <div className="space-y-2">
@@ -783,7 +783,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                     ))}
                   </div>
                 </div>
-
+                
                 {/* Save/Load Buttons */}
                 <div className="flex gap-2 pt-2">
                   <Button onClick={handleSaveFilters} className="gap-1 text-xs h-8">
@@ -900,17 +900,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
       {/* Props Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
         {(filteredProps || []).map((prop) => (
-          <Card key={prop.id} className={cn(
-            "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer relative",
-            !isSubscribed && "blur-sm"
-          )}>
-            <SubscriptionOverlay
-              isVisible={!isSubscribed}
-              icon={<TrendingUp className="w-6 h-6 text-primary" />}
-              title="Premium Content"
-              description="Subscribe to view props"
-              buttonText="Upgrade to Premium"
-            />
+          <div key={prop.id} className="relative">
+            <Card className={cn(
+              "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer",
+              !isSubscribed && "blur-sm"
+            )}>
             
             <div className="flex items-start justify-between mb-4">
               <div>
@@ -981,6 +975,16 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
               )}
             </div>
           </Card>
+          
+          {/* Subscription overlay for free users - outside the blurred card */}
+          <SubscriptionOverlay
+            isVisible={!isSubscribed}
+            icon={<TrendingUp className="w-6 h-6 text-primary" />}
+            title="Premium Content"
+            description="Subscribe to view props"
+            buttonText="Upgrade to Premium"
+          />
+          </div>
         ))}
       </div>
 

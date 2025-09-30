@@ -104,21 +104,14 @@ export const PredictionCard = ({
   };
 
   return (
-    <Card 
-      className={cn(
-        "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer relative",
-        !isSubscribed && "blur-sm"
-      )}
-      onClick={handleClick}
-    >
-      {/* Subscription overlay for free users */}
-      <SubscriptionOverlay
-        isVisible={!isSubscribed}
-        icon={<Target className="w-6 h-6 text-primary" />}
-        title="Premium Content"
-        description="Subscribe to view predictions"
-        buttonText="Upgrade to Premium"
-      />
+    <div className="relative">
+      <Card 
+        className={cn(
+          "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer",
+          !isSubscribed && "blur-sm"
+        )}
+        onClick={handleClick}
+      >
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between animate-fade-in">
@@ -216,6 +209,16 @@ export const PredictionCard = ({
           </div>
         </div>
       </div>
-    </Card>
+      </Card>
+      
+      {/* Subscription overlay for free users - outside the blurred card */}
+      <SubscriptionOverlay
+        isVisible={!isSubscribed}
+        icon={<Target className="w-6 h-6 text-primary" />}
+        title="Premium Content"
+        description="Subscribe to view predictions"
+        buttonText="Upgrade to Premium"
+      />
+    </div>
   );
 };

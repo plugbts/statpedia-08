@@ -133,19 +133,13 @@ export const PlayerPropCard: React.FC<PlayerPropCardProps> = ({
   };
 
   return (
-    <Card 
-      onClick={handleCardClick}
-      className={`bg-gradient-card border transition-all duration-300 hover:shadow-card-hover cursor-pointer ${
-        isSelected ? 'ring-2 ring-primary border-primary/50' : 'border-border/50'
-      } ${!isSubscribed ? 'relative' : ''}`}
-    >
-      <SubscriptionOverlay
-        isVisible={!isSubscribed}
-        icon={<EyeOff className="h-8 w-8 text-primary" />}
-        title="Premium Content"
-        description="Upgrade to view details"
-        buttonText="Upgrade to Premium"
-      />
+    <div className={`relative ${!isSubscribed ? 'relative' : ''}`}>
+      <Card
+        onClick={handleCardClick}
+        className={`bg-gradient-card border transition-all duration-300 hover:shadow-card-hover cursor-pointer ${
+          isSelected ? 'ring-2 ring-primary border-primary/50' : 'border-border/50'
+        } ${!isSubscribed ? 'blur-sm' : ''}`}
+      >
 
       <CardHeader className="space-y-4">
         <div className="flex items-start justify-between">
@@ -327,5 +321,15 @@ export const PlayerPropCard: React.FC<PlayerPropCardProps> = ({
         </div>
       </CardContent>
     </Card>
+    
+    {/* Subscription overlay for free users - outside the blurred card */}
+    <SubscriptionOverlay
+      isVisible={!isSubscribed}
+      icon={<EyeOff className="h-8 w-8 text-primary" />}
+      title="Premium Content"
+      description="Upgrade to view details"
+      buttonText="Upgrade to Premium"
+    />
+    </div>
   );
 };

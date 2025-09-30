@@ -263,17 +263,11 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
   };
 
   const renderGameInsight = (insight: GameInsight) => (
-    <Card key={insight.id} className={cn(
-      "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer relative",
-      !isSubscribed && "blur-sm"
-    )}>
-      <SubscriptionOverlay
-        isVisible={!isSubscribed}
-        icon={<BarChart3 className="w-6 h-6 text-primary" />}
-        title="Premium Content"
-        description="Subscribe to view insights"
-        buttonText="Upgrade to Premium"
-      />
+    <div key={insight.id} className="relative">
+      <Card className={cn(
+        "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer",
+        !isSubscribed && "blur-sm"
+      )}>
       
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -306,20 +300,24 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
         )}
       </div>
     </Card>
+    
+    {/* Subscription overlay for free users - outside the blurred card */}
+    <SubscriptionOverlay
+      isVisible={!isSubscribed}
+      icon={<BarChart3 className="w-6 h-6 text-primary" />}
+      title="Premium Content"
+      description="Subscribe to view insights"
+      buttonText="Upgrade to Premium"
+    />
+    </div>
   );
 
   const renderPlayerInsight = (insight: PlayerInsight) => (
-    <Card key={insight.id} className={cn(
-      "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer relative",
-      !isSubscribed && "blur-sm"
-    )}>
-      <SubscriptionOverlay
-        isVisible={!isSubscribed}
-        icon={<Users className="w-6 h-6 text-primary" />}
-        title="Premium Content"
-        description="Subscribe to view insights"
-        buttonText="Upgrade to Premium"
-      />
+    <div key={insight.id} className="relative">
+      <Card className={cn(
+        "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer",
+        !isSubscribed && "blur-sm"
+      )}>
       
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -350,6 +348,16 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
         </div>
       </div>
     </Card>
+    
+    {/* Subscription overlay for free users - outside the blurred card */}
+    <SubscriptionOverlay
+      isVisible={!isSubscribed}
+      icon={<Users className="w-6 h-6 text-primary" />}
+      title="Premium Content"
+      description="Subscribe to view insights"
+      buttonText="Upgrade to Premium"
+    />
+    </div>
   );
 
   if (isLoading) {
