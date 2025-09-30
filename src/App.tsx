@@ -10,6 +10,7 @@ import PredictionDetail from "./pages/PredictionDetail";
 import { Settings } from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import { SubscriptionPlans } from "./components/auth/subscription-plans";
+import { SupportCenter } from "./components/support/support-center";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
@@ -91,6 +92,74 @@ const SettingsWrapper = () => {
   return <Settings user={user} userRole={userRole} />;
 };
 
+// Support Center Wrapper Component
+const SupportCenterWrapper = () => {
+  const [user, setUser] = useState<User | null>(null);
+  const [userRole, setUserRole] = useState('user');
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user);
+        // Determine user role based on email or metadata
+        const email = session.user.email;
+        if (email === 'plug@statpedia.com') {
+          setUserRole('owner');
+        } else if (email?.includes('admin')) {
+          setUserRole('admin');
+        } else if (email?.includes('mod')) {
+          setUserRole('mod');
+        } else {
+          setUserRole('user');
+        }
+      }
+      setIsLoading(false);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUser(session.user);
+        // Determine user role
+        const email = session.user.email;
+        if (email === 'plug@statpedia.com') {
+          setUserRole('owner');
+        } else if (email?.includes('admin')) {
+          setUserRole('admin');
+        } else if (email?.includes('mod')) {
+          setUserRole('mod');
+        } else {
+          setUserRole('user');
+        }
+      } else {
+        setUser(null);
+        setUserRole('user');
+      }
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  return (
+    <SupportCenter 
+      userRole={userRole}
+      userEmail={user?.email || ''}
+      userName={user?.user_metadata?.display_name || user?.email?.split('@')[0] || ''}
+    />
+  );
+};
+
 // Sync Provider Component
 const SyncProvider = ({ children }: { children: React.ReactNode }) => {
   const sync = useSync({
@@ -162,6 +231,7 @@ const App = () => {
                 console.log('Subscription successful:', plan);
                 // Handle successful subscription
               }} />} />
+              <Route path="/support" element={<SupportCenterWrapper />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

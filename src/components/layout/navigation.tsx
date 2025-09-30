@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { SportIcon } from '@/components/ui/sport-icon';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { BarChart3, Target, TrendingUp, Calendar, Settings, Wifi, LogOut, MoreVertical, Zap, Brain, Play, Pause, CreditCard } from 'lucide-react';
+import { BarChart3, Target, TrendingUp, Calendar, Settings, Wifi, LogOut, MoreVertical, Zap, Brain, Play, Pause, CreditCard, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { VerifiedCheckmark } from '@/components/ui/verified-checkmark';
 import { useBackgroundMusic } from '@/hooks/use-background-music';
@@ -202,6 +202,10 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
                 <DropdownMenuItem onClick={() => onTabChange('settings')} className="gap-2 cursor-pointer">
                   <Settings className="h-4 w-4" />
                   Settings
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onTabChange('support')} className="gap-2 cursor-pointer">
+                  <MessageCircle className="h-4 w-4" />
+                  Support
                 </DropdownMenuItem>
                 {onLogout && (
                   <DropdownMenuItem onClick={onLogout} className="gap-2 cursor-pointer text-destructive">

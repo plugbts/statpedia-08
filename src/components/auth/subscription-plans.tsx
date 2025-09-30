@@ -223,7 +223,8 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
     navigate('/');
   };
 
-  const getPlanPrice = (plan: Plan) => {
+  const getPlanPrice = (plan: Plan | undefined) => {
+    if (!plan) return 0;
     if (plan.id === 'free') return 0;
     if (billingCycle === 'yearly') {
       return Math.round(plan.price * 12 * 0.8); // 20% discount for yearly
@@ -231,8 +232,8 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
     return plan.price;
   };
 
-  const getBillingText = (plan: Plan) => {
-    if (plan.id === 'free') return '';
+  const getBillingText = (plan: Plan | undefined) => {
+    if (!plan || plan.id === 'free') return '';
     return billingCycle === 'yearly' ? '/year' : '/month';
   };
 
