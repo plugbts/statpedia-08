@@ -608,14 +608,14 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-7">
-          <TabsTrigger value="feed">Feed</TabsTrigger>
-          <TabsTrigger value="friends">Friends</TabsTrigger>
-          <TabsTrigger value="search">Search</TabsTrigger>
-          <TabsTrigger value="messages">Messages</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="blocked">Blocked</TabsTrigger>
-          <TabsTrigger value="profile">Profile</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-7 gap-1">
+          <TabsTrigger value="feed" className="text-xs">Feed</TabsTrigger>
+          <TabsTrigger value="friends" className="text-xs">Friends</TabsTrigger>
+          <TabsTrigger value="search" className="text-xs">Search</TabsTrigger>
+          <TabsTrigger value="messages" className="text-xs">Messages</TabsTrigger>
+          <TabsTrigger value="notifications" className="text-xs">Notifications</TabsTrigger>
+          <TabsTrigger value="blocked" className="text-xs">Blocked</TabsTrigger>
+          <TabsTrigger value="profile" className="text-xs">Profile</TabsTrigger>
         </TabsList>
 
         {/* Feed Tab */}
@@ -721,6 +721,9 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
                         </Button>
                       </div>
                       {/* Debug: BetSlipSharer should be visible above */}
+                      <div className="text-xs text-muted-foreground mt-2">
+                        BetSlipSharer component should be visible above the Post button
+                      </div>
                     </div>
                   </div>
                 </div>
