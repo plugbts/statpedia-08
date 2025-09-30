@@ -21,7 +21,8 @@ import {
   Settings,
   RefreshCw,
   Image,
-  Palette
+  Palette,
+  Shield
 } from 'lucide-react';
 import { socialService, type Post, type UserProfile, type Friend } from '@/services/social-service';
 import { recommendationService, type PersonalizedPost } from '@/services/recommendation-service';
@@ -33,7 +34,10 @@ import { SocialFeedAd } from '@/components/ads/ad-placements';
 import { BetSlipSharer } from './bet-slip-sharer';
 import { BetSlipCard } from './bet-slip-card';
 import { BetSlipNotifications } from './bet-slip-notifications';
+import { DirectMessages } from './direct-messages';
+import { BlockedUsers } from './blocked-users';
 import { betSlipSharingService, type SharedBetSlip } from '@/services/bet-slip-sharing';
+import { messagingService } from '@/services/messaging-service';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -117,6 +121,60 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
         }]);
     } catch (error) {
       console.error('Failed to mark karma tutorial as seen:', error);
+    }
+  };
+
+  const handleAcceptFriendRequest = async (requestId: string) => {
+    try {
+      await socialService.acceptFriendRequest(requestId);
+      setFriendRequests(prev => prev.filter(req => req.id !== requestId));
+      await loadInitialData(); // Reload friends list
+      toast({
+        title: "Success",
+        description: "Friend request accepted"
+      });
+    } catch (error) {
+      console.error('Failed to accept friend request:', error);
+      toast({
+        title: "Error",
+        description: "Failed to accept friend request",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeclineFriendRequest = async (requestId: string) => {
+    try {
+      await socialService.declineFriendRequest(requestId);
+      setFriendRequests(prev => prev.filter(req => req.id !== requestId));
+      toast({
+        title: "Success",
+        description: "Friend request declined"
+      });
+    } catch (error) {
+      console.error('Failed to decline friend request:', error);
+      toast({
+        title: "Error",
+        description: "Failed to decline friend request",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleBlockUser = async (userIdToBlock: string) => {
+    try {
+      await messagingService.blockUser(userProfile?.user_id || '', userIdToBlock);
+      toast({
+        title: "Success",
+        description: "User blocked successfully"
+      });
+    } catch (error) {
+      console.error('Failed to block user:', error);
+      toast({
+        title: "Error",
+        description: "Failed to block user",
+        variant: "destructive"
+      });
     }
   };
 
@@ -544,11 +602,13 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="feed">Feed</TabsTrigger>
           <TabsTrigger value="friends">Friends</TabsTrigger>
           <TabsTrigger value="search">Search</TabsTrigger>
+          <TabsTrigger value="messages">Messages</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="blocked">Blocked</TabsTrigger>
           <TabsTrigger value="profile">Profile</TabsTrigger>
         </TabsList>
 
@@ -809,12 +869,33 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
                         </div>
                       </div>
                     </div>
-                    <Button
-                      size="sm"
-                      onClick={() => handleAcceptFriendRequest(request.user_id)}
-                    >
-                      Accept
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => handleAcceptFriendRequest(request.user_id)}
+                        className="text-green-600 hover:text-green-700"
+                      >
+                        <UserPlus className="w-4 h-4 mr-1" />
+                        Accept
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDeclineFriendRequest(request.user_id)}
+                      >
+                        <X className="w-4 h-4 mr-1" />
+                        Decline
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleBlockUser(request.user_id)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Shield className="w-4 h-4 mr-1" />
+                        Block
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </CardContent>
@@ -915,9 +996,19 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
           </Card>
         </TabsContent>
 
+        {/* Messages Tab */}
+        <TabsContent value="messages" className="space-y-4">
+          <DirectMessages userId={userProfile?.user_id || ''} />
+        </TabsContent>
+
         {/* Notifications Tab */}
         <TabsContent value="notifications" className="space-y-4">
           <BetSlipNotifications userId={userProfile?.user_id || ''} />
+        </TabsContent>
+
+        {/* Blocked Users Tab */}
+        <TabsContent value="blocked" className="space-y-4">
+          <BlockedUsers userId={userProfile?.user_id || ''} />
         </TabsContent>
 
         {/* Profile Tab */}
