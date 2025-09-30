@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Crown, Star, Zap, TrendingUp, Lock, Sparkles } from 'lucide-react';
+import { Crown, Star, Zap, TrendingUp, Lock, Sparkles, X } from 'lucide-react';
 
 interface SubscriptionGatePopupProps {
   isVisible: boolean;
@@ -43,6 +43,16 @@ export const SubscriptionGatePopup: React.FC<SubscriptionGatePopupProps> = ({
       {/* Popup container */}
       <div className="relative z-[9999] flex items-start justify-center pt-16 sm:pt-20 px-4 h-full">
         <div className="relative">
+        {/* X Close Button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onClose}
+          className="absolute -top-2 -right-2 z-10 h-8 w-8 rounded-full bg-background/80 hover:bg-background border border-border/50 shadow-lg"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+        
         {/* 3D Effect Container */}
         <div className="relative transform perspective-1000">
           {/* Main Card with 3D effect */}

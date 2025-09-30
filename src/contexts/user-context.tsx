@@ -70,36 +70,56 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           setUserRole(identity.role || 'user');
         } else {
           // If no identity found, create a basic one
+          // Determine role based on email
+          let role = 'user';
+          if (user.email === 'plug@statpedia.com' || user.email === 'plug@plugbts.com' || user.email === 'plugbts@gmail.com') {
+            role = 'owner';
+          } else if (user.email?.includes('admin')) {
+            role = 'admin';
+          } else if (user.email?.includes('mod')) {
+            role = 'mod';
+          }
+
           const basicIdentity = {
             user_id: user.id,
             username: user.email?.split('@')[0] || `user_${user.id.slice(0, 8)}`,
             display_name: user.user_metadata?.display_name || user.email?.split('@')[0] || `User ${user.id.slice(0, 8)}`,
             email: user.email,
             subscription_tier: 'free',
-            role: 'user',
+            role: role,
             created_at: user.created_at,
             updated_at: user.updated_at
           };
           setUserIdentity(basicIdentity);
           setUserSubscription('free');
-          setUserRole('user');
+          setUserRole(role);
         }
       } catch (error) {
         console.error('Error loading user identity:', error);
         // Create a fallback identity to prevent loading loop
+        // Determine role based on email
+        let role = 'user';
+        if (user.email === 'plug@statpedia.com' || user.email === 'plug@plugbts.com' || user.email === 'plugbts@gmail.com') {
+          role = 'owner';
+        } else if (user.email?.includes('admin')) {
+          role = 'admin';
+        } else if (user.email?.includes('mod')) {
+          role = 'mod';
+        }
+
         const fallbackIdentity = {
           user_id: user.id,
           username: user.email?.split('@')[0] || `user_${user.id.slice(0, 8)}`,
           display_name: user.user_metadata?.display_name || user.email?.split('@')[0] || `User ${user.id.slice(0, 8)}`,
           email: user.email,
           subscription_tier: 'free',
-          role: 'user',
+          role: role,
           created_at: user.created_at,
           updated_at: user.updated_at
         };
         setUserIdentity(fallbackIdentity);
         setUserSubscription('free');
-        setUserRole('user');
+        setUserRole(role);
       } finally {
         setIsLoading(false);
       }

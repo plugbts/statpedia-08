@@ -97,12 +97,23 @@ class UserIdentificationService {
         .single();
 
       if (fallbackProfile && !fallbackError) {
+        // Determine role based on email
+        let role = 'user';
+        if (fallbackProfile.email === 'plug@statpedia.com' || fallbackProfile.email === 'plug@plugbts.com' || fallbackProfile.email === 'plugbts@gmail.com') {
+          role = 'owner';
+        } else if (fallbackProfile.email?.includes('admin')) {
+          role = 'admin';
+        } else if (fallbackProfile.email?.includes('mod')) {
+          role = 'mod';
+        }
+
         const identity: UserIdentity = {
           user_id: fallbackProfile.user_id,
           username: fallbackProfile.display_name || `user_${userId.slice(0, 8)}`,
           display_name: fallbackProfile.display_name || `User ${userId.slice(0, 8)}`,
           email: fallbackProfile.email,
           subscription_tier: fallbackProfile.subscription_tier,
+          role: role,
           created_at: fallbackProfile.created_at,
           updated_at: fallbackProfile.updated_at
         };
@@ -114,11 +125,22 @@ class UserIdentificationService {
       // Final fallback - create basic identity from auth user
       const { data: { user } } = await supabase.auth.getUser();
       if (user && user.id === userId) {
+        // Determine role based on email
+        let role = 'user';
+        if (user.email === 'plug@statpedia.com' || user.email === 'plug@plugbts.com' || user.email === 'plugbts@gmail.com') {
+          role = 'owner';
+        } else if (user.email?.includes('admin')) {
+          role = 'admin';
+        } else if (user.email?.includes('mod')) {
+          role = 'mod';
+        }
+
         const identity: UserIdentity = {
           user_id: user.id,
           username: user.email?.split('@')[0] || `user_${userId.slice(0, 8)}`,
           display_name: user.user_metadata?.display_name || user.email?.split('@')[0] || `User ${userId.slice(0, 8)}`,
           email: user.email,
+          role: role,
           created_at: user.created_at,
           updated_at: user.updated_at
         };
