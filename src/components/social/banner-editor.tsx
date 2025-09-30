@@ -214,21 +214,22 @@ export const BannerEditor: React.FC<BannerEditorProps> = ({
         </CardContent>
       </Card>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="presets">Presets</TabsTrigger>
-          <TabsTrigger value="custom">Custom</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-2">
+        <TabsList className="grid w-full grid-cols-3 h-8">
+          <TabsTrigger value="presets" className="text-xs">Presets</TabsTrigger>
+          <TabsTrigger value="custom" className="text-xs">Custom</TabsTrigger>
+          <TabsTrigger value="settings" className="text-xs">Settings</TabsTrigger>
         </TabsList>
 
         {/* Presets Tab */}
-        <TabsContent value="presets" className="space-y-4">
-          <div className="flex gap-2 flex-wrap">
+        <TabsContent value="presets" className="space-y-2">
+          <div className="flex gap-1 flex-wrap">
             {categories.map(category => (
               <Button
                 key={category}
                 variant={selectedCategory === category ? 'default' : 'outline'}
                 size="sm"
+                className="text-xs px-2 py-1 h-6"
                 onClick={() => setSelectedCategory(category)}
               >
                 {category === 'all' ? 'All' : category.charAt(0).toUpperCase() + category.slice(1)}
@@ -236,30 +237,34 @@ export const BannerEditor: React.FC<BannerEditorProps> = ({
             ))}
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
             {filteredPresets.map(preset => (
               <Card 
                 key={preset.id} 
                 className="cursor-pointer hover:ring-2 hover:ring-primary transition-all"
                 onClick={() => handlePresetSelect(preset)}
               >
-                <CardContent className="p-2">
-                  <div className="aspect-[4/1] rounded overflow-hidden mb-2">
+                <CardContent className="p-1">
+                  <div className="aspect-[4/1] rounded overflow-hidden mb-1">
                     <img 
                       src={preset.image_url} 
                       alt={preset.name}
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        // Fallback for broken images
+                        e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjUwIiB2aWV3Qm94PSIwIDAgMjAwIDUwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iNTAiIGZpbGw9IiNmM2Y0ZjYiLz48dGV4dCB4PSIxMDAiIHk9IjI1IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5CYW5uZXI8L3RleHQ+PC9zdmc+';
+                      }}
                     />
                   </div>
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium">{preset.name}</p>
+                      <p className="text-xs font-medium truncate">{preset.name}</p>
                       <p className="text-xs text-muted-foreground">{preset.category}</p>
                     </div>
                     {preset.is_premium && (
-                      <Badge variant="secondary" className="text-xs">
-                        <Sparkles className="w-3 h-3 mr-1" />
-                        Premium
+                      <Badge variant="secondary" className="text-xs px-1 py-0">
+                        <Sparkles className="w-2 h-2 mr-1" />
+                        Pro
                       </Badge>
                     )}
                   </div>
@@ -270,11 +275,11 @@ export const BannerEditor: React.FC<BannerEditorProps> = ({
         </TabsContent>
 
         {/* Custom Tab */}
-        <TabsContent value="custom" className="space-y-4">
-          <div className="space-y-4">
+        <TabsContent value="custom" className="space-y-2">
+          <div className="space-y-2">
             <div>
-              <Label htmlFor="banner-upload">Upload Custom Banner</Label>
-              <div className="mt-2">
+              <Label htmlFor="banner-upload" className="text-xs">Upload Custom Banner</Label>
+              <div className="mt-1">
                 <Input
                   ref={fileInputRef}
                   id="banner-upload"
@@ -282,6 +287,7 @@ export const BannerEditor: React.FC<BannerEditorProps> = ({
                   accept="image/jpeg,image/jpg,image/png,image/webp"
                   onChange={handleFileUpload}
                   disabled={isUploading}
+                  className="text-xs h-8"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   JPEG, PNG, or WebP format. Max 5MB. Recommended: 1200x300px
@@ -291,16 +297,16 @@ export const BannerEditor: React.FC<BannerEditorProps> = ({
 
             {customBanners.length > 0 && (
               <div>
-                <h4 className="font-medium mb-2">Your Custom Banners</h4>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <h4 className="font-medium mb-1 text-xs">Your Custom Banners</h4>
+                <div className="grid grid-cols-3 gap-2 max-h-32 overflow-y-auto">
                   {customBanners.map((bannerUrl, index) => (
                     <Card 
                       key={index}
                       className="cursor-pointer hover:ring-2 hover:ring-primary transition-all"
                       onClick={() => handleCustomBannerSelect(bannerUrl)}
                     >
-                      <CardContent className="p-2">
-                        <div className="aspect-[4/1] rounded overflow-hidden mb-2 relative">
+                      <CardContent className="p-1">
+                        <div className="aspect-[4/1] rounded overflow-hidden mb-1 relative">
                           <img 
                             src={bannerUrl} 
                             alt={`Custom banner ${index + 1}`}
@@ -309,16 +315,16 @@ export const BannerEditor: React.FC<BannerEditorProps> = ({
                           <Button
                             variant="destructive"
                             size="sm"
-                            className="absolute top-1 right-1 h-6 w-6 p-0"
+                            className="absolute top-0.5 right-0.5 h-4 w-4 p-0"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleDeleteCustomBanner(bannerUrl);
                             }}
                           >
-                            <Trash2 className="w-3 h-3" />
+                            <Trash2 className="w-2 h-2" />
                           </Button>
                         </div>
-                        <p className="text-sm text-muted-foreground">Custom Banner {index + 1}</p>
+                        <p className="text-xs text-muted-foreground">Custom {index + 1}</p>
                       </CardContent>
                     </Card>
                   ))}
@@ -329,16 +335,17 @@ export const BannerEditor: React.FC<BannerEditorProps> = ({
         </TabsContent>
 
         {/* Settings Tab */}
-        <TabsContent value="settings" className="space-y-4">
-          <div className="space-y-4">
+        <TabsContent value="settings" className="space-y-2">
+          <div className="space-y-2">
             <div>
-              <Label>Position</Label>
-              <div className="flex gap-2 mt-2">
+              <Label className="text-xs">Position</Label>
+              <div className="flex gap-1 mt-1">
                 {(['top', 'center', 'bottom'] as const).map(position => (
                   <Button
                     key={position}
                     variant={bannerSettings.banner_position === position ? 'default' : 'outline'}
                     size="sm"
+                    className="text-xs px-2 py-1 h-6"
                     onClick={() => handleSettingsChange('banner_position', position)}
                   >
                     {position.charAt(0).toUpperCase() + position.slice(1)}
@@ -347,51 +354,53 @@ export const BannerEditor: React.FC<BannerEditorProps> = ({
               </div>
             </div>
 
-            <div>
-              <Label>Blur: {bannerSettings.banner_blur}px</Label>
-              <Slider
-                value={[bannerSettings.banner_blur || 0]}
-                onValueChange={([value]) => handleSettingsChange('banner_blur', value)}
-                max={20}
-                step={1}
-                className="mt-2"
-              />
-            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">Blur: {bannerSettings.banner_blur}px</Label>
+                <Slider
+                  value={[bannerSettings.banner_blur || 0]}
+                  onValueChange={([value]) => handleSettingsChange('banner_blur', value)}
+                  max={20}
+                  step={1}
+                  className="mt-1"
+                />
+              </div>
 
-            <div>
-              <Label>Brightness: {bannerSettings.banner_brightness}</Label>
-              <Slider
-                value={[bannerSettings.banner_brightness || 1.0]}
-                onValueChange={([value]) => handleSettingsChange('banner_brightness', value)}
-                min={0.1}
-                max={2.0}
-                step={0.1}
-                className="mt-2"
-              />
-            </div>
+              <div>
+                <Label className="text-xs">Brightness: {bannerSettings.banner_brightness}</Label>
+                <Slider
+                  value={[bannerSettings.banner_brightness || 1.0]}
+                  onValueChange={([value]) => handleSettingsChange('banner_brightness', value)}
+                  min={0.1}
+                  max={2.0}
+                  step={0.1}
+                  className="mt-1"
+                />
+              </div>
 
-            <div>
-              <Label>Contrast: {bannerSettings.banner_contrast}</Label>
-              <Slider
-                value={[bannerSettings.banner_contrast || 1.0]}
-                onValueChange={([value]) => handleSettingsChange('banner_contrast', value)}
-                min={0.1}
-                max={2.0}
-                step={0.1}
-                className="mt-2"
-              />
-            </div>
+              <div>
+                <Label className="text-xs">Contrast: {bannerSettings.banner_contrast}</Label>
+                <Slider
+                  value={[bannerSettings.banner_contrast || 1.0]}
+                  onValueChange={([value]) => handleSettingsChange('banner_contrast', value)}
+                  min={0.1}
+                  max={2.0}
+                  step={0.1}
+                  className="mt-1"
+                />
+              </div>
 
-            <div>
-              <Label>Saturation: {bannerSettings.banner_saturation}</Label>
-              <Slider
-                value={[bannerSettings.banner_saturation || 1.0]}
-                onValueChange={([value]) => handleSettingsChange('banner_saturation', value)}
-                min={0.1}
-                max={2.0}
-                step={0.1}
-                className="mt-2"
-              />
+              <div>
+                <Label className="text-xs">Saturation: {bannerSettings.banner_saturation}</Label>
+                <Slider
+                  value={[bannerSettings.banner_saturation || 1.0]}
+                  onValueChange={([value]) => handleSettingsChange('banner_saturation', value)}
+                  min={0.1}
+                  max={2.0}
+                  step={0.1}
+                  className="mt-1"
+                />
+              </div>
             </div>
           </div>
         </TabsContent>
@@ -399,12 +408,12 @@ export const BannerEditor: React.FC<BannerEditorProps> = ({
 
       {/* Actions */}
       <div className="flex gap-2 justify-end">
-        <Button variant="outline" onClick={handleResetBanner}>
-          <RotateCcw className="w-4 h-4 mr-2" />
+        <Button variant="outline" onClick={handleResetBanner} size="sm" className="text-xs">
+          <RotateCcw className="w-3 h-3 mr-1" />
           Reset
         </Button>
-        <Button onClick={handleApplyBanner}>
-          <Check className="w-4 h-4 mr-2" />
+        <Button onClick={handleApplyBanner} size="sm" className="text-xs">
+          <Check className="w-3 h-3 mr-1" />
           Apply Banner
         </Button>
       </div>
