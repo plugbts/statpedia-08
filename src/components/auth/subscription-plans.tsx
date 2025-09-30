@@ -86,8 +86,60 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
     onSubscriptionSuccess(planId);
   };
 
+<<<<<<< HEAD
   const handleExitClick = () => {
     setShowExitConfirmation(true);
+=======
+  const handlePaymentSubmit = async () => {
+    if (!selectedPlan || !user) return;
+
+    setIsProcessing(true);
+    
+    try {
+      // Simulate payment processing
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Update user subscription in Supabase
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          subscription: selectedPlan,
+          subscriptionDate: new Date().toISOString(),
+          billingCycle: billingCycle
+        }
+      });
+
+      if (error) throw error;
+
+      // Update local state
+      setCurrentSubscription(selectedPlan);
+      setShowPaymentForm(false);
+      setSelectedPlan('');
+
+      toast({
+        title: "Subscription Successful!",
+        description: `Welcome to ${plans.find(p => p.id === selectedPlan)?.name} plan!`,
+        variant: "success",
+      });
+
+      if (onSubscriptionSuccess) {
+        onSubscriptionSuccess(selectedPlan);
+      }
+
+      // Navigate back to dashboard after successful subscription
+      setTimeout(() => {
+        navigate('/');
+      }, 2000);
+
+    } catch (error: any) {
+      toast({
+        title: "Payment Failed",
+        description: error.message || "An error occurred during payment processing.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+>>>>>>> 1c196b4a00ba70be76100c3512f7f38f82aea63a
   };
 
   const handleConfirmExit = () => {
@@ -212,8 +264,190 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
                 </div>
               </CardContent>
             </Card>
+<<<<<<< HEAD
           );
         })}
+=======
+          ))}
+        </div>
+
+        {/* Payment Form Modal */}
+        <AlertDialog open={showPaymentForm} onOpenChange={setShowPaymentForm}>
+          <AlertDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <CreditCard className="w-5 h-5" />
+                Complete Your Subscription
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                You're upgrading to the {selectedPlanData?.name} plan for ${getPlanPrice(selectedPlanData)} {getBillingText(selectedPlanData)}.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+
+            <div className="space-y-6 py-4">
+              {/* Payment Information */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-foreground">Payment Information</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="cardNumber">Card Number</Label>
+                    <Input
+                      id="cardNumber"
+                      placeholder="1234 5678 9012 3456"
+                      value={paymentData.cardNumber}
+                      onChange={(e) => setPaymentData(prev => ({ ...prev, cardNumber: e.target.value }))}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="expiryDate">Expiry Date</Label>
+                    <Input
+                      id="expiryDate"
+                      placeholder="MM/YY"
+                      value={paymentData.expiryDate}
+                      onChange={(e) => setPaymentData(prev => ({ ...prev, expiryDate: e.target.value }))}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="cvv">CVV</Label>
+                    <Input
+                      id="cvv"
+                      placeholder="123"
+                      value={paymentData.cvv}
+                      onChange={(e) => setPaymentData(prev => ({ ...prev, cvv: e.target.value }))}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Cardholder Name</Label>
+                    <Input
+                      id="name"
+                      placeholder="John Doe"
+                      value={paymentData.name}
+                      onChange={(e) => setPaymentData(prev => ({ ...prev, name: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Billing Address */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-foreground">Billing Address</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="john@example.com"
+                      value={paymentData.email}
+                      onChange={(e) => setPaymentData(prev => ({ ...prev, email: e.target.value }))}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="address">Address</Label>
+                    <Input
+                      id="address"
+                      placeholder="123 Main St"
+                      value={paymentData.address}
+                      onChange={(e) => setPaymentData(prev => ({ ...prev, address: e.target.value }))}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="city">City</Label>
+                    <Input
+                      id="city"
+                      placeholder="New York"
+                      value={paymentData.city}
+                      onChange={(e) => setPaymentData(prev => ({ ...prev, city: e.target.value }))}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="state">State</Label>
+                    <Select value={paymentData.state} onValueChange={(value) => setPaymentData(prev => ({ ...prev, state: value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select state" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="NY">New York</SelectItem>
+                        <SelectItem value="CA">California</SelectItem>
+                        <SelectItem value="TX">Texas</SelectItem>
+                        <SelectItem value="FL">Florida</SelectItem>
+                        <SelectItem value="IL">Illinois</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="zipCode">ZIP Code</Label>
+                    <Input
+                      id="zipCode"
+                      placeholder="10001"
+                      value={paymentData.zipCode}
+                      onChange={(e) => setPaymentData(prev => ({ ...prev, zipCode: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Security Notice */}
+              <Alert className="bg-green-500/10 text-green-600 border-green-500">
+                <Shield className="h-4 w-4" />
+                <AlertDescription>
+                  Your payment information is encrypted and secure. We use industry-standard security measures to protect your data.
+                </AlertDescription>
+              </Alert>
+            </div>
+
+            <AlertDialogFooter className="flex gap-2">
+              <AlertDialogCancel onClick={() => setShowPaymentForm(false)}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handlePaymentSubmit}
+                disabled={isProcessing}
+                className="bg-gradient-primary"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-4 h-4 mr-2" />
+                    Complete Payment
+                  </>
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Exit Confirmation */}
+        <AlertDialog open={showExitConfirmation} onOpenChange={setShowExitConfirmation}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Exit Subscription Plans?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to leave? You can always come back to upgrade your plan later.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Stay Here</AlertDialogCancel>
+              <AlertDialogAction onClick={handleExitConfirm}>
+                Exit Plans
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+>>>>>>> 1c196b4a00ba70be76100c3512f7f38f82aea63a
       </div>
 
         <div className="text-center">
