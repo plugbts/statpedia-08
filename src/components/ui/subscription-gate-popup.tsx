@@ -22,7 +22,7 @@ export const SubscriptionGatePopup: React.FC<SubscriptionGatePopupProps> = ({
   if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/85 flex items-start justify-center z-50 pt-16 sm:pt-20 px-4">
+    <div className="fixed inset-0 bg-gradient-to-br from-black via-gray-900 to-black flex items-start justify-center z-50 pt-16 sm:pt-20 px-4">
       <div className="relative">
         {/* 3D Effect Container */}
         <div className="relative transform perspective-1000">
