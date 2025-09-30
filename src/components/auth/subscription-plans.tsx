@@ -44,6 +44,7 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
   const [showExitConfirmation, setShowExitConfirmation] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [currentSubscription, setCurrentSubscription] = useState<string>('free');
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'paypal'>('card');
 
   // Payment form state
   const [paymentData, setPaymentData] = useState({
@@ -164,15 +165,34 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
     setIsProcessing(true);
     
     try {
-      // Simulate payment processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      if (paymentMethod === 'paypal') {
+        // Simulate PayPal redirect
+        toast({
+          title: "Redirecting to PayPal...",
+          description: "You'll be redirected to PayPal to complete your payment.",
+        });
+        
+        // Simulate PayPal processing
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        // Simulate successful PayPal payment
+        toast({
+          title: "PayPal Payment Successful!",
+          description: "Your payment has been processed through PayPal.",
+          variant: "success",
+        });
+      } else {
+        // Simulate credit card payment processing
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
 
       // Update user subscription in Supabase
       const { error } = await supabase.auth.updateUser({
         data: {
           subscription: selectedPlan,
           subscriptionDate: new Date().toISOString(),
-          billingCycle: billingCycle
+          billingCycle: billingCycle,
+          paymentMethod: paymentMethod
         }
       });
 
@@ -405,21 +425,57 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
         <AlertDialog open={showPaymentForm} onOpenChange={setShowPaymentForm}>
           <AlertDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <AlertDialogHeader>
-              <AlertDialogTitle className="flex items-center gap-2">
-                <CreditCard className="w-5 h-5" />
-                Complete Your Subscription
-              </AlertDialogTitle>
+              <div className="flex items-center justify-between">
+                <AlertDialogTitle className="flex items-center gap-2">
+                  <CreditCard className="w-5 h-5" />
+                  Complete Your Subscription
+                </AlertDialogTitle>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowPaymentForm(false)}
+                  className="h-8 w-8 rounded-full hover:bg-muted/50"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
               <AlertDialogDescription>
                 You're upgrading to the {selectedPlanData?.name} plan for ${getPlanPrice(selectedPlanData)} {getBillingText(selectedPlanData)}.
               </AlertDialogDescription>
             </AlertDialogHeader>
 
             <div className="space-y-6 py-4">
+              {/* Payment Method Selection */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-foreground">Choose Payment Method</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <Button
+                    variant={paymentMethod === 'card' ? 'default' : 'outline'}
+                    onClick={() => setPaymentMethod('card')}
+                    className="flex items-center gap-2 h-12"
+                  >
+                    <CreditCard className="w-5 h-5" />
+                    Credit Card
+                  </Button>
+                  <Button
+                    variant={paymentMethod === 'paypal' ? 'default' : 'outline'}
+                    onClick={() => setPaymentMethod('paypal')}
+                    className="flex items-center gap-2 h-12"
+                  >
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.106zm14.146-14.42a3.35 3.35 0 0 0-.543-.21l-.017-.004a2.9 2.9 0 0 0-.571-.078c-.196-.02-.398-.03-.604-.03H9.287a.641.641 0 0 0-.633.74l1.12 7.106h4.942c.524 0 .968-.382 1.05-.9l1.12-7.106z"/>
+                    </svg>
+                    PayPal
+                  </Button>
+                </div>
+              </div>
+
               {/* Payment Information */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-foreground">Payment Information</h3>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {paymentMethod === 'card' ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="cardNumber">Card Number</Label>
                     <Input
@@ -504,12 +560,58 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
                       <SelectTrigger>
                         <SelectValue placeholder="Select state" />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="NY">New York</SelectItem>
+                      <SelectContent className="max-h-60 overflow-y-auto">
+                        <SelectItem value="AL">Alabama</SelectItem>
+                        <SelectItem value="AK">Alaska</SelectItem>
+                        <SelectItem value="AZ">Arizona</SelectItem>
+                        <SelectItem value="AR">Arkansas</SelectItem>
                         <SelectItem value="CA">California</SelectItem>
-                        <SelectItem value="TX">Texas</SelectItem>
+                        <SelectItem value="CO">Colorado</SelectItem>
+                        <SelectItem value="CT">Connecticut</SelectItem>
+                        <SelectItem value="DE">Delaware</SelectItem>
                         <SelectItem value="FL">Florida</SelectItem>
+                        <SelectItem value="GA">Georgia</SelectItem>
+                        <SelectItem value="HI">Hawaii</SelectItem>
+                        <SelectItem value="ID">Idaho</SelectItem>
                         <SelectItem value="IL">Illinois</SelectItem>
+                        <SelectItem value="IN">Indiana</SelectItem>
+                        <SelectItem value="IA">Iowa</SelectItem>
+                        <SelectItem value="KS">Kansas</SelectItem>
+                        <SelectItem value="KY">Kentucky</SelectItem>
+                        <SelectItem value="LA">Louisiana</SelectItem>
+                        <SelectItem value="ME">Maine</SelectItem>
+                        <SelectItem value="MD">Maryland</SelectItem>
+                        <SelectItem value="MA">Massachusetts</SelectItem>
+                        <SelectItem value="MI">Michigan</SelectItem>
+                        <SelectItem value="MN">Minnesota</SelectItem>
+                        <SelectItem value="MS">Mississippi</SelectItem>
+                        <SelectItem value="MO">Missouri</SelectItem>
+                        <SelectItem value="MT">Montana</SelectItem>
+                        <SelectItem value="NE">Nebraska</SelectItem>
+                        <SelectItem value="NV">Nevada</SelectItem>
+                        <SelectItem value="NH">New Hampshire</SelectItem>
+                        <SelectItem value="NJ">New Jersey</SelectItem>
+                        <SelectItem value="NM">New Mexico</SelectItem>
+                        <SelectItem value="NY">New York</SelectItem>
+                        <SelectItem value="NC">North Carolina</SelectItem>
+                        <SelectItem value="ND">North Dakota</SelectItem>
+                        <SelectItem value="OH">Ohio</SelectItem>
+                        <SelectItem value="OK">Oklahoma</SelectItem>
+                        <SelectItem value="OR">Oregon</SelectItem>
+                        <SelectItem value="PA">Pennsylvania</SelectItem>
+                        <SelectItem value="RI">Rhode Island</SelectItem>
+                        <SelectItem value="SC">South Carolina</SelectItem>
+                        <SelectItem value="SD">South Dakota</SelectItem>
+                        <SelectItem value="TN">Tennessee</SelectItem>
+                        <SelectItem value="TX">Texas</SelectItem>
+                        <SelectItem value="UT">Utah</SelectItem>
+                        <SelectItem value="VT">Vermont</SelectItem>
+                        <SelectItem value="VA">Virginia</SelectItem>
+                        <SelectItem value="WA">Washington</SelectItem>
+                        <SelectItem value="WV">West Virginia</SelectItem>
+                        <SelectItem value="WI">Wisconsin</SelectItem>
+                        <SelectItem value="WY">Wyoming</SelectItem>
+                        <SelectItem value="DC">District of Columbia</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -524,6 +626,26 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
                     />
                   </div>
                 </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6 text-center">
+                      <div className="flex items-center justify-center mb-4">
+                        <svg className="w-12 h-12 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.106zm14.146-14.42a3.35 3.35 0 0 0-.543-.21l-.017-.004a2.9 2.9 0 0 0-.571-.078c-.196-.02-.398-.03-.604-.03H9.287a.641.641 0 0 0-.633.74l1.12 7.106h4.942c.524 0 .968-.382 1.05-.9l1.12-7.106z"/>
+                        </svg>
+                      </div>
+                      <h4 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-2">Pay with PayPal</h4>
+                      <p className="text-blue-700 dark:text-blue-300 mb-4">
+                        You'll be redirected to PayPal to complete your payment securely.
+                      </p>
+                      <div className="space-y-2 text-sm text-blue-600 dark:text-blue-400">
+                        <p>• Secure payment processing</p>
+                        <p>• No need to enter card details</p>
+                        <p>• Instant subscription activation</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Security Notice */}
@@ -552,7 +674,7 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
                 ) : (
                   <>
                     <Lock className="w-4 h-4 mr-2" />
-                    Complete Payment
+                    {paymentMethod === 'paypal' ? 'Pay with PayPal' : 'Complete Payment'}
                   </>
                 )}
               </AlertDialogAction>
