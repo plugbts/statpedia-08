@@ -31,6 +31,8 @@ const Index = () => {
   const [realPredictions, setRealPredictions] = useState<any[]>([]);
   const [isLoadingPredictions, setIsLoadingPredictions] = useState(false);
   const [showFeatureTooltip, setShowFeatureTooltip] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const predictionsPerPage = 16;
 
   // Use real sports data instead of mock data
   const {
@@ -170,7 +172,7 @@ const Index = () => {
       const allPredictions: any[] = [];
       
       // Fetch odds for each active sport - get ALL games in current week
-      for (const sport of sports.slice(0, 6)) { // Get up to 6 sports for more variety
+      for (const sport of sports.slice(0, 8)) { // Get up to 8 sports for more variety
         const sportKey = sport.key;
         const odds = await fetchOdds(sportKey);
         
@@ -181,6 +183,34 @@ const Index = () => {
             allPredictions.push(prediction);
           }
         });
+      }
+      
+      // If we don't have enough predictions, generate more mock ones
+      if (allPredictions.length < 20) {
+        const additionalPredictions = [];
+        const sports = ['nfl', 'nba', 'mlb', 'nhl'];
+        const teams = ['LAL', 'GSW', 'BOS', 'MIA', 'BUF', 'KC', 'SF', 'DAL'];
+        
+        for (let i = 0; i < 20 - allPredictions.length; i++) {
+          const sport = sports[Math.floor(Math.random() * sports.length)];
+          const homeTeam = teams[Math.floor(Math.random() * teams.length)];
+          const awayTeam = teams[Math.floor(Math.random() * teams.length)];
+          
+          if (homeTeam !== awayTeam) {
+            const prediction = transformGameToPrediction({
+              id: `mock-${i}`,
+              home_team: homeTeam,
+              away_team: awayTeam,
+              commence_time: new Date(Date.now() + Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString()
+            }, sport);
+            
+            if (prediction) {
+              additionalPredictions.push(prediction);
+            }
+          }
+        }
+        
+        allPredictions.push(...additionalPredictions);
       }
       
       // Sort predictions by game date to show this week's games first
@@ -281,7 +311,18 @@ const Index = () => {
   }
 
   // Use real predictions data from sports API - prioritize realPredictions over hook data
-  const currentPredictions = realPredictions.length > 0 ? realPredictions : (predictions || []);
+  const allPredictions = realPredictions.length > 0 ? realPredictions : (predictions || []);
+  
+  // Pagination logic
+  const totalPages = Math.ceil(allPredictions.length / predictionsPerPage);
+  const startIndex = (currentPage - 1) * predictionsPerPage;
+  const endIndex = startIndex + predictionsPerPage;
+  const currentPredictions = allPredictions.slice(startIndex, endIndex);
+  
+  // Reset to page 1 when predictions change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [allPredictions.length]);
 
   const mockWins = [
     {
@@ -442,11 +483,16 @@ const Index = () => {
       {/* Today's Top Predictions */}
       <div className="space-y-6 animate-fade-in" style={{ animationDelay: '300ms' }}>
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-foreground">This Week's Predictions</h2>
+          <div>
+            <h2 className="text-2xl font-bold text-foreground">This Week's Predictions</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Showing {startIndex + 1}-{Math.min(endIndex, allPredictions.length)} of {allPredictions.length} predictions
+            </p>
+          </div>
           <div className="flex items-center gap-2">
             <Badge variant="default" className="bg-gradient-accent">
               <TrendingUp className="w-3 h-3 mr-1" />
-              {currentPredictions.length} ACTIVE
+              {allPredictions.length} TOTAL
             </Badge>
             <Button
               variant="outline"
@@ -484,15 +530,80 @@ const Index = () => {
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {currentPredictions.map((prediction, index) => (
-              <PredictionCard
-                key={prediction.id || index}
-                {...prediction}
-                isSubscribed={userSubscription !== 'free'}
-              />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+              {currentPredictions.map((prediction, index) => (
+                <PredictionCard
+                  key={prediction.id || index}
+                  {...prediction}
+                  isSubscribed={userSubscription !== 'free'}
+                />
+              ))}
+            </div>
+            
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-8">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={currentPage === pageNum ? "bg-primary text-primary-foreground" : ""}
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  })}
+                  
+                  {totalPages > 5 && currentPage < totalPages - 2 && (
+                    <>
+                      <span className="text-muted-foreground">...</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(totalPages)}
+                      >
+                        {totalPages}
+                      </Button>
+                    </>
+                  )}
+                </div>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </div>
 
