@@ -23,6 +23,7 @@ import type { User } from '@supabase/supabase-js';
 import { useOddsAPI } from '@/hooks/use-odds-api';
 import { useToast } from '@/hooks/use-toast';
 import { predictionTracker } from '@/services/prediction-tracker';
+import { SeasonalVideoBackground } from '@/components/ui/seasonal-video-background';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -609,15 +610,7 @@ const Index = () => {
   const renderDashboard = () => (
     <div className="space-y-8">
       {/* Hero Section */}
-      <div className="relative overflow-hidden rounded-xl bg-gradient-card border border-border/50 animate-fade-in">
-        <div className="absolute inset-0">
-          <img 
-            src={heroImage} 
-            alt="Sports Analytics Dashboard" 
-            className="w-full h-full object-cover opacity-20"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-background/80 to-background/40" />
-        </div>
+      <SeasonalVideoBackground className="animate-fade-in">
         <div className="relative p-8 lg:p-12">
           <div className="max-w-3xl">
             <div className="flex items-center gap-2 mb-4 animate-slide-up">
@@ -657,7 +650,7 @@ const Index = () => {
             </div>
           </div>
         </div>
-      </div>
+      </SeasonalVideoBackground>
 
       {/* Stats Overview */}
       <StatsOverview
