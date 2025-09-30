@@ -1,7 +1,7 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
-import nbaLogo from '@/assets/logos/nba-logo.svg';
-import nflLogo from '@/assets/logos/nfl-logo.svg';
+import nbaLogo from '@/assets/logos/nba-logo.png';
+import nflLogo from '@/assets/logos/nfl-logo.png';
 import mlbLogo from '@/assets/logos/mlb-logo.png';
 import nhlLogo from '@/assets/logos/nhl-logo.png';
 import wnbaLogo from '@/assets/logos/wnba-logo.png';
@@ -28,9 +28,9 @@ interface SportIconProps {
 }
 
 const sizeClasses = {
-  sm: 'w-10 h-10',
-  md: 'w-14 h-14',
-  lg: 'w-20 h-20',
+  sm: 'w-6 h-6',
+  md: 'w-8 h-8',
+  lg: 'w-12 h-12',
 };
 
 export const SportIcon = ({ sport, className, size = 'md' }: SportIconProps) => {
