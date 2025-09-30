@@ -28,14 +28,30 @@ import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
+import { useUser } from '@/contexts/user-context';
+import { UserDisplay } from '@/components/ui/user-display';
 
 interface SettingsProps {
-  user: SupabaseUser | null;
+  user?: SupabaseUser | null;
   userRole?: string;
   onUserUpdate?: (user: SupabaseUser) => void;
 }
 
-export const Settings: React.FC<SettingsProps> = ({ user, userRole = 'user', onUserUpdate }) => {
+export const Settings: React.FC<SettingsProps> = ({ user: propUser, userRole: propUserRole, onUserUpdate }) => {
+  const { 
+    user: contextUser, 
+    userIdentity, 
+    userRole: contextUserRole, 
+    userSubscription,
+    getUserDisplayName,
+    getUserUsername,
+    getUserInitials,
+    updateUserIdentity 
+  } = useUser();
+  
+  // Use context user if no prop user provided
+  const user = propUser || contextUser;
+  const userRole = propUserRole || contextUserRole;
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);

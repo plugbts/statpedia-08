@@ -27,6 +27,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { useUser } from '@/contexts/user-context';
+import { UserDisplay } from '@/components/ui/user-display';
 
 interface SupportCenterProps {
   userRole?: string;
@@ -65,10 +67,23 @@ interface FAQItem {
 }
 
 export const SupportCenter: React.FC<SupportCenterProps> = ({ 
-  userRole = 'user', 
-  userEmail = '', 
-  userName = '' 
+  userRole: propUserRole, 
+  userEmail: propUserEmail, 
+  userName: propUserName 
 }) => {
+  const { 
+    userIdentity, 
+    userRole: contextUserRole, 
+    getUserDisplayName,
+    getUserUsername,
+    getUserInitials 
+  } = useUser();
+  
+  // Use context values if no props provided
+  const userRole = propUserRole || contextUserRole;
+  const userEmail = propUserEmail || userIdentity?.email || '';
+  const userName = propUserName || getUserDisplayName();
+  
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('chat');
   const [messages, setMessages] = useState<Message[]>([]);

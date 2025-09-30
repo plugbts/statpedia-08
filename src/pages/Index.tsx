@@ -193,49 +193,13 @@ const Index = () => {
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
-      setUser(null);
-      setUserSubscription('free');
+      // User state is now managed by UserContext
     } catch (error) {
       console.error('Logout error:', error);
     }
   };
 
-  useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setUser(session?.user ?? null);
-        if (session?.user) {
-              // Set user role
-              const role = determineUserRole(session.user);
-              setUserRole(role);
-              
-          // Fetch subscription in setTimeout to avoid blocking
-          setTimeout(() => {
-            fetchUserSubscription(session.user.id);
-          }, 0);
-        }
-        setIsLoading(false);
-      }
-    );
-
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        // Set user role
-        const role = determineUserRole(session.user);
-        setUserRole(role);
-        
-        setTimeout(() => {
-          fetchUserSubscription(session.user.id);
-        }, 0);
-      }
-      setIsLoading(false);
-    });
-
-    return () => authSubscription.unsubscribe();
-  }, []);
+  // User state is now managed by UserContext, no need for local auth handling
 
   // Load real predictions when user is authenticated
   useEffect(() => {
@@ -396,50 +360,7 @@ const Index = () => {
     };
   };
 
-  const fetchUserSubscription = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('subscription_tier')
-        .eq('user_id', userId)
-        .single();
-
-      if (error) {
-        console.error('Error fetching subscription:', error);
-        return;
-      }
-
-      setUserSubscription(data?.subscription_tier || 'free');
-    } catch (error) {
-      console.error('Error fetching subscription:', error);
-    }
-  };
-
-  const determineUserRole = (user: User | null) => {
-    if (!user) return 'user';
-    
-    // Check if user is the plug account (owner)
-    if (user.email === 'plug@plugbts.com' || user.email === 'plugbts@gmail.com') {
-      return 'owner';
-    }
-    
-    // Check for admin role in user metadata
-    if (user.user_metadata?.role === 'admin') {
-      return 'admin';
-    }
-    
-    // Check for mod role in user metadata
-    if (user.user_metadata?.role === 'mod') {
-      return 'mod';
-    }
-    
-    return 'user';
-  };
-
-  const handleAuthSuccess = (userData: User, subscription: string) => {
-    setUser(userData);
-    setUserSubscription(subscription);
-  };
+  // User subscription and role are now managed by UserContext
 
   // Use real predictions data from sports API - prioritize realPredictions over hook data
   const allPredictions = realPredictions.length > 0 ? realPredictions : (predictions || []);
@@ -522,7 +443,7 @@ const Index = () => {
   }
 
   if (!user) {
-    return <AuthPage onAuthSuccess={handleAuthSuccess} />;
+    return <AuthPage onAuthSuccess={() => {}} />;
   }
 
   const mockWins = [
@@ -982,7 +903,7 @@ const Index = () => {
 
   // Show auth page for non-authenticated users
   if (!user) {
-    return <AuthPage onAuthSuccess={handleAuthSuccess} />;
+    return <AuthPage onAuthSuccess={() => {}} />;
   }
 
   // Show dashboard for authenticated users
@@ -994,10 +915,6 @@ const Index = () => {
         onTabChange={handleTabChange} 
         onSportChange={handleSportChange}
         selectedSport={selectedSport}
-        userEmail={user.email}
-        displayName={user.user_metadata?.display_name}
-        userRole={userRole}
-        userSubscription={userSubscription}
         onLogout={handleLogout}
         predictionsCount={predictionsCount}
       />

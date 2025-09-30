@@ -14,44 +14,28 @@ import { SocialAdmin } from "@/components/admin/social-admin";
 import { PredictionsAdmin } from "@/components/admin/predictions-admin";
 import { AdManager } from "@/components/ads/ad-manager";
 import { SecurityDashboard } from "@/components/admin/security-dashboard";
+import { useUser } from "@/contexts/user-context";
 
 export default function Admin() {
   const navigate = useNavigate();
+  const { userRole, isLoading: userLoading } = useUser();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     checkAdminRole();
-  }, []);
+  }, [userRole, userLoading]);
 
   const checkAdminRole = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        navigate("/");
-        return;
-      }
-
-      const { data: roles } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id);
-
-      const hasAdminRole = roles?.some(r => r.role === "admin" || r.role === "owner");
-      
-      if (!hasAdminRole) {
-        navigate("/");
-        return;
-      }
-
-      setIsAdmin(true);
-    } catch (error) {
-      console.error("Error checking admin role:", error);
+    if (userLoading) return;
+    
+    if (!userRole || (userRole !== 'admin' && userRole !== 'owner')) {
       navigate("/");
-    } finally {
-      setLoading(false);
+      return;
     }
+
+    setIsAdmin(true);
+    setLoading(false);
   };
 
   if (loading) {
