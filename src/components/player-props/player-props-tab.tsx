@@ -63,9 +63,13 @@ interface PlayerProp {
   isAltProp?: boolean;
 }
 
+interface SortCriteria {
+  field: string;
+  order: 'asc' | 'desc';
+}
+
 interface FilterSettings {
-  sortBy: string;
-  sortOrder: 'asc' | 'desc';
+  sortCriteria: SortCriteria[];
   showAltProps: boolean;
   overUnder: 'all' | 'over' | 'under';
   minOdds: number;
@@ -120,8 +124,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
   const [showMyPicks, setShowMyPicks] = useState(false);
 
   const [filterSettings, setFilterSettings] = useState<FilterSettings>({
-    sortBy: 'probability',
-    sortOrder: 'desc',
+    sortCriteria: [
+      { field: 'probability', order: 'desc' },
+      { field: 'hitRate', order: 'desc' },
+      { field: 'line', order: 'asc' }
+    ],
     showAltProps: true,
     overUnder: 'all',
     minOdds: -200,
@@ -345,14 +352,27 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
       return true;
     })
     .sort((a, b) => {
-      const aValue = a[filterSettings.sortBy as keyof PlayerProp] as number;
-      const bValue = b[filterSettings.sortBy as keyof PlayerProp] as number;
-      
-      if (filterSettings.sortOrder === 'asc') {
-        return aValue - bValue;
-      } else {
-        return bValue - aValue;
+      // Multi-level sorting based on criteria array
+      for (const criteria of filterSettings.sortCriteria) {
+        const aValue = a[criteria.field as keyof PlayerProp] as number;
+        const bValue = b[criteria.field as keyof PlayerProp] as number;
+        
+        let comparison = 0;
+        if (criteria.order === 'asc') {
+          comparison = aValue - bValue;
+        } else {
+          comparison = bValue - aValue;
+        }
+        
+        // If values are different, return the comparison
+        // If they're equal, continue to next criteria
+        if (comparison !== 0) {
+          return comparison;
+        }
       }
+      
+      // If all criteria are equal, maintain original order
+      return 0;
     });
 
   const handleToggleMyPick = (prop: PlayerProp) => {
@@ -512,37 +532,122 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                 <DialogTitle>Filter Settings</DialogTitle>
               </DialogHeader>
               <div className="space-y-6">
-                {/* Sort Settings */}
+                {/* Multi-Level Sort Settings */}
                 <div className="space-y-3">
-                  <h3 className="font-semibold">Sort By</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Select 
-                      value={filterSettings.sortBy} 
-                      onValueChange={(value) => setFilterSettings(prev => ({ ...prev, sortBy: value }))}
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold">Sort By (Up to 3 levels)</h3>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (filterSettings.sortCriteria.length < 3) {
+                          setFilterSettings(prev => ({
+                            ...prev,
+                            sortCriteria: [...prev.sortCriteria, { field: 'probability', order: 'desc' }]
+                          }));
+                        }
+                      }}
+                      disabled={filterSettings.sortCriteria.length >= 3}
                     >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(SORT_OPTIONS || []).map(option => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Select 
-                      value={filterSettings.sortOrder} 
-                      onValueChange={(value: 'asc' | 'desc') => setFilterSettings(prev => ({ ...prev, sortOrder: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="asc">Ascending</SelectItem>
-                        <SelectItem value="desc">Descending</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      Add Sort Level
+                    </Button>
+                  </div>
+                  <div className="space-y-3">
+                    {filterSettings.sortCriteria.map((criteria, index) => (
+                      <div key={index} className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="w-8 h-8 flex items-center justify-center">
+                            {index + 1}
+                          </Badge>
+                          <span className="text-sm font-medium">Priority {index + 1}</span>
+                        </div>
+                        <div className="flex-1 grid grid-cols-2 gap-3">
+                          <Select 
+                            value={criteria.field} 
+                            onValueChange={(value) => {
+                              const newCriteria = [...filterSettings.sortCriteria];
+                              newCriteria[index] = { ...criteria, field: value };
+                              setFilterSettings(prev => ({ ...prev, sortCriteria: newCriteria }));
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(SORT_OPTIONS || []).map(option => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Select 
+                            value={criteria.order} 
+                            onValueChange={(value: 'asc' | 'desc') => {
+                              const newCriteria = [...filterSettings.sortCriteria];
+                              newCriteria[index] = { ...criteria, order: value };
+                              setFilterSettings(prev => ({ ...prev, sortCriteria: newCriteria }));
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="asc">Ascending</SelectItem>
+                              <SelectItem value="desc">Descending</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              if (index > 0) {
+                                const newCriteria = [...filterSettings.sortCriteria];
+                                [newCriteria[index - 1], newCriteria[index]] = [newCriteria[index], newCriteria[index - 1]];
+                                setFilterSettings(prev => ({ ...prev, sortCriteria: newCriteria }));
+                              }
+                            }}
+                            disabled={index === 0}
+                            className="p-1 h-6 w-6"
+                          >
+                            <ArrowUp className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              if (index < filterSettings.sortCriteria.length - 1) {
+                                const newCriteria = [...filterSettings.sortCriteria];
+                                [newCriteria[index], newCriteria[index + 1]] = [newCriteria[index + 1], newCriteria[index]];
+                                setFilterSettings(prev => ({ ...prev, sortCriteria: newCriteria }));
+                              }
+                            }}
+                            disabled={index === filterSettings.sortCriteria.length - 1}
+                            className="p-1 h-6 w-6"
+                          >
+                            <ArrowDown className="w-3 h-3" />
+                          </Button>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            const newCriteria = filterSettings.sortCriteria.filter((_, i) => i !== index);
+                            setFilterSettings(prev => ({ ...prev, sortCriteria: newCriteria }));
+                          }}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                    {filterSettings.sortCriteria.length === 0 && (
+                      <div className="text-center py-4 text-muted-foreground">
+                        No sort criteria set. Click "Add Sort Level" to add sorting.
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -665,36 +770,41 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
         </div>
       </div>
 
-      {/* Sort Bar */}
-      <div className="flex items-center gap-2 p-2 bg-muted/30 rounded-lg">
+      {/* Multi-Level Sort Bar */}
+      <div className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg">
         <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
         <span className="text-sm font-medium text-muted-foreground">Sort by:</span>
-        <div className="flex gap-1">
-          {(SORT_OPTIONS || []).map(option => (
-            <Button
-              key={option.value}
-              variant={filterSettings.sortBy === option.value ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setFilterSettings(prev => ({ ...prev, sortBy: option.value }))}
-              className="text-xs"
-            >
-              {option.label}
-              {filterSettings.sortBy === option.value && (
-                filterSettings.sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 ml-1" /> : <ArrowDown className="w-3 h-3 ml-1" />
-              )}
-            </Button>
-          ))}
+        <div className="flex gap-2 flex-wrap">
+          {filterSettings.sortCriteria.map((criteria, index) => {
+            const option = SORT_OPTIONS.find(opt => opt.value === criteria.field);
+            return (
+              <div key={index} className="flex items-center gap-1">
+                <Badge variant="outline" className="text-xs">
+                  {index + 1}
+                </Badge>
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="text-xs gap-1"
+                >
+                  {option?.label || criteria.field}
+                  {criteria.order === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                </Button>
+              </div>
+            );
+          })}
+          {filterSettings.sortCriteria.length === 0 && (
+            <span className="text-sm text-muted-foreground italic">No sorting applied</span>
+          )}
         </div>
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
-          onClick={() => setFilterSettings(prev => ({ 
-            ...prev, 
-            sortOrder: prev.sortOrder === 'asc' ? 'desc' : 'asc' 
-          }))}
-          className="ml-auto"
+          onClick={() => setShowFilterDialog(true)}
+          className="ml-auto gap-1"
         >
-          {filterSettings.sortOrder === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
+          <Settings className="w-3 h-3" />
+          Configure
         </Button>
       </div>
 
