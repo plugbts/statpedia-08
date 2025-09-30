@@ -38,8 +38,8 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
       items.push({ id: 'admin', label: 'Admin Panel', icon: <Settings className="w-4 h-4" /> });
     }
     
-    // Sync test only visible to owner and admin
-    if (['admin', 'owner'].includes(userRole)) {
+    // Sync test only visible to owner
+    if (userRole === 'owner') {
       items.push({ id: 'sync-test', label: 'Sync Test', icon: <Wifi className="w-4 h-4" />, badge: 'DEV' });
     }
     
