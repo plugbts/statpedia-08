@@ -360,7 +360,7 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
 
       {/* 3D Security Gate Popup - Ultra Compact */}
       {showSubscriptionOverlay && lockedFeature && (
-        <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-2 sm:pt-4 px-1 sm:px-2">
+        <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-16 sm:pt-20 px-1 sm:px-2">
           {/* Dark gradient background */}
           <div className="absolute inset-0 bg-gradient-to-br from-black via-gray-900 to-black opacity-95"></div>
           

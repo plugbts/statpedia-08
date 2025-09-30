@@ -20,7 +20,8 @@ import {
   ArrowUp,
   ArrowDown,
   Minus,
-  Calendar
+  Calendar,
+  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MoneylineProps } from '@/components/predictions/moneyline-props';
@@ -511,7 +512,16 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
                     Offseason
                   </Badge>
                 </div>
-                <div className="p-6 bg-muted/30 rounded-lg border border-muted">
+                <div className="relative p-6 bg-muted/30 rounded-lg border border-muted">
+                  {/* X Close Button */}
+                  <button
+                    onClick={() => setShouldShowMoneyline(true)}
+                    className="absolute top-2 right-2 w-6 h-6 rounded-full bg-muted hover:bg-muted/80 flex items-center justify-center transition-colors"
+                    title="Close offseason message"
+                  >
+                    <X className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                  
                   <div className="text-center space-y-3">
                     <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto">
                       <Calendar className="w-8 h-8 text-muted-foreground" />
