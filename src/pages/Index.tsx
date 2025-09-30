@@ -35,6 +35,13 @@ const Index = () => {
   const [showFeatureTooltip, setShowFeatureTooltip] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [showTodaysPicks, setShowTodaysPicks] = useState(false);
+  const [showAlertModal, setShowAlertModal] = useState(false);
+  const [userAlerts, setUserAlerts] = useState<any[]>([]);
+  const [newAlert, setNewAlert] = useState({
+    prop: '',
+    odds: '',
+    condition: 'above' // 'above' or 'below'
+  });
   const predictionsPerPage = 16;
 
   // Use real sports data instead of mock data
@@ -81,6 +88,39 @@ const Index = () => {
         });
       }
     }, 100);
+  };
+
+  const handleCustomizeAlerts = () => {
+    // Request notification permission if not already granted
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().then(permission => {
+        if (permission === 'granted') {
+          console.log('Notification permission granted');
+        } else {
+          console.log('Notification permission denied');
+        }
+      });
+    }
+    setShowAlertModal(true);
+  };
+
+  const handleAddAlert = () => {
+    if (newAlert.prop && newAlert.odds) {
+      const alert = {
+        id: Date.now().toString(),
+        prop: newAlert.prop,
+        odds: parseFloat(newAlert.odds),
+        condition: newAlert.condition,
+        sport: selectedSport,
+        createdAt: new Date().toISOString()
+      };
+      setUserAlerts([...userAlerts, alert]);
+      setNewAlert({ prop: '', odds: '', condition: 'above' });
+    }
+  };
+
+  const handleRemoveAlert = (alertId: string) => {
+    setUserAlerts(userAlerts.filter(alert => alert.id !== alertId));
   };
 
   const getTodaysTopPicks = () => {
@@ -393,6 +433,61 @@ const Index = () => {
   }, [allPredictions.length]);
 
 
+  // Load alerts from localStorage on component mount
+  useEffect(() => {
+    const savedAlerts = localStorage.getItem('statpedia_user_alerts');
+    if (savedAlerts) {
+      try {
+        setUserAlerts(JSON.parse(savedAlerts));
+      } catch (error) {
+        console.error('Failed to load alerts from localStorage:', error);
+      }
+    }
+  }, []);
+
+  // Save alerts to localStorage whenever userAlerts changes
+  useEffect(() => {
+    localStorage.setItem('statpedia_user_alerts', JSON.stringify(userAlerts));
+  }, [userAlerts]);
+
+  // Check for alert conditions when predictions change
+  useEffect(() => {
+    if (userAlerts.length === 0 || allPredictions.length === 0) return;
+
+    allPredictions.forEach(prediction => {
+      userAlerts.forEach(alert => {
+        // Check if this prediction matches the alert criteria
+        if (prediction.prop === alert.prop && prediction.sport === alert.sport) {
+          const predictionLine = prediction.line;
+          const alertThreshold = alert.odds;
+          let shouldNotify = false;
+
+          if (alert.condition === 'above' && predictionLine > alertThreshold) {
+            shouldNotify = true;
+          } else if (alert.condition === 'below' && predictionLine < alertThreshold) {
+            shouldNotify = true;
+          }
+
+          if (shouldNotify) {
+            // Check if we've already notified for this prediction
+            const notificationKey = `alert_${alert.id}_${prediction.id}`;
+            if (!localStorage.getItem(notificationKey)) {
+              // Show browser notification
+              if (Notification.permission === 'granted') {
+                new Notification(`Alert: ${alert.prop} ${alert.condition} ${alert.odds}`, {
+                  body: `${prediction.player} - ${prediction.team} vs ${prediction.opponent}`,
+                  icon: '/favicon.ico'
+                });
+              }
+              // Mark as notified
+              localStorage.setItem(notificationKey, 'true');
+            }
+          }
+        }
+      });
+    });
+  }, [allPredictions, userAlerts]);
+
   // Note: Sport change handling is done in handleSportChange function
 
   if (isLoading) {
@@ -547,7 +642,7 @@ const Index = () => {
                 <TrendingUp className="w-5 h-5 mr-2" />
                 View Today's Picks
               </Button>
-              <Button size="lg" variant="outline" className="hover-scale">
+              <Button size="lg" variant="outline" className="hover-scale" onClick={handleCustomizeAlerts}>
                 <Settings className="w-5 h-5 mr-2" />
                 Customize Alerts
               </Button>
@@ -633,6 +728,133 @@ const Index = () => {
               </Button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Alert Customization Modal */}
+      {showAlertModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-card border border-border/50 rounded-xl p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-foreground">Customize Alerts</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Set up notifications for specific props and odds thresholds
+                </p>
+                <div className="flex items-center gap-2 mt-2">
+                  <div className={`w-2 h-2 rounded-full ${Notification.permission === 'granted' ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                  <span className="text-xs text-muted-foreground">
+                    {Notification.permission === 'granted' ? 'Notifications enabled' : 'Notifications pending permission'}
+                  </span>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAlertModal(false)}
+              >
+                ✕
+              </Button>
+            </div>
+
+            {/* Add New Alert Form */}
+            <div className="bg-muted/30 rounded-lg p-4 mb-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4">Add New Alert</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-2 block">Prop Type</label>
+                  <select
+                    value={newAlert.prop}
+                    onChange={(e) => setNewAlert({ ...newAlert, prop: e.target.value })}
+                    className="w-full p-2 border border-border/50 rounded-md bg-background text-foreground"
+                  >
+                    <option value="">Select Prop</option>
+                    <option value="Points">Points</option>
+                    <option value="Rebounds">Rebounds</option>
+                    <option value="Assists">Assists</option>
+                    <option value="Steals">Steals</option>
+                    <option value="Blocks">Blocks</option>
+                    <option value="3-Pointers">3-Pointers</option>
+                    <option value="Turnovers">Turnovers</option>
+                    <option value="Passing Yards">Passing Yards</option>
+                    <option value="Rushing Yards">Rushing Yards</option>
+                    <option value="Receiving Yards">Receiving Yards</option>
+                    <option value="Touchdowns">Touchdowns</option>
+                    <option value="Goals">Goals</option>
+                    <option value="Saves">Saves</option>
+                    <option value="Hits">Hits</option>
+                    <option value="Strikeouts">Strikeouts</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-2 block">Condition</label>
+                  <select
+                    value={newAlert.condition}
+                    onChange={(e) => setNewAlert({ ...newAlert, condition: e.target.value })}
+                    className="w-full p-2 border border-border/50 rounded-md bg-background text-foreground"
+                  >
+                    <option value="above">Above</option>
+                    <option value="below">Below</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-2 block">Odds Threshold</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={newAlert.odds}
+                    onChange={(e) => setNewAlert({ ...newAlert, odds: e.target.value })}
+                    placeholder="e.g., 2.5"
+                    className="w-full p-2 border border-border/50 rounded-md bg-background text-foreground"
+                  />
+                </div>
+              </div>
+              <Button 
+                onClick={handleAddAlert}
+                className="mt-4 bg-gradient-primary"
+                disabled={!newAlert.prop || !newAlert.odds}
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Add Alert
+              </Button>
+            </div>
+
+            {/* Current Alerts */}
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-4">Your Alerts ({userAlerts.length})</h3>
+              {userAlerts.length > 0 ? (
+                <div className="space-y-3">
+                  {userAlerts.map((alert) => (
+                    <div key={alert.id} className="flex items-center justify-between p-3 bg-muted/20 rounded-lg border border-border/30">
+                      <div className="flex items-center gap-3">
+                        <div className="w-2 h-2 bg-primary rounded-full"></div>
+                        <div>
+                          <p className="font-medium text-foreground">{alert.prop}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {alert.condition === 'above' ? 'Above' : 'Below'} {alert.odds} - {alert.sport.toUpperCase()}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRemoveAlert(alert.id)}
+                        className="text-destructive hover:bg-destructive/10"
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Settings className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p>No alerts set up yet</p>
+                  <p className="text-sm">Add your first alert above to get started</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
