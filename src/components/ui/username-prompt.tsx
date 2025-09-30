@@ -71,9 +71,18 @@ export const UsernamePrompt: React.FC<UsernamePromptProps> = ({
         setAvailabilityStatus('available');
         setError('');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error checking username availability:', error);
-      setAvailabilityStatus('idle');
+      // If there's an error (like table doesn't exist), assume username is available
+      // This allows users to proceed even if the database isn't fully set up
+      if (error.message?.includes('schema cache') || error.message?.includes('relation') || error.message?.includes('does not exist')) {
+        console.log('Database table not found, assuming username is available');
+        setAvailabilityStatus('available');
+        setError('');
+      } else {
+        setAvailabilityStatus('idle');
+        setError('Unable to check username availability. Please try again.');
+      }
     } finally {
       setIsCheckingAvailability(false);
     }

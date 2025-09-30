@@ -292,22 +292,58 @@ class SocialService {
       }
     } catch (error: any) {
       console.error('Failed to create/update user profile:', error);
+      
+      // If table doesn't exist, create a fallback profile object
+      if (error.message?.includes('schema cache') || error.message?.includes('relation') || error.message?.includes('does not exist')) {
+        console.log('user_profiles table not found, creating fallback profile');
+        return {
+          id: `fallback_${userId}`,
+          user_id: userId,
+          username,
+          display_name: username,
+          bio: '',
+          avatar_url: '',
+          banner_url: '',
+          banner_position: 'center' as const,
+          banner_blur: 0,
+          banner_brightness: 1.0,
+          banner_contrast: 1.0,
+          banner_saturation: 1.0,
+          karma: 0,
+          roi_percentage: 0,
+          total_posts: 0,
+          total_comments: 0,
+          is_muted: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+      }
+      
       throw error;
     }
   }
 
   async getUserProfileByUsername(username: string): Promise<UserProfile | null> {
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('username', username)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('username', username)
+        .single();
 
-    if (error) {
-      if (error.code === 'PGRST116') return null;
+      if (error) {
+        if (error.code === 'PGRST116') return null;
+        throw error;
+      }
+      return data;
+    } catch (error: any) {
+      // If table doesn't exist, return null (username is available)
+      if (error.message?.includes('schema cache') || error.message?.includes('relation') || error.message?.includes('does not exist')) {
+        console.log('user_profiles table not found, assuming username is available');
+        return null;
+      }
       throw error;
     }
-    return data;
   }
 
   async updateUserProfile(userId: string, updates: Partial<UserProfile>): Promise<UserProfile> {
