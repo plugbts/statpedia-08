@@ -29,6 +29,7 @@ interface BetSlipSharerProps {
 }
 
 export const BetSlipSharer: React.FC<BetSlipSharerProps> = ({ userId, onBetSlipShared }) => {
+  console.log('BetSlipSharer rendered with userId:', userId);
   const [isOpen, setIsOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -147,7 +148,7 @@ export const BetSlipSharer: React.FC<BetSlipSharerProps> = ({ userId, onBetSlipS
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
+        <Button variant="outline" size="sm" className="gap-2 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100">
           <Share2 className="w-4 h-4" />
           Share Bet Slip
         </Button>

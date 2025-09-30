@@ -22,7 +22,8 @@ import {
   RefreshCw,
   Image,
   Palette,
-  Shield
+  Shield,
+  X
 } from 'lucide-react';
 import { socialService, type Post, type UserProfile, type Friend } from '@/services/social-service';
 import { recommendationService, type PersonalizedPost } from '@/services/recommendation-service';
@@ -67,6 +68,7 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
   const [showBannerEditor, setShowBannerEditor] = useState(false);
   const [currentBanner, setCurrentBanner] = useState<BannerSettings | null>(null);
   const [showKarmaTutorial, setShowKarmaTutorial] = useState(false);
+  const [karmaTutorialChecked, setKarmaTutorialChecked] = useState(false);
   const [sharedBetSlips, setSharedBetSlips] = useState<SharedBetSlip[]>([]);
   const [isLoadingBetSlips, setIsLoadingBetSlips] = useState(false);
   const { toast } = useToast();
@@ -80,23 +82,27 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
   }, [activeTab]);
 
   const checkKarmaTutorial = async () => {
-    if (activeTab === 'profile') {
+    if (activeTab === 'profile' && !karmaTutorialChecked) {
+      setKarmaTutorialChecked(true); // Prevent multiple checks in same session
+      
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // Check if user has seen karma tutorial
-        const { data: tutorialData } = await supabase
-          .from('user_preferences')
-          .select('karma_tutorial_seen')
-          .eq('user_id', user.id)
-          .single();
-
-        if (!tutorialData?.karma_tutorial_seen) {
-          // Show tutorial after a short delay
+        // Check localStorage for tutorial status - this persists across sessions
+        const tutorialSeenKey = `karma_tutorial_seen_${user.id}`;
+        const tutorialSeen = localStorage.getItem(tutorialSeenKey);
+        
+        console.log('Checking karma tutorial status:', { tutorialSeen, userId: user.id });
+        
+        if (tutorialSeen !== 'true') {
+          // Tutorial not seen yet, show it
+          console.log('Showing karma tutorial for first time');
           setTimeout(() => {
             setShowKarmaTutorial(true);
           }, 1000);
+        } else {
+          console.log('Karma tutorial already seen, not showing');
         }
       } catch (error) {
         console.error('Failed to check karma tutorial status:', error);
@@ -111,14 +117,19 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Mark tutorial as seen
-      await supabase
-        .from('user_preferences')
-        .upsert([{
-          user_id: user.id,
-          karma_tutorial_seen: true,
-          updated_at: new Date().toISOString()
-        }]);
+      // Mark tutorial as seen in localStorage - this ensures it never shows again
+      const tutorialSeenKey = `karma_tutorial_seen_${user.id}`;
+      localStorage.setItem(tutorialSeenKey, 'true');
+      
+      console.log('Karma tutorial marked as seen - will not show again for user:', user.id);
+      
+      // Also try to store in a more permanent way (could be database in future)
+      try {
+        // Store in sessionStorage as backup
+        sessionStorage.setItem(tutorialSeenKey, 'true');
+      } catch (e) {
+        console.warn('Could not store in sessionStorage:', e);
+      }
     } catch (error) {
       console.error('Failed to mark karma tutorial as seen:', error);
     }
@@ -275,7 +286,13 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
       }
 
       setUserProfile(profile);
-      setPosts(postsData);
+      // Convert Post[] to PersonalizedPost[] for compatibility
+      const personalizedPosts: PersonalizedPost[] = postsData.map(post => ({
+        ...post,
+        score: 0,
+        reason: 'recent'
+      }));
+      setPosts(personalizedPosts);
       setFriends(friendsData);
       setFriendRequests(requestsData);
 
@@ -495,23 +512,6 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
     }
   };
 
-  const handleAcceptFriendRequest = async (friendId: string) => {
-    try {
-      await socialService.acceptFriendRequest(friendId);
-      toast({
-        title: "Success",
-        description: "Friend request accepted"
-      });
-      loadInitialData(); // Reload to update friends list
-    } catch (error: any) {
-      console.error('Failed to accept friend request:', error);
-      toast({
-        title: "Error",
-        description: "Failed to accept friend request",
-        variant: "destructive"
-      });
-    }
-  };
 
   const handleCreatePost = async () => {
     if (!newPost.trim() || !userProfile) return;
@@ -528,7 +528,12 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
       
       // Reload posts
       const postsData = await socialService.getPosts();
-      setPosts(postsData);
+      const personalizedPosts: PersonalizedPost[] = postsData.map(post => ({
+        ...post,
+        score: 0,
+        reason: 'recent'
+      }));
+      setPosts(personalizedPosts);
     } catch (error: any) {
       console.error('Failed to create post:', error);
       toast({
@@ -604,7 +609,8 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
       {/* Debug Info */}
       <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
         Debug: userProfile={userProfile ? 'loaded' : 'not loaded'}, activeTab={activeTab}, 
-        friendRequests={friendRequests.length}, friends={friends.length}
+        friendRequests={friendRequests.length}, friends={friends.length}, 
+        karmaTutorialChecked={karmaTutorialChecked ? 'yes' : 'no'}, showKarmaTutorial={showKarmaTutorial ? 'yes' : 'no'}
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -668,7 +674,8 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
           </Card>
 
           {/* Create Post */}
-          {userProfile && (
+          {console.log('Rendering create post section, userProfile:', userProfile)}
+          {userProfile ? (
             <Card>
               <CardContent className="p-4">
                 <div className="flex gap-4">
@@ -720,12 +727,16 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
                           {isSubmitting ? 'Posting...' : 'Post'}
                         </Button>
                       </div>
-                      {/* Debug: BetSlipSharer should be visible above */}
-                      <div className="text-xs text-muted-foreground mt-2">
-                        BetSlipSharer component should be visible above the Post button
-                      </div>
                     </div>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-center text-muted-foreground">
+                  Loading user profile...
                 </div>
               </CardContent>
             </Card>
