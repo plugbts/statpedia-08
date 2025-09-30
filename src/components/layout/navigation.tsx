@@ -48,15 +48,24 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
     'most-likely': {
       name: 'Most Likely',
       description: 'AI-driven probability analysis showing which players are most likely to hit or miss their targets.'
+    },
+    'parlay-gen': {
+      name: 'Parlay Gen',
+      description: 'AI-powered parlay generator with customizable leg counts and odds filtering for maximum profit potential.'
     }
   };
 
   // Check if user has access to premium features
   const hasProAccess = userSubscription === 'pro' || userSubscription === 'premium' || ['mod', 'admin', 'owner'].includes(userRole);
+  const hasPremiumAccess = userSubscription === 'premium' || ['admin', 'owner'].includes(userRole);
 
   // Handle premium feature access
   const handlePremiumFeatureClick = (featureId: string) => {
-    if (!hasProAccess && premiumFeatures[featureId as keyof typeof premiumFeatures]) {
+    // Check if it's a premium-only feature (parlay-gen)
+    if (featureId === 'parlay-gen' && !hasPremiumAccess) {
+      setLockedFeature(premiumFeatures[featureId as keyof typeof premiumFeatures]);
+      setShowSubscriptionOverlay(true);
+    } else if (!hasProAccess && premiumFeatures[featureId as keyof typeof premiumFeatures]) {
       setLockedFeature(premiumFeatures[featureId as keyof typeof premiumFeatures]);
       setShowSubscriptionOverlay(true);
     } else {
@@ -99,6 +108,7 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
     const items = [
       { id: 'strikeout-center', label: 'Strikeout Center', icon: <Zap className="w-4 h-4" />, badge: 'MLB' },
       { id: 'most-likely', label: 'Most Likely', icon: <Target className="w-4 h-4" />, badge: 'MLB' },
+      { id: 'parlay-gen', label: 'Parlay Gen', icon: <TrendingUp className="w-4 h-4" />, badge: 'PREMIUM' },
       { id: 'analytics', label: 'Analytics', icon: <TrendingUp className="w-4 h-4" /> },
       { id: 'backtest', label: 'Backtest', icon: <Calendar className="w-4 h-4" /> },
     ];
@@ -199,7 +209,8 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
                       </Badge>
                     )}
                     {/* Show lock icon for premium features if user doesn't have access */}
-                    {!hasProAccess && (item.id === 'strikeout-center' || item.id === 'most-likely') && (
+                    {((!hasProAccess && (item.id === 'strikeout-center' || item.id === 'most-likely')) || 
+                      (item.id === 'parlay-gen' && !hasPremiumAccess)) && (
                       <div className="ml-auto">
                         <div className="w-3 h-3 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 flex items-center justify-center">
                           <div className="w-1.5 h-1.5 bg-white rounded-full"></div>

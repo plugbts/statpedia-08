@@ -28,6 +28,7 @@ import { BetTrackingTab } from '@/components/bet-tracking/bet-tracking-tab';
 import { SocialTab } from '@/components/social/social-tab';
 import { MostLikely } from '@/components/mlb/most-likely';
 import { PredictionsTab } from '@/components/predictions/predictions-tab';
+import { ParlayGen } from '@/components/parlay/parlay-gen';
 import { HeaderBannerAd, InFeedAd, FooterBannerAd, MobileBannerAd } from '@/components/ads/ad-placements';
 import { useUser } from '@/contexts/user-context';
 
@@ -935,8 +936,9 @@ const Index = () => {
         }} />}
         {activeTab === 'strikeout-center' && <StrikeoutCenter />}
         {activeTab === 'most-likely' && <MostLikely />}
+        {activeTab === 'parlay-gen' && <ParlayGen />}
         {activeTab === 'sync-test' && renderSyncTest()}
-        {activeTab !== 'dashboard' && activeTab !== 'predictions' && activeTab !== 'player-props' && activeTab !== 'insights' && activeTab !== 'bet-tracking' && activeTab !== 'social' && activeTab !== 'strikeout-center' && activeTab !== 'most-likely' && activeTab !== 'sync-test' && (
+        {activeTab !== 'dashboard' && activeTab !== 'predictions' && activeTab !== 'player-props' && activeTab !== 'insights' && activeTab !== 'bet-tracking' && activeTab !== 'social' && activeTab !== 'strikeout-center' && activeTab !== 'most-likely' && activeTab !== 'parlay-gen' && activeTab !== 'sync-test' && (
           <div className="text-center py-16">
             <h2 className="text-2xl font-bold text-foreground mb-4">
               {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Coming Soon
