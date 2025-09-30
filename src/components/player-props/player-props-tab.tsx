@@ -66,6 +66,11 @@ interface PlayerProp {
   year: number;
   sportsbooks: string[];
   isAltProp?: boolean;
+  recentForm?: string;
+  restDays?: number;
+  injuryStatus?: string;
+  position?: string;
+  headshot?: string;
 }
 
 interface SortCriteria {
@@ -191,6 +196,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
       year: 2024,
       sportsbooks: ['fanduel', 'draftkings', 'betmgm'],
       isAltProp: false,
+      recentForm: '85%',
+      restDays: 2,
+      injuryStatus: 'healthy',
+      position: 'SF',
+      headshot: '/src/assets/players/lebron.jpg'
     },
     {
       id: '2',
@@ -213,6 +223,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
       year: 2024,
       sportsbooks: ['fanduel', 'caesars', 'draftkings', 'bet365'],
       isAltProp: false,
+      recentForm: '78%',
+      restDays: 1,
+      injuryStatus: 'healthy',
+      position: 'PG',
+      headshot: '/src/assets/players/curry.jpg'
     },
     {
       id: '3',
@@ -235,6 +250,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
       year: 2024,
       sportsbooks: ['fanduel', 'draftkings', 'hardrock', 'betmgm'],
       isAltProp: true,
+      recentForm: '72%',
+      restDays: 3,
+      injuryStatus: 'questionable',
+      position: 'PF',
+      headshot: '/src/assets/players/davis.jpg'
     },
     {
       id: '4',
@@ -257,6 +277,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
       year: 2024,
       sportsbooks: ['fanduel', 'caesars', 'prizepicks', 'underdog'],
       isAltProp: false,
+      recentForm: '88%',
+      restDays: 1,
+      injuryStatus: 'healthy',
+      position: 'SG',
+      headshot: '/src/assets/players/thompson.jpg'
     },
     {
       id: '5',
@@ -279,6 +304,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
       year: 2024,
       sportsbooks: ['draftkings', 'bet365', 'espnbet'],
       isAltProp: true,
+      recentForm: '65%',
+      restDays: 2,
+      injuryStatus: 'healthy',
+      position: 'PG',
+      headshot: '/src/assets/players/westbrook.jpg'
     },
   ];
 
@@ -396,9 +426,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
         opponent: prop.opponent,
         gameDate: new Date().toISOString(),
         hitRate: prop.hitRate,
-        recentForm: parseFloat(prop.recentForm.replace('%', '')) / 100,
-        restDays: prop.restDays,
-        injuryStatus: prop.injuryStatus
+        recentForm: prop.recentForm ? parseFloat(prop.recentForm.replace('%', '')) / 100 : 0.5,
+        restDays: prop.restDays || 1,
+        injuryStatus: prop.injuryStatus || 'healthy'
       });
       
       if (evCalculation.evPercentage < filterSettings.minEV || evCalculation.evPercentage > filterSettings.maxEV) {
@@ -439,9 +469,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
             opponent: a.opponent,
             gameDate: new Date().toISOString(),
             hitRate: a.hitRate,
-            recentForm: parseFloat(a.recentForm.replace('%', '')) / 100,
-            restDays: a.restDays,
-            injuryStatus: a.injuryStatus
+            recentForm: a.recentForm ? parseFloat(a.recentForm.replace('%', '')) / 100 : 0.5,
+            restDays: a.restDays || 1,
+            injuryStatus: a.injuryStatus || 'healthy'
           });
           
           const bEV = evCalculatorService.calculateAIRating({
@@ -455,9 +485,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
             opponent: b.opponent,
             gameDate: new Date().toISOString(),
             hitRate: b.hitRate,
-            recentForm: parseFloat(b.recentForm.replace('%', '')) / 100,
-            restDays: b.restDays,
-            injuryStatus: b.injuryStatus
+            recentForm: b.recentForm ? parseFloat(b.recentForm.replace('%', '')) / 100 : 0.5,
+            restDays: b.restDays || 1,
+            injuryStatus: b.injuryStatus || 'healthy'
           });
           
           aValue = criteria.field === 'evPercentage' ? aEV.evPercentage : aEV.roiPercentage;
