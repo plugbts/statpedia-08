@@ -7,7 +7,7 @@ interface SoundHapticOptions {
 }
 
 export const useSoundHaptic = (options: SoundHapticOptions = {}) => {
-  const { enableSound = true, enableHaptic = true, volume = 0.3 } = options;
+  const { enableSound = true, enableHaptic = true, volume = 0.1 } = options;
 
   // Sound effects
   const playSound = useCallback((type: 'click' | 'hover' | 'success' | 'error' | 'notification') => {
@@ -21,41 +21,41 @@ export const useSoundHaptic = (options: SoundHapticOptions = {}) => {
       oscillator.connect(gainNode);
       gainNode.connect(audioContext.destination);
 
-      let frequency = 800;
-      let duration = 100;
+      let frequency = 400;
+      let duration = 80;
 
       switch (type) {
         case 'click':
-          frequency = 1000;
-          duration = 50;
-          break;
-        case 'hover':
-          frequency = 600;
+          frequency = 500;
           duration = 30;
           break;
+        case 'hover':
+          frequency = 300;
+          duration = 20;
+          break;
         case 'success':
-          frequency = 800;
-          duration = 200;
-          // Success chord
+          frequency = 400;
+          duration = 120;
+          // Subtle success chord
           setTimeout(() => {
             const osc2 = audioContext.createOscillator();
             const gain2 = audioContext.createGain();
             osc2.connect(gain2);
             gain2.connect(audioContext.destination);
-            osc2.frequency.setValueAtTime(1000, audioContext.currentTime);
-            gain2.gain.setValueAtTime(volume * 0.3, audioContext.currentTime);
-            gain2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+            osc2.frequency.setValueAtTime(600, audioContext.currentTime);
+            gain2.gain.setValueAtTime(volume * 0.2, audioContext.currentTime);
+            gain2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
             osc2.start();
-            osc2.stop(audioContext.currentTime + 0.3);
-          }, 100);
+            osc2.stop(audioContext.currentTime + 0.2);
+          }, 60);
           break;
         case 'error':
-          frequency = 300;
-          duration = 300;
+          frequency = 200;
+          duration = 150;
           break;
         case 'notification':
-          frequency = 880;
-          duration = 150;
+          frequency = 350;
+          duration = 100;
           break;
       }
 
@@ -83,22 +83,22 @@ export const useSoundHaptic = (options: SoundHapticOptions = {}) => {
 
         switch (type) {
           case 'light':
-            pattern = 25;
+            pattern = 10;
             break;
           case 'medium':
-            pattern = 50;
+            pattern = 20;
             break;
           case 'heavy':
-            pattern = 100;
+            pattern = 40;
             break;
           case 'selection':
-            pattern = [10];
+            pattern = [5];
             break;
           case 'impact':
-            pattern = [50, 50, 50];
+            pattern = [20, 10, 20];
             break;
           case 'notification':
-            pattern = [100, 50, 100];
+            pattern = [30, 15, 30];
             break;
         }
 
@@ -109,24 +109,24 @@ export const useSoundHaptic = (options: SoundHapticOptions = {}) => {
     }
   }, [enableHaptic]);
 
-  // Combined interaction feedback
+  // Combined interaction feedback (more subtle)
   const playInteraction = useCallback((type: 'click' | 'hover' | 'success' | 'error') => {
     switch (type) {
       case 'click':
         playSound('click');
-        triggerHaptic('light');
+        triggerHaptic('selection');
         break;
       case 'hover':
+        // Only play sound on hover, no haptic
         playSound('hover');
-        triggerHaptic('selection');
         break;
       case 'success':
         playSound('success');
-        triggerHaptic('notification');
+        triggerHaptic('light');
         break;
       case 'error':
         playSound('error');
-        triggerHaptic('heavy');
+        triggerHaptic('medium');
         break;
     }
   }, [playSound, triggerHaptic]);

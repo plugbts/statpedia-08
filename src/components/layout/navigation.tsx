@@ -4,9 +4,10 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { SportIcon } from '@/components/ui/sport-icon';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { BarChart3, Target, TrendingUp, Calendar, Settings, Wifi, LogOut, MoreVertical, Zap, Brain } from 'lucide-react';
+import { BarChart3, Target, TrendingUp, Calendar, Settings, Wifi, LogOut, MoreVertical, Zap, Brain, Volume2, VolumeX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { VerifiedCheckmark } from '@/components/ui/verified-checkmark';
+import { useBackgroundMusic } from '@/hooks/use-background-music';
 
 interface NavigationProps {
   activeTab: string;
@@ -20,6 +21,7 @@ interface NavigationProps {
 }
 
 export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSport = 'nfl', userEmail, displayName, userRole = 'user', onLogout }: NavigationProps) => {
+  const { isMuted, toggleMusic } = useBackgroundMusic({ enabled: true, volume: 0.05 });
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="w-4 h-4" /> },
     { id: 'predictions', label: 'Predictions', icon: <Target className="w-4 h-4" />, badge: '12' },
@@ -178,6 +180,11 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
                       </Badge>
                     )}
                   </div>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={toggleMusic} className="gap-2 cursor-pointer">
+                  {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                  {isMuted ? 'Unmute Music' : 'Mute Music'}
                 </DropdownMenuItem>
                 {onLogout && (
                   <DropdownMenuItem onClick={onLogout} className="gap-2 cursor-pointer text-destructive">
