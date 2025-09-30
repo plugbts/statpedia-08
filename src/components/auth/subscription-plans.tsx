@@ -123,8 +123,8 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
       id: 'free_trial',
       name: '3-Day Free Trial',
       price: 0,
-      originalPrice: 19.99,
-      description: 'Try Pro features for 3 days, then $19.99/month',
+      originalPrice: 29.99,
+      description: 'Try Pro features for 3 days, then $29.99/month',
       icon: Calendar,
       features: [
         'All Pro features for 3 days',
@@ -424,7 +424,7 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
                     <div className="text-sm text-muted-foreground">Forever</div>
                   )}
                   {(plan as any).originalPrice && (
-                    <div className="text-sm text-muted-foreground line-through">
+                    <div className="text-sm text-muted-foreground">
                       ${(plan as any).originalPrice}/month after trial
                     </div>
                   )}
