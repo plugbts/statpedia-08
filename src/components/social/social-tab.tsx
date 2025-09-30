@@ -28,6 +28,7 @@ import { recommendationService, type PersonalizedPost } from '@/services/recomme
 import { bannerService, type BannerSettings } from '@/services/banner-service';
 import { BannerEditor } from '@/components/social/banner-editor';
 import { UserPredictionStats } from '@/components/predictions/user-prediction-stats';
+import { KarmaTutorialPopup } from '@/components/ui/karma-tutorial-popup';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -55,11 +56,61 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole }) => {
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [showBannerEditor, setShowBannerEditor] = useState(false);
   const [currentBanner, setCurrentBanner] = useState<BannerSettings | null>(null);
+  const [showKarmaTutorial, setShowKarmaTutorial] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     loadInitialData();
   }, []);
+
+  useEffect(() => {
+    checkKarmaTutorial();
+  }, [activeTab]);
+
+  const checkKarmaTutorial = async () => {
+    if (activeTab === 'profile') {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Check if user has seen karma tutorial
+        const { data: tutorialData } = await supabase
+          .from('user_preferences')
+          .select('karma_tutorial_seen')
+          .eq('user_id', user.id)
+          .single();
+
+        if (!tutorialData?.karma_tutorial_seen) {
+          // Show tutorial after a short delay
+          setTimeout(() => {
+            setShowKarmaTutorial(true);
+          }, 1000);
+        }
+      } catch (error) {
+        console.error('Failed to check karma tutorial status:', error);
+      }
+    }
+  };
+
+  const handleKarmaTutorialClose = async () => {
+    setShowKarmaTutorial(false);
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Mark tutorial as seen
+      await supabase
+        .from('user_preferences')
+        .upsert([{
+          user_id: user.id,
+          karma_tutorial_seen: true,
+          updated_at: new Date().toISOString()
+        }]);
+    } catch (error) {
+      console.error('Failed to mark karma tutorial as seen:', error);
+    }
+  };
 
   useEffect(() => {
     if (userProfile) {
@@ -986,6 +1037,12 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole }) => {
           </Card>
         </div>
       )}
+
+      {/* Karma Tutorial Popup */}
+      <KarmaTutorialPopup
+        isVisible={showKarmaTutorial}
+        onClose={handleKarmaTutorialClose}
+      />
     </div>
   );
 };
