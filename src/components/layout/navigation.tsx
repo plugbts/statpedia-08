@@ -9,7 +9,6 @@ import { cn } from '@/lib/utils';
 import { VerifiedCheckmark } from '@/components/ui/verified-checkmark';
 import { useBackgroundMusic } from '@/hooks/use-background-music';
 import { MusicTipBubble } from '@/components/ui/music-tip-bubble';
-import { SeasonalIndicator } from '@/components/ui/seasonal-indicator';
 
 interface NavigationProps {
   activeTab: string;
@@ -89,7 +88,6 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
                     <BarChart3 className="w-3 h-3 text-white" />
                   </div>
                   <h1 className="text-lg font-display font-bold text-foreground hidden sm:block">Statpedia</h1>
-                  <SeasonalIndicator showText={false} className="hidden sm:flex" />
                   <MoreVertical className="w-3 h-3 text-muted-foreground group-hover:text-foreground transition-colors" />
                 </button>
               </DropdownMenuTrigger>

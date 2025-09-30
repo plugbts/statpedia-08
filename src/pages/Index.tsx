@@ -23,7 +23,6 @@ import type { User } from '@supabase/supabase-js';
 import { useOddsAPI } from '@/hooks/use-odds-api';
 import { useToast } from '@/hooks/use-toast';
 import { predictionTracker } from '@/services/prediction-tracker';
-import { SeasonalOverlay } from '@/components/ui/seasonal-overlay';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -188,22 +187,22 @@ const Index = () => {
 
   useEffect(() => {
     // Set up auth state listener FIRST
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-          (event, session) => {
-            setUser(session?.user ?? null);
-            if (session?.user) {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setUser(session?.user ?? null);
+        if (session?.user) {
               // Set user role
               const role = determineUserRole(session.user);
               setUserRole(role);
               
-              // Fetch subscription in setTimeout to avoid blocking
-              setTimeout(() => {
-                fetchUserSubscription(session.user.id);
-              }, 0);
-            }
-            setIsLoading(false);
-          }
-        );
+          // Fetch subscription in setTimeout to avoid blocking
+          setTimeout(() => {
+            fetchUserSubscription(session.user.id);
+          }, 0);
+        }
+        setIsLoading(false);
+      }
+    );
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -578,18 +577,18 @@ const Index = () => {
             {realPredictions.filter(p => p.confidence >= 80).length} AVAILABLE
           </Badge>
         </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
               {realPredictions
                 .filter(p => p.confidence >= 80)
                 .slice(0, 6)
                 .map((prediction, index) => (
-                  <PredictionCard
+            <PredictionCard
                     key={prediction.id || index}
-                    {...prediction}
+              {...prediction}
                     isSubscribed={userRole === 'owner' || userSubscription !== 'free'}
-                  />
-                ))}
-            </div>
+            />
+          ))}
+        </div>
         {realPredictions.filter(p => p.confidence >= 80).length === 0 && (
           <div className="text-center py-8 text-muted-foreground">
             <p>No high confidence predictions available at this time.</p>
@@ -821,10 +820,10 @@ const Index = () => {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant="default" className="bg-gradient-accent">
-              <TrendingUp className="w-3 h-3 mr-1" />
+          <Badge variant="default" className="bg-gradient-accent">
+            <TrendingUp className="w-3 h-3 mr-1" />
               {allPredictions.length} TOTAL
-            </Badge>
+          </Badge>
             <Button
               variant="outline"
               size="sm"
@@ -862,15 +861,15 @@ const Index = () => {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
               {currentPredictions.map((prediction, index) => (
-                <PredictionCard
+            <PredictionCard
                   key={prediction.id || index}
-                  {...prediction}
+              {...prediction}
                   isSubscribed={userRole === 'owner' || userSubscription !== 'free'}
-                />
-              ))}
-            </div>
+            />
+          ))}
+        </div>
             
             {/* Pagination Controls */}
             {totalPages > 1 && (
@@ -966,7 +965,7 @@ const Index = () => {
   );
 
   return (
-    <SeasonalOverlay className="min-h-screen bg-background relative">
+    <div className="min-h-screen bg-background relative">
       <MatrixBackground />
       <Navigation 
         activeTab={activeTab} 
@@ -995,7 +994,7 @@ const Index = () => {
           </div>
         )}
       </main>
-    </SeasonalOverlay>
+    </div>
   );
 };
 
