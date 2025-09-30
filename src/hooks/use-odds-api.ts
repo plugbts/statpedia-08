@@ -1,19 +1,19 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-// Season dates for filtering
+// Season dates including playoffs/postseason - only filter if completely off-season
 const SEASON_STATUS = {
-  'nba': { active: true, start: '2025-10-21', end: '2026-06-30' },
-  'basketball': { active: true, start: '2025-10-21', end: '2026-06-30' },
-  'nfl': { active: true, start: '2025-09-04', end: '2026-02-15' },
-  'football': { active: true, start: '2025-09-04', end: '2026-02-15' },
-  'nhl': { active: true, start: '2025-10-08', end: '2026-06-30' },
-  'hockey': { active: true, start: '2025-10-08', end: '2026-06-30' },
-  'mlb': { active: false, start: '2026-03-26', end: '2026-10-31' },
-  'baseball': { active: false, start: '2026-03-26', end: '2026-10-31' },
-  'wnba': { active: false, start: '2026-05-15', end: '2026-10-15' },
-  'college-basketball': { active: true, start: '2025-11-04', end: '2026-04-08' },
-  'college-football': { active: true, start: '2025-08-24', end: '2026-01-13' }
+  'nba': { start: '2025-10-21', end: '2026-06-30' }, // Includes playoffs through June
+  'basketball': { start: '2025-10-21', end: '2026-06-30' },
+  'nfl': { start: '2025-09-04', end: '2026-02-15' }, // Includes Super Bowl
+  'football': { start: '2025-09-04', end: '2026-02-15' },
+  'nhl': { start: '2025-10-08', end: '2026-06-30' }, // Includes Stanley Cup Finals
+  'hockey': { start: '2025-10-08', end: '2026-06-30' },
+  'mlb': { start: '2026-03-26', end: '2026-11-15' }, // Includes World Series
+  'baseball': { start: '2026-03-26', end: '2026-11-15' },
+  'wnba': { start: '2026-05-15', end: '2026-10-20' }, // Includes WNBA Finals
+  'college-basketball': { start: '2025-11-04', end: '2026-04-08' }, // Includes March Madness
+  'college-football': { start: '2025-08-24', end: '2026-01-20' } // Includes CFP Championship
 };
 
 export const useOddsAPI = () => {
@@ -23,7 +23,13 @@ export const useOddsAPI = () => {
   const isSeasonActive = (sport: string): boolean => {
     const seasonInfo = SEASON_STATUS[sport as keyof typeof SEASON_STATUS];
     if (!seasonInfo) return true; // Unknown sport, assume active
-    return seasonInfo.active;
+    
+    // Check if current date is within season range (including playoffs)
+    const now = new Date();
+    const startDate = new Date(seasonInfo.start);
+    const endDate = new Date(seasonInfo.end);
+    
+    return now >= startDate && now <= endDate;
   };
 
   const fetchInSeasonSports = async () => {
@@ -37,10 +43,17 @@ export const useOddsAPI = () => {
       if (functionError) throw functionError;
       if (!data.success) throw new Error(data.error);
 
-      // Filter to only active sports based on our season dates
+      // Filter to only in-season sports (including playoffs)
       const activeSports = data.data.filter((sport: any) => {
         const sportKey = sport.key.replace('_', '-');
-        return isSeasonActive(sportKey);
+        const active = isSeasonActive(sportKey);
+        
+        if (!active) {
+          const seasonInfo = SEASON_STATUS[sportKey as keyof typeof SEASON_STATUS];
+          console.log(`Filtered out ${sportKey} - off-season until ${seasonInfo?.start}`);
+        }
+        
+        return active;
       });
 
       return activeSports;
