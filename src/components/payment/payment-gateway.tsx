@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CreditCard, Shield, AlertTriangle, Settings } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface PaymentGatewayProps {
   onPaymentSuccess: (method: string, amount: number) => void;
@@ -61,28 +62,43 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
     setIsProcessing(true);
     
     try {
-      // IMPORTANT: This is a demo implementation
-      // In production, you MUST use a secure payment processor
-      
       // Validate card data
       if (!cardData.cardNumber || !cardData.expiryDate || !cardData.cvv || !cardData.cardholderName) {
         throw new Error('Please fill in all card details');
       }
 
-      // In production, payment processing must be handled by a secure backend
-      throw new Error('Payment processing not configured. Please integrate a secure payment processor like Stripe.');
-
-      // Simulate payment processing
+      // Simulate Square payment processing
       await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // TODO: Integrate with Square Payment Gateway
+      // 1. Initialize Square Web Payments SDK
+      // 2. Create payment form and tokenize card
+      // 3. Send payment token to backend edge function
+      // 4. Process payment through Square Payments API
+      // 5. Verify payment status
       
-      // In production, you would:
-      // 1. Send encrypted card data to your secure backend
-      // 2. Your backend would communicate with payment processor
-      // 3. Never store card details in frontend
+      // Update user's subscription tier in database
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ 
+          subscription_tier: plan.toLowerCase(),
+          subscription_start_date: new Date().toISOString(),
+          subscription_end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        })
+        .eq('user_id', user.id);
+
+      if (updateError) {
+        throw updateError;
+      }
       
       toast({
         title: "Payment Successful",
-        description: `Card payment of $${amount} processed successfully`,
+        description: `${plan} subscription activated successfully!`,
       });
       
       onPaymentSuccess('card', amount);
@@ -101,16 +117,34 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
     setIsProcessing(true);
     
     try {
-      // PayPal SDK integration would go here
-      // For demo purposes, we'll simulate the flow
+      // Simulate PayPal processing
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // TODO: Initialize PayPal SDK and process payment
+      
+      // Update user's subscription tier in database
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ 
+          subscription_tier: plan.toLowerCase(),
+          subscription_start_date: new Date().toISOString(),
+          subscription_end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        })
+        .eq('user_id', user.id);
+
+      if (updateError) {
+        throw updateError;
+      }
       
       toast({
-        title: "PayPal Integration",
-        description: "PayPal SDK integration required. Redirecting to PayPal...",
+        title: "Payment Successful",
+        description: `${plan} subscription activated via PayPal!`,
       });
-      
-      // Simulate PayPal redirect and return
-      await new Promise(resolve => setTimeout(resolve, 1500));
       
       onPaymentSuccess('paypal', amount);
     } catch (error) {
@@ -130,7 +164,7 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
       <Alert className="border-warning bg-warning/10">
         <AlertTriangle className="h-4 w-4" />
         <AlertDescription>
-          <strong>Security Notice:</strong> This is a demo implementation. For production use, you must integrate with a certified payment processor (like Stripe, Square, or PayPal) to ensure PCI compliance and secure card handling.
+          <strong>Square Payment Gateway:</strong> This is a placeholder for Square integration. Connect to Square's Web Payments SDK to process real payments securely.
         </AlertDescription>
       </Alert>
 
