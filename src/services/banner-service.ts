@@ -1,3 +1,4 @@
+import React from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface BannerPreset {
@@ -270,36 +271,43 @@ class BannerService {
   }
 
   // Generate banner CSS styles
-  generateBannerStyles(settings: BannerSettings): string {
-    const styles: string[] = [];
+  generateBannerStyles(settings: BannerSettings): React.CSSProperties {
+    const styles: React.CSSProperties = {};
 
     if (settings.banner_url) {
-      styles.push(`background-image: url('${settings.banner_url}')`);
-      styles.push('background-size: cover');
-      styles.push('background-repeat: no-repeat');
+      styles.backgroundImage = `url('${settings.banner_url}')`;
+      styles.backgroundSize = 'cover';
+      styles.backgroundRepeat = 'no-repeat';
       
       if (settings.banner_position) {
-        styles.push(`background-position: ${settings.banner_position}`);
+        styles.backgroundPosition = settings.banner_position;
       }
     }
 
+    // Combine all filter effects into a single filter property
+    const filters: string[] = [];
+    
     if (settings.banner_blur && settings.banner_blur > 0) {
-      styles.push(`filter: blur(${settings.banner_blur}px)`);
+      filters.push(`blur(${settings.banner_blur}px)`);
     }
 
     if (settings.banner_brightness !== undefined && settings.banner_brightness !== 1.0) {
-      styles.push(`filter: brightness(${settings.banner_brightness})`);
+      filters.push(`brightness(${settings.banner_brightness})`);
     }
 
     if (settings.banner_contrast !== undefined && settings.banner_contrast !== 1.0) {
-      styles.push(`filter: contrast(${settings.banner_contrast})`);
+      filters.push(`contrast(${settings.banner_contrast})`);
     }
 
     if (settings.banner_saturation !== undefined && settings.banner_saturation !== 1.0) {
-      styles.push(`filter: saturation(${settings.banner_saturation})`);
+      filters.push(`saturate(${settings.banner_saturation})`);
     }
 
-    return styles.join('; ');
+    if (filters.length > 0) {
+      styles.filter = filters.join(' ');
+    }
+
+    return styles;
   }
 
   // Reset banner to default
