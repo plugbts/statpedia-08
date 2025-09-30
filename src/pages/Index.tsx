@@ -9,6 +9,7 @@ import { Navigation } from '@/components/layout/navigation';
 import { StatsOverview } from '@/components/analytics/stats-overview';
 import { PredictionCard } from '@/components/analytics/prediction-card';
 import { PreviousDayWins } from '@/components/analytics/previous-day-wins';
+import { TodaysPicksCarousel } from '@/components/analytics/todays-picks-carousel';
 import { SyncTest } from '@/components/sync/sync-test';
 import { FeatureTooltip } from '@/components/onboarding/feature-tooltip';
 import { CommentsSection } from '@/components/ui/comments-section';
@@ -664,71 +665,15 @@ const Index = () => {
       />
 
 
-      {/* Today's Top Picks */}
+      {/* Today's Top Picks Carousel */}
       {showTodaysPicks && (
-        <div id="todays-picks-section" className="space-y-6 animate-fade-in">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-foreground">
-                Today's Top Picks - {getTodaysTopPicks().length > 0 && allPredictions.filter(p => p.sport === selectedSport).length === 0 ? 'ALL SPORTS' : selectedSport.toUpperCase()}
-              </h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                {getTodaysTopPicks().length > 0 && allPredictions.filter(p => p.sport === selectedSport).length === 0 
-                  ? 'Top 10 highest confidence predictions across all sports'
-                  : `Top 10 highest confidence predictions for ${selectedSport.toUpperCase()}`
-                }
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="default" className="bg-gradient-accent">
-                <TrendingUp className="w-3 h-3 mr-1" />
-                {getTodaysTopPicks().length} PICKS
-              </Badge>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowTodaysPicks(false)}
-              >
-                Close
-              </Button>
-            </div>
-          </div>
-          
-          {getTodaysTopPicks().length > 0 ? (
-            <div className={`grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 relative ${(userRole !== 'owner' && userSubscription === 'free') ? 'blur-sm' : ''}`}>
-              {getTodaysTopPicks().map((prediction, index) => (
-                <PredictionCard
-                  key={prediction.id || index}
-                  {...prediction}
-                  isSubscribed={userRole === 'owner' || userSubscription !== 'free'}
-                />
-              ))}
-              
-              {/* Blur overlay for free users */}
-              {(userRole !== 'owner' && userSubscription === 'free') && (
-                <div className="absolute inset-0 bg-gradient-to-br from-background/80 to-background/60 backdrop-blur-sm rounded-lg flex items-center justify-center z-10">
-                  <div className="text-center">
-                    <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <TrendingUp className="w-8 h-8 text-primary" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-foreground mb-2">Premium Content</h3>
-                    <p className="text-sm text-muted-foreground mb-4">Subscribe to view today's top picks</p>
-                    <Button className="bg-gradient-primary">
-                      Upgrade to Premium
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground mb-4">No predictions available for {selectedSport.toUpperCase()}</p>
-              <Button onClick={loadRealPredictions} variant="outline">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Load Predictions
-              </Button>
-            </div>
-          )}
+        <div id="todays-picks-section" className="animate-fade-in">
+          <TodaysPicksCarousel
+            predictions={getTodaysTopPicks()}
+            isSubscribed={userRole === 'owner' || userSubscription !== 'free'}
+            onClose={() => setShowTodaysPicks(false)}
+            sport={getTodaysTopPicks().length > 0 && allPredictions.filter(p => p.sport === selectedSport).length === 0 ? 'ALL SPORTS' : selectedSport}
+          />
         </div>
       )}
 
