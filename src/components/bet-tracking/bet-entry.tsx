@@ -196,13 +196,23 @@ export const BetEntry: React.FC<BetEntryProps> = ({
       setParlayLegs([]);
       setShowParlayLegs(false);
       onBetCreated();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to create bet:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create bet",
-        variant: "destructive"
-      });
+      
+      // Handle database errors gracefully
+      if (error?.code === 'PGRST116' || error?.message?.includes('relation') || error?.message?.includes('does not exist')) {
+        toast({
+          title: "Database Not Ready",
+          description: "Bet tracking tables are not yet created. Please try again later.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to create bet",
+          variant: "destructive"
+        });
+      }
     } finally {
       setIsLoading(false);
     }

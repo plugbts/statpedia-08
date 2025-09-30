@@ -54,13 +54,20 @@ export const BetHistory: React.FC<BetHistoryProps> = ({
       }
 
       setBets(filteredBets);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load bets:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load bet history",
-        variant: "destructive"
-      });
+      
+      // Handle database errors gracefully
+      if (error?.code === 'PGRST116' || error?.message?.includes('relation') || error?.message?.includes('does not exist')) {
+        console.log('Bet history table not yet created, showing empty state');
+        setBets([]);
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to load bet history",
+          variant: "destructive"
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -78,13 +85,23 @@ export const BetHistory: React.FC<BetHistoryProps> = ({
       
       onBetUpdate();
       loadBets();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to settle bet:', error);
-      toast({
-        title: "Error",
-        description: "Failed to settle bet",
-        variant: "destructive"
-      });
+      
+      // Handle database errors gracefully
+      if (error?.code === 'PGRST116' || error?.message?.includes('relation') || error?.message?.includes('does not exist')) {
+        toast({
+          title: "Database Not Ready",
+          description: "Bet tracking tables are not yet created. Please try again later.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to settle bet",
+          variant: "destructive"
+        });
+      }
     }
   };
 

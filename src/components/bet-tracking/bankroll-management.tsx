@@ -93,13 +93,23 @@ export const BankrollManagement: React.FC<BankrollManagementProps> = ({
       setShowCreateForm(false);
       setFormData({ bankroll_name: '', initial_amount: '', currency: 'USD' });
       onBankrollUpdate();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to create bankroll:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create bankroll",
-        variant: "destructive"
-      });
+      
+      // Handle database errors gracefully
+      if (error?.code === 'PGRST116' || error?.message?.includes('relation') || error?.message?.includes('does not exist')) {
+        toast({
+          title: "Database Not Ready",
+          description: "Bet tracking tables are not yet created. Please try again later.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to create bankroll",
+          variant: "destructive"
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -131,13 +141,23 @@ export const BankrollManagement: React.FC<BankrollManagementProps> = ({
       setEditingBankroll(null);
       setFormData({ bankroll_name: '', initial_amount: '', currency: 'USD' });
       onBankrollUpdate();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to update bankroll:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update bankroll",
-        variant: "destructive"
-      });
+      
+      // Handle database errors gracefully
+      if (error?.code === 'PGRST116' || error?.message?.includes('relation') || error?.message?.includes('does not exist')) {
+        toast({
+          title: "Database Not Ready",
+          description: "Bet tracking tables are not yet created. Please try again later.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to update bankroll",
+          variant: "destructive"
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -160,13 +180,23 @@ export const BankrollManagement: React.FC<BankrollManagementProps> = ({
       setShowDeleteDialog(false);
       setDeletingBankroll(null);
       onBankrollUpdate();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to delete bankroll:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete bankroll",
-        variant: "destructive"
-      });
+      
+      // Handle database errors gracefully
+      if (error?.code === 'PGRST116' || error?.message?.includes('relation') || error?.message?.includes('does not exist')) {
+        toast({
+          title: "Database Not Ready",
+          description: "Bet tracking tables are not yet created. Please try again later.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to delete bankroll",
+          variant: "destructive"
+        });
+      }
     } finally {
       setIsLoading(false);
     }
