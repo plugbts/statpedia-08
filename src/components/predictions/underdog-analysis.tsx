@@ -44,7 +44,7 @@ export const UnderdogAnalysis: React.FC<UnderdogAnalysisProps> = ({ selectedSpor
 
   useEffect(() => {
     loadUnderdogAnalysis();
-  }, [selectedSport]);
+  }, [localSelectedSport]);
 
   useEffect(() => {
     setLocalSelectedSport(selectedSport);
@@ -56,8 +56,8 @@ export const UnderdogAnalysis: React.FC<UnderdogAnalysisProps> = ({ selectedSpor
     
     try {
       const [underdogData, reportData] = await Promise.all([
-        underdogAnalysisService.getTopUnderdogs(selectedSport, 3),
-        underdogAnalysisService.getWeeklyUnderdogReport(selectedSport)
+        underdogAnalysisService.getTopUnderdogs(localSelectedSport, 3),
+        underdogAnalysisService.getWeeklyUnderdogReport(localSelectedSport)
       ]);
       
       setUnderdogs(underdogData);
@@ -172,7 +172,7 @@ export const UnderdogAnalysis: React.FC<UnderdogAnalysisProps> = ({ selectedSpor
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">Sport:</span>
-            <Select value={selectedSport} onValueChange={setSelectedSport}>
+            <Select value={localSelectedSport} onValueChange={setLocalSelectedSport}>
               <SelectTrigger className="w-32">
                 <SelectValue />
               </SelectTrigger>
