@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -8,6 +8,7 @@ import { BarChart3, Target, TrendingUp, Calendar, Settings, Wifi, LogOut, MoreVe
 import { cn } from '@/lib/utils';
 import { VerifiedCheckmark } from '@/components/ui/verified-checkmark';
 import { useBackgroundMusic } from '@/hooks/use-background-music';
+import { MusicTipBubble } from '@/components/ui/music-tip-bubble';
 
 interface NavigationProps {
   activeTab: string;
@@ -22,6 +23,17 @@ interface NavigationProps {
 
 export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSport = 'nfl', userEmail, displayName, userRole = 'user', onLogout }: NavigationProps) => {
   const { isPlaying, needsUserInteraction, togglePlayPause } = useBackgroundMusic({ enabled: true, volume: 0.08 });
+  const [showMusicTip, setShowMusicTip] = useState(false);
+  const [hasShownTip, setHasShownTip] = useState(false);
+
+  // Show music tip when music starts playing (only once per session)
+  useEffect(() => {
+    if (isPlaying && !hasShownTip) {
+      setShowMusicTip(true);
+      setHasShownTip(true);
+    }
+  }, [isPlaying, hasShownTip]);
+
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="w-4 h-4" /> },
     { id: 'predictions', label: 'Predictions', icon: <Target className="w-4 h-4" />, badge: '12' },
@@ -239,6 +251,13 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
           </div>
         </div>
       </div>
+      
+      {/* Music Tip Bubble */}
+      <MusicTipBubble 
+        isVisible={showMusicTip}
+        onClose={() => setShowMusicTip(false)}
+        duration={10000}
+      />
     </nav>
   );
 };
