@@ -21,7 +21,7 @@ interface NavigationProps {
 }
 
 export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSport = 'nfl', userEmail, displayName, userRole = 'user', onLogout }: NavigationProps) => {
-  const { isMuted, toggleMusic } = useBackgroundMusic({ enabled: true, volume: 0.08 });
+  const { isMuted, toggleMusic, needsUserInteraction, enableAudio } = useBackgroundMusic({ enabled: true, volume: 0.08 });
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="w-4 h-4" /> },
     { id: 'predictions', label: 'Predictions', icon: <Target className="w-4 h-4" />, badge: '12' },
@@ -182,10 +182,27 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
                   </div>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={toggleMusic} className="gap-2 cursor-pointer">
-                  {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-                  {isMuted ? 'Unmute Music' : 'Mute Music'}
-                </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={needsUserInteraction ? enableAudio : toggleMusic} 
+                    className="gap-2 cursor-pointer"
+                  >
+                    {needsUserInteraction ? (
+                      <>
+                        <Volume2 className="h-4 w-4" />
+                        Enable Music
+                      </>
+                    ) : isMuted ? (
+                      <>
+                        <VolumeX className="h-4 w-4" />
+                        Unmute Music
+                      </>
+                    ) : (
+                      <>
+                        <Volume2 className="h-4 w-4" />
+                        Mute Music
+                      </>
+                    )}
+                  </DropdownMenuItem>
                 {onLogout && (
                   <DropdownMenuItem onClick={onLogout} className="gap-2 cursor-pointer text-destructive">
                     <LogOut className="h-4 w-4" />

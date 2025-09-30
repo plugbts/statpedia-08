@@ -7,159 +7,172 @@ interface BackgroundMusicOptions {
 }
 
 export const useBackgroundMusic = (options: BackgroundMusicOptions = {}) => {
-  const { enabled = true, volume = 0.05, loop = true } = options; // Low volume (5%)
+  const { enabled = true, volume = 0.1, loop = true } = options; // 10% volume
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [needsUserInteraction, setNeedsUserInteraction] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const masterGainRef = useRef<GainNode | null>(null);
-  const sourceRef = useRef<AudioBufferSourceNode | null>(null);
 
-  // Create YouTube background music using a more direct approach
-  const createYouTubeMusic = useCallback(() => {
+  // Create a simple audio element with a data URL for ambient music
+  const createAudioElement = useCallback(() => {
     try {
-      // Clean up existing audio if it exists
+      // Clean up existing audio
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
       }
-      
-      if (sourceRef.current) {
-        sourceRef.current.stop();
-        sourceRef.current = null;
-      }
-      
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
-      
-      // Create audio context
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      audioContextRef.current = audioContext;
-      
-      // Create master gain node
-      const masterGain = audioContext.createGain();
-      masterGain.connect(audioContext.destination);
-      masterGainRef.current = masterGain;
-      
-      // Set initial volume
-      const currentVolume = isMuted ? 0 : volume;
-      masterGain.gain.setValueAtTime(currentVolume, audioContext.currentTime);
-      
-      // Create a very subtle ambient sound that mimics the YouTube video
-      // This is a placeholder - in production you'd extract the actual YouTube audio
-      const sampleRate = audioContext.sampleRate;
-      const duration = 120; // 2 minutes
-      const buffer = audioContext.createBuffer(2, sampleRate * duration, sampleRate);
-      
-      // Create ambient pad similar to the YouTube video's mood
-      for (let channel = 0; channel < 2; channel++) {
-        const channelData = buffer.getChannelData(channel);
-        for (let i = 0; i < channelData.length; i++) {
-          const time = i / sampleRate;
-          
-          // Create a subtle ambient pad with multiple frequencies
-          const baseFreq = 55; // Low A note
-          const frequencies = [baseFreq, baseFreq * 1.5, baseFreq * 2, baseFreq * 3];
-          let sample = 0;
-          
-          frequencies.forEach((freq, index) => {
-            const amplitude = 0.008 * (1 - index * 0.2); // Decreasing amplitude
-            const wave = Math.sin(2 * Math.PI * freq * time) * amplitude;
-            
-            // Add subtle LFO for movement
-            const lfo = Math.sin(2 * Math.PI * (0.05 + index * 0.02) * time) * 0.002;
-            
-            sample += wave + lfo;
-          });
-          
-          // Add very subtle noise for texture
-          const noise = (Math.random() - 0.5) * 0.001;
-          sample += noise;
-          
-          channelData[i] = sample;
-        }
-      }
-      
-      // Create and start the audio source
-      const source = audioContext.createBufferSource();
-      source.buffer = buffer;
-      source.loop = loop;
-      source.connect(masterGain);
-      sourceRef.current = source;
-      
-      source.start();
-      setIsPlaying(true);
-      
-      console.log('YouTube-style ambient background music started with volume:', currentVolume);
-      
-      return () => {
-        try {
-          source.stop();
-        } catch (e) {
-          // Source might already be stopped
+
+      // Create audio element
+      const audio = new Audio();
+      audioRef.current = audio;
+
+      // Set audio properties
+      audio.loop = loop;
+      audio.volume = isMuted ? 0 : volume;
+      audio.preload = 'auto';
+
+      // Create a simple data URL for ambient music
+      // This creates a very subtle sine wave
+      const sampleRate = 44100;
+      const duration = 30; // 30 seconds
+      const samples = sampleRate * duration;
+      const buffer = new ArrayBuffer(44 + samples * 2);
+      const view = new DataView(buffer);
+
+      // WAV header
+      const writeString = (offset: number, string: string) => {
+        for (let i = 0; i < string.length; i++) {
+          view.setUint8(offset + i, string.charCodeAt(i));
         }
       };
+
+      writeString(0, 'RIFF');
+      view.setUint32(4, 36 + samples * 2, true);
+      writeString(8, 'WAVE');
+      writeString(12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, 1, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * 2, true);
+      view.setUint16(32, 2, true);
+      view.setUint16(34, 16, true);
+      writeString(36, 'data');
+      view.setUint32(40, samples * 2, true);
+
+      // Generate sine wave data
+      for (let i = 0; i < samples; i++) {
+        const time = i / sampleRate;
+        const frequency = 55; // Low A note
+        const amplitude = 0.1; // Very quiet
+        const sample = Math.sin(2 * Math.PI * frequency * time) * amplitude;
+        const intSample = Math.max(-32768, Math.min(32767, sample * 32767));
+        view.setInt16(44 + i * 2, intSample, true);
+      }
+
+      // Convert to data URL
+      const blob = new Blob([buffer], { type: 'audio/wav' });
+      const url = URL.createObjectURL(blob);
+      audio.src = url;
+
+      // Add event listeners
+      audio.addEventListener('canplaythrough', () => {
+        console.log('Audio ready to play');
+        if (enabled && !isMuted && !needsUserInteraction) {
+          audio.play().then(() => {
+            console.log('Background music started');
+            setIsPlaying(true);
+          }).catch((error) => {
+            console.log('Failed to play audio:', error);
+            setNeedsUserInteraction(true);
+          });
+        }
+      });
+
+      audio.addEventListener('error', (e) => {
+        console.error('Audio error:', e);
+      });
+
+      audio.addEventListener('ended', () => {
+        if (loop) {
+          audio.currentTime = 0;
+          audio.play().catch(console.log);
+        }
+      });
+
+      return audio;
     } catch (error) {
-      console.log('YouTube background music not available:', error);
-      return () => {};
+      console.error('Failed to create audio element:', error);
+      return null;
     }
-  }, [volume, isMuted, loop]);
+  }, [volume, isMuted, loop, enabled, needsUserInteraction]);
 
-  // Start/stop background music
+  // Start music
   const startMusic = useCallback(() => {
-    console.log('startMusic called - enabled:', enabled, 'isMuted:', isMuted);
+    console.log('startMusic called - enabled:', enabled, 'isMuted:', isMuted, 'needsUserInteraction:', needsUserInteraction);
+    
     if (!enabled || isMuted) return;
-    
-    createYouTubeMusic();
-  }, [enabled, isMuted, createYouTubeMusic]);
 
+    if (needsUserInteraction) {
+      console.log('User interaction required to start audio');
+      return;
+    }
+
+    const audio = createAudioElement();
+    if (audio) {
+      audio.play().then(() => {
+        console.log('Background music started successfully');
+        setIsPlaying(true);
+      }).catch((error) => {
+        console.log('Failed to start music:', error);
+        setNeedsUserInteraction(true);
+      });
+    }
+  }, [enabled, isMuted, needsUserInteraction, createAudioElement]);
+
+  // Stop music
   const stopMusic = useCallback(() => {
-    // Stop audio source
-    if (sourceRef.current) {
-      try {
-        sourceRef.current.stop();
-      } catch (e) {
-        // Source might already be stopped
-      }
-      sourceRef.current = null;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
     }
-    
-    // Close audio context
-    if (audioContextRef.current) {
-      try {
-        audioContextRef.current.close();
-      } catch (e) {
-        // Context might already be closed
-      }
-    }
-    
     setIsPlaying(false);
   }, []);
 
+  // Toggle music
   const toggleMusic = useCallback(() => {
     const newMutedState = !isMuted;
     setIsMuted(newMutedState);
     
-    // Control volume through master gain node
-    if (masterGainRef.current && audioContextRef.current) {
-      const targetVolume = newMutedState ? 0 : volume;
-      masterGainRef.current.gain.setValueAtTime(targetVolume, audioContextRef.current.currentTime);
+    if (audioRef.current) {
+      audioRef.current.volume = newMutedState ? 0 : volume;
     }
   }, [isMuted, volume]);
 
-  // Auto-start music when component mounts (if enabled and not muted)
-  useEffect(() => {
+  // Handle user interaction to enable audio
+  const enableAudio = useCallback(() => {
+    console.log('User interaction detected, enabling audio');
+    setNeedsUserInteraction(false);
+    
+    // Try to start music if conditions are met
     if (enabled && !isMuted) {
-      startMusic();
+      setTimeout(() => {
+        startMusic();
+      }, 100);
     }
   }, [enabled, isMuted, startMusic]);
 
+  // Auto-start music when component mounts (if enabled and not muted)
+  useEffect(() => {
+    if (enabled && !isMuted && !needsUserInteraction) {
+      startMusic();
+    }
+  }, [enabled, isMuted, needsUserInteraction, startMusic]);
+
   // Handle mute state changes
   useEffect(() => {
-    if (masterGainRef.current && audioContextRef.current) {
-      const targetVolume = isMuted ? 0 : volume;
-      masterGainRef.current.gain.setValueAtTime(targetVolume, audioContextRef.current.currentTime);
+    if (audioRef.current) {
+      audioRef.current.volume = isMuted ? 0 : volume;
     }
   }, [isMuted, volume]);
 
@@ -175,11 +188,37 @@ export const useBackgroundMusic = (options: BackgroundMusicOptions = {}) => {
     localStorage.setItem('statpedia_music_muted', JSON.stringify(isMuted));
   }, [isMuted]);
 
+  // Add click listener to enable audio on first user interaction
+  useEffect(() => {
+    const handleUserInteraction = () => {
+      if (needsUserInteraction) {
+        enableAudio();
+        document.removeEventListener('click', handleUserInteraction);
+        document.removeEventListener('keydown', handleUserInteraction);
+        document.removeEventListener('touchstart', handleUserInteraction);
+      }
+    };
+
+    if (needsUserInteraction) {
+      document.addEventListener('click', handleUserInteraction);
+      document.addEventListener('keydown', handleUserInteraction);
+      document.addEventListener('touchstart', handleUserInteraction);
+    }
+
+    return () => {
+      document.removeEventListener('click', handleUserInteraction);
+      document.removeEventListener('keydown', handleUserInteraction);
+      document.removeEventListener('touchstart', handleUserInteraction);
+    };
+  }, [needsUserInteraction, enableAudio]);
+
   return {
     isPlaying,
     isMuted,
+    needsUserInteraction,
     toggleMusic,
     startMusic,
     stopMusic,
+    enableAudio,
   };
 };
