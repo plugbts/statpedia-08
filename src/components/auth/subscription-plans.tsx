@@ -294,19 +294,19 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
 
         {/* Plans Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12 max-w-6xl mx-auto">
-          {plans.filter(plan => plan).map((plan, index) => (
+          {plans.filter(plan => plan && plan.id).map((plan, index) => (
             <Card
-              key={plan.id}
+              key={plan?.id || index}
               className={cn(
                 "relative transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 cursor-pointer animate-fade-in h-full",
-                plan.popular && "ring-2 ring-primary shadow-glow",
-                currentSubscription === plan.id && "ring-2 ring-green-500 bg-green-500/5",
+                plan?.popular && "ring-2 ring-primary shadow-glow",
+                currentSubscription === plan?.id && "ring-2 ring-green-500 bg-green-500/5",
                 "bg-gradient-card border-border/50"
               )}
               style={{ animationDelay: `${300 + index * 100}ms` }}
-              onClick={() => handlePlanSelect(plan.id)}
+              onClick={() => plan && handlePlanSelect(plan.id)}
             >
-              {plan.popular && (
+              {plan?.popular && (
                 <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                   <Badge className="bg-gradient-primary text-white px-4 py-1">
                     Most Popular
@@ -314,7 +314,7 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
                 </div>
               )}
               
-              {currentSubscription === plan.id && (
+              {currentSubscription === plan?.id && (
                 <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                   <Badge className="bg-green-500 text-white px-4 py-1">
                     <CheckCircle className="w-3 h-3 mr-1" />
@@ -324,18 +324,18 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
               )}
 
               <CardHeader className="text-center pb-3">
-                <div className={cn("w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3", plan.gradient)}>
-                  <plan.icon className="w-6 h-6 text-white" />
+                <div className={cn("w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3", plan?.gradient)}>
+                  {plan?.icon && <plan.icon className="w-6 h-6 text-white" />}
                 </div>
-                <CardTitle className="text-xl font-bold text-foreground">{plan.name}</CardTitle>
-                <CardDescription className="text-sm text-muted-foreground">{plan.description}</CardDescription>
+                <CardTitle className="text-xl font-bold text-foreground">{plan?.name || 'Plan'}</CardTitle>
+                <CardDescription className="text-sm text-muted-foreground">{plan?.description || ''}</CardDescription>
                 
                 <div className="mt-3">
                   <div className="flex items-baseline justify-center">
-                    <span className="text-3xl font-bold text-foreground">${getPlanPrice(plan)}</span>
-                    <span className="text-muted-foreground ml-1 text-sm">{getBillingText(plan)}</span>
+                    <span className="text-3xl font-bold text-foreground">${plan ? getPlanPrice(plan) : 0}</span>
+                    <span className="text-muted-foreground ml-1 text-sm">{plan ? getBillingText(plan) : ''}</span>
                   </div>
-                  {plan.originalPrice && billingCycle === 'monthly' && (
+                  {plan && plan.originalPrice && billingCycle === 'monthly' && (
                     <div className="flex items-center justify-center gap-2 mt-1">
                       <span className="text-xs text-muted-foreground line-through">${plan.originalPrice}</span>
                       <Badge variant="secondary" className="text-xs">
@@ -348,20 +348,20 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
 
               <CardContent className="space-y-3 flex-1 flex flex-col">
                 <div className="space-y-2 flex-1">
-                  {plan.features.slice(0, 6).map((feature, featureIndex) => (
+                  {plan && plan.features && plan.features.slice(0, 6).map((feature, featureIndex) => (
                     <div key={featureIndex} className="flex items-start gap-2">
                       <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
                       <span className="text-xs text-foreground">{feature}</span>
                     </div>
                   ))}
-                  {plan.features.length > 6 && (
+                  {plan && plan.features && plan.features.length > 6 && (
                     <div className="text-xs text-muted-foreground text-center">
                       +{plan.features.length - 6} more features
                     </div>
                   )}
                 </div>
 
-                {plan.limitations && (
+                {plan && plan.limitations && (
                   <div className="space-y-1 pt-2 border-t">
                     <h4 className="text-xs font-medium text-muted-foreground">Limitations:</h4>
                     {plan.limitations.slice(0, 2).map((limitation, index) => (
@@ -376,22 +376,24 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
                 <Button
                   className={cn(
                     "w-full mt-4",
-                    plan.id === 'free' ? "bg-muted text-muted-foreground cursor-not-allowed" : plan.gradient,
-                    currentSubscription === plan.id && "bg-green-500 hover:bg-green-600"
+                    plan && plan.id === 'free' ? "bg-muted text-muted-foreground cursor-not-allowed" : plan?.gradient,
+                    currentSubscription === plan?.id && "bg-green-500 hover:bg-green-600"
                   )}
-                  disabled={plan.id === 'free' || currentSubscription === plan.id}
+                  disabled={plan ? (plan.id === 'free' || currentSubscription === plan.id) : true}
                   onClick={(e) => {
                     e.stopPropagation();
-                    handlePlanSelect(plan.id);
+                    if (plan) {
+                      handlePlanSelect(plan.id);
+                    }
                   }}
                 >
-                  {currentSubscription === plan.id ? (
+                  {currentSubscription === plan?.id ? (
                     <>
                       <CheckCircle className="w-4 h-4 mr-2" />
                       Current Plan
                     </>
                   ) : (
-                    plan.buttonText
+                    plan?.buttonText || 'Select Plan'
                   )}
                 </Button>
               </CardContent>
