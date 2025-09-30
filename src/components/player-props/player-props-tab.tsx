@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
 import { SubscriptionOverlay } from '@/components/ui/subscription-overlay';
+import { PlayerAnalysisOverlay } from './player-analysis-overlay';
 import { 
   TrendingUp, 
   Search, 
@@ -123,6 +124,8 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
   const [showFilterDialog, setShowFilterDialog] = useState(false);
   const [myPicks, setMyPicks] = useState<MyPick[]>([]);
   const [showMyPicks, setShowMyPicks] = useState(false);
+  const [selectedPlayerForAnalysis, setSelectedPlayerForAnalysis] = useState<any>(null);
+  const [showAnalysisOverlay, setShowAnalysisOverlay] = useState(false);
 
   const [filterSettings, setFilterSettings] = useState<FilterSettings>({
     sortCriteria: [
@@ -470,6 +473,40 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
     ) : (
       <span className="text-xs">🎯</span>
     );
+  };
+
+  const handlePlayerAnalysis = (prop: PlayerProp) => {
+    // Create player data for analysis
+    const playerData = {
+      id: prop.id,
+      name: prop.playerName,
+      team: prop.team,
+      position: prop.position || 'G', // Default position
+      headshot: prop.headshot,
+      stats: {
+        points: Math.floor(Math.random() * 30) + 10,
+        rebounds: Math.floor(Math.random() * 15) + 3,
+        assists: Math.floor(Math.random() * 12) + 2,
+        steals: Math.floor(Math.random() * 3) + 0.5,
+        blocks: Math.floor(Math.random() * 3) + 0.2,
+        turnovers: Math.floor(Math.random() * 5) + 1,
+        minutes: Math.floor(Math.random() * 20) + 25,
+        efficiency: Math.floor(Math.random() * 20) + 15
+      },
+      injuryStatus: Math.random() > 0.8 ? 'questionable' : 'healthy',
+      injuryDetails: Math.random() > 0.8 ? 'Minor ankle sprain' : undefined,
+      recentForm: Math.random() > 0.6 ? 'hot' : Math.random() > 0.3 ? 'cold' : 'average',
+      matchupAdvantage: Math.random() > 0.6 ? 'strong' : Math.random() > 0.3 ? 'weak' : 'neutral'
+    };
+    
+    setSelectedPlayerForAnalysis(playerData);
+    setShowAnalysisOverlay(true);
+  };
+
+  const getPerformanceColor = (value: number, thresholds: { good: number; bad: number }) => {
+    if (value >= thresholds.good) return 'text-green-500 bg-green-500/10';
+    if (value <= thresholds.bad) return 'text-red-500 bg-red-500/10';
+    return 'text-yellow-500 bg-yellow-500/10';
   };
 
   const getSportsbookColor = (sportsbookId: string) => {
@@ -916,6 +953,15 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                 <Button
                   size="sm"
                   variant="ghost"
+                  onClick={() => handlePlayerAnalysis(prop)}
+                  className="p-1"
+                  title="Player Analysis"
+                >
+                  <BarChart3 className="w-4 h-4 text-blue-500" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
                   onClick={() => handleToggleMyPick(prop)}
                   className="p-1"
                 >
@@ -953,12 +999,22 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
 
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Hit Rate</span>
-                <span className="font-medium">{prop.hitRate}%</span>
+                <span className={cn(
+                  "font-medium px-2 py-1 rounded-full text-xs",
+                  getPerformanceColor(prop.hitRate, { good: 75, bad: 60 })
+                )}>
+                  {prop.hitRate}%
+                </span>
               </div>
 
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Probability</span>
-                <span className="font-medium">{prop.probability}%</span>
+                <span className={cn(
+                  "font-medium px-2 py-1 rounded-full text-xs",
+                  getPerformanceColor(prop.probability, { good: 70, bad: 50 })
+                )}>
+                  {prop.probability}%
+                </span>
               </div>
 
               <div className="flex items-center justify-between">
@@ -994,6 +1050,18 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
           <h3 className="text-lg font-semibold text-foreground mb-2">No props found</h3>
           <p className="text-muted-foreground">Try adjusting your filters or search query</p>
         </div>
+      )}
+
+      {/* Player Analysis Overlay */}
+      {selectedPlayerForAnalysis && (
+        <PlayerAnalysisOverlay
+          isOpen={showAnalysisOverlay}
+          onClose={() => {
+            setShowAnalysisOverlay(false);
+            setSelectedPlayerForAnalysis(null);
+          }}
+          player={selectedPlayerForAnalysis}
+        />
       )}
     </div>
   );
