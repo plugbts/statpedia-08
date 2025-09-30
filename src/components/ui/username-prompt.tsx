@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { User, Check, X, Sparkles, Loader2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { User, Check, X, Sparkles, Loader2, Home, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { socialService } from '@/services/social-service';
 
@@ -12,6 +13,7 @@ interface UsernamePromptProps {
   isVisible: boolean;
   onClose: () => void;
   onUsernameSet: (username: string) => void;
+  onReturnToDashboard?: () => void;
   currentEmail?: string;
 }
 
@@ -19,6 +21,7 @@ export const UsernamePrompt: React.FC<UsernamePromptProps> = ({
   isVisible,
   onClose,
   onUsernameSet,
+  onReturnToDashboard,
   currentEmail
 }) => {
   const [username, setUsername] = useState('');
@@ -26,6 +29,7 @@ export const UsernamePrompt: React.FC<UsernamePromptProps> = ({
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [error, setError] = useState('');
   const [availabilityStatus, setAvailabilityStatus] = useState<'idle' | 'available' | 'taken' | 'checking'>('idle');
+  const [showExitConfirmation, setShowExitConfirmation] = useState(false);
   const { toast } = useToast();
 
   const validateUsername = (username: string): { isValid: boolean; error: string } => {
@@ -123,6 +127,21 @@ export const UsernamePrompt: React.FC<UsernamePromptProps> = ({
     if (e.key === 'Enter' && !isLoading) {
       handleSubmit();
     }
+  };
+
+  const handleCloseAttempt = () => {
+    setShowExitConfirmation(true);
+  };
+
+  const handleReturnToDashboard = () => {
+    setShowExitConfirmation(false);
+    if (onReturnToDashboard) {
+      onReturnToDashboard();
+    }
+  };
+
+  const handleStayInSocial = () => {
+    setShowExitConfirmation(false);
   };
 
   if (!isVisible) return null;
@@ -243,7 +262,7 @@ export const UsernamePrompt: React.FC<UsernamePromptProps> = ({
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={onClose}
+                  onClick={handleCloseAttempt}
                   disabled={isLoading}
                   className="px-3"
                 >
@@ -263,6 +282,41 @@ export const UsernamePrompt: React.FC<UsernamePromptProps> = ({
           <div className="absolute -bottom-3 -left-2 w-1 h-1 bg-purple-400 rounded-full opacity-50 animate-bounce delay-1000"></div>
         </div>
       </div>
+
+      {/* Exit Confirmation Dialog */}
+      <AlertDialog open={showExitConfirmation} onOpenChange={setShowExitConfirmation}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <User className="w-5 h-5 text-orange-500" />
+              Username Required
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm">
+              You need to set up a username to access the Social tab. Without a username, you won't be able to:
+              <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                <li>• Create posts and comments</li>
+                <li>• Connect with other users</li>
+                <li>• Build your social profile</li>
+                <li>• Participate in the community</li>
+              </ul>
+              Would you like to return to the dashboard instead?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel onClick={handleStayInSocial} className="flex items-center gap-2">
+              <ArrowLeft className="w-4 h-4" />
+              Stay Here
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleReturnToDashboard} 
+              className="flex items-center gap-2 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90"
+            >
+              <Home className="w-4 h-4" />
+              Return to Dashboard
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

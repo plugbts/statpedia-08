@@ -49,9 +49,10 @@ import { supabase } from '@/integrations/supabase/client';
 interface SocialTabProps {
   userRole?: string;
   userSubscription?: string;
+  onReturnToDashboard?: () => void;
 }
 
-export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription = 'free' }) => {
+export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription = 'free', onReturnToDashboard }) => {
   const [activeTab, setActiveTab] = useState('feed');
   const [posts, setPosts] = useState<PersonalizedPost[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -1376,6 +1377,7 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
         isVisible={showUsernamePrompt}
         onClose={() => setShowUsernamePrompt(false)}
         onUsernameSet={handleUsernameSet}
+        onReturnToDashboard={onReturnToDashboard}
         currentEmail={currentUserEmail}
       />
     </div>
