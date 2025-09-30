@@ -28,9 +28,9 @@ interface SportIconProps {
 }
 
 const sizeClasses = {
-  sm: 'w-6 h-6',
-  md: 'w-8 h-8',
-  lg: 'w-10 h-10',
+  sm: 'w-8 h-8',
+  md: 'w-12 h-12',
+  lg: 'w-16 h-16',
 };
 
 export const SportIcon = ({ sport, className, size = 'md' }: SportIconProps) => {
@@ -38,14 +38,15 @@ export const SportIcon = ({ sport, className, size = 'md' }: SportIconProps) => 
   
   return (
     <div className={cn(
-      'flex items-center justify-center rounded-lg bg-muted/10 border border-border/20 transition-all duration-200 hover:bg-muted/20 hover:scale-105 p-1',
+      'flex items-center justify-center rounded-lg bg-background/5 backdrop-blur-sm border border-border/10 transition-all duration-200 hover:bg-background/10 hover:scale-105 p-2',
       sizeClasses[size],
       className
     )}>
       <img 
         src={logoSrc} 
         alt={`${sport} logo`}
-        className="w-full h-full object-contain"
+        className="w-full h-full object-contain opacity-80 hover:opacity-100 transition-opacity duration-200"
+        style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
       />
     </div>
   );
