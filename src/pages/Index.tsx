@@ -34,8 +34,6 @@ import { HeaderBannerAd, InFeedAd, FooterBannerAd, MobileBannerAd } from '@/comp
 import { useUser } from '@/contexts/user-context';
 
 const Index = () => {
-  console.log('Index: Component rendering');
-  
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('dashboard');
   const { 
@@ -99,7 +97,7 @@ const Index = () => {
     setShowTodaysPicks(true);
     
     // Smooth scroll to the Today's Picks section
-          setTimeout(() => {
+    setTimeout(() => {
       const todaysPicksElement = document.getElementById('todays-picks-section');
       if (todaysPicksElement) {
         todaysPicksElement.scrollIntoView({ 
@@ -268,9 +266,9 @@ const Index = () => {
       
       const filteredPredictions = gamePredictions.filter(prediction => {
         const gameDate = new Date(prediction.game.date);
-        const isInRange = gameDate >= oneWeekAgo && gameDate <= oneMonthFromNow;
-        const isRelevantStatus = ['upcoming', 'live'].includes(prediction.game.status);
-        return isInRange && isRelevantStatus;
+        return gameDate >= oneWeekAgo && 
+               gameDate <= oneMonthFromNow && 
+               prediction.game.status !== 'finished';
       });
       
       // Transform to dashboard format with proper home/away team display
@@ -473,7 +471,6 @@ const Index = () => {
   // Note: Sport change handling is done in handleSportChange function
 
   if (userLoading) {
-    console.log('Index: User loading...');
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
@@ -966,7 +963,7 @@ const Index = () => {
         
         {activeTab === 'dashboard' && renderDashboard()}
         {activeTab === 'predictions' && <PredictionsTab selectedSport={selectedSport} userRole={userRole} userSubscription={userSubscription} onPredictionsCountChange={setPredictionsCount} />}
-        {activeTab === 'player-props' && <PlayerPropsTab userSubscription={userSubscription} userRole={userRole} selectedSport={selectedSport} />}
+        {activeTab === 'player-props' && <PlayerPropsTab userSubscription={userSubscription} userRole={userRole} />}
         {activeTab === 'insights' && <InsightsTab selectedSport={selectedSport} userRole={userRole} userSubscription={userSubscription} />}
         {activeTab === 'bet-tracking' && <BetTrackingTab userRole={userRole} />}
         {activeTab === 'social' && <SocialTab userRole={userRole} userSubscription={userSubscription} onReturnToDashboard={() => {

@@ -120,46 +120,54 @@ class GamesService {
 
   // Convert free games to RealGame format
   private convertFreeGamesToRealGames(freeGames: FreeGame[]): RealGame[] {
-    return freeGames.map(game => {
-      return {
-        id: game.id,
-        homeTeam: game.homeTeam,
-        awayTeam: game.awayTeam,
-        sport: game.sport,
-        date: game.date,
-        time: game.time,
-        homeOdds: game.homeOdds || 0,
-        awayOdds: game.awayOdds || 0,
-        drawOdds: undefined,
-        homeRecord: game.homeRecord || '0-0',
-        awayRecord: game.awayRecord || '0-0',
-        homeForm: this.generateFormArray(10, game.homeRecord || '0-0'),
-        awayForm: this.generateFormArray(10, game.awayRecord || '0-0'),
-        h2hData: {
-          homeWins: Math.floor(Math.random() * 5),
-          awayWins: Math.floor(Math.random() * 5),
-          draws: 0
-        },
-        injuries: {
-          home: this.generateInjuries(),
-          away: this.generateInjuries()
-        },
-        restDays: {
-          home: Math.floor(Math.random() * 7) + 1,
-          away: Math.floor(Math.random() * 7) + 1
-        },
-        weather: 'Clear',
-        venue: game.venue,
-        status: game.status === 'finished' ? 'finished' : game.status === 'live' ? 'live' : 'upcoming',
-        homeScore: game.homeScore,
-        awayScore: game.awayScore,
-        homeTeamId: game.homeTeamAbbr,
-        awayTeamId: game.awayTeamAbbr,
-        league: game.sport,
-        season: '2024',
-        week: 1
-      };
-    });
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const oneMonthFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+    
+    return freeGames
+      .filter(game => {
+        const gameDate = new Date(game.date);
+        return gameDate >= oneWeekAgo && gameDate <= oneMonthFromNow;
+      })
+      .map(game => ({
+      id: game.id,
+      homeTeam: game.homeTeam,
+      awayTeam: game.awayTeam,
+      sport: game.sport,
+      date: game.date,
+      time: game.time,
+      homeOdds: game.homeOdds || 0,
+      awayOdds: game.awayOdds || 0,
+      drawOdds: undefined,
+      homeRecord: game.homeRecord || '0-0',
+      awayRecord: game.awayRecord || '0-0',
+      homeForm: this.generateFormArray(10, game.homeRecord || '0-0'),
+      awayForm: this.generateFormArray(10, game.awayRecord || '0-0'),
+      h2hData: {
+        homeWins: Math.floor(Math.random() * 5),
+        awayWins: Math.floor(Math.random() * 5),
+        draws: 0
+      },
+      injuries: {
+        home: this.generateInjuries(),
+        away: this.generateInjuries()
+      },
+      restDays: {
+        home: Math.floor(Math.random() * 7) + 1,
+        away: Math.floor(Math.random() * 7) + 1
+      },
+      weather: 'Clear',
+      venue: game.venue,
+      status: game.status === 'finished' ? 'finished' : game.status === 'live' ? 'live' : 'upcoming',
+      homeScore: game.homeScore,
+      awayScore: game.awayScore,
+      homeTeamId: game.homeTeamAbbr,
+      awayTeamId: game.awayTeamAbbr,
+      league: game.sport,
+      season: '2024',
+      week: 1
+    }));
   }
 
   // Get current week predictions using ESPN data

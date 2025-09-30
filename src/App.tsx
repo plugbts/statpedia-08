@@ -208,11 +208,8 @@ const SyncProvider = ({ children }: { children: React.ReactNode }) => {
 };
 
 const App = () => {
-  console.log('App: Component rendering');
-  
   // Initialize theme on app start
   useEffect(() => {
-    console.log('App: Initializing theme');
     const savedTheme = localStorage.getItem('statpedia-theme');
     const html = document.documentElement;
     
@@ -224,7 +221,6 @@ const App = () => {
       html.classList.remove('light');
       html.classList.add('dark');
     }
-    console.log('App: Theme initialized');
   }, []);
 
   return (

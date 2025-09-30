@@ -71,8 +71,6 @@ interface UserProviderProps {
 }
 
 export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
-  console.log('UserProvider: Component rendering');
-  
   const [user, setUser] = useState<User | null>(null);
   const [userIdentity, setUserIdentity] = useState<UserIdentity | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -174,21 +172,13 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   // Load user identity when user changes
   useEffect(() => {
     const loadUserIdentity = async () => {
-      console.log('UserContext: Loading user identity, user:', user?.id);
       if (!user) {
-        console.log('UserContext: No user, setting defaults');
         setUserIdentity(null);
         setUserSubscription('free');
         setUserRole('user');
         setIsLoading(false);
         return;
       }
-
-      // Add timeout to prevent infinite loading
-      const timeoutId = setTimeout(() => {
-        console.log('UserContext: Timeout reached, setting loading to false');
-        setIsLoading(false);
-      }, 10000); // 10 second timeout
 
       // Check rate limiting
       if (!checkRateLimit()) {
@@ -270,7 +260,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         setUserSubscription('free');
         setUserRole(role);
       } finally {
-        clearTimeout(timeoutId);
         setIsLoading(false);
       }
     };
@@ -282,7 +271,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('UserContext: Auth state change:', event, 'User:', session?.user?.id);
         if (event === 'SIGNED_IN' && session?.user) {
           setUser(session.user);
         } else if (event === 'SIGNED_OUT') {
@@ -308,16 +296,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       }
     });
 
-    // Fallback timeout to ensure loading state is never stuck
-    const fallbackTimeout = setTimeout(() => {
-      console.log('UserContext: Fallback timeout reached, forcing loading to false');
-      setIsLoading(false);
-    }, 15000); // 15 second fallback
-
-    return () => {
-      subscription.unsubscribe();
-      clearTimeout(fallbackTimeout);
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   // User actions - Define before useEffect that uses them
