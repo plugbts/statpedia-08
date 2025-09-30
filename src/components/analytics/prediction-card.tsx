@@ -25,6 +25,7 @@ interface PredictionCardProps {
   }>;
   status?: 'pending' | 'won' | 'lost';
   gameDate?: string; // ISO date string
+  isSubscribed?: boolean; // For blur functionality
 }
 
 export const PredictionCard = ({
@@ -39,7 +40,8 @@ export const PredictionCard = ({
   odds,
   factors,
   status = 'pending',
-  gameDate
+  gameDate,
+  isSubscribed = true
 }: PredictionCardProps) => {
   const navigate = useNavigate();
 
@@ -102,9 +104,24 @@ export const PredictionCard = ({
 
   return (
     <Card 
-      className="p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer"
+      className={cn(
+        "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer relative",
+        !isSubscribed && "blur-sm"
+      )}
       onClick={handleClick}
     >
+      {/* Blur overlay for free users */}
+      {!isSubscribed && (
+        <div className="absolute inset-0 bg-gradient-to-br from-background/80 to-background/60 backdrop-blur-sm rounded-lg flex items-center justify-center z-10">
+          <div className="text-center">
+            <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-2">
+              <Target className="w-6 h-6 text-primary" />
+            </div>
+            <p className="text-sm font-medium text-foreground">Premium Content</p>
+            <p className="text-xs text-muted-foreground">Subscribe to view predictions</p>
+          </div>
+        </div>
+      )}
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between animate-fade-in">

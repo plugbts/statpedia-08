@@ -219,6 +219,10 @@ const Index = () => {
     const sportProps = props[sportKey as keyof typeof props] || ['Game Total'];
     const selectedProp = sportProps[Math.floor(Math.random() * sportProps.length)];
     
+    // Generate simple line values (0.0, 1.0, 2.0, etc.)
+    const lineValues = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0];
+    const randomLine = lineValues[Math.floor(Math.random() * lineValues.length)];
+    
     return {
       id: `${game.id}-${Date.now()}-${Math.random()}`,
       sport: sportKey,
@@ -226,7 +230,7 @@ const Index = () => {
       team: homeTeam,
       opponent: awayTeam,
       prop: selectedProp,
-      line: Math.random() * 20 + (sportKey === 'nfl' ? 200 : sportKey === 'nba' ? 220 : 8),
+      line: randomLine,
       prediction: Math.random() > 0.5 ? 'over' : 'under',
       confidence: Math.floor(Math.random() * 30) + 70,
       odds: Math.random() > 0.5 ? '-110' : '+105',
@@ -346,17 +350,18 @@ const Index = () => {
             {realPredictions.filter(p => p.confidence >= 80).length} AVAILABLE
           </Badge>
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {realPredictions
-            .filter(p => p.confidence >= 80)
-            .slice(0, 6)
-            .map((prediction, index) => (
-              <PredictionCard
-                key={prediction.id || index}
-                {...prediction}
-              />
-            ))}
-        </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+              {realPredictions
+                .filter(p => p.confidence >= 80)
+                .slice(0, 6)
+                .map((prediction, index) => (
+                  <PredictionCard
+                    key={prediction.id || index}
+                    {...prediction}
+                    isSubscribed={userSubscription !== 'free'}
+                  />
+                ))}
+            </div>
         {realPredictions.filter(p => p.confidence >= 80).length === 0 && (
           <div className="text-center py-8 text-muted-foreground">
             <p>No high confidence predictions available at this time.</p>
@@ -484,6 +489,7 @@ const Index = () => {
               <PredictionCard
                 key={prediction.id || index}
                 {...prediction}
+                isSubscribed={userSubscription !== 'free'}
               />
             ))}
           </div>

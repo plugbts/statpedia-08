@@ -369,35 +369,9 @@ class SportsAPIService {
     const sportProps = props[sport as keyof typeof props] || props.nba;
     const propType = sportProps[Math.floor(Math.random() * sportProps.length)];
     
-    // Generate more realistic lines based on sport and prop type
-    let line = 10;
-    if (sport === 'nba' || sport === 'wnba' || sport === 'college-basketball') {
-      if (propType.includes('Points')) line = Math.random() * 15 + 15;
-      else if (propType.includes('Rebounds')) line = Math.random() * 8 + 6;
-      else if (propType.includes('Assists')) line = Math.random() * 6 + 4;
-      else if (propType.includes('Steals')) line = Math.random() * 2 + 1;
-      else if (propType.includes('Blocks')) line = Math.random() * 2 + 1;
-      else if (propType.includes('3-Pointers')) line = Math.random() * 3 + 1;
-    } else if (sport === 'nfl' || sport === 'college-football') {
-      if (propType.includes('Passing Yards')) line = Math.random() * 100 + 200;
-      else if (propType.includes('Rushing Yards')) line = Math.random() * 50 + 50;
-      else if (propType.includes('Receiving Yards')) line = Math.random() * 50 + 40;
-      else if (propType.includes('Touchdowns')) line = Math.random() * 2 + 1;
-      else if (propType.includes('Receptions')) line = Math.random() * 4 + 3;
-    } else if (sport === 'mlb') {
-      if (propType.includes('Hits')) line = Math.random() * 2 + 1;
-      else if (propType.includes('Runs')) line = Math.random() * 2 + 0.5;
-      else if (propType.includes('RBIs')) line = Math.random() * 2 + 0.5;
-      else if (propType.includes('Strikeouts')) line = Math.random() * 5 + 4;
-      else if (propType.includes('Home Runs')) line = Math.random() * 1 + 0.5;
-      else if (propType.includes('Pitching')) line = Math.random() * 5 + 4;
-    } else if (sport === 'nhl') {
-      if (propType.includes('Points')) line = Math.random() * 2 + 0.5;
-      else if (propType.includes('Goals')) line = Math.random() * 1 + 0.5;
-      else if (propType.includes('Assists')) line = Math.random() * 1 + 0.5;
-      else if (propType.includes('Shots')) line = Math.random() * 3 + 2;
-      else if (propType.includes('Saves')) line = Math.random() * 10 + 20;
-    }
+    // Use simple line values (0.0, 1.0, 2.0, etc.)
+    const lineValues = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0];
+    const line = lineValues[Math.floor(Math.random() * lineValues.length)];
     
     const prediction = Math.random() > 0.5 ? 'over' : 'under';
 
@@ -592,6 +566,7 @@ class SportsAPIService {
   }
 
   private getMockPredictions(sport: string, limit: number): Prediction[] {
+    const lineValues = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0];
     const mockPredictions = [
       {
         id: '1',
@@ -600,13 +575,49 @@ class SportsAPIService {
         team: 'LAL',
         opponent: 'GSW',
         prop: 'Points',
-        line: 26.5,
+        line: lineValues[Math.floor(Math.random() * lineValues.length)],
         prediction: 'over' as const,
         confidence: 87,
         odds: '+110',
         factors: [
           { name: 'vs GSW Pace', value: '102.3', rank: 3, isPositive: true },
           { name: 'GSW Def Rating', value: '112.4', rank: 18, isPositive: true },
+        ],
+        status: 'pending' as const,
+        gameDate: new Date().toISOString(),
+      },
+      {
+        id: '2',
+        sport,
+        player: 'Stephen Curry',
+        team: 'GSW',
+        opponent: 'LAL',
+        prop: '3-Pointers Made',
+        line: lineValues[Math.floor(Math.random() * lineValues.length)],
+        prediction: 'over' as const,
+        confidence: 82,
+        odds: '+105',
+        factors: [
+          { name: 'vs LAL Pace', value: '98.7', rank: 8, isPositive: true },
+          { name: 'LAL Def Rating', value: '108.9', rank: 12, isPositive: true },
+        ],
+        status: 'pending' as const,
+        gameDate: new Date().toISOString(),
+      },
+      {
+        id: '3',
+        sport,
+        player: 'Anthony Davis',
+        team: 'LAL',
+        opponent: 'GSW',
+        prop: 'Rebounds',
+        line: lineValues[Math.floor(Math.random() * lineValues.length)],
+        prediction: 'under' as const,
+        confidence: 75,
+        odds: '+120',
+        factors: [
+          { name: 'vs GSW Pace', value: '102.3', rank: 3, isPositive: false },
+          { name: 'GSW Def Rating', value: '112.4', rank: 18, isPositive: false },
         ],
         status: 'pending' as const,
         gameDate: new Date().toISOString(),
