@@ -210,15 +210,21 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
 
   useEffect(() => {
     if (userProfile) {
+      console.log('useEffect triggered for loadPosts, feedType:', feedType);
       loadPosts();
     }
-  }, [feedType]);
+  }, [feedType, userProfile]);
 
   const loadInitialData = async () => {
     try {
+      console.log('Loading initial data...');
       setIsLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        console.log('No user found, returning');
+        return;
+      }
+      console.log('User found:', user.id);
 
       // Load each service individually to handle errors gracefully
       let profile: UserProfile | null = null;
@@ -259,8 +265,10 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
 
       // Load posts with recommendation system
       try {
+        console.log('Loading posts with feedType:', feedType);
         if (feedType === 'personalized') {
           postsData = await recommendationService.getPersonalizedFeed();
+          console.log('Loaded personalized posts:', postsData.length);
         } else {
           const trendingPosts = await recommendationService.getTrendingPosts();
           postsData = trendingPosts.map(post => ({
@@ -268,17 +276,20 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
             score: post.net_score,
             reason: 'Trending post'
           }));
+          console.log('Loaded trending posts:', postsData.length);
         }
       } catch (error: any) {
         console.log('Posts service error (expected if tables missing):', error);
         // Fallback to regular posts
         try {
+          console.log('Trying fallback posts...');
           const fallbackPosts = await socialService.getPosts();
           postsData = fallbackPosts.map(post => ({
             ...post,
             score: post.net_score,
             reason: 'Recent post'
           }));
+          console.log('Loaded fallback posts:', postsData.length);
         } catch (fallbackError) {
           console.log('Fallback posts error:', fallbackError);
         }
@@ -306,8 +317,11 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
         score: 0,
         reason: 'recent'
       }));
+      console.log('Setting posts:', personalizedPosts.length);
       setPosts(personalizedPosts);
+      console.log('Setting friends:', friendsData.length);
       setFriends(friendsData);
+      console.log('Setting friend requests:', requestsData.length);
       setFriendRequests(requestsData);
 
       // Load shared bet slips
@@ -328,14 +342,17 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
         variant: "destructive"
       });
     } finally {
+      console.log('Finished loading initial data, isLoading set to false');
       setIsLoading(false);
     }
   };
 
   const loadPosts = async () => {
     try {
+      console.log('loadPosts called with feedType:', feedType);
       if (feedType === 'personalized') {
         const personalizedPosts = await recommendationService.getPersonalizedFeed();
+        console.log('Setting personalized posts:', personalizedPosts.length);
         setPosts(personalizedPosts);
       } else {
         const trendingPosts = await recommendationService.getTrendingPosts();
@@ -344,18 +361,21 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
           score: post.net_score,
           reason: 'Trending post'
         }));
+        console.log('Setting trending posts:', postsWithScore.length);
         setPosts(postsWithScore);
       }
     } catch (error: any) {
       console.error('Failed to load posts:', error);
       // Fallback to regular posts
       try {
+        console.log('Trying fallback posts in loadPosts...');
         const fallbackPosts = await socialService.getPosts();
         const postsWithScore = fallbackPosts.map(post => ({
           ...post,
           score: post.net_score,
           reason: 'Recent post'
         }));
+        console.log('Setting fallback posts:', postsWithScore.length);
         setPosts(postsWithScore);
       } catch (fallbackError) {
         console.error('Fallback posts error:', fallbackError);
