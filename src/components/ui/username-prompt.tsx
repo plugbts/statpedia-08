@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { User, Check, X, Sparkles } from 'lucide-react';
+import { User, Check, X, Sparkles, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { socialService } from '@/services/social-service';
 
 interface UsernamePromptProps {
   isVisible: boolean;
@@ -22,7 +23,9 @@ export const UsernamePrompt: React.FC<UsernamePromptProps> = ({
 }) => {
   const [username, setUsername] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [error, setError] = useState('');
+  const [availabilityStatus, setAvailabilityStatus] = useState<'idle' | 'available' | 'taken' | 'checking'>('idle');
   const { toast } = useToast();
 
   const validateUsername = (username: string): { isValid: boolean; error: string } => {
@@ -38,13 +41,63 @@ export const UsernamePrompt: React.FC<UsernamePromptProps> = ({
     if (!/^[a-zA-Z0-9_.]+$/.test(username)) {
       return { isValid: false, error: 'Username can only contain letters, numbers, underscores, and periods' };
     }
+    // Check for reserved usernames
+    const reservedUsernames = ['admin', 'administrator', 'moderator', 'support', 'help', 'api', 'www', 'mail', 'root', 'user', 'guest', 'test', 'demo'];
+    if (reservedUsernames.includes(username.toLowerCase())) {
+      return { isValid: false, error: 'This username is reserved and cannot be used' };
+    }
     return { isValid: true, error: '' };
   };
+
+  const checkUsernameAvailability = async (username: string) => {
+    if (!username.trim() || !validateUsername(username).isValid) {
+      setAvailabilityStatus('idle');
+      return;
+    }
+
+    setIsCheckingAvailability(true);
+    setAvailabilityStatus('checking');
+
+    try {
+      const existingProfile = await socialService.getUserProfileByUsername(username);
+      if (existingProfile) {
+        setAvailabilityStatus('taken');
+        setError('This username is already taken. Please choose a different one.');
+      } else {
+        setAvailabilityStatus('available');
+        setError('');
+      }
+    } catch (error) {
+      console.error('Error checking username availability:', error);
+      setAvailabilityStatus('idle');
+    } finally {
+      setIsCheckingAvailability(false);
+    }
+  };
+
+  // Debounced username availability check
+  React.useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (username.trim()) {
+        checkUsernameAvailability(username);
+      } else {
+        setAvailabilityStatus('idle');
+        setError('');
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [username]);
 
   const handleSubmit = async () => {
     const validation = validateUsername(username);
     if (!validation.isValid) {
       setError(validation.error);
+      return;
+    }
+
+    if (availabilityStatus !== 'available') {
+      setError('Please wait for username availability check to complete.');
       return;
     }
 
@@ -113,14 +166,50 @@ export const UsernamePrompt: React.FC<UsernamePromptProps> = ({
                     }}
                     onKeyPress={handleKeyPress}
                     placeholder="Enter your username"
-                    className="pl-8"
+                    className={`pl-8 pr-10 ${
+                      availabilityStatus === 'available' ? 'border-green-500 focus:border-green-500' :
+                      availabilityStatus === 'taken' ? 'border-red-500 focus:border-red-500' :
+                      availabilityStatus === 'checking' ? 'border-yellow-500 focus:border-yellow-500' : ''
+                    }`}
                     maxLength={20}
                     disabled={isLoading}
                   />
                   <div className="absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground">
                     @
                   </div>
+                  <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                    {availabilityStatus === 'checking' && (
+                      <Loader2 className="w-4 h-4 animate-spin text-yellow-500" />
+                    )}
+                    {availabilityStatus === 'available' && (
+                      <Check className="w-4 h-4 text-green-500" />
+                    )}
+                    {availabilityStatus === 'taken' && (
+                      <X className="w-4 h-4 text-red-500" />
+                    )}
+                  </div>
                 </div>
+                
+                {/* Availability Status */}
+                {availabilityStatus === 'available' && (
+                  <div className="text-xs text-green-600 flex items-center gap-1">
+                    <Check className="w-3 h-3" />
+                    Username is available!
+                  </div>
+                )}
+                {availabilityStatus === 'taken' && (
+                  <div className="text-xs text-red-600 flex items-center gap-1">
+                    <X className="w-3 h-3" />
+                    Username is already taken
+                  </div>
+                )}
+                {availabilityStatus === 'checking' && (
+                  <div className="text-xs text-yellow-600 flex items-center gap-1">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Checking availability...
+                  </div>
+                )}
+
                 {error && (
                   <Alert variant="destructive" className="py-2">
                     <AlertDescription className="text-xs">{error}</AlertDescription>
@@ -129,6 +218,7 @@ export const UsernamePrompt: React.FC<UsernamePromptProps> = ({
                 <div className="text-xs text-muted-foreground">
                   <p>• 3-20 characters</p>
                   <p>• Letters, numbers, underscores, and periods only</p>
+                  <p>• Must be unique across all users</p>
                   <p>• This will be your unique social identity</p>
                 </div>
               </div>
@@ -136,7 +226,7 @@ export const UsernamePrompt: React.FC<UsernamePromptProps> = ({
               <div className="flex gap-2 pt-2">
                 <Button
                   onClick={handleSubmit}
-                  disabled={isLoading || !username.trim()}
+                  disabled={isLoading || !username.trim() || availabilityStatus !== 'available'}
                   className="flex-1 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90"
                 >
                   {isLoading ? (

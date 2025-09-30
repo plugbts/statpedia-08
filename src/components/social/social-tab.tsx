@@ -1246,12 +1246,12 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
                               id="display-name"
                               value={editDisplayName}
                               onChange={(e) => setEditDisplayName(e.target.value)}
-                              placeholder="Enter your display name"
+                              placeholder="Enter your display name (emojis allowed!)"
                               maxLength={50}
                               className="h-8 text-sm"
                             />
                             <p className="text-xs text-muted-foreground mt-1">
-                              {editDisplayName.length}/50 characters
+                              {editDisplayName.length}/50 characters • Emojis and special characters allowed
                             </p>
                           </div>
                           <div>
@@ -1274,12 +1274,12 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
                               id="bio"
                               value={editBio}
                               onChange={(e) => setEditBio(e.target.value)}
-                              placeholder="Tell us about yourself..."
+                              placeholder="Tell us about yourself (emojis allowed!)"
                               maxLength={200}
                               className="min-h-[60px] resize-none text-sm"
                             />
                             <p className="text-xs text-muted-foreground mt-1">
-                              {editBio.length}/200 characters
+                              {editBio.length}/200 characters • Emojis and special characters allowed
                             </p>
                           </div>
                           <div className="flex gap-2">

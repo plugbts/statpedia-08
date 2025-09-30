@@ -163,13 +163,23 @@ class SocialService {
   }
 
   async updateDisplayName(userId: string, newDisplayName: string): Promise<UserProfile> {
+    // Allow emojis and special characters in display names
     if (newDisplayName.length > 50) {
       throw new Error('Display name must be 50 characters or less');
     }
+    
+    if (newDisplayName.trim().length === 0) {
+      throw new Error('Display name cannot be empty');
+    }
+
+    // Basic sanitization - remove potentially harmful characters but allow emojis
+    const sanitizedDisplayName = newDisplayName
+      .replace(/[<>]/g, '') // Remove angle brackets for basic XSS prevention
+      .trim();
 
     const { data, error } = await supabase
       .from('user_profiles')
-      .update({ display_name: newDisplayName })
+      .update({ display_name: sanitizedDisplayName })
       .eq('user_id', userId)
       .select()
       .single();
@@ -183,9 +193,14 @@ class SocialService {
       throw new Error('Bio must be 200 characters or less');
     }
 
+    // Basic sanitization - remove potentially harmful characters but allow emojis
+    const sanitizedBio = newBio
+      .replace(/[<>]/g, '') // Remove angle brackets for basic XSS prevention
+      .trim();
+
     const { data, error } = await supabase
       .from('user_profiles')
-      .update({ bio: newBio })
+      .update({ bio: sanitizedBio })
       .eq('user_id', userId)
       .select()
       .single();
