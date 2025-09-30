@@ -153,10 +153,15 @@ class GitHubSyncService {
       }
 
       // Notify sync service about the update
-      syncService.syncCode({
-        type: 'github-pull',
-        timestamp: Date.now(),
-        message: 'Code updated from GitHub',
+      syncService.queueSyncEvent({
+        type: 'code',
+        action: 'sync',
+        data: {
+          type: 'github-pull',
+          timestamp: Date.now(),
+          message: 'Code updated from GitHub',
+        },
+        source: 'local',
       });
 
       console.log('Successfully pulled changes from GitHub');
@@ -202,21 +207,24 @@ class GitHubSyncService {
 
   private async handleFileChange(path: string, action: 'created' | 'modified' | 'deleted'): Promise<void> {
     try {
-      const fileChange: GitHubFileChange = {
-        path,
-        action,
-        timestamp: Date.now(),
-      };
-
+      let content = '';
+      
       // Read file content if it exists
       if (action !== 'deleted') {
         try {
           const fs = await import('fs/promises');
-          fileChange.content = await fs.readFile(path, 'utf-8');
+          content = await fs.readFile(path, 'utf-8');
         } catch (error) {
           console.error('Failed to read file content:', error);
         }
       }
+
+      const fileChange: GitHubFileChange = {
+        path,
+        content,
+        action,
+        timestamp: Date.now(),
+      };
 
       // Sync to GitHub if auto-commit is enabled
       if (this.config.autoCommit) {
@@ -224,10 +232,15 @@ class GitHubSyncService {
       }
 
       // Notify sync service
-      syncService.syncCode({
-        type: 'file-change',
-        fileChange,
-        timestamp: Date.now(),
+      syncService.queueSyncEvent({
+        type: 'code',
+        action: 'sync',
+        data: {
+          type: 'file-change',
+          fileChange,
+          timestamp: Date.now(),
+        },
+        source: 'local',
       });
 
     } catch (error) {

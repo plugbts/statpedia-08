@@ -115,19 +115,40 @@ export function useSync(options: UseSyncOptions = {}) {
 
   // Sync functions
   const syncCode = useCallback((codeData: any, source: 'loveable' | 'supabase' | 'local' = 'local') => {
-    syncService.syncCode(codeData, source);
+    syncService.queueSyncEvent({
+      type: 'code',
+      action: 'sync',
+      data: codeData,
+      source,
+    });
   }, []);
 
   const syncUI = useCallback((uiData: any, source: 'loveable' | 'supabase' | 'local' = 'local') => {
-    syncService.syncUI(uiData, source);
+    syncService.queueSyncEvent({
+      type: 'ui',
+      action: 'sync',
+      data: uiData,
+      source,
+    });
   }, []);
 
   const syncData = useCallback((table: TableName, action: 'create' | 'update' | 'delete', data: any) => {
-    syncService.syncData(table, action, data);
+    syncService.queueSyncEvent({
+      type: 'data',
+      table,
+      action,
+      data,
+      source: 'local',
+    });
   }, []);
 
   const syncConfig = useCallback((configData: any, source: 'loveable' | 'supabase' | 'local' = 'local') => {
-    syncService.syncConfig(configData, source);
+    syncService.queueSyncEvent({
+      type: 'config',
+      action: 'sync',
+      data: configData,
+      source,
+    });
   }, []);
 
   // Connection control
@@ -210,5 +231,12 @@ export function useMultipleTableSync<T extends TableName>(
     onDelete?: (payload: any) => void;
   }>
 ) {
-  return useSupabaseRealtime(tables);
+  // Use first table for now, or could be enhanced to handle multiple
+  return useSupabaseRealtime({
+    table: tables[0]?.table || 'profiles',
+    filter: tables[0]?.filter,
+    onInsert: tables[0]?.onInsert,
+    onUpdate: tables[0]?.onUpdate,
+    onDelete: tables[0]?.onDelete,
+  });
 }

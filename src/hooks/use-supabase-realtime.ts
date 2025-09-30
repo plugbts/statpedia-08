@@ -96,15 +96,15 @@ export function useSupabaseRealtime<T extends TableName>(
           });
 
         // Subscribe to the channel
-        const response = await newChannel.subscribe();
-        
-        if (response === 'SUBSCRIBED') {
-          setChannel(newChannel);
-          setIsConnected(true);
-          setError(null);
-        } else {
-          handleError(new Error(`Failed to subscribe: ${response}`));
-        }
+        newChannel.subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            setChannel(newChannel);
+            setIsConnected(true);
+            setError(null);
+          } else if (status === 'CHANNEL_ERROR') {
+            handleError(new Error(`Failed to subscribe: ${status}`));
+          }
+        });
       } catch (err) {
         handleError(err);
       }
@@ -125,11 +125,12 @@ export function useSupabaseRealtime<T extends TableName>(
   // Manual subscription control
   const subscribe = useCallback(async () => {
     if (channel) {
-      const response = await channel.subscribe();
-      if (response === 'SUBSCRIBED') {
-        setIsConnected(true);
-        setError(null);
-      }
+      channel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          setIsConnected(true);
+          setError(null);
+        }
+      });
     }
   }, [channel]);
 
@@ -217,10 +218,11 @@ export function useMultipleSupabaseRealtime<T extends TableName>(
               }
             });
 
-          const response = await channel.subscribe();
-          if (response === 'SUBSCRIBED') {
-            newChannels.set(config.table, channel);
-          }
+          channel.subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+              newChannels.set(config.table, channel);
+            }
+          });
         } catch (error) {
           setErrors(prev => new Map(prev).set(config.table, error.toString()));
         }
