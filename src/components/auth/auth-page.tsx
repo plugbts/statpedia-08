@@ -11,6 +11,16 @@ import { SubscriptionPlans } from './subscription-plans';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
+import { 
+  validateEmail, 
+  validatePasswordStrength, 
+  validateUsername, 
+  sanitizeInput, 
+  detectSuspiciousPatterns,
+  logSecurityEvent,
+  checkRateLimit
+} from '@/utils/security';
+import { rateLimitingService } from '@/services/rate-limiting-service';
 
 interface AuthPageProps {
   onAuthSuccess: (user: any, subscription: string) => void;
@@ -72,18 +82,89 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
 
   const validateForm = () => {
     try {
-      // Validate email
-      emailSchema.parse(formData.email);
-      
-      // Validate password
-      passwordSchema.parse(formData.password);
+      // Sanitize inputs first
+      const sanitizedEmail = sanitizeInput(formData.email);
+      const sanitizedPassword = sanitizeInput(formData.password);
+      const sanitizedDisplayName = sanitizeInput(formData.displayName);
+
+      // Check for suspicious patterns
+      const emailSuspicious = detectSuspiciousPatterns(sanitizedEmail);
+      const passwordSuspicious = detectSuspiciousPatterns(sanitizedPassword);
+      const displayNameSuspicious = detectSuspiciousPatterns(sanitizedDisplayName);
+
+      if (emailSuspicious.isSuspicious) {
+        logSecurityEvent('Suspicious email input detected', {
+          email: sanitizedEmail,
+          patterns: emailSuspicious.patterns
+        });
+        toast({
+          title: "Security Alert",
+          description: "Invalid email format detected",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      if (passwordSuspicious.isSuspicious) {
+        logSecurityEvent('Suspicious password input detected', {
+          patterns: passwordSuspicious.patterns
+        });
+        toast({
+          title: "Security Alert",
+          description: "Invalid password format detected",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      if (displayNameSuspicious.isSuspicious) {
+        logSecurityEvent('Suspicious display name input detected', {
+          displayName: sanitizedDisplayName,
+          patterns: displayNameSuspicious.patterns
+        });
+        toast({
+          title: "Security Alert",
+          description: "Invalid display name format detected",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      // Enhanced email validation
+      if (!validateEmail(sanitizedEmail)) {
+        toast({
+          title: "Invalid Email",
+          description: "Please enter a valid email address",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      // Enhanced password validation
+      const passwordValidation = validatePasswordStrength(sanitizedPassword);
+      if (!passwordValidation.isValid) {
+        toast({
+          title: "Password Requirements",
+          description: passwordValidation.errors[0],
+          variant: "destructive",
+        });
+        return false;
+      }
 
       if (authMode === 'signup') {
-        // Validate display name
-        displayNameSchema.parse(formData.displayName);
+        // Enhanced display name validation
+        const displayNameValidation = validateUsername(sanitizedDisplayName);
+        if (!displayNameValidation.isValid) {
+          toast({
+            title: "Invalid Display Name",
+            description: displayNameValidation.errors[0],
+            variant: "destructive",
+          });
+          return false;
+        }
         
         // Check password confirmation
-        if (formData.password !== formData.confirmPassword) {
+        if (sanitizedPassword !== sanitizeInput(formData.confirmPassword)) {
           toast({
             title: "Password Mismatch",
             description: "Passwords do not match",
@@ -95,19 +176,31 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
 
       return true;
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        toast({
-          title: "Validation Error",
-          description: error.errors[0].message,
-          variant: "destructive",
-        });
-      }
+      logSecurityEvent('Form validation error', { error: error.message });
+      toast({
+        title: "Validation Error",
+        description: "An error occurred during validation",
+        variant: "destructive",
+      });
       return false;
     }
   };
 
   const handleAuth = async () => {
     if (!validateForm()) return;
+    
+    // Check rate limiting
+    const rateLimitKey = authMode === 'login' ? 'auth:login' : 'auth:signup';
+    const rateLimitResult = rateLimitingService.checkLimit(rateLimitKey, formData.email);
+    
+    if (!rateLimitResult.allowed) {
+      toast({
+        title: "Rate Limit Exceeded",
+        description: `Too many attempts. Try again in ${rateLimitResult.retryAfter} seconds.`,
+        variant: "destructive",
+      });
+      return;
+    }
     
     setIsLoading(true);
     

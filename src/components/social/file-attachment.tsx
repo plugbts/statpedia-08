@@ -11,9 +11,12 @@ import {
   FileText,
   Download,
   Play,
-  Pause
+  Pause,
+  Shield,
+  AlertTriangle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { validateFile, detectSuspiciousPatterns, logSecurityEvent } from '@/utils/security';
 
 interface FileAttachmentProps {
   onFilesSelected: (files: File[]) => void;
@@ -38,25 +41,54 @@ export const FileAttachment: React.FC<FileAttachmentProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  const validateFile = (file: File): string | null => {
-    // Check file size (convert MB to bytes)
-    const maxSizeBytes = maxFileSize * 1024 * 1024;
-    if (file.size > maxSizeBytes) {
-      return `File size must be less than ${maxFileSize}MB`;
+  const validateFileSecurity = (file: File): string | null => {
+    // Enhanced security validation
+    const validation = validateFile(file, {
+      maxSize: maxFileSize * 1024 * 1024, // Convert MB to bytes
+      allowedTypes: [
+        'image/jpeg',
+        'image/jpg',
+        'image/png', 
+        'image/gif',
+        'video/mp4',
+        'video/quicktime'
+      ],
+      allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'mp4', 'mov']
+    });
+
+    if (!validation.isValid) {
+      return validation.errors[0];
     }
 
-    // Check file type - only allow specific formats
-    const allowedTypes = [
-      'image/jpeg',
-      'image/jpg',
-      'image/png', 
-      'image/gif',
-      'video/mp4',
-      'video/quicktime' // .mov files
-    ];
+    // Check for suspicious patterns in filename
+    const suspiciousCheck = detectSuspiciousPatterns(file.name);
+    if (suspiciousCheck.isSuspicious) {
+      logSecurityEvent('Suspicious file upload attempt', {
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        patterns: suspiciousCheck.patterns
+      });
+      return 'File name contains suspicious patterns';
+    }
 
-    if (!allowedTypes.includes(file.type)) {
-      return 'File type not supported';
+    // Additional security checks
+    if (file.name.length > 255) {
+      return 'File name too long';
+    }
+
+    // Check for double extensions (potential security risk)
+    const nameParts = file.name.split('.');
+    if (nameParts.length > 2) {
+      const lastTwo = nameParts.slice(-2);
+      const suspiciousExtensions = ['exe', 'bat', 'cmd', 'scr', 'pif', 'com'];
+      if (suspiciousExtensions.includes(lastTwo[0].toLowerCase())) {
+        logSecurityEvent('Suspicious file extension detected', {
+          fileName: file.name,
+          suspiciousExtension: lastTwo[0]
+        });
+        return 'File type not allowed for security reasons';
+      }
     }
 
     return null;
@@ -101,7 +133,7 @@ export const FileAttachment: React.FC<FileAttachmentProps> = ({
     const errors: string[] = [];
 
     files.forEach(file => {
-      const error = validateFile(file);
+      const error = validateFileSecurity(file);
       if (error) {
         errors.push(`${file.name}: ${error}`);
       } else {
