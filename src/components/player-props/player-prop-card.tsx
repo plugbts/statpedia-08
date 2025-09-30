@@ -8,6 +8,8 @@ import { SportIcon } from '@/components/ui/sport-icon';
 import { PlayerHeadshot } from '@/components/ui/player-headshot';
 import { SubscriptionOverlay } from '@/components/ui/subscription-overlay';
 import { PredictionPoll } from '@/components/predictions/prediction-poll';
+import { EVRating } from './ev-rating';
+import { evCalculatorService, type EVCalculation } from '@/services/ev-calculator';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -83,6 +85,23 @@ export const PlayerPropCard: React.FC<PlayerPropCardProps> = ({
   onToggleSelect
 }) => {
   const navigate = useNavigate();
+
+  // Calculate EV for this prop
+  const evCalculation = evCalculatorService.calculateAIRating({
+    id,
+    playerName,
+    propType,
+    line,
+    odds,
+    sport,
+    team,
+    opponent,
+    gameDate: new Date().toISOString(),
+    hitRate,
+    recentForm: parseFloat(recentForm.replace('%', '')) / 100,
+    restDays,
+    injuryStatus
+  });
 
   const handleUpgrade = () => {
     navigate('/subscription');
@@ -192,6 +211,16 @@ export const PlayerPropCard: React.FC<PlayerPropCardProps> = ({
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Odds</span>
             <span className="font-medium">{odds}</span>
+          </div>
+          
+          {/* EV% Display */}
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">EV%</span>
+            <span 
+              className={`font-bold text-sm ${evCalculatorService.getEVColor(evCalculation.evPercentage)}`}
+            >
+              {evCalculation.evPercentage > 0 ? '+' : ''}{evCalculation.evPercentage.toFixed(1)}%
+            </span>
           </div>
         </div>
       </CardHeader>
@@ -324,6 +353,13 @@ export const PlayerPropCard: React.FC<PlayerPropCardProps> = ({
           <div className="text-sm font-medium text-muted-foreground mb-1">Recent Form</div>
           <div className="text-sm">{recentForm}</div>
         </div>
+
+        {/* AI EV Rating */}
+        {isSubscribed && (
+          <div className="mt-4">
+            <EVRating evCalculation={evCalculation} compact={true} />
+          </div>
+        )}
 
         {/* Prediction Poll */}
         {isSubscribed && (

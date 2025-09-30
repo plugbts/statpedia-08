@@ -11,6 +11,7 @@ import { Slider } from '@/components/ui/slider';
 import { SubscriptionOverlay } from '@/components/ui/subscription-overlay';
 import { PlayerAnalysisOverlay } from './player-analysis-overlay';
 import { PlayerPropCardAd } from '@/components/ads/ad-placements';
+import { evCalculatorService } from '@/services/ev-calculator';
 import { useNavigate } from 'react-router-dom';
 import { 
   TrendingUp, 
@@ -80,6 +81,10 @@ interface FilterSettings {
   maxOdds: number;
   minHitRate: number;
   maxHitRate: number;
+  minEV: number;
+  maxEV: number;
+  minROI: number;
+  maxROI: number;
   sportsbooks: string[];
 }
 
@@ -114,6 +119,8 @@ const SORT_OPTIONS = [
   { value: 'h2h', label: 'H2H' },
   { value: 'year', label: 'Year' },
   { value: 'hitRate', label: 'Hit Rate' },
+  { value: 'evPercentage', label: 'EV%' },
+  { value: 'roiPercentage', label: 'ROI%' },
 ];
 
 export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription, userRole = 'user' }) => {
@@ -142,6 +149,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
     maxOdds: 500,
     minHitRate: 0,
     maxHitRate: 100,
+    minEV: -20,
+    maxEV: 20,
+    minROI: -20,
+    maxROI: 20,
     sportsbooks: [],
   });
 
@@ -373,6 +384,32 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
         return false;
       }
 
+      // EV% filter
+      const evCalculation = evCalculatorService.calculateAIRating({
+        id: prop.id,
+        playerName: prop.playerName,
+        propType: prop.propType,
+        line: prop.line,
+        odds: prop.odds,
+        sport: prop.sport,
+        team: prop.team,
+        opponent: prop.opponent,
+        gameDate: new Date().toISOString(),
+        hitRate: prop.hitRate,
+        recentForm: parseFloat(prop.recentForm.replace('%', '')) / 100,
+        restDays: prop.restDays,
+        injuryStatus: prop.injuryStatus
+      });
+      
+      if (evCalculation.evPercentage < filterSettings.minEV || evCalculation.evPercentage > filterSettings.maxEV) {
+        return false;
+      }
+
+      // ROI filter
+      if (evCalculation.roiPercentage < filterSettings.minROI || evCalculation.roiPercentage > filterSettings.maxROI) {
+        return false;
+      }
+
       // Sportsbook filter
       if ((filterSettings.sportsbooks || []).length > 0) {
         const hasMatchingSportsbook = (prop.sportsbooks || []).some(sb => 
@@ -386,8 +423,49 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
     .sort((a, b) => {
       // Multi-level sorting based on criteria array
       for (const criteria of (filterSettings.sortCriteria || [])) {
-        const aValue = a[criteria.field as keyof PlayerProp] as number;
-        const bValue = b[criteria.field as keyof PlayerProp] as number;
+        let aValue: number;
+        let bValue: number;
+        
+        // Handle EV% and ROI sorting
+        if (criteria.field === 'evPercentage' || criteria.field === 'roiPercentage') {
+          const aEV = evCalculatorService.calculateAIRating({
+            id: a.id,
+            playerName: a.playerName,
+            propType: a.propType,
+            line: a.line,
+            odds: a.odds,
+            sport: a.sport,
+            team: a.team,
+            opponent: a.opponent,
+            gameDate: new Date().toISOString(),
+            hitRate: a.hitRate,
+            recentForm: parseFloat(a.recentForm.replace('%', '')) / 100,
+            restDays: a.restDays,
+            injuryStatus: a.injuryStatus
+          });
+          
+          const bEV = evCalculatorService.calculateAIRating({
+            id: b.id,
+            playerName: b.playerName,
+            propType: b.propType,
+            line: b.line,
+            odds: b.odds,
+            sport: b.sport,
+            team: b.team,
+            opponent: b.opponent,
+            gameDate: new Date().toISOString(),
+            hitRate: b.hitRate,
+            recentForm: parseFloat(b.recentForm.replace('%', '')) / 100,
+            restDays: b.restDays,
+            injuryStatus: b.injuryStatus
+          });
+          
+          aValue = criteria.field === 'evPercentage' ? aEV.evPercentage : aEV.roiPercentage;
+          bValue = criteria.field === 'evPercentage' ? bEV.evPercentage : bEV.roiPercentage;
+        } else {
+          aValue = a[criteria.field as keyof PlayerProp] as number;
+          bValue = b[criteria.field as keyof PlayerProp] as number;
+        }
         
         let comparison = 0;
         if (criteria.order === 'asc') {
@@ -792,7 +870,45 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                       className="w-full"
                     />
                   </div>
-        </div>
+                </div>
+
+                {/* EV% Range */}
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-sm">EV% Range</h3>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Min: {filterSettings.minEV}%</span>
+                      <span>Max: {filterSettings.maxEV}%</span>
+                    </div>
+                    <Slider
+                      value={[filterSettings.minEV, filterSettings.maxEV]}
+                      onValueChange={([min, max]) => setFilterSettings(prev => ({ ...prev, minEV: min, maxEV: max }))}
+                      min={-20}
+                      max={20}
+                      step={0.5}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+
+                {/* ROI Range */}
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-sm">ROI Range</h3>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Min: {filterSettings.minROI}%</span>
+                      <span>Max: {filterSettings.maxROI}%</span>
+                    </div>
+                    <Slider
+                      value={[filterSettings.minROI, filterSettings.maxROI]}
+                      onValueChange={([min, max]) => setFilterSettings(prev => ({ ...prev, minROI: min, maxROI: max }))}
+                      min={-20}
+                      max={20}
+                      step={0.5}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
 
                 {/* Sportsbook Filter */}
                 <div className="space-y-2">
