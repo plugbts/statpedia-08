@@ -104,6 +104,11 @@ export const PlayerAnalysisOverlay: React.FC<PlayerAnalysisOverlayProps> = ({
               <div>
                 <h2 className="text-2xl font-bold text-foreground">{player}</h2>
                 <p className="text-muted-foreground">{team} vs {opponent}</p>
+                <div className="mt-2 bg-primary/10 border border-primary/20 rounded-lg px-3 py-2">
+                  <p className="text-lg font-bold text-primary">
+                    {prop} Over {line}
+                  </p>
+                </div>
               </div>
             </div>
             <Button
@@ -189,7 +194,7 @@ export const PlayerAnalysisOverlay: React.FC<PlayerAnalysisOverlayProps> = ({
                         )}
                         <div>
                           <p className="text-lg font-semibold">
-                            {aiPrediction?.recommended?.toUpperCase()} {line}
+                            {aiPrediction?.recommended?.toUpperCase()} {prop} {line}
                           </p>
                           <p className="text-sm text-muted-foreground">
                             {aiPrediction?.reasoning}
@@ -341,7 +346,7 @@ export const PlayerAnalysisOverlay: React.FC<PlayerAnalysisOverlayProps> = ({
                     <div className="grid grid-cols-2 gap-4">
                       <div className="p-4 border rounded-lg">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium">Over {line}</span>
+                          <span className="text-sm font-medium">Over {prop} {line}</span>
                           <Badge variant="outline">Over</Badge>
                         </div>
                         <p className="text-2xl font-bold text-green-600">
@@ -354,7 +359,7 @@ export const PlayerAnalysisOverlay: React.FC<PlayerAnalysisOverlayProps> = ({
                       
                       <div className="p-4 border rounded-lg">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium">Under {line}</span>
+                          <span className="text-sm font-medium">Under {prop} {line}</span>
                           <Badge variant="outline">Under</Badge>
                         </div>
                         <p className="text-2xl font-bold text-red-600">
