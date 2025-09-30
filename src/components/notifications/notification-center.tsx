@@ -158,35 +158,38 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <Card className="w-full max-w-2xl max-h-[80vh] mx-4">
-        <CardHeader className="pb-3">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
+      <Card className="w-full max-w-lg sm:max-w-2xl max-h-[90vh] sm:max-h-[80vh] mx-auto">
+        <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6">
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Bell className="w-5 h-5" />
-              Notifications
+            <CardTitle className="flex items-center gap-1 sm:gap-2 text-base sm:text-lg">
+              <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="hidden sm:inline">Notifications</span>
+              <span className="sm:hidden">Alerts</span>
               {unreadCount > 0 && (
-                <Badge variant="destructive" className="ml-2">
+                <Badge variant="destructive" className="ml-1 sm:ml-2 text-xs">
                   {unreadCount}
                 </Badge>
               )}
             </CardTitle>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2">
               {unreadCount > 0 && (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={markAllAsRead}
-                  className="gap-1"
+                  className="gap-1 text-xs sm:text-sm px-2 sm:px-3"
                 >
-                  <CheckCheck className="w-4 h-4" />
-                  Mark All Read
+                  <CheckCheck className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">Mark All Read</span>
+                  <span className="sm:hidden">All</span>
                 </Button>
               )}
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={onClose}
+                className="p-1 sm:p-2"
               >
                 <X className="w-4 h-4" />
               </Button>
@@ -196,33 +199,46 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
         <CardContent className="p-0">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-6 mx-4 mb-4">
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="unread">
-                Unread
+            <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 mx-2 sm:mx-4 mb-2 sm:mb-4 h-8 sm:h-10">
+              <TabsTrigger value="all" className="text-xs sm:text-sm px-1 sm:px-3">All</TabsTrigger>
+              <TabsTrigger value="unread" className="text-xs sm:text-sm px-1 sm:px-3">
+                <span className="hidden sm:inline">Unread</span>
+                <span className="sm:hidden">New</span>
                 {unreadCount > 0 && (
-                  <Badge variant="destructive" className="ml-1 text-xs">
-                    {unreadCount}
+                  <Badge variant="destructive" className="ml-1 text-xs h-4 w-4 p-0 flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="betting">🎯 Betting</TabsTrigger>
-              <TabsTrigger value="social">👥 Social</TabsTrigger>
-              <TabsTrigger value="system">⚙️ System</TabsTrigger>
-              <TabsTrigger value="achievement">🏆 Achievement</TabsTrigger>
+              <TabsTrigger value="betting" className="text-xs sm:text-sm px-1 sm:px-3">
+                <span className="hidden sm:inline">🎯 Betting</span>
+                <span className="sm:hidden">🎯</span>
+              </TabsTrigger>
+              <TabsTrigger value="social" className="text-xs sm:text-sm px-1 sm:px-3">
+                <span className="hidden sm:inline">👥 Social</span>
+                <span className="sm:hidden">👥</span>
+              </TabsTrigger>
+              <TabsTrigger value="system" className="text-xs sm:text-sm px-1 sm:px-3">
+                <span className="hidden sm:inline">⚙️ System</span>
+                <span className="sm:hidden">⚙️</span>
+              </TabsTrigger>
+              <TabsTrigger value="achievement" className="text-xs sm:text-sm px-1 sm:px-3">
+                <span className="hidden sm:inline">🏆 Achievement</span>
+                <span className="sm:hidden">🏆</span>
+              </TabsTrigger>
             </TabsList>
 
-            <TabsContent value={activeTab} className="px-4 pb-4">
-              <ScrollArea className="h-96">
+            <TabsContent value={activeTab} className="px-2 sm:px-4 pb-2 sm:pb-4">
+              <ScrollArea className="h-64 sm:h-80 md:h-96">
                 {isLoading ? (
-                  <div className="flex items-center justify-center h-32">
-                    <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
+                  <div className="flex items-center justify-center h-24 sm:h-32">
+                    <div className="animate-spin h-5 w-5 sm:h-6 sm:w-6 border-2 border-primary border-t-transparent rounded-full" />
                   </div>
                 ) : filteredNotifications.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <BellOff className="w-8 h-8 mx-auto mb-2" />
-                    <p>No notifications</p>
-                    <p className="text-sm">
+                  <div className="text-center py-6 sm:py-8 text-muted-foreground">
+                    <BellOff className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2" />
+                    <p className="text-sm sm:text-base">No notifications</p>
+                    <p className="text-xs sm:text-sm">
                       {activeTab === 'unread' 
                         ? "You're all caught up!" 
                         : `No ${activeTab} notifications`}
@@ -233,33 +249,33 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                     {filteredNotifications.map((notification, index) => (
                       <div key={notification.id}>
                         <div
-                          className={`p-4 hover:bg-muted/50 transition-colors cursor-pointer border-l-4 ${
+                          className={`p-2 sm:p-3 hover:bg-muted/50 transition-colors cursor-pointer border-l-4 ${
                             notification.isRead ? 'bg-muted/20' : 'bg-background'
                           } ${getPriorityColor(notification.priority)}`}
                           onClick={() => handleNotificationClick(notification)}
                         >
-                          <div className="flex items-start gap-3">
-                            <div className="text-lg">
+                          <div className="flex items-start gap-2 sm:gap-3">
+                            <div className="text-sm sm:text-lg flex-shrink-0">
                               {notification.icon || getCategoryIcon(notification.category)}
                             </div>
                             
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="font-medium text-sm">
+                              <div className="flex items-center gap-1 sm:gap-2 mb-1">
+                                <span className="font-medium text-xs sm:text-sm truncate">
                                   {notification.title}
                                 </span>
                                 {!notification.isRead && (
-                                  <div className="w-2 h-2 bg-primary rounded-full" />
+                                  <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-primary rounded-full flex-shrink-0" />
                                 )}
                                 <Badge 
                                   variant="outline" 
-                                  className="text-xs"
+                                  className="text-xs hidden sm:inline-flex"
                                 >
                                   {notification.category}
                                 </Badge>
                               </div>
                               
-                              <p className="text-sm text-muted-foreground mb-1">
+                              <p className="text-xs sm:text-sm text-muted-foreground mb-1 line-clamp-2">
                                 {notification.message}
                               </p>
                               
@@ -270,7 +286,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                                 
                                 <div className="flex items-center gap-1">
                                   {notification.actionUrl && (
-                                    <ExternalLink className="w-3 h-3 text-muted-foreground" />
+                                    <ExternalLink className="w-3 h-3 text-muted-foreground flex-shrink-0" />
                                   )}
                                   {!notification.isRead && (
                                     <Button
@@ -280,7 +296,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                                         e.stopPropagation();
                                         markAsRead(notification.id);
                                       }}
-                                      className="h-6 w-6 p-0"
+                                      className="h-5 w-5 sm:h-6 sm:w-6 p-0 flex-shrink-0"
                                     >
                                       <Check className="w-3 h-3" />
                                     </Button>
@@ -291,7 +307,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                           </div>
                         </div>
                         
-                        {index < filteredNotifications.length - 1 && <Separator />}
+                        {index < filteredNotifications.length - 1 && <Separator className="mx-2 sm:mx-3" />}
                       </div>
                     ))}
                   </div>
