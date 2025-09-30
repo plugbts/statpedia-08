@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { SportIcon } from '@/components/ui/sport-icon';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { BarChart3, Target, TrendingUp, Calendar, Settings, Wifi, LogOut, MoreVertical, Zap, Brain, Play, Pause, CreditCard, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { VerifiedCheckmark } from '@/components/ui/verified-checkmark';
@@ -65,6 +66,39 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
   
   const extraItems = getExtraItems();
 
+  // Generate tooltip content based on user role
+  const getLogoTooltipContent = () => {
+    const baseFeatures = [
+      "📊 Dashboard - View your analytics",
+      "🎯 Predictions - See AI-powered picks", 
+      "📈 Player Props - Detailed analysis",
+      "🧠 Insights - Advanced analytics"
+    ];
+
+    const extraFeatures = [];
+    
+    if (['mod', 'admin', 'owner'].includes(userRole)) {
+      extraFeatures.push("⚙️ Admin Panel - Manage system");
+    }
+    
+    if (userRole === 'owner') {
+      extraFeatures.push("🔧 Sync Test - Development tools");
+    }
+
+    const allFeatures = [...baseFeatures, ...extraFeatures];
+    
+    return (
+      <div className="space-y-1">
+        <div className="font-semibold text-sm">Click to access:</div>
+        {allFeatures.map((feature, index) => (
+          <div key={index} className="text-xs text-muted-foreground">
+            {feature}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const sports = [
     { id: 'nba', label: 'NBA', sport: 'nba' },
     { id: 'nfl', label: 'NFL', sport: 'nfl' },
@@ -81,16 +115,19 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
         <div className="flex items-center justify-between h-14 gap-2">
           {/* Logo with Extras Dropdown */}
           <div className="flex items-center gap-1 animate-fade-in">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-1 hover-scale cursor-pointer group px-1">
-                  <div className="w-6 h-6 bg-gradient-primary rounded-md flex items-center justify-center shadow-glow transition-all duration-300 group-hover:shadow-xl">
-                    <BarChart3 className="w-3 h-3 text-white" />
-                  </div>
-                  <h1 className="text-lg font-display font-bold text-foreground hidden sm:block">Statpedia</h1>
-                  <MoreVertical className="w-3 h-3 text-muted-foreground group-hover:text-foreground transition-colors" />
-                </button>
-              </DropdownMenuTrigger>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="flex items-center gap-1 hover-scale cursor-pointer group px-1">
+                        <div className="w-6 h-6 bg-gradient-primary rounded-md flex items-center justify-center shadow-glow transition-all duration-300 group-hover:shadow-xl">
+                          <BarChart3 className="w-3 h-3 text-white" />
+                        </div>
+                        <h1 className="text-lg font-display font-bold text-foreground hidden sm:block">Statpedia</h1>
+                        <MoreVertical className="w-3 h-3 text-muted-foreground group-hover:text-foreground transition-colors" />
+                      </button>
+                    </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56 bg-card/95 backdrop-blur-md border-border/50 z-[100]">
                 <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
                   Extra Features
@@ -112,7 +149,13 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
-            </DropdownMenu>
+                    </DropdownMenu>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  {getLogoTooltipContent()}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
 
           {/* Main Navigation - Responsive */}

@@ -152,6 +152,7 @@ export const SeasonalVideoBackground: React.FC<SeasonalVideoBackgroundProps> = (
   useEffect(() => {
     const season = getCurrentSeason();
     const theme = getCurrentTheme();
+    console.log('SeasonalVideoBackground: Current season:', season, 'Theme:', theme);
     setCurrentSeason(season);
     setCurrentTheme(theme);
     setIsVisible(true);
@@ -186,9 +187,10 @@ export const SeasonalVideoBackground: React.FC<SeasonalVideoBackgroundProps> = (
   if (!isVisible) return <>{children}</>;
 
   const seasonalData = generateSeasonalCSS(currentSeason, currentTheme);
+  console.log('SeasonalVideoBackground: Generated data:', seasonalData);
 
   return (
-    <div className={cn('relative overflow-hidden rounded-lg', className)}>
+    <div className={cn('relative overflow-hidden rounded-xl bg-gradient-card border border-border/50 min-h-[400px]', className)}>
       {/* Seasonal background */}
       <div 
         className="absolute inset-0 transition-all duration-1000"
