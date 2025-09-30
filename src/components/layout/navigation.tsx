@@ -358,102 +358,101 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
         duration={10000}
       />
 
-      {/* 3D Security Gate Popup */}
+      {/* 3D Security Gate Popup - Compact */}
       {showSubscriptionOverlay && lockedFeature && (
-        <div className="fixed inset-0 z-[9999]">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4">
           {/* Dark gradient background */}
           <div className="absolute inset-0 bg-gradient-to-br from-black via-gray-900 to-black opacity-95"></div>
           
-          {/* Popup container */}
-          <div className="relative z-[9999] flex items-center justify-center h-full px-4">
-            <div className="relative transform perspective-1000">
-              {/* 3D Effect Container */}
-              <div className="relative transform rotate-y-2 shadow-2xl">
-                {/* Main Card with 3D effect */}
-                <Card className="w-full max-w-lg transform rotate-y-2 shadow-2xl border-2 border-primary/30 bg-gradient-to-br from-background via-muted/20 to-background">
-                  <CardHeader className="text-center pb-4">
-                    <div className="flex items-center justify-center mb-4">
-                      <div className="relative">
-                        <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/30 to-orange-500/30 rounded-full blur-xl"></div>
-                        <div className="relative bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full p-4">
-                          <Lock className="w-10 h-10 text-white" />
-                        </div>
+          {/* Popup container - Compact and responsive */}
+          <div className="relative z-[9999] w-full max-w-sm sm:max-w-md transform perspective-1000">
+            {/* 3D Effect Container */}
+            <div className="relative transform rotate-y-1 shadow-2xl">
+              {/* Main Card with 3D effect - Compact */}
+              <Card className="w-full transform rotate-y-1 shadow-2xl border-2 border-primary/30 bg-gradient-to-br from-background via-muted/20 to-background">
+                <CardHeader className="text-center pb-2 px-3 pt-4">
+                  <div className="flex items-center justify-center mb-2">
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/30 to-orange-500/30 rounded-full blur-lg"></div>
+                      <div className="relative bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full p-2">
+                        <Lock className="w-6 h-6 text-white" />
                       </div>
                     </div>
-                    <CardTitle className="text-3xl font-bold bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 bg-clip-text text-transparent">
-                      Pro Feature Locked
-                    </CardTitle>
-                    <p className="text-muted-foreground text-sm mt-2">
-                      Unlock premium features with Statpedia Pro
+                  </div>
+                  <CardTitle className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 bg-clip-text text-transparent">
+                    Pro Feature Locked
+                  </CardTitle>
+                  <p className="text-muted-foreground text-xs mt-1">
+                    Unlock premium features with Statpedia Pro
+                  </p>
+                </CardHeader>
+
+                <CardContent className="space-y-3 px-3 pb-4">
+                  {/* Feature Info - Compact */}
+                  <div className="text-center space-y-1">
+                    <div className="flex items-center justify-center gap-1">
+                      <Lock className="w-4 h-4 text-orange-500" />
+                      <h3 className="text-sm sm:text-base font-semibold">{lockedFeature.name}</h3>
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-tight">
+                      {lockedFeature.description}
                     </p>
-                  </CardHeader>
+                  </div>
 
-                  <CardContent className="space-y-6">
-                    {/* Feature Info */}
-                    <div className="text-center space-y-2">
-                      <div className="flex items-center justify-center gap-2">
-                        <Lock className="w-5 h-5 text-orange-500" />
-                        <h3 className="text-xl font-semibold">{lockedFeature.name}</h3>
+                  {/* Pro Benefits - Compact Grid */}
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-semibold text-center">With Statpedia Pro:</h4>
+                    <div className="grid grid-cols-2 gap-1">
+                      <div className="flex items-center gap-1 p-1 rounded bg-gradient-to-r from-green-500/10 to-emerald-500/10">
+                        <Star className="w-3 h-3 text-green-500 flex-shrink-0" />
+                        <span className="text-xs">Analytics</span>
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        {lockedFeature.description}
-                      </p>
-                    </div>
-
-                    {/* Pro Benefits */}
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-semibold text-center">With Statpedia Pro, you get:</h4>
-                      <div className="grid grid-cols-1 gap-2">
-                        <div className="flex items-center gap-3 p-2 rounded-lg bg-gradient-to-r from-green-500/10 to-emerald-500/10">
-                          <Star className="w-4 h-4 text-green-500" />
-                          <span className="text-sm">Advanced Analytics & Insights</span>
-                        </div>
-                        <div className="flex items-center gap-3 p-2 rounded-lg bg-gradient-to-r from-blue-500/10 to-cyan-500/10">
-                          <TrendingUp className="w-4 h-4 text-blue-500" />
-                          <span className="text-sm">Premium Predictions & Models</span>
-                        </div>
-                        <div className="flex items-center gap-3 p-2 rounded-lg bg-gradient-to-r from-purple-500/10 to-pink-500/10">
-                          <Zap className="w-4 h-4 text-purple-500" />
-                          <span className="text-sm">Real-time Data & Updates</span>
-                        </div>
-                        <div className="flex items-center gap-3 p-2 rounded-lg bg-gradient-to-r from-orange-500/10 to-red-500/10">
-                          <Crown className="w-4 h-4 text-orange-500" />
-                          <span className="text-sm">Exclusive Features & Tools</span>
-                        </div>
+                      <div className="flex items-center gap-1 p-1 rounded bg-gradient-to-r from-blue-500/10 to-cyan-500/10">
+                        <TrendingUp className="w-3 h-3 text-blue-500 flex-shrink-0" />
+                        <span className="text-xs">Predictions</span>
+                      </div>
+                      <div className="flex items-center gap-1 p-1 rounded bg-gradient-to-r from-purple-500/10 to-pink-500/10">
+                        <Zap className="w-3 h-3 text-purple-500 flex-shrink-0" />
+                        <span className="text-xs">Real-time</span>
+                      </div>
+                      <div className="flex items-center gap-1 p-1 rounded bg-gradient-to-r from-orange-500/10 to-red-500/10">
+                        <Crown className="w-3 h-3 text-orange-500 flex-shrink-0" />
+                        <span className="text-xs">Exclusive</span>
                       </div>
                     </div>
+                  </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex gap-3 pt-2">
-                      <Button
-                        onClick={handleSubscribe}
-                        className="flex-1 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-semibold"
-                      >
-                        <Crown className="w-4 h-4 mr-2" />
-                        Subscribe to Pro
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={handleCloseSubscriptionOverlay}
-                        className="px-4"
-                      >
-                        <X className="w-4 h-4 mr-2" />
-                        Return to Dashboard
-                      </Button>
-                    </div>
+                  {/* Action Buttons - Compact */}
+                  <div className="flex gap-2 pt-1">
+                    <Button
+                      onClick={handleSubscribe}
+                      size="sm"
+                      className="flex-1 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-semibold text-xs h-8"
+                    >
+                      <Crown className="w-3 h-3 mr-1" />
+                      Subscribe
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCloseSubscriptionOverlay}
+                      className="px-2 text-xs h-8"
+                    >
+                      <X className="w-3 h-3 mr-1" />
+                      Dashboard
+                    </Button>
+                  </div>
 
-                    {/* Decorative elements */}
-                    <div className="absolute -top-3 -right-3 w-6 h-6 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full opacity-60 animate-pulse"></div>
-                    <div className="absolute -bottom-2 -left-2 w-4 h-4 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full opacity-40 animate-pulse delay-1000"></div>
-                  </CardContent>
-                </Card>
+                  {/* Decorative elements - Smaller */}
+                  <div className="absolute -top-2 -right-2 w-4 h-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full opacity-60 animate-pulse"></div>
+                  <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full opacity-40 animate-pulse delay-1000"></div>
+                </CardContent>
+              </Card>
 
-                {/* Floating sparkles */}
-                <div className="absolute -top-6 -left-6 w-3 h-3 bg-yellow-400 rounded-full opacity-70 animate-bounce"></div>
-                <div className="absolute -top-4 -right-8 w-2 h-2 bg-orange-400 rounded-full opacity-60 animate-bounce delay-500"></div>
-                <div className="absolute -bottom-4 -left-3 w-2 h-2 bg-purple-400 rounded-full opacity-50 animate-bounce delay-1000"></div>
-                <div className="absolute -bottom-2 -right-4 w-1.5 h-1.5 bg-blue-400 rounded-full opacity-40 animate-bounce delay-1500"></div>
-              </div>
+              {/* Floating sparkles - Smaller and fewer */}
+              <div className="absolute -top-3 -left-3 w-2 h-2 bg-yellow-400 rounded-full opacity-70 animate-bounce"></div>
+              <div className="absolute -top-2 -right-4 w-1.5 h-1.5 bg-orange-400 rounded-full opacity-60 animate-bounce delay-500"></div>
+              <div className="absolute -bottom-2 -left-2 w-1.5 h-1.5 bg-purple-400 rounded-full opacity-50 animate-bounce delay-1000"></div>
             </div>
           </div>
         </div>
