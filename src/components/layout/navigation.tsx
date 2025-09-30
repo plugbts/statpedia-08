@@ -17,7 +17,7 @@ interface NavigationProps {
   onLogout?: () => void;
 }
 
-export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSport = 'nba', userEmail, displayName, onLogout }: NavigationProps) => {
+export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSport = 'nfl', userEmail, displayName, onLogout }: NavigationProps) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="w-4 h-4" /> },
     { id: 'predictions', label: 'Predictions', icon: <Target className="w-4 h-4" />, badge: '12' },

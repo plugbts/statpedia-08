@@ -154,6 +154,13 @@ class SportsAPIService {
       })) || [];
 
       console.log(`Found ${games.length} games for ${sport}`);
+      
+      // If no games found, return mock games as fallback
+      if (games.length === 0) {
+        console.log(`No live games found for ${sport}, using mock data`);
+        return this.getMockGames(sport);
+      }
+      
       return games;
     } catch (error) {
       console.error('Error fetching ESPN games:', error);
@@ -282,6 +289,12 @@ class SportsAPIService {
       const props = await this.getPlayerProps(sport);
 
       const predictions: Prediction[] = [];
+
+      // If no live games, generate predictions from mock data
+      if (games.length === 0) {
+        console.log(`No live games for ${sport}, generating predictions from mock data`);
+        return this.getMockPredictions(sport, limit);
+      }
 
       for (let i = 0; i < Math.min(limit, games.length); i++) {
         const game = games[i];

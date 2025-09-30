@@ -26,7 +26,7 @@ const Index = () => {
   const [user, setUser] = useState<User | null>(null);
   const [userSubscription, setUserSubscription] = useState('free');
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedSport, setSelectedSport] = useState('nba');
+  const [selectedSport, setSelectedSport] = useState('nfl');
   const [realPredictions, setRealPredictions] = useState<any[]>([]);
   const [isLoadingPredictions, setIsLoadingPredictions] = useState(false);
   const [showFeatureTooltip, setShowFeatureTooltip] = useState(false);
