@@ -86,16 +86,16 @@ interface MyPick {
 }
 
 const SPORTSBOOKS = [
-  { id: 'fanduel', name: 'FanDuel', icon: '🎯', color: 'bg-green-500' },
-  { id: 'caesars', name: 'Caesars', icon: '👑', color: 'bg-purple-500' },
-  { id: 'draftkings', name: 'DraftKings', icon: '🏆', color: 'bg-blue-500' },
-  { id: 'hardrock', name: 'Hard Rock Bet', icon: '🎸', color: 'bg-orange-500' },
-  { id: 'prizepicks', name: 'PrizePicks', icon: '🎁', color: 'bg-pink-500' },
-  { id: 'sleeper', name: 'Sleeper', icon: '😴', color: 'bg-indigo-500' },
-  { id: 'underdog', name: 'Underdog', icon: '🐕', color: 'bg-yellow-500' },
-  { id: 'bet365', name: 'Bet365', icon: '💎', color: 'bg-emerald-500' },
-  { id: 'betmgm', name: 'BetMGM', icon: '🎰', color: 'bg-red-500' },
-  { id: 'espnbet', name: 'ESPN Bet', icon: '📺', color: 'bg-orange-600' },
+  { id: 'fanduel', name: 'FanDuel', icon: '/src/assets/logos/fanduel.svg', color: 'bg-green-500' },
+  { id: 'caesars', name: 'Caesars', icon: '/src/assets/logos/caesars.svg', color: 'bg-purple-500' },
+  { id: 'draftkings', name: 'DraftKings', icon: '/src/assets/logos/draftkings.svg', color: 'bg-blue-500' },
+  { id: 'hardrock', name: 'Hard Rock Bet', icon: '/src/assets/logos/hardrock.svg', color: 'bg-orange-500' },
+  { id: 'prizepicks', name: 'PrizePicks', icon: '/src/assets/logos/prizepicks.svg', color: 'bg-pink-500' },
+  { id: 'sleeper', name: 'Sleeper', icon: '/src/assets/logos/sleeper.svg', color: 'bg-indigo-500' },
+  { id: 'underdog', name: 'Underdog', icon: '/src/assets/logos/underdog.svg', color: 'bg-yellow-500' },
+  { id: 'bet365', name: 'Bet365', icon: '/src/assets/logos/bet365.svg', color: 'bg-emerald-500' },
+  { id: 'betmgm', name: 'BetMGM', icon: '/src/assets/logos/betmgm.svg', color: 'bg-red-500' },
+  { id: 'espnbet', name: 'ESPN Bet', icon: '/src/assets/logos/espnbet.svg', color: 'bg-orange-600' },
 ];
 
 const SORT_OPTIONS = [
@@ -464,7 +464,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
 
   const getSportsbookIcon = (sportsbookId: string) => {
     const sportsbook = SPORTSBOOKS.find(sb => sb.id === sportsbookId);
-    return sportsbook ? sportsbook.icon : '🎯';
+    return sportsbook ? (
+      <img src={sportsbook.icon} alt={sportsbook.name} className="w-4 h-4" />
+    ) : (
+      <span className="text-xs">🎯</span>
+    );
   };
 
   const getSportsbookColor = (sportsbookId: string) => {
@@ -769,8 +773,8 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                           }}
                         />
                         <label htmlFor={sportsbook.id} className="text-xs font-medium flex items-center gap-1">
-                          <span className={cn("w-3 h-3 rounded text-white text-xs flex items-center justify-center", sportsbook.color)}>
-                            {sportsbook.icon}
+                          <span className={cn("w-3 h-3 rounded flex items-center justify-center", sportsbook.color)}>
+                            <img src={sportsbook.icon} alt={sportsbook.name} className="w-3 h-3" />
                           </span>
                           {sportsbook.name}
                         </label>
