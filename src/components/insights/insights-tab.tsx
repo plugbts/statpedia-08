@@ -22,6 +22,7 @@ import {
   Minus
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { MoneylineProps } from '@/components/predictions/moneyline-props';
 
 interface InsightsTabProps {
   selectedSport: string;
@@ -392,11 +393,12 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
       </div>
 
       {/* Filter Tabs */}
-      <Tabs value={activeFilter} onValueChange={(value) => setActiveFilter(value as 'all' | 'game' | 'player')}>
-        <TabsList className="grid w-full grid-cols-3">
+      <Tabs value={activeFilter} onValueChange={(value) => setActiveFilter(value as 'all' | 'game' | 'player' | 'moneyline')}>
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="all">All Insights</TabsTrigger>
           <TabsTrigger value="game">Game Insights</TabsTrigger>
           <TabsTrigger value="player">Player Insights</TabsTrigger>
+          <TabsTrigger value="moneyline">Moneyline</TabsTrigger>
         </TabsList>
 
         {/* All Insights */}
@@ -419,6 +421,11 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {playerInsights.map(renderPlayerInsight)}
           </div>
+        </TabsContent>
+
+        {/* Moneyline Props */}
+        <TabsContent value="moneyline" className="space-y-6">
+          <MoneylineProps userSubscription={userSubscription || 'free'} userRole={userRole} />
         </TabsContent>
       </Tabs>
 
