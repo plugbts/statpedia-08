@@ -68,7 +68,7 @@ export const BetTrackingTab: React.FC<BetTrackingTabProps> = ({ userRole }) => {
       console.error('Failed to load bet tracking data:', error);
       
       // Handle database errors gracefully
-      if (error?.code === 'PGRST116' || error?.message?.includes('relation') || error?.message?.includes('does not exist')) {
+      if (error?.code === 'PGRST116' || error?.message?.includes('relation') || error?.message?.includes('does not exist') || error?.message?.includes('function')) {
         console.log('Bet tracking tables not yet created, showing empty state');
         setBankrolls([]);
         setStats({
@@ -87,6 +87,8 @@ export const BetTrackingTab: React.FC<BetTrackingTabProps> = ({ userRole }) => {
         });
         setMonthlyAnalytics([]);
       } else {
+        console.error('Unexpected error loading bet tracking data:', error);
+        // Only show toast for unexpected errors
         toast({
           title: "Error",
           description: "Failed to load bet tracking data",
@@ -115,7 +117,7 @@ export const BetTrackingTab: React.FC<BetTrackingTabProps> = ({ userRole }) => {
       console.error('Failed to load bankroll data:', error);
       
       // Handle database errors gracefully
-      if (error?.code === 'PGRST116' || error?.message?.includes('relation') || error?.message?.includes('does not exist')) {
+      if (error?.code === 'PGRST116' || error?.message?.includes('relation') || error?.message?.includes('does not exist') || error?.message?.includes('function')) {
         console.log('Bet tracking tables not yet created for bankroll change');
         setStats({
           total_bets: 0,
@@ -133,6 +135,8 @@ export const BetTrackingTab: React.FC<BetTrackingTabProps> = ({ userRole }) => {
         });
         setMonthlyAnalytics([]);
       } else {
+        console.error('Unexpected error loading bankroll data:', error);
+        // Only show toast for unexpected errors
         toast({
           title: "Error",
           description: "Failed to load bankroll data",

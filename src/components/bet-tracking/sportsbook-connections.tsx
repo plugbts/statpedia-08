@@ -59,6 +59,8 @@ export const SportsbookConnections: React.FC<SportsbookConnectionsProps> = ({
         console.log('OAuth connections table not yet created, showing empty state');
         setOauthConnections([]);
       } else {
+        console.error('Unexpected error loading connections:', error);
+        // Only show toast for unexpected errors
         toast({
           title: "Error",
           description: "Failed to load sportsbook connections",
@@ -229,7 +231,7 @@ export const SportsbookConnections: React.FC<SportsbookConnectionsProps> = ({
             Available Sportsbooks
           </CardTitle>
           <CardDescription>
-            Connect your accounts using OAuth (like Pikkit) to automatically sync betting data
+            Connect your accounts using OAuth to automatically sync betting data
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -364,7 +366,7 @@ export const SportsbookConnections: React.FC<SportsbookConnectionsProps> = ({
               Connect to {formatSportsbookName(selectedSportsbook)}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Connect using OAuth (like Pikkit) for secure, automatic bet syncing
+              Connect using OAuth for secure, automatic bet syncing
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -409,7 +411,7 @@ export const SportsbookConnections: React.FC<SportsbookConnectionsProps> = ({
                 <div>• Automatic bet data synchronization</div>
                 <div>• Real-time updates from your sportsbook</div>
                 <div>• No need to manage API keys</div>
-                <div>• Works like Pikkit and other professional tools</div>
+                <div>• Works like other professional tools</div>
               </div>
             </div>
           </div>
