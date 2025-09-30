@@ -83,7 +83,7 @@ export const MoneylineProps: React.FC<MoneylinePropsProps> = ({
 
   useEffect(() => {
     loadPredictions();
-  }, [selectedSport]);
+  }, [localSelectedSport]);
 
   useEffect(() => {
     setLocalSelectedSport(selectedSport);
@@ -94,7 +94,7 @@ export const MoneylineProps: React.FC<MoneylinePropsProps> = ({
     setError(null);
     
     try {
-      const gamePredictions = await gamesService.getCurrentWeekPredictions(selectedSport);
+      const gamePredictions = await gamesService.getCurrentWeekPredictions(localSelectedSport);
       setPredictions(gamePredictions);
     } catch (err) {
       setError('Failed to load moneyline predictions');
@@ -179,7 +179,7 @@ export const MoneylineProps: React.FC<MoneylinePropsProps> = ({
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">Sport:</span>
-            <Select value={selectedSport} onValueChange={setSelectedSport}>
+            <Select value={localSelectedSport} onValueChange={setLocalSelectedSport}>
               <SelectTrigger className="w-32">
                 <SelectValue />
               </SelectTrigger>
@@ -230,7 +230,7 @@ export const MoneylineProps: React.FC<MoneylinePropsProps> = ({
                 <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No Games Available</h3>
                 <p className="text-muted-foreground mb-4">
-                  No {selectedSport.toUpperCase()} games found for the current week.
+                  No {localSelectedSport.toUpperCase()} games found for the current week.
                 </p>
                 <Button onClick={loadPredictions} variant="outline">
                   <RefreshCw className="w-4 h-4 mr-2" />
