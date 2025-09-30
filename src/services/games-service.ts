@@ -158,7 +158,7 @@ class GamesService {
       league: game.sport,
       season: '2024',
       week: 1
-    }));
+    });
   }
 
   // Get current week predictions using ESPN data
