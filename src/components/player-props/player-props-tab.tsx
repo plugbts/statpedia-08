@@ -368,8 +368,8 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
 
       // Sportsbook filter
       if ((filterSettings.sportsbooks || []).length > 0) {
-        const hasMatchingSportsbook = prop.sportsbooks.some(sb => 
-          filterSettings.sportsbooks.includes(sb)
+        const hasMatchingSportsbook = (prop.sportsbooks || []).some(sb => 
+          (filterSettings.sportsbooks || []).includes(sb)
         );
         if (!hasMatchingSportsbook) return false;
       }
@@ -757,17 +757,17 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                       <div key={sportsbook.id} className="flex items-center space-x-1">
                         <Checkbox
                           id={sportsbook.id}
-                          checked={filterSettings.sportsbooks.includes(sportsbook.id)}
+                          checked={(filterSettings.sportsbooks || []).includes(sportsbook.id)}
                           onCheckedChange={(checked) => {
                             if (checked) {
                               setFilterSettings(prev => ({
                                 ...prev,
-                                sportsbooks: [...prev.sportsbooks, sportsbook.id]
+                                sportsbooks: [...(prev.sportsbooks || []), sportsbook.id]
                               }));
                             } else {
                               setFilterSettings(prev => ({
                                 ...prev,
-                                sportsbooks: prev.sportsbooks.filter(id => id !== sportsbook.id)
+                                sportsbooks: (prev.sportsbooks || []).filter(id => id !== sportsbook.id)
                               }));
                             }
                           }}
