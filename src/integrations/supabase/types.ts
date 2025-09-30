@@ -464,69 +464,7 @@ export type Database = {
       }
     }
     Views: {
-      friend_profiles_secure: {
-        Row: {
-          avatar_url: string | null
-          bankroll: number | null
-          bio: string | null
-          created_at: string | null
-          display_name: string | null
-          has_used_trial: boolean | null
-          id: string | null
-          karma: number | null
-          roi_visible: boolean | null
-          subscription_end_date: string | null
-          subscription_start_date: string | null
-          subscription_tier: string | null
-          total_bets: number | null
-          total_predictions: number | null
-          updated_at: string | null
-          user_id: string | null
-          won_bets: number | null
-          won_predictions: number | null
-        }
-        Insert: {
-          avatar_url?: string | null
-          bankroll?: never
-          bio?: string | null
-          created_at?: string | null
-          display_name?: string | null
-          has_used_trial?: never
-          id?: string | null
-          karma?: number | null
-          roi_visible?: boolean | null
-          subscription_end_date?: never
-          subscription_start_date?: never
-          subscription_tier?: never
-          total_bets?: never
-          total_predictions?: never
-          updated_at?: string | null
-          user_id?: string | null
-          won_bets?: never
-          won_predictions?: never
-        }
-        Update: {
-          avatar_url?: string | null
-          bankroll?: never
-          bio?: string | null
-          created_at?: string | null
-          display_name?: string | null
-          has_used_trial?: never
-          id?: string | null
-          karma?: number | null
-          roi_visible?: boolean | null
-          subscription_end_date?: never
-          subscription_start_date?: never
-          subscription_tier?: never
-          total_bets?: never
-          total_predictions?: never
-          updated_at?: string | null
-          user_id?: string | null
-          won_bets?: never
-          won_predictions?: never
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       has_role: {
