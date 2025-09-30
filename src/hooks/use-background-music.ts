@@ -212,11 +212,23 @@ export const useBackgroundMusic = (options: BackgroundMusicOptions = {}) => {
     };
   }, [needsUserInteraction, enableAudio]);
 
+  // Toggle play/pause
+  const togglePlayPause = useCallback(() => {
+    if (needsUserInteraction) {
+      enableAudio();
+    } else if (isPlaying) {
+      stopMusic();
+    } else {
+      startMusic();
+    }
+  }, [needsUserInteraction, enableAudio, isPlaying, stopMusic, startMusic]);
+
   return {
     isPlaying,
     isMuted,
     needsUserInteraction,
     toggleMusic,
+    togglePlayPause,
     startMusic,
     stopMusic,
     enableAudio,

@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { SportIcon } from '@/components/ui/sport-icon';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { BarChart3, Target, TrendingUp, Calendar, Settings, Wifi, LogOut, MoreVertical, Zap, Brain, Volume2, VolumeX } from 'lucide-react';
+import { BarChart3, Target, TrendingUp, Calendar, Settings, Wifi, LogOut, MoreVertical, Zap, Brain, Play, Pause } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { VerifiedCheckmark } from '@/components/ui/verified-checkmark';
 import { useBackgroundMusic } from '@/hooks/use-background-music';
@@ -21,7 +21,7 @@ interface NavigationProps {
 }
 
 export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSport = 'nfl', userEmail, displayName, userRole = 'user', onLogout }: NavigationProps) => {
-  const { isMuted, toggleMusic, needsUserInteraction, enableAudio } = useBackgroundMusic({ enabled: true, volume: 0.08 });
+  const { isPlaying, needsUserInteraction, togglePlayPause } = useBackgroundMusic({ enabled: true, volume: 0.08 });
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="w-4 h-4" /> },
     { id: 'predictions', label: 'Predictions', icon: <Target className="w-4 h-4" />, badge: '12' },
@@ -133,6 +133,23 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
 
           {/* User Profile and Logout - Compact */}
           <div className="flex items-center gap-1 animate-fade-in" style={{ animationDelay: '300ms' }}>
+            {/* Music Play/Pause Button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={togglePlayPause}
+              className="h-7 w-7 rounded-full p-0 hover:bg-primary/10 transition-colors"
+              title={needsUserInteraction ? 'Enable Music' : isPlaying ? 'Pause Music' : 'Play Music'}
+            >
+              {needsUserInteraction ? (
+                <Play className="h-3.5 w-3.5 text-muted-foreground" />
+              ) : isPlaying ? (
+                <Pause className="h-3.5 w-3.5 text-primary" />
+              ) : (
+                <Play className="h-3.5 w-3.5 text-muted-foreground" />
+              )}
+            </Button>
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-1 hover-scale cursor-pointer p-1 rounded-md hover:bg-muted/50 transition-colors">
@@ -181,28 +198,6 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
                     )}
                   </div>
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                  <DropdownMenuItem 
-                    onClick={needsUserInteraction ? enableAudio : toggleMusic} 
-                    className="gap-2 cursor-pointer"
-                  >
-                    {needsUserInteraction ? (
-                      <>
-                        <Volume2 className="h-4 w-4" />
-                        Enable Music
-                      </>
-                    ) : isMuted ? (
-                      <>
-                        <VolumeX className="h-4 w-4" />
-                        Unmute Music
-                      </>
-                    ) : (
-                      <>
-                        <Volume2 className="h-4 w-4" />
-                        Mute Music
-                      </>
-                    )}
-                  </DropdownMenuItem>
                 {onLogout && (
                   <DropdownMenuItem onClick={onLogout} className="gap-2 cursor-pointer text-destructive">
                     <LogOut className="h-4 w-4" />
