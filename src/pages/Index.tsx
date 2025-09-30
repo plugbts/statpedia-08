@@ -325,7 +325,7 @@ const Index = () => {
                 BACKTESTED
               </Badge>
             </div>
-            <h1 className="text-4xl lg:text-6xl font-display font-bold text-foreground mb-4 animate-fade-in animate-neon-pulse">
+            <h1 className="text-4xl lg:text-6xl font-display font-bold text-foreground mb-4 animate-fade-in">
               Welcome to Statpedia
               <br />
               <span className="bg-gradient-primary bg-clip-text text-transparent animate-hologram">
