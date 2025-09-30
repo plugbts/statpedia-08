@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   TrendingUp, 
   Target, 
@@ -17,9 +18,16 @@ import {
   Play,
   RotateCcw,
   DollarSign,
-  Shield
+  Shield,
+  Clock,
+  MapPin,
+  RefreshCw,
+  CheckCircle,
+  XCircle,
+  Calendar
 } from 'lucide-react';
 import { SimulationAnalysis } from './simulation-analysis';
+import { gamesService, GamePrediction, RealGame } from '@/services/games-service';
 import { cn } from '@/lib/utils';
 
 interface MoneylineGame {
@@ -62,102 +70,34 @@ export const MoneylineProps: React.FC<MoneylinePropsProps> = ({
   userSubscription, 
   userRole = 'user' 
 }) => {
-  const [games, setGames] = useState<MoneylineGame[]>([]);
-  const [selectedGame, setSelectedGame] = useState<MoneylineGame | null>(null);
+  const [predictions, setPredictions] = useState<GamePrediction[]>([]);
+  const [selectedGame, setSelectedGame] = useState<RealGame | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('games');
+  const [selectedSport, setSelectedSport] = useState('nba');
 
   const isSubscribed = userRole === 'owner' || userSubscription !== 'free';
 
   useEffect(() => {
-    loadGames();
-  }, []);
+    loadPredictions();
+  }, [selectedSport]);
 
-  const loadGames = async () => {
+  const loadPredictions = async () => {
     setIsLoading(true);
     setError(null);
     
     try {
-      // In a real implementation, this would fetch from an API
-      const mockGames = generateMockGames();
-      setGames(mockGames);
+      const gamePredictions = await gamesService.getCurrentWeekPredictions(selectedSport);
+      setPredictions(gamePredictions);
     } catch (err) {
-      setError('Failed to load moneyline games');
-      console.error('Error loading games:', err);
+      setError('Failed to load moneyline predictions');
+      console.error('Error loading predictions:', err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const generateMockGames = (): MoneylineGame[] => {
-    const sports = ['nba', 'nfl', 'mlb', 'nhl', 'soccer'];
-    const teams = {
-      nba: ['LAL', 'GSW', 'BOS', 'MIA', 'PHX', 'MIL', 'DEN', 'PHI', 'DAL', 'MEM'],
-      nfl: ['KC', 'BUF', 'TB', 'GB', 'DAL', 'SF', 'CIN', 'LAR', 'MIA', 'BAL'],
-      mlb: ['NYY', 'LAD', 'HOU', 'ATL', 'TB', 'SD', 'TOR', 'CWS', 'STL', 'CLE'],
-      nhl: ['COL', 'FLA', 'EDM', 'NYR', 'CAR', 'VGK', 'TOR', 'BOS', 'DAL', 'MIN'],
-      soccer: ['MCI', 'ARS', 'LIV', 'CHE', 'TOT', 'MUN', 'NEW', 'AVL', 'BHA', 'WHU']
-    };
-
-    const games: MoneylineGame[] = [];
-    const currentDate = new Date();
-
-    for (let i = 0; i < 20; i++) {
-      const sport = sports[Math.floor(Math.random() * sports.length)];
-      const sportTeams = teams[sport as keyof typeof teams];
-      const homeTeam = sportTeams[Math.floor(Math.random() * sportTeams.length)];
-      let awayTeam = sportTeams[Math.floor(Math.random() * sportTeams.length)];
-      
-      while (awayTeam === homeTeam) {
-        awayTeam = sportTeams[Math.floor(Math.random() * sportTeams.length)];
-      }
-
-      const gameDate = new Date(currentDate.getTime() + (i * 24 * 60 * 60 * 1000));
-      const isHomeFavorite = Math.random() > 0.5;
-      const homeOdds = isHomeFavorite ? 
-        -(Math.random() * 150 + 100) : 
-        (Math.random() * 200 + 100);
-      const awayOdds = isHomeFavorite ? 
-        (Math.random() * 200 + 100) : 
-        -(Math.random() * 150 + 100);
-
-      games.push({
-        id: `${sport}_${i}`,
-        homeTeam,
-        awayTeam,
-        sport: sport.toUpperCase(),
-        date: gameDate.toISOString(),
-        homeOdds: Math.round(homeOdds),
-        awayOdds: Math.round(awayOdds),
-        drawOdds: sport === 'soccer' ? Math.round(Math.random() * 100 + 200) : undefined,
-        homeForm: Array.from({ length: 10 }, () => Math.random() * 2 - 1),
-        awayForm: Array.from({ length: 10 }, () => Math.random() * 2 - 1),
-        h2hData: {
-          homeWins: Math.floor(Math.random() * 5),
-          awayWins: Math.floor(Math.random() * 5),
-          draws: sport === 'soccer' ? Math.floor(Math.random() * 3) : 0
-        },
-        injuries: {
-          home: Array.from({ length: Math.floor(Math.random() * 3) }, () => 
-            ['knee', 'ankle', 'shoulder', 'back'][Math.floor(Math.random() * 4)]
-          ),
-          away: Array.from({ length: Math.floor(Math.random() * 3) }, () => 
-            ['knee', 'ankle', 'shoulder', 'back'][Math.floor(Math.random() * 4)]
-          )
-        },
-        restDays: {
-          home: Math.floor(Math.random() * 7) + 1,
-          away: Math.floor(Math.random() * 7) + 1
-        },
-        weather: ['clear', 'cloudy', 'rainy', 'snowy', 'windy'][Math.floor(Math.random() * 5)],
-        venue: `${homeTeam} Arena`,
-        status: i < 2 ? 'live' : 'upcoming'
-      });
-    }
-
-    return games;
-  };
 
   const formatOdds = (odds: number) => {
     return odds > 0 ? `+${odds}` : `${odds}`;
@@ -230,15 +170,42 @@ export const MoneylineProps: React.FC<MoneylinePropsProps> = ({
             AI-powered final score predictions with thousands of simulations
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="gap-1">
-            <Brain className="w-3 h-3" />
-            AI Analysis
-          </Badge>
-          <Badge variant="outline" className="gap-1">
-            <BarChart3 className="w-3 h-3" />
-            10K Simulations
-          </Badge>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">Sport:</span>
+            <Select value={selectedSport} onValueChange={setSelectedSport}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nba">NBA</SelectItem>
+                <SelectItem value="nfl">NFL</SelectItem>
+                <SelectItem value="mlb">MLB</SelectItem>
+                <SelectItem value="nhl">NHL</SelectItem>
+                <SelectItem value="soccer">Soccer</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadPredictions}
+              disabled={isLoading}
+              className="gap-2"
+            >
+              <RefreshCw className={cn("w-4 h-4", isLoading && "animate-spin")} />
+              Refresh
+            </Button>
+            <Badge variant="outline" className="gap-1">
+              <Brain className="w-3 h-3" />
+              AI Analysis
+            </Badge>
+            <Badge variant="outline" className="gap-1">
+              <BarChart3 className="w-3 h-3" />
+              10K Simulations
+            </Badge>
+          </div>
         </div>
       </div>
 
@@ -252,117 +219,198 @@ export const MoneylineProps: React.FC<MoneylinePropsProps> = ({
 
         <TabsContent value="games" className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {games.map((game) => (
-              <Card 
-                key={game.id} 
-                className={cn(
-                  "cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-[1.02]",
-                  selectedGame?.id === game.id && "ring-2 ring-primary",
-                  !isSubscribed && "blur-sm"
-                )}
-                onClick={() => setSelectedGame(game)}
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl">{getSportIcon(game.sport)}</span>
-                      <Badge className={getStatusColor(game.status)}>
-                        {game.status.toUpperCase()}
-                      </Badge>
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {new Date(game.date).toLocaleDateString()}
-                    </div>
-                  </div>
-                  <CardTitle className="text-lg">
-                    {game.homeTeam} vs {game.awayTeam}
-                  </CardTitle>
-                  <CardDescription>
-                    {game.venue} • {game.weather}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Odds */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="text-center space-y-1">
-                      <div className="text-sm text-muted-foreground">{game.homeTeam}</div>
-                      <div className={cn("text-lg font-bold", getOddsColor(game.homeOdds))}>
-                        {formatOdds(game.homeOdds)}
+            {predictions.map((prediction) => {
+              const game = prediction.game;
+              const pred = prediction.prediction;
+              
+              return (
+                <Card 
+                  key={game.id} 
+                  className={cn(
+                    "cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-[1.02]",
+                    selectedGame?.id === game.id && "ring-2 ring-primary",
+                    !isSubscribed && "blur-sm"
+                  )}
+                  onClick={() => setSelectedGame(game)}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl">{getSportIcon(game.sport)}</span>
+                        <Badge className={getStatusColor(game.status)}>
+                          {game.status.toUpperCase()}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          Week {game.week}
+                        </Badge>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {new Date(game.date).toLocaleDateString()}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {game.time}
+                        </div>
                       </div>
                     </div>
-                    <div className="text-center space-y-1">
-                      <div className="text-sm text-muted-foreground">{game.awayTeam}</div>
-                      <div className={cn("text-lg font-bold", getOddsColor(game.awayOdds))}>
-                        {formatOdds(game.awayOdds)}
+                    <CardTitle className="text-lg">
+                      {game.homeTeam} vs {game.awayTeam}
+                    </CardTitle>
+                    <CardDescription className="flex items-center gap-2">
+                      <MapPin className="w-3 h-3" />
+                      {game.venue} • {game.weather}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Prediction Score */}
+                    <div className="text-center space-y-2 p-3 bg-muted/30 rounded-lg">
+                      <div className="text-sm text-muted-foreground">AI Predicted Score</div>
+                      <div className="text-2xl font-bold text-primary">
+                        {pred.homeScore} - {pred.awayScore}
+                      </div>
+                      <div className="flex items-center justify-center gap-4 text-sm">
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium">{game.homeTeam}</span>
+                          <span className="text-muted-foreground">({(pred.homeWinProbability * 100).toFixed(0)}%)</span>
+                        </div>
+                        <span className="text-muted-foreground">vs</span>
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium">{game.awayTeam}</span>
+                          <span className="text-muted-foreground">({(pred.awayWinProbability * 100).toFixed(0)}%)</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Quick Stats */}
-                  <div className="grid grid-cols-3 gap-2 text-xs text-center">
-                    <div>
-                      <div className="text-muted-foreground">H2H</div>
-                      <div className="font-medium">
-                        {game.h2hData.homeWins}-{game.h2hData.awayWins}
+                    {/* Odds */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="text-center space-y-1">
+                        <div className="text-sm text-muted-foreground">{game.homeTeam}</div>
+                        <div className={cn("text-lg font-bold", getOddsColor(game.homeOdds))}>
+                          {formatOdds(game.homeOdds)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Record: {game.homeRecord}
+                        </div>
+                      </div>
+                      <div className="text-center space-y-1">
+                        <div className="text-sm text-muted-foreground">{game.awayTeam}</div>
+                        <div className={cn("text-lg font-bold", getOddsColor(game.awayOdds))}>
+                          {formatOdds(game.awayOdds)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Record: {game.awayRecord}
+                        </div>
                       </div>
                     </div>
-                    <div>
-                      <div className="text-muted-foreground">Rest</div>
-                      <div className="font-medium">
-                        {game.restDays.home}-{game.restDays.away}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground">Injuries</div>
-                      <div className="font-medium">
-                        {game.injuries.home.length}-{game.injuries.away.length}
-                      </div>
-                    </div>
-                  </div>
 
-                  {/* Action Button */}
-                  <Button 
-                    className="w-full" 
-                    variant={selectedGame?.id === game.id ? "default" : "outline"}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedGame(game);
-                      setActiveTab('analysis');
-                    }}
-                  >
-                    <Brain className="w-4 h-4 mr-2" />
-                    Run AI Analysis
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
+                    {/* AI Recommendation */}
+                    <div className="text-center space-y-2">
+                      <div className="flex items-center justify-center gap-2">
+                        {pred.recommendedBet !== 'none' ? (
+                          <CheckCircle className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <XCircle className="w-4 h-4 text-red-500" />
+                        )}
+                        <span className="text-sm font-medium">
+                          {pred.recommendedBet !== 'none' 
+                            ? `Recommended: ${pred.recommendedBet.toUpperCase()}`
+                            : 'No Recommended Bet'
+                          }
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        EV: {pred.expectedValue > 0 ? '+' : ''}{pred.expectedValue.toFixed(1)}% • 
+                        Confidence: {(pred.confidence * 100).toFixed(0)}%
+                      </div>
+                    </div>
+
+                    {/* Quick Stats */}
+                    <div className="grid grid-cols-3 gap-2 text-xs text-center">
+                      <div>
+                        <div className="text-muted-foreground">H2H</div>
+                        <div className="font-medium">
+                          {game.h2hData.homeWins}-{game.h2hData.awayWins}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Rest</div>
+                        <div className="font-medium">
+                          {game.restDays.home}-{game.restDays.away}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Injuries</div>
+                        <div className="font-medium">
+                          {game.injuries.home.length}-{game.injuries.away.length}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Button */}
+                    <Button 
+                      className="w-full" 
+                      variant={selectedGame?.id === game.id ? "default" : "outline"}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedGame(game);
+                        setActiveTab('analysis');
+                      }}
+                    >
+                      <Brain className="w-4 h-4 mr-2" />
+                      View Detailed Analysis
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </TabsContent>
 
         <TabsContent value="analysis" className="space-y-4">
           {selectedGame ? (
-            <SimulationAnalysis
-              homeTeam={selectedGame.homeTeam}
-              awayTeam={selectedGame.awayTeam}
-              sport={selectedGame.sport.toLowerCase()}
-              homeForm={selectedGame.homeForm}
-              awayForm={selectedGame.awayForm}
-              h2hData={selectedGame.h2hData}
-              injuries={selectedGame.injuries}
-              restDays={selectedGame.restDays}
-              weather={selectedGame.weather}
-              venue={selectedGame.venue}
-              homeOdds={selectedGame.homeOdds}
-              awayOdds={selectedGame.awayOdds}
-              drawOdds={selectedGame.drawOdds}
-            />
+            (() => {
+              const prediction = predictions.find(p => p.game.id === selectedGame.id);
+              if (!prediction) {
+                return (
+                  <Card>
+                    <CardContent className="text-center py-12">
+                      <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Prediction Not Found</h3>
+                      <p className="text-muted-foreground">
+                        Unable to find prediction data for the selected game
+                      </p>
+                    </CardContent>
+                  </Card>
+                );
+              }
+              
+              return (
+                <SimulationAnalysis
+                  homeTeam={selectedGame.homeTeam}
+                  awayTeam={selectedGame.awayTeam}
+                  sport={selectedGame.sport.toLowerCase()}
+                  homeForm={selectedGame.homeForm}
+                  awayForm={selectedGame.awayForm}
+                  h2hData={selectedGame.h2hData}
+                  injuries={selectedGame.injuries}
+                  restDays={selectedGame.restDays}
+                  weather={selectedGame.weather}
+                  venue={selectedGame.venue}
+                  homeOdds={selectedGame.homeOdds}
+                  awayOdds={selectedGame.awayOdds}
+                  drawOdds={selectedGame.drawOdds}
+                />
+              );
+            })()
           ) : (
             <Card>
               <CardContent className="text-center py-12">
                 <Target className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-semibold mb-2">Select a Game</h3>
                 <p className="text-muted-foreground">
-                  Choose a game from the list to run AI analysis and predictions
+                  Choose a game from the list to view detailed AI analysis and predictions
                 </p>
               </CardContent>
             </Card>
