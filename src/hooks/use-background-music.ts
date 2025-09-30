@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { youtubeAudioExtractor } from '@/services/youtube-audio-extractor';
 
 interface BackgroundMusicOptions {
   enabled?: boolean;
@@ -11,59 +12,29 @@ export const useBackgroundMusic = (options: BackgroundMusicOptions = {}) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [needsUserInteraction, setNeedsUserInteraction] = useState(true);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
 
-  // Create a simple audio context with oscillator
-  const createAudio = useCallback(() => {
+  // Start YouTube-inspired music
+  const startYouTubeMusic = useCallback(async () => {
     try {
       // Clean up existing audio
       if (sourceRef.current) {
-        sourceRef.current.stop();
+        youtubeAudioExtractor.stopAudio(sourceRef.current);
         sourceRef.current = null;
       }
+
+      // Play YouTube-inspired audio
+      const source = await youtubeAudioExtractor.playYouTubeAudio(120, isMuted ? 0 : volume, loop);
       
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
+      if (source) {
+        sourceRef.current = source;
+        setIsPlaying(true);
+        console.log('YouTube-inspired background music started');
       }
-
-      // Create audio context
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      audioContextRef.current = audioContext;
-
-      // Create oscillator
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-
-      // Connect audio chain
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-
-      // Set oscillator properties
-      oscillator.frequency.setValueAtTime(55, audioContext.currentTime); // Low A note
-      oscillator.type = 'sine';
-      
-      // Set volume
-      const currentVolume = isMuted ? 0 : volume;
-      gainNode.gain.setValueAtTime(currentVolume, audioContext.currentTime);
-
-      // Store references
-      sourceRef.current = oscillator;
-      (oscillator as any).gainNode = gainNode; // Store gain node for volume control
-
-      // Start oscillator
-      oscillator.start();
-      setIsPlaying(true);
-
-      console.log('Background music started with volume:', currentVolume);
-
-      return oscillator;
     } catch (error) {
-      console.error('Failed to create audio:', error);
-      return null;
+      console.error('Failed to start YouTube-inspired music:', error);
     }
-  }, [volume, isMuted]);
+  }, [volume, isMuted, loop]);
 
   // Start music
   const startMusic = useCallback(() => {
@@ -76,33 +47,18 @@ export const useBackgroundMusic = (options: BackgroundMusicOptions = {}) => {
       return;
     }
 
-    const oscillator = createAudio();
-    if (oscillator) {
-      console.log('Background music started successfully');
-    }
-  }, [enabled, isMuted, needsUserInteraction, createAudio]);
+    startYouTubeMusic();
+  }, [enabled, isMuted, needsUserInteraction, startYouTubeMusic]);
 
   // Stop music
   const stopMusic = useCallback(() => {
     if (sourceRef.current) {
-      try {
-        sourceRef.current.stop();
-      } catch (e) {
-        // Oscillator might already be stopped
-      }
+      youtubeAudioExtractor.stopAudio(sourceRef.current);
       sourceRef.current = null;
     }
     
-    if (audioContextRef.current) {
-      try {
-        audioContextRef.current.close();
-      } catch (e) {
-        // Context might already be closed
-      }
-    }
-    
     setIsPlaying(false);
-    console.log('Background music stopped');
+    console.log('YouTube-inspired background music stopped');
   }, []);
 
   // Toggle music
@@ -110,10 +66,8 @@ export const useBackgroundMusic = (options: BackgroundMusicOptions = {}) => {
     const newMutedState = !isMuted;
     setIsMuted(newMutedState);
     
-    if (sourceRef.current && (sourceRef.current as any).gainNode) {
-      const gainNode = (sourceRef.current as any).gainNode;
-      const targetVolume = newMutedState ? 0 : volume;
-      gainNode.gain.setValueAtTime(targetVolume, audioContextRef.current?.currentTime || 0);
+    if (sourceRef.current) {
+      youtubeAudioExtractor.setVolume(sourceRef.current, newMutedState ? 0 : volume);
     }
   }, [isMuted, volume]);
 
@@ -129,10 +83,10 @@ export const useBackgroundMusic = (options: BackgroundMusicOptions = {}) => {
         startMusic();
       }, 100);
     } else if (isPlaying) {
-      console.log('Stopping music');
+      console.log('Stopping YouTube-inspired music');
       stopMusic();
     } else {
-      console.log('Starting music');
+      console.log('Starting YouTube-inspired music');
       startMusic();
     }
   }, [needsUserInteraction, isPlaying, startMusic, stopMusic]);
@@ -159,10 +113,8 @@ export const useBackgroundMusic = (options: BackgroundMusicOptions = {}) => {
 
   // Handle mute state changes
   useEffect(() => {
-    if (sourceRef.current && (sourceRef.current as any).gainNode) {
-      const gainNode = (sourceRef.current as any).gainNode;
-      const targetVolume = isMuted ? 0 : volume;
-      gainNode.gain.setValueAtTime(targetVolume, audioContextRef.current?.currentTime || 0);
+    if (sourceRef.current) {
+      youtubeAudioExtractor.setVolume(sourceRef.current, isMuted ? 0 : volume);
     }
   }, [isMuted, volume]);
 
@@ -201,6 +153,16 @@ export const useBackgroundMusic = (options: BackgroundMusicOptions = {}) => {
       document.removeEventListener('touchstart', handleUserInteraction);
     };
   }, [needsUserInteraction, enableAudio]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (sourceRef.current) {
+        youtubeAudioExtractor.stopAudio(sourceRef.current);
+      }
+      youtubeAudioExtractor.cleanup();
+    };
+  }, []);
 
   return {
     isPlaying,
