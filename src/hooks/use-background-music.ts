@@ -13,6 +13,7 @@ export const useBackgroundMusic = (options: BackgroundMusicOptions = {}) => {
   const audioContextRef = useRef<AudioContext | null>(null);
   const oscillatorsRef = useRef<OscillatorNode[]>([]);
   const gainNodesRef = useRef<GainNode[]>([]);
+  const masterGainRef = useRef<GainNode | null>(null);
 
   // Create ambient background music using Web Audio API
   const createAmbientMusic = useCallback(() => {
@@ -24,6 +25,14 @@ export const useBackgroundMusic = (options: BackgroundMusicOptions = {}) => {
       
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       audioContextRef.current = audioContext;
+      
+      // Create a master gain node for volume control
+      const masterGain = audioContext.createGain();
+      masterGain.connect(audioContext.destination);
+      
+      // Set volume based on mute state
+      const currentVolume = isMuted ? 0 : volume;
+      masterGain.gain.setValueAtTime(currentVolume, audioContext.currentTime);
       
       // Create multiple oscillators for a rich, ambient sound
       const oscillators: OscillatorNode[] = [];
@@ -44,7 +53,7 @@ export const useBackgroundMusic = (options: BackgroundMusicOptions = {}) => {
         const gainNode = audioContext.createGain();
         
         oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
+        gainNode.connect(masterGain);
         
         oscillator.frequency.setValueAtTime(freq, audioContext.currentTime);
         oscillator.type = 'sine';
@@ -71,6 +80,7 @@ export const useBackgroundMusic = (options: BackgroundMusicOptions = {}) => {
       // Store references for cleanup and control
       oscillatorsRef.current = oscillators;
       gainNodesRef.current = gainNodes;
+      masterGainRef.current = masterGain;
 
       return () => {
         oscillators.forEach(osc => {
@@ -120,18 +130,15 @@ export const useBackgroundMusic = (options: BackgroundMusicOptions = {}) => {
   }, []);
 
   const toggleMusic = useCallback(() => {
-    if (isMuted) {
-      // Unmute - start music
-      setIsMuted(false);
-      if (enabled) {
-        startMusic();
-      }
-    } else {
-      // Mute - stop music
-      setIsMuted(true);
-      stopMusic();
+    const newMutedState = !isMuted;
+    setIsMuted(newMutedState);
+    
+    // Control volume through master gain node
+    if (masterGainRef.current && audioContextRef.current) {
+      const targetVolume = newMutedState ? 0 : volume;
+      masterGainRef.current.gain.setValueAtTime(targetVolume, audioContextRef.current.currentTime);
     }
-  }, [isMuted, enabled, startMusic, stopMusic]);
+  }, [isMuted, volume]);
 
   // Auto-start music when component mounts (if enabled and not muted)
   useEffect(() => {
@@ -139,7 +146,15 @@ export const useBackgroundMusic = (options: BackgroundMusicOptions = {}) => {
       const cleanup = startMusic();
       return cleanup;
     }
-  }, [enabled, isMuted, startMusic]);
+  }, [enabled, startMusic]);
+
+  // Handle mute state changes
+  useEffect(() => {
+    if (masterGainRef.current && audioContextRef.current) {
+      const targetVolume = isMuted ? 0 : volume;
+      masterGainRef.current.gain.setValueAtTime(targetVolume, audioContextRef.current.currentTime);
+    }
+  }, [isMuted, volume]);
 
   // Save mute preference to localStorage
   useEffect(() => {
