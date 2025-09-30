@@ -36,7 +36,6 @@ const Index = () => {
   const [isLoadingPredictions, setIsLoadingPredictions] = useState(false);
   const [showFeatureTooltip, setShowFeatureTooltip] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [showTodaysPicks, setShowTodaysPicks] = useState(false);
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [userAlerts, setUserAlerts] = useState<any[]>([]);
   const [newAlert, setNewAlert] = useState({
@@ -78,18 +77,15 @@ const Index = () => {
 
   const handleViewTodaysPicks = () => {
     console.log('View Today\'s Picks clicked!');
-    setShowTodaysPicks(true);
     
     // Smooth scroll to the Today's Picks section
-    setTimeout(() => {
-      const todaysPicksElement = document.getElementById('todays-picks-section');
-      if (todaysPicksElement) {
-        todaysPicksElement.scrollIntoView({ 
-          behavior: 'smooth',
-          block: 'start'
-        });
-      }
-    }, 100);
+    const todaysPicksElement = document.getElementById('todays-picks-section');
+    if (todaysPicksElement) {
+      todaysPicksElement.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }
   };
 
   const handleCustomizeAlerts = () => {
@@ -130,26 +126,10 @@ const Index = () => {
     console.log('All predictions:', allPredictions.length);
     console.log('Sample prediction:', allPredictions[0]);
     
-    // Filter predictions by selected sport and get top 10 by confidence
+    // Since allPredictions is already filtered by selectedSport, just sort by confidence
     let filteredPredictions = allPredictions
-      .filter(prediction => {
-        // More flexible sport matching
-        const predictionSport = prediction.sport?.toLowerCase();
-        const selectedSportLower = selectedSport.toLowerCase();
-        return predictionSport === selectedSportLower || 
-               predictionSport?.includes(selectedSportLower) ||
-               selectedSportLower.includes(predictionSport || '');
-      })
       .sort((a, b) => (b.confidence || 0) - (a.confidence || 0))
       .slice(0, 10);
-    
-    // If no sport-specific predictions found, show top predictions from all sports
-    if (filteredPredictions.length === 0 && allPredictions.length > 0) {
-      console.log('No sport-specific predictions found, showing top predictions from all sports');
-      filteredPredictions = allPredictions
-        .sort((a, b) => (b.confidence || 0) - (a.confidence || 0))
-        .slice(0, 10);
-    }
     
     console.log('Filtered predictions:', filteredPredictions.length);
     return filteredPredictions;
@@ -165,8 +145,6 @@ const Index = () => {
 
   const handleSportChange = (sport: string) => {
     setSelectedSport(sport);
-    // Close today's picks when sport changes
-    setShowTodaysPicks(false);
   };
 
   const handleLogout = async () => {
@@ -421,7 +399,12 @@ const Index = () => {
   };
 
   // Use real predictions data from sports API - prioritize realPredictions over hook data
-  const allPredictions = realPredictions.length > 0 ? realPredictions : (predictions || []);
+  const allPredictionsRaw = realPredictions.length > 0 ? realPredictions : (predictions || []);
+  
+  // Filter predictions by selected sport
+  const allPredictions = allPredictionsRaw.filter(prediction => 
+    prediction.sport?.toLowerCase() === selectedSport.toLowerCase()
+  );
   
   // Pagination logic
   const totalPages = Math.ceil(allPredictions.length / predictionsPerPage);
@@ -666,16 +649,13 @@ const Index = () => {
 
 
       {/* Today's Top Picks Carousel */}
-      {showTodaysPicks && (
-        <div id="todays-picks-section" className="animate-fade-in">
-          <TodaysPicksCarousel
-            predictions={getTodaysTopPicks()}
-            isSubscribed={userRole === 'owner' || userSubscription !== 'free'}
-            onClose={() => setShowTodaysPicks(false)}
-            sport={getTodaysTopPicks().length > 0 && allPredictions.filter(p => p.sport === selectedSport).length === 0 ? 'ALL SPORTS' : selectedSport}
-          />
-        </div>
-      )}
+      <div id="todays-picks-section" className="animate-fade-in">
+        <TodaysPicksCarousel
+          predictions={getTodaysTopPicks()}
+          isSubscribed={userRole === 'owner' || userSubscription !== 'free'}
+          sport={selectedSport}
+        />
+      </div>
 
       {/* Alert Customization Modal */}
       {showAlertModal && (
@@ -973,7 +953,7 @@ const Index = () => {
       />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         {activeTab === 'dashboard' && renderDashboard()}
-        {activeTab === 'player-props' && <PlayerPropsTab userSubscription={userSubscription} userRole={userRole} />}
+        {activeTab === 'player-props' && <PlayerPropsTab selectedSport={selectedSport} userSubscription={userSubscription} userRole={userRole} />}
         {activeTab === 'insights' && <InsightsTab selectedSport={selectedSport} userRole={userRole} userSubscription={userSubscription} />}
         {activeTab === 'strikeout-center' && <StrikeoutCenter />}
         {activeTab === 'sync-test' && renderSyncTest()}
