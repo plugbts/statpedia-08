@@ -24,32 +24,32 @@ export interface SyncResult {
 }
 
 class SportsbookOAuthService {
-  private readonly OAUTH_BASE_URL = process.env.VITE_OAUTH_BASE_URL || 'https://api.statpedia.com/oauth';
+  private readonly OAUTH_BASE_URL = import.meta.env.VITE_OAUTH_BASE_URL || 'https://api.statpedia.com/oauth';
   private readonly REDIRECT_URI = `${window.location.origin}/sportsbook-callback`;
 
   // OAuth configuration for different sportsbooks
   private getOAuthConfig(sportsbook: string) {
     const configs = {
       draftkings: {
-        client_id: process.env.VITE_DRAFTKINGS_CLIENT_ID,
+        client_id: import.meta.env.VITE_DRAFTKINGS_CLIENT_ID,
         auth_url: 'https://sportsbook.draftkings.com/oauth/authorize',
         scope: 'read:user read:bets',
         response_type: 'code'
       },
       fanduel: {
-        client_id: process.env.VITE_FANDUEL_CLIENT_ID,
+        client_id: import.meta.env.VITE_FANDUEL_CLIENT_ID,
         auth_url: 'https://sportsbook.fanduel.com/oauth/authorize',
         scope: 'read:profile read:bets',
         response_type: 'code'
       },
       betmgm: {
-        client_id: process.env.VITE_BETMGM_CLIENT_ID,
+        client_id: import.meta.env.VITE_BETMGM_CLIENT_ID,
         auth_url: 'https://sports.betmgm.com/oauth/authorize',
         scope: 'read:account read:bets',
         response_type: 'code'
       },
       caesars: {
-        client_id: process.env.VITE_CAESARS_CLIENT_ID,
+        client_id: import.meta.env.VITE_CAESARS_CLIENT_ID,
         auth_url: 'https://sportsbook.caesars.com/oauth/authorize',
         scope: 'read:profile read:bets',
         response_type: 'code'
@@ -158,7 +158,7 @@ class SportsbookOAuthService {
       },
       body: JSON.stringify({
         client_id: config.client_id,
-        client_secret: process.env.VITE_CLIENT_SECRET,
+        client_secret: import.meta.env.VITE_CLIENT_SECRET,
         code: code,
         redirect_uri: this.REDIRECT_URI,
         grant_type: 'authorization_code'
@@ -277,7 +277,7 @@ class SportsbookOAuthService {
       },
       body: JSON.stringify({
         client_id: config.client_id,
-        client_secret: process.env.VITE_CLIENT_SECRET,
+        client_secret: import.meta.env.VITE_CLIENT_SECRET,
         refresh_token: connection.refresh_token,
         grant_type: 'refresh_token'
       })
