@@ -22,12 +22,12 @@ export const SubscriptionGatePopup: React.FC<SubscriptionGatePopupProps> = ({
   if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/85 flex items-start justify-center z-50 pt-16 sm:pt-20 px-4">
       <div className="relative">
         {/* 3D Effect Container */}
         <div className="relative transform perspective-1000">
           {/* Main Card with 3D effect */}
-          <Card className="w-full max-w-lg transform rotate-y-2 shadow-2xl border-2 border-primary/30 bg-gradient-to-br from-background via-muted/20 to-background">
+          <Card className="w-full max-w-lg transform rotate-y-2 shadow-2xl border-2 border-primary/30 bg-gradient-to-br from-background via-muted/20 to-background backdrop-blur-sm">
             <CardHeader className="text-center pb-4">
               <div className="flex items-center justify-center mb-4">
                 <div className="relative">
