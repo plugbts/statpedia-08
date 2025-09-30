@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { SportIcon } from '@/components/ui/sport-icon';
 import { PlayerHeadshot } from '@/components/ui/player-headshot';
 import { SubscriptionOverlay } from '@/components/ui/subscription-overlay';
+import { PredictionPoll } from '@/components/predictions/prediction-poll';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -323,6 +324,23 @@ export const PlayerPropCard: React.FC<PlayerPropCardProps> = ({
           <div className="text-sm font-medium text-muted-foreground mb-1">Recent Form</div>
           <div className="text-sm">{recentForm}</div>
         </div>
+
+        {/* Prediction Poll */}
+        {isSubscribed && (
+          <div className="mt-4">
+            <PredictionPoll
+              propId={id}
+              propTitle={`${playerName} ${propType}`}
+              propValue={line}
+              propType={propType}
+              playerName={playerName}
+              team={team}
+              opponent={opponent}
+              gameDate={new Date().toISOString()} // This should come from props in real implementation
+              gameStatus="scheduled"
+            />
+          </div>
+        )}
       </CardContent>
     </Card>
     

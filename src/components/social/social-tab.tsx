@@ -27,6 +27,7 @@ import { socialService, type Post, type UserProfile, type Friend } from '@/servi
 import { recommendationService, type PersonalizedPost } from '@/services/recommendation-service';
 import { bannerService, type BannerSettings } from '@/services/banner-service';
 import { BannerEditor } from '@/components/social/banner-editor';
+import { UserPredictionStats } from '@/components/predictions/user-prediction-stats';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -956,6 +957,9 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole }) => {
                     <div className="text-sm text-muted-foreground">Comments</div>
                   </div>
                 </div>
+
+                {/* Prediction Stats */}
+                <UserPredictionStats isOwnProfile={true} />
               </CardContent>
             </Card>
           ) : (

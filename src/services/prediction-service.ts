@@ -1,0 +1,407 @@
+import { supabase } from '@/integrations/supabase/client';
+
+export interface PlayerPropPrediction {
+  id: string;
+  prop_id: string;
+  prop_title: string;
+  prop_value: number;
+  prop_type: string;
+  player_name: string;
+  team: string;
+  opponent: string;
+  game_date: string;
+  game_status: 'scheduled' | 'live' | 'final';
+  actual_result?: number;
+  over_votes: number;
+  under_votes: number;
+  total_votes: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserPrediction {
+  id: string;
+  user_id: string;
+  prediction_id: string;
+  prediction_type: 'over' | 'under';
+  confidence_level: number;
+  created_at: string;
+}
+
+export interface PredictionResult {
+  id: string;
+  prediction_id: string;
+  user_id: string;
+  prediction_type: 'over' | 'under';
+  actual_result: number;
+  prop_value: number;
+  is_correct: boolean;
+  created_at: string;
+}
+
+export interface UserPredictionStats {
+  id: string;
+  user_id: string;
+  total_predictions: number;
+  correct_predictions: number;
+  win_percentage: number;
+  roi_percentage: number;
+  last_updated: string;
+}
+
+export interface UserPrivacySettings {
+  id: string;
+  user_id: string;
+  hide_roi: boolean;
+  hide_prediction_stats: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PredictionPollData {
+  prediction: PlayerPropPrediction;
+  userPrediction?: UserPrediction;
+  overPercentage: number;
+  underPercentage: number;
+}
+
+class PredictionService {
+  // Create a new player prop prediction
+  async createPrediction(predictionData: Omit<PlayerPropPrediction, 'id' | 'over_votes' | 'under_votes' | 'total_votes' | 'created_at' | 'updated_at'>): Promise<PlayerPropPrediction> {
+    try {
+      const { data, error } = await supabase
+        .from('player_prop_predictions')
+        .insert([predictionData])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Failed to create prediction:', error);
+      throw error;
+    }
+  }
+
+  // Get prediction by ID
+  async getPrediction(predictionId: string): Promise<PlayerPropPrediction | null> {
+    try {
+      const { data, error } = await supabase
+        .from('player_prop_predictions')
+        .select('*')
+        .eq('id', predictionId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Failed to get prediction:', error);
+      return null;
+    }
+  }
+
+  // Get prediction by prop ID
+  async getPredictionByPropId(propId: string): Promise<PlayerPropPrediction | null> {
+    try {
+      const { data, error } = await supabase
+        .from('player_prop_predictions')
+        .select('*')
+        .eq('prop_id', propId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Failed to get prediction by prop ID:', error);
+      return null;
+    }
+  }
+
+  // Get predictions for a specific game
+  async getGamePredictions(gameDate: string, team?: string): Promise<PlayerPropPrediction[]> {
+    try {
+      let query = supabase
+        .from('player_prop_predictions')
+        .select('*')
+        .eq('game_date', gameDate)
+        .order('created_at', { ascending: false });
+
+      if (team) {
+        query = query.or(`team.eq.${team},opponent.eq.${team}`);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Failed to get game predictions:', error);
+      return [];
+    }
+  }
+
+  // Create user prediction (vote)
+  async createUserPrediction(predictionId: string, predictionType: 'over' | 'under', confidenceLevel: number = 1): Promise<UserPrediction> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase
+        .from('user_predictions')
+        .insert([{
+          user_id: user.id,
+          prediction_id: predictionId,
+          prediction_type: predictionType,
+          confidence_level: confidenceLevel
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Failed to create user prediction:', error);
+      throw error;
+    }
+  }
+
+  // Update user prediction
+  async updateUserPrediction(predictionId: string, predictionType: 'over' | 'under', confidenceLevel?: number): Promise<UserPrediction> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const updateData: any = { prediction_type: predictionType };
+      if (confidenceLevel !== undefined) {
+        updateData.confidence_level = confidenceLevel;
+      }
+
+      const { data, error } = await supabase
+        .from('user_predictions')
+        .update(updateData)
+        .eq('user_id', user.id)
+        .eq('prediction_id', predictionId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Failed to update user prediction:', error);
+      throw error;
+    }
+  }
+
+  // Delete user prediction
+  async deleteUserPrediction(predictionId: string): Promise<void> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { error } = await supabase
+        .from('user_predictions')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('prediction_id', predictionId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Failed to delete user prediction:', error);
+      throw error;
+    }
+  }
+
+  // Get user's prediction for a specific prop
+  async getUserPrediction(predictionId: string): Promise<UserPrediction | null> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+
+      const { data, error } = await supabase
+        .from('user_predictions')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('prediction_id', predictionId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Failed to get user prediction:', error);
+      return null;
+    }
+  }
+
+  // Get prediction poll data (prediction + user's vote + percentages)
+  async getPredictionPollData(propId: string): Promise<PredictionPollData | null> {
+    try {
+      // Get the prediction
+      const prediction = await this.getPredictionByPropId(propId);
+      if (!prediction) return null;
+
+      // Get user's prediction if authenticated
+      const userPrediction = await this.getUserPrediction(prediction.id);
+
+      // Calculate percentages
+      const totalVotes = prediction.total_votes;
+      const overPercentage = totalVotes > 0 ? (prediction.over_votes / totalVotes) * 100 : 0;
+      const underPercentage = totalVotes > 0 ? (prediction.under_votes / totalVotes) * 100 : 0;
+
+      return {
+        prediction,
+        userPrediction,
+        overPercentage,
+        underPercentage
+      };
+    } catch (error) {
+      console.error('Failed to get prediction poll data:', error);
+      return null;
+    }
+  }
+
+  // Get user's prediction statistics
+  async getUserPredictionStats(userId?: string): Promise<UserPredictionStats | null> {
+    try {
+      const targetUserId = userId || (await supabase.auth.getUser()).data.user?.id;
+      if (!targetUserId) return null;
+
+      const { data, error } = await supabase
+        .from('user_prediction_stats')
+        .select('*')
+        .eq('user_id', targetUserId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Failed to get user prediction stats:', error);
+      return null;
+    }
+  }
+
+  // Get user's prediction results
+  async getUserPredictionResults(userId?: string, limit: number = 50): Promise<PredictionResult[]> {
+    try {
+      const targetUserId = userId || (await supabase.auth.getUser()).data.user?.id;
+      if (!targetUserId) return [];
+
+      const { data, error } = await supabase
+        .from('prediction_results')
+        .select(`
+          *,
+          player_prop_predictions!inner(
+            prop_title,
+            player_name,
+            team,
+            opponent,
+            game_date
+          )
+        `)
+        .eq('user_id', targetUserId)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Failed to get user prediction results:', error);
+      return [];
+    }
+  }
+
+  // Update game results (admin function)
+  async updateGameResults(predictionId: string, actualResult: number): Promise<void> {
+    try {
+      const { data, error } = await supabase.rpc('process_game_results', {
+        prediction_uuid: predictionId,
+        actual_stat: actualResult
+      });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Failed to update game results:', error);
+      throw error;
+    }
+  }
+
+  // Get user privacy settings
+  async getUserPrivacySettings(): Promise<UserPrivacySettings | null> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+
+      const { data, error } = await supabase
+        .from('user_privacy_settings')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Failed to get user privacy settings:', error);
+      return null;
+    }
+  }
+
+  // Update user privacy settings
+  async updateUserPrivacySettings(settings: Partial<Pick<UserPrivacySettings, 'hide_roi' | 'hide_prediction_stats'>>): Promise<UserPrivacySettings> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase
+        .from('user_privacy_settings')
+        .upsert([{
+          user_id: user.id,
+          ...settings,
+          updated_at: new Date().toISOString()
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Failed to update user privacy settings:', error);
+      throw error;
+    }
+  }
+
+  // Get recent predictions for feed
+  async getRecentPredictions(limit: number = 20): Promise<PlayerPropPrediction[]> {
+    try {
+      const { data, error } = await supabase
+        .from('player_prop_predictions')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Failed to get recent predictions:', error);
+      return [];
+    }
+  }
+
+  // Get trending predictions (most voted)
+  async getTrendingPredictions(limit: number = 20): Promise<PlayerPropPrediction[]> {
+    try {
+      const { data, error } = await supabase
+        .from('player_prop_predictions')
+        .select('*')
+        .order('total_votes', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Failed to get trending predictions:', error);
+      return [];
+    }
+  }
+}
+
+export const predictionService = new PredictionService();

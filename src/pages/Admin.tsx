@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Users, Ban, Gift, Activity, Mail, AlertTriangle, MessageSquare } from "lucide-react";
+import { Shield, Users, Ban, Gift, Activity, Mail, AlertTriangle, MessageSquare, Target } from "lucide-react";
 import { UserManagement } from "@/components/admin/user-management";
 import { DiscordManagement } from "@/components/admin/discord-management";
 import { PromoCodesAdmin } from "@/components/admin/promo-codes-admin";
@@ -11,6 +11,7 @@ import { EmailCampaignsAdmin } from "@/components/admin/email-campaigns-admin";
 import { TrialAbuseAdmin } from "@/components/admin/trial-abuse-admin";
 import { AuditLogs } from "@/components/admin/audit-logs";
 import { SocialAdmin } from "@/components/admin/social-admin";
+import { PredictionsAdmin } from "@/components/admin/predictions-admin";
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -75,7 +76,7 @@ export default function Admin() {
         </div>
 
         <Tabs defaultValue="users" className="w-full">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-8">
             <TabsTrigger value="users">
               <Users className="h-4 w-4 mr-2" />
               Users
@@ -103,6 +104,10 @@ export default function Admin() {
             <TabsTrigger value="social">
               <MessageSquare className="h-4 w-4 mr-2" />
               Social
+            </TabsTrigger>
+            <TabsTrigger value="predictions">
+              <Target className="h-4 w-4 mr-2" />
+              Predictions
             </TabsTrigger>
           </TabsList>
 
@@ -132,6 +137,10 @@ export default function Admin() {
 
           <TabsContent value="social" className="space-y-4">
             <SocialAdmin />
+          </TabsContent>
+
+          <TabsContent value="predictions" className="space-y-4">
+            <PredictionsAdmin />
           </TabsContent>
         </Tabs>
       </div>
