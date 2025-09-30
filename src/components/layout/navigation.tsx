@@ -8,9 +8,11 @@ import { cn } from '@/lib/utils';
 interface NavigationProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
+  onSportChange?: (sport: string) => void;
+  selectedSport?: string;
 }
 
-export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
+export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSport = 'nba' }: NavigationProps) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="w-4 h-4" /> },
     { id: 'predictions', label: 'Predictions', icon: <Target className="w-4 h-4" />, badge: '12' },
@@ -73,10 +75,10 @@ export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
                 key={sport.id}
                 variant="ghost"
                 size="sm"
-                onClick={() => onTabChange(sport.id)}
+                onClick={() => onSportChange?.(sport.sport)}
                 className={cn(
                   "gap-2 transition-all duration-200 hover:bg-card-hover",
-                  activeTab === sport.id && "bg-secondary"
+                  selectedSport === sport.sport && "bg-secondary"
                 )}
               >
                 <SportIcon sport={sport.sport as any} size="sm" />

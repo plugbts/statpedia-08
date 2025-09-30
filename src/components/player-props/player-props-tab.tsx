@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { TrendingUp, Search, Filter, Eye, EyeOff, BarChart3 } from 'lucide-react';
+import { TrendingUp, Search, Filter, Eye, EyeOff, BarChart3, RefreshCw } from 'lucide-react';
 import { PlayerPropCard } from './player-prop-card';
+import { usePlayerProps } from '@/hooks/use-sports-data';
 
 interface PlayerPropsTabProps {
   userSubscription: string;
@@ -14,14 +15,22 @@ interface PlayerPropsTabProps {
 
 export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [sportFilter, setSportFilter] = useState('all');
+  const [sportFilter, setSportFilter] = useState('nba');
   const [propTypeFilter, setPropTypeFilter] = useState('all');
   const [selectedProps, setSelectedProps] = useState<string[]>([]);
 
   const isSubscribed = userSubscription !== 'free';
 
-  // Mock comprehensive player props data
-  const allPlayerProps = [
+  // Use real player props data from sports API
+  const {
+    props: realPlayerProps,
+    loading: propsLoading,
+    error: propsError,
+    refetch: refetchProps,
+  } = usePlayerProps(sportFilter);
+
+  // Use real data from API, fallback to mock data if needed
+  const allPlayerProps = realPlayerProps.length > 0 ? realPlayerProps : [
     {
       id: '1',
       sport: 'nba' as const,
@@ -349,17 +358,42 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
           )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {visibleProps.map((prop) => (
-            <PlayerPropCard
-              key={prop.id}
-              {...prop}
-              isSubscribed={isSubscribed}
-              isSelected={selectedProps.includes(prop.id)}
-              onToggleSelect={() => togglePropSelection(prop.id)}
-            />
-          ))}
-        </div>
+        {propsLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 animate-spin" />
+              <span className="text-muted-foreground">Loading player props...</span>
+            </div>
+          </div>
+        ) : propsError ? (
+          <div className="text-center py-12">
+            <p className="text-red-500 mb-4">Error loading player props: {propsError}</p>
+            <Button onClick={refetchProps} variant="outline">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry
+            </Button>
+          </div>
+        ) : visibleProps.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground mb-4">No player props available for {sportFilter.toUpperCase()}</p>
+            <Button onClick={refetchProps} variant="outline">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {visibleProps.map((prop) => (
+              <PlayerPropCard
+                key={prop.id}
+                {...prop}
+                isSubscribed={isSubscribed}
+                isSelected={selectedProps.includes(prop.id)}
+                onToggleSelect={() => togglePropSelection(prop.id)}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Upgrade prompt for free users */}
         {!isSubscribed && hiddenCount > 0 && (

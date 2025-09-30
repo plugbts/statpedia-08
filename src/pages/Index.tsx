@@ -9,9 +9,10 @@ import { PreviousDayWins } from '@/components/analytics/previous-day-wins';
 import { SyncTest } from '@/components/sync/sync-test';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, Zap, BarChart3, Settings } from 'lucide-react';
+import { TrendingUp, Zap, BarChart3, Settings, RefreshCw } from 'lucide-react';
 import heroImage from '@/assets/hero-analytics.jpg';
 import { supabase } from '@/integrations/supabase/client';
+import { useSportsData } from '@/hooks/use-sports-data';
 import type { User } from '@supabase/supabase-js';
 
 const Index = () => {
@@ -19,6 +20,21 @@ const Index = () => {
   const [user, setUser] = useState<User | null>(null);
   const [userSubscription, setUserSubscription] = useState('free');
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedSport, setSelectedSport] = useState('nba');
+
+  // Use real sports data instead of mock data
+  const {
+    games,
+    players,
+    playerProps,
+    predictions,
+    loading: sportsLoading,
+    error: sportsError,
+    refetch: refetchSportsData,
+  } = useSportsData(selectedSport, {
+    autoFetch: true,
+    refreshInterval: 30000, // Refresh every 30 seconds
+  });
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -70,6 +86,10 @@ const Index = () => {
     setUserSubscription(subscription);
   };
 
+  const handleSportChange = (sport: string) => {
+    setSelectedSport(sport);
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -82,72 +102,8 @@ const Index = () => {
     return <AuthPage onAuthSuccess={handleAuthSuccess} />;
   }
 
-  // Mock data - replace with real API calls
-  const mockPredictions = [
-    {
-      sport: 'nba',
-      player: 'LeBron James',
-      team: 'LAL',
-      opponent: 'GSW',
-      prop: 'Points',
-      line: 26.5,
-      prediction: 'over' as const,
-      confidence: 87,
-      odds: '+110',
-      factors: [
-        { name: 'vs GSW Pace', value: '102.3', rank: 3, isPositive: true },
-        { name: 'GSW Def Rating', value: '112.4', rank: 18, isPositive: true },
-        { name: 'H2H vs GSW', value: '29.2 PPG', isPositive: true },
-        { name: 'vs Draymond', value: '31.8 PPG', isPositive: true },
-        { name: 'Post-Injury Avg', value: '24.1 PPG', isPositive: false },
-        { name: 'Injury Minutes', value: '28.5 MPG', isPositive: false },
-        { name: 'Last 5 vs GSW', value: '4-1 Over', isPositive: true },
-        { name: 'Home Court', value: '+2.4 PPG', isPositive: true },
-      ]
-    },
-    {
-      sport: 'nfl',
-      player: 'Josh Allen',
-      team: 'BUF',
-      opponent: 'MIA',
-      prop: 'Passing Yards',
-      line: 267.5,
-      prediction: 'over' as const,
-      confidence: 73,
-      odds: '-115',
-      factors: [
-        { name: 'vs MIA Pass D', value: '245.8 YPG', rank: 24, isPositive: true },
-        { name: 'H2H vs MIA', value: '289.4 YPG', isPositive: true },
-        { name: 'vs X. Howard', value: '312.1 YPG', isPositive: true },
-        { name: 'Post-Shoulder', value: '251.2 YPG', isPositive: false },
-        { name: 'Injury Snaps', value: '68%', isPositive: false },
-        { name: 'Weather', value: 'Dome', isPositive: true },
-        { name: 'Last 3 vs MIA', value: '2-1 Over', isPositive: true },
-        { name: 'Division Game', value: '+18.2 YPG', isPositive: true },
-      ]
-    },
-    {
-      sport: 'basketball',
-      player: 'Caitlin Clark',
-      team: 'IND',
-      opponent: 'LAS',
-      prop: 'Assists',
-      line: 8.5,
-      prediction: 'over' as const,
-      confidence: 81,
-      odds: '+105',
-      factors: [
-        { name: 'vs LAS Pace', value: '94.2', rank: 8, isPositive: true },
-        { name: 'H2H vs LAS', value: '9.7 APG', isPositive: true },
-        { name: 'vs A. Wilson', value: '10.2 APG', isPositive: true },
-        { name: 'Post-Ankle', value: '8.9 APG', isPositive: true },
-        { name: 'Injury Minutes', value: '32.1 MPG', isPositive: true },
-        { name: 'Season vs LAS', value: '2-0 Over', isPositive: true },
-        { name: 'Home Court', value: '+1.2 APG', isPositive: true },
-        { name: 'Rest Days', value: '2 days', isPositive: true },
-      ]
-    }
-  ];
+  // Use real predictions data from sports API
+  const currentPredictions = predictions || [];
 
   const mockWins = [
     {
@@ -366,14 +322,39 @@ const Index = () => {
             12 ACTIVE
           </Badge>
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {mockPredictions.map((prediction, index) => (
-            <PredictionCard
-              key={index}
-              {...prediction}
-            />
-          ))}
-        </div>
+        {sportsLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 animate-spin" />
+              <span className="text-muted-foreground">Loading live predictions...</span>
+            </div>
+          </div>
+        ) : sportsError ? (
+          <div className="text-center py-12">
+            <p className="text-red-500 mb-4">Error loading predictions: {sportsError}</p>
+            <Button onClick={refetchSportsData} variant="outline">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry
+            </Button>
+          </div>
+        ) : currentPredictions.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground mb-4">No predictions available for {selectedSport.toUpperCase()}</p>
+            <Button onClick={refetchSportsData} variant="outline">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {currentPredictions.map((prediction, index) => (
+              <PredictionCard
+                key={prediction.id || index}
+                {...prediction}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -395,7 +376,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background relative">
       <MatrixBackground />
-      <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
+      <Navigation activeTab={activeTab} onTabChange={setActiveTab} onSportChange={handleSportChange} selectedSport={selectedSport} />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         {activeTab === 'dashboard' && renderDashboard()}
