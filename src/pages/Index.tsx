@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthPage } from '@/components/auth/auth-page';
 import { PlayerPropsTab } from '@/components/player-props/player-props-tab';
+import { StrikeoutCenter } from '@/components/strikeout-center/strikeout-center';
 import { MatrixBackground } from '@/components/effects/matrix-background';
 import { Navigation } from '@/components/layout/navigation';
 import { StatsOverview } from '@/components/analytics/stats-overview';
 import { PredictionCard } from '@/components/analytics/prediction-card';
 import { PreviousDayWins } from '@/components/analytics/previous-day-wins';
 import { SyncTest } from '@/components/sync/sync-test';
+import { FeatureTooltip } from '@/components/onboarding/feature-tooltip';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, Zap, BarChart3, Settings, RefreshCw } from 'lucide-react';
@@ -25,9 +27,23 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [realPredictions, setRealPredictions] = useState<any[]>([]);
   const [isLoadingPredictions, setIsLoadingPredictions] = useState(false);
+  const [showFeatureTooltip, setShowFeatureTooltip] = useState(false);
   
   const { fetchInSeasonSports, fetchOdds, isSeasonActive } = useOddsAPI();
   const { toast } = useToast();
+
+  // Check if user is first time visitor
+  useEffect(() => {
+    const hasSeenTooltip = localStorage.getItem('hasSeenFeatureTooltip');
+    if (!hasSeenTooltip && user) {
+      setShowFeatureTooltip(true);
+    }
+  }, [user]);
+
+  const handleDismissTooltip = () => {
+    localStorage.setItem('hasSeenFeatureTooltip', 'true');
+    setShowFeatureTooltip(false);
+  };
 
   const handleTabChange = (tab: string) => {
     if (tab === 'admin') {
@@ -387,7 +403,8 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background relative">
       <MatrixBackground />
-      <Navigation 
+      {showFeatureTooltip && <FeatureTooltip onDismiss={handleDismissTooltip} />}
+      <Navigation
         activeTab={activeTab} 
         onTabChange={handleTabChange}
         userEmail={user.email}
@@ -398,8 +415,9 @@ const Index = () => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         {activeTab === 'dashboard' && renderDashboard()}
         {activeTab === 'player-props' && <PlayerPropsTab userSubscription={userSubscription} />}
+        {activeTab === 'strikeout-center' && <StrikeoutCenter />}
         {activeTab === 'sync-test' && renderSyncTest()}
-        {activeTab !== 'dashboard' && activeTab !== 'player-props' && activeTab !== 'sync-test' && (
+        {activeTab !== 'dashboard' && activeTab !== 'player-props' && activeTab !== 'sync-test' && activeTab !== 'strikeout-center' && (
           <div className="text-center py-16">
             <h2 className="text-2xl font-bold text-foreground mb-4">
               {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Coming Soon

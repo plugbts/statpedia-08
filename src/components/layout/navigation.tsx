@@ -3,8 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { SportIcon } from '@/components/ui/sport-icon';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { BarChart3, Target, TrendingUp, Calendar, Settings, Wifi, LogOut, MoreVertical } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { BarChart3, Target, TrendingUp, Calendar, Settings, Wifi, LogOut, MoreVertical, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface NavigationProps {
@@ -25,6 +25,7 @@ export const Navigation = ({ activeTab, onTabChange, userEmail, displayName, onL
   ];
 
   const extraItems = [
+    { id: 'strikeout-center', label: 'Strikeout Center', icon: <Zap className="w-4 h-4" />, badge: 'MLB' },
     { id: 'admin', label: 'Admin Panel', icon: <Settings className="w-4 h-4" /> },
     { id: 'sync-test', label: 'Sync Test', icon: <Wifi className="w-4 h-4" />, badge: 'DEV' },
   ];
@@ -55,7 +56,11 @@ export const Navigation = ({ activeTab, onTabChange, userEmail, displayName, onL
                   <MoreVertical className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-48">
+              <DropdownMenuContent align="start" className="w-56 bg-card/95 backdrop-blur-md border-border/50 z-[100]">
+                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                  Extra Features
+                </div>
+                <DropdownMenuSeparator />
                 {extraItems.map((item) => (
                   <DropdownMenuItem
                     key={item.id}
@@ -121,7 +126,7 @@ export const Navigation = ({ activeTab, onTabChange, userEmail, displayName, onL
                   </div>
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuContent align="end" className="w-48 bg-card/95 backdrop-blur-md border-border/50 z-[100]">
                 <DropdownMenuItem className="flex flex-col items-start gap-1 py-2">
                   <p className="text-sm font-medium">{displayName || userEmail?.split('@')[0]}</p>
                   <p className="text-xs text-muted-foreground">{userEmail}</p>
