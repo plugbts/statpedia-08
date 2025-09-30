@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -78,6 +79,8 @@ export const PlayerPropCard: React.FC<PlayerPropCardProps> = ({
   isSelected,
   onToggleSelect
 }) => {
+  const navigate = useNavigate();
+
   const getHitRateColor = (rate: number) => {
     if (rate >= 80) return 'text-success';
     if (rate >= 65) return 'text-warning';
@@ -93,9 +96,44 @@ export const PlayerPropCard: React.FC<PlayerPropCardProps> = ({
   const isHealthy = injuryStatus.toLowerCase() === 'healthy';
   const isOver = avgActualValue > line;
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't navigate if clicking on the toggle button
+    if ((e.target as HTMLElement).closest('button')) {
+      return;
+    }
+    
+    navigate('/prediction-detail', {
+      state: {
+        prediction: {
+          sport,
+          player: playerName,
+          team,
+          opponent,
+          stat: propType,
+          line,
+          direction: isOver ? 'over' : 'under',
+          confidence: hitRate,
+          odds,
+          keyFactors: [
+            `Recent Form: ${recentForm}`,
+            `${homeAway === 'home' ? 'Home' : 'Away'} Game`,
+            `Weather: ${weatherConditions}`,
+            `Health Status: ${injuryStatus}`,
+            `Average Performance: ${avgActualValue}`,
+            `Hit Rate: ${hitRate.toFixed(1)}% over ${gamesTracked} games`
+          ],
+          seasonAvg: avgActualValue,
+          last10Avg: avgActualValue,
+          vsOpponentAvg: avgActualValue
+        }
+      }
+    });
+  };
+
   return (
     <Card 
-      className={`bg-gradient-card border transition-all duration-300 hover:shadow-card-hover ${
+      onClick={handleCardClick}
+      className={`bg-gradient-card border transition-all duration-300 hover:shadow-card-hover cursor-pointer ${
         isSelected ? 'ring-2 ring-primary border-primary/50' : 'border-border/50'
       } ${!isSubscribed ? 'relative' : ''}`}
     >

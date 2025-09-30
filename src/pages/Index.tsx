@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AuthPage } from '@/components/auth/auth-page';
 import { PlayerPropsTab } from '@/components/player-props/player-props-tab';
 import { MatrixBackground } from '@/components/effects/matrix-background';
@@ -15,10 +16,19 @@ import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@supabase/supabase-js';
 
 const Index = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [user, setUser] = useState<User | null>(null);
   const [userSubscription, setUserSubscription] = useState('free');
   const [isLoading, setIsLoading] = useState(true);
+
+  const handleTabChange = (tab: string) => {
+    if (tab === 'admin') {
+      navigate('/admin');
+    } else {
+      setActiveTab(tab);
+    }
+  };
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -412,7 +422,7 @@ const Index = () => {
       <MatrixBackground />
       <Navigation 
         activeTab={activeTab} 
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
         userEmail={user.email}
         displayName={user.user_metadata?.display_name}
         onLogout={handleLogout}

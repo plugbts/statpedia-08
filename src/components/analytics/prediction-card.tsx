@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { SportIcon } from '@/components/ui/sport-icon';
@@ -37,6 +38,8 @@ export const PredictionCard = ({
   factors,
   status = 'pending'
 }: PredictionCardProps) => {
+  const navigate = useNavigate();
+
   const getStatusColor = () => {
     switch (status) {
       case 'won': return 'success';
@@ -53,8 +56,31 @@ export const PredictionCard = ({
     }
   };
 
+  const handleClick = () => {
+    navigate('/prediction-detail', { 
+      state: { 
+        prediction: {
+          sport,
+          player,
+          team,
+          opponent,
+          stat: prop,
+          line,
+          direction: prediction,
+          confidence,
+          odds,
+          keyFactors: factors.map(f => `${f.name}: ${f.value}`),
+          status
+        }
+      } 
+    });
+  };
+
   return (
-    <Card className="p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30">
+    <Card 
+      className="p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer"
+      onClick={handleClick}
+    >
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between animate-fade-in">

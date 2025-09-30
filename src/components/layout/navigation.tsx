@@ -25,6 +25,7 @@ export const Navigation = ({ activeTab, onTabChange, userEmail, displayName, onL
   ];
 
   const extraItems = [
+    { id: 'admin', label: 'Admin Panel', icon: <Settings className="w-4 h-4" /> },
     { id: 'sync-test', label: 'Sync Test', icon: <Wifi className="w-4 h-4" />, badge: 'DEV' },
   ];
 
