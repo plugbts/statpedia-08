@@ -229,7 +229,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
       
       toast({
         title: 'Predictions Updated',
-        description: `Loaded ${enhancedPredictions.length} advanced predictions for ${selectedSport.toUpperCase()}`,
+        description: `Loaded ${enhancedPredictions.length} advanced predictions for ${selectedSport?.toUpperCase() || 'Unknown Sport'}`,
       });
     } catch (err) {
       setError('Failed to load predictions');
@@ -447,7 +447,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between mb-2">
                   <Badge variant="outline" className="text-xs">
-                    {prediction.sport.toUpperCase()}
+                    {prediction.sport?.toUpperCase() || 'Unknown'}
                   </Badge>
                   {prediction.isLive && (
                     <Badge variant="destructive" className="text-xs animate-pulse">
@@ -458,12 +458,12 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
                 </div>
                 
                 <CardTitle className="text-lg">
-                  {prediction.homeTeam} vs {prediction.awayTeam}
+                  {prediction.homeTeam || 'Home Team'} vs {prediction.awayTeam || 'Away Team'}
                 </CardTitle>
                 
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Calendar className="w-4 h-4" />
-                  {new Date(prediction.date).toLocaleDateString()}
+                  {prediction.date ? new Date(prediction.date).toLocaleDateString() : 'TBD'}
                 </div>
               </CardHeader>
 
@@ -473,18 +473,18 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-sm font-medium">Confidence</span>
-                      <span className={`text-sm font-bold ${getConfidenceColor(prediction.confidence)}`}>
-                        {prediction.confidence}%
+                      <span className={`text-sm font-bold ${getConfidenceColor(prediction.confidence || 0)}`}>
+                        {prediction.confidence || 0}%
                       </span>
                     </div>
-                    <Progress value={prediction.confidence} className="h-2" />
+                    <Progress value={prediction.confidence || 0} className="h-2" />
                   </div>
                   
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-sm font-medium">Value Rating</span>
                       <span className="text-sm font-bold text-primary">
-                        {prediction.valueRating}/5
+                        {prediction.valueRating || 0}/5
                       </span>
                     </div>
                     <div className="flex">
@@ -493,7 +493,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
                           key={i} 
                           className={cn(
                             "w-3 h-3",
-                            i < Math.floor(prediction.valueRating) 
+                            i < Math.floor(prediction.valueRating || 0) 
                               ? "text-yellow-400 fill-current" 
                               : "text-muted-foreground"
                           )} 
@@ -507,7 +507,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Risk Level</span>
                   <Badge className={cn("text-xs", getRiskColor(prediction.riskLevel))}>
-                    {prediction.riskLevel.toUpperCase()}
+                    {prediction.riskLevel?.toUpperCase() || 'UNKNOWN'}
                   </Badge>
                 </div>
 
@@ -554,7 +554,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
                 <div className="space-y-1">
                   <span className="text-sm font-medium">Key Factors:</span>
                   <div className="space-y-1">
-                    {prediction.factors.slice(0, 3).map((factor, index) => (
+                    {(prediction.factors || []).slice(0, 3).map((factor, index) => (
                       <div key={index} className="text-xs text-muted-foreground">
                         • {factor}
                       </div>
@@ -564,7 +564,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
 
                 {/* Last Updated */}
                 <div className="text-xs text-muted-foreground">
-                  Updated: {prediction.lastUpdated.toLocaleTimeString()}
+                  Updated: {prediction.lastUpdated ? prediction.lastUpdated.toLocaleTimeString() : 'Unknown'}
                 </div>
               </CardContent>
             </Card>
