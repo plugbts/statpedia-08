@@ -70,14 +70,47 @@ const Index = () => {
   const handleViewTodaysPicks = () => {
     console.log('View Today\'s Picks clicked!');
     setShowTodaysPicks(true);
+    
+    // Smooth scroll to the Today's Picks section
+    setTimeout(() => {
+      const todaysPicksElement = document.getElementById('todays-picks-section');
+      if (todaysPicksElement) {
+        todaysPicksElement.scrollIntoView({ 
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }
+    }, 100);
   };
 
   const getTodaysTopPicks = () => {
+    console.log('Getting today\'s top picks for sport:', selectedSport);
+    console.log('All predictions:', allPredictions.length);
+    console.log('Sample prediction:', allPredictions[0]);
+    
     // Filter predictions by selected sport and get top 10 by confidence
-    return allPredictions
-      .filter(prediction => prediction.sport === selectedSport)
+    let filteredPredictions = allPredictions
+      .filter(prediction => {
+        // More flexible sport matching
+        const predictionSport = prediction.sport?.toLowerCase();
+        const selectedSportLower = selectedSport.toLowerCase();
+        return predictionSport === selectedSportLower || 
+               predictionSport?.includes(selectedSportLower) ||
+               selectedSportLower.includes(predictionSport || '');
+      })
       .sort((a, b) => (b.confidence || 0) - (a.confidence || 0))
       .slice(0, 10);
+    
+    // If no sport-specific predictions found, show top predictions from all sports
+    if (filteredPredictions.length === 0 && allPredictions.length > 0) {
+      console.log('No sport-specific predictions found, showing top predictions from all sports');
+      filteredPredictions = allPredictions
+        .sort((a, b) => (b.confidence || 0) - (a.confidence || 0))
+        .slice(0, 10);
+    }
+    
+    console.log('Filtered predictions:', filteredPredictions.length);
+    return filteredPredictions;
   };
 
   const handleTabChange = (tab: string) => {
@@ -537,12 +570,17 @@ const Index = () => {
 
       {/* Today's Top Picks */}
       {showTodaysPicks && (
-        <div className="space-y-6 animate-fade-in">
+        <div id="todays-picks-section" className="space-y-6 animate-fade-in">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-foreground">Today's Top Picks - {selectedSport.toUpperCase()}</h2>
+              <h2 className="text-2xl font-bold text-foreground">
+                Today's Top Picks - {getTodaysTopPicks().length > 0 && allPredictions.filter(p => p.sport === selectedSport).length === 0 ? 'ALL SPORTS' : selectedSport.toUpperCase()}
+              </h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Top 10 highest confidence predictions for {selectedSport.toUpperCase()}
+                {getTodaysTopPicks().length > 0 && allPredictions.filter(p => p.sport === selectedSport).length === 0 
+                  ? 'Top 10 highest confidence predictions across all sports'
+                  : `Top 10 highest confidence predictions for ${selectedSport.toUpperCase()}`
+                }
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -561,7 +599,7 @@ const Index = () => {
           </div>
           
           {getTodaysTopPicks().length > 0 ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div className={`grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 relative ${(userRole !== 'owner' && userSubscription === 'free') ? 'blur-sm' : ''}`}>
               {getTodaysTopPicks().map((prediction, index) => (
                 <PredictionCard
                   key={prediction.id || index}
@@ -569,6 +607,22 @@ const Index = () => {
                   isSubscribed={userRole === 'owner' || userSubscription !== 'free'}
                 />
               ))}
+              
+              {/* Blur overlay for free users */}
+              {(userRole !== 'owner' && userSubscription === 'free') && (
+                <div className="absolute inset-0 bg-gradient-to-br from-background/80 to-background/60 backdrop-blur-sm rounded-lg flex items-center justify-center z-10">
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <TrendingUp className="w-8 h-8 text-primary" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">Premium Content</h3>
+                    <p className="text-sm text-muted-foreground mb-4">Subscribe to view today's top picks</p>
+                    <Button className="bg-gradient-primary">
+                      Upgrade to Premium
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="text-center py-12">
