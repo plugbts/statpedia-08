@@ -670,22 +670,23 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Social</h2>
-        {userProfile && (
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Star className="w-4 h-4 text-yellow-500" />
-              <span className="text-sm font-medium">{userProfile.karma} Karma</span>
+    <div className="min-h-screen flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-4xl space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold">Social</h2>
+          {userProfile && (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1">
+                <Star className="w-3 h-3 text-yellow-500" />
+                <span className="text-xs font-medium">{userProfile.karma} Karma</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <TrendingUp className="w-3 h-3 text-green-500" />
+                <span className="text-xs font-medium">{userProfile.roi_percentage.toFixed(1)}% ROI</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-green-500" />
-              <span className="text-sm font-medium">{userProfile.roi_percentage.toFixed(1)}% ROI</span>
-            </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
 
       {/* Debug Info */}
       <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
@@ -694,16 +695,16 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
         karmaTutorialChecked={karmaTutorialChecked ? 'yes' : 'no'}, showKarmaTutorial={showKarmaTutorial ? 'yes' : 'no'}
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-7 gap-1">
-          <TabsTrigger value="feed" className="text-xs">Feed</TabsTrigger>
-          <TabsTrigger value="friends" className="text-xs">Friends</TabsTrigger>
-          <TabsTrigger value="search" className="text-xs">Search</TabsTrigger>
-          <TabsTrigger value="messages" className="text-xs">Messages</TabsTrigger>
-          <TabsTrigger value="notifications" className="text-xs">Notifications</TabsTrigger>
-          <TabsTrigger value="blocked" className="text-xs">Blocked</TabsTrigger>
-          <TabsTrigger value="profile" className="text-xs">Profile</TabsTrigger>
-        </TabsList>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3">
+          <TabsList className="grid w-full grid-cols-7 gap-1 h-8">
+            <TabsTrigger value="feed" className="text-xs px-2">Feed</TabsTrigger>
+            <TabsTrigger value="friends" className="text-xs px-2">Friends</TabsTrigger>
+            <TabsTrigger value="search" className="text-xs px-2">Search</TabsTrigger>
+            <TabsTrigger value="messages" className="text-xs px-2">Messages</TabsTrigger>
+            <TabsTrigger value="notifications" className="text-xs px-2">Notifications</TabsTrigger>
+            <TabsTrigger value="blocked" className="text-xs px-2">Blocked</TabsTrigger>
+            <TabsTrigger value="profile" className="text-xs px-2">Profile</TabsTrigger>
+          </TabsList>
 
         {/* Feed Tab */}
         <TabsContent value="feed" className="space-y-4">
@@ -1157,187 +1158,192 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
           <BlockedUsers userId={userProfile?.user_id || ''} />
         </TabsContent>
 
-        {/* Profile Tab */}
-        <TabsContent value="profile" className="space-y-4">
-          {userProfile ? (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <User className="w-5 h-5" />
-                    Your Profile
-                  </CardTitle>
-                  {!isEditingProfile && (
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={openBannerEditor}>
-                        <Palette className="w-4 h-4 mr-2" />
-                        Edit Banner
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={startEditingProfile}>
-                        <Settings className="w-4 h-4 mr-2" />
-                        Edit Profile
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Banner */}
-                <div className="relative">
-                  <div 
-                    className="w-full h-32 rounded-lg border overflow-hidden relative"
-                    style={bannerService.generateBannerStyles({
-                      banner_url: userProfile.banner_url,
-                      banner_position: userProfile.banner_position,
-                      banner_blur: userProfile.banner_blur,
-                      banner_brightness: userProfile.banner_brightness,
-                      banner_contrast: userProfile.banner_contrast,
-                      banner_saturation: userProfile.banner_saturation
-                    })}
-                  >
-                    {!userProfile.banner_url && (
-                      <div className="w-full h-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white">
-                        <div className="text-center">
-                          <Image className="w-8 h-8 mx-auto mb-2" />
-                          <p className="text-sm">No banner set</p>
-                        </div>
+          {/* Profile Tab */}
+          <TabsContent value="profile" className="space-y-3">
+            {userProfile ? (
+              <Card className="max-w-2xl mx-auto">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <User className="w-4 h-4" />
+                      Your Profile
+                    </CardTitle>
+                    {!isEditingProfile && (
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={openBannerEditor} className="text-xs px-2">
+                          <Palette className="w-3 h-3 mr-1" />
+                          Banner
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={startEditingProfile} className="text-xs px-2">
+                          <Settings className="w-3 h-3 mr-1" />
+                          Edit
+                        </Button>
                       </div>
                     )}
                   </div>
-                  {!isEditingProfile && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="absolute top-2 right-2"
-                      onClick={openBannerEditor}
+                </CardHeader>
+                <CardContent className="space-y-3 p-4">
+                  {/* Banner */}
+                  <div className="relative">
+                    <div 
+                      className="w-full h-24 rounded-lg border overflow-hidden relative"
+                      style={bannerService.generateBannerStyles({
+                        banner_url: userProfile.banner_url,
+                        banner_position: userProfile.banner_position,
+                        banner_blur: userProfile.banner_blur,
+                        banner_brightness: userProfile.banner_brightness,
+                        banner_contrast: userProfile.banner_contrast,
+                        banner_saturation: userProfile.banner_saturation
+                      })}
                     >
-                      <Palette className="w-4 h-4 mr-2" />
-                      Customize
-                    </Button>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-4">
-                  <Avatar className="w-20 h-20">
-                    <AvatarImage src={userProfile.avatar_url} />
-                    <AvatarFallback className="text-lg">
-                      {getInitials(userProfile.display_name || userProfile.username)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    {isEditingProfile ? (
-                      <div className="space-y-3">
-                        <div>
-                          <Label htmlFor="display-name">Display Name</Label>
-                          <Input
-                            id="display-name"
-                            value={editDisplayName}
-                            onChange={(e) => setEditDisplayName(e.target.value)}
-                            placeholder="Enter your display name"
-                            maxLength={50}
-                          />
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {editDisplayName.length}/50 characters
-                          </p>
+                      {!userProfile.banner_url && (
+                        <div className="w-full h-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white">
+                          <div className="text-center">
+                            <Image className="w-6 h-6 mx-auto mb-1" />
+                            <p className="text-xs">No banner set</p>
+                          </div>
                         </div>
-                        <div>
-                          <Label htmlFor="username">Username</Label>
-                          <Input
-                            id="username"
-                            value={editUsername}
-                            onChange={(e) => setEditUsername(e.target.value)}
-                            placeholder="Enter your username"
-                            maxLength={20}
-                          />
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Username must be 3-20 characters, letters, numbers, and underscores only
-                          </p>
-                        </div>
-                        <div>
-                          <Label htmlFor="bio">Bio</Label>
-                          <Textarea
-                            id="bio"
-                            value={editBio}
-                            onChange={(e) => setEditBio(e.target.value)}
-                            placeholder="Tell us about yourself..."
-                            maxLength={200}
-                            className="min-h-[80px] resize-none"
-                          />
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {editBio.length}/200 characters
-                          </p>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            onClick={saveProfileChanges}
-                            disabled={isUpdatingProfile}
-                            size="sm"
-                          >
-                            {isUpdatingProfile ? 'Saving...' : 'Save Changes'}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            onClick={cancelEditingProfile}
-                            disabled={isUpdatingProfile}
-                            size="sm"
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div>
-                        <h3 className="text-xl font-bold">{userProfile.display_name || userProfile.username}</h3>
-                        <p className="text-muted-foreground">@{userProfile.username}</p>
-                        {userProfile.bio && (
-                          <p className="text-sm text-muted-foreground mt-2">{userProfile.bio}</p>
-                        )}
-                      </div>
+                      )}
+                    </div>
+                    {!isEditingProfile && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="absolute top-1 right-1 text-xs px-2"
+                        onClick={openBannerEditor}
+                      >
+                        <Palette className="w-3 h-3 mr-1" />
+                        Customize
+                      </Button>
                     )}
                   </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center p-4 border rounded-lg">
-                    <div className="text-2xl font-bold text-yellow-500">{userProfile.karma}</div>
-                    <div className="text-sm text-muted-foreground">Karma</div>
+                  <div className="flex items-center gap-3">
+                    <Avatar className="w-16 h-16">
+                      <AvatarImage src={userProfile.avatar_url} />
+                      <AvatarFallback className="text-sm">
+                        {getInitials(userProfile.display_name || userProfile.username)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      {isEditingProfile ? (
+                        <div className="space-y-2">
+                          <div>
+                            <Label htmlFor="display-name" className="text-xs">Display Name</Label>
+                            <Input
+                              id="display-name"
+                              value={editDisplayName}
+                              onChange={(e) => setEditDisplayName(e.target.value)}
+                              placeholder="Enter your display name"
+                              maxLength={50}
+                              className="h-8 text-sm"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {editDisplayName.length}/50 characters
+                            </p>
+                          </div>
+                          <div>
+                            <Label htmlFor="username" className="text-xs">Username</Label>
+                            <Input
+                              id="username"
+                              value={editUsername}
+                              onChange={(e) => setEditUsername(e.target.value)}
+                              placeholder="Enter your username"
+                              maxLength={20}
+                              className="h-8 text-sm"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Username must be 3-20 characters, letters, numbers, and underscores only
+                            </p>
+                          </div>
+                          <div>
+                            <Label htmlFor="bio" className="text-xs">Bio</Label>
+                            <Textarea
+                              id="bio"
+                              value={editBio}
+                              onChange={(e) => setEditBio(e.target.value)}
+                              placeholder="Tell us about yourself..."
+                              maxLength={200}
+                              className="min-h-[60px] resize-none text-sm"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {editBio.length}/200 characters
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={saveProfileChanges}
+                              disabled={isUpdatingProfile}
+                              size="sm"
+                              className="text-xs px-3"
+                            >
+                              {isUpdatingProfile ? 'Saving...' : 'Save Changes'}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={cancelEditingProfile}
+                              disabled={isUpdatingProfile}
+                              size="sm"
+                              className="text-xs px-3"
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <h3 className="text-lg font-bold">{userProfile.display_name || userProfile.username}</h3>
+                          <p className="text-sm text-muted-foreground">@{userProfile.username}</p>
+                          {userProfile.bio && (
+                            <p className="text-xs text-muted-foreground mt-1">{userProfile.bio}</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-center p-4 border rounded-lg">
-                    <div className="text-2xl font-bold text-green-500">{userProfile.roi_percentage.toFixed(1)}%</div>
-                    <div className="text-sm text-muted-foreground">ROI</div>
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center p-4 border rounded-lg">
-                    <div className="text-2xl font-bold">{userProfile.total_posts}</div>
-                    <div className="text-sm text-muted-foreground">Posts</div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="text-center p-3 border rounded-lg">
+                      <div className="text-xl font-bold text-yellow-500">{userProfile.karma}</div>
+                      <div className="text-xs text-muted-foreground">Karma</div>
+                    </div>
+                    <div className="text-center p-3 border rounded-lg">
+                      <div className="text-xl font-bold text-green-500">{userProfile.roi_percentage.toFixed(1)}%</div>
+                      <div className="text-xs text-muted-foreground">ROI</div>
+                    </div>
                   </div>
-                  <div className="text-center p-4 border rounded-lg">
-                    <div className="text-2xl font-bold">{userProfile.total_comments}</div>
-                    <div className="text-sm text-muted-foreground">Comments</div>
-                  </div>
-                </div>
 
-                {/* Prediction Stats */}
-                <UserPredictionStats isOwnProfile={true} />
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardContent className="p-8 text-center text-muted-foreground">
-                No profile found. Please refresh the page.
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-      </Tabs>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="text-center p-3 border rounded-lg">
+                      <div className="text-xl font-bold">{userProfile.total_posts}</div>
+                      <div className="text-xs text-muted-foreground">Posts</div>
+                    </div>
+                    <div className="text-center p-3 border rounded-lg">
+                      <div className="text-xl font-bold">{userProfile.total_comments}</div>
+                      <div className="text-xs text-muted-foreground">Comments</div>
+                    </div>
+                  </div>
+
+                  {/* Prediction Stats */}
+                  <UserPredictionStats isOwnProfile={true} />
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="max-w-2xl mx-auto">
+                <CardContent className="p-6 text-center text-muted-foreground">
+                  No profile found. Please refresh the page.
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
 
       {/* Banner Editor Modal */}
       {showBannerEditor && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <CardContent className="p-6">
+          <Card className="w-full max-w-3xl max-h-[85vh] overflow-y-auto">
+            <CardContent className="p-4">
               <BannerEditor
                 currentBanner={currentBanner || undefined}
                 onBannerChange={handleBannerChange}
