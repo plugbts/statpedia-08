@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,10 +9,17 @@ import { Badge } from '@/components/ui/badge';
 import { BarChart3, TrendingUp, Zap, Mail, Lock, User } from 'lucide-react';
 import { SubscriptionPlans } from './subscription-plans';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { z } from 'zod';
 
 interface AuthPageProps {
   onAuthSuccess: (user: any, subscription: string) => void;
 }
+
+// Input validation schemas
+const emailSchema = z.string().email('Invalid email address').max(255, 'Email too long');
+const passwordSchema = z.string().min(6, 'Password must be at least 6 characters').max(100, 'Password too long');
+const displayNameSchema = z.string().trim().min(1, 'Display name required').max(100, 'Display name too long');
 
 export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
   const [authMode, setAuthMode] = useState<'login' | 'signup' | 'plans'>('login');
@@ -24,41 +31,79 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
     displayName: ''
   });
 
+  useEffect(() => {
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        // User already logged in, fetch profile and redirect
+        fetchProfileAndRedirect(session.user);
+      }
+    });
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        fetchProfileAndRedirect(session.user);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const fetchProfileAndRedirect = async (user: any) => {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('subscription_tier')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      const subscription = profile?.subscription_tier || 'free';
+      onAuthSuccess(user, subscription);
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      onAuthSuccess(user, 'free');
+    }
+  };
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const validateForm = () => {
-    if (!formData.email || !formData.password) {
-      toast({
-        title: "Validation Error",
-        description: "Email and password are required",
-        variant: "destructive",
-      });
+    try {
+      // Validate email
+      emailSchema.parse(formData.email);
+      
+      // Validate password
+      passwordSchema.parse(formData.password);
+
+      if (authMode === 'signup') {
+        // Validate display name
+        displayNameSchema.parse(formData.displayName);
+        
+        // Check password confirmation
+        if (formData.password !== formData.confirmPassword) {
+          toast({
+            title: "Password Mismatch",
+            description: "Passwords do not match",
+            variant: "destructive",
+          });
+          return false;
+        }
+      }
+
+      return true;
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({
+          title: "Validation Error",
+          description: error.errors[0].message,
+          variant: "destructive",
+        });
+      }
       return false;
     }
-
-    if (authMode === 'signup') {
-      if (formData.password !== formData.confirmPassword) {
-        toast({
-          title: "Password Mismatch",
-          description: "Passwords do not match",
-          variant: "destructive",
-        });
-        return false;
-      }
-      
-      if (formData.password.length < 6) {
-        toast({
-          title: "Weak Password",
-          description: "Password must be at least 6 characters long",
-          variant: "destructive",
-        });
-        return false;
-      }
-    }
-
-    return true;
   };
 
   const handleAuth = async () => {
@@ -67,37 +112,80 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
     setIsLoading(true);
     
     try {
-      // Simulate authentication
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
       if (authMode === 'login') {
-        // Mock successful login
-        const mockUser = {
-          id: '1',
+        const { data, error } = await supabase.auth.signInWithPassword({
           email: formData.email,
-          displayName: formData.displayName || formData.email.split('@')[0],
-          subscription: 'free' // Default to free plan
-        };
-        
-        toast({
-          title: "Login Successful",
-          description: "Welcome back to Statpedia!",
+          password: formData.password,
         });
-        
-        onAuthSuccess(mockUser, 'free');
+
+        if (error) {
+          if (error.message.includes('Invalid login credentials')) {
+            toast({
+              title: "Login Failed",
+              description: "Invalid email or password",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Login Failed",
+              description: error.message,
+              variant: "destructive",
+            });
+          }
+          return;
+        }
+
+        if (data.user) {
+          toast({
+            title: "Login Successful",
+            description: "Welcome back to Statpedia!",
+          });
+          // fetchProfileAndRedirect will be called by onAuthStateChange
+        }
       } else {
-        // For signup, show subscription plans
-        toast({
-          title: "Account Created",
-          description: "Please choose your subscription plan",
-        });
+        // Signup
+        const redirectUrl = `${window.location.origin}/`;
         
-        setAuthMode('plans');
+        const { data, error } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          options: {
+            emailRedirectTo: redirectUrl,
+            data: {
+              display_name: formData.displayName,
+            }
+          }
+        });
+
+        if (error) {
+          if (error.message.includes('already registered')) {
+            toast({
+              title: "Signup Failed",
+              description: "This email is already registered. Please login instead.",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Signup Failed",
+              description: error.message,
+              variant: "destructive",
+            });
+          }
+          return;
+        }
+
+        if (data.user) {
+          toast({
+            title: "Account Created",
+            description: "Please choose your subscription plan",
+          });
+          setAuthMode('plans');
+        }
       }
     } catch (error) {
       toast({
-        title: "Authentication Failed",
-        description: "Please check your credentials and try again",
+        title: "Authentication Error",
+        description: "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -105,20 +193,46 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
     }
   };
 
-  const handleSubscriptionSuccess = (plan: string) => {
-    const mockUser = {
-      id: '1',
-      email: formData.email,
-      displayName: formData.displayName || formData.email.split('@')[0],
-      subscription: plan
-    };
-    
-    toast({
-      title: "Welcome to Statpedia!",
-      description: `Your ${plan} plan is now active`,
-    });
-    
-    onAuthSuccess(mockUser, plan);
+  const handleSubscriptionSuccess = async (plan: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast({
+          title: "Error",
+          description: "User session not found",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Update profile with subscription
+      const { error } = await supabase
+        .from('profiles')
+        .update({ 
+          subscription_tier: plan,
+          subscription_start_date: new Date().toISOString(),
+        })
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error updating subscription:', error);
+      }
+
+      toast({
+        title: "Welcome to Statpedia!",
+        description: `Your ${plan} plan is now active`,
+      });
+      
+      onAuthSuccess(user, plan);
+    } catch (error) {
+      console.error('Error handling subscription:', error);
+      toast({
+        title: "Error",
+        description: "Failed to activate subscription",
+        variant: "destructive",
+      });
+    }
   };
 
   if (authMode === 'plans') {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AuthPage } from '@/components/auth/auth-page';
 import { PlayerPropsTab } from '@/components/player-props/player-props-tab';
 import { MatrixBackground } from '@/components/effects/matrix-background';
@@ -7,20 +7,75 @@ import { StatsOverview } from '@/components/analytics/stats-overview';
 import { PredictionCard } from '@/components/analytics/prediction-card';
 import { PreviousDayWins } from '@/components/analytics/previous-day-wins';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, Zap, BarChart3 } from 'lucide-react';
 import heroImage from '@/assets/hero-analytics.jpg';
+import { supabase } from '@/integrations/supabase/client';
+import type { User } from '@supabase/supabase-js';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [userSubscription, setUserSubscription] = useState('free');
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleAuthSuccess = (userData: any, subscription: string) => {
+  useEffect(() => {
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          // Fetch subscription in setTimeout to avoid blocking
+          setTimeout(() => {
+            fetchUserSubscription(session.user.id);
+          }, 0);
+        }
+        setIsLoading(false);
+      }
+    );
+
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        setTimeout(() => {
+          fetchUserSubscription(session.user.id);
+        }, 0);
+      }
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const fetchUserSubscription = async (userId: string) => {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('subscription_tier')
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      if (profile) {
+        setUserSubscription(profile.subscription_tier || 'free');
+      }
+    } catch (error) {
+      console.error('Error fetching subscription:', error);
+    }
+  };
+
+  const handleAuthSuccess = (userData: User, subscription: string) => {
     setUser(userData);
     setUserSubscription(subscription);
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
   if (!user) {
     return <AuthPage onAuthSuccess={handleAuthSuccess} />;
@@ -242,7 +297,7 @@ const Index = () => {
         <div className="absolute inset-0">
           <img 
             src={heroImage} 
-            alt="Sports Analytics" 
+            alt="Sports Analytics Dashboard" 
             className="w-full h-full object-cover opacity-20"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-background/80 to-background/40" />
@@ -263,7 +318,7 @@ const Index = () => {
               Welcome to Statpedia
               <br />
               <span className="bg-gradient-primary bg-clip-text text-transparent animate-hologram">
-                {user.displayName}
+                {user.user_metadata?.display_name || user.email?.split('@')[0]}
               </span>
             </h1>
             <p className="text-xl text-muted-foreground mb-6 animate-slide-up font-body">

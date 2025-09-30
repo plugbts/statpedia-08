@@ -1,19 +1,15 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { CheckCircle, Star, Zap, Crown } from 'lucide-react';
-import { PaymentGateway } from '../payment/payment-gateway';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CheckCircle, Star, Zap, Crown, Shield } from 'lucide-react';
 
 interface SubscriptionPlansProps {
   onSubscriptionSuccess: (plan: string) => void;
 }
 
 export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscriptionSuccess }) => {
-  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-  const [showPayment, setShowPayment] = useState(false);
-
   const plans = [
     {
       id: 'free',
@@ -54,7 +50,7 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
         'Historical performance data',
         'Custom filters and search'
       ],
-      buttonText: 'Upgrade to Pro',
+      buttonText: 'Select Plan',
       gradient: 'bg-gradient-primary',
       popular: true
     },
@@ -75,38 +71,32 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
         'API access',
         'White-label options'
       ],
-      buttonText: 'Go Premium',
+      buttonText: 'Select Plan',
       gradient: 'bg-gradient-success',
       popular: false
     }
   ];
 
   const handlePlanSelect = (planId: string) => {
-    if (planId === 'free') {
-      onSubscriptionSuccess('free');
-      return;
-    }
-    
-    setSelectedPlan(planId);
-    setShowPayment(true);
+    // For demo purposes - in production, integrate with Stripe
+    onSubscriptionSuccess(planId);
   };
-
-  const handlePaymentSuccess = (method: string, amount: number) => {
-    setShowPayment(false);
-    onSubscriptionSuccess(selectedPlan!);
-  };
-
-  const selectedPlanData = plans.find(p => p.id === selectedPlan);
 
   return (
     <div className="space-y-8">
-      <div className="text-center">
+      <div className="text-center space-y-4">
         <h2 className="text-3xl font-bold text-foreground mb-4">
           Choose Your Plan
         </h2>
         <p className="text-lg text-muted-foreground">
           Unlock the full power of Statpedia with detailed player prop analysis
         </p>
+        <Alert className="max-w-2xl mx-auto border-warning bg-warning/10">
+          <Shield className="h-4 w-4" />
+          <AlertDescription>
+            Payment processing is not yet configured. For production use, please integrate a secure payment processor like Stripe.
+          </AlertDescription>
+        </Alert>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -172,43 +162,14 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
                 )}
 
                 <div className="pt-4">
-                  {plan.id === 'free' ? (
-                    <Button 
-                      onClick={() => handlePlanSelect(plan.id)}
-                      variant="outline" 
-                      className="w-full"
-                      disabled
-                    >
-                      {plan.buttonText}
-                    </Button>
-                  ) : (
-                    <Dialog open={showPayment && selectedPlan === plan.id} onOpenChange={setShowPayment}>
-                      <DialogTrigger asChild>
-                        <Button 
-                          onClick={() => handlePlanSelect(plan.id)}
-                          className={`w-full ${plan.gradient} hover:shadow-glow transition-all duration-300`}
-                        >
-                          {plan.buttonText}
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-2xl">
-                        <DialogHeader>
-                          <DialogTitle>Subscribe to {selectedPlanData?.name}</DialogTitle>
-                          <DialogDescription>
-                            Complete your payment to unlock all features
-                          </DialogDescription>
-                        </DialogHeader>
-                        
-                        {selectedPlanData && (
-                          <PaymentGateway
-                            amount={selectedPlanData.price}
-                            plan={selectedPlanData.name}
-                            onPaymentSuccess={handlePaymentSuccess}
-                          />
-                        )}
-                      </DialogContent>
-                    </Dialog>
-                  )}
+                  <Button 
+                    onClick={() => handlePlanSelect(plan.id)}
+                    variant={plan.id === 'free' ? 'outline' : 'default'}
+                    className={plan.id === 'free' ? 'w-full' : `w-full ${plan.gradient} hover:shadow-glow transition-all duration-300`}
+                    disabled={plan.id === 'free'}
+                  >
+                    {plan.buttonText}
+                  </Button>
                 </div>
               </CardContent>
             </Card>
