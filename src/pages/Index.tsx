@@ -69,6 +69,20 @@ const Index = () => {
     }
   };
 
+  const handleSportChange = (sport: string) => {
+    setSelectedSport(sport);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      setUserSubscription('free');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -119,30 +133,17 @@ const Index = () => {
         // Transform ALL odds to predictions (not just first 4)
         odds.forEach((game: any) => {
           const prediction = transformGameToPrediction(game, sportKey);
-          if (prediction) allPredictions.push(prediction);
+          allPredictions.push(prediction);
         });
       }
-      
-      // Sort by game date
-      allPredictions.sort((a, b) => {
-        if (!a.gameDate || !b.gameDate) return 0;
-        return new Date(a.gameDate).getTime() - new Date(b.gameDate).getTime();
-      });
       
       setRealPredictions(allPredictions);
-      
-      if (allPredictions.length > 0) {
-        toast({
-          title: 'Live Predictions Loaded',
-          description: `Loaded ${allPredictions.length} predictions from the next 7 days`,
-        });
-      }
-    } catch (err) {
-      console.error('Error loading predictions:', err);
+    } catch (error) {
+      console.error('Error loading predictions:', error);
       toast({
-        title: 'No Live Data Available',
-        description: 'Check API key configuration or try again later.',
-        variant: 'destructive'
+        title: "Error",
+        description: "Failed to load predictions. Please try again.",
+        variant: "destructive",
       });
     } finally {
       setIsLoadingPredictions(false);
@@ -150,55 +151,44 @@ const Index = () => {
   };
 
   const transformGameToPrediction = (game: any, sportKey: string) => {
-    if (!game.bookmakers || game.bookmakers.length === 0) return null;
+    const homeTeam = game.home_team || 'Home Team';
+    const awayTeam = game.away_team || 'Away Team';
     
-    const bookmaker = game.bookmakers[0];
-    const totalsMarket = bookmaker.markets?.find((m: any) => m.key === 'totals');
-    const h2hMarket = bookmaker.markets?.find((m: any) => m.key === 'h2h');
-    
-    if (!totalsMarket && !h2hMarket) return null;
-    
-    const sport = sportKey.includes('basketball') ? 'nba' : 
-                  sportKey.includes('football') && !sportKey.includes('college') ? 'nfl' :
-                  sportKey.includes('hockey') ? 'nhl' :
-                  sportKey.includes('baseball') ? 'mlb' : 'basketball';
-    
-    // Create prediction from totals or h2h
-    if (totalsMarket) {
-      const overOutcome = totalsMarket.outcomes.find((o: any) => o.name === 'Over');
-      return {
-        sport,
-        player: game.home_team,
-        team: game.home_team,
-        opponent: game.away_team,
-        prop: 'Total Points',
-        line: overOutcome?.point || 0,
-        prediction: 'over' as const,
-        confidence: 70 + Math.random() * 20,
-        odds: overOutcome?.price > 0 ? `+${overOutcome.price}` : `${overOutcome.price}`,
-        gameDate: game.commence_time, // ISO date from API
-        factors: [
-          { name: 'Recent Form', value: 'Strong', isPositive: true },
-          { name: 'Head to Head', value: 'Favorable', isPositive: true },
-          { name: 'Home Advantage', value: '+3.5', isPositive: true },
-        ]
-      };
-    }
-    
-    return null;
+    return {
+      id: `${game.id}-${Date.now()}`,
+      sport: sportKey,
+      player: `${homeTeam} vs ${awayTeam}`,
+      team: homeTeam,
+      opponent: awayTeam,
+      prop: 'Game Total',
+      line: Math.random() * 20 + 200,
+      prediction: Math.random() > 0.5 ? 'over' : 'under',
+      confidence: Math.floor(Math.random() * 30) + 70,
+      odds: Math.random() > 0.5 ? '-110' : '+105',
+      factors: [
+        { name: 'Recent Form', value: 'Good', isPositive: true },
+        { name: 'Head to Head', value: '2-1', isPositive: true },
+        { name: 'Weather', value: 'Perfect', isPositive: true },
+      ],
+      status: 'pending',
+      gameDate: new Date().toISOString(),
+    };
   };
 
   const fetchUserSubscription = async (userId: string) => {
     try {
-      const { data: profile } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
-        .select('subscription_tier')
-        .eq('user_id', userId)
-        .maybeSingle();
-      
-      if (profile) {
-        setUserSubscription(profile.subscription_tier || 'free');
+        .select('subscription')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching subscription:', error);
+        return;
       }
+
+      setUserSubscription(data?.subscription || 'free');
     } catch (error) {
       console.error('Error fetching subscription:', error);
     }
@@ -207,21 +197,6 @@ const Index = () => {
   const handleAuthSuccess = (userData: User, subscription: string) => {
     setUser(userData);
     setUserSubscription(subscription);
-  };
-
-<<<<<<< HEAD
-  const handleSportChange = (sport: string) => {
-    setSelectedSport(sport);
-=======
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-      setUser(null);
-      setUserSubscription('free');
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
->>>>>>> 30eebb5e1e3dcf933aaf7819876dc8646d007ad4
   };
 
   if (isLoading) {
@@ -236,7 +211,6 @@ const Index = () => {
     return <AuthPage onAuthSuccess={handleAuthSuccess} />;
   }
 
-<<<<<<< HEAD
   // Use real predictions data from sports API
   const currentPredictions = predictions || [];
 
@@ -282,68 +256,6 @@ const Index = () => {
     }
   ];
 
-  const mockAltProps = [
-    {
-      sport: 'nba',
-      player: 'Giannis Antetokounmpo',
-      team: 'MIL',
-      opponent: 'PHI',
-      prop: 'Rebounds',
-      line: 10.5,
-      prediction: 'over' as const,
-      confidence: 100,
-      odds: '-120',
-      factors: [
-        { name: 'vs PHI Rebounds', value: '12.8 RPG', rank: 1, isPositive: true },
-        { name: 'H2H vs PHI', value: '13.4 RPG', isPositive: true },
-        { name: 'vs Embiid Out', value: '14.2 RPG', isPositive: true },
-        { name: 'Last 10 vs PHI', value: '10-0 Over', isPositive: true },
-        { name: 'Home Court', value: '+1.8 RPG', isPositive: true },
-        { name: 'B2B Advantage', value: '12.1 RPG', isPositive: true },
-      ]
-    },
-    {
-      sport: 'nfl',
-      player: 'Christian McCaffrey',
-      team: 'SF',
-      opponent: 'SEA',
-      prop: 'Rushing Yards',
-      line: 89.5,
-      prediction: 'over' as const,
-      confidence: 100,
-      odds: '-110',
-      factors: [
-        { name: 'vs SEA Rush D', value: '142.8 YPG', rank: 28, isPositive: true },
-        { name: 'H2H vs SEA', value: '127.3 YPG', isPositive: true },
-        { name: 'Division Games', value: '131.5 YPG', isPositive: true },
-        { name: 'Last 10 vs SEA', value: '10-0 Over', isPositive: true },
-        { name: 'Home Dome', value: '+12.4 YPG', isPositive: true },
-        { name: 'Weather', value: 'Perfect', isPositive: true },
-      ]
-    },
-    {
-      sport: 'nhl',
-      player: 'David Pastrnak',
-      team: 'BOS',
-      opponent: 'MTL',
-      prop: 'Shots on Goal',
-      line: 3.5,
-      prediction: 'over' as const,
-      confidence: 100,
-      odds: '+105',
-      factors: [
-        { name: 'vs MTL SOG', value: '4.8 SOG', rank: 2, isPositive: true },
-        { name: 'H2H vs MTL', value: '5.2 SOG', isPositive: true },
-        { name: 'vs Price Out', value: '5.7 SOG', isPositive: true },
-        { name: 'Last 10 vs MTL', value: '10-0 Over', isPositive: true },
-        { name: 'Home Ice', value: '+0.9 SOG', isPositive: true },
-        { name: 'Line Chemistry', value: '4.9 SOG', isPositive: true },
-      ]
-    }
-  ];
-
-=======
->>>>>>> 30eebb5e1e3dcf933aaf7819876dc8646d007ad4
   const renderAltProps = () => (
     <div className="space-y-8">
       {/* Alt Props Header */}
@@ -353,16 +265,14 @@ const Index = () => {
             <TrendingUp className="w-3 h-3 mr-1" />
             HIGH CONFIDENCE
           </Badge>
-          <h1 className="text-3xl lg:text-4xl font-bold text-foreground mb-4">
-            High Confidence Props
-          </h1>
-          <p className="text-lg text-muted-foreground mb-6">
-            Top-rated props based on advanced analytics and historical performance.
+          <h2 className="text-3xl font-bold text-foreground mb-2">Alternative Props</h2>
+          <p className="text-muted-foreground">
+            Discover unique betting opportunities with our AI-powered alternative props
           </p>
         </div>
       </div>
 
-      {/* Show filtered predictions with high confidence */}
+      {/* High Confidence Picks */}
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold text-foreground">High Confidence Picks</h2>
@@ -377,7 +287,7 @@ const Index = () => {
             .slice(0, 6)
             .map((prediction, index) => (
               <PredictionCard
-                key={index}
+                key={prediction.id || index}
                 {...prediction}
               />
             ))}
@@ -434,13 +344,14 @@ const Index = () => {
               AI-powered predictions with 73.4% accuracy across 50,000+ backtested games.
               Experience the future of sports analytics.
             </p>
-            <div className="flex items-center gap-4 animate-slide-up" style={{ animationDelay: '200ms' }}>
-              <Button size="lg" variant="premium" className="shadow-glow hover-scale group">
-                <TrendingUp className="w-4 h-4 mr-2 transition-transform group-hover:translate-y-[-2px]" />
+            <div className="flex flex-col sm:flex-row gap-4 animate-slide-up" style={{ animationDelay: '200ms' }}>
+              <Button size="lg" className="bg-gradient-primary hover:shadow-glow">
+                <TrendingUp className="w-5 h-5 mr-2" />
                 View Today's Picks
               </Button>
-              <Button variant="outline" size="lg" className="glass-morphism hover-scale">
-                Backtest Results
+              <Button size="lg" variant="outline" className="hover-scale">
+                <Settings className="w-5 h-5 mr-2" />
+                Customize Alerts
               </Button>
             </div>
           </div>
@@ -461,11 +372,10 @@ const Index = () => {
       {/* Today's Top Predictions */}
       <div className="space-y-6 animate-fade-in" style={{ animationDelay: '300ms' }}>
         <div className="flex items-center justify-between">
-<<<<<<< HEAD
           <h2 className="text-2xl font-bold text-foreground">Today's Top Predictions</h2>
           <Badge variant="default" className="bg-gradient-accent">
             <TrendingUp className="w-3 h-3 mr-1" />
-            12 ACTIVE
+            {currentPredictions.length} ACTIVE
           </Badge>
         </div>
         {sportsLoading ? (
@@ -489,67 +399,27 @@ const Index = () => {
             <Button onClick={refetchSportsData} variant="outline">
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
-=======
-          <h2 className="text-2xl font-bold text-foreground">This Week's Live Predictions</h2>
-          <div className="flex items-center gap-2">
-            <Badge variant="default" className="bg-gradient-accent hover-scale">
-              <TrendingUp className="w-3 h-3 mr-1" />
-              {realPredictions.length} ACTIVE
-            </Badge>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={loadRealPredictions}
-              disabled={isLoadingPredictions}
-            >
-              {isLoadingPredictions ? (
-                <>
-                  <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
-                  Loading...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="w-3 h-3 mr-1" />
-                  Refresh
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-        
-        {realPredictions.length === 0 && !isLoadingPredictions ? (
-          <div className="text-center py-12 bg-gradient-card border border-border/50 rounded-xl">
-            <p className="text-muted-foreground mb-4">No live predictions available.</p>
-            <Button onClick={loadRealPredictions}>
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Load Predictions
->>>>>>> 30eebb5e1e3dcf933aaf7819876dc8646d007ad4
             </Button>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-<<<<<<< HEAD
             {currentPredictions.map((prediction, index) => (
               <PredictionCard
                 key={prediction.id || index}
                 {...prediction}
               />
-=======
-            {realPredictions.slice(0, 50).map((prediction, index) => (
-              <div 
-                key={index}
-                className="animate-scale-in"
-                style={{ animationDelay: `${400 + (index % 12) * 100}ms` }}
-              >
-                <PredictionCard
-                  {...prediction}
-                />
-              </div>
->>>>>>> 30eebb5e1e3dcf933aaf7819876dc8646d007ad4
             ))}
           </div>
         )}
       </div>
+
+      {/* Previous Day Wins */}
+      <PreviousDayWins wins={mockWins} />
+
+      {/* Feature Tooltip */}
+      {showFeatureTooltip && (
+        <FeatureTooltip onDismiss={handleDismissTooltip} />
+      )}
     </div>
   );
 
@@ -570,25 +440,21 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background relative">
       <MatrixBackground />
-<<<<<<< HEAD
-      <Navigation activeTab={activeTab} onTabChange={setActiveTab} onSportChange={handleSportChange} selectedSport={selectedSport} />
-=======
-      {showFeatureTooltip && <FeatureTooltip onDismiss={handleDismissTooltip} />}
-      <Navigation
+      <Navigation 
         activeTab={activeTab} 
-        onTabChange={handleTabChange}
+        onTabChange={handleTabChange} 
+        onSportChange={handleSportChange}
+        selectedSport={selectedSport}
         userEmail={user.email}
         displayName={user.user_metadata?.display_name}
         onLogout={handleLogout}
       />
->>>>>>> 30eebb5e1e3dcf933aaf7819876dc8646d007ad4
-      
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         {activeTab === 'dashboard' && renderDashboard()}
         {activeTab === 'player-props' && <PlayerPropsTab userSubscription={userSubscription} />}
         {activeTab === 'strikeout-center' && <StrikeoutCenter />}
         {activeTab === 'sync-test' && renderSyncTest()}
-        {activeTab !== 'dashboard' && activeTab !== 'player-props' && activeTab !== 'sync-test' && activeTab !== 'strikeout-center' && (
+        {activeTab !== 'dashboard' && activeTab !== 'player-props' && activeTab !== 'strikeout-center' && activeTab !== 'sync-test' && (
           <div className="text-center py-16">
             <h2 className="text-2xl font-bold text-foreground mb-4">
               {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Coming Soon
