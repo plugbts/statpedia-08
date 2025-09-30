@@ -23,8 +23,7 @@ import {
   MapPin,
   RefreshCw,
   CheckCircle,
-  XCircle,
-  Calendar
+  XCircle
 } from 'lucide-react';
 import { SimulationAnalysis } from './simulation-analysis';
 import { gamesService, GamePrediction, RealGame } from '@/services/games-service';

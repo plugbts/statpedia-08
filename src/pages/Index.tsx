@@ -1008,7 +1008,7 @@ const Index = () => {
         {activeTab === 'strikeout-center' && <StrikeoutCenter />}
         {activeTab === 'most-likely' && <MostLikely />}
         {activeTab === 'sync-test' && renderSyncTest()}
-        {activeTab !== 'dashboard' && activeTab !== 'player-props' && activeTab !== 'insights' && activeTab !== 'bet-tracking' && activeTab !== 'social' && activeTab !== 'strikeout-center' && activeTab !== 'most-likely' && activeTab !== 'underdog-analysis' && activeTab !== 'sync-test' && (
+        {activeTab !== 'dashboard' && activeTab !== 'player-props' && activeTab !== 'insights' && activeTab !== 'bet-tracking' && activeTab !== 'social' && activeTab !== 'strikeout-center' && activeTab !== 'most-likely' && activeTab !== 'sync-test' && (
           <div className="text-center py-16">
             <h2 className="text-2xl font-bold text-foreground mb-4">
               {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Coming Soon
