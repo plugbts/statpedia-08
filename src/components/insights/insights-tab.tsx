@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MoneylineProps } from '@/components/predictions/moneyline-props';
+import { UnderdogAnalysis } from '@/components/predictions/underdog-analysis';
 
 interface InsightsTabProps {
   selectedSport: string;
@@ -425,7 +426,39 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
 
         {/* Moneyline Props */}
         <TabsContent value="moneyline" className="space-y-6">
-          <MoneylineProps userSubscription={userSubscription || 'free'} userRole={userRole} />
+          <div className="space-y-8">
+            {/* Underdog Analysis Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Target className="w-6 h-6 text-primary" />
+                <h2 className="text-2xl font-bold text-foreground">Top Underdog Opportunities</h2>
+                <Badge variant="outline" className="gap-1">
+                  <TrendingUp className="w-3 h-3" />
+                  AI Analysis
+                </Badge>
+              </div>
+              <p className="text-muted-foreground">
+                AI-powered analysis of the top 3 underdog moneyline opportunities with detailed reasoning
+              </p>
+              <UnderdogAnalysis />
+            </div>
+
+            {/* Moneyline Predictions Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <BarChart3 className="w-6 h-6 text-primary" />
+                <h2 className="text-2xl font-bold text-foreground">Moneyline Predictions</h2>
+                <Badge variant="outline" className="gap-1">
+                  <Activity className="w-3 h-3" />
+                  Simulations
+                </Badge>
+              </div>
+              <p className="text-muted-foreground">
+                AI-powered final score predictions with thousands of simulations and backtesting
+              </p>
+              <MoneylineProps userSubscription={userSubscription || 'free'} userRole={userRole} />
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
 

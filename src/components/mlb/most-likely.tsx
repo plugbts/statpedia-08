@@ -543,7 +543,7 @@ export const MostLikely: React.FC = () => {
             {analyses.filter(a => a.confidence > 0.8).length}
           </p>
           <p className="text-sm text-muted-foreground">
-            Games with >80% confidence
+            Games with &gt;80% confidence
           </p>
         </Card>
 
