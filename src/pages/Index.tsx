@@ -68,7 +68,10 @@ const Index = () => {
   };
 
   const handleViewTodaysPicks = () => {
+    console.log('View Today\'s Picks clicked!');
+    console.log('Current showTodaysPicks state:', showTodaysPicks);
     setShowTodaysPicks(true);
+    console.log('Setting showTodaysPicks to true');
   };
 
   const getTodaysTopPicks = () => {
@@ -507,7 +510,15 @@ const Index = () => {
               Experience the future of sports analytics.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 animate-slide-up" style={{ animationDelay: '200ms' }}>
-              <Button size="lg" className="bg-gradient-primary hover:shadow-glow" onClick={handleViewTodaysPicks}>
+              <Button 
+                size="lg" 
+                className="bg-gradient-primary hover:shadow-glow" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleViewTodaysPicks();
+                }}
+              >
                 <TrendingUp className="w-5 h-5 mr-2" />
                 View Today's Picks
               </Button>
@@ -530,6 +541,16 @@ const Index = () => {
         totalProfit={0} // Reset to 0
         todaysPredictions={realPredictions.length}
       />
+
+      {/* Debug Section */}
+      <div className="bg-yellow-100 p-4 rounded-lg">
+        <p>Debug: showTodaysPicks = {showTodaysPicks ? 'true' : 'false'}</p>
+        <p>Selected Sport: {selectedSport}</p>
+        <p>All Predictions Count: {allPredictions.length}</p>
+        <Button onClick={() => setShowTodaysPicks(!showTodaysPicks)}>
+          Toggle Today's Picks
+        </Button>
+      </div>
 
       {/* Today's Top Picks */}
       {showTodaysPicks && (
