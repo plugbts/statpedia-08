@@ -3,11 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Users, Ban, Gift, Activity, Mail } from "lucide-react";
+import { Shield, Users, Ban, Gift, Activity, Mail, AlertTriangle } from "lucide-react";
 import { UserManagement } from "@/components/admin/user-management";
 import { DiscordManagement } from "@/components/admin/discord-management";
 import { PromoCodesAdmin } from "@/components/admin/promo-codes-admin";
 import { EmailCampaignsAdmin } from "@/components/admin/email-campaigns-admin";
+import { TrialAbuseAdmin } from "@/components/admin/trial-abuse-admin";
 import { AuditLogs } from "@/components/admin/audit-logs";
 
 export default function Admin() {
@@ -73,7 +74,7 @@ export default function Admin() {
         </div>
 
         <Tabs defaultValue="users" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="users">
               <Users className="h-4 w-4 mr-2" />
               Users
@@ -89,6 +90,10 @@ export default function Admin() {
             <TabsTrigger value="emails">
               <Mail className="h-4 w-4 mr-2" />
               Email Campaigns
+            </TabsTrigger>
+            <TabsTrigger value="abuse">
+              <AlertTriangle className="h-4 w-4 mr-2" />
+              Trial Abuse
             </TabsTrigger>
             <TabsTrigger value="logs">
               <Ban className="h-4 w-4 mr-2" />
@@ -110,6 +115,10 @@ export default function Admin() {
 
           <TabsContent value="emails" className="space-y-4">
             <EmailCampaignsAdmin />
+          </TabsContent>
+
+          <TabsContent value="abuse" className="space-y-4">
+            <TrialAbuseAdmin />
           </TabsContent>
 
           <TabsContent value="logs" className="space-y-4">

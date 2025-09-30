@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CheckCircle, Star, Zap, Crown, Shield, X, CreditCard, Lock, Gift, Percent, Calendar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { trialAbusePreventionService } from '@/services/trial-abuse-prevention';
 
 interface SubscriptionPlansProps {
   onSubscriptionSuccess: (plan: string) => void;
@@ -29,6 +30,11 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
   const [promoDiscount, setPromoDiscount] = useState(0);
   const [promoType, setPromoType] = useState<'percentage' | 'free_trial' | null>(null);
   const [showPromoTab, setShowPromoTab] = useState(false);
+  const [trialEligibility, setTrialEligibility] = useState<{
+    isEligible: boolean;
+    reason: string;
+    abuseType: string;
+  } | null>(null);
 
   // Payment form state
   const [paymentData, setPaymentData] = useState({
@@ -43,20 +49,32 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
     zipCode: ''
   });
 
-  // Check user's free trial status
+  // Check user's free trial status and eligibility
   useEffect(() => {
     const checkUserStatus = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         setUser(session.user);
-        // Check if user has used free trial
-        const { data: trialData } = await supabase
-          .from('user_trials')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .single();
         
-        setHasUsedFreeTrial(!!trialData);
+        // Check trial eligibility using abuse prevention service
+        const eligibility = await trialAbusePreventionService.checkTrialEligibility(
+          session.user.id,
+          session.user.email || ''
+        );
+        
+        setTrialEligibility(eligibility);
+        setHasUsedFreeTrial(!eligibility.isEligible);
+        
+        // Log abuse attempt if not eligible
+        if (!eligibility.isEligible && eligibility.abuseType !== 'eligible') {
+          await trialAbusePreventionService.logAbuseAttempt(
+            session.user.id,
+            session.user.email || '',
+            eligibility.abuseType,
+            0,
+            eligibility.reason
+          );
+        }
       }
     };
     
@@ -135,7 +153,12 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
         'Real-time odds tracking',
         'Cancel anytime during trial'
       ],
-      buttonText: hasUsedFreeTrial ? 'Trial Already Used' : 'Start Free Trial',
+      buttonText: hasUsedFreeTrial 
+        ? (trialEligibility?.abuseType === 'ip_limit' ? 'IP Limit Reached' 
+           : trialEligibility?.abuseType === 'mac_limit' ? 'Device Limit Reached'
+           : trialEligibility?.abuseType === 'email_limit' ? 'Trial Already Used'
+           : 'Trial Not Available')
+        : 'Start Free Trial',
       gradient: 'bg-gradient-primary',
       popular: true,
       requiresCard: true,
@@ -207,18 +230,17 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
     try {
       // Handle free trial
       if (selectedPlan === 'free_trial') {
-        // Record free trial usage
-        const { error: trialError } = await supabase
-          .from('user_trials')
-          .insert({
-            user_id: user.id,
-            plan_id: 'pro',
-            started_at: new Date().toISOString(),
-            expires_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days
-            status: 'active'
-          });
+        // Check eligibility again before processing
+        if (!trialEligibility?.isEligible) {
+          throw new Error(trialEligibility?.reason || 'Free trial not available');
+        }
 
-        if (trialError) throw trialError;
+        // Record free trial usage using abuse prevention service
+        const success = await trialAbusePreventionService.recordTrialUsage(user.id);
+        
+        if (!success) {
+          throw new Error('Failed to record trial usage');
+        }
 
         // Record promo code usage if applicable
         if (promoCode && promoType) {
@@ -387,6 +409,33 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
             </CardContent>
           </Card>
         </div>
+
+        {/* Abuse Prevention Alert */}
+        {trialEligibility && !trialEligibility.isEligible && (
+          <div className="max-w-4xl mx-auto">
+            <Alert className="border-destructive bg-destructive/10">
+              <Shield className="h-4 w-4" />
+              <AlertDescription className="text-sm">
+                <strong>Free Trial Not Available:</strong> {trialEligibility.reason}
+                {trialEligibility.abuseType === 'ip_limit' && (
+                  <span className="block mt-1 text-xs">
+                    Maximum 2 free trials per IP address allowed.
+                  </span>
+                )}
+                {trialEligibility.abuseType === 'mac_limit' && (
+                  <span className="block mt-1 text-xs">
+                    Maximum 2 free trials per device allowed.
+                  </span>
+                )}
+                {trialEligibility.abuseType === 'email_limit' && (
+                  <span className="block mt-1 text-xs">
+                    One free trial per email address allowed.
+                  </span>
+                )}
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         {plans.map((plan) => {
