@@ -8,7 +8,6 @@ import {
   GitBranch, 
   GitCommit, 
   GitPullRequest, 
-  GitPush, 
   RefreshCw, 
   AlertCircle, 
   CheckCircle, 
@@ -154,7 +153,7 @@ export function GitHubSyncStatus({ className, showDetails = false }: GitHubSyncS
 
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <GitPush className="h-4 w-4 text-muted-foreground" />
+              <Upload className="h-4 w-4 text-muted-foreground" />
               <Label htmlFor="auto-push" className="font-medium">Auto Push</Label>
             </div>
             <Switch
