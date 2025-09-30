@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS prediction_results (
   actual_result DECIMAL(10,2) NOT NULL,
   prop_value DECIMAL(10,2) NOT NULL,
   is_correct BOOLEAN NOT NULL,
+  karma_change INTEGER NOT NULL DEFAULT 0, -- Karma gained/lost from this prediction
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -192,6 +193,36 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Function to calculate karma change for a prediction
+CREATE OR REPLACE FUNCTION calculate_prediction_karma(
+  is_correct BOOLEAN,
+  confidence_level INTEGER,
+  total_votes INTEGER
+)
+RETURNS INTEGER AS $$
+DECLARE
+  base_karma INTEGER;
+  confidence_multiplier DECIMAL(3,2);
+  participation_bonus INTEGER;
+BEGIN
+  -- Base karma for correct/incorrect prediction
+  base_karma := CASE WHEN is_correct THEN 2 ELSE -1 END;
+  
+  -- Confidence level multiplier (1-5 scale)
+  confidence_multiplier := 0.5 + (confidence_level * 0.1); -- 0.6 to 1.0
+  
+  -- Participation bonus for high-engagement predictions
+  participation_bonus := CASE 
+    WHEN total_votes >= 100 THEN 1
+    WHEN total_votes >= 50 THEN 0
+    ELSE -1
+  END;
+  
+  -- Calculate final karma change
+  RETURN ROUND(base_karma * confidence_multiplier) + participation_bonus;
+END;
+$$ LANGUAGE plpgsql;
+
 -- Function to process game results and update predictions
 CREATE OR REPLACE FUNCTION process_game_results(
   prediction_uuid UUID,
@@ -201,6 +232,8 @@ RETURNS VOID AS $$
 DECLARE
   pred RECORD;
   user_pred RECORD;
+  karma_change INTEGER;
+  is_correct BOOLEAN;
 BEGIN
   -- Update the prediction with actual result
   UPDATE player_prop_predictions 
@@ -218,19 +251,54 @@ BEGIN
     WHERE up.prediction_id = prediction_uuid
   LOOP
     -- Determine if prediction was correct
+    is_correct := CASE 
+      WHEN user_pred.prediction_type = 'over' AND actual_stat > user_pred.prop_value THEN true
+      WHEN user_pred.prediction_type = 'under' AND actual_stat < user_pred.prop_value THEN true
+      ELSE false
+    END;
+    
+    -- Calculate karma change
+    karma_change := calculate_prediction_karma(
+      is_correct, 
+      user_pred.confidence_level, 
+      pred.total_votes
+    );
+    
+    -- Insert prediction result with karma change
     INSERT INTO prediction_results (
-      prediction_id, user_id, prediction_type, actual_result, prop_value, is_correct
+      prediction_id, user_id, prediction_type, actual_result, prop_value, is_correct, karma_change
     ) VALUES (
       prediction_uuid,
       user_pred.user_id,
       user_pred.prediction_type,
       actual_stat,
       user_pred.prop_value,
+      is_correct,
+      karma_change
+    );
+    
+    -- Update user karma in user_profiles
+    UPDATE user_profiles 
+    SET karma = karma + karma_change,
+        updated_at = NOW()
+    WHERE user_id = user_pred.user_id;
+    
+    -- Record karma change in karma_history
+    INSERT INTO karma_history (
+      user_id, 
+      karma_change, 
+      reason, 
+      source_type, 
+      source_id
+    ) VALUES (
+      user_pred.user_id,
+      karma_change,
       CASE 
-        WHEN user_pred.prediction_type = 'over' AND actual_stat > user_pred.prop_value THEN true
-        WHEN user_pred.prediction_type = 'under' AND actual_stat < user_pred.prop_value THEN true
-        ELSE false
-      END
+        WHEN is_correct THEN 'Correct prediction'
+        ELSE 'Incorrect prediction'
+      END,
+      'prediction',
+      prediction_uuid
     );
     
     -- Update user stats

@@ -11,9 +11,12 @@ import {
   Trophy,
   Eye,
   EyeOff,
-  Settings
+  Settings,
+  Star,
+  Minus
 } from 'lucide-react';
 import { predictionService, type UserPredictionStats, type UserPrivacySettings } from '@/services/prediction-service';
+import { KarmaExplanation } from './karma-explanation';
 import { useToast } from '@/hooks/use-toast';
 
 interface UserPredictionStatsProps {
@@ -27,6 +30,13 @@ export const UserPredictionStats: React.FC<UserPredictionStatsProps> = ({
 }) => {
   const [stats, setStats] = useState<UserPredictionStats | null>(null);
   const [privacySettings, setPrivacySettings] = useState<UserPrivacySettings | null>(null);
+  const [karmaSummary, setKarmaSummary] = useState<{
+    total_karma_gained: number;
+    total_karma_lost: number;
+    net_karma_change: number;
+    correct_predictions_karma: number;
+    incorrect_predictions_karma: number;
+  } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const { toast } = useToast();
@@ -38,13 +48,15 @@ export const UserPredictionStats: React.FC<UserPredictionStatsProps> = ({
   const loadStats = async () => {
     try {
       setIsLoading(true);
-      const [statsData, privacyData] = await Promise.all([
+      const [statsData, privacyData, karmaData] = await Promise.all([
         predictionService.getUserPredictionStats(userId),
-        isOwnProfile ? predictionService.getUserPrivacySettings() : Promise.resolve(null)
+        isOwnProfile ? predictionService.getUserPrivacySettings() : Promise.resolve(null),
+        predictionService.getPredictionKarmaSummary(userId)
       ]);
       
       setStats(statsData);
       setPrivacySettings(privacyData);
+      setKarmaSummary(karmaData);
     } catch (error) {
       console.error('Failed to load prediction stats:', error);
       toast({
@@ -270,6 +282,42 @@ export const UserPredictionStats: React.FC<UserPredictionStatsProps> = ({
           </div>
         </div>
 
+        {/* Karma Summary */}
+        {karmaSummary && stats.total_predictions > 0 && (
+          <div className="space-y-3">
+            <div className="text-sm font-medium text-muted-foreground">Karma from Predictions</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="text-center p-3 border rounded-lg">
+                <div className="flex items-center justify-center gap-1 text-green-600 mb-1">
+                  <Star className="w-4 h-4" />
+                  <span className="text-sm font-medium">Gained</span>
+                </div>
+                <div className="text-lg font-bold text-green-600">
+                  +{karmaSummary.total_karma_gained}
+                </div>
+              </div>
+              <div className="text-center p-3 border rounded-lg">
+                <div className="flex items-center justify-center gap-1 text-red-600 mb-1">
+                  <Minus className="w-4 h-4" />
+                  <span className="text-sm font-medium">Lost</span>
+                </div>
+                <div className="text-lg font-bold text-red-600">
+                  -{karmaSummary.total_karma_lost}
+                </div>
+              </div>
+            </div>
+            <div className="text-center p-2 bg-muted/50 rounded">
+              <div className="text-sm text-muted-foreground">Net Karma Change</div>
+              <div className={`text-lg font-bold ${
+                karmaSummary.net_karma_change > 0 ? 'text-green-600' : 
+                karmaSummary.net_karma_change < 0 ? 'text-red-600' : 'text-muted-foreground'
+              }`}>
+                {karmaSummary.net_karma_change > 0 ? '+' : ''}{karmaSummary.net_karma_change}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Performance Indicators */}
         {stats.total_predictions > 0 && (
           <div className="flex justify-center gap-2">
@@ -291,6 +339,13 @@ export const UserPredictionStats: React.FC<UserPredictionStatsProps> = ({
                 Cold Streak
               </Badge>
             )}
+          </div>
+        )}
+
+        {/* Karma Explanation */}
+        {isOwnProfile && (
+          <div className="mt-4">
+            <KarmaExplanation />
           </div>
         )}
       </CardContent>

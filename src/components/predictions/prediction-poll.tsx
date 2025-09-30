@@ -11,7 +11,9 @@ import {
   Clock, 
   CheckCircle, 
   XCircle,
-  BarChart3
+  BarChart3,
+  Star,
+  Minus
 } from 'lucide-react';
 import { predictionService, type PredictionPollData } from '@/services/prediction-service';
 import { useToast } from '@/hooks/use-toast';
@@ -273,7 +275,7 @@ export const PredictionPoll: React.FC<PredictionPollProps> = ({
                   {prediction.actual_result} {propType}
                 </p>
                 {hasVoted && (
-                  <div className="mt-2">
+                  <div className="mt-2 space-y-2">
                     {userPrediction?.prediction_type === 'over' && prediction.actual_result! > propValue ? (
                       <Badge variant="default" className="bg-green-500">✓ Correct!</Badge>
                     ) : userPrediction?.prediction_type === 'under' && prediction.actual_result! < propValue ? (
@@ -281,6 +283,26 @@ export const PredictionPoll: React.FC<PredictionPollProps> = ({
                     ) : (
                       <Badge variant="destructive">✗ Incorrect</Badge>
                     )}
+                    
+                    {/* Karma Change Display */}
+                    <div className="text-sm">
+                      {userPrediction?.prediction_type === 'over' && prediction.actual_result! > propValue ? (
+                        <div className="flex items-center justify-center gap-1 text-green-600">
+                          <Star className="w-4 h-4" />
+                          <span>+2-4 Karma</span>
+                        </div>
+                      ) : userPrediction?.prediction_type === 'under' && prediction.actual_result! < propValue ? (
+                        <div className="flex items-center justify-center gap-1 text-green-600">
+                          <Star className="w-4 h-4" />
+                          <span>+2-4 Karma</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center gap-1 text-red-600">
+                          <Minus className="w-4 h-4" />
+                          <span>-1-2 Karma</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

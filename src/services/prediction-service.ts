@@ -36,6 +36,7 @@ export interface PredictionResult {
   actual_result: number;
   prop_value: number;
   is_correct: boolean;
+  karma_change: number;
   created_at: string;
 }
 
@@ -400,6 +401,99 @@ class PredictionService {
     } catch (error) {
       console.error('Failed to get trending predictions:', error);
       return [];
+    }
+  }
+
+  // Get user's karma changes from predictions
+  async getUserPredictionKarma(userId?: string, limit: number = 50): Promise<PredictionResult[]> {
+    try {
+      const targetUserId = userId || (await supabase.auth.getUser()).data.user?.id;
+      if (!targetUserId) return [];
+
+      const { data, error } = await supabase
+        .from('prediction_results')
+        .select(`
+          *,
+          player_prop_predictions!inner(
+            prop_title,
+            player_name,
+            team,
+            opponent,
+            game_date
+          )
+        `)
+        .eq('user_id', targetUserId)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Failed to get user prediction karma:', error);
+      return [];
+    }
+  }
+
+  // Get karma summary for predictions
+  async getPredictionKarmaSummary(userId?: string): Promise<{
+    total_karma_gained: number;
+    total_karma_lost: number;
+    net_karma_change: number;
+    correct_predictions_karma: number;
+    incorrect_predictions_karma: number;
+  }> {
+    try {
+      const targetUserId = userId || (await supabase.auth.getUser()).data.user?.id;
+      if (!targetUserId) {
+        return {
+          total_karma_gained: 0,
+          total_karma_lost: 0,
+          net_karma_change: 0,
+          correct_predictions_karma: 0,
+          incorrect_predictions_karma: 0
+        };
+      }
+
+      const { data, error } = await supabase
+        .from('prediction_results')
+        .select('karma_change, is_correct')
+        .eq('user_id', targetUserId);
+
+      if (error) throw error;
+
+      const results = data || [];
+      const totalKarmaGained = results
+        .filter(r => r.karma_change > 0)
+        .reduce((sum, r) => sum + r.karma_change, 0);
+      
+      const totalKarmaLost = Math.abs(results
+        .filter(r => r.karma_change < 0)
+        .reduce((sum, r) => sum + r.karma_change, 0));
+
+      const correctPredictionsKarma = results
+        .filter(r => r.is_correct)
+        .reduce((sum, r) => sum + r.karma_change, 0);
+
+      const incorrectPredictionsKarma = results
+        .filter(r => !r.is_correct)
+        .reduce((sum, r) => sum + r.karma_change, 0);
+
+      return {
+        total_karma_gained: totalKarmaGained,
+        total_karma_lost: totalKarmaLost,
+        net_karma_change: totalKarmaGained - totalKarmaLost,
+        correct_predictions_karma: correctPredictionsKarma,
+        incorrect_predictions_karma: incorrectPredictionsKarma
+      };
+    } catch (error) {
+      console.error('Failed to get prediction karma summary:', error);
+      return {
+        total_karma_gained: 0,
+        total_karma_lost: 0,
+        net_karma_change: 0,
+        correct_predictions_karma: 0,
+        incorrect_predictions_karma: 0
+      };
     }
   }
 }
