@@ -19,10 +19,14 @@ import {
   Star,
   User,
   Settings,
-  RefreshCw
+  RefreshCw,
+  Image,
+  Palette
 } from 'lucide-react';
 import { socialService, type Post, type UserProfile, type Friend } from '@/services/social-service';
 import { recommendationService, type PersonalizedPost } from '@/services/recommendation-service';
+import { bannerService, type BannerSettings } from '@/services/banner-service';
+import { BannerEditor } from '@/components/social/banner-editor';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -48,6 +52,8 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole }) => {
   const [editDisplayName, setEditDisplayName] = useState('');
   const [editBio, setEditBio] = useState('');
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [showBannerEditor, setShowBannerEditor] = useState(false);
+  const [currentBanner, setCurrentBanner] = useState<BannerSettings | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -276,6 +282,52 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole }) => {
     } finally {
       setIsUpdatingProfile(false);
     }
+  };
+
+  const handleBannerChange = async (bannerSettings: BannerSettings) => {
+    try {
+      await bannerService.updateUserBanner(bannerSettings);
+      
+      // Update local profile state
+      if (userProfile) {
+        const updatedProfile = {
+          ...userProfile,
+          ...bannerSettings
+        };
+        setUserProfile(updatedProfile);
+      }
+      
+      toast({
+        title: "Success",
+        description: "Banner updated successfully"
+      });
+    } catch (error: any) {
+      console.error('Failed to update banner:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update banner",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const openBannerEditor = () => {
+    if (userProfile) {
+      setCurrentBanner({
+        banner_url: userProfile.banner_url,
+        banner_position: userProfile.banner_position,
+        banner_blur: userProfile.banner_blur,
+        banner_brightness: userProfile.banner_brightness,
+        banner_contrast: userProfile.banner_contrast,
+        banner_saturation: userProfile.banner_saturation
+      });
+      setShowBannerEditor(true);
+    }
+  };
+
+  const closeBannerEditor = () => {
+    setShowBannerEditor(false);
+    setCurrentBanner(null);
   };
 
   const handleSearch = async () => {
@@ -754,14 +806,55 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole }) => {
                     Your Profile
                   </CardTitle>
                   {!isEditingProfile && (
-                    <Button variant="outline" size="sm" onClick={startEditingProfile}>
-                      <Settings className="w-4 h-4 mr-2" />
-                      Edit Profile
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={openBannerEditor}>
+                        <Palette className="w-4 h-4 mr-2" />
+                        Edit Banner
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={startEditingProfile}>
+                        <Settings className="w-4 h-4 mr-2" />
+                        Edit Profile
+                      </Button>
+                    </div>
                   )}
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Banner */}
+                <div className="relative">
+                  <div 
+                    className="w-full h-32 rounded-lg border overflow-hidden relative"
+                    style={bannerService.generateBannerStyles({
+                      banner_url: userProfile.banner_url,
+                      banner_position: userProfile.banner_position,
+                      banner_blur: userProfile.banner_blur,
+                      banner_brightness: userProfile.banner_brightness,
+                      banner_contrast: userProfile.banner_contrast,
+                      banner_saturation: userProfile.banner_saturation
+                    })}
+                  >
+                    {!userProfile.banner_url && (
+                      <div className="w-full h-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white">
+                        <div className="text-center">
+                          <Image className="w-8 h-8 mx-auto mb-2" />
+                          <p className="text-sm">No banner set</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {!isEditingProfile && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="absolute top-2 right-2"
+                      onClick={openBannerEditor}
+                    >
+                      <Palette className="w-4 h-4 mr-2" />
+                      Customize
+                    </Button>
+                  )}
+                </div>
+
                 <div className="flex items-center gap-4">
                   <Avatar className="w-20 h-20">
                     <AvatarImage src={userProfile.avatar_url} />
@@ -874,6 +967,21 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole }) => {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Banner Editor Modal */}
+      {showBannerEditor && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <CardContent className="p-6">
+              <BannerEditor
+                currentBanner={currentBanner || undefined}
+                onBannerChange={handleBannerChange}
+                onClose={closeBannerEditor}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

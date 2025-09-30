@@ -7,6 +7,12 @@ export interface UserProfile {
   display_name?: string;
   bio?: string;
   avatar_url?: string;
+  banner_url?: string;
+  banner_position?: 'top' | 'center' | 'bottom';
+  banner_blur?: number;
+  banner_brightness?: number;
+  banner_contrast?: number;
+  banner_saturation?: number;
   karma: number;
   roi_percentage: number;
   total_posts: number;
