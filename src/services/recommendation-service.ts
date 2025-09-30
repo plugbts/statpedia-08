@@ -260,7 +260,13 @@ class RecommendationService {
 
       // Find posts that mention similar sports or betting terms
       const sports = [...new Set(bettingData.map(bet => bet.sport))];
-      const searchTerms = sports.join('|');
+      
+      if (sports.length === 0) {
+        return await this.getTrendingPosts(limit);
+      }
+
+      // Build the OR query for sports
+      const orConditions = sports.map(sport => `content.ilike.%${sport}%`).join(',');
 
       const { data, error } = await supabase
         .from('posts')
@@ -269,7 +275,7 @@ class RecommendationService {
           user_profile:user_profiles(*)
         `)
         .eq('is_deleted', false)
-        .or(`content.ilike.*${sports.join('*},content.ilike.*${sports.join('*')}`)
+        .or(orConditions)
         .order('net_score', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(limit);
