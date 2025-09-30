@@ -1,6 +1,8 @@
 // Free Sports Data API Service
 // Uses multiple free APIs to get real sports data
 
+import { propFinderAPIService } from './propfinder-api';
+
 export interface FreeGame {
   id: string;
   sport: string;
@@ -83,39 +85,78 @@ class FreeSportsAPIService {
     return data;
   }
 
-  // Get current week games from ESPN API with fallback
+  // Get current week games using PropFinder-style API
   async getCurrentWeekGames(sport: string): Promise<FreeGame[]> {
-    const endpoint = this.getESPNEndpoint(sport);
-    console.log(`🔍 Fetching games for ${sport} from:`, endpoint);
+    console.log(`🏈 Using PropFinder-style API for ${sport}...`);
 
     return this.getCachedData(`games_${sport}`, async () => {
       try {
-        const response = await fetch(endpoint);
-        console.log(`📡 ESPN API response status:`, response.status);
+        // Use the new PropFinder API service
+        const liveGames = await propFinderAPIService.getLiveGames(sport);
         
-        if (!response.ok) {
-          throw new Error(`ESPN API error: ${response.status} - ${response.statusText}`);
-        }
+        // Convert to FreeGame format
+        const freeGames: FreeGame[] = liveGames.map(game => ({
+          id: game.id,
+          sport: game.sport,
+          homeTeam: game.homeTeam,
+          awayTeam: game.awayTeam,
+          homeTeamAbbr: game.homeTeamAbbr,
+          awayTeamAbbr: game.awayTeamAbbr,
+          date: game.date,
+          time: game.time,
+          venue: game.venue,
+          status: game.status,
+          homeOdds: game.homeOdds,
+          awayOdds: game.awayOdds,
+          homeScore: game.homeScore,
+          awayScore: game.awayScore,
+          homeRecord: game.homeRecord,
+          awayRecord: game.awayRecord,
+        }));
 
-        const data = await response.json();
-        console.log(`📊 Raw ESPN data for ${sport}:`, data);
-        console.log(`🎮 Events count:`, data.events?.length || 0);
-        
-        const games = this.parseESPNGames(data.events || [], sport);
-        console.log(`✅ Parsed games for ${sport}:`, games.length, games);
-        
-        if (games.length === 0) {
-          console.warn(`⚠️ No games found for ${sport} after parsing, generating fallback`);
-          return this.generateFallbackGames(sport);
-        }
-
-        return games;
+        console.log(`✅ PropFinder API returned ${freeGames.length} games for ${sport}`);
+        return freeGames;
       } catch (error) {
-        console.error(`❌ ESPN API failed for ${sport}:`, error);
-        console.log(`🔄 Generating fallback games for ${sport}`);
-        return this.generateFallbackGames(sport);
+        console.error(`❌ PropFinder API failed for ${sport}:`, error);
+        console.log(`🔄 Falling back to ESPN API for ${sport}`);
+        
+        // Fallback to original ESPN implementation
+        return this.getESPNGamesFallback(sport);
       }
     });
+  }
+
+  // Fallback to ESPN API
+  private async getESPNGamesFallback(sport: string): Promise<FreeGame[]> {
+    const endpoint = this.getESPNEndpoint(sport);
+    console.log(`🔍 ESPN fallback endpoint:`, endpoint);
+
+    try {
+      const response = await fetch(endpoint);
+      console.log(`📡 ESPN API response status:`, response.status);
+      
+      if (!response.ok) {
+        throw new Error(`ESPN API error: ${response.status} - ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(`📊 Raw ESPN data for ${sport}:`, data);
+      console.log(`🎮 Events count:`, data.events?.length || 0);
+      
+      const games = this.parseESPNGames(data.events || [], sport);
+      console.log(`✅ Parsed games for ${sport}:`, games.length, games);
+      
+      if (games.length === 0) {
+        console.warn(`⚠️ No games found for ${sport} after parsing, generating fallback`);
+        return this.generateFallbackGames(sport);
+      }
+
+      return games;
+    } catch (error) {
+      console.error(`❌ ESPN API failed for ${sport}:`, error);
+      console.log(`🔄 Generating fallback games for ${sport}`);
+      return this.generateFallbackGames(sport);
+    }
   }
 
   // Parse ESPN games data
@@ -185,9 +226,50 @@ class FreeSportsAPIService {
     return parseInt(odds.value);
   }
 
-  // Get player props from The Odds API (free tier)
+  // Get player props using PropFinder-style API
   async getPlayerProps(sport: string): Promise<FreePlayerProp[]> {
-    console.log(`🎯 Fetching player props for ${sport}`);
+    console.log(`🎯 Using PropFinder-style API for player props: ${sport}`);
+
+    return this.getCachedData(`props_${sport}`, async () => {
+      try {
+        // Use the new PropFinder API service
+        const liveProps = await propFinderAPIService.getLivePlayerProps(sport);
+        
+        // Convert to FreePlayerProp format
+        const freeProps: FreePlayerProp[] = liveProps.map(prop => ({
+          id: prop.id,
+          player: prop.player,
+          team: prop.team,
+          prop: prop.prop,
+          line: prop.line,
+          overOdds: prop.overOdds,
+          underOdds: prop.underOdds,
+          gameDate: prop.gameDate,
+          gameTime: prop.gameTime,
+          sport: prop.sport,
+          confidence: prop.confidence,
+          expectedValue: prop.expectedValue,
+          recentForm: prop.recentForm,
+          last5Games: prop.last5Games,
+          seasonStats: prop.seasonStats,
+          aiPrediction: prop.aiPrediction
+        }));
+
+        console.log(`✅ PropFinder API returned ${freeProps.length} player props for ${sport}`);
+        return freeProps;
+      } catch (error) {
+        console.error(`❌ PropFinder API failed for ${sport}:`, error);
+        console.log(`🔄 Falling back to basic props generation for ${sport}`);
+        
+        // Fallback to basic props generation
+        return this.generateBasicProps(sport);
+      }
+    });
+  }
+
+  // Legacy method for Odds API (kept as fallback)
+  private async getPlayerPropsLegacy(sport: string): Promise<FreePlayerProp[]> {
+    console.log(`🎯 Fetching player props for ${sport} (legacy method)`);
     
     if (this.oddsAPIKey === 'free') {
       // If no API key, generate some basic props from games
