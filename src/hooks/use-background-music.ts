@@ -10,12 +10,20 @@ export const useBackgroundMusic = (options: BackgroundMusicOptions = {}) => {
   const { enabled = true, volume = 0.1, loop = true } = options;
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const oscillatorsRef = useRef<OscillatorNode[]>([]);
+  const gainNodesRef = useRef<GainNode[]>([]);
 
   // Create ambient background music using Web Audio API
   const createAmbientMusic = useCallback(() => {
     try {
+      // Clean up existing audio context if it exists
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+      
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      audioContextRef.current = audioContext;
       
       // Create multiple oscillators for a rich, ambient sound
       const oscillators: OscillatorNode[] = [];
@@ -60,19 +68,9 @@ export const useBackgroundMusic = (options: BackgroundMusicOptions = {}) => {
         oscillator.start();
       });
 
-      // Store references for cleanup
-      audioRef.current = {
-        pause: () => {
-          oscillators.forEach(osc => osc.stop());
-          setIsPlaying(false);
-        },
-        play: () => {
-          oscillators.forEach(osc => osc.start());
-          setIsPlaying(true);
-        },
-        volume: volume,
-        muted: isMuted
-      } as any;
+      // Store references for cleanup and control
+      oscillatorsRef.current = oscillators;
+      gainNodesRef.current = gainNodes;
 
       return () => {
         oscillators.forEach(osc => {
@@ -100,19 +98,36 @@ export const useBackgroundMusic = (options: BackgroundMusicOptions = {}) => {
   }, [enabled, isMuted, createAmbientMusic]);
 
   const stopMusic = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
+    // Stop all oscillators
+    oscillatorsRef.current.forEach(osc => {
+      try {
+        osc.stop();
+      } catch (e) {
+        // Oscillator might already be stopped
+      }
+    });
+    
+    // Close audio context
+    if (audioContextRef.current) {
+      try {
+        audioContextRef.current.close();
+      } catch (e) {
+        // Context might already be closed
+      }
     }
+    
     setIsPlaying(false);
   }, []);
 
   const toggleMusic = useCallback(() => {
     if (isMuted) {
+      // Unmute - start music
       setIsMuted(false);
       if (enabled) {
         startMusic();
       }
     } else {
+      // Mute - stop music
       setIsMuted(true);
       stopMusic();
     }

@@ -4,7 +4,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useSync } from "@/hooks/use-sync";
-import { useBackgroundMusic } from "@/hooks/use-background-music";
 import Index from "./pages/Index";
 import Admin from "./pages/Admin";
 import PredictionDetail from "./pages/PredictionDetail";
@@ -52,9 +51,6 @@ const SyncProvider = ({ children }: { children: React.ReactNode }) => {
 };
 
 const App = () => {
-  // Initialize background music
-  useBackgroundMusic({ enabled: true, volume: 0.05 });
-
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
