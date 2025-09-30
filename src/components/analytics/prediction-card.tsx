@@ -54,12 +54,14 @@ export const PredictionCard = ({
   };
 
   return (
-    <Card className="p-6 hover:shadow-card-hover transition-all duration-300 hover:scale-[1.02] group bg-gradient-card border-border/50">
+    <Card className="p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30">
       <div className="space-y-4">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between animate-fade-in">
           <div className="flex items-center gap-3">
-            <SportIcon sport={sport as any} size="lg" />
+            <div className="group-hover:scale-110 transition-transform duration-300">
+              <SportIcon sport={sport as any} size="lg" />
+            </div>
             <div>
               <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
                 {player}
@@ -69,24 +71,24 @@ export const PredictionCard = ({
               </p>
             </div>
           </div>
-          <Badge variant={getStatusColor() as any} className="gap-1">
+          <Badge variant={getStatusColor() as any} className="gap-1 hover-scale">
             {getStatusIcon()}
             {status === 'pending' ? `${confidence}%` : status.toUpperCase()}
           </Badge>
         </div>
 
         {/* Prediction */}
-        <div className="bg-muted/30 rounded-lg p-4 border border-border/30">
+        <div className="bg-muted/30 rounded-lg p-4 border border-border/30 group-hover:border-primary/30 transition-all duration-300 animate-slide-up" style={{ animationDelay: '50ms' }}>
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-foreground">{prop}</span>
             <span className="text-sm font-mono text-muted-foreground">{odds}</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-lg font-bold text-foreground">{line}</span>
+            <span className="text-lg font-bold text-foreground group-hover:scale-110 transition-transform">{line}</span>
             <Badge 
               variant={prediction === 'over' ? 'default' : 'secondary'} 
               className={cn(
-                'font-semibold',
+                'font-semibold hover-scale',
                 prediction === 'over' ? 'bg-gradient-primary' : 'bg-secondary'
               )}
             >
@@ -96,11 +98,15 @@ export const PredictionCard = ({
         </div>
 
         {/* Key Factors */}
-        <div className="space-y-2">
+        <div className="space-y-2 animate-slide-up" style={{ animationDelay: '100ms' }}>
           <h4 className="text-sm font-medium text-foreground">Key Factors & H2H Stats</h4>
           <div className="grid grid-cols-1 gap-2">
             {factors.slice(0, 6).map((factor, index) => (
-              <div key={index} className="flex items-center justify-between text-xs">
+              <div 
+                key={index} 
+                className="flex items-center justify-between text-xs animate-fade-in"
+                style={{ animationDelay: `${150 + index * 30}ms` }}
+              >
                 <span className="text-muted-foreground">{factor.name}</span>
                 <div className="flex items-center gap-1">
                   <span className={cn(
@@ -121,19 +127,22 @@ export const PredictionCard = ({
         </div>
 
         {/* Confidence Bar */}
-        <div className="space-y-1">
+        <div className="space-y-1 animate-scale-in" style={{ animationDelay: '200ms' }}>
           <div className="flex justify-between text-xs">
             <span className="text-muted-foreground">Confidence</span>
             <span className="font-mono text-foreground">{confidence}%</span>
           </div>
-          <div className="w-full bg-muted/50 rounded-full h-2">
+          <div className="w-full bg-muted/50 rounded-full h-2 overflow-hidden">
             <div 
               className={cn(
-                'h-2 rounded-full transition-all duration-500',
+                'h-2 rounded-full transition-all duration-1000 ease-out',
                 confidence >= 80 ? 'bg-gradient-success' : 
                 confidence >= 60 ? 'bg-gradient-accent' : 'bg-secondary'
               )}
-              style={{ width: `${confidence}%` }}
+              style={{ 
+                width: `${confidence}%`,
+                animation: 'scale-in 0.8s ease-out 0.3s both'
+              }}
             />
           </div>
         </div>

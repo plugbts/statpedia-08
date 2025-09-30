@@ -304,7 +304,7 @@ const Index = () => {
   const renderDashboard = () => (
     <div className="space-y-8">
       {/* Hero Section */}
-      <div className="relative overflow-hidden rounded-xl bg-gradient-card border border-border/50">
+      <div className="relative overflow-hidden rounded-xl bg-gradient-card border border-border/50 animate-fade-in">
         <div className="absolute inset-0">
           <img 
             src={heroImage} 
@@ -315,12 +315,12 @@ const Index = () => {
         </div>
         <div className="relative p-8 lg:p-12">
           <div className="max-w-3xl">
-            <div className="flex items-center gap-2 mb-4">
-              <Badge variant="default" className="bg-gradient-primary">
+            <div className="flex items-center gap-2 mb-4 animate-slide-up">
+              <Badge variant="default" className="bg-gradient-primary hover-scale">
                 <Zap className="w-3 h-3 mr-1" />
                 LIVE ANALYTICS
               </Badge>
-              <Badge variant="secondary">
+              <Badge variant="secondary" className="hover-scale">
                 <BarChart3 className="w-3 h-3 mr-1" />
                 BACKTESTED
               </Badge>
@@ -328,20 +328,20 @@ const Index = () => {
             <h1 className="text-4xl lg:text-6xl font-display font-bold text-foreground mb-4 animate-fade-in">
               Welcome to Statpedia
               <br />
-              <span className="bg-gradient-primary bg-clip-text text-transparent animate-hologram">
+              <span className="bg-gradient-primary bg-clip-text text-transparent animate-scale-in" style={{ animationDelay: '100ms' }}>
                 {user.user_metadata?.display_name || user.email?.split('@')[0]}
               </span>
             </h1>
-            <p className="text-xl text-muted-foreground mb-6 animate-slide-up font-body">
+            <p className="text-xl text-muted-foreground mb-6 animate-slide-up font-body" style={{ animationDelay: '150ms' }}>
               AI-powered predictions with 73.4% accuracy across 50,000+ backtested games.
               Experience the future of sports analytics.
             </p>
             <div className="flex items-center gap-4 animate-slide-up" style={{ animationDelay: '200ms' }}>
-              <Button size="lg" variant="premium" className="shadow-glow hover:animate-neon-pulse">
-                <TrendingUp className="w-4 h-4 mr-2" />
+              <Button size="lg" variant="premium" className="shadow-glow hover-scale group">
+                <TrendingUp className="w-4 h-4 mr-2 transition-transform group-hover:translate-y-[-2px]" />
                 View Today's Picks
               </Button>
-              <Button variant="outline" size="lg" className="glass-morphism">
+              <Button variant="outline" size="lg" className="glass-morphism hover-scale">
                 Backtest Results
               </Button>
             </div>
@@ -368,20 +368,25 @@ const Index = () => {
       />
 
       {/* Today's Top Predictions */}
-      <div className="space-y-6">
+      <div className="space-y-6 animate-fade-in" style={{ animationDelay: '300ms' }}>
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold text-foreground">Today's Top Predictions</h2>
-          <Badge variant="default" className="bg-gradient-accent">
+          <Badge variant="default" className="bg-gradient-accent hover-scale">
             <TrendingUp className="w-3 h-3 mr-1" />
             12 ACTIVE
           </Badge>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
           {mockPredictions.map((prediction, index) => (
-            <PredictionCard
+            <div 
               key={index}
-              {...prediction}
-            />
+              className="animate-scale-in"
+              style={{ animationDelay: `${400 + index * 100}ms` }}
+            >
+              <PredictionCard
+                {...prediction}
+              />
+            </div>
           ))}
         </div>
       </div>

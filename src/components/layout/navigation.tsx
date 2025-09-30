@@ -39,40 +39,45 @@ export const Navigation = ({ activeTab, onTabChange, userEmail, displayName, onL
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center shadow-glow animate-neon-pulse">
+          <div className="flex items-center gap-3 animate-fade-in">
+            <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center shadow-glow hover-scale">
               <BarChart3 className="w-5 h-5 text-white" />
             </div>
-            <h1 className="text-xl font-display font-bold text-foreground animate-hologram">Statpedia</h1>
+            <h1 className="text-xl font-display font-bold text-foreground">Statpedia</h1>
           </div>
 
           {/* Main Navigation */}
           <div className="flex items-center gap-1">
-            {navItems.map((item) => (
-              <Button
+            {navItems.map((item, index) => (
+              <div
                 key={item.id}
-                variant={activeTab === item.id ? "default" : "ghost"}
-                size="sm"
-                onClick={() => onTabChange(item.id)}
-                className={cn(
-                  "gap-2 relative transition-all duration-300 font-heading hover-3d",
-                  activeTab === item.id && "bg-gradient-primary shadow-glow animate-neon-pulse"
-                )}
+                className="animate-fade-in"
+                style={{ animationDelay: `${index * 50}ms` }}
               >
-                {item.icon}
-                {item.label}
-                {item.badge && (
-                  <Badge variant="secondary" className="ml-1 text-xs">
-                    {item.badge}
-                  </Badge>
-                )}
-              </Button>
+                <Button
+                  variant={activeTab === item.id ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => onTabChange(item.id)}
+                  className={cn(
+                    "gap-2 relative transition-all duration-300 font-heading hover-scale",
+                    activeTab === item.id && "bg-gradient-primary shadow-glow"
+                  )}
+                >
+                  {item.icon}
+                  {item.label}
+                  {item.badge && (
+                    <Badge variant="secondary" className="ml-1 text-xs animate-scale-in">
+                      {item.badge}
+                    </Badge>
+                  )}
+                </Button>
+              </div>
             ))}
           </div>
 
           {/* User Profile and Logout */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3 animate-fade-in" style={{ animationDelay: '300ms' }}>
+            <div className="flex items-center gap-2 hover-scale cursor-pointer">
               <Avatar className="h-8 w-8 border-2 border-primary/20">
                 <AvatarFallback className="bg-gradient-primary text-white text-sm">
                   {displayName?.[0]?.toUpperCase() || userEmail?.[0]?.toUpperCase() || 'U'}
@@ -89,7 +94,7 @@ export const Navigation = ({ activeTab, onTabChange, userEmail, displayName, onL
                 onClick={onLogout}
                 variant="ghost"
                 size="sm"
-                className="gap-2 text-muted-foreground hover:text-foreground"
+                className="gap-2 text-muted-foreground hover:text-foreground hover-scale"
               >
                 <LogOut className="h-4 w-4" />
                 <span className="hidden md:inline">Logout</span>
@@ -99,7 +104,7 @@ export const Navigation = ({ activeTab, onTabChange, userEmail, displayName, onL
         </div>
 
         {/* Sports Filter */}
-        <div className="flex items-center justify-center gap-1 py-2">
+        <div className="flex items-center justify-center gap-1 py-2 animate-slide-up" style={{ animationDelay: '150ms' }}>
           <div className="flex items-center gap-1">
             {sports.map((sport) => (
               <Button
@@ -108,7 +113,7 @@ export const Navigation = ({ activeTab, onTabChange, userEmail, displayName, onL
                 size="sm"
                 onClick={() => onTabChange(sport.id)}
                 className={cn(
-                  "gap-2 transition-all duration-200 hover:bg-card-hover",
+                  "gap-2 transition-all duration-200 hover:bg-card-hover hover-scale",
                   activeTab === sport.id && "bg-secondary"
                 )}
               >
