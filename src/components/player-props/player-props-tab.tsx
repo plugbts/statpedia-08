@@ -5,24 +5,131 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { TrendingUp, Search, Filter, Eye, EyeOff, BarChart3, RefreshCw, AlertCircle } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Slider } from '@/components/ui/slider';
+import { 
+  TrendingUp, 
+  Search, 
+  Filter, 
+  Eye, 
+  EyeOff, 
+  BarChart3, 
+  RefreshCw, 
+  AlertCircle,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Check,
+  ExternalLink,
+  Bookmark,
+  BookmarkCheck,
+  Settings,
+  Save,
+  Download,
+  Upload
+} from 'lucide-react';
 import { PlayerPropCard } from './player-prop-card';
 import { usePlayerProps } from '@/hooks/use-sports-data';
 import { useOddsAPI } from '@/hooks/use-odds-api';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 interface PlayerPropsTabProps {
   userSubscription: string;
   userRole?: string;
 }
 
+interface PlayerProp {
+  id: string;
+  sport: string;
+  playerName: string;
+  team: string;
+  opponent: string;
+  propType: string;
+  line: number;
+  hitRate: number;
+  gamesTracked: number;
+  odds: string;
+  probability: number;
+  opponentRank: number;
+  streak: number;
+  last5: number;
+  last10: number;
+  last20: number;
+  h2h: number;
+  year: number;
+  sportsbooks: string[];
+  isAltProp?: boolean;
+}
+
+interface FilterSettings {
+  sortBy: string;
+  sortOrder: 'asc' | 'desc';
+  showAltProps: boolean;
+  overUnder: 'all' | 'over' | 'under';
+  minOdds: number;
+  maxOdds: number;
+  minHitRate: number;
+  maxHitRate: number;
+  sportsbooks: string[];
+}
+
+interface MyPick {
+  id: string;
+  prop: PlayerProp;
+  addedAt: Date;
+}
+
+const SPORTSBOOKS = [
+  { id: 'fanduel', name: 'FanDuel', icon: '🎯', color: 'bg-green-500' },
+  { id: 'caesars', name: 'Caesars', icon: '👑', color: 'bg-purple-500' },
+  { id: 'draftkings', name: 'DraftKings', icon: '🏆', color: 'bg-blue-500' },
+  { id: 'hardrock', name: 'Hard Rock Bet', icon: '🎸', color: 'bg-orange-500' },
+  { id: 'prizepicks', name: 'PrizePicks', icon: '🎁', color: 'bg-pink-500' },
+  { id: 'sleeper', name: 'Sleeper', icon: '😴', color: 'bg-indigo-500' },
+  { id: 'underdog', name: 'Underdog', icon: '🐕', color: 'bg-yellow-500' },
+  { id: 'bet365', name: 'Bet365', icon: '💎', color: 'bg-emerald-500' },
+  { id: 'betmgm', name: 'BetMGM', icon: '🎰', color: 'bg-red-500' },
+  { id: 'espnbet', name: 'ESPN Bet', icon: '📺', color: 'bg-orange-600' },
+];
+
+const SORT_OPTIONS = [
+  { value: 'line', label: 'Line' },
+  { value: 'odds', label: 'Odds' },
+  { value: 'probability', label: 'Probability' },
+  { value: 'opponentRank', label: 'Opponent Rank' },
+  { value: 'streak', label: 'Streak' },
+  { value: 'last5', label: 'Last 5' },
+  { value: 'last10', label: 'Last 10' },
+  { value: 'last20', label: 'Last 20' },
+  { value: 'h2h', label: 'H2H' },
+  { value: 'year', label: 'Year' },
+  { value: 'hitRate', label: 'Hit Rate' },
+];
+
 export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription, userRole = 'user' }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sportFilter, setSportFilter] = useState('nba');
   const [propTypeFilter, setPropTypeFilter] = useState('all');
   const [selectedProps, setSelectedProps] = useState<string[]>([]);
-  const [realProps, setRealProps] = useState<any[]>([]);
+  const [realProps, setRealProps] = useState<PlayerProp[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
+  const [showFilterDialog, setShowFilterDialog] = useState(false);
+  const [myPicks, setMyPicks] = useState<MyPick[]>([]);
+  const [showMyPicks, setShowMyPicks] = useState(false);
+
+  const [filterSettings, setFilterSettings] = useState<FilterSettings>({
+    sortBy: 'probability',
+    sortOrder: 'desc',
+    showAltProps: true,
+    overUnder: 'all',
+    minOdds: -200,
+    maxOdds: 500,
+    minHitRate: 0,
+    maxHitRate: 100,
+    sportsbooks: [],
+  });
 
   const isSubscribed = userRole === 'owner' || userSubscription !== 'free';
   const { fetchInSeasonSports, fetchOdds, loading, error, isSeasonActive } = useOddsAPI();
@@ -36,11 +143,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
     refetch: refetchProps,
   } = usePlayerProps(sportFilter);
 
-  // Use real data from API, fallback to mock data if needed
-  const allPlayerProps = realPlayerProps.length > 0 ? realPlayerProps : [
+  // Generate mock data with all required fields
+  const generateMockProps = (): PlayerProp[] => [
     {
       id: '1',
-      sport: 'nba' as const,
+      sport: 'nba',
       playerName: 'LeBron James',
       team: 'LAL',
       opponent: 'GSW',
@@ -48,591 +155,704 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
       line: 26.5,
       hitRate: 87.3,
       gamesTracked: 23,
-      avgActualValue: 28.2,
       odds: '+110',
-      recentForm: 'Excellent - 4 of last 5 over',
-      homeAway: 'home' as const,
-      injuryStatus: 'Healthy',
-      weatherConditions: 'Indoor',
-      // Advanced metrics
-      potentialAssists: 8.4,
-      potentialRebounds: 7.2,
-      potentialThrees: 2.1,
-      avgMinutes: 35.8,
-      freeThrowAttempts: 5.2,
-      defensiveRating: 108.3,
-      offensiveRating: 118.7,
-      usageRate: 31.2,
-      paceFactor: 102.1,
-      restDays: 1
+      probability: 78.5,
+      opponentRank: 12,
+      streak: 4,
+      last5: 28.2,
+      last10: 27.8,
+      last20: 26.9,
+      h2h: 29.1,
+      year: 2024,
+      sportsbooks: ['fanduel', 'draftkings', 'betmgm'],
+      isAltProp: false,
     },
     {
       id: '2',
-      sport: 'nfl' as const,
-      playerName: 'Josh Allen',
-      team: 'BUF',
-      opponent: 'MIA',
-      propType: 'Passing Yards',
-      line: 267.5,
-      hitRate: 73.9,
-      gamesTracked: 18,
-      avgActualValue: 289.4,
-      odds: '-115',
-      recentForm: 'Good - 3 of last 5 over',
-      homeAway: 'away' as const,
-      injuryStatus: 'Questionable - Shoulder',
-      weatherConditions: 'Dome',
-      // Advanced metrics specific to football
-      potentialAssists: 0, // N/A for QB
-      potentialRebounds: 0, // N/A for QB
-      potentialThrees: 0, // N/A for QB
-      avgMinutes: 0, // Use snaps instead
-      freeThrowAttempts: 0, // N/A for QB
-      defensiveRating: 0, // N/A for QB
-      offensiveRating: 0, // N/A for QB
-      usageRate: 0, // N/A for QB
-      paceFactor: 65.2, // Plays per game
-      restDays: 7
-    },
-    {
-      id: '3',
-      sport: 'nba' as const,
+      sport: 'nba',
       playerName: 'Stephen Curry',
       team: 'GSW',
       opponent: 'LAL',
-      propType: '3-Pointers Made',
-      line: 4.5,
-      hitRate: 92.1,
-      gamesTracked: 19,
-      avgActualValue: 5.2,
+      propType: 'Assists',
+      line: 8.5,
+      hitRate: 72.1,
+      gamesTracked: 25,
       odds: '-120',
-      recentForm: 'Hot - 6 of last 7 over',
-      homeAway: 'away' as const,
-      injuryStatus: 'Healthy',
-      weatherConditions: 'Indoor',
-      potentialAssists: 6.8,
-      potentialRebounds: 4.3,
-      potentialThrees: 5.8,
-      avgMinutes: 34.2,
-      freeThrowAttempts: 3.1,
-      defensiveRating: 112.8,
-      offensiveRating: 125.4,
-      usageRate: 33.7,
-      paceFactor: 103.8,
-      restDays: 2
+      probability: 65.2,
+      opponentRank: 8,
+      streak: 2,
+      last5: 9.1,
+      last10: 8.7,
+      last20: 8.2,
+      h2h: 7.8,
+      year: 2024,
+      sportsbooks: ['fanduel', 'caesars', 'draftkings', 'bet365'],
+      isAltProp: false,
+    },
+    {
+      id: '3',
+      sport: 'nba',
+      playerName: 'Anthony Davis',
+      team: 'LAL',
+      opponent: 'GSW',
+      propType: 'Rebounds',
+      line: 12.5,
+      hitRate: 68.9,
+      gamesTracked: 22,
+      odds: '+105',
+      probability: 71.3,
+      opponentRank: 12,
+      streak: 1,
+      last5: 13.2,
+      last10: 12.8,
+      last20: 12.1,
+      h2h: 14.5,
+      year: 2024,
+      sportsbooks: ['fanduel', 'draftkings', 'hardrock', 'betmgm'],
+      isAltProp: true,
     },
     {
       id: '4',
-      sport: 'nba' as const,
-      playerName: 'Giannis Antetokounmpo',
-      team: 'MIL',
-      opponent: 'PHI',
-      propType: 'Rebounds',
-      line: 10.5,
-      hitRate: 45.2, // Intentionally low for free user limitation
-      gamesTracked: 22,
-      avgActualValue: 11.8,
-      odds: '+105',
-      recentForm: 'Average - 2 of last 5 over',
-      homeAway: 'home' as const,
-      injuryStatus: 'Healthy',
-      weatherConditions: 'Indoor',
-      potentialAssists: 5.9,
-      potentialRebounds: 12.4,
-      potentialThrees: 1.2,
-      avgMinutes: 33.1,
-      freeThrowAttempts: 6.8,
-      defensiveRating: 105.7,
-      offensiveRating: 120.2,
-      usageRate: 36.8,
-      paceFactor: 101.5,
-      restDays: 0
+      sport: 'nba',
+      playerName: 'Klay Thompson',
+      team: 'GSW',
+      opponent: 'LAL',
+      propType: '3-Pointers Made',
+      line: 3.5,
+      hitRate: 81.2,
+      gamesTracked: 24,
+      odds: '+125',
+      probability: 82.1,
+      opponentRank: 8,
+      streak: 3,
+      last5: 4.1,
+      last10: 3.8,
+      last20: 3.6,
+      h2h: 3.2,
+      year: 2024,
+      sportsbooks: ['fanduel', 'caesars', 'prizepicks', 'underdog'],
+      isAltProp: false,
     },
     {
       id: '5',
-      sport: 'nfl' as const,
-      playerName: 'Travis Kelce',
-      team: 'KC',
-      opponent: 'BUF',
-      propType: 'Receiving Yards',
-      line: 67.5,
-      hitRate: 55.8, // Intentionally low for free user limitation
-      gamesTracked: 16,
-      avgActualValue: 78.3,
-      odds: '+100',
-      recentForm: 'Cold - 1 of last 5 over',
-      homeAway: 'home' as const,
-      injuryStatus: 'Healthy',
-      weatherConditions: 'Clear',
-      potentialAssists: 0,
-      potentialRebounds: 0,
-      potentialThrees: 0,
-      avgMinutes: 0,
-      freeThrowAttempts: 0,
-      defensiveRating: 0,
-      offensiveRating: 0,
-      usageRate: 0,
-      paceFactor: 68.9,
-      restDays: 7
-    }
+      sport: 'nba',
+      playerName: 'Russell Westbrook',
+      team: 'LAC',
+      opponent: 'PHX',
+      propType: 'Points',
+      line: 15.5,
+      hitRate: 63.4,
+      gamesTracked: 20,
+      odds: '+140',
+      probability: 58.7,
+      opponentRank: 5,
+      streak: -2,
+      last5: 14.8,
+      last10: 15.2,
+      last20: 15.9,
+      h2h: 16.3,
+      year: 2024,
+      sportsbooks: ['draftkings', 'bet365', 'espnbet'],
+      isAltProp: true,
+    },
   ];
 
-  // Load real data on mount
+  // Load my picks from localStorage
   useEffect(() => {
-    loadRealData();
+    const savedPicks = localStorage.getItem('statpedia_my_picks');
+    if (savedPicks) {
+      try {
+        const parsed = JSON.parse(savedPicks);
+        setMyPicks(parsed.map((pick: any) => ({
+          ...pick,
+          addedAt: new Date(pick.addedAt)
+        })));
+      } catch (error) {
+        console.error('Failed to load my picks:', error);
+      }
+    }
   }, []);
 
-  const loadRealData = async () => {
-    setIsLoadingData(true);
-    try {
-      const sports = await fetchInSeasonSports();
-      console.log('Active sports:', sports);
-      
-      const allProps: any[] = [];
-      
-      // Fetch odds for multiple sports - get ALL games in next 7 days
-      for (const sport of sports.slice(0, 6)) { // Get first 6 active sports
-        const sportKey = sport.key;
-        const odds = await fetchOdds(sportKey);
-        
-        // Transform ALL API data to component format
-        const transformedProps = transformOddsToProps(odds, sportKey);
-        allProps.push(...transformedProps);
+  // Save my picks to localStorage
+  useEffect(() => {
+    localStorage.setItem('statpedia_my_picks', JSON.stringify(myPicks));
+  }, [myPicks]);
+
+  // Load filter settings from localStorage
+  useEffect(() => {
+    const savedFilters = localStorage.getItem('statpedia_prop_filters');
+    if (savedFilters) {
+      try {
+        setFilterSettings(JSON.parse(savedFilters));
+      } catch (error) {
+        console.error('Failed to load filter settings:', error);
       }
+    }
+  }, []);
+
+  // Save filter settings to localStorage
+  useEffect(() => {
+    localStorage.setItem('statpedia_prop_filters', JSON.stringify(filterSettings));
+  }, [filterSettings]);
+
+  // Use real data from API, fallback to mock data if needed
+  const allPlayerProps = realPlayerProps.length > 0 ? realPlayerProps : generateMockProps();
+
+  // Filter and sort props based on current settings
+  const filteredProps = allPlayerProps
+    .filter((prop) => {
+      // Search filter
+      if (searchQuery && !prop.playerName.toLowerCase().includes(searchQuery.toLowerCase())) {
+        return false;
+      }
+
+      // Prop type filter
+      if (propTypeFilter !== 'all' && prop.propType !== propTypeFilter) {
+        return false;
+      }
+
+      // Alt props filter
+      if (!filterSettings.showAltProps && prop.isAltProp) {
+        return false;
+      }
+
+      // Over/Under filter
+      if (filterSettings.overUnder !== 'all') {
+        const isOver = prop.line > 0;
+        if (filterSettings.overUnder === 'over' && !isOver) return false;
+        if (filterSettings.overUnder === 'under' && isOver) return false;
+      }
+
+      // Odds filter
+      const numericOdds = parseInt(prop.odds.replace(/[+-]/, ''));
+      if (numericOdds < filterSettings.minOdds || numericOdds > filterSettings.maxOdds) {
+        return false;
+      }
+
+      // Hit rate filter
+      if (prop.hitRate < filterSettings.minHitRate || prop.hitRate > filterSettings.maxHitRate) {
+        return false;
+      }
+
+      // Sportsbook filter
+      if (filterSettings.sportsbooks.length > 0) {
+        const hasMatchingSportsbook = prop.sportsbooks.some(sb => 
+          filterSettings.sportsbooks.includes(sb)
+        );
+        if (!hasMatchingSportsbook) return false;
+      }
+
+      return true;
+    })
+    .sort((a, b) => {
+      const aValue = a[filterSettings.sortBy as keyof PlayerProp] as number;
+      const bValue = b[filterSettings.sortBy as keyof PlayerProp] as number;
       
-      // Sort by game date
-      allProps.sort((a, b) => {
-        if (!a.gameDate || !b.gameDate) return 0;
-        return new Date(a.gameDate).getTime() - new Date(b.gameDate).getTime();
-      });
-      
-      setRealProps(allProps);
-      
-      if (allProps.length > 0) {
-        toast({
-          title: 'Live Data Loaded',
-          description: `Loaded ${allProps.length} player props from the next 7 days`,
-        });
+      if (filterSettings.sortOrder === 'asc') {
+        return aValue - bValue;
       } else {
+        return bValue - aValue;
+      }
+    });
+
+  const handleToggleMyPick = (prop: PlayerProp) => {
+    const existingPick = myPicks.find(pick => pick.prop.id === prop.id);
+    
+    if (existingPick) {
+      setMyPicks(prev => prev.filter(pick => pick.prop.id !== prop.id));
+      toast({
+        title: "Removed from My Picks",
+        description: `${prop.playerName} ${prop.propType} prop removed`,
+      });
+    } else {
+      const newPick: MyPick = {
+        id: `${prop.id}_${Date.now()}`,
+        prop,
+        addedAt: new Date(),
+      };
+      setMyPicks(prev => [...prev, newPick]);
+      toast({
+        title: "Added to My Picks",
+        description: `${prop.playerName} ${prop.propType} prop added`,
+      });
+    }
+  };
+
+  const handleSportsbookClick = (sportsbookId: string, prop: PlayerProp) => {
+    const sportsbook = SPORTSBOOKS.find(sb => sb.id === sportsbookId);
+    if (sportsbook) {
+      // In a real app, this would redirect to the sportsbook with the specific prop
+      window.open(`https://${sportsbookId}.com/bet/${prop.id}`, '_blank');
+      toast({
+        title: "Redirecting to Sportsbook",
+        description: `Opening ${sportsbook.name} for ${prop.playerName} ${prop.propType}`,
+      });
+    }
+  };
+
+  const handleSaveFilters = () => {
+    localStorage.setItem('statpedia_prop_filters', JSON.stringify(filterSettings));
+    toast({
+      title: "Filters Saved",
+      description: "Your filter settings have been saved",
+    });
+  };
+
+  const handleLoadFilters = () => {
+    const savedFilters = localStorage.getItem('statpedia_prop_filters');
+    if (savedFilters) {
+      try {
+        setFilterSettings(JSON.parse(savedFilters));
         toast({
-          title: 'No Props Available',
-          description: 'No player props found for active sports.',
-          variant: 'destructive'
+          title: "Filters Loaded",
+          description: "Your saved filter settings have been loaded",
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to load saved filters",
+          variant: "destructive",
         });
       }
-    } catch (err) {
-      console.error('Error loading real data:', err);
-      toast({
-        title: 'API Error',
-        description: 'Unable to load live data. Check API configuration.',
-        variant: 'destructive'
-      });
-    } finally {
-      setIsLoadingData(false);
     }
   };
 
-  const transformOddsToProps = (oddsData: any[], sportKey: string) => {
-    // Transform The Odds API data into our prop card format
-    const transformed: any[] = [];
-    
-    const sport = sportKey.includes('basketball') && !sportKey.includes('college') ? 'nba' : 
-                  sportKey.includes('football') && !sportKey.includes('college') ? 'nfl' :
-                  sportKey.includes('hockey') ? 'nhl' :
-                  sportKey.includes('baseball') ? 'mlb' :
-                  sportKey.includes('wnba') ? 'wnba' :
-                  sportKey.includes('college_basketball') ? 'college-basketball' :
-                  sportKey.includes('college_football') ? 'college-football' : 'nba';
-    
-    oddsData.forEach((game: any) => {
-      // Extract team totals as "player props" until we have actual player prop data
-      game.bookmakers?.forEach((bookmaker: any) => {
-        bookmaker.markets?.forEach((market: any) => {
-          if (market.key === 'totals' || market.key === 'spreads') {
-            market.outcomes?.forEach((outcome: any, index: number) => {
-              const isHome = index === 0;
-              transformed.push({
-                id: `${game.id}-${outcome.name}-${market.key}`,
-                sport: sport as any,
-                playerName: outcome.name,
-                team: isHome ? game.home_team : game.away_team,
-                opponent: isHome ? game.away_team : game.home_team,
-                propType: market.key === 'totals' ? 'Team Total Points' : 'Point Spread',
-                line: outcome.point || 0,
-                hitRate: 65 + Math.random() * 25, // Simulated hit rate
-                gamesTracked: 15 + Math.floor(Math.random() * 10),
-                avgActualValue: (outcome.point || 0) + (Math.random() * 4 - 2),
-                odds: outcome.price > 0 ? `+${outcome.price}` : `${outcome.price}`,
-                recentForm: Math.random() > 0.5 ? 'Good form - 4 of last 6' : 'Average - 3 of last 6',
-                homeAway: isHome ? 'home' as const : 'away' as const,
-                injuryStatus: 'Healthy',
-                weatherConditions: sport === 'nfl' ? 'Clear' : 'Indoor',
-                gameDate: game.commence_time, // ISO date from API
-                potentialAssists: 5 + Math.random() * 5,
-                potentialRebounds: 5 + Math.random() * 5,
-                potentialThrees: 2 + Math.random() * 3,
-                avgMinutes: 30 + Math.random() * 8,
-                freeThrowAttempts: 3 + Math.random() * 4,
-                defensiveRating: 105 + Math.random() * 10,
-                offensiveRating: 110 + Math.random() * 15,
-                usageRate: 25 + Math.random() * 15,
-                paceFactor: 98 + Math.random() * 8,
-                restDays: Math.floor(Math.random() * 3)
-              });
-            });
-          }
-        });
-      });
-    });
-    
-    return transformed.slice(0, 100); // Limit to 100 props per sport for performance
+  const getSportsbookIcon = (sportsbookId: string) => {
+    const sportsbook = SPORTSBOOKS.find(sb => sb.id === sportsbookId);
+    return sportsbook ? sportsbook.icon : '🎯';
   };
 
-  // Filter props based on subscription
-  const getVisibleProps = () => {
-    // Use only real props from API
-    let filtered = realProps;
-
-    // Filter out inactive seasons
-    filtered = filtered.filter(prop => isSeasonActive(prop.sport));
-
-    // Filter out injured players (questionable, out, doubtful)
-    filtered = filtered.filter(prop => {
-      const status = prop.injuryStatus.toLowerCase();
-      return !status.includes('out') && !status.includes('doubtful');
-    });
-
-    // Apply search filter
-    if (searchQuery) {
-      filtered = filtered.filter(prop => 
-        prop.playerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        prop.team.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        prop.propType.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    // Apply sport filter
-    if (sportFilter !== 'all') {
-      filtered = filtered.filter(prop => prop.sport === sportFilter);
-    }
-
-    // Apply prop type filter
-    if (propTypeFilter !== 'all') {
-      filtered = filtered.filter(prop => prop.propType.toLowerCase().includes(propTypeFilter.toLowerCase()));
-    }
-
-    // For free users, limit visibility and accuracy
-    if (!isSubscribed) {
-      // Only show first 2 props
-      filtered = filtered.slice(0, 2);
-      
-      // Cap hit rate at 65%
-      filtered = filtered.map(prop => ({
-        ...prop,
-        hitRate: Math.min(prop.hitRate, 65)
-      }));
-    }
-
-    return filtered;
+  const getSportsbookColor = (sportsbookId: string) => {
+    const sportsbook = SPORTSBOOKS.find(sb => sb.id === sportsbookId);
+    return sportsbook ? sportsbook.color : 'bg-gray-500';
   };
 
-  const visibleProps = getVisibleProps();
-  const totalProps = realProps.filter(prop => 
-    isSeasonActive(prop.sport) && 
-    !prop.injuryStatus.toLowerCase().includes('out') &&
-    !prop.injuryStatus.toLowerCase().includes('doubtful')
-  ).length;
-  const hiddenCount = totalProps - (isSubscribed ? totalProps : 2);
-
-  const togglePropSelection = (propId: string) => {
-    setSelectedProps(prev => 
-      prev.includes(propId) 
-        ? prev.filter(id => id !== propId)
-        : [...prev, propId]
+  if (propsLoading || isLoadingData) {
+    return (
+      <div className="space-y-8">
+        <div className="text-center py-12">
+          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading player props...</p>
+        </div>
+      </div>
     );
-  };
-
-  const getDeepAnalysis = () => {
-    const selected = realProps.filter(prop => selectedProps.includes(prop.id));
-    
-    if (selected.length === 0) {
-      return "Select player props to see detailed analysis";
-    }
-
-    return selected.map(prop => `
-**${prop.playerName} - ${prop.propType} (${prop.line})**
-- Current Form: ${prop.recentForm}
-- Hit Rate: ${prop.hitRate}% over ${prop.gamesTracked} games
-- Average Actual: ${prop.avgActualValue}
-- Potential Assists: ${prop.potentialAssists}
-- Potential Rebounds: ${prop.potentialRebounds}
-- Minutes Per Game: ${prop.avgMinutes}
-- Usage Rate: ${prop.usageRate}%
-- Pace Factor: ${prop.paceFactor}
-- Rest Days: ${prop.restDays}
-- Injury Status: ${prop.injuryStatus}
-    `).join('\n\n');
-  };
+  }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-gradient-card border border-border/50 rounded-xl p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Badge variant="default" className="bg-gradient-primary">
-                <BarChart3 className="w-3 h-3 mr-1" />
-                PLAYER PROPS
-              </Badge>
-              {realProps.length > 0 && (
-                <Badge variant="default" className="bg-gradient-success">
-                  LIVE DATA
-                </Badge>
-              )}
-              {!isSubscribed && (
-                <Badge variant="default" className="bg-gradient-accent">
-                  <EyeOff className="w-3 h-3 mr-1" />
-                  LIMITED ACCESS
-                </Badge>
-              )}
-            </div>
-            <h1 className="text-2xl font-bold text-foreground">
-              Player Props Analysis
-            </h1>
-            <p className="text-muted-foreground">
-              {isSubscribed 
-                ? `Comprehensive analysis of ${totalProps} player props from the next 7 days. Only showing active seasons and healthy players.`
-                : `Showing 2 of ${totalProps} props. Upgrade to see all with full analysis.`
-              }
-            </p>
-            {error && (
-              <div className="flex items-center gap-2 mt-2 text-sm text-warning">
-                <AlertCircle className="w-4 h-4" />
-                <span>Using sample data - {error}</span>
-              </div>
-            )}
-          </div>
-          <div className="text-right">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={loadRealData}
-              disabled={isLoadingData}
-              className="mb-2"
-            >
-              {isLoadingData ? (
-                <>
-                  <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
-                  Loading...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="w-3 h-3 mr-1" />
-                  Refresh
-                </>
-              )}
-            </Button>
-            <div className="text-2xl font-bold text-success">
-              {isSubscribed ? totalProps : 2}
-            </div>
-            <div className="text-sm text-muted-foreground">
-              Available Props
-            </div>
-          </div>
+      {/* Header with My Picks Toggle */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Player Props</h1>
+          <p className="text-muted-foreground">
+            Advanced player prop analysis and filtering
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={showMyPicks ? "default" : "outline"}
+            onClick={() => setShowMyPicks(!showMyPicks)}
+            className="gap-2"
+          >
+            {showMyPicks ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
+            My Picks ({myPicks.length})
+          </Button>
         </div>
       </div>
 
-      {/* Filters */}
-      <Card className="bg-gradient-card border-border/50">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="h-5 w-5" />
-            Filters & Search
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search players, teams..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-                disabled={!isSubscribed}
-              />
-            </div>
-            
-            <Select value={sportFilter} onValueChange={setSportFilter} disabled={!isSubscribed}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Sports" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Sports</SelectItem>
-                <SelectItem value="nba">NBA</SelectItem>
-                <SelectItem value="nfl">NFL</SelectItem>
-                <SelectItem value="nhl">NHL</SelectItem>
-                <SelectItem value="mlb">MLB</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={propTypeFilter} onValueChange={setPropTypeFilter} disabled={!isSubscribed}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Prop Types" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Props</SelectItem>
-                <SelectItem value="points">Points</SelectItem>
-                <SelectItem value="rebounds">Rebounds</SelectItem>
-                <SelectItem value="assists">Assists</SelectItem>
-                <SelectItem value="yards">Yards</SelectItem>
-                <SelectItem value="three">3-Pointers</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setSearchQuery('');
-                setSportFilter('all');
-                setPropTypeFilter('all');
-              }}
-              disabled={!isSubscribed}
-            >
-              Clear Filters
-            </Button>
+      {/* Search and Filters */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex-1">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+            <Input
+              placeholder="Search players..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Player Props Grid */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-foreground">
-            Available Player Props
-          </h2>
-          {selectedProps.length > 0 && (
-            <Badge variant="default" className="bg-gradient-success">
-              <Eye className="w-3 h-3 mr-1" />
-              {selectedProps.length} SELECTED
-            </Badge>
-          )}
         </div>
+        
+        <div className="flex gap-2">
+          <Select value={sportFilter} onValueChange={setSportFilter}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="nba">NBA</SelectItem>
+              <SelectItem value="nfl">NFL</SelectItem>
+              <SelectItem value="mlb">MLB</SelectItem>
+              <SelectItem value="nhl">NHL</SelectItem>
+            </SelectContent>
+          </Select>
 
-        {propsLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="flex items-center gap-2">
-              <RefreshCw className="h-5 w-5 animate-spin" />
-              <span className="text-muted-foreground">Loading player props...</span>
-            </div>
-          </div>
-        ) : propsError ? (
-          <div className="text-center py-12">
-            <p className="text-red-500 mb-4">Error loading player props: {propsError}</p>
-            <Button onClick={refetchProps} variant="outline">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Retry
-            </Button>
-          </div>
-        ) : visibleProps.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground mb-4">No player props available for {sportFilter.toUpperCase()}</p>
-            <Button onClick={refetchProps} variant="outline">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {visibleProps.map((prop) => (
-              <PlayerPropCard
-                key={prop.id}
-                {...prop}
-                isSubscribed={isSubscribed}
-                isSelected={selectedProps.includes(prop.id)}
-                onToggleSelect={() => togglePropSelection(prop.id)}
-              />
-            ))}
-          </div>
-        )}
+          <Select value={propTypeFilter} onValueChange={setPropTypeFilter}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Props</SelectItem>
+              <SelectItem value="Points">Points</SelectItem>
+              <SelectItem value="Assists">Assists</SelectItem>
+              <SelectItem value="Rebounds">Rebounds</SelectItem>
+              <SelectItem value="3-Pointers Made">3-Pointers</SelectItem>
+            </SelectContent>
+          </Select>
 
-        {/* Upgrade prompt for free users */}
-        {!isSubscribed && hiddenCount > 0 && (
-          <Card className="bg-gradient-card border-warning border-2">
-            <CardContent className="p-6 text-center">
-              <div className="space-y-4">
-                <div className="blur-sm">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {Array.from({ length: 2 }).map((_, i) => (
-                      <div key={i} className="h-40 bg-muted rounded-lg flex items-center justify-center">
-                        <div className="text-muted-foreground">Player Prop {i + 3}</div>
+          <Dialog open={showFilterDialog} onOpenChange={setShowFilterDialog}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <Filter className="w-4 h-4" />
+                Filters
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Filter Settings</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-6">
+                {/* Sort Settings */}
+                <div className="space-y-3">
+                  <h3 className="font-semibold">Sort By</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Select 
+                      value={filterSettings.sortBy} 
+                      onValueChange={(value) => setFilterSettings(prev => ({ ...prev, sortBy: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SORT_OPTIONS.map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select 
+                      value={filterSettings.sortOrder} 
+                      onValueChange={(value: 'asc' | 'desc') => setFilterSettings(prev => ({ ...prev, sortOrder: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="asc">Ascending</SelectItem>
+                        <SelectItem value="desc">Descending</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Alt Props Toggle */}
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="altProps"
+                    checked={filterSettings.showAltProps}
+                    onCheckedChange={(checked) => setFilterSettings(prev => ({ ...prev, showAltProps: !!checked }))}
+                  />
+                  <label htmlFor="altProps" className="text-sm font-medium">
+                    Show Alternative Props
+                  </label>
+                </div>
+
+                {/* Over/Under Filter */}
+                <div className="space-y-3">
+                  <h3 className="font-semibold">Over/Under</h3>
+                  <Select 
+                    value={filterSettings.overUnder} 
+                    onValueChange={(value: 'all' | 'over' | 'under') => setFilterSettings(prev => ({ ...prev, overUnder: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="over">Over Only</SelectItem>
+                      <SelectItem value="under">Under Only</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Odds Range */}
+                <div className="space-y-3">
+                  <h3 className="font-semibold">Odds Range</h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>Min: {filterSettings.minOdds}</span>
+                      <span>Max: {filterSettings.maxOdds}</span>
+                    </div>
+                    <Slider
+                      value={[filterSettings.minOdds, filterSettings.maxOdds]}
+                      onValueChange={([min, max]) => setFilterSettings(prev => ({ ...prev, minOdds: min, maxOdds: max }))}
+                      min={-500}
+                      max={1000}
+                      step={10}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+
+                {/* Hit Rate Range */}
+                <div className="space-y-3">
+                  <h3 className="font-semibold">Hit Rate Range</h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>Min: {filterSettings.minHitRate}%</span>
+                      <span>Max: {filterSettings.maxHitRate}%</span>
+                    </div>
+                    <Slider
+                      value={[filterSettings.minHitRate, filterSettings.maxHitRate]}
+                      onValueChange={([min, max]) => setFilterSettings(prev => ({ ...prev, minHitRate: min, maxHitRate: max }))}
+                      min={0}
+                      max={100}
+                      step={1}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+
+                {/* Sportsbook Filter */}
+                <div className="space-y-3">
+                  <h3 className="font-semibold">Sportsbooks</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    {SPORTSBOOKS.map(sportsbook => (
+                      <div key={sportsbook.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={sportsbook.id}
+                          checked={filterSettings.sportsbooks.includes(sportsbook.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setFilterSettings(prev => ({
+                                ...prev,
+                                sportsbooks: [...prev.sportsbooks, sportsbook.id]
+                              }));
+                            } else {
+                              setFilterSettings(prev => ({
+                                ...prev,
+                                sportsbooks: prev.sportsbooks.filter(id => id !== sportsbook.id)
+                              }));
+                            }
+                          }}
+                        />
+                        <label htmlFor={sportsbook.id} className="text-sm font-medium flex items-center gap-2">
+                          <span className={cn("w-4 h-4 rounded text-white text-xs flex items-center justify-center", sportsbook.color)}>
+                            {sportsbook.icon}
+                          </span>
+                          {sportsbook.name}
+                        </label>
                       </div>
                     ))}
                   </div>
                 </div>
-                
-                <div className="space-y-2">
-                  <h3 className="text-lg font-bold text-foreground">
-                    {hiddenCount} More Props Available
-                  </h3>
-                  <p className="text-muted-foreground">
-                    Upgrade to Pro or Premium to access all player props with full analysis
-                  </p>
-                  <Button className="bg-gradient-primary hover:shadow-glow">
-                    <TrendingUp className="w-4 h-4 mr-2" />
-                    Upgrade Now
+
+                {/* Save/Load Buttons */}
+                <div className="flex gap-2 pt-4">
+                  <Button onClick={handleSaveFilters} className="gap-2">
+                    <Save className="w-4 h-4" />
+                    Save Filters
+                  </Button>
+                  <Button onClick={handleLoadFilters} variant="outline" className="gap-2">
+                    <Download className="w-4 h-4" />
+                    Load Filters
                   </Button>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        )}
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
-      {/* Deep Analysis Section */}
-      {selectedProps.length > 0 && (
-        <Card className={`bg-gradient-card border-border/50 ${!isSubscribed ? 'opacity-50' : ''}`}>
+      {/* Sort Bar */}
+      <div className="flex items-center gap-2 p-2 bg-muted/30 rounded-lg">
+        <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
+        <span className="text-sm font-medium text-muted-foreground">Sort by:</span>
+        <div className="flex gap-1">
+          {SORT_OPTIONS.map(option => (
+            <Button
+              key={option.value}
+              variant={filterSettings.sortBy === option.value ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setFilterSettings(prev => ({ ...prev, sortBy: option.value }))}
+              className="text-xs"
+            >
+              {option.label}
+              {filterSettings.sortBy === option.value && (
+                filterSettings.sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 ml-1" /> : <ArrowDown className="w-3 h-3 ml-1" />
+              )}
+            </Button>
+          ))}
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setFilterSettings(prev => ({ 
+            ...prev, 
+            sortOrder: prev.sortOrder === 'asc' ? 'desc' : 'asc' 
+          }))}
+          className="ml-auto"
+        >
+          {filterSettings.sortOrder === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
+        </Button>
+      </div>
+
+      {/* My Picks Bar */}
+      {showMyPicks && (
+        <Card className="bg-gradient-card border-border/50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
-              Deep Analysis
-              {!isSubscribed && (
-                <Badge variant="outline" className="border-warning">
-                  <EyeOff className="w-3 h-3 mr-1" />
-                  Pro Feature
-                </Badge>
-              )}
+              <BookmarkCheck className="w-5 h-5" />
+              My Picks ({myPicks.length})
             </CardTitle>
-            <CardDescription>
-              Comprehensive breakdown of selected player props
-            </CardDescription>
           </CardHeader>
           <CardContent>
-            {isSubscribed ? (
-              <div className="space-y-4">
-                <pre className="whitespace-pre-wrap text-sm text-foreground bg-muted/50 p-4 rounded-lg">
-                  {getDeepAnalysis()}
-                </pre>
-              </div>
+            {myPicks.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">No picks added yet</p>
             ) : (
-              <div className="text-center py-8 space-y-4">
-                <div className="blur-sm">
-                  <div className="h-32 bg-muted/50 rounded-lg flex items-center justify-center">
-                    <div className="text-muted-foreground">Deep Analysis Content</div>
+              <div className="space-y-3">
+                {myPicks.map(pick => (
+                  <div key={pick.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div>
+                        <p className="font-medium">{pick.prop.playerName} {pick.prop.propType}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {pick.prop.team} vs {pick.prop.opponent} • Line: {pick.prop.line} • Odds: {pick.prop.odds}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex gap-1">
+                        {pick.prop.sportsbooks.map(sportsbookId => (
+                          <Button
+                            key={sportsbookId}
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleSportsbookClick(sportsbookId, pick.prop)}
+                            className="gap-1"
+                          >
+                            <span className={cn("w-3 h-3 rounded text-white text-xs flex items-center justify-center", getSportsbookColor(sportsbookId))}>
+                              {getSportsbookIcon(sportsbookId)}
+                            </span>
+                            <ExternalLink className="w-3 h-3" />
+                          </Button>
+                        ))}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleToggleMyPick(pick.prop)}
+                        className="text-destructive"
+                      >
+                        Remove
+                      </Button>
+                    </div>
                   </div>
-                </div>
-                <p className="text-muted-foreground">
-                  Upgrade to unlock detailed analysis for selected props
-                </p>
-                <Button className="bg-gradient-primary hover:shadow-glow">
-                  <TrendingUp className="w-4 h-4 mr-2" />
-                  Upgrade to Pro
-                </Button>
+                ))}
               </div>
             )}
           </CardContent>
         </Card>
+      )}
+
+      {/* Props Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+        {filteredProps.map((prop) => (
+          <Card key={prop.id} className={cn(
+            "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer relative",
+            !isSubscribed && "blur-sm"
+          )}>
+            {!isSubscribed && (
+              <div className="absolute inset-0 bg-gradient-to-br from-background/80 to-background/60 backdrop-blur-sm rounded-lg flex items-center justify-center z-10">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <TrendingUp className="w-6 h-6 text-primary" />
+                  </div>
+                  <p className="text-sm font-medium text-foreground">Premium Content</p>
+                  <p className="text-xs text-muted-foreground">Subscribe to view props</p>
+                </div>
+              </div>
+            )}
+            
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="font-semibold text-foreground">{prop.playerName}</h3>
+                <p className="text-sm text-muted-foreground">{prop.team} vs {prop.opponent}</p>
+                <p className="text-lg font-bold text-primary">{prop.propType}: {prop.line}</p>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleToggleMyPick(prop)}
+                  className="p-1"
+                >
+                  {myPicks.some(pick => pick.prop.id === prop.id) ? (
+                    <BookmarkCheck className="w-4 h-4 text-primary" />
+                  ) : (
+                    <Bookmark className="w-4 h-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Odds</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{prop.odds}</span>
+                  <div className="flex gap-1">
+                    {prop.sportsbooks.map(sportsbookId => (
+                      <Button
+                        key={sportsbookId}
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleSportsbookClick(sportsbookId, prop)}
+                        className="p-1 h-6 w-6"
+                      >
+                        <span className={cn("w-3 h-3 rounded text-white text-xs flex items-center justify-center", getSportsbookColor(sportsbookId))}>
+                          {getSportsbookIcon(sportsbookId)}
+                        </span>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Hit Rate</span>
+                <span className="font-medium">{prop.hitRate}%</span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Probability</span>
+                <span className="font-medium">{prop.probability}%</span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Streak</span>
+                <span className={cn("font-medium", prop.streak > 0 ? "text-green-500" : prop.streak < 0 ? "text-red-500" : "text-muted-foreground")}>
+                  {prop.streak > 0 ? `+${prop.streak}` : prop.streak}
+                </span>
+              </div>
+
+              {prop.isAltProp && (
+                <Badge variant="secondary" className="w-fit">
+                  Alt Prop
+                </Badge>
+              )}
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {filteredProps.length === 0 && (
+        <div className="text-center py-12">
+          <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-foreground mb-2">No props found</h3>
+          <p className="text-muted-foreground">Try adjusting your filters or search query</p>
+        </div>
       )}
     </div>
   );
