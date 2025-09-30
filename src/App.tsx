@@ -158,7 +158,10 @@ const App = () => {
               <Route path="/admin" element={<Admin />} />
               <Route path="/prediction-detail" element={<PredictionDetail />} />
               <Route path="/settings" element={<SettingsWrapper />} />
-              <Route path="/subscription" element={<SubscriptionPlans onSubscriptionSuccess={() => {}} />} />
+              <Route path="/subscription" element={<SubscriptionPlans onSubscriptionSuccess={(plan) => {
+                console.log('Subscription successful:', plan);
+                // Handle successful subscription
+              }} />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

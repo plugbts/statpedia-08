@@ -1,20 +1,64 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { CheckCircle, Star, Zap, Crown, Shield, X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CheckCircle, Star, Zap, Crown, Shield, X, CreditCard, Lock, Check, ArrowLeft, Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 
 interface SubscriptionPlansProps {
-  onSubscriptionSuccess: (plan: string) => void;
+  onSubscriptionSuccess?: (plan: string) => void;
   onLogout?: () => void;
 }
 
-export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscriptionSuccess, onLogout }) => {
-  const [showExitConfirmation, setShowExitConfirmation] = useState(false);
+interface Plan {
+  id: string;
+  name: string;
+  price: number;
+  description: string;
+  icon: React.ComponentType<any>;
+  features: string[];
+  limitations?: string[];
+  buttonText: string;
+  gradient: string;
+  popular: boolean;
+  billingCycle: 'monthly' | 'yearly';
+  originalPrice?: number;
+  discount?: number;
+}
 
-  const plans = [
+export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscriptionSuccess, onLogout }) => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [selectedPlan, setSelectedPlan] = useState<string>('');
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [showExitConfirmation, setShowExitConfirmation] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [currentSubscription, setCurrentSubscription] = useState<string>('free');
+
+  // Payment form state
+  const [paymentData, setPaymentData] = useState({
+    cardNumber: '',
+    expiryDate: '',
+    cvv: '',
+    name: '',
+    email: '',
+    address: '',
+    city: '',
+    state: '',
+    zipCode: ''
+  });
+
+  const plans: Plan[] = [
     {
       id: 'free',
       name: 'Free',
@@ -36,7 +80,8 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
       ],
       buttonText: 'Current Plan',
       gradient: 'bg-gradient-accent',
-      popular: false
+      popular: false,
+      billingCycle: 'monthly'
     },
     {
       id: 'pro',
@@ -48,200 +93,483 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
         'All predictions visible',
         'Complete player prop analysis',
         'Deep statistical insights',
-        'Potential assists/rebounds data',
-        'Advanced metrics dashboard',
-        'Real-time odds tracking',
-        'Historical performance data',
-        'Custom filters and search'
+        'Advanced filtering options',
+        'Real-time updates',
+        'Priority customer support',
+        'Custom alerts and notifications',
+        'Export data functionality'
       ],
-      buttonText: 'Select Plan',
+      buttonText: 'Upgrade to Pro',
       gradient: 'bg-gradient-primary',
-      popular: true
+      popular: true,
+      billingCycle: 'monthly',
+      originalPrice: 39.99,
+      discount: 25
     },
     {
       id: 'premium',
       name: 'Premium',
       price: 49.99,
-      description: 'Professional-grade analytics for serious bettors',
+      description: 'Everything in Pro plus exclusive features',
       icon: Crown,
       features: [
         'Everything in Pro',
-        'Priority customer support',
-        'Advanced AI predictions',
-        'Custom betting strategies',
-        'Portfolio tracking',
-        'Risk management tools',
-        'Multi-sport coverage',
+        'Exclusive premium predictions',
+        'Advanced AI-powered insights',
+        'Custom prediction models',
+        'White-label options',
         'API access',
-        'White-label options'
+        'Dedicated account manager',
+        '24/7 priority support',
+        'Advanced analytics dashboard',
+        'Custom reporting tools'
       ],
-      buttonText: 'Select Plan',
-      gradient: 'bg-gradient-success',
-      popular: false
+      buttonText: 'Upgrade to Premium',
+      gradient: 'bg-gradient-to-r from-purple-500 to-pink-500',
+      popular: false,
+      billingCycle: 'monthly',
+      originalPrice: 69.99,
+      discount: 29
     }
   ];
 
+  // Load user data
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUser(user);
+        // Get current subscription from user metadata
+        setCurrentSubscription(user.user_metadata?.subscription || 'free');
+      }
+    };
+    getUser();
+  }, []);
+
   const handlePlanSelect = (planId: string) => {
-    // For demo purposes - in production, integrate with Square payment gateway
-    onSubscriptionSuccess(planId);
+    if (planId === 'free') {
+      toast({
+        title: "Already on Free Plan",
+        description: "You're currently using the free plan.",
+      });
+      return;
+    }
+    setSelectedPlan(planId);
+    setShowPaymentForm(true);
   };
 
-  const handleExitClick = () => {
-    setShowExitConfirmation(true);
+  const handlePaymentSubmit = async () => {
+    if (!selectedPlan || !user) return;
+
+    setIsProcessing(true);
+    
+    try {
+      // Simulate payment processing
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Update user subscription in Supabase
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          subscription: selectedPlan,
+          subscriptionDate: new Date().toISOString(),
+          billingCycle: billingCycle
+        }
+      });
+
+      if (error) throw error;
+
+      // Update local state
+      setCurrentSubscription(selectedPlan);
+      setShowPaymentForm(false);
+      setSelectedPlan('');
+
+      toast({
+        title: "Subscription Successful!",
+        description: `Welcome to ${plans.find(p => p.id === selectedPlan)?.name} plan!`,
+        variant: "success",
+      });
+
+      if (onSubscriptionSuccess) {
+        onSubscriptionSuccess(selectedPlan);
+      }
+
+      // Navigate back to dashboard after successful subscription
+      setTimeout(() => {
+        navigate('/');
+      }, 2000);
+
+    } catch (error: any) {
+      toast({
+        title: "Payment Failed",
+        description: error.message || "An error occurred during payment processing.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const handleConfirmExit = () => {
+  const handleClose = () => {
+    if (showPaymentForm) {
+      setShowPaymentForm(false);
+      setSelectedPlan('');
+    } else {
+      setShowExitConfirmation(true);
+    }
+  };
+
+  const handleExitConfirm = () => {
     setShowExitConfirmation(false);
-    onSubscriptionSuccess('free');
+    navigate('/');
   };
 
-  const handleCancelExit = () => {
-    setShowExitConfirmation(false);
+  const getPlanPrice = (plan: Plan) => {
+    if (plan.id === 'free') return 0;
+    if (billingCycle === 'yearly') {
+      return Math.round(plan.price * 12 * 0.8); // 20% discount for yearly
+    }
+    return plan.price;
   };
+
+  const getBillingText = (plan: Plan) => {
+    if (plan.id === 'free') return '';
+    return billingCycle === 'yearly' ? '/year' : '/month';
+  };
+
+  const selectedPlanData = plans.find(p => p.id === selectedPlan);
 
   return (
-    <>
-      <div className="space-y-8 relative">
-        {/* Exit and Logout buttons */}
-        <div className="absolute -top-4 left-4 z-10 flex gap-2">
-          <button
-            onClick={handleExitClick}
-            className="p-2 rounded-full bg-background border border-border hover:bg-accent transition-colors"
-            aria-label="Skip subscription"
-          >
-            <X className="h-5 w-5 text-foreground" />
-          </button>
-          {onLogout && (
-            <Button
-              onClick={onLogout}
-              variant="outline"
-              size="sm"
-              className="gap-2"
-            >
-              Logout
-            </Button>
-          )}
-        </div>
+    <div className="min-h-screen bg-background relative overflow-hidden">
+      {/* Background Pattern */}
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5"></div>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(120,119,198,0.1),transparent_50%)]"></div>
+      
+      {/* Close Button */}
+      <div className="absolute top-4 right-4 z-50">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleClose}
+          className="h-10 w-10 rounded-full hover:bg-muted/50 transition-colors"
+          title="Close"
+        >
+          <X className="h-5 w-5" />
+        </Button>
+      </div>
 
-        <div className="text-center space-y-4">
-          <h2 className="text-3xl font-bold text-foreground mb-4">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <h1 className="text-4xl lg:text-6xl font-display font-bold text-foreground mb-4 animate-fade-in">
             Choose Your Plan
-          </h2>
-          <p className="text-lg text-muted-foreground">
-            Unlock the full power of Statpedia with detailed player prop analysis
+          </h1>
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto animate-fade-in" style={{ animationDelay: '100ms' }}>
+            Unlock the full power of Statpedia with our premium plans. Get access to advanced predictions, detailed analysis, and exclusive features.
           </p>
-          <Alert className="max-w-2xl mx-auto border-warning bg-warning/10">
-            <Shield className="h-4 w-4" />
-            <AlertDescription>
-              Payment processing is not yet configured. For production use, please integrate a secure payment processor like Stripe.
-            </AlertDescription>
-          </Alert>
         </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {plans.map((plan) => {
-          const IconComponent = plan.icon;
-          
-          return (
-            <Card 
-              key={plan.id} 
-              className={`relative bg-gradient-card border-border/50 transition-all duration-300 hover:shadow-card-hover ${
-                plan.popular ? 'ring-2 ring-primary/50' : ''
-              }`}
+        {/* Billing Toggle */}
+        <div className="flex justify-center mb-8 animate-fade-in" style={{ animationDelay: '200ms' }}>
+          <div className="bg-muted/50 rounded-lg p-1 flex">
+            <Button
+              variant={billingCycle === 'monthly' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setBillingCycle('monthly')}
+              className="px-6"
+            >
+              Monthly
+            </Button>
+            <Button
+              variant={billingCycle === 'yearly' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setBillingCycle('yearly')}
+              className="px-6"
+            >
+              Yearly
+              <Badge variant="secondary" className="ml-2 text-xs">Save 20%</Badge>
+            </Button>
+          </div>
+        </div>
+
+        {/* Plans Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+          {plans.map((plan, index) => (
+            <Card
+              key={plan.id}
+              className={cn(
+                "relative transition-all duration-300 hover:shadow-2xl hover:-translate-y-2 cursor-pointer animate-fade-in",
+                plan.popular && "ring-2 ring-primary shadow-glow",
+                currentSubscription === plan.id && "ring-2 ring-green-500 bg-green-500/5",
+                "bg-gradient-card border-border/50"
+              )}
+              style={{ animationDelay: `${300 + index * 100}ms` }}
+              onClick={() => handlePlanSelect(plan.id)}
             >
               {plan.popular && (
                 <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                  <Badge className="bg-gradient-primary">
+                  <Badge className="bg-gradient-primary text-white px-4 py-1">
                     Most Popular
                   </Badge>
                 </div>
               )}
               
-              <CardHeader className="text-center">
-                <div className={`inline-flex items-center justify-center w-12 h-12 rounded-lg ${plan.gradient} mb-4 mx-auto`}>
-                  <IconComponent className="h-6 w-6 text-white" />
+              {currentSubscription === plan.id && (
+                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                  <Badge className="bg-green-500 text-white px-4 py-1">
+                    <CheckCircle className="w-3 h-3 mr-1" />
+                    Current Plan
+                  </Badge>
                 </div>
+              )}
+
+              <CardHeader className="text-center pb-4">
+                <div className={cn("w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4", plan.gradient)}>
+                  <plan.icon className="w-8 h-8 text-white" />
+                </div>
+                <CardTitle className="text-2xl font-bold text-foreground">{plan.name}</CardTitle>
+                <CardDescription className="text-muted-foreground">{plan.description}</CardDescription>
                 
-                <CardTitle className="text-2xl font-bold">{plan.name}</CardTitle>
-                <CardDescription>{plan.description}</CardDescription>
-                
-                <div className="py-4">
-                  <div className="text-4xl font-bold text-foreground">
-                    ${plan.price}
-                    {plan.price > 0 && <span className="text-lg text-muted-foreground">/month</span>}
+                <div className="mt-4">
+                  <div className="flex items-baseline justify-center">
+                    <span className="text-4xl font-bold text-foreground">${getPlanPrice(plan)}</span>
+                    <span className="text-muted-foreground ml-1">{getBillingText(plan)}</span>
                   </div>
-                  {plan.price === 0 && (
-                    <div className="text-sm text-muted-foreground">Forever</div>
+                  {plan.originalPrice && billingCycle === 'monthly' && (
+                    <div className="flex items-center justify-center gap-2 mt-2">
+                      <span className="text-sm text-muted-foreground line-through">${plan.originalPrice}</span>
+                      <Badge variant="secondary" className="text-xs">
+                        {plan.discount}% OFF
+                      </Badge>
+                    </div>
                   )}
                 </div>
               </CardHeader>
-              
+
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  {plan.features.map((feature, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-success shrink-0" />
+                <div className="space-y-3">
+                  {plan.features.map((feature, featureIndex) => (
+                    <div key={featureIndex} className="flex items-start gap-3">
+                      <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
                       <span className="text-sm text-foreground">{feature}</span>
                     </div>
                   ))}
                 </div>
 
                 {plan.limitations && (
-                  <div className="pt-2 space-y-2">
-                    <div className="text-sm font-medium text-muted-foreground">Limitations:</div>
+                  <div className="space-y-2 pt-4 border-t">
+                    <h4 className="text-sm font-medium text-muted-foreground">Limitations:</h4>
                     {plan.limitations.map((limitation, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <div className="h-4 w-4 shrink-0 rounded-full bg-destructive/20 flex items-center justify-center">
-                          <div className="h-1 w-1 bg-destructive rounded-full"></div>
-                        </div>
+                      <div key={index} className="flex items-start gap-3">
+                        <X className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
                         <span className="text-sm text-muted-foreground">{limitation}</span>
                       </div>
                     ))}
                   </div>
                 )}
 
-                <div className="pt-4">
-                  <Button 
-                    onClick={() => handlePlanSelect(plan.id)}
-                    variant={plan.id === 'free' ? 'outline' : 'default'}
-                    className={plan.id === 'free' ? 'w-full' : `w-full ${plan.gradient} hover:shadow-glow transition-all duration-300`}
-                    disabled={plan.id === 'free'}
-                  >
-                    {plan.buttonText}
-                  </Button>
-                </div>
+                <Button
+                  className={cn(
+                    "w-full mt-6",
+                    plan.id === 'free' ? "bg-muted text-muted-foreground cursor-not-allowed" : plan.gradient,
+                    currentSubscription === plan.id && "bg-green-500 hover:bg-green-600"
+                  )}
+                  disabled={plan.id === 'free' || currentSubscription === plan.id}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handlePlanSelect(plan.id);
+                  }}
+                >
+                  {currentSubscription === plan.id ? (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Current Plan
+                    </>
+                  ) : (
+                    plan.buttonText
+                  )}
+                </Button>
               </CardContent>
             </Card>
-          );
-        })}
-      </div>
-
-        <div className="text-center">
-          <p className="text-sm text-muted-foreground">
-            All plans include a 7-day money-back guarantee. Cancel anytime.
-          </p>
+          ))}
         </div>
-      </div>
 
-      {/* Exit Confirmation Dialog */}
-      <AlertDialog open={showExitConfirmation} onOpenChange={setShowExitConfirmation}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              You're about to continue with the Free plan. You'll have limited access to predictions and analysis features. You can upgrade to a paid plan anytime from your dashboard.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancelExit}>
-              No, show me plans
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmExit} className="bg-gradient-primary">
-              Yes, continue with Free
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+        {/* Payment Form Modal */}
+        <AlertDialog open={showPaymentForm} onOpenChange={setShowPaymentForm}>
+          <AlertDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <CreditCard className="w-5 h-5" />
+                Complete Your Subscription
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                You're upgrading to the {selectedPlanData?.name} plan for ${getPlanPrice(selectedPlanData!)} {getBillingText(selectedPlanData!)}.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+
+            <div className="space-y-6 py-4">
+              {/* Payment Information */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-foreground">Payment Information</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="cardNumber">Card Number</Label>
+                    <Input
+                      id="cardNumber"
+                      placeholder="1234 5678 9012 3456"
+                      value={paymentData.cardNumber}
+                      onChange={(e) => setPaymentData(prev => ({ ...prev, cardNumber: e.target.value }))}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="expiryDate">Expiry Date</Label>
+                    <Input
+                      id="expiryDate"
+                      placeholder="MM/YY"
+                      value={paymentData.expiryDate}
+                      onChange={(e) => setPaymentData(prev => ({ ...prev, expiryDate: e.target.value }))}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="cvv">CVV</Label>
+                    <Input
+                      id="cvv"
+                      placeholder="123"
+                      value={paymentData.cvv}
+                      onChange={(e) => setPaymentData(prev => ({ ...prev, cvv: e.target.value }))}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Cardholder Name</Label>
+                    <Input
+                      id="name"
+                      placeholder="John Doe"
+                      value={paymentData.name}
+                      onChange={(e) => setPaymentData(prev => ({ ...prev, name: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Billing Address */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-foreground">Billing Address</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="john@example.com"
+                      value={paymentData.email}
+                      onChange={(e) => setPaymentData(prev => ({ ...prev, email: e.target.value }))}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="address">Address</Label>
+                    <Input
+                      id="address"
+                      placeholder="123 Main St"
+                      value={paymentData.address}
+                      onChange={(e) => setPaymentData(prev => ({ ...prev, address: e.target.value }))}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="city">City</Label>
+                    <Input
+                      id="city"
+                      placeholder="New York"
+                      value={paymentData.city}
+                      onChange={(e) => setPaymentData(prev => ({ ...prev, city: e.target.value }))}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="state">State</Label>
+                    <Select value={paymentData.state} onValueChange={(value) => setPaymentData(prev => ({ ...prev, state: value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select state" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="NY">New York</SelectItem>
+                        <SelectItem value="CA">California</SelectItem>
+                        <SelectItem value="TX">Texas</SelectItem>
+                        <SelectItem value="FL">Florida</SelectItem>
+                        <SelectItem value="IL">Illinois</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="zipCode">ZIP Code</Label>
+                    <Input
+                      id="zipCode"
+                      placeholder="10001"
+                      value={paymentData.zipCode}
+                      onChange={(e) => setPaymentData(prev => ({ ...prev, zipCode: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Security Notice */}
+              <Alert className="bg-green-500/10 text-green-600 border-green-500">
+                <Shield className="h-4 w-4" />
+                <AlertDescription>
+                  Your payment information is encrypted and secure. We use industry-standard security measures to protect your data.
+                </AlertDescription>
+              </Alert>
+            </div>
+
+            <AlertDialogFooter className="flex gap-2">
+              <AlertDialogCancel onClick={() => setShowPaymentForm(false)}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handlePaymentSubmit}
+                disabled={isProcessing}
+                className="bg-gradient-primary"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-4 h-4 mr-2" />
+                    Complete Payment
+                  </>
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Exit Confirmation */}
+        <AlertDialog open={showExitConfirmation} onOpenChange={setShowExitConfirmation}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Exit Subscription Plans?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to leave? You can always come back to upgrade your plan later.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Stay Here</AlertDialogCancel>
+              <AlertDialogAction onClick={handleExitConfirm}>
+                Exit Plans
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </div>
   );
 };
