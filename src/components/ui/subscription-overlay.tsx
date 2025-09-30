@@ -10,6 +10,7 @@ interface SubscriptionOverlayProps {
   buttonText?: string;
   className?: string;
   size?: 'default' | 'compact' | 'small';
+  onUpgrade?: () => void;
 }
 
 export const SubscriptionOverlay = ({
@@ -19,7 +20,8 @@ export const SubscriptionOverlay = ({
   description = "Subscribe to view this content",
   buttonText = "Upgrade to Premium",
   className,
-  size = 'default'
+  size = 'default',
+  onUpgrade
 }: SubscriptionOverlayProps) => {
   if (!isVisible) return null;
 
@@ -65,9 +67,9 @@ export const SubscriptionOverlay = ({
         </div>
         <h3 className={cn("text-foreground", currentSize.title)}>{title}</h3>
         <p className={cn("text-muted-foreground", currentSize.description)}>{description}</p>
-        <Button className={currentSize.button}>
-          {buttonText}
-        </Button>
+            <Button className={currentSize.button} onClick={onUpgrade}>
+              {buttonText}
+            </Button>
       </div>
     </div>
   );

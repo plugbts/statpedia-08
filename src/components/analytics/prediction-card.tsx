@@ -46,6 +46,10 @@ export const PredictionCard = ({
 }: PredictionCardProps) => {
   const navigate = useNavigate();
 
+  const handleUpgrade = () => {
+    navigate('/subscription');
+  };
+
   const formatGameDate = () => {
     if (!gameDate) return null;
     try {
@@ -218,6 +222,7 @@ export const PredictionCard = ({
         title="Premium Content"
         description="Subscribe to view predictions"
         buttonText="Upgrade to Premium"
+        onUpgrade={handleUpgrade}
       />
     </div>
   );

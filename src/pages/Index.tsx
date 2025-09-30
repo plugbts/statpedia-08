@@ -160,6 +160,8 @@ const Index = () => {
       navigate('/admin');
     } else if (tab === 'settings') {
       navigate('/settings');
+    } else if (tab === 'plans') {
+      navigate('/subscription');
     } else {
       setActiveTab(tab);
     }

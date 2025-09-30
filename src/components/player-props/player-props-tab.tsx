@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
 import { SubscriptionOverlay } from '@/components/ui/subscription-overlay';
 import { PlayerAnalysisOverlay } from './player-analysis-overlay';
+import { useNavigate } from 'react-router-dom';
 import { 
   TrendingUp, 
   Search, 
@@ -115,6 +116,7 @@ const SORT_OPTIONS = [
 ];
 
 export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription, userRole = 'user' }) => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [sportFilter, setSportFilter] = useState('nba');
   const [propTypeFilter, setPropTypeFilter] = useState('all');
@@ -507,6 +509,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
     if (value >= thresholds.good) return 'text-green-500 bg-green-500/10';
     if (value <= thresholds.bad) return 'text-red-500 bg-red-500/10';
     return 'text-yellow-500 bg-yellow-500/10';
+  };
+
+  const handleUpgrade = () => {
+    navigate('/subscription');
   };
 
   const getSportsbookColor = (sportsbookId: string) => {
@@ -1039,6 +1045,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
             title="Premium Content"
             description="Subscribe to view props"
             buttonText="Upgrade to Premium"
+            onUpgrade={handleUpgrade}
           />
           </div>
         ))}

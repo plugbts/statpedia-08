@@ -9,6 +9,7 @@ import Admin from "./pages/Admin";
 import PredictionDetail from "./pages/PredictionDetail";
 import { Settings } from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import { SubscriptionPlans } from "./components/auth/subscription-plans";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
@@ -157,6 +158,7 @@ const App = () => {
               <Route path="/admin" element={<Admin />} />
               <Route path="/prediction-detail" element={<PredictionDetail />} />
               <Route path="/settings" element={<SettingsWrapper />} />
+              <Route path="/subscription" element={<SubscriptionPlans onSubscriptionSuccess={() => {}} />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

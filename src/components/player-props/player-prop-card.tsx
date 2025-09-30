@@ -83,6 +83,10 @@ export const PlayerPropCard: React.FC<PlayerPropCardProps> = ({
 }) => {
   const navigate = useNavigate();
 
+  const handleUpgrade = () => {
+    navigate('/subscription');
+  };
+
   const getHitRateColor = (rate: number) => {
     if (rate >= 80) return 'text-success';
     if (rate >= 65) return 'text-warning';
@@ -329,6 +333,7 @@ export const PlayerPropCard: React.FC<PlayerPropCardProps> = ({
       title="Premium Content"
       description="Upgrade to view details"
       buttonText="Upgrade to Premium"
+      onUpgrade={handleUpgrade}
     />
     </div>
   );

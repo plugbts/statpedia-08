@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { SportIcon } from '@/components/ui/sport-icon';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { BarChart3, Target, TrendingUp, Calendar, Settings, Wifi, LogOut, MoreVertical, Zap, Brain, Play, Pause } from 'lucide-react';
+import { BarChart3, Target, TrendingUp, Calendar, Settings, Wifi, LogOut, MoreVertical, Zap, Brain, Play, Pause, CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { VerifiedCheckmark } from '@/components/ui/verified-checkmark';
 import { useBackgroundMusic } from '@/hooks/use-background-music';
@@ -27,6 +27,7 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
     { id: 'predictions', label: 'Predictions', icon: <Target className="w-4 h-4" />, badge: '12' },
     { id: 'player-props', label: 'Player Props', icon: <TrendingUp className="w-4 h-4" />, badge: 'NEW' },
     { id: 'insights', label: 'Insights', icon: <Brain className="w-4 h-4" />, badge: 'HOT' },
+    { id: 'plans', label: 'Plans', icon: <CreditCard className="w-4 h-4" /> },
     { id: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" /> },
   ];
 
@@ -198,6 +199,10 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
                       </Badge>
                     )}
                   </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onTabChange('settings')} className="gap-2 cursor-pointer">
+                  <Settings className="h-4 w-4" />
+                  Settings
                 </DropdownMenuItem>
                 {onLogout && (
                   <DropdownMenuItem onClick={onLogout} className="gap-2 cursor-pointer text-destructive">

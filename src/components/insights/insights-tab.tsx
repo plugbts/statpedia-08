@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SubscriptionOverlay } from '@/components/ui/subscription-overlay';
+import { useNavigate } from 'react-router-dom';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -62,7 +63,12 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
   userRole = 'user', 
   userSubscription = 'free' 
 }) => {
+  const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState<'all' | 'game' | 'player'>('all');
+
+  const handleUpgrade = () => {
+    navigate('/subscription');
+  };
   const [gameInsights, setGameInsights] = useState<GameInsight[]>([]);
   const [playerInsights, setPlayerInsights] = useState<PlayerInsight[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -309,6 +315,7 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
       description="Subscribe to view insights"
       buttonText="Upgrade to Premium"
       size="small"
+      onUpgrade={handleUpgrade}
     />
     </div>
   );
@@ -358,6 +365,7 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
       description="Subscribe to view insights"
       buttonText="Upgrade to Premium"
       size="small"
+      onUpgrade={handleUpgrade}
     />
     </div>
   );

@@ -3,6 +3,7 @@ import { PredictionCard } from './prediction-card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { SubscriptionOverlay } from '@/components/ui/subscription-overlay';
+import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Play, Pause } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -19,11 +20,16 @@ export const TodaysPicksCarousel = ({
   onClose, 
   sport 
 }: TodaysPicksCarouselProps) => {
+  const navigate = useNavigate();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleUpgrade = () => {
+    navigate('/subscription');
+  };
 
   // Auto-scroll every 10 seconds
   useEffect(() => {
@@ -179,6 +185,7 @@ export const TodaysPicksCarousel = ({
                 title="Premium Content"
                 description="Subscribe to view today's top picks"
                 buttonText="Upgrade to Premium"
+                onUpgrade={handleUpgrade}
               />
             </div>
           </div>
