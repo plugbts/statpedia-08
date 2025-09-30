@@ -17,9 +17,11 @@ import {
   TrendingUp,
   Star,
   User,
-  Settings
+  Settings,
+  RefreshCw
 } from 'lucide-react';
 import { socialService, type Post, type UserProfile, type Friend } from '@/services/social-service';
+import { recommendationService, type PersonalizedPost } from '@/services/recommendation-service';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -29,7 +31,7 @@ interface SocialTabProps {
 
 export const SocialTab: React.FC<SocialTabProps> = ({ userRole }) => {
   const [activeTab, setActiveTab] = useState('feed');
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [posts, setPosts] = useState<PersonalizedPost[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [friendRequests, setFriendRequests] = useState<Friend[]>([]);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -38,11 +40,25 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole }) => {
   const [newPost, setNewPost] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [feedType, setFeedType] = useState<'personalized' | 'trending'>('personalized');
+  const [algorithmInsights, setAlgorithmInsights] = useState<any>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     loadInitialData();
   }, []);
+
+  useEffect(() => {
+    if (userProfile) {
+      loadAlgorithmInsights();
+    }
+  }, [userProfile]);
+
+  useEffect(() => {
+    if (userProfile) {
+      loadPosts();
+    }
+  }, [feedType]);
 
   const loadInitialData = async () => {
     try {
@@ -50,35 +66,145 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Load each service individually to handle errors gracefully
+      let profile: UserProfile | null = null;
+      let postsData: Post[] = [];
+      let friendsData: Friend[] = [];
+      let requestsData: Friend[] = [];
+
       // Load user profile
-      let profile = await socialService.getUserProfile(user.id);
-      if (!profile) {
-        // Create profile if it doesn't exist
-        profile = await socialService.createUserProfile(user.id, user.email?.split('@')[0] || 'user');
+      try {
+        profile = await socialService.getUserProfile(user.id);
+        if (!profile) {
+          // Create profile if it doesn't exist
+          profile = await socialService.createUserProfile(user.id, user.email?.split('@')[0] || 'user');
+        }
+      } catch (error: any) {
+        console.log('Profile service error (expected if tables missing):', error);
+        // Create a default profile for UI
+        profile = {
+          id: '',
+          user_id: user.id,
+          username: user.email?.split('@')[0] || 'user',
+          display_name: user.email?.split('@')[0] || 'user',
+          bio: '',
+          avatar_url: '',
+          karma: 0,
+          roi_percentage: 0,
+          total_posts: 0,
+          total_comments: 0,
+          is_muted: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
       }
+
+      // Load posts with recommendation system
+      try {
+        if (feedType === 'personalized') {
+          postsData = await recommendationService.getPersonalizedFeed();
+        } else {
+          const trendingPosts = await recommendationService.getTrendingPosts();
+          postsData = trendingPosts.map(post => ({
+            ...post,
+            score: post.net_score,
+            reason: 'Trending post'
+          }));
+        }
+      } catch (error: any) {
+        console.log('Posts service error (expected if tables missing):', error);
+        // Fallback to regular posts
+        try {
+          const fallbackPosts = await socialService.getPosts();
+          postsData = fallbackPosts.map(post => ({
+            ...post,
+            score: post.net_score,
+            reason: 'Recent post'
+          }));
+        } catch (fallbackError) {
+          console.log('Fallback posts error:', fallbackError);
+        }
+      }
+
+      // Load friends
+      try {
+        friendsData = await socialService.getFriends(user.id);
+      } catch (error: any) {
+        console.log('Friends service error (expected if tables missing):', error);
+      }
+
+      // Load friend requests
+      try {
+        requestsData = await socialService.getFriendRequests(user.id);
+      } catch (error: any) {
+        console.log('Friend requests service error (expected if tables missing):', error);
+      }
+
       setUserProfile(profile);
-
-      // Load posts and friends
-      const [postsData, friendsData, requestsData] = await Promise.all([
-        socialService.getPosts(),
-        socialService.getFriends(user.id),
-        socialService.getFriendRequests(user.id)
-      ]);
-
       setPosts(postsData);
       setFriends(friendsData);
       setFriendRequests(requestsData);
     } catch (error: any) {
-      console.error('Failed to load social data:', error);
-      if (error?.code !== 'PGRST116' && !error?.message?.includes('relation')) {
-        toast({
-          title: "Error",
-          description: "Failed to load social data",
-          variant: "destructive"
-        });
-      }
+      console.error('Unexpected error in loadInitialData:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load social data",
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadPosts = async () => {
+    try {
+      if (feedType === 'personalized') {
+        const personalizedPosts = await recommendationService.getPersonalizedFeed();
+        setPosts(personalizedPosts);
+      } else {
+        const trendingPosts = await recommendationService.getTrendingPosts();
+        const postsWithScore = trendingPosts.map(post => ({
+          ...post,
+          score: post.net_score,
+          reason: 'Trending post'
+        }));
+        setPosts(postsWithScore);
+      }
+    } catch (error: any) {
+      console.error('Failed to load posts:', error);
+      // Fallback to regular posts
+      try {
+        const fallbackPosts = await socialService.getPosts();
+        const postsWithScore = fallbackPosts.map(post => ({
+          ...post,
+          score: post.net_score,
+          reason: 'Recent post'
+        }));
+        setPosts(postsWithScore);
+      } catch (fallbackError) {
+        console.error('Fallback posts error:', fallbackError);
+      }
+    }
+  };
+
+  const loadAlgorithmInsights = async () => {
+    try {
+      const insights = await recommendationService.getAlgorithmInsights();
+      setAlgorithmInsights(insights);
+    } catch (error) {
+      console.error('Failed to load algorithm insights:', error);
+    }
+  };
+
+  const handleFeedTypeChange = (type: 'personalized' | 'trending') => {
+    setFeedType(type);
+  };
+
+  const handlePostInteraction = async (postId: string, interactionType: 'view' | 'vote' | 'comment') => {
+    try {
+      await recommendationService.trackInteraction(interactionType, 'post', postId);
+    } catch (error) {
+      console.error('Failed to track interaction:', error);
     }
   };
 
@@ -168,9 +294,11 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole }) => {
     try {
       await socialService.vote('post', postId, voteType);
       
+      // Track the interaction
+      await handlePostInteraction(postId, 'vote');
+      
       // Reload posts to get updated vote counts
-      const postsData = await socialService.getPosts();
-      setPosts(postsData);
+      await loadPosts();
     } catch (error: any) {
       console.error('Failed to vote:', error);
       toast({
@@ -232,6 +360,53 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole }) => {
 
         {/* Feed Tab */}
         <TabsContent value="feed" className="space-y-4">
+          {/* Feed Controls */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant={feedType === 'personalized' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => handleFeedTypeChange('personalized')}
+                    >
+                      <Star className="w-4 h-4 mr-2" />
+                      Personalized
+                    </Button>
+                    <Button
+                      variant={feedType === 'trending' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => handleFeedTypeChange('trending')}
+                    >
+                      <TrendingUp className="w-4 h-4 mr-2" />
+                      Trending
+                    </Button>
+                  </div>
+                  
+                  {algorithmInsights && (
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <span>{algorithmInsights.totalInteractions} interactions</span>
+                      <span>{algorithmInsights.totalPreferences} preferences</span>
+                      {algorithmInsights.lastUpdate && (
+                        <span>Updated {formatTimeAgo(algorithmInsights.lastUpdate)}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => recommendationService.refreshRecommendations()}
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Refresh
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Create Post */}
           {userProfile && (
             <Card>
@@ -277,18 +452,19 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole }) => {
                 </CardContent>
               </Card>
             ) : (
-              posts.map((post) => (
-                <Card key={post.id}>
-                  <CardContent className="p-4">
-                    <div className="flex gap-3">
-                      <Avatar className="w-10 h-10">
-                        <AvatarImage src={post.user_profile?.avatar_url} />
-                        <AvatarFallback>
-                          {getInitials(post.user_profile?.display_name || post.user_profile?.username || 'U')}
-                        </AvatarFallback>
-                      </Avatar>
-                      
-                      <div className="flex-1 space-y-2">
+            posts.map((post) => (
+              <Card key={post.id} onMouseEnter={() => handlePostInteraction(post.id, 'view')}>
+                <CardContent className="p-4">
+                  <div className="flex gap-3">
+                    <Avatar className="w-10 h-10">
+                      <AvatarImage src={post.user_profile?.avatar_url} />
+                      <AvatarFallback>
+                        {getInitials(post.user_profile?.display_name || post.user_profile?.username || 'U')}
+                      </AvatarFallback>
+                    </Avatar>
+                    
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className="font-medium">
                             {post.user_profile?.display_name || post.user_profile?.username || 'Unknown User'}
@@ -301,36 +477,50 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole }) => {
                           </span>
                         </div>
                         
-                        <p className="text-sm">{post.content}</p>
-                        
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleVote(post.id, 'upvote')}
-                              className={`h-8 w-8 p-0 ${post.user_vote === 'upvote' ? 'text-green-500' : ''}`}
-                            >
-                              <ThumbsUp className="w-4 h-4" />
-                            </Button>
-                            <span className="text-sm text-muted-foreground min-w-[20px] text-center">
-                              {post.net_score}
-                            </span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleVote(post.id, 'downvote')}
-                              className={`h-8 w-8 p-0 ${post.user_vote === 'downvote' ? 'text-red-500' : ''}`}
-                            >
-                              <ThumbsDown className="w-4 h-4" />
-                            </Button>
-                          </div>
+                        {post.reason && (
+                          <Badge variant="secondary" className="text-xs">
+                            {post.reason}
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      <p className="text-sm">{post.content}</p>
+                      
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleVote(post.id, 'upvote')}
+                            className={`h-8 w-8 p-0 ${post.user_vote === 'upvote' ? 'text-green-500' : ''}`}
+                          >
+                            <ThumbsUp className="w-4 h-4" />
+                          </Button>
+                          <span className="text-sm text-muted-foreground min-w-[20px] text-center">
+                            {post.net_score}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleVote(post.id, 'downvote')}
+                            className={`h-8 w-8 p-0 ${post.user_vote === 'downvote' ? 'text-red-500' : ''}`}
+                          >
+                            <ThumbsDown className="w-4 h-4" />
+                          </Button>
                         </div>
+                        
+                        {feedType === 'personalized' && post.score && (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Star className="w-3 h-3" />
+                            <span>Score: {post.score.toFixed(2)}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))
+                  </div>
+                </CardContent>
+              </Card>
+            ))
             )}
           </div>
         </TabsContent>

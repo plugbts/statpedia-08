@@ -21,6 +21,7 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { socialService, type Comment, type UserProfile } from '@/services/social-service';
+import { recommendationService } from '@/services/recommendation-service';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -173,6 +174,10 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
   const handleVote = async (commentId: string, voteType: 'upvote' | 'downvote') => {
     try {
       await socialService.vote('comment', commentId, voteType);
+      
+      // Track the interaction
+      await recommendationService.trackInteraction('vote', 'comment', commentId);
+      
       loadComments(); // Reload to get updated vote counts
     } catch (error: any) {
       console.error('Failed to vote:', error);
