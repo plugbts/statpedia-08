@@ -290,7 +290,32 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
     const savedFilters = localStorage.getItem('statpedia_prop_filters');
     if (savedFilters) {
       try {
-        setFilterSettings(JSON.parse(savedFilters));
+        const parsed = JSON.parse(savedFilters);
+        
+        // Migrate old format to new format
+        if (parsed.sortBy && !parsed.sortCriteria) {
+          parsed.sortCriteria = [
+            { field: parsed.sortBy, order: parsed.sortOrder || 'desc' }
+          ];
+          delete parsed.sortBy;
+          delete parsed.sortOrder;
+        }
+        
+        // Ensure sortCriteria is an array
+        if (!parsed.sortCriteria) {
+          parsed.sortCriteria = [
+            { field: 'probability', order: 'desc' },
+            { field: 'hitRate', order: 'desc' },
+            { field: 'line', order: 'asc' }
+          ];
+        }
+        
+        // Ensure sportsbooks is an array
+        if (!parsed.sportsbooks) {
+          parsed.sportsbooks = [];
+        }
+        
+        setFilterSettings(parsed);
       } catch (error) {
         console.error('Failed to load filter settings:', error);
       }
@@ -342,7 +367,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
       }
 
       // Sportsbook filter
-      if (filterSettings.sportsbooks.length > 0) {
+      if ((filterSettings.sportsbooks || []).length > 0) {
         const hasMatchingSportsbook = prop.sportsbooks.some(sb => 
           filterSettings.sportsbooks.includes(sb)
         );
@@ -353,7 +378,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
     })
     .sort((a, b) => {
       // Multi-level sorting based on criteria array
-      for (const criteria of filterSettings.sortCriteria) {
+      for (const criteria of (filterSettings.sortCriteria || [])) {
         const aValue = a[criteria.field as keyof PlayerProp] as number;
         const bValue = b[criteria.field as keyof PlayerProp] as number;
         
@@ -540,20 +565,20 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        if (filterSettings.sortCriteria.length < 3) {
+                        if ((filterSettings.sortCriteria || []).length < 3) {
                           setFilterSettings(prev => ({
                             ...prev,
                             sortCriteria: [...prev.sortCriteria, { field: 'probability', order: 'desc' }]
                           }));
                         }
                       }}
-                      disabled={filterSettings.sortCriteria.length >= 3}
+                      disabled={(filterSettings.sortCriteria || []).length >= 3}
                     >
                       Add Sort Level
                     </Button>
                   </div>
                   <div className="space-y-3">
-                    {filterSettings.sortCriteria.map((criteria, index) => (
+                    {(filterSettings.sortCriteria || []).map((criteria, index) => (
                       <div key={index} className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="w-8 h-8 flex items-center justify-center">
@@ -618,13 +643,13 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                             variant="ghost"
                             size="sm"
                             onClick={() => {
-                              if (index < filterSettings.sortCriteria.length - 1) {
+                              if (index < (filterSettings.sortCriteria || []).length - 1) {
                                 const newCriteria = [...filterSettings.sortCriteria];
                                 [newCriteria[index], newCriteria[index + 1]] = [newCriteria[index + 1], newCriteria[index]];
                                 setFilterSettings(prev => ({ ...prev, sortCriteria: newCriteria }));
                               }
                             }}
-                            disabled={index === filterSettings.sortCriteria.length - 1}
+                            disabled={index === (filterSettings.sortCriteria || []).length - 1}
                             className="p-1 h-6 w-6"
                           >
                             <ArrowDown className="w-3 h-3" />
@@ -643,7 +668,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
                         </Button>
                       </div>
                     ))}
-                    {filterSettings.sortCriteria.length === 0 && (
+                    {(filterSettings.sortCriteria || []).length === 0 && (
                       <div className="text-center py-4 text-muted-foreground">
                         No sort criteria set. Click "Add Sort Level" to add sorting.
                       </div>
@@ -775,7 +800,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
         <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
         <span className="text-sm font-medium text-muted-foreground">Sort by:</span>
         <div className="flex gap-2 flex-wrap">
-          {filterSettings.sortCriteria.map((criteria, index) => {
+          {(filterSettings.sortCriteria || []).map((criteria, index) => {
             const option = SORT_OPTIONS.find(opt => opt.value === criteria.field);
             return (
               <div key={index} className="flex items-center gap-1">
@@ -793,7 +818,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
               </div>
             );
           })}
-          {filterSettings.sortCriteria.length === 0 && (
+          {(filterSettings.sortCriteria || []).length === 0 && (
             <span className="text-sm text-muted-foreground italic">No sorting applied</span>
           )}
         </div>
