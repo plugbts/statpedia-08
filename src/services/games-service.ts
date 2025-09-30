@@ -123,41 +123,42 @@ class GamesService {
     return freeGames.map(game => {
       return {
         id: game.id,
-      homeTeam: game.homeTeam,
-      awayTeam: game.awayTeam,
-      sport: game.sport,
-      date: game.date,
-      time: game.time,
-      homeOdds: game.homeOdds || 0,
-      awayOdds: game.awayOdds || 0,
-      drawOdds: undefined,
-      homeRecord: game.homeRecord || '0-0',
-      awayRecord: game.awayRecord || '0-0',
-      homeForm: this.generateFormArray(10, game.homeRecord || '0-0'),
-      awayForm: this.generateFormArray(10, game.awayRecord || '0-0'),
-      h2hData: {
-        homeWins: Math.floor(Math.random() * 5),
-        awayWins: Math.floor(Math.random() * 5),
-        draws: 0
-      },
-      injuries: {
-        home: this.generateInjuries(),
-        away: this.generateInjuries()
-      },
-      restDays: {
-        home: Math.floor(Math.random() * 7) + 1,
-        away: Math.floor(Math.random() * 7) + 1
-      },
-      weather: 'Clear',
-      venue: game.venue,
-      status: game.status === 'finished' ? 'finished' : game.status === 'live' ? 'live' : 'upcoming',
-      homeScore: game.homeScore,
-      awayScore: game.awayScore,
-      homeTeamId: game.homeTeamAbbr,
-      awayTeamId: game.awayTeamAbbr,
-      league: game.sport,
-      season: '2024',
-      week: 1
+        homeTeam: game.homeTeam,
+        awayTeam: game.awayTeam,
+        sport: game.sport,
+        date: game.date,
+        time: game.time,
+        homeOdds: game.homeOdds || 0,
+        awayOdds: game.awayOdds || 0,
+        drawOdds: undefined,
+        homeRecord: game.homeRecord || '0-0',
+        awayRecord: game.awayRecord || '0-0',
+        homeForm: this.generateFormArray(10, game.homeRecord || '0-0'),
+        awayForm: this.generateFormArray(10, game.awayRecord || '0-0'),
+        h2hData: {
+          homeWins: Math.floor(Math.random() * 5),
+          awayWins: Math.floor(Math.random() * 5),
+          draws: 0
+        },
+        injuries: {
+          home: this.generateInjuries(),
+          away: this.generateInjuries()
+        },
+        restDays: {
+          home: Math.floor(Math.random() * 7) + 1,
+          away: Math.floor(Math.random() * 7) + 1
+        },
+        weather: 'Clear',
+        venue: game.venue,
+        status: game.status === 'finished' ? 'finished' : game.status === 'live' ? 'live' : 'upcoming',
+        homeScore: game.homeScore,
+        awayScore: game.awayScore,
+        homeTeamId: game.homeTeamAbbr,
+        awayTeamId: game.awayTeamAbbr,
+        league: game.sport,
+        season: '2024',
+        week: 1
+      };
     });
   }
 
