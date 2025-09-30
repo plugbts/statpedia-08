@@ -164,12 +164,28 @@ export const TodaysPicksCarousel = ({
               isTransitioning ? "opacity-0 scale-95" : "opacity-100 scale-100"
             )}
           >
-            <div className="max-w-md mx-auto">
+            <div className="w-full max-w-sm mx-auto relative">
               <PredictionCard
                 key={currentPrediction.id || currentIndex}
                 {...currentPrediction}
                 isSubscribed={isSubscribed}
               />
+              
+              {/* Blur overlay for free users - only over the card */}
+              {!isSubscribed && (
+                <div className="absolute inset-0 bg-gradient-to-br from-background/80 to-background/60 backdrop-blur-sm rounded-lg flex items-center justify-center z-10">
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Play className="w-8 h-8 text-primary" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">Premium Content</h3>
+                    <p className="text-sm text-muted-foreground mb-4">Subscribe to view today's top picks</p>
+                    <Button className="bg-gradient-primary">
+                      Upgrade to Premium
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -238,21 +254,6 @@ export const TodaysPicksCarousel = ({
         </div>
       </div>
 
-      {/* Blur overlay for free users */}
-      {!isSubscribed && (
-        <div className="absolute inset-0 bg-gradient-to-br from-background/80 to-background/60 backdrop-blur-sm rounded-lg flex items-center justify-center z-10">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Play className="w-8 h-8 text-primary" />
-            </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">Premium Content</h3>
-            <p className="text-sm text-muted-foreground mb-4">Subscribe to view today's top picks</p>
-            <Button className="bg-gradient-primary">
-              Upgrade to Premium
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
