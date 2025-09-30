@@ -1,5 +1,7 @@
 // Season Service
-// Determines if sports are in season, including regular season, playoffs, and postseason
+// Uses ESPN API to determine if sports are in season, including regular season, playoffs, and postseason
+
+import { espnApiService, ESPNSeasonInfo } from './espn-api-service';
 
 export interface SeasonInfo {
   sport: string;
@@ -12,7 +14,7 @@ export interface SeasonInfo {
 }
 
 class SeasonService {
-  private seasonData: { [key: string]: SeasonInfo } = {
+  private fallbackData: { [key: string]: SeasonInfo } = {
     nfl: {
       sport: 'nfl',
       isInSeason: true,
@@ -78,48 +80,136 @@ class SeasonService {
     }
   };
 
-  public isSportInSeason(sport: string): boolean {
-    const seasonInfo = this.seasonData[sport.toLowerCase()];
-    if (!seasonInfo) return false;
+  private convertESPNToSeasonInfo(espnInfo: ESPNSeasonInfo): SeasonInfo {
+    return {
+      sport: espnInfo.sport,
+      isInSeason: espnInfo.isInSeason,
+      seasonType: espnInfo.seasonType,
+      seasonName: espnInfo.seasonName,
+      startDate: espnInfo.startDate,
+      endDate: espnInfo.endDate,
+      nextSeasonStart: espnInfo.nextSeasonStart
+    };
+  }
 
+  public async isSportInSeason(sport: string): Promise<boolean> {
+    try {
+      return await espnApiService.isSportInSeason(sport);
+    } catch (error) {
+      console.warn(`ESPN API failed for ${sport}, using fallback data:`, error);
+      const fallback = this.fallbackData[sport.toLowerCase()];
+      if (!fallback) return false;
+      
+      const now = new Date();
+      return now >= fallback.startDate && now <= fallback.endDate;
+    }
+  }
+
+  public async getSeasonInfo(sport: string): Promise<SeasonInfo | null> {
+    try {
+      const espnInfo = await espnApiService.getSeasonInfo(sport);
+      if (espnInfo) {
+        return this.convertESPNToSeasonInfo(espnInfo);
+      }
+    } catch (error) {
+      console.warn(`ESPN API failed for ${sport}, using fallback data:`, error);
+    }
+
+    // Fallback to hardcoded data
+    return this.fallbackData[sport.toLowerCase()] || null;
+  }
+
+  public async getSeasonType(sport: string): Promise<'regular' | 'playoffs' | 'postseason' | 'offseason'> {
+    try {
+      const seasonInfo = await this.getSeasonInfo(sport);
+      if (!seasonInfo) return 'offseason';
+      return seasonInfo.seasonType;
+    } catch (error) {
+      console.warn(`Error getting season type for ${sport}:`, error);
+      return 'offseason';
+    }
+  }
+
+  public async shouldShowMoneylinePredictions(sport: string): Promise<boolean> {
+    try {
+      return await espnApiService.shouldShowMoneylinePredictions(sport);
+    } catch (error) {
+      console.warn(`ESPN API failed for ${sport}, using fallback logic:`, error);
+      const seasonType = await this.getSeasonType(sport);
+      return seasonType === 'regular' || seasonType === 'playoffs' || seasonType === 'postseason';
+    }
+  }
+
+  public async getOffseasonMessage(sport: string): Promise<string> {
+    try {
+      return await espnApiService.getOffseasonMessage(sport);
+    } catch (error) {
+      console.warn(`ESPN API failed for ${sport}, using fallback message:`, error);
+      const seasonInfo = this.fallbackData[sport.toLowerCase()];
+      if (!seasonInfo) return `${sport.toUpperCase()} season information not available`;
+
+      const nextSeasonStart = seasonInfo.nextSeasonStart;
+      if (!nextSeasonStart) return `${sport.toUpperCase()} is currently in offseason`;
+
+      const now = new Date();
+      const daysUntilNextSeason = Math.ceil((nextSeasonStart.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      
+      return `${sport.toUpperCase()} is currently in offseason. Next season starts in approximately ${daysUntilNextSeason} days.`;
+    }
+  }
+
+  public async getCurrentSeasonSports(): Promise<string[]> {
+    try {
+      return await espnApiService.getCurrentSeasonSports();
+    } catch (error) {
+      console.warn('ESPN API failed, using fallback data:', error);
+      return Object.keys(this.fallbackData).filter(sport => {
+        const fallback = this.fallbackData[sport];
+        const now = new Date();
+        return now >= fallback.startDate && now <= fallback.endDate;
+      });
+    }
+  }
+
+  public async getOffseasonSports(): Promise<string[]> {
+    try {
+      return await espnApiService.getOffseasonSports();
+    } catch (error) {
+      console.warn('ESPN API failed, using fallback data:', error);
+      return Object.keys(this.fallbackData).filter(sport => {
+        const fallback = this.fallbackData[sport];
+        const now = new Date();
+        return !(now >= fallback.startDate && now <= fallback.endDate);
+      });
+    }
+  }
+
+  // Synchronous fallback methods for backward compatibility
+  public isSportInSeasonSync(sport: string): boolean {
+    const fallback = this.fallbackData[sport.toLowerCase()];
+    if (!fallback) return false;
+    
     const now = new Date();
-    return now >= seasonInfo.startDate && now <= seasonInfo.endDate;
+    return now >= fallback.startDate && now <= fallback.endDate;
   }
 
-  public getSeasonInfo(sport: string): SeasonInfo | null {
-    return this.seasonData[sport.toLowerCase()] || null;
+  public getSeasonInfoSync(sport: string): SeasonInfo | null {
+    return this.fallbackData[sport.toLowerCase()] || null;
   }
 
-  public getSeasonType(sport: string): 'regular' | 'playoffs' | 'postseason' | 'offseason' {
-    const seasonInfo = this.getSeasonInfo(sport);
+  public getSeasonTypeSync(sport: string): 'regular' | 'playoffs' | 'postseason' | 'offseason' {
+    const seasonInfo = this.getSeasonInfoSync(sport);
     if (!seasonInfo) return 'offseason';
-
-    const now = new Date();
-
-    // Check if we're in playoffs/postseason period
-    const playoffsStart = new Date(seasonInfo.endDate);
-    playoffsStart.setDate(playoffsStart.getDate() - 30); // Assume last 30 days are playoffs
-
-    if (now >= playoffsStart && now <= seasonInfo.endDate) {
-      return 'playoffs';
-    }
-
-    // Check if we're in regular season
-    if (now >= seasonInfo.startDate && now < playoffsStart) {
-      return 'regular';
-    }
-
-    return 'offseason';
+    return seasonInfo.seasonType;
   }
 
-  public shouldShowMoneylinePredictions(sport: string): boolean {
-    const seasonType = this.getSeasonType(sport);
-    // Show predictions for regular season, playoffs, and postseason, but not offseason
+  public shouldShowMoneylinePredictionsSync(sport: string): boolean {
+    const seasonType = this.getSeasonTypeSync(sport);
     return seasonType === 'regular' || seasonType === 'playoffs' || seasonType === 'postseason';
   }
 
-  public getOffseasonMessage(sport: string): string {
-    const seasonInfo = this.getSeasonInfo(sport);
+  public getOffseasonMessageSync(sport: string): string {
+    const seasonInfo = this.getSeasonInfoSync(sport);
     if (!seasonInfo) return `${sport.toUpperCase()} season information not available`;
 
     const nextSeasonStart = seasonInfo.nextSeasonStart;
@@ -128,15 +218,7 @@ class SeasonService {
     const now = new Date();
     const daysUntilNextSeason = Math.ceil((nextSeasonStart.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     
-    return `${sport.toUpperCase()} is currently in offseason. Next season starts in ${daysUntilNextSeason} days.`;
-  }
-
-  public getCurrentSeasonSports(): string[] {
-    return Object.keys(this.seasonData).filter(sport => this.isSportInSeason(sport));
-  }
-
-  public getOffseasonSports(): string[] {
-    return Object.keys(this.seasonData).filter(sport => !this.isSportInSeason(sport));
+    return `${sport.toUpperCase()} is currently in offseason. Next season starts in approximately ${daysUntilNextSeason} days.`;
   }
 }
 

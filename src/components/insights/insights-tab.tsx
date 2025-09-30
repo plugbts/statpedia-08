@@ -76,8 +76,35 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
   const [gameInsights, setGameInsights] = useState<GameInsight[]>([]);
   const [playerInsights, setPlayerInsights] = useState<PlayerInsight[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [shouldShowMoneyline, setShouldShowMoneyline] = useState(true);
+  const [offseasonMessage, setOffseasonMessage] = useState('');
+  const [seasonLoading, setSeasonLoading] = useState(true);
 
   const isSubscribed = userRole === 'owner' || userSubscription !== 'free';
+
+  // Load season data from ESPN API
+  useEffect(() => {
+    const loadSeasonData = async () => {
+      setSeasonLoading(true);
+      try {
+        const [shouldShow, message] = await Promise.all([
+          seasonService.shouldShowMoneylinePredictions(selectedSport),
+          seasonService.getOffseasonMessage(selectedSport)
+        ]);
+        setShouldShowMoneyline(shouldShow);
+        setOffseasonMessage(message);
+      } catch (error) {
+        console.error('Error loading season data:', error);
+        // Fallback to sync methods
+        setShouldShowMoneyline(seasonService.shouldShowMoneylinePredictionsSync(selectedSport));
+        setOffseasonMessage(seasonService.getOffseasonMessageSync(selectedSport));
+      } finally {
+        setSeasonLoading(false);
+      }
+    };
+
+    loadSeasonData();
+  }, [selectedSport]);
 
   // Generate mock insights data
   useEffect(() => {
@@ -446,7 +473,20 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
             </div>
 
             {/* Moneyline Predictions Section */}
-            {seasonService.shouldShowMoneylinePredictions(selectedSport) ? (
+            {seasonLoading ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <BarChart3 className="w-6 h-6 text-primary" />
+                  <h2 className="text-xl font-semibold">Moneyline Predictions</h2>
+                </div>
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                    <p className="text-muted-foreground">Loading season data...</p>
+                  </div>
+                </div>
+              </div>
+            ) : shouldShowMoneyline ? (
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
                   <BarChart3 className="w-6 h-6 text-primary" />
@@ -478,7 +518,7 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
                     </div>
                     <h3 className="text-lg font-semibold text-muted-foreground">Season Ended</h3>
                     <p className="text-muted-foreground">
-                      {seasonService.getOffseasonMessage(selectedSport)}
+                      {offseasonMessage}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       Moneyline predictions will return when the season begins.
