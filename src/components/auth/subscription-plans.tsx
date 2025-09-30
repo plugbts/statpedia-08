@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CheckCircle, Star, Zap, Crown, Shield, X, CreditCard, Lock, Gift, Percent, Calendar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { SeasonalOverlay, SeasonalCardOverlay } from '@/components/ui/seasonal-overlay';
 
 interface SubscriptionPlansProps {
   onSubscriptionSuccess: (plan: string) => void;
@@ -300,7 +301,7 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
 
   return (
     <>
-      <div className="min-h-screen bg-background overflow-y-auto">
+      <SeasonalOverlay className="min-h-screen bg-background overflow-y-auto">
         <div className="max-w-8xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8 relative">
         {/* Exit and Logout buttons */}
         <div className="absolute -top-4 left-4 z-10 flex gap-2">
@@ -393,12 +394,12 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
           const IconComponent = plan.icon;
           
           return (
-            <Card 
-              key={plan.id} 
-              className={`relative bg-gradient-card border-border/50 transition-all duration-300 hover:shadow-card-hover ${
-                plan.popular ? 'ring-2 ring-primary/50' : ''
-              }`}
-            >
+            <SeasonalCardOverlay key={plan.id}>
+              <Card 
+                className={`relative bg-gradient-card border-border/50 transition-all duration-300 hover:shadow-card-hover ${
+                  plan.popular ? 'ring-2 ring-primary/50' : ''
+                }`}
+              >
               {plan.popular && (
                 <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                   <Badge className="bg-gradient-primary">
@@ -478,6 +479,7 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
                 </div>
               </CardContent>
             </Card>
+            </SeasonalCardOverlay>
           );
         })}
       </div>
@@ -488,7 +490,7 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
           </p>
         </div>
         </div>
-      </div>
+      </SeasonalOverlay>
 
       {/* Payment Form Modal */}
       <AlertDialog open={showPaymentForm} onOpenChange={setShowPaymentForm}>

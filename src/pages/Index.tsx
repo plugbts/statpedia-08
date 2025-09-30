@@ -23,6 +23,7 @@ import type { User } from '@supabase/supabase-js';
 import { useOddsAPI } from '@/hooks/use-odds-api';
 import { useToast } from '@/hooks/use-toast';
 import { predictionTracker } from '@/services/prediction-tracker';
+import { SeasonalOverlay } from '@/components/ui/seasonal-overlay';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -965,7 +966,7 @@ const Index = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background relative">
+    <SeasonalOverlay className="min-h-screen bg-background relative">
       <MatrixBackground />
       <Navigation 
         activeTab={activeTab} 
@@ -994,7 +995,7 @@ const Index = () => {
           </div>
         )}
       </main>
-    </div>
+    </SeasonalOverlay>
   );
 };
 
