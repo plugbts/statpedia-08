@@ -1,5 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
+import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface SubscriptionOverlayProps {
@@ -11,6 +12,7 @@ interface SubscriptionOverlayProps {
   className?: string;
   size?: 'default' | 'compact' | 'small';
   onUpgrade?: () => void;
+  onClose?: () => void;
 }
 
 export const SubscriptionOverlay = ({
@@ -21,7 +23,8 @@ export const SubscriptionOverlay = ({
   buttonText = "Upgrade to Pro",
   className,
   size = 'default',
-  onUpgrade
+  onUpgrade,
+  onClose
 }: SubscriptionOverlayProps) => {
   if (!isVisible) return null;
 
@@ -57,6 +60,17 @@ export const SubscriptionOverlay = ({
       size === 'small' && "p-4",
       className
     )}>
+      {/* X Close Button */}
+      {onClose && (
+        <button
+          onClick={onClose}
+          className="absolute top-2 right-2 w-6 h-6 rounded-full bg-muted/80 hover:bg-muted flex items-center justify-center transition-colors z-30"
+          title="Close"
+        >
+          <X className="w-4 h-4 text-muted-foreground" />
+        </button>
+      )}
+      
       <div className="text-center">
         <div className={cn("bg-primary/20 rounded-full flex items-center justify-center mx-auto", currentSize.iconContainer)}>
           {icon || (

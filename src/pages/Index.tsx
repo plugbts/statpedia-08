@@ -27,6 +27,7 @@ import { SeasonalVideoBackground } from '@/components/ui/seasonal-video-backgrou
 import { BetTrackingTab } from '@/components/bet-tracking/bet-tracking-tab';
 import { SocialTab } from '@/components/social/social-tab';
 import { MostLikely } from '@/components/mlb/most-likely';
+import { PredictionsTab } from '@/components/predictions/predictions-tab';
 import { HeaderBannerAd, InFeedAd, FooterBannerAd, MobileBannerAd } from '@/components/ads/ad-placements';
 
 const Index = () => {
@@ -998,6 +999,7 @@ const Index = () => {
         <MobileBannerAd userSubscription={userSubscription} />
         
         {activeTab === 'dashboard' && renderDashboard()}
+        {activeTab === 'predictions' && <PredictionsTab selectedSport={selectedSport} userRole={userRole} userSubscription={userSubscription} />}
         {activeTab === 'player-props' && <PlayerPropsTab userSubscription={userSubscription} userRole={userRole} />}
         {activeTab === 'insights' && <InsightsTab selectedSport={selectedSport} userRole={userRole} userSubscription={userSubscription} />}
         {activeTab === 'bet-tracking' && <BetTrackingTab userRole={userRole} />}
@@ -1008,7 +1010,7 @@ const Index = () => {
         {activeTab === 'strikeout-center' && <StrikeoutCenter />}
         {activeTab === 'most-likely' && <MostLikely />}
         {activeTab === 'sync-test' && renderSyncTest()}
-        {activeTab !== 'dashboard' && activeTab !== 'player-props' && activeTab !== 'insights' && activeTab !== 'bet-tracking' && activeTab !== 'social' && activeTab !== 'strikeout-center' && activeTab !== 'most-likely' && activeTab !== 'sync-test' && (
+        {activeTab !== 'dashboard' && activeTab !== 'predictions' && activeTab !== 'player-props' && activeTab !== 'insights' && activeTab !== 'bet-tracking' && activeTab !== 'social' && activeTab !== 'strikeout-center' && activeTab !== 'most-likely' && activeTab !== 'sync-test' && (
           <div className="text-center py-16">
             <h2 className="text-2xl font-bold text-foreground mb-4">
               {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Coming Soon
