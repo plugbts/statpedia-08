@@ -19,6 +19,7 @@ import { useSportsData } from '@/hooks/use-sports-data';
 import type { User } from '@supabase/supabase-js';
 import { useOddsAPI } from '@/hooks/use-odds-api';
 import { useToast } from '@/hooks/use-toast';
+import { predictionTracker } from '@/services/prediction-tracker';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -116,8 +117,65 @@ const Index = () => {
   useEffect(() => {
     if (user && activeTab === 'dashboard') {
       loadRealPredictions();
+      simulatePreviousDayResults(); // Add demo data for previous day wins
     }
   }, [user, activeTab]);
+
+  const simulatePreviousDayResults = () => {
+    // Create some demo predictions for yesterday
+    const demoPredictions = [
+      {
+        id: 'demo-1',
+        sport: 'nfl',
+        player: 'Josh Allen',
+        team: 'BUF',
+        opponent: 'MIA',
+        prop: 'Passing Yards',
+        line: 280.5,
+        prediction: 'over' as const,
+        odds: '-110',
+        gameDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // Yesterday
+        status: 'pending' as const,
+      },
+      {
+        id: 'demo-2',
+        sport: 'nfl',
+        player: 'Christian McCaffrey',
+        team: 'SF',
+        opponent: 'SEA',
+        prop: 'Rushing Yards',
+        line: 89.5,
+        prediction: 'over' as const,
+        odds: '-115',
+        gameDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+        status: 'pending' as const,
+      },
+      {
+        id: 'demo-3',
+        sport: 'nba',
+        player: 'LeBron James',
+        team: 'LAL',
+        opponent: 'GSW',
+        prop: 'Points',
+        line: 25.5,
+        prediction: 'over' as const,
+        odds: '-110',
+        gameDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+        status: 'pending' as const,
+      },
+    ];
+
+    // Add predictions to tracker
+    demoPredictions.forEach(pred => {
+      predictionTracker.addPrediction(pred);
+    });
+
+    // Simulate results
+    const results = predictionTracker.simulatePreviousDayResults(demoPredictions);
+    results.forEach(result => {
+      predictionTracker.updatePredictionResult(result.id, result.actualValue!);
+    });
+  };
 
   const loadRealPredictions = async () => {
     setIsLoadingPredictions(true);
@@ -414,11 +472,7 @@ const Index = () => {
       </div>
 
       {/* Previous Day Wins */}
-      <PreviousDayWins 
-        wins={mockWins} 
-        totalProfit={mockWins.reduce((sum, win) => sum + win.profit, 0)}
-        winRate={100}
-      />
+      <PreviousDayWins showAllTimeStats={true} />
 
       {/* Feature Tooltip */}
       {showFeatureTooltip && (

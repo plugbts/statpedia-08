@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { SportIcon } from '@/components/ui/sport-icon';
-import { TrendingUp, CheckCircle, Clock } from 'lucide-react';
+import { TrendingUp, CheckCircle, Clock, BarChart3, DollarSign, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { predictionTracker, type PredictionResult, type WinStats } from '@/services/prediction-tracker';
 
 interface WinPrediction {
   id: string;
@@ -20,12 +21,59 @@ interface WinPrediction {
 }
 
 interface PreviousDayWinsProps {
+  // Optional props for backward compatibility, but component will use real data
   wins?: WinPrediction[];
   totalProfit?: number;
   winRate?: number;
+  showAllTimeStats?: boolean;
 }
 
-export const PreviousDayWins = ({ wins = [], totalProfit = 0, winRate = 0 }: PreviousDayWinsProps) => {
+export const PreviousDayWins = ({ 
+  wins = [], 
+  totalProfit = 0, 
+  winRate = 0, 
+  showAllTimeStats = false 
+}: PreviousDayWinsProps) => {
+  const [previousDayWins, setPreviousDayWins] = useState<PredictionResult[]>([]);
+  const [previousDayStats, setPreviousDayStats] = useState<WinStats | null>(null);
+  const [allTimeStats, setAllTimeStats] = useState<WinStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadPreviousDayData();
+  }, []);
+
+  const loadPreviousDayData = async () => {
+    setLoading(true);
+    try {
+      // Get real previous day wins
+      const wins = predictionTracker.getPreviousDayWins();
+      const stats = predictionTracker.getPreviousDayStats();
+      const allTime = predictionTracker.getAllTimeStats();
+      
+      setPreviousDayWins(wins);
+      setPreviousDayStats(stats);
+      setAllTimeStats(allTime);
+    } catch (error) {
+      console.error('Error loading previous day data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Use real data if available, fallback to props
+  const displayWins = previousDayWins.length > 0 ? previousDayWins : wins;
+  const displayStats = previousDayStats || { 
+    totalPredictions: 0, 
+    wins: wins.length, 
+    losses: 0, 
+    pushes: 0, 
+    winRate: winRate, 
+    totalProfit: totalProfit, 
+    averageOdds: 0,
+    bestWin: null,
+    worstLoss: null
+  };
   return (
     <Card className="p-6 bg-gradient-success/5 border-success/20">
       <div className="space-y-6">
@@ -36,26 +84,74 @@ export const PreviousDayWins = ({ wins = [], totalProfit = 0, winRate = 0 }: Pre
               <TrendingUp className="w-6 h-6 text-success" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-foreground">Yesterday's Wins</h2>
+              <h2 className="text-xl font-bold text-foreground">
+                {loading ? 'Loading...' : 'Yesterday\'s Performance'}
+              </h2>
               <p className="text-sm text-muted-foreground">
-                {wins.length} winning predictions • {winRate}% win rate
+                {loading ? 'Calculating statistics...' : 
+                  `${displayStats.wins} wins • ${displayStats.losses} losses • ${displayStats.pushes} pushes • ${displayStats.winRate.toFixed(1)}% win rate`
+                }
               </p>
             </div>
           </div>
           <div className="text-right">
             <p className="text-2xl font-bold text-success font-mono">
-              +${totalProfit.toFixed(2)}
+              {loading ? '...' : `+$${displayStats.totalProfit.toFixed(2)}`}
             </p>
             <Badge variant="default" className="bg-gradient-success">
               <CheckCircle className="w-3 h-3 mr-1" />
-              {wins.length} WINS
+              {displayStats.wins} WINS
             </Badge>
           </div>
         </div>
 
+        {/* Detailed Stats */}
+        {!loading && displayStats.totalPredictions > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card className="p-4 bg-gradient-card border-border/50">
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4 text-success" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Total Picks</p>
+                  <p className="text-lg font-bold text-foreground">{displayStats.totalPredictions}</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-4 bg-gradient-card border-border/50">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-success" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Win Rate</p>
+                  <p className="text-lg font-bold text-success">{displayStats.winRate.toFixed(1)}%</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-4 bg-gradient-card border-border/50">
+              <div className="flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-success" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Profit</p>
+                  <p className="text-lg font-bold text-success">+${displayStats.totalProfit.toFixed(2)}</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-4 bg-gradient-card border-border/50">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-muted-foreground" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Avg Odds</p>
+                  <p className="text-lg font-bold text-foreground">
+                    {displayStats.averageOdds > 0 ? '+' : ''}{displayStats.averageOdds.toFixed(0)}
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
+
         {/* Wins Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {wins.map((win, index) => (
+          {displayWins.map((win, index) => (
             <Card 
               key={win.id}
               className={cn(
@@ -99,7 +195,9 @@ export const PreviousDayWins = ({ wins = [], totalProfit = 0, winRate = 0 }: Pre
 
                 {/* Result */}
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Result: {win.result}</span>
+                  <span className="text-muted-foreground">
+                    Result: {'actualValue' in win ? `${win.actualValue?.toFixed(1)}` : win.result}
+                  </span>
                   <span className="font-mono text-success font-medium">
                     +${(win.profit || 0).toFixed(2)}
                   </span>
@@ -110,11 +208,51 @@ export const PreviousDayWins = ({ wins = [], totalProfit = 0, winRate = 0 }: Pre
         </div>
 
         {/* Summary */}
-        {wins.length === 0 && (
+        {!loading && displayWins.length === 0 && (
           <div className="text-center py-8">
             <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">No winning predictions from yesterday</p>
-            <p className="text-sm text-muted-foreground mt-1">Check back after today's games complete!</p>
+            <p className="text-muted-foreground">
+              {displayStats.totalPredictions === 0 
+                ? 'No predictions tracked from yesterday' 
+                : 'No winning predictions from yesterday'
+              }
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {displayStats.totalPredictions === 0 
+                ? 'Start making predictions to track your performance!' 
+                : 'Check back after today\'s games complete!'
+              }
+            </p>
+          </div>
+        )}
+
+        {/* All Time Stats Toggle */}
+        {!loading && allTimeStats && allTimeStats.totalPredictions > 0 && (
+          <div className="mt-6 p-4 bg-gradient-card border border-border/50 rounded-lg">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground">All-Time Performance</h3>
+              <Badge variant="outline" className="text-xs">
+                {allTimeStats.totalPredictions} total picks
+              </Badge>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <p className="text-muted-foreground">Win Rate</p>
+                <p className="text-lg font-bold text-success">{allTimeStats.winRate.toFixed(1)}%</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Total Profit</p>
+                <p className="text-lg font-bold text-success">+${allTimeStats.totalProfit.toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Wins</p>
+                <p className="text-lg font-bold text-foreground">{allTimeStats.wins}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Losses</p>
+                <p className="text-lg font-bold text-foreground">{allTimeStats.losses}</p>
+              </div>
+            </div>
           </div>
         )}
       </div>
