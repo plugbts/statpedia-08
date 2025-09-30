@@ -414,7 +414,11 @@ const Index = () => {
       </div>
 
       {/* Previous Day Wins */}
-      <PreviousDayWins wins={mockWins} />
+      <PreviousDayWins 
+        wins={mockWins} 
+        totalProfit={mockWins.reduce((sum, win) => sum + win.profit, 0)}
+        winRate={100}
+      />
 
       {/* Feature Tooltip */}
       {showFeatureTooltip && (

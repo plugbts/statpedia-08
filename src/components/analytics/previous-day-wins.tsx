@@ -20,12 +20,12 @@ interface WinPrediction {
 }
 
 interface PreviousDayWinsProps {
-  wins: WinPrediction[];
-  totalProfit: number;
-  winRate: number;
+  wins?: WinPrediction[];
+  totalProfit?: number;
+  winRate?: number;
 }
 
-export const PreviousDayWins = ({ wins, totalProfit, winRate }: PreviousDayWinsProps) => {
+export const PreviousDayWins = ({ wins = [], totalProfit = 0, winRate = 0 }: PreviousDayWinsProps) => {
   return (
     <Card className="p-6 bg-gradient-success/5 border-success/20">
       <div className="space-y-6">
@@ -101,7 +101,7 @@ export const PreviousDayWins = ({ wins, totalProfit, winRate }: PreviousDayWinsP
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">Result: {win.result}</span>
                   <span className="font-mono text-success font-medium">
-                    +${win.profit.toFixed(2)}
+                    +${(win.profit || 0).toFixed(2)}
                   </span>
                 </div>
               </div>
