@@ -103,12 +103,14 @@ class RecommendationService {
         };
       });
     } catch (error: any) {
-      console.error('Failed to get personalized feed:', error);
-      if (error?.code !== 'PGRST116' && !error?.message?.includes('function does not exist')) {
-        throw error;
-      }
+      console.log('Failed to get personalized feed, falling back to regular posts:', error);
       // Fallback to regular posts if recommendation system not available
-      return await socialService.getPosts(limit, offset);
+      const posts = await socialService.getPosts(limit, offset);
+      return posts.map(post => ({
+        ...post,
+        score: 0,
+        reason: 'Recent post'
+      }));
     }
   }
 
@@ -129,7 +131,7 @@ class RecommendationService {
       if (error) throw error;
       return data || [];
     } catch (error: any) {
-      console.error('Failed to get trending posts:', error);
+      console.log('Failed to get trending posts, returning empty array:', error);
       return [];
     }
   }

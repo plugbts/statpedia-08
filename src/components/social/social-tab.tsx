@@ -552,9 +552,11 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
 
     try {
       setIsSubmitting(true);
+      console.log('Creating post with content:', newPost.trim());
       
       // Create the post first
       const post = await socialService.createPost(userProfile.user_id, newPost.trim());
+      console.log('Post created:', post);
       
       // Upload attachments if any
       if (attachedFiles.length > 0) {
@@ -575,12 +577,14 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
       });
       
       // Reload posts
+      console.log('Reloading posts after creation...');
       const postsData = await socialService.getPosts();
       const personalizedPosts: PersonalizedPost[] = postsData.map(post => ({
         ...post,
         score: 0,
         reason: 'recent'
       }));
+      console.log('Setting posts after creation:', personalizedPosts.length);
       setPosts(personalizedPosts);
     } catch (error: any) {
       console.error('Failed to create post:', error);
