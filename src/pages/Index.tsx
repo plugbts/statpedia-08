@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AuthPage } from '@/components/auth/auth-page';
 import { PlayerPropsTab } from '@/components/player-props/player-props-tab';
 import { StrikeoutCenter } from '@/components/strikeout-center/strikeout-center';
+import { InsightsTab } from '@/components/insights/insights-tab';
 import { MatrixBackground } from '@/components/effects/matrix-background';
 import { Navigation } from '@/components/layout/navigation';
 import { StatsOverview } from '@/components/analytics/stats-overview';
@@ -1028,9 +1029,10 @@ const Index = () => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         {activeTab === 'dashboard' && renderDashboard()}
         {activeTab === 'player-props' && <PlayerPropsTab userSubscription={userSubscription} userRole={userRole} />}
+        {activeTab === 'insights' && <InsightsTab selectedSport={selectedSport} userRole={userRole} userSubscription={userSubscription} />}
         {activeTab === 'strikeout-center' && <StrikeoutCenter />}
         {activeTab === 'sync-test' && renderSyncTest()}
-        {activeTab !== 'dashboard' && activeTab !== 'player-props' && activeTab !== 'strikeout-center' && activeTab !== 'sync-test' && (
+        {activeTab !== 'dashboard' && activeTab !== 'player-props' && activeTab !== 'insights' && activeTab !== 'strikeout-center' && activeTab !== 'sync-test' && (
           <div className="text-center py-16">
             <h2 className="text-2xl font-bold text-foreground mb-4">
               {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Coming Soon
