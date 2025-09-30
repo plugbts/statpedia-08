@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { SportIcon } from '@/components/ui/sport-icon';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { NotificationBell } from '@/components/notifications/notification-bell';
 import { BarChart3, Target, TrendingUp, Calendar, Settings, Wifi, LogOut, MoreVertical, Zap, Brain, Play, Pause, CreditCard, MessageCircle, Wallet, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { VerifiedCheckmark } from '@/components/ui/verified-checkmark';
@@ -207,6 +208,9 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
                 <Play className="h-3.5 w-3.5 text-muted-foreground" />
               )}
             </Button>
+
+            {/* Notification Bell */}
+            <NotificationBell userId={userEmail || ''} />
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

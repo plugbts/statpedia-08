@@ -30,6 +30,10 @@ import { BannerEditor } from '@/components/social/banner-editor';
 import { UserPredictionStats } from '@/components/predictions/user-prediction-stats';
 import { KarmaTutorialPopup } from '@/components/ui/karma-tutorial-popup';
 import { SocialFeedAd } from '@/components/ads/ad-placements';
+import { BetSlipSharer } from './bet-slip-sharer';
+import { BetSlipCard } from './bet-slip-card';
+import { BetSlipNotifications } from './bet-slip-notifications';
+import { betSlipSharingService, type SharedBetSlip } from '@/services/bet-slip-sharing';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -59,6 +63,8 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
   const [showBannerEditor, setShowBannerEditor] = useState(false);
   const [currentBanner, setCurrentBanner] = useState<BannerSettings | null>(null);
   const [showKarmaTutorial, setShowKarmaTutorial] = useState(false);
+  const [sharedBetSlips, setSharedBetSlips] = useState<SharedBetSlip[]>([]);
+  const [isLoadingBetSlips, setIsLoadingBetSlips] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -214,6 +220,17 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
       setPosts(postsData);
       setFriends(friendsData);
       setFriendRequests(requestsData);
+
+      // Load shared bet slips
+      try {
+        setIsLoadingBetSlips(true);
+        const betSlipsData = await betSlipSharingService.getSharedBetSlips(user.id);
+        setSharedBetSlips(betSlipsData);
+      } catch (error: any) {
+        console.log('Bet slips service error (expected if tables missing):', error);
+      } finally {
+        setIsLoadingBetSlips(false);
+      }
     } catch (error: any) {
       console.error('Unexpected error in loadInitialData:', error);
       toast({
@@ -527,10 +544,11 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="feed">Feed</TabsTrigger>
           <TabsTrigger value="friends">Friends</TabsTrigger>
           <TabsTrigger value="search">Search</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="profile">Profile</TabsTrigger>
         </TabsList>
 
@@ -616,14 +634,26 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
                       <span className="text-xs text-muted-foreground">
                         {newPost.length}/150 characters
                       </span>
-                      <Button
-                        onClick={handleCreatePost}
-                        disabled={!newPost.trim() || isSubmitting}
-                        size="sm"
-                      >
-                        <Send className="w-4 h-4 mr-2" />
-                        {isSubmitting ? 'Posting...' : 'Post'}
-                      </Button>
+                      <div className="flex gap-2">
+                        <BetSlipSharer 
+                          userId={userProfile?.user_id || ''} 
+                          onBetSlipShared={(betSlip) => {
+                            setSharedBetSlips(prev => [betSlip, ...prev]);
+                            toast({
+                              title: "Success",
+                              description: "Bet slip shared to social feed!"
+                            });
+                          }}
+                        />
+                        <Button
+                          onClick={handleCreatePost}
+                          disabled={!newPost.trim() || isSubmitting}
+                          size="sm"
+                        >
+                          <Send className="w-4 h-4 mr-2" />
+                          {isSubmitting ? 'Posting...' : 'Post'}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -711,6 +741,37 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
             ))
             )}
             
+            {/* Shared Bet Slips */}
+            {sharedBetSlips.map((betSlip) => (
+              <BetSlipCard
+                key={betSlip.id}
+                betSlip={betSlip}
+                currentUserId={userProfile?.user_id}
+                onTail={(betSlipId) => {
+                  setSharedBetSlips(prev => 
+                    prev.map(bs => 
+                      bs.id === betSlipId 
+                        ? { ...bs, tailCount: bs.tailCount + 1, isTailed: true }
+                        : bs
+                    )
+                  );
+                }}
+                onLike={(betSlipId) => {
+                  setSharedBetSlips(prev => 
+                    prev.map(bs => 
+                      bs.id === betSlipId 
+                        ? { 
+                            ...bs, 
+                            likeCount: bs.isLiked ? bs.likeCount - 1 : bs.likeCount + 1,
+                            isLiked: !bs.isLiked
+                          }
+                        : bs
+                    )
+                  );
+                }}
+              />
+            ))}
+
             {/* Social Feed Ad - Show after every 3 posts */}
             {posts.length > 0 && posts.length % 3 === 0 && (
               <SocialFeedAd userSubscription={userSubscription} />
@@ -852,6 +913,11 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Notifications Tab */}
+        <TabsContent value="notifications" className="space-y-4">
+          <BetSlipNotifications userId={userProfile?.user_id || ''} />
         </TabsContent>
 
         {/* Profile Tab */}

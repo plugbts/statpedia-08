@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { notificationService } from './notification-service';
 
 export interface UserBankroll {
   id: string;
@@ -511,6 +512,69 @@ class BetTrackingService {
       { value: 'prop', label: 'Prop Bet' },
       { value: 'futures', label: 'Futures' }
     ];
+  }
+
+  // Check for bet results and send notifications
+  async checkBetResults(userId: string): Promise<void> {
+    try {
+      // Get all pending bets for the user
+      const { data: pendingBets, error } = await supabase
+        .from('user_bets')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('status', 'pending')
+        .lt('game_date', new Date().toISOString()); // Games that should have finished
+
+      if (error) throw error;
+
+      for (const bet of pendingBets || []) {
+        // Simulate checking bet results (in real implementation, this would check actual game results)
+        const result = this.simulateBetResult(bet);
+        
+        if (result !== 'pending') {
+          // Update bet status
+          await supabase
+            .from('user_bets')
+            .update({ 
+              status: result,
+              result: result === 'won' ? 'win' : 'loss',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', bet.id);
+
+          // Send notification
+          await notificationService.notifyBetResult(
+            userId,
+            bet.id,
+            result,
+            {
+              playerName: bet.player_name,
+              propType: bet.prop_type,
+              line: bet.line,
+              odds: bet.odds,
+              stake: bet.stake
+            }
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Failed to check bet results:', error);
+    }
+  }
+
+  // Simulate bet result (replace with actual game result checking)
+  private simulateBetResult(bet: any): 'won' | 'lost' | 'pending' {
+    // This is a simulation - in real implementation, you would check actual game results
+    const random = Math.random();
+    
+    // 60% chance of winning (simulating good picks)
+    if (random < 0.6) {
+      return 'won';
+    } else if (random < 0.9) {
+      return 'lost';
+    } else {
+      return 'pending'; // Game still in progress
+    }
   }
 }
 
