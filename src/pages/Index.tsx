@@ -44,7 +44,6 @@ const Index = () => {
     getUserUsername,
     getUserInitials
   } = useUser();
-  const [isLoading, setIsLoading] = useState(true);
   const [selectedSport, setSelectedSport] = useState('nfl');
   const [realPredictions, setRealPredictions] = useState<any[]>([]);
   const [isLoadingPredictions, setIsLoadingPredictions] = useState(false);
@@ -434,7 +433,7 @@ const Index = () => {
 
   // Note: Sport change handling is done in handleSportChange function
 
-  if (isLoading) {
+  if (userLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
@@ -893,7 +892,7 @@ const Index = () => {
   );
 
   // Show loading spinner while checking authentication
-  if (isLoading) {
+  if (userLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />

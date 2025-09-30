@@ -68,10 +68,38 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         if (identity) {
           setUserSubscription(identity.subscription_tier || 'free');
           setUserRole(identity.role || 'user');
+        } else {
+          // If no identity found, create a basic one
+          const basicIdentity = {
+            user_id: user.id,
+            username: user.email?.split('@')[0] || `user_${user.id.slice(0, 8)}`,
+            display_name: user.user_metadata?.display_name || user.email?.split('@')[0] || `User ${user.id.slice(0, 8)}`,
+            email: user.email,
+            subscription_tier: 'free',
+            role: 'user',
+            created_at: user.created_at,
+            updated_at: user.updated_at
+          };
+          setUserIdentity(basicIdentity);
+          setUserSubscription('free');
+          setUserRole('user');
         }
       } catch (error) {
         console.error('Error loading user identity:', error);
-        setUserIdentity(null);
+        // Create a fallback identity to prevent loading loop
+        const fallbackIdentity = {
+          user_id: user.id,
+          username: user.email?.split('@')[0] || `user_${user.id.slice(0, 8)}`,
+          display_name: user.user_metadata?.display_name || user.email?.split('@')[0] || `User ${user.id.slice(0, 8)}`,
+          email: user.email,
+          subscription_tier: 'free',
+          role: 'user',
+          created_at: user.created_at,
+          updated_at: user.updated_at
+        };
+        setUserIdentity(fallbackIdentity);
+        setUserSubscription('free');
+        setUserRole('user');
       } finally {
         setIsLoading(false);
       }
@@ -95,8 +123,13 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       }
     );
 
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Check for existing session with timeout
+    const sessionPromise = supabase.auth.getSession();
+    const timeoutPromise = new Promise((resolve) => 
+      setTimeout(() => resolve({ data: { session: null } }), 5000)
+    );
+
+    Promise.race([sessionPromise, timeoutPromise]).then(({ data: { session } }: any) => {
       if (session?.user) {
         setUser(session.user);
       } else {
