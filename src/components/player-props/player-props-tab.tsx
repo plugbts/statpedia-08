@@ -43,6 +43,7 @@ import { cn } from '@/lib/utils';
 interface PlayerPropsTabProps {
   userSubscription: string;
   userRole?: string;
+  selectedSport: string;
 }
 
 interface PlayerProp {
@@ -128,10 +129,10 @@ const SORT_OPTIONS = [
   { value: 'roiPercentage', label: 'ROI%' },
 ];
 
-export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription, userRole = 'user' }) => {
+export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription, userRole = 'user', selectedSport }) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  const [sportFilter, setSportFilter] = useState('nba');
+  const [sportFilter, setSportFilter] = useState(selectedSport);
   const [propTypeFilter, setPropTypeFilter] = useState('all');
   const [selectedProps, setSelectedProps] = useState<string[]>([]);
   const [realProps, setRealProps] = useState<PlayerProp[]>([]);
@@ -141,6 +142,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
   const [showMyPicks, setShowMyPicks] = useState(false);
   const [selectedPlayerForAnalysis, setSelectedPlayerForAnalysis] = useState<any>(null);
   const [showAnalysisOverlay, setShowAnalysisOverlay] = useState(false);
+
+  // Update sport filter when selectedSport changes
+  useEffect(() => {
+    setSportFilter(selectedSport);
+  }, [selectedSport]);
 
   const [filterSettings, setFilterSettings] = useState<FilterSettings>({
     sortCriteria: [
@@ -589,27 +595,39 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
   };
 
   const handlePlayerAnalysis = (prop: PlayerProp) => {
-    // Create player data for analysis
+    // Create enhanced player data for the new analysis overlay
     const playerData = {
       id: prop.id,
-      name: prop.playerName,
+      player: prop.playerName,
       team: prop.team,
-      position: prop.position || 'G', // Default position
-      headshot: prop.headshot,
-      stats: {
-        points: Math.floor(Math.random() * 30) + 10,
-        rebounds: Math.floor(Math.random() * 15) + 3,
-        assists: Math.floor(Math.random() * 12) + 2,
-        steals: Math.floor(Math.random() * 3) + 0.5,
-        blocks: Math.floor(Math.random() * 3) + 0.2,
-        turnovers: Math.floor(Math.random() * 5) + 1,
-        minutes: Math.floor(Math.random() * 20) + 25,
-        efficiency: Math.floor(Math.random() * 20) + 15
+      opponent: prop.opponent,
+      prop: prop.propType,
+      line: prop.line,
+      overOdds: prop.overOdds || -110,
+      underOdds: prop.underOdds || -110,
+      confidence: prop.confidence || Math.random() * 0.4 + 0.6,
+      expectedValue: prop.expectedValue || (Math.random() - 0.5) * 0.2,
+      recentForm: prop.recentForm || (Math.random() > 0.6 ? 'Hot' : Math.random() > 0.3 ? 'Cold' : 'Average'),
+      last5Games: prop.last5Games || Array.from({ length: 5 }, () => prop.line + (Math.random() - 0.5) * prop.line * 0.4),
+      seasonStats: prop.seasonStats || {
+        average: prop.line + (Math.random() - 0.5) * prop.line * 0.2,
+        median: prop.line + (Math.random() - 0.5) * prop.line * 0.15,
+        gamesPlayed: Math.floor(Math.random() * 10) + 5,
+        hitRate: Math.random() * 0.4 + 0.5
       },
-      injuryStatus: Math.random() > 0.8 ? 'questionable' : 'healthy',
-      injuryDetails: Math.random() > 0.8 ? 'Minor ankle sprain' : undefined,
-      recentForm: Math.random() > 0.6 ? 'hot' : Math.random() > 0.3 ? 'cold' : 'average',
-      matchupAdvantage: Math.random() > 0.6 ? 'strong' : Math.random() > 0.3 ? 'weak' : 'neutral'
+      aiPrediction: prop.aiPrediction || {
+        recommended: Math.random() > 0.5 ? 'over' : 'under',
+        confidence: prop.confidence || Math.random() * 0.4 + 0.6,
+        reasoning: `${prop.playerName} has been ${Math.random() > 0.5 ? 'exceeding' : 'underperforming'} this line recently`,
+        factors: [
+          'Recent form analysis',
+          'Head-to-head matchup',
+          'Weather conditions',
+          'Injury reports',
+          'Rest advantage',
+          'Home/away splits'
+        ].slice(0, Math.floor(Math.random() * 3) + 2)
+      }
     };
     
     setSelectedPlayerForAnalysis(playerData);
@@ -1100,10 +1118,13 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
               </div>
             )}
             <div className="relative">
-            <Card className={cn(
-              "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer",
-              !isSubscribed && "blur-sm"
-            )}>
+            <Card 
+              className={cn(
+                "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer",
+                !isSubscribed && "blur-sm"
+              )}
+              onClick={() => handlePlayerAnalysis(prop)}
+            >
             
             <div className="flex items-start justify-between mb-4">
               <div>
@@ -1224,7 +1245,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
             setShowAnalysisOverlay(false);
             setSelectedPlayerForAnalysis(null);
           }}
-          player={selectedPlayerForAnalysis}
+          playerProp={selectedPlayerForAnalysis}
         />
       )}
     </div>
