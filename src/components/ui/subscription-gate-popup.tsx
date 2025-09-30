@@ -39,12 +39,14 @@ export const SubscriptionGatePopup: React.FC<SubscriptionGatePopupProps> = ({
   if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-20 px-4">
-      <div className="relative">
+    <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-16 sm:pt-20 px-4">
+      {/* Clear background overlay to ensure popup is in foreground */}
+      <div className="absolute inset-0 bg-transparent"></div>
+      <div className="relative z-10">
         {/* 3D Effect Container */}
         <div className="relative transform perspective-1000">
           {/* Main Card with 3D effect */}
-          <Card className="w-full max-w-lg transform rotate-y-2 shadow-2xl border-2 border-primary/30 bg-gradient-to-br from-background via-muted/20 to-background backdrop-blur-sm">
+          <Card className="w-full max-w-lg transform rotate-y-2 shadow-2xl border-2 border-primary/30 bg-gradient-to-br from-background via-muted/20 to-background">
             <CardHeader className="text-center pb-4">
               <div className="flex items-center justify-center mb-4">
                 <div className="relative">
