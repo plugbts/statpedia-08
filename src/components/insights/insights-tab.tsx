@@ -308,6 +308,7 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
       title="Premium Content"
       description="Subscribe to view insights"
       buttonText="Upgrade to Premium"
+      size="compact"
     />
     </div>
   );
@@ -356,6 +357,7 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
       title="Premium Content"
       description="Subscribe to view insights"
       buttonText="Upgrade to Premium"
+      size="compact"
     />
     </div>
   );
