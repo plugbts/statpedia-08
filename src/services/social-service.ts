@@ -255,18 +255,31 @@ class SocialService {
   }
 
   async getPosts(limit: number = 20, offset: number = 0): Promise<Post[]> {
-    const { data, error } = await supabase
-      .from('posts')
-      .select(`
-        *,
-        user_profile:user_profiles(*)
-      `)
-      .eq('is_deleted', false)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+    try {
+      const { data, error } = await supabase
+        .from('posts')
+        .select(`
+          *,
+          user_profile:user_profiles(*)
+        `)
+        .eq('is_deleted', false)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
 
-    if (error) throw error;
-    return data || [];
+      if (error) {
+        // If table doesn't exist, return empty array instead of throwing
+        if (error.message.includes('relation "public.posts" does not exist') || 
+            error.message.includes('could not find table')) {
+          console.log('Posts table not found, returning empty array');
+          return [];
+        }
+        throw error;
+      }
+      return data || [];
+    } catch (error) {
+      console.error('Failed to get posts:', error);
+      return [];
+    }
   }
 
   async getUserPosts(userId: string, limit: number = 20, offset: number = 0): Promise<Post[]> {
