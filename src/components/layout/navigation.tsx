@@ -14,10 +14,11 @@ interface NavigationProps {
   selectedSport?: string;
   userEmail?: string;
   displayName?: string;
+  userRole?: string;
   onLogout?: () => void;
 }
 
-export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSport = 'nfl', userEmail, displayName, onLogout }: NavigationProps) => {
+export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSport = 'nfl', userEmail, displayName, userRole = 'user', onLogout }: NavigationProps) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="w-4 h-4" /> },
     { id: 'predictions', label: 'Predictions', icon: <Target className="w-4 h-4" />, badge: '12' },
@@ -26,11 +27,26 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
     { id: 'backtest', label: 'Backtest', icon: <Calendar className="w-4 h-4" /> },
   ];
 
-  const extraItems = [
-    { id: 'strikeout-center', label: 'Strikeout Center', icon: <Zap className="w-4 h-4" />, badge: 'MLB' },
-    { id: 'admin', label: 'Admin Panel', icon: <Settings className="w-4 h-4" /> },
-    { id: 'sync-test', label: 'Sync Test', icon: <Wifi className="w-4 h-4" />, badge: 'DEV' },
-  ];
+  // Role-based access control for extra items
+  const getExtraItems = () => {
+    const items = [
+      { id: 'strikeout-center', label: 'Strikeout Center', icon: <Zap className="w-4 h-4" />, badge: 'MLB' },
+    ];
+    
+    // Admin panel only visible to mod, admin, and owner
+    if (['mod', 'admin', 'owner'].includes(userRole)) {
+      items.push({ id: 'admin', label: 'Admin Panel', icon: <Settings className="w-4 h-4" /> });
+    }
+    
+    // Sync test only visible to owner and admin
+    if (['admin', 'owner'].includes(userRole)) {
+      items.push({ id: 'sync-test', label: 'Sync Test', icon: <Wifi className="w-4 h-4" />, badge: 'DEV' });
+    }
+    
+    return items;
+  };
+  
+  const extraItems = getExtraItems();
 
   const sports = [
     { id: 'nba', label: 'NBA', sport: 'nba' },
@@ -130,7 +146,22 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48 bg-card/95 backdrop-blur-md border-border/50 z-[100]">
                 <DropdownMenuItem className="flex flex-col items-start gap-1 py-2">
-                  <p className="text-sm font-medium">{displayName || userEmail?.split('@')[0]}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium">{displayName || userEmail?.split('@')[0]}</p>
+                    {userRole !== 'user' && (
+                      <Badge 
+                        variant={userRole === 'owner' ? 'default' : 'secondary'} 
+                        className={cn(
+                          'text-xs',
+                          userRole === 'owner' && 'bg-gradient-primary',
+                          userRole === 'admin' && 'bg-red-500/20 text-red-600',
+                          userRole === 'mod' && 'bg-blue-500/20 text-blue-600'
+                        )}
+                      >
+                        {userRole.toUpperCase()}
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground">{userEmail}</p>
                 </DropdownMenuItem>
                 {onLogout && (

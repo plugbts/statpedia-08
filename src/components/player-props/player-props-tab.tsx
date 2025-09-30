@@ -13,9 +13,10 @@ import { useToast } from '@/hooks/use-toast';
 
 interface PlayerPropsTabProps {
   userSubscription: string;
+  userRole?: string;
 }
 
-export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription }) => {
+export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription, userRole = 'user' }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sportFilter, setSportFilter] = useState('nba');
   const [propTypeFilter, setPropTypeFilter] = useState('all');
@@ -23,7 +24,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
   const [realProps, setRealProps] = useState<any[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
 
-  const isSubscribed = userSubscription !== 'free';
+  const isSubscribed = userRole === 'owner' || userSubscription !== 'free';
   const { fetchInSeasonSports, fetchOdds, loading, error, isSeasonActive } = useOddsAPI();
   const { toast } = useToast();
 

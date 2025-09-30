@@ -26,6 +26,7 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [user, setUser] = useState<User | null>(null);
   const [userSubscription, setUserSubscription] = useState('free');
+  const [userRole, setUserRole] = useState('user'); // user, mod, admin, owner
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSport, setSelectedSport] = useState('nfl');
   const [realPredictions, setRealPredictions] = useState<any[]>([]);
@@ -88,23 +89,31 @@ const Index = () => {
 
   useEffect(() => {
     // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          // Fetch subscription in setTimeout to avoid blocking
-          setTimeout(() => {
-            fetchUserSubscription(session.user.id);
-          }, 0);
-        }
-        setIsLoading(false);
-      }
-    );
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          (event, session) => {
+            setUser(session?.user ?? null);
+            if (session?.user) {
+              // Set user role
+              const role = determineUserRole(session.user);
+              setUserRole(role);
+              
+              // Fetch subscription in setTimeout to avoid blocking
+              setTimeout(() => {
+                fetchUserSubscription(session.user.id);
+              }, 0);
+            }
+            setIsLoading(false);
+          }
+        );
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
+        // Set user role
+        const role = determineUserRole(session.user);
+        setUserRole(role);
+        
         setTimeout(() => {
           fetchUserSubscription(session.user.id);
         }, 0);
@@ -293,6 +302,27 @@ const Index = () => {
     }
   };
 
+  const determineUserRole = (user: User | null) => {
+    if (!user) return 'user';
+    
+    // Check if user is the plug account (owner)
+    if (user.email === 'plug@plugbts.com' || user.email === 'plugbts@gmail.com') {
+      return 'owner';
+    }
+    
+    // Check for admin role in user metadata
+    if (user.user_metadata?.role === 'admin') {
+      return 'admin';
+    }
+    
+    // Check for mod role in user metadata
+    if (user.user_metadata?.role === 'mod') {
+      return 'mod';
+    }
+    
+    return 'user';
+  };
+
   const handleAuthSuccess = (userData: User, subscription: string) => {
     setUser(userData);
     setUserSubscription(subscription);
@@ -399,7 +429,7 @@ const Index = () => {
                   <PredictionCard
                     key={prediction.id || index}
                     {...prediction}
-                    isSubscribed={userSubscription !== 'free'}
+                    isSubscribed={userRole === 'owner' || userSubscription !== 'free'}
                   />
                 ))}
             </div>
@@ -536,7 +566,7 @@ const Index = () => {
                 <PredictionCard
                   key={prediction.id || index}
                   {...prediction}
-                  isSubscribed={userSubscription !== 'free'}
+                  isSubscribed={userRole === 'owner' || userSubscription !== 'free'}
                 />
               ))}
             </div>
@@ -641,11 +671,12 @@ const Index = () => {
         selectedSport={selectedSport}
         userEmail={user.email}
         displayName={user.user_metadata?.display_name}
+        userRole={userRole}
         onLogout={handleLogout}
       />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         {activeTab === 'dashboard' && renderDashboard()}
-        {activeTab === 'player-props' && <PlayerPropsTab userSubscription={userSubscription} />}
+        {activeTab === 'player-props' && <PlayerPropsTab userSubscription={userSubscription} userRole={userRole} />}
         {activeTab === 'strikeout-center' && <StrikeoutCenter />}
         {activeTab === 'sync-test' && renderSyncTest()}
         {activeTab !== 'dashboard' && activeTab !== 'player-props' && activeTab !== 'strikeout-center' && activeTab !== 'sync-test' && (
