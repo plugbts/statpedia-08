@@ -83,6 +83,12 @@ export function UserManagement() {
   const [subscriptionFilter, setSubscriptionFilter] = useState('all');
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [showUserDetails, setShowUserDetails] = useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [subscriptionChange, setSubscriptionChange] = useState({
+    userId: '',
+    newTier: '',
+    reason: ''
+  });
   const { toast } = useToast();
 
   // Check if user has admin access
@@ -140,11 +146,17 @@ export function UserManagement() {
           role = 'mod';
         }
         
-        // Get username with better fallback
+        // Get username with better fallback - prioritize social tab username
         let username = userProfile?.username;
         if (!username) {
           // Try to get from email prefix
           username = profile.email?.split('@')[0] || `user_${profile.user_id.slice(0, 8)}`;
+        }
+        
+        // Ensure username is consistent with social tab format
+        if (username && !username.startsWith('@')) {
+          // Username should not have @ prefix in data, but display with @
+          username = username;
         }
         
         return {
@@ -356,6 +368,112 @@ export function UserManagement() {
     }
   };
 
+  const handleSubscriptionChange = async () => {
+    if (!subscriptionChange.userId || !subscriptionChange.newTier) {
+      toast({
+        title: "Error",
+        description: "Please select a user and subscription tier",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      // Update subscription in profiles table
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ subscription_tier: subscriptionChange.newTier })
+        .eq('user_id', subscriptionChange.userId);
+
+      if (profileError) throw profileError;
+
+      // Update subscription in user_profiles table if it exists
+      const { data: existingProfile } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('user_id', subscriptionChange.userId)
+        .single();
+
+      if (existingProfile) {
+        const { error: userProfileError } = await supabase
+          .from('user_profiles')
+          .update({ subscription_tier: subscriptionChange.newTier })
+          .eq('user_id', subscriptionChange.userId);
+
+        if (userProfileError) throw userProfileError;
+      }
+
+      // Update local state
+      setUsers(prev => prev.map(user => 
+        user.id === subscriptionChange.userId 
+          ? { ...user, subscription_tier: subscriptionChange.newTier }
+          : user
+      ));
+
+      logSecurityEvent('USER_SUBSCRIPTION_CHANGED', {
+        targetUserId: subscriptionChange.userId,
+        newTier: subscriptionChange.newTier,
+        reason: subscriptionChange.reason,
+        adminRole: userRole
+      });
+
+      toast({
+        title: "Success",
+        description: `User subscription updated to ${subscriptionChange.newTier}`
+      });
+
+      // Reset form
+      setSubscriptionChange({
+        userId: '',
+        newTier: '',
+        reason: ''
+      });
+      setShowSubscriptionModal(false);
+    } catch (error) {
+      console.error('Failed to update subscription:', error);
+      toast({
+        title: "Error",
+        description: `Failed to update subscription: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const syncUsernameWithSocial = async (userId: string, newUsername: string) => {
+    try {
+      // Update username in user_profiles table
+      const { error: userProfileError } = await supabase
+        .from('user_profiles')
+        .update({ username: newUsername })
+        .eq('user_id', userId);
+
+      if (userProfileError) throw userProfileError;
+
+      // Update local state
+      setUsers(prev => prev.map(user => 
+        user.id === userId ? { ...user, username: newUsername } : user
+      ));
+
+      logSecurityEvent('USERNAME_SYNCED', {
+        targetUserId: userId,
+        newUsername,
+        adminRole: userRole
+      });
+
+      toast({
+        title: "Success",
+        description: "Username synced with social tab"
+      });
+    } catch (error) {
+      console.error('Failed to sync username:', error);
+      toast({
+        title: "Error",
+        description: "Failed to sync username with social tab",
+        variant: "destructive"
+      });
+    }
+  };
+
   const getRoleIcon = (role: string) => {
     switch (role) {
       case 'owner': return <Crown className="w-4 h-4 text-yellow-500" />;
@@ -546,14 +664,14 @@ export function UserManagement() {
       </Card>
 
       {/* Users Table */}
-      <Card>
-        <CardHeader>
+    <Card>
+      <CardHeader>
           <CardTitle>Users ({filteredUsers.length})</CardTitle>
           <CardDescription>
             Manage user accounts and permissions
           </CardDescription>
-        </CardHeader>
-        <CardContent>
+      </CardHeader>
+      <CardContent>
           <div className="space-y-4">
             {filteredUsers.map((user) => (
               <div
@@ -617,6 +735,29 @@ export function UserManagement() {
                           )}
                         </SelectContent>
                       </Select>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setSubscriptionChange({
+                            userId: user.id,
+                            newTier: user.subscription_tier,
+                            reason: ''
+                          });
+                          setShowSubscriptionModal(true);
+                        }}
+                        title="Manage Subscription"
+                      >
+                        <Crown className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => syncUsernameWithSocial(user.id, user.username)}
+                        title="Sync Username with Social Tab"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"
@@ -719,6 +860,79 @@ export function UserManagement() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Subscription Management Modal */}
+      {showSubscriptionModal && (
+        <Card className="fixed inset-4 z-50 overflow-auto">
+          <CardHeader>
+            <CardTitle>Manage User Subscription</CardTitle>
+            <CardDescription>
+              Change user subscription plan
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="user-select">User</Label>
+                <Select
+                  value={subscriptionChange.userId}
+                  onValueChange={(value) => setSubscriptionChange(prev => ({ ...prev, userId: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select user" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {users.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.display_name} (@{user.username}) - {user.subscription_tier}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="subscription-tier">Subscription Tier</Label>
+                <Select
+                  value={subscriptionChange.newTier}
+                  onValueChange={(value) => setSubscriptionChange(prev => ({ ...prev, newTier: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select tier" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="free">Free</SelectItem>
+                    <SelectItem value="pro">Pro</SelectItem>
+                    <SelectItem value="premium">Premium</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="reason">Reason for Change</Label>
+              <Input
+                id="reason"
+                placeholder="Enter reason for subscription change..."
+                value={subscriptionChange.reason}
+                onChange={(e) => setSubscriptionChange(prev => ({ ...prev, reason: e.target.value }))}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowSubscriptionModal(false);
+                  setSubscriptionChange({ userId: '', newTier: '', reason: '' });
+                }}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleSubscriptionChange}>
+                Update Subscription
+              </Button>
+            </div>
+      </CardContent>
+    </Card>
       )}
     </div>
   );
