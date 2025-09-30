@@ -44,113 +44,11 @@ class BannerService {
       return data || [];
     } catch (error: any) {
       console.error('Failed to get banner presets:', error);
-      // Return fallback presets if database is unavailable
-      return this.getFallbackPresets(category, includePremium);
-    }
-  }
-
-  // Fallback banner presets when database is unavailable
-  private getFallbackPresets(category?: string, includePremium: boolean = true): BannerPreset[] {
-    const fallbackPresets: BannerPreset[] = [
-      // Sports banners
-      {
-        id: 'fallback-1',
-        name: 'Football Field',
-        description: 'Green football field background',
-        image_url: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=1200&h=300&fit=crop',
-        category: 'sports',
-        is_premium: false,
-        created_at: new Date().toISOString()
-      },
-      {
-        id: 'fallback-2',
-        name: 'Basketball Court',
-        description: 'Orange basketball court background',
-        image_url: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=1200&h=300&fit=crop',
-        category: 'sports',
-        is_premium: false,
-        created_at: new Date().toISOString()
-      },
-      {
-        id: 'fallback-3',
-        name: 'Baseball Diamond',
-        description: 'Baseball field background',
-        image_url: 'https://images.unsplash.com/photo-1566577739112-5180d4bf9390?w=1200&h=300&fit=crop',
-        category: 'sports',
-        is_premium: false,
-        created_at: new Date().toISOString()
-      },
-      // Abstract banners
-      {
-        id: 'fallback-4',
-        name: 'Blue Gradient',
-        description: 'Smooth blue gradient',
-        image_url: 'https://images.unsplash.com/photo-1557683316-973673baf926?w=1200&h=300&fit=crop',
-        category: 'abstract',
-        is_premium: false,
-        created_at: new Date().toISOString()
-      },
-      {
-        id: 'fallback-5',
-        name: 'Purple Waves',
-        description: 'Purple wave pattern',
-        image_url: 'https://images.unsplash.com/photo-1557683311-eac922347aa1?w=1200&h=300&fit=crop',
-        category: 'abstract',
-        is_premium: false,
-        created_at: new Date().toISOString()
-      },
-      // Nature banners
-      {
-        id: 'fallback-6',
-        name: 'Mountain Sunset',
-        description: 'Beautiful mountain sunset',
-        image_url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&h=300&fit=crop',
-        category: 'nature',
-        is_premium: false,
-        created_at: new Date().toISOString()
-      },
-      {
-        id: 'fallback-7',
-        name: 'Ocean Waves',
-        description: 'Calm ocean waves',
-        image_url: 'https://images.unsplash.com/photo-1505142468610-359e7d316be0?w=1200&h=300&fit=crop',
-        category: 'nature',
-        is_premium: false,
-        created_at: new Date().toISOString()
-      },
-      // Premium banners
-      {
-        id: 'fallback-8',
-        name: 'Golden Sports',
-        description: 'Premium golden sports theme',
-        image_url: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=1200&h=300&fit=crop',
-        category: 'sports',
-        is_premium: true,
-        created_at: new Date().toISOString()
-      },
-      {
-        id: 'fallback-9',
-        name: 'Neon Abstract',
-        description: 'Premium neon abstract design',
-        image_url: 'https://images.unsplash.com/photo-1557683316-973673baf926?w=1200&h=300&fit=crop',
-        category: 'abstract',
-        is_premium: true,
-        created_at: new Date().toISOString()
+      if (error?.code !== 'PGRST116' && !error?.message?.includes('function does not exist')) {
+        throw error;
       }
-    ];
-
-    // Filter by category if specified
-    let filteredPresets = fallbackPresets;
-    if (category && category !== 'all') {
-      filteredPresets = fallbackPresets.filter(preset => preset.category === category);
+      return [];
     }
-
-    // Filter by premium status
-    if (!includePremium) {
-      filteredPresets = filteredPresets.filter(preset => !preset.is_premium);
-    }
-
-    return filteredPresets;
   }
 
   // Get all banner categories
@@ -164,16 +62,11 @@ class BannerService {
       if (error) throw error;
       
       const categories = [...new Set(data?.map(item => item.category) || [])];
-      return categories.length > 0 ? categories : this.getFallbackCategories();
+      return categories;
     } catch (error: any) {
       console.error('Failed to get banner categories:', error);
-      return this.getFallbackCategories();
+      return ['sports', 'abstract', 'nature', 'gradient', 'solid'];
     }
-  }
-
-  // Fallback categories when database is unavailable
-  private getFallbackCategories(): string[] {
-    return ['sports', 'abstract', 'nature', 'gradient', 'solid'];
   }
 
   // Update user banner settings

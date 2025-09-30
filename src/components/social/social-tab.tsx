@@ -670,23 +670,22 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-4xl space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold">Social</h2>
-          {userProfile && (
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1">
-                <Star className="w-3 h-3 text-yellow-500" />
-                <span className="text-xs font-medium">{userProfile.karma} Karma</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <TrendingUp className="w-3 h-3 text-green-500" />
-                <span className="text-xs font-medium">{userProfile.roi_percentage.toFixed(1)}% ROI</span>
-              </div>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold">Social</h2>
+        {userProfile && (
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Star className="w-4 h-4 text-yellow-500" />
+              <span className="text-sm font-medium">{userProfile.karma} Karma</span>
             </div>
-          )}
-        </div>
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-green-500" />
+              <span className="text-sm font-medium">{userProfile.roi_percentage.toFixed(1)}% ROI</span>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Debug Info */}
       <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
@@ -695,16 +694,16 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
         karmaTutorialChecked={karmaTutorialChecked ? 'yes' : 'no'}, showKarmaTutorial={showKarmaTutorial ? 'yes' : 'no'}
       </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3">
-          <TabsList className="grid w-full grid-cols-7 gap-1 h-8">
-            <TabsTrigger value="feed" className="text-xs px-2">Feed</TabsTrigger>
-            <TabsTrigger value="friends" className="text-xs px-2">Friends</TabsTrigger>
-            <TabsTrigger value="search" className="text-xs px-2">Search</TabsTrigger>
-            <TabsTrigger value="messages" className="text-xs px-2">Messages</TabsTrigger>
-            <TabsTrigger value="notifications" className="text-xs px-2">Notifications</TabsTrigger>
-            <TabsTrigger value="blocked" className="text-xs px-2">Blocked</TabsTrigger>
-            <TabsTrigger value="profile" className="text-xs px-2">Profile</TabsTrigger>
-          </TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-7 gap-1">
+          <TabsTrigger value="feed" className="text-xs">Feed</TabsTrigger>
+          <TabsTrigger value="friends" className="text-xs">Friends</TabsTrigger>
+          <TabsTrigger value="search" className="text-xs">Search</TabsTrigger>
+          <TabsTrigger value="messages" className="text-xs">Messages</TabsTrigger>
+          <TabsTrigger value="notifications" className="text-xs">Notifications</TabsTrigger>
+          <TabsTrigger value="blocked" className="text-xs">Blocked</TabsTrigger>
+          <TabsTrigger value="profile" className="text-xs">Profile</TabsTrigger>
+        </TabsList>
 
         {/* Feed Tab */}
         <TabsContent value="feed" className="space-y-4">
@@ -1336,14 +1335,13 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
               </Card>
             )}
           </TabsContent>
-        </Tabs>
-      </div>
+      </Tabs>
 
       {/* Banner Editor Modal */}
       {showBannerEditor && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-3xl max-h-[85vh] overflow-y-auto">
-            <CardContent className="p-4">
+          <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <CardContent className="p-6">
               <BannerEditor
                 currentBanner={currentBanner || undefined}
                 onBannerChange={handleBannerChange}
