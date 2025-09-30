@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useSync } from "@/hooks/use-sync";
+import { useEmailCron } from "@/hooks/use-email-cron";
 import Index from "./pages/Index";
 import Admin from "./pages/Admin";
 import PredictionDetail from "./pages/PredictionDetail";
@@ -187,6 +188,9 @@ const SyncProvider = ({ children }: { children: React.ReactNode }) => {
     ],
   });
 
+  // Initialize email cron service
+  const emailCron = useEmailCron();
+
   // Log sync status
   console.log('Sync Status:', {
     isFullyConnected: sync.isFullyConnected,
@@ -195,6 +199,9 @@ const SyncProvider = ({ children }: { children: React.ReactNode }) => {
     lastSync: sync.lastSync,
     error: sync.error,
   });
+
+  // Log email cron status
+  console.log('Email Cron Status:', emailCron.status);
 
   return <>{children}</>;
 };

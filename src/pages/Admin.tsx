@@ -3,10 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Users, Ban, Gift, Activity } from "lucide-react";
+import { Shield, Users, Ban, Gift, Activity, Mail } from "lucide-react";
 import { UserManagement } from "@/components/admin/user-management";
 import { DiscordManagement } from "@/components/admin/discord-management";
 import { PromoCodesAdmin } from "@/components/admin/promo-codes-admin";
+import { EmailCampaignsAdmin } from "@/components/admin/email-campaigns-admin";
 import { AuditLogs } from "@/components/admin/audit-logs";
 
 export default function Admin() {
@@ -72,7 +73,7 @@ export default function Admin() {
         </div>
 
         <Tabs defaultValue="users" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="users">
               <Users className="h-4 w-4 mr-2" />
               Users
@@ -84,6 +85,10 @@ export default function Admin() {
             <TabsTrigger value="promos">
               <Gift className="h-4 w-4 mr-2" />
               Promo Codes
+            </TabsTrigger>
+            <TabsTrigger value="emails">
+              <Mail className="h-4 w-4 mr-2" />
+              Email Campaigns
             </TabsTrigger>
             <TabsTrigger value="logs">
               <Ban className="h-4 w-4 mr-2" />
@@ -101,6 +106,10 @@ export default function Admin() {
 
           <TabsContent value="promos" className="space-y-4">
             <PromoCodesAdmin />
+          </TabsContent>
+
+          <TabsContent value="emails" className="space-y-4">
+            <EmailCampaignsAdmin />
           </TabsContent>
 
           <TabsContent value="logs" className="space-y-4">
