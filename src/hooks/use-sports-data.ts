@@ -22,16 +22,18 @@ export function useLiveGames(sport: string, options: { autoFetch?: boolean; refr
       // Get real games from free sports API
       const freeGames = await freeSportsAPIService.getCurrentWeekGames(sport);
       
-      // Filter for future and current day games only
+      // Filter for relevant date range games only
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
+      const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const oneMonthFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
       
       const filteredGames = freeGames.filter(game => {
         const gameDate = new Date(game.date);
-        // Include games from today onwards (future and current day)
-        return gameDate >= today && game.status !== 'finished';
+        // Include games from one week ago to one month from now, excluding finished
+        return gameDate >= oneWeekAgo && 
+               gameDate <= oneMonthFromNow && 
+               game.status !== 'finished';
       });
       
       setGames(filteredGames);
@@ -141,13 +143,15 @@ export function usePlayerProps(sport: string, market?: string) {
       // Get real props from free sports API
       const freeProps = await freeSportsAPIService.getPlayerProps(sport);
       
-      // Filter for future games only
+      // Filter for relevant date range only
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const oneMonthFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
       
       const filteredProps = freeProps.filter(prop => {
         const gameDate = new Date(prop.gameDate);
-        return gameDate >= today;
+        return gameDate >= oneWeekAgo && gameDate <= oneMonthFromNow;
       });
       
       setProps(filteredProps);

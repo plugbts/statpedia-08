@@ -255,20 +255,21 @@ const Index = () => {
   const loadRealPredictions = async () => {
     setIsLoadingPredictions(true);
     try {
-      // Get real predictions from games service using ESPN API
+      // Get real predictions from games service using free sports API
       const gamePredictions = await gamesService.getCurrentWeekPredictions(selectedSport);
-      console.log('Raw game predictions:', gamePredictions);
       
       // Filter for future and current day games only
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const oneMonthFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
       
       const filteredPredictions = gamePredictions.filter(prediction => {
         const gameDate = new Date(prediction.game.date);
-        return gameDate >= today && prediction.game.status !== 'finished';
+        return gameDate >= oneWeekAgo && 
+               gameDate <= oneMonthFromNow && 
+               prediction.game.status !== 'finished';
       });
-      
-      console.log('Filtered predictions:', filteredPredictions);
       
       // Transform to dashboard format with proper home/away team display
       const transformedPredictions = filteredPredictions.map(prediction => {

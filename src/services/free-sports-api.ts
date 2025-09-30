@@ -76,6 +76,7 @@ class FreeSportsAPIService {
     return this.getCachedData(`games_${sport}`, async () => {
       try {
         const response = await fetch(endpoint);
+        
         if (!response.ok) {
           throw new Error(`ESPN API error: ${response.status} - ${response.statusText}`);
         }
@@ -99,11 +100,18 @@ class FreeSportsAPIService {
   private parseESPNGames(events: any[], sport: string): FreeGame[] {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const oneMonthFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
 
     return events
       .filter(event => {
         const eventDate = new Date(event.date);
-        return eventDate >= today && event.status.type.name !== 'STATUS_FINAL';
+        
+        // Include games from one week ago to one month from now, excluding final games
+        const isInDateRange = eventDate >= oneWeekAgo && eventDate <= oneMonthFromNow;
+        const isNotFinal = event.status.type.name !== 'STATUS_FINAL';
+        
+        return isInDateRange && isNotFinal;
       })
       .map(event => {
         const homeTeam = event.competitions[0]?.competitors?.find((c: any) => c.homeAway === 'home');
@@ -159,9 +167,9 @@ class FreeSportsAPIService {
   // Get player props from The Odds API (free tier)
   async getPlayerProps(sport: string): Promise<FreePlayerProp[]> {
     if (this.oddsAPIKey === 'free') {
-      // If no API key, return empty array
-      console.warn('No Odds API key provided, returning empty player props');
-      return [];
+      // If no API key, generate some basic props from games
+      console.warn('No Odds API key provided, generating basic props from games');
+      return this.generateBasicProps(sport);
     }
 
     const sportMap: { [key: string]: string } = {
@@ -274,6 +282,92 @@ class FreeSportsAPIService {
         seasonType: 'offseason'
       };
     }
+  }
+
+  // Generate basic props from games when no API key is available
+  private async generateBasicProps(sport: string): Promise<FreePlayerProp[]> {
+    try {
+      const games = await this.getCurrentWeekGames(sport);
+      const props: FreePlayerProp[] = [];
+      
+      games.forEach(game => {
+        // Generate some basic props for each game
+        const propTypes = this.getPropTypesForSport(sport);
+        
+        propTypes.forEach(propType => {
+          props.push({
+            id: `${game.id}_${propType}_over`,
+            sport: sport.toUpperCase(),
+            playerName: `${game.homeTeam} Player`,
+            team: game.homeTeam,
+            opponent: game.awayTeam,
+            propType: propType,
+            line: this.getDefaultLineForProp(propType),
+            overOdds: -110,
+            underOdds: -110,
+            gameDate: game.date,
+            gameTime: game.time,
+            venue: game.venue
+          });
+          
+          props.push({
+            id: `${game.id}_${propType}_under`,
+            sport: sport.toUpperCase(),
+            playerName: `${game.awayTeam} Player`,
+            team: game.awayTeam,
+            opponent: game.homeTeam,
+            propType: propType,
+            line: this.getDefaultLineForProp(propType),
+            overOdds: -110,
+            underOdds: -110,
+            gameDate: game.date,
+            gameTime: game.time,
+            venue: game.venue
+          });
+        });
+      });
+      
+      return props;
+    } catch (error) {
+      console.error('Error generating basic props:', error);
+      return [];
+    }
+  }
+
+  // Get prop types for each sport
+  private getPropTypesForSport(sport: string): string[] {
+    const propTypes: { [key: string]: string[] } = {
+      'nfl': ['Passing Yards', 'Rushing Yards', 'Receiving Yards', 'Passing TDs', 'Rushing TDs'],
+      'nba': ['Points', 'Rebounds', 'Assists', '3-Pointers Made', 'Steals'],
+      'mlb': ['Hits', 'Runs', 'Strikeouts', 'Home Runs', 'RBIs'],
+      'nhl': ['Goals', 'Assists', 'Shots on Goal', 'Saves', 'Points']
+    };
+    return propTypes[sport.toLowerCase()] || ['Points', 'Goals', 'Yards'];
+  }
+
+  // Get default line for prop type
+  private getDefaultLineForProp(propType: string): number {
+    const defaultLines: { [key: string]: number } = {
+      'Passing Yards': 250.5,
+      'Rushing Yards': 75.5,
+      'Receiving Yards': 60.5,
+      'Passing TDs': 1.5,
+      'Rushing TDs': 0.5,
+      'Points': 20.5,
+      'Rebounds': 8.5,
+      'Assists': 5.5,
+      '3-Pointers Made': 2.5,
+      'Steals': 1.5,
+      'Hits': 1.5,
+      'Runs': 0.5,
+      'Strikeouts': 5.5,
+      'Home Runs': 0.5,
+      'RBIs': 0.5,
+      'Goals': 0.5,
+      'Shots on Goal': 3.5,
+      'Saves': 25.5
+    };
+    return defaultLines[propType] || 1.5;
   }
 
   // Clear cache

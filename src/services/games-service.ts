@@ -120,7 +120,17 @@ class GamesService {
 
   // Convert free games to RealGame format
   private convertFreeGamesToRealGames(freeGames: FreeGame[]): RealGame[] {
-    return freeGames.map(game => ({
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const oneMonthFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+    
+    return freeGames
+      .filter(game => {
+        const gameDate = new Date(game.date);
+        return gameDate >= oneWeekAgo && gameDate <= oneMonthFromNow;
+      })
+      .map(game => ({
       id: game.id,
       homeTeam: game.homeTeam,
       awayTeam: game.awayTeam,
