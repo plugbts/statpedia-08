@@ -38,22 +38,7 @@ export function useLiveGames(sport: string, options: { autoFetch?: boolean; refr
     } catch (err) {
       console.error('Error fetching games:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch games');
-      // Fallback to games service if ESPN fails
-      try {
-        const fallbackGames = await gamesService.getCurrentWeekGames(sport);
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        
-        const filteredFallback = fallbackGames.filter(game => {
-          const gameDate = new Date(game.date);
-          return gameDate >= today && game.status !== 'final';
-        });
-        
-        setGames(filteredFallback);
-      } catch (fallbackErr) {
-        console.error('Fallback also failed:', fallbackErr);
-        setGames([]);
-      }
+      setGames([]);
     } finally {
       setLoading(false);
     }
@@ -169,23 +154,7 @@ export function usePlayerProps(sport: string, market?: string) {
     } catch (err) {
       console.error('Error fetching player props:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch player props');
-      
-      // Fallback to prediction service
-      try {
-        const fallbackProps = await predictionService.getRecentPredictions(50);
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        
-        const filteredFallback = fallbackProps.filter(prop => {
-          const gameDate = new Date(prop.game_date);
-          return gameDate >= today;
-        });
-        
-        setProps(filteredFallback);
-      } catch (fallbackErr) {
-        console.error('Fallback also failed:', fallbackErr);
-        setProps([]);
-      }
+      setProps([]);
     } finally {
       setLoading(false);
     }

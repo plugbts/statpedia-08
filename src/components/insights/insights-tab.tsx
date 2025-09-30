@@ -129,8 +129,10 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
         generateRealInsights(futureGames);
       } catch (error) {
         console.error('Error loading insights:', error);
-        // Fallback to mock data if real data fails
-        generateMockInsights();
+        // No fallback - show empty state if real data fails
+        setGameInsights([]);
+        setPlayerInsights([]);
+        setTrendInsights([]);
       } finally {
         setIsLoading(false);
       }

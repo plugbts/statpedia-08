@@ -15,7 +15,7 @@ interface PredictionCardProps {
   opponent: string;
   prop: string;
   line: number;
-  prediction: 'over' | 'under';
+  predictionDirection: 'over' | 'under';
   confidence: number;
   odds: string;
   factors: Array<{
@@ -36,7 +36,7 @@ export const PredictionCard = ({
   opponent,
   prop,
   line,
-  prediction,
+  predictionDirection,
   confidence,
   odds,
   factors,
@@ -97,7 +97,7 @@ export const PredictionCard = ({
           opponent,
           stat: prop,
           line,
-          direction: prediction,
+          direction: predictionDirection,
           confidence,
           odds,
           keyFactors: factors.map(f => `${f.name}: ${f.value}`),
@@ -152,13 +152,13 @@ export const PredictionCard = ({
           <div className="flex items-center gap-2">
             <span className="text-lg font-bold text-foreground group-hover:scale-110 transition-transform">{line}</span>
             <Badge 
-              variant={prediction === 'over' ? 'default' : 'secondary'} 
+              variant={predictionDirection === 'over' ? 'default' : 'secondary'} 
               className={cn(
                 'font-semibold hover-scale',
-                prediction === 'over' ? 'bg-gradient-primary' : 'bg-secondary'
+                predictionDirection === 'over' ? 'bg-gradient-primary' : 'bg-secondary'
               )}
             >
-              {prediction.toUpperCase()}
+              {predictionDirection.toUpperCase()}
             </Badge>
           </div>
         </div>

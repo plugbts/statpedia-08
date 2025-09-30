@@ -257,6 +257,7 @@ const Index = () => {
     try {
       // Get real predictions from games service using ESPN API
       const gamePredictions = await gamesService.getCurrentWeekPredictions(selectedSport);
+      console.log('Raw game predictions:', gamePredictions);
       
       // Filter for future and current day games only
       const now = new Date();
@@ -266,6 +267,8 @@ const Index = () => {
         const gameDate = new Date(prediction.game.date);
         return gameDate >= today && prediction.game.status !== 'finished';
       });
+      
+      console.log('Filtered predictions:', filteredPredictions);
       
       // Transform to dashboard format with proper home/away team display
       const transformedPredictions = filteredPredictions.map(prediction => {
@@ -312,7 +315,17 @@ const Index = () => {
           opponent: awayTeam,
           prop: 'Moneyline',
           line: 'Win',
+          predictionDirection: prediction.prediction.homeWinProbability > prediction.prediction.awayWinProbability ? 'over' : 'under',
+          confidence: Math.round(prediction.prediction.confidence * 100),
           odds: game.homeOdds > 0 ? `+${game.homeOdds}` : game.homeOdds.toString(),
+          factors: [
+            { name: 'Form', value: `${Math.round(prediction.prediction.factors.form * 100)}%`, isPositive: prediction.prediction.factors.form > 0.5 },
+            { name: 'H2H', value: `${Math.round(prediction.prediction.factors.h2h * 100)}%`, isPositive: prediction.prediction.factors.h2h > 0.5 },
+            { name: 'Rest', value: `${Math.round(prediction.prediction.factors.rest * 100)}%`, isPositive: prediction.prediction.factors.rest > 0.5 },
+            { name: 'Injuries', value: `${Math.round(prediction.prediction.factors.injuries * 100)}%`, isPositive: prediction.prediction.factors.injuries > 0.5 },
+            { name: 'Venue', value: `${Math.round(prediction.prediction.factors.venue * 100)}%`, isPositive: prediction.prediction.factors.venue > 0.5 },
+            { name: 'Weather', value: `${Math.round(prediction.prediction.factors.weather * 100)}%`, isPositive: prediction.prediction.factors.weather > 0.5 }
+          ],
           status: 'pending'
         };
       });

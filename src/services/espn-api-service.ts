@@ -132,11 +132,17 @@ class ESPNAPIService {
     return this.getCachedData(`games_${sport}`, async () => {
       const response = await fetch(`${this.baseUrl}/${espnSport}/scoreboard`);
       if (!response.ok) {
-        throw new Error(`ESPN API error: ${response.status}`);
+        throw new Error(`ESPN API error: ${response.status} - ${response.statusText}`);
       }
       
       const data = await response.json();
-      return this.parseGames(data.events || []);
+      const games = this.parseGames(data.events || []);
+      
+      if (games.length === 0) {
+        throw new Error(`No games available for ${sport} from ESPN API`);
+      }
+      
+      return games;
     });
   }
 
@@ -476,6 +482,7 @@ class ESPNAPIService {
     
     return offseasonSports;
   }
+
 
   // Clear cache
   clearCache(): void {

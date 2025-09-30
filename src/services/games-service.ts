@@ -110,20 +110,12 @@ class GamesService {
       return cached.data;
     }
 
-    try {
-      // Try ESPN API first
-      const espnGames = await espnAPIService.getCurrentWeekGames(sport);
-      const realGames = this.convertESPNGamesToRealGames(espnGames);
-      
-      this.cache.set(cacheKey, { data: realGames, timestamp: now });
-      return realGames;
-    } catch (error) {
-      console.error('ESPN API failed, falling back to generated data:', error);
-      // Fallback to generated data
-      const games = this.generateCurrentWeekGames(sport);
-      this.cache.set(cacheKey, { data: games, timestamp: now });
-      return games;
-    }
+    // Use ESPN API only - no fallbacks
+    const espnGames = await espnAPIService.getCurrentWeekGames(sport);
+    const realGames = this.convertESPNGamesToRealGames(espnGames);
+    
+    this.cache.set(cacheKey, { data: realGames, timestamp: now });
+    return realGames;
   }
 
   // Convert ESPN games to RealGame format
@@ -178,20 +170,12 @@ class GamesService {
       return cached.data;
     }
 
-    try {
-      // Get real games from ESPN API
-      const games = await this.getCurrentWeekGames(sport);
-      const predictions = await this.generatePredictionsFromESPN(games);
-      
-      this.cache.set(cacheKey, { data: predictions, timestamp: now });
-      return predictions;
-    } catch (error) {
-      console.error('Error getting current week predictions:', error);
-      // Fallback to generated predictions
-      const games = this.generateCurrentWeekGames(sport);
-      const predictions = await this.generatePredictions(games);
-      return predictions;
-    }
+    // Get real games from ESPN API only
+    const games = await this.getCurrentWeekGames(sport);
+    const predictions = await this.generatePredictionsFromESPN(games);
+    
+    this.cache.set(cacheKey, { data: predictions, timestamp: now });
+    return predictions;
   }
 
   // Generate predictions from ESPN games
@@ -722,34 +706,7 @@ class GamesService {
           });
         } catch (error) {
           console.error(`Failed to generate prediction for game ${game.id}:`, error);
-          // Add a fallback prediction to prevent empty results
-          predictions.push({
-            game,
-            prediction: {
-              homeScore: Math.floor(Math.random() * 30) + 80,
-              awayScore: Math.floor(Math.random() * 30) + 80,
-              homeWinProbability: 0.5,
-              awayWinProbability: 0.5,
-              drawProbability: 0,
-              confidence: 0.5,
-              recommendedBet: 'none' as const,
-              expectedValue: 0,
-              riskLevel: 'high' as const,
-              factors: {
-                form: 0,
-                h2h: 0,
-                rest: 0,
-                injuries: 0,
-                venue: 0,
-                weather: 0
-              }
-            },
-            backtestData: {
-              accuracy: 50,
-              roi: 0,
-              totalGames: 0
-            }
-          });
+          throw error; // Don't add fallback, let it fail
         }
       }
 
