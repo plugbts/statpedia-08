@@ -69,15 +69,7 @@ const Index = () => {
 
   const handleViewTodaysPicks = () => {
     console.log('View Today\'s Picks clicked!');
-    console.log('Current showTodaysPicks state:', showTodaysPicks);
-    console.log('Current selectedSport:', selectedSport);
     setShowTodaysPicks(true);
-    console.log('Setting showTodaysPicks to true');
-    
-    // Check state after a brief delay
-    setTimeout(() => {
-      console.log('State after delay:', showTodaysPicks);
-    }, 100);
   };
 
   const getTodaysTopPicks = () => {
@@ -367,10 +359,6 @@ const Index = () => {
     setCurrentPage(1);
   }, [allPredictions.length]);
 
-  // Track showTodaysPicks state changes
-  useEffect(() => {
-    console.log('showTodaysPicks state changed to:', showTodaysPicks);
-  }, [showTodaysPicks]);
 
   // Note: Sport change handling is done in handleSportChange function
 
@@ -518,18 +506,14 @@ const Index = () => {
               Experience the future of sports analytics.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 animate-slide-up" style={{ animationDelay: '200ms' }}>
-              <button 
-                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-heading font-medium h-11 px-8 bg-gradient-primary text-primary-foreground shadow-3d hover:shadow-glow animate-neon-pulse"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  console.log('Direct button click!');
-                  handleViewTodaysPicks();
-                }}
+              <Button 
+                size="lg" 
+                className="bg-gradient-primary hover:shadow-glow" 
+                onClick={handleViewTodaysPicks}
               >
                 <TrendingUp className="w-5 h-5 mr-2" />
                 View Today's Picks
-              </button>
+              </Button>
               <Button size="lg" variant="outline" className="hover-scale">
                 <Settings className="w-5 h-5 mr-2" />
                 Customize Alerts
@@ -550,19 +534,9 @@ const Index = () => {
         todaysPredictions={realPredictions.length}
       />
 
-      {/* Debug Section */}
-      <div className="bg-yellow-100 p-4 rounded-lg">
-        <p>Debug: showTodaysPicks = {showTodaysPicks ? 'true' : 'false'}</p>
-        <p>Selected Sport: {selectedSport}</p>
-        <p>All Predictions Count: {allPredictions.length}</p>
-        <Button onClick={() => setShowTodaysPicks(!showTodaysPicks)}>
-          Toggle Today's Picks
-        </Button>
-      </div>
 
       {/* Today's Top Picks */}
-      {console.log('Rendering check - showTodaysPicks:', showTodaysPicks, 'type:', typeof showTodaysPicks)}
-      {(showTodaysPicks === true || true) && (
+      {showTodaysPicks && (
         <div className="space-y-6 animate-fade-in">
           <div className="flex items-center justify-between">
             <div>
