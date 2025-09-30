@@ -313,7 +313,7 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
       icon={<BarChart3 className="w-5 h-5 text-primary" />}
       title="Premium Content"
       description="Subscribe to view insights"
-      buttonText="Upgrade to Premium"
+      buttonText="Upgrade to Pro"
       size="small"
       onUpgrade={handleUpgrade}
     />
@@ -363,7 +363,7 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
       icon={<Users className="w-5 h-5 text-primary" />}
       title="Premium Content"
       description="Subscribe to view insights"
-      buttonText="Upgrade to Premium"
+      buttonText="Upgrade to Pro"
       size="small"
       onUpgrade={handleUpgrade}
     />

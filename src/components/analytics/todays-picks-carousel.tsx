@@ -184,7 +184,7 @@ export const TodaysPicksCarousel = ({
                 icon={<Play className="w-8 h-8 text-primary" />}
                 title="Premium Content"
                 description="Subscribe to view today's top picks"
-                buttonText="Upgrade to Premium"
+                buttonText="Upgrade to Pro"
                 onUpgrade={handleUpgrade}
               />
             </div>

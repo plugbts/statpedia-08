@@ -18,7 +18,7 @@ export const SubscriptionOverlay = ({
   icon,
   title = "Premium Content",
   description = "Subscribe to view this content",
-  buttonText = "Upgrade to Premium",
+  buttonText = "Upgrade to Pro",
   className,
   size = 'default',
   onUpgrade

@@ -332,7 +332,7 @@ export const PlayerPropCard: React.FC<PlayerPropCardProps> = ({
       icon={<EyeOff className="h-8 w-8 text-primary" />}
       title="Premium Content"
       description="Upgrade to view details"
-      buttonText="Upgrade to Premium"
+      buttonText="Upgrade to Pro"
       onUpgrade={handleUpgrade}
     />
     </div>

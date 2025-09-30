@@ -1044,7 +1044,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
             icon={<TrendingUp className="w-6 h-6 text-primary" />}
             title="Premium Content"
             description="Subscribe to view props"
-            buttonText="Upgrade to Premium"
+            buttonText="Upgrade to Pro"
             onUpgrade={handleUpgrade}
           />
           </div>

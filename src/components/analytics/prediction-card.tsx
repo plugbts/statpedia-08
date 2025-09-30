@@ -221,7 +221,7 @@ export const PredictionCard = ({
         icon={<Target className="w-6 h-6 text-primary" />}
         title="Premium Content"
         description="Subscribe to view predictions"
-        buttonText="Upgrade to Premium"
+        buttonText="Upgrade to Pro"
         onUpgrade={handleUpgrade}
       />
     </div>

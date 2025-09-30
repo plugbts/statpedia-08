@@ -124,7 +124,7 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
         'Advanced analytics dashboard',
         'Custom reporting tools'
       ],
-      buttonText: 'Upgrade to Premium',
+      buttonText: 'Upgrade to Pro',
       gradient: 'bg-gradient-to-r from-purple-500 to-pink-500',
       popular: false,
       billingCycle: 'monthly',
@@ -294,7 +294,7 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
 
         {/* Plans Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12 max-w-6xl mx-auto">
-          {plans.map((plan, index) => (
+          {plans.filter(plan => plan).map((plan, index) => (
             <Card
               key={plan.id}
               className={cn(

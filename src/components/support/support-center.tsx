@@ -90,7 +90,7 @@ export const SupportCenter: React.FC<SupportCenterProps> = ({
     {
       id: '1',
       question: 'How do I upgrade my subscription?',
-      answer: 'You can upgrade your subscription by clicking on the "Plans" tab in the navigation bar or by clicking "Upgrade to Premium" on any blurred content. Choose your desired plan and complete the payment process.',
+      answer: 'You can upgrade your subscription by clicking on the "Plans" tab in the navigation bar or by clicking "Upgrade to Pro" on any blurred content. Choose your desired plan and complete the payment process.',
       category: 'Subscription',
       tags: ['upgrade', 'subscription', 'payment', 'plans']
     },
