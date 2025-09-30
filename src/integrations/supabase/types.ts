@@ -14,6 +14,96 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_terminations: {
+        Row: {
+          id: string
+          is_active: boolean | null
+          reason: string | null
+          reinstated_at: string | null
+          reinstated_by: string | null
+          terminated_at: string | null
+          terminated_by: string | null
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          is_active?: boolean | null
+          reason?: string | null
+          reinstated_at?: string | null
+          reinstated_by?: string | null
+          terminated_at?: string | null
+          terminated_by?: string | null
+          user_id: string
+        }
+        Update: {
+          id?: string
+          is_active?: boolean | null
+          reason?: string | null
+          reinstated_at?: string | null
+          reinstated_by?: string | null
+          terminated_at?: string | null
+          terminated_by?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      admin_actions_audit: {
+        Row: {
+          action_type: string
+          admin_id: string
+          details: Json | null
+          id: string
+          performed_at: string | null
+          target_user_id: string | null
+        }
+        Insert: {
+          action_type: string
+          admin_id: string
+          details?: Json | null
+          id?: string
+          performed_at?: string | null
+          target_user_id?: string | null
+        }
+        Update: {
+          action_type?: string
+          admin_id?: string
+          details?: Json | null
+          id?: string
+          performed_at?: string | null
+          target_user_id?: string | null
+        }
+        Relationships: []
+      }
+      banned_addresses: {
+        Row: {
+          address_type: string
+          address_value: string
+          banned_at: string | null
+          banned_by: string | null
+          id: string
+          is_active: boolean | null
+          reason: string | null
+        }
+        Insert: {
+          address_type: string
+          address_value: string
+          banned_at?: string | null
+          banned_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          reason?: string | null
+        }
+        Update: {
+          address_type?: string
+          address_value?: string
+          banned_at?: string | null
+          banned_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          reason?: string | null
+        }
+        Relationships: []
+      }
       bet_tracking: {
         Row: {
           amount: number
@@ -106,6 +196,39 @@ export type Database = {
           },
         ]
       }
+      discord_links: {
+        Row: {
+          discord_id: string
+          discord_username: string | null
+          extension_granted_at: string | null
+          id: string
+          linked_at: string | null
+          server_joined: boolean | null
+          subscription_extended: boolean | null
+          user_id: string
+        }
+        Insert: {
+          discord_id: string
+          discord_username?: string | null
+          extension_granted_at?: string | null
+          id?: string
+          linked_at?: string | null
+          server_joined?: boolean | null
+          subscription_extended?: boolean | null
+          user_id: string
+        }
+        Update: {
+          discord_id?: string
+          discord_username?: string | null
+          extension_granted_at?: string | null
+          id?: string
+          linked_at?: string | null
+          server_joined?: boolean | null
+          subscription_extended?: boolean | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       friendships: {
         Row: {
           created_at: string
@@ -127,6 +250,39 @@ export type Database = {
           id?: string
           status?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      profile_access_audit: {
+        Row: {
+          access_granted: boolean
+          access_type: string
+          accessed_at: string
+          accessed_by: string
+          accessed_profile: string
+          id: string
+          ip_address: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          access_granted: boolean
+          access_type: string
+          accessed_at?: string
+          accessed_by: string
+          accessed_profile: string
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          access_granted?: boolean
+          access_type?: string
+          accessed_at?: string
+          accessed_by?: string
+          accessed_profile?: string
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
         }
         Relationships: []
       }
@@ -336,6 +492,36 @@ export type Database = {
         }
         Relationships: []
       }
+      subscription_extensions: {
+        Row: {
+          days_extended: number
+          extension_type: string
+          granted_at: string | null
+          granted_by: string | null
+          id: string
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          days_extended: number
+          extension_type: string
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          days_extended?: number
+          extension_type?: string
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_predictions: {
         Row: {
           created_at: string
@@ -441,9 +627,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_owner: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      app_role: "admin" | "moderator" | "user"
+      app_role: "admin" | "moderator" | "user" | "owner"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -571,7 +761,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "moderator", "user"],
+      app_role: ["admin", "moderator", "user", "owner"],
     },
   },
 } as const

@@ -1,15 +1,19 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle, Star, Zap, Crown, Shield } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { CheckCircle, Star, Zap, Crown, Shield, X } from 'lucide-react';
 
 interface SubscriptionPlansProps {
   onSubscriptionSuccess: (plan: string) => void;
+  onLogout?: () => void;
 }
 
-export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscriptionSuccess }) => {
+export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscriptionSuccess, onLogout }) => {
+  const [showExitConfirmation, setShowExitConfirmation] = useState(false);
+
   const plans = [
     {
       id: 'free',
@@ -78,26 +82,61 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
   ];
 
   const handlePlanSelect = (planId: string) => {
-    // For demo purposes - in production, integrate with Stripe
+    // For demo purposes - in production, integrate with Square payment gateway
     onSubscriptionSuccess(planId);
   };
 
+  const handleExitClick = () => {
+    setShowExitConfirmation(true);
+  };
+
+  const handleConfirmExit = () => {
+    setShowExitConfirmation(false);
+    onSubscriptionSuccess('free');
+  };
+
+  const handleCancelExit = () => {
+    setShowExitConfirmation(false);
+  };
+
   return (
-    <div className="space-y-8">
-      <div className="text-center space-y-4">
-        <h2 className="text-3xl font-bold text-foreground mb-4">
-          Choose Your Plan
-        </h2>
-        <p className="text-lg text-muted-foreground">
-          Unlock the full power of Statpedia with detailed player prop analysis
-        </p>
-        <Alert className="max-w-2xl mx-auto border-warning bg-warning/10">
-          <Shield className="h-4 w-4" />
-          <AlertDescription>
-            Payment processing is not yet configured. For production use, please integrate a secure payment processor like Stripe.
-          </AlertDescription>
-        </Alert>
-      </div>
+    <>
+      <div className="space-y-8 relative">
+        {/* Exit and Logout buttons */}
+        <div className="absolute -top-4 left-4 z-10 flex gap-2">
+          <button
+            onClick={handleExitClick}
+            className="p-2 rounded-full bg-background border border-border hover:bg-accent transition-colors"
+            aria-label="Skip subscription"
+          >
+            <X className="h-5 w-5 text-foreground" />
+          </button>
+          {onLogout && (
+            <Button
+              onClick={onLogout}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+            >
+              Logout
+            </Button>
+          )}
+        </div>
+
+        <div className="text-center space-y-4">
+          <h2 className="text-3xl font-bold text-foreground mb-4">
+            Choose Your Plan
+          </h2>
+          <p className="text-lg text-muted-foreground">
+            Unlock the full power of Statpedia with detailed player prop analysis
+          </p>
+          <Alert className="max-w-2xl mx-auto border-warning bg-warning/10">
+            <Shield className="h-4 w-4" />
+            <AlertDescription>
+              Payment processing is not yet configured. For production use, please integrate a secure payment processor like Stripe.
+            </AlertDescription>
+          </Alert>
+        </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {plans.map((plan) => {
@@ -177,11 +216,32 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
         })}
       </div>
 
-      <div className="text-center">
-        <p className="text-sm text-muted-foreground">
-          All plans include a 7-day money-back guarantee. Cancel anytime.
-        </p>
+        <div className="text-center">
+          <p className="text-sm text-muted-foreground">
+            All plans include a 7-day money-back guarantee. Cancel anytime.
+          </p>
+        </div>
       </div>
-    </div>
+
+      {/* Exit Confirmation Dialog */}
+      <AlertDialog open={showExitConfirmation} onOpenChange={setShowExitConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You're about to continue with the Free plan. You'll have limited access to predictions and analysis features. You can upgrade to a paid plan anytime from your dashboard.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelExit}>
+              No, show me plans
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmExit} className="bg-gradient-primary">
+              Yes, continue with Free
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };

@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CreditCard, Shield, AlertTriangle, Settings } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface PaymentGatewayProps {
   onPaymentSuccess: (method: string, amount: number) => void;
@@ -30,12 +31,6 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
     city: '',
     zipCode: '',
     country: ''
-  });
-  const [gateway, setGateway] = useState({
-    merchantId: '',
-    apiKey: '',
-    secretKey: '',
-    endpoint: ''
   });
 
   const formatCardNumber = (value: string) => {
@@ -67,29 +62,43 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
     setIsProcessing(true);
     
     try {
-      // IMPORTANT: This is a demo implementation
-      // In production, you MUST use a secure payment processor
-      
       // Validate card data
       if (!cardData.cardNumber || !cardData.expiryDate || !cardData.cvv || !cardData.cardholderName) {
         throw new Error('Please fill in all card details');
       }
 
-      if (!gateway.merchantId || !gateway.apiKey) {
-        throw new Error('Payment gateway not configured. Please set up your merchant account.');
+      // Simulate Square payment processing
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // TODO: Integrate with Square Payment Gateway
+      // 1. Initialize Square Web Payments SDK
+      // 2. Create payment form and tokenize card
+      // 3. Send payment token to backend edge function
+      // 4. Process payment through Square Payments API
+      // 5. Verify payment status
+      
+      // Update user's subscription tier in database
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
       }
 
-      // Simulate payment processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // In production, you would:
-      // 1. Send encrypted card data to your secure backend
-      // 2. Your backend would communicate with payment processor
-      // 3. Never store card details in frontend
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ 
+          subscription_tier: plan.toLowerCase(),
+          subscription_start_date: new Date().toISOString(),
+          subscription_end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        })
+        .eq('user_id', user.id);
+
+      if (updateError) {
+        throw updateError;
+      }
       
       toast({
         title: "Payment Successful",
-        description: `Card payment of $${amount} processed successfully`,
+        description: `${plan} subscription activated successfully!`,
       });
       
       onPaymentSuccess('card', amount);
@@ -108,16 +117,34 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
     setIsProcessing(true);
     
     try {
-      // PayPal SDK integration would go here
-      // For demo purposes, we'll simulate the flow
+      // Simulate PayPal processing
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // TODO: Initialize PayPal SDK and process payment
+      
+      // Update user's subscription tier in database
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ 
+          subscription_tier: plan.toLowerCase(),
+          subscription_start_date: new Date().toISOString(),
+          subscription_end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        })
+        .eq('user_id', user.id);
+
+      if (updateError) {
+        throw updateError;
+      }
       
       toast({
-        title: "PayPal Integration",
-        description: "PayPal SDK integration required. Redirecting to PayPal...",
+        title: "Payment Successful",
+        description: `${plan} subscription activated via PayPal!`,
       });
-      
-      // Simulate PayPal redirect and return
-      await new Promise(resolve => setTimeout(resolve, 1500));
       
       onPaymentSuccess('paypal', amount);
     } catch (error) {
@@ -137,7 +164,7 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
       <Alert className="border-warning bg-warning/10">
         <AlertTriangle className="h-4 w-4" />
         <AlertDescription>
-          <strong>Security Notice:</strong> This is a demo implementation. For production use, you must integrate with a certified payment processor (like Stripe, Square, or PayPal) to ensure PCI compliance and secure card handling.
+          <strong>Square Payment Gateway:</strong> This is a placeholder for Square integration. Connect to Square's Web Payments SDK to process real payments securely.
         </AlertDescription>
       </Alert>
 
@@ -162,10 +189,9 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
 
       {/* Payment Methods */}
       <Tabs defaultValue="card" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="card">Credit Card</TabsTrigger>
           <TabsTrigger value="paypal">PayPal</TabsTrigger>
-          <TabsTrigger value="gateway">Gateway Setup</TabsTrigger>
         </TabsList>
 
         {/* Credit Card Tab */}
@@ -292,91 +318,6 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
               >
                 {isProcessing ? 'Redirecting...' : 'Pay with PayPal'}
               </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Gateway Setup Tab */}
-        <TabsContent value="gateway" className="space-y-4">
-          <Card className="bg-gradient-card border-border/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="h-5 w-5" />
-                Payment Gateway Configuration
-              </CardTitle>
-              <CardDescription>
-                Configure where payments will be processed and funds will be deposited
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="merchantId">Merchant ID</Label>
-                  <Input
-                    id="merchantId"
-                    placeholder="Your merchant account ID"
-                    value={gateway.merchantId}
-                    onChange={(e) => setGateway(prev => ({ ...prev, merchantId: e.target.value }))}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="apiKey">API Key</Label>
-                  <Input
-                    id="apiKey"
-                    type="password"
-                    placeholder="Your payment processor API key"
-                    value={gateway.apiKey}
-                    onChange={(e) => setGateway(prev => ({ ...prev, apiKey: e.target.value }))}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="secretKey">Secret Key</Label>
-                  <Input
-                    id="secretKey"
-                    type="password"
-                    placeholder="Your payment processor secret key"
-                    value={gateway.secretKey}
-                    onChange={(e) => setGateway(prev => ({ ...prev, secretKey: e.target.value }))}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="endpoint">Payment Endpoint</Label>
-                  <Input
-                    id="endpoint"
-                    placeholder="https://api.paymentprocessor.com/v1/charges"
-                    value={gateway.endpoint}
-                    onChange={(e) => setGateway(prev => ({ ...prev, endpoint: e.target.value }))}
-                  />
-                </div>
-
-                <Alert className="border-success bg-success/10">
-                  <Shield className="h-4 w-4" />
-                  <AlertDescription>
-                    <strong>Recommended Processors:</strong>
-                    <ul className="mt-2 space-y-1">
-                      <li>• Stripe - industry standard, excellent security</li>
-                      <li>• Square - easy setup, good for small businesses</li>
-                      <li>• PayPal Pro - familiar brand, global acceptance</li>
-                      <li>• Authorize.Net - established, enterprise-grade</li>
-                    </ul>
-                  </AlertDescription>
-                </Alert>
-
-                <Button 
-                  onClick={() => {
-                    toast({
-                      title: "Gateway Configured",
-                      description: "Payment gateway settings saved successfully",
-                    });
-                  }}
-                  className="w-full bg-gradient-success hover:shadow-success"
-                >
-                  Save Gateway Settings
-                </Button>
-              </div>
             </CardContent>
           </Card>
         </TabsContent>

@@ -12,6 +12,7 @@ interface SyncEvent {
   data: any;
   timestamp: number;
   source: 'loveable' | 'supabase' | 'local';
+  retryCount?: number;
 }
 
 interface SyncServiceConfig {
@@ -101,16 +102,16 @@ class SyncService {
     try {
       switch (event.type) {
         case 'code':
-          await this.syncCode(event);
+          await this.processSyncCode(event);
           break;
         case 'ui':
-          await this.syncUI(event);
+          await this.processSyncUI(event);
           break;
         case 'data':
-          await this.syncData(event);
+          await this.processSyncData(event);
           break;
         case 'config':
-          await this.syncConfig(event);
+          await this.processSyncConfig(event);
           break;
       }
 
@@ -120,26 +121,27 @@ class SyncService {
       this.emit('sync-error', { event, error });
       
       // Retry logic
-      if (event.retryCount < this.config.maxRetries) {
-        event.retryCount = (event.retryCount || 0) + 1;
+      const retryCount = event.retryCount || 0;
+      if (retryCount < this.config.maxRetries) {
+        event.retryCount = retryCount + 1;
         this.syncQueue.push(event);
       }
     }
   }
 
-  private async syncCode(event: SyncEvent) {
+  private async processSyncCode(event: SyncEvent) {
     if (this.config.enableLoveableSync) {
       loveableClient.syncCode(event.data);
     }
   }
 
-  private async syncUI(event: SyncEvent) {
+  private async processSyncUI(event: SyncEvent) {
     if (this.config.enableLoveableSync) {
       loveableClient.syncUI(event.data);
     }
   }
 
-  private async syncData(event: SyncEvent) {
+  private async processSyncData(event: SyncEvent) {
     if (event.table && this.config.enableSupabaseRealtime) {
       // Handle data synchronization with Supabase
       const { action, data } = event;
@@ -158,7 +160,7 @@ class SyncService {
     }
   }
 
-  private async syncConfig(event: SyncEvent) {
+  private async processSyncConfig(event: SyncEvent) {
     if (this.config.enableLoveableSync) {
       loveableClient.syncConfig(event.data);
     }
