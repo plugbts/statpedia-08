@@ -21,8 +21,10 @@ import {
   Camera,
   Save,
   Eye,
-  EyeOff
+  EyeOff,
+  X
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
@@ -35,6 +37,7 @@ interface SettingsProps {
 
 export const Settings: React.FC<SettingsProps> = ({ user, userRole = 'user', onUserUpdate }) => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -142,6 +145,11 @@ export const Settings: React.FC<SettingsProps> = ({ user, userRole = 'user', onU
       }
     }
   }, [user]);
+
+  // Handle close button click
+  const handleClose = () => {
+    navigate('/');
+  };
 
   // Handle theme change
   const handleThemeChange = (isDark: boolean) => {
@@ -392,9 +400,20 @@ export const Settings: React.FC<SettingsProps> = ({ user, userRole = 'user', onU
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Settings</h1>
-          <p className="text-muted-foreground">Manage your account, preferences, and subscription</p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-2">Settings</h1>
+            <p className="text-muted-foreground">Manage your account, preferences, and subscription</p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleClose}
+            className="h-10 w-10 rounded-full hover:bg-muted/50 transition-colors"
+            title="Close Settings"
+          >
+            <X className="h-5 w-5" />
+          </Button>
         </div>
 
         <Tabs defaultValue="profile" className="space-y-6">
