@@ -134,10 +134,19 @@ export const UsernamePrompt: React.FC<UsernamePromptProps> = ({
   };
 
   const handleReturnToDashboard = () => {
+    console.log('Returning to dashboard from username prompt');
     setShowExitConfirmation(false);
-    if (onReturnToDashboard) {
-      onReturnToDashboard();
-    }
+    // Close the username prompt first
+    onClose();
+    // Then navigate to dashboard with a small delay to ensure prompt closes
+    setTimeout(() => {
+      if (onReturnToDashboard) {
+        console.log('Calling onReturnToDashboard');
+        onReturnToDashboard();
+      } else {
+        console.log('onReturnToDashboard function not provided');
+      }
+    }, 100);
   };
 
   const handleStayInSocial = () => {
