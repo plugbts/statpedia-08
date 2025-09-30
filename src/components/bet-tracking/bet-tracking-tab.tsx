@@ -64,13 +64,35 @@ export const BetTrackingTab: React.FC<BetTrackingTabProps> = ({ userRole }) => {
       if (bankrollsData.length > 0 && !selectedBankroll) {
         setSelectedBankroll(bankrollsData[0]);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load bet tracking data:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load bet tracking data",
-        variant: "destructive"
-      });
+      
+      // Handle database errors gracefully
+      if (error?.code === 'PGRST116' || error?.message?.includes('relation') || error?.message?.includes('does not exist')) {
+        console.log('Bet tracking tables not yet created, showing empty state');
+        setBankrolls([]);
+        setStats({
+          total_bets: 0,
+          won_bets: 0,
+          lost_bets: 0,
+          push_bets: 0,
+          total_wagered: 0,
+          total_won: 0,
+          net_profit: 0,
+          win_percentage: 0,
+          roi_percentage: 0,
+          statpedia_bets: 0,
+          statpedia_wins: 0,
+          statpedia_win_percentage: 0
+        });
+        setMonthlyAnalytics([]);
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to load bet tracking data",
+          variant: "destructive"
+        });
+      }
     } finally {
       setIsLoading(false);
     }

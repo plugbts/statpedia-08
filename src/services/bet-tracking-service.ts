@@ -143,7 +143,14 @@ class BetTrackingService {
       .eq('is_active', true)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      // Handle table not existing gracefully
+      if (error.code === 'PGRST116' || error.message?.includes('relation') || error.message?.includes('does not exist')) {
+        console.log('User bankrolls table not yet created');
+        return [];
+      }
+      throw error;
+    }
     return data || [];
   }
 
@@ -178,7 +185,14 @@ class BetTrackingService {
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      // Handle table not existing gracefully
+      if (error.code === 'PGRST116' || error.message?.includes('relation') || error.message?.includes('does not exist')) {
+        console.log('Sportsbook connections table not yet created');
+        return [];
+      }
+      throw error;
+    }
     return data || [];
   }
 
@@ -220,7 +234,14 @@ class BetTrackingService {
 
     const { data, error } = await query;
 
-    if (error) throw error;
+    if (error) {
+      // Handle table not existing gracefully
+      if (error.code === 'PGRST116' || error.message?.includes('relation') || error.message?.includes('does not exist')) {
+        console.log('User bets table not yet created');
+        return [];
+      }
+      throw error;
+    }
     return data || [];
   }
 
@@ -299,7 +320,27 @@ class BetTrackingService {
         p_days: days
       });
 
-    if (error) throw error;
+    if (error) {
+      // Handle function or table not existing gracefully
+      if (error.code === 'PGRST116' || error.message?.includes('relation') || error.message?.includes('does not exist') || error.message?.includes('function')) {
+        console.log('Betting stats function or tables not yet created');
+        return {
+          total_bets: 0,
+          won_bets: 0,
+          lost_bets: 0,
+          push_bets: 0,
+          total_wagered: 0,
+          total_won: 0,
+          net_profit: 0,
+          win_percentage: 0,
+          roi_percentage: 0,
+          statpedia_bets: 0,
+          statpedia_wins: 0,
+          statpedia_win_percentage: 0
+        };
+      }
+      throw error;
+    }
     return data?.[0] || {
       total_bets: 0,
       won_bets: 0,
@@ -338,7 +379,14 @@ class BetTrackingService {
 
     const { data, error } = await query;
 
-    if (error) throw error;
+    if (error) {
+      // Handle table not existing gracefully
+      if (error.code === 'PGRST116' || error.message?.includes('relation') || error.message?.includes('does not exist')) {
+        console.log('Monthly analytics table not yet created');
+        return [];
+      }
+      throw error;
+    }
     return data || [];
   }
 

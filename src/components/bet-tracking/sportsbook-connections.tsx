@@ -38,13 +38,21 @@ export const SportsbookConnections: React.FC<SportsbookConnectionsProps> = ({
 
       const connectionsData = await betTrackingService.getUserSportsbookConnections(user.id);
       setConnections(connectionsData);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load connections:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load sportsbook connections",
-        variant: "destructive"
-      });
+      
+      // Handle specific database errors gracefully
+      if (error?.code === 'PGRST116' || error?.message?.includes('relation') || error?.message?.includes('does not exist')) {
+        // Table doesn't exist yet, this is expected for new installations
+        console.log('Sportsbook connections table not yet created, showing empty state');
+        setConnections([]);
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to load sportsbook connections",
+          variant: "destructive"
+        });
+      }
     } finally {
       setIsLoading(false);
     }
