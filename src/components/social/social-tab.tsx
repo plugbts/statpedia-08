@@ -78,11 +78,16 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
   }, []);
 
   useEffect(() => {
-    checkKarmaTutorial();
+    if (activeTab === 'profile') {
+      checkKarmaTutorial();
+    } else {
+      // Reset tutorial state when switching away from profile
+      setKarmaTutorialChecked(false);
+    }
   }, [activeTab]);
 
   const checkKarmaTutorial = async () => {
-    if (activeTab === 'profile' && !karmaTutorialChecked) {
+    if (activeTab === 'profile' && !karmaTutorialChecked && !showKarmaTutorial) {
       setKarmaTutorialChecked(true); // Prevent multiple checks in same session
       
       try {
@@ -93,13 +98,15 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
         const tutorialSeenKey = `karma_tutorial_seen_${user.id}`;
         const tutorialSeen = localStorage.getItem(tutorialSeenKey);
         
-        console.log('Checking karma tutorial status:', { tutorialSeen, userId: user.id });
+        console.log('Checking karma tutorial status:', { tutorialSeen, userId: user.id, showKarmaTutorial });
         
         if (tutorialSeen !== 'true') {
           // Tutorial not seen yet, show it
           console.log('Showing karma tutorial for first time');
           setTimeout(() => {
-            setShowKarmaTutorial(true);
+            if (!showKarmaTutorial) { // Double check before showing
+              setShowKarmaTutorial(true);
+            }
           }, 1000);
         } else {
           console.log('Karma tutorial already seen, not showing');
@@ -112,6 +119,7 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
 
   const handleKarmaTutorialClose = async () => {
     setShowKarmaTutorial(false);
+    setKarmaTutorialChecked(true); // Mark as checked to prevent re-showing
     
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -285,6 +293,7 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
         console.log('Friend requests service error (expected if tables missing):', error);
       }
 
+      console.log('Setting userProfile:', profile);
       setUserProfile(profile);
       // Convert Post[] to PersonalizedPost[] for compatibility
       const personalizedPosts: PersonalizedPost[] = postsData.map(post => ({
@@ -674,7 +683,6 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
           </Card>
 
           {/* Create Post */}
-          {console.log('Rendering create post section, userProfile:', userProfile)}
           {userProfile ? (
             <Card>
               <CardContent className="p-4">
