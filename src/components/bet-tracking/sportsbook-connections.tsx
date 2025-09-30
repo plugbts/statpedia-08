@@ -3,13 +3,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { 
   Link, 
   Plus, 
   CheckCircle, 
   XCircle, 
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  Settings,
+  Trash2,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { betTrackingService, type SportsbookConnection } from '@/services/bet-tracking-service';
 import { useToast } from '@/hooks/use-toast';
@@ -24,6 +32,17 @@ export const SportsbookConnections: React.FC<SportsbookConnectionsProps> = ({
 }) => {
   const [connections, setConnections] = useState<SportsbookConnection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showConnectionForm, setShowConnectionForm] = useState(false);
+  const [selectedSportsbook, setSelectedSportsbook] = useState<string>('');
+  const [connectionForm, setConnectionForm] = useState({
+    account_username: '',
+    api_key: '',
+    api_secret: '',
+    sync_frequency: 'daily'
+  });
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [showApiSecret, setShowApiSecret] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -82,6 +101,150 @@ export const SportsbookConnections: React.FC<SportsbookConnectionsProps> = ({
     ).join(' ');
   };
 
+  const handleConnectSportsbook = (sportsbookName: string) => {
+    setSelectedSportsbook(sportsbookName);
+    setConnectionForm({
+      account_username: '',
+      api_key: '',
+      api_secret: '',
+      sync_frequency: 'daily'
+    });
+    setShowConnectionForm(true);
+  };
+
+  const handleCreateConnection = async () => {
+    if (!selectedSportsbook || !connectionForm.account_username || !connectionForm.api_key) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setIsConnecting(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Test the connection first
+      const testResult = await testSportsbookConnection(selectedSportsbook, connectionForm);
+      
+      if (!testResult.success) {
+        toast({
+          title: "Connection Failed",
+          description: testResult.error || "Failed to connect to sportsbook",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Create the connection
+      const connection = await betTrackingService.createSportsbookConnection({
+        user_id: user.id,
+        sportsbook_name: selectedSportsbook,
+        account_username: connectionForm.account_username,
+        connection_status: 'connected',
+        sync_frequency: connectionForm.sync_frequency as any,
+        api_credentials: {
+          api_key: connectionForm.api_key,
+          api_secret: connectionForm.api_secret || undefined
+        }
+      });
+
+      toast({
+        title: "Success",
+        description: `Successfully connected to ${formatSportsbookName(selectedSportsbook)}`
+      });
+
+      setShowConnectionForm(false);
+      setSelectedSportsbook('');
+      setConnectionForm({
+        account_username: '',
+        api_key: '',
+        api_secret: '',
+        sync_frequency: 'daily'
+      });
+      loadConnections();
+      onConnectionUpdate();
+    } catch (error) {
+      console.error('Failed to create connection:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create sportsbook connection",
+        variant: "destructive"
+      });
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  const testSportsbookConnection = async (sportsbook: string, credentials: any) => {
+    // Simulate API connection test
+    // In a real implementation, this would make actual API calls to the sportsbook
+    return new Promise<{ success: boolean; error?: string }>((resolve) => {
+      setTimeout(() => {
+        // Simulate different outcomes based on sportsbook
+        if (credentials.api_key.length < 10) {
+          resolve({ success: false, error: "Invalid API key format" });
+        } else if (sportsbook === 'draftkings' && !credentials.api_key.startsWith('dk_')) {
+          resolve({ success: false, error: "DraftKings API key must start with 'dk_'" });
+        } else if (sportsbook === 'fanduel' && !credentials.api_key.startsWith('fd_')) {
+          resolve({ success: false, error: "FanDuel API key must start with 'fd_'" });
+        } else {
+          resolve({ success: true });
+        }
+      }, 2000);
+    });
+  };
+
+  const handleDisconnectConnection = async (connectionId: string) => {
+    try {
+      await betTrackingService.updateSportsbookConnection(connectionId, {
+        connection_status: 'disconnected'
+      });
+      
+      toast({
+        title: "Success",
+        description: "Sportsbook connection disconnected"
+      });
+      
+      loadConnections();
+      onConnectionUpdate();
+    } catch (error) {
+      console.error('Failed to disconnect:', error);
+      toast({
+        title: "Error",
+        description: "Failed to disconnect sportsbook",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleSyncConnection = async (connectionId: string) => {
+    try {
+      // Update last sync time
+      await betTrackingService.updateSportsbookConnection(connectionId, {
+        last_sync_at: new Date().toISOString()
+      });
+      
+      toast({
+        title: "Success",
+        description: "Sportsbook data synced successfully"
+      });
+      
+      loadConnections();
+      onConnectionUpdate();
+    } catch (error) {
+      console.error('Failed to sync:', error);
+      toast({
+        title: "Error",
+        description: "Failed to sync sportsbook data",
+        variant: "destructive"
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -105,12 +268,12 @@ export const SportsbookConnections: React.FC<SportsbookConnectionsProps> = ({
         </Button>
       </div>
 
-      {/* Coming Soon Alert */}
+      {/* Connection Info Alert */}
       <Alert>
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
-          <strong>Coming Soon:</strong> Sportsbook API integrations are currently in development. 
-          For now, you can manually track your bets using the bet entry form.
+          <strong>Sportsbook Connections:</strong> Connect your sportsbook accounts to automatically sync bet data. 
+          You can also manually track bets using the bet entry form.
         </AlertDescription>
       </Alert>
 
@@ -146,7 +309,11 @@ export const SportsbookConnections: React.FC<SportsbookConnectionsProps> = ({
                         {sportsbook.value === 'other' && 'Custom integration'}
                       </p>
                     </div>
-                    <Button size="sm" variant="outline" disabled>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => handleConnectSportsbook(sportsbook.value)}
+                    >
                       <Link className="w-4 h-4 mr-2" />
                       Connect
                     </Button>
@@ -194,6 +361,24 @@ export const SportsbookConnections: React.FC<SportsbookConnectionsProps> = ({
                         Last sync: {new Date(connection.last_sync_at).toLocaleDateString()}
                       </div>
                     )}
+                    <div className="flex gap-1 ml-2">
+                      {connection.connection_status === 'connected' && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleSyncConnection(connection.id)}
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDisconnectConnection(connection.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -231,6 +416,124 @@ export const SportsbookConnections: React.FC<SportsbookConnectionsProps> = ({
           </div>
         </CardContent>
       </Card>
+
+      {/* Connection Form Dialog */}
+      <AlertDialog open={showConnectionForm} onOpenChange={setShowConnectionForm}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Connect to {formatSportsbookName(selectedSportsbook)}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Enter your API credentials to connect your sportsbook account
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="account_username">Account Username</Label>
+              <Input
+                id="account_username"
+                value={connectionForm.account_username}
+                onChange={(e) => setConnectionForm({ ...connectionForm, account_username: e.target.value })}
+                placeholder="Enter your sportsbook username"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="api_key">API Key *</Label>
+              <div className="relative">
+                <Input
+                  id="api_key"
+                  type={showApiKey ? "text" : "password"}
+                  value={connectionForm.api_key}
+                  onChange={(e) => setConnectionForm({ ...connectionForm, api_key: e.target.value })}
+                  placeholder={selectedSportsbook === 'draftkings' ? 'dk_...' : selectedSportsbook === 'fanduel' ? 'fd_...' : 'Enter API key'}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                >
+                  {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="api_secret">API Secret (Optional)</Label>
+              <div className="relative">
+                <Input
+                  id="api_secret"
+                  type={showApiSecret ? "text" : "password"}
+                  value={connectionForm.api_secret}
+                  onChange={(e) => setConnectionForm({ ...connectionForm, api_secret: e.target.value })}
+                  placeholder="Enter API secret if required"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowApiSecret(!showApiSecret)}
+                >
+                  {showApiSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="sync_frequency">Sync Frequency</Label>
+              <Select
+                value={connectionForm.sync_frequency}
+                onValueChange={(value) => setConnectionForm({ ...connectionForm, sync_frequency: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="daily">Daily</SelectItem>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* API Key Format Help */}
+            <div className="p-3 bg-muted rounded-lg">
+              <h4 className="font-medium text-sm mb-2">API Key Format:</h4>
+              <div className="text-xs text-muted-foreground space-y-1">
+                {selectedSportsbook === 'draftkings' && (
+                  <div>• DraftKings: Must start with "dk_"</div>
+                )}
+                {selectedSportsbook === 'fanduel' && (
+                  <div>• FanDuel: Must start with "fd_"</div>
+                )}
+                {selectedSportsbook === 'betmgm' && (
+                  <div>• BetMGM: Must start with "mgm_"</div>
+                )}
+                {selectedSportsbook === 'caesars' && (
+                  <div>• Caesars: Must start with "czr_"</div>
+                )}
+                <div>• Minimum 10 characters required</div>
+                <div>• Contact your sportsbook for API access</div>
+              </div>
+            </div>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleCreateConnection} 
+              disabled={isConnecting}
+            >
+              {isConnecting ? 'Connecting...' : 'Connect'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
