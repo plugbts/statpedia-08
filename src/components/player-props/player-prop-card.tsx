@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { SportIcon } from '@/components/ui/sport-icon';
 import { PlayerHeadshot } from '@/components/ui/player-headshot';
+import { SubscriptionOverlay } from '@/components/ui/subscription-overlay';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -138,14 +139,13 @@ export const PlayerPropCard: React.FC<PlayerPropCardProps> = ({
         isSelected ? 'ring-2 ring-primary border-primary/50' : 'border-border/50'
       } ${!isSubscribed ? 'relative' : ''}`}
     >
-      {!isSubscribed && (
-        <div className="absolute inset-0 bg-background/60 backdrop-blur-sm rounded-lg z-10 flex items-center justify-center">
-          <div className="text-center space-y-2">
-            <EyeOff className="h-8 w-8 text-muted-foreground mx-auto" />
-            <p className="text-sm text-muted-foreground">Upgrade to view details</p>
-          </div>
-        </div>
-      )}
+      <SubscriptionOverlay
+        isVisible={!isSubscribed}
+        icon={<EyeOff className="h-8 w-8 text-primary" />}
+        title="Premium Content"
+        description="Upgrade to view details"
+        buttonText="Upgrade to Premium"
+      />
 
       <CardHeader className="space-y-4">
         <div className="flex items-start justify-between">

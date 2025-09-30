@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { PredictionCard } from './prediction-card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { SubscriptionOverlay } from '@/components/ui/subscription-overlay';
 import { ChevronLeft, ChevronRight, Play, Pause } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -171,21 +172,14 @@ export const TodaysPicksCarousel = ({
                 isSubscribed={isSubscribed}
               />
               
-              {/* Blur overlay for free users - only over the card */}
-              {!isSubscribed && (
-                <div className="absolute inset-0 bg-gradient-to-br from-background/80 to-background/60 backdrop-blur-sm rounded-lg flex items-center justify-center z-10">
-                  <div className="text-center">
-                    <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Play className="w-8 h-8 text-primary" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-foreground mb-2">Premium Content</h3>
-                    <p className="text-sm text-muted-foreground mb-4">Subscribe to view today's top picks</p>
-                    <Button className="bg-gradient-primary">
-                      Upgrade to Premium
-                    </Button>
-                  </div>
-                </div>
-              )}
+              {/* Subscription overlay for free users */}
+              <SubscriptionOverlay
+                isVisible={!isSubscribed}
+                icon={<Play className="w-8 h-8 text-primary" />}
+                title="Premium Content"
+                description="Subscribe to view today's top picks"
+                buttonText="Upgrade to Premium"
+              />
             </div>
           </div>
         </div>

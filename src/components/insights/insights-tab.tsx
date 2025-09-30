@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { SubscriptionOverlay } from '@/components/ui/subscription-overlay';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -266,17 +267,13 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
       "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer relative",
       !isSubscribed && "blur-sm"
     )}>
-      {!isSubscribed && (
-        <div className="absolute inset-0 bg-gradient-to-br from-background/80 to-background/60 backdrop-blur-sm rounded-lg flex items-center justify-center z-10">
-          <div className="text-center">
-            <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-2">
-              <BarChart3 className="w-6 h-6 text-primary" />
-            </div>
-            <p className="text-sm font-medium text-foreground">Premium Content</p>
-            <p className="text-xs text-muted-foreground">Subscribe to view insights</p>
-          </div>
-        </div>
-      )}
+      <SubscriptionOverlay
+        isVisible={!isSubscribed}
+        icon={<BarChart3 className="w-6 h-6 text-primary" />}
+        title="Premium Content"
+        description="Subscribe to view insights"
+        buttonText="Upgrade to Premium"
+      />
       
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -316,17 +313,13 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
       "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer relative",
       !isSubscribed && "blur-sm"
     )}>
-      {!isSubscribed && (
-        <div className="absolute inset-0 bg-gradient-to-br from-background/80 to-background/60 backdrop-blur-sm rounded-lg flex items-center justify-center z-10">
-          <div className="text-center">
-            <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-2">
-              <Users className="w-6 h-6 text-primary" />
-            </div>
-            <p className="text-sm font-medium text-foreground">Premium Content</p>
-            <p className="text-xs text-muted-foreground">Subscribe to view insights</p>
-          </div>
-        </div>
-      )}
+      <SubscriptionOverlay
+        isVisible={!isSubscribed}
+        icon={<Users className="w-6 h-6 text-primary" />}
+        title="Premium Content"
+        description="Subscribe to view insights"
+        buttonText="Upgrade to Premium"
+      />
       
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">

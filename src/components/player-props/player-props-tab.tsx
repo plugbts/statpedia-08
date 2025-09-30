@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
+import { SubscriptionOverlay } from '@/components/ui/subscription-overlay';
 import { 
   TrendingUp, 
   Search, 
@@ -903,17 +904,13 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ userSubscription
             "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer relative",
             !isSubscribed && "blur-sm"
           )}>
-            {!isSubscribed && (
-              <div className="absolute inset-0 bg-gradient-to-br from-background/80 to-background/60 backdrop-blur-sm rounded-lg flex items-center justify-center z-10">
-                <div className="text-center">
-                  <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <TrendingUp className="w-6 h-6 text-primary" />
-                  </div>
-                  <p className="text-sm font-medium text-foreground">Premium Content</p>
-                  <p className="text-xs text-muted-foreground">Subscribe to view props</p>
-                </div>
-              </div>
-            )}
+            <SubscriptionOverlay
+              isVisible={!isSubscribed}
+              icon={<TrendingUp className="w-6 h-6 text-primary" />}
+              title="Premium Content"
+              description="Subscribe to view props"
+              buttonText="Upgrade to Premium"
+            />
             
             <div className="flex items-start justify-between mb-4">
               <div>

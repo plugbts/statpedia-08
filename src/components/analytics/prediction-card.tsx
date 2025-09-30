@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { SportIcon } from '@/components/ui/sport-icon';
+import { SubscriptionOverlay } from '@/components/ui/subscription-overlay';
 import { TrendingUp, TrendingDown, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -110,18 +111,14 @@ export const PredictionCard = ({
       )}
       onClick={handleClick}
     >
-      {/* Blur overlay for free users */}
-      {!isSubscribed && (
-        <div className="absolute inset-0 bg-gradient-to-br from-background/80 to-background/60 backdrop-blur-sm rounded-lg flex items-center justify-center z-10">
-          <div className="text-center">
-            <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-2">
-              <Target className="w-6 h-6 text-primary" />
-            </div>
-            <p className="text-sm font-medium text-foreground">Premium Content</p>
-            <p className="text-xs text-muted-foreground">Subscribe to view predictions</p>
-          </div>
-        </div>
-      )}
+      {/* Subscription overlay for free users */}
+      <SubscriptionOverlay
+        isVisible={!isSubscribed}
+        icon={<Target className="w-6 h-6 text-primary" />}
+        title="Premium Content"
+        description="Subscribe to view predictions"
+        buttonText="Upgrade to Premium"
+      />
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between animate-fade-in">
