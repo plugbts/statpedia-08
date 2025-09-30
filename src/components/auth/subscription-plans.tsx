@@ -57,23 +57,34 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
         setUser(session.user);
         
         // Check trial eligibility using abuse prevention service
-        const eligibility = await trialAbusePreventionService.checkTrialEligibility(
-          session.user.id,
-          session.user.email || ''
-        );
-        
-        setTrialEligibility(eligibility);
-        setHasUsedFreeTrial(!eligibility.isEligible);
-        
-        // Log abuse attempt if not eligible
-        if (!eligibility.isEligible && eligibility.abuseType !== 'eligible') {
-          await trialAbusePreventionService.logAbuseAttempt(
+        try {
+          const eligibility = await trialAbusePreventionService.checkTrialEligibility(
             session.user.id,
-            session.user.email || '',
-            eligibility.abuseType,
-            0,
-            eligibility.reason
+            session.user.email || ''
           );
+          
+          setTrialEligibility(eligibility);
+          setHasUsedFreeTrial(!eligibility.isEligible);
+          
+          // Log abuse attempt if not eligible
+          if (!eligibility.isEligible && eligibility.abuseType !== 'eligible') {
+            await trialAbusePreventionService.logAbuseAttempt(
+              session.user.id,
+              session.user.email || '',
+              eligibility.abuseType,
+              0,
+              eligibility.reason
+            );
+          }
+        } catch (eligibilityError) {
+          console.error('Error checking trial eligibility:', eligibilityError);
+          // Default to allowing trial if there's an error
+          setTrialEligibility({
+            isEligible: true,
+            reason: 'Eligible for free trial',
+            abuseType: 'eligible'
+          });
+          setHasUsedFreeTrial(false);
         }
       }
     };
@@ -411,7 +422,7 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
         </div>
 
         {/* Abuse Prevention Alert */}
-        {trialEligibility && !trialEligibility.isEligible && (
+        {trialEligibility && !trialEligibility.isEligible && trialEligibility.abuseType !== 'eligible' && (
           <div className="max-w-4xl mx-auto">
             <Alert className="border-destructive bg-destructive/10">
               <Shield className="h-4 w-4" />

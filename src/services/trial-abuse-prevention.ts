@@ -72,48 +72,81 @@ class TrialAbusePreventionService {
   // Check if user is eligible for free trial
   async checkTrialEligibility(userId: string, email: string): Promise<TrialEligibilityResult> {
     try {
-      const ipAddress = this.getClientIP();
-      const macAddress = this.getClientMAC();
-      const userAgent = navigator.userAgent;
+      // First, check if user has already used a free trial (simple check)
+      const { data: existingTrial, error: trialError } = await supabase
+        .from('user_trials')
+        .select('id')
+        .eq('user_id', userId)
+        .single();
 
-      const { data, error } = await supabase
-        .rpc('check_trial_eligibility', {
-          p_user_id: userId,
-          p_email: email,
-          p_ip_address: ipAddress,
-          p_mac_address: macAddress,
-          p_user_agent: userAgent
-        });
-
-      if (error) {
-        console.error('Error checking trial eligibility:', error);
+      if (trialError && trialError.code !== 'PGRST116') { // PGRST116 is "not found" error
+        console.error('Error checking existing trial:', trialError);
+        // If there's an error, allow the trial to proceed (fail open)
         return {
-          isEligible: false,
-          reason: 'Error checking eligibility',
-          abuseType: 'error'
+          isEligible: true,
+          reason: 'Eligible for free trial',
+          abuseType: 'eligible'
         };
       }
 
-      const result = data?.[0];
-      if (!result) {
+      if (existingTrial) {
         return {
           isEligible: false,
-          reason: 'Unable to determine eligibility',
-          abuseType: 'error'
+          reason: 'Email has already used free trial',
+          abuseType: 'email_limit'
         };
       }
 
+      // Check IP and MAC limits (optional, fail open if errors)
+      try {
+        const ipAddress = this.getClientIP();
+        const macAddress = this.getClientMAC();
+
+        // Check IP limit
+        const { count: ipCount } = await supabase
+          .from('user_trials')
+          .select('*', { count: 'exact', head: true })
+          .eq('ip_address', ipAddress);
+
+        if (ipCount && ipCount >= 2) {
+          return {
+            isEligible: false,
+            reason: 'IP address has exceeded free trial limit',
+            abuseType: 'ip_limit'
+          };
+        }
+
+        // Check MAC limit
+        const { count: macCount } = await supabase
+          .from('user_trials')
+          .select('*', { count: 'exact', head: true })
+          .eq('mac_address', macAddress);
+
+        if (macCount && macCount >= 2) {
+          return {
+            isEligible: false,
+            reason: 'Device has exceeded free trial limit',
+            abuseType: 'mac_limit'
+          };
+        }
+      } catch (limitError) {
+        console.warn('Error checking IP/MAC limits, allowing trial:', limitError);
+        // Fail open - allow trial if we can't check limits
+      }
+
+      // All checks passed
       return {
-        isEligible: result.is_eligible,
-        reason: result.reason,
-        abuseType: result.abuse_type
+        isEligible: true,
+        reason: 'Eligible for free trial',
+        abuseType: 'eligible'
       };
     } catch (error) {
       console.error('Error in checkTrialEligibility:', error);
+      // Fail open - allow trial if there's an error
       return {
-        isEligible: false,
-        reason: 'System error occurred',
-        abuseType: 'error'
+        isEligible: true,
+        reason: 'Eligible for free trial',
+        abuseType: 'eligible'
       };
     }
   }
@@ -125,17 +158,53 @@ class TrialAbusePreventionService {
       const macAddress = this.getClientMAC();
       const userAgent = navigator.userAgent;
 
-      const { error } = await supabase
-        .rpc('record_trial_usage', {
-          p_user_id: userId,
-          p_ip_address: ipAddress,
-          p_mac_address: macAddress,
-          p_user_agent: userAgent
+      // Insert trial record directly
+      const { error: trialError } = await supabase
+        .from('user_trials')
+        .insert({
+          user_id: userId,
+          plan_id: 'pro',
+          started_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days
+          status: 'active',
+          ip_address: ipAddress,
+          mac_address: macAddress,
+          user_agent: userAgent
         });
 
-      if (error) {
-        console.error('Error recording trial usage:', error);
+      if (trialError) {
+        console.error('Error recording trial usage:', trialError);
         return false;
+      }
+
+      // Update IP trial usage (optional)
+      try {
+        await supabase
+          .from('ip_trial_usage')
+          .upsert({
+            ip_address: ipAddress,
+            trial_count: 1,
+            last_trial_at: new Date().toISOString()
+          }, {
+            onConflict: 'ip_address'
+          });
+      } catch (ipError) {
+        console.warn('Error updating IP trial usage:', ipError);
+      }
+
+      // Update MAC trial usage (optional)
+      try {
+        await supabase
+          .from('mac_trial_usage')
+          .upsert({
+            mac_address: macAddress,
+            trial_count: 1,
+            last_trial_at: new Date().toISOString()
+          }, {
+            onConflict: 'mac_address'
+          });
+      } catch (macError) {
+        console.warn('Error updating MAC trial usage:', macError);
       }
 
       return true;
