@@ -299,64 +299,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Listen for user context refresh events
-  useEffect(() => {
-    const handleUserContextRefresh = () => {
-      if (user) {
-        refreshUserIdentity();
-      }
-    };
-
-    window.addEventListener('userContextRefresh', handleUserContextRefresh);
-    
-    return () => {
-      window.removeEventListener('userContextRefresh', handleUserContextRefresh);
-    };
-  }, [user, refreshUserIdentity]);
-
-  // User identification methods
-  const getUserDisplayName = (): string => {
-    return userIdentificationService.getUserDisplayName(userIdentity);
-  };
-
-  const getUserUsername = (): string => {
-    return userIdentificationService.getUserUsername(userIdentity);
-  };
-
-  const getUserInitials = (): string => {
-    return userIdentificationService.getUserInitials(userIdentity);
-  };
-
-  const formatUserIdentity = (options?: {
-    showUsername?: boolean;
-    showEmail?: boolean;
-    showRole?: boolean;
-    showSubscription?: boolean;
-  }): string => {
-    if (!userIdentity) return 'Guest User';
-    
-    const parts: string[] = [];
-    
-    if (options?.showUsername !== false) {
-      parts.push(`@${userIdentity.username}`);
-    }
-    
-    if (options?.showEmail && userIdentity.email) {
-      parts.push(getMaskedEmail(userIdentity.email));
-    }
-    
-    if (options?.showRole) {
-      parts.push(`(${userIdentity.role || 'user'})`);
-    }
-    
-    if (options?.showSubscription) {
-      parts.push(`[${userIdentity.subscription_tier || 'free'}]`);
-    }
-    
-    return parts.length > 0 ? parts.join(' ') : userIdentity.display_name || 'User';
-  };
-
-  // User actions
+  // User actions - Define before useEffect that uses them
   const refreshUserIdentity = async (): Promise<void> => {
     if (!user) return;
 
@@ -428,6 +371,63 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       return false;
     }
   };
+
+  // User identification methods
+  const getUserDisplayName = (): string => {
+    return userIdentificationService.getUserDisplayName(userIdentity);
+  };
+
+  const getUserUsername = (): string => {
+    return userIdentificationService.getUserUsername(userIdentity);
+  };
+
+  const getUserInitials = (): string => {
+    return userIdentificationService.getUserInitials(userIdentity);
+  };
+
+  const formatUserIdentity = (options?: {
+    showUsername?: boolean;
+    showEmail?: boolean;
+    showRole?: boolean;
+    showSubscription?: boolean;
+  }): string => {
+    if (!userIdentity) return 'Guest User';
+    
+    const parts: string[] = [];
+    
+    if (options?.showUsername !== false) {
+      parts.push(`@${userIdentity.username}`);
+    }
+    
+    if (options?.showEmail && userIdentity.email) {
+      parts.push(getMaskedEmail(userIdentity.email));
+    }
+    
+    if (options?.showRole) {
+      parts.push(`(${userIdentity.role || 'user'})`);
+    }
+    
+    if (options?.showSubscription) {
+      parts.push(`[${userIdentity.subscription_tier || 'free'}]`);
+    }
+    
+    return parts.length > 0 ? parts.join(' ') : userIdentity.display_name || 'User';
+  };
+
+  // Listen for user context refresh events
+  useEffect(() => {
+    const handleUserContextRefresh = () => {
+      if (user) {
+        refreshUserIdentity();
+      }
+    };
+
+    window.addEventListener('userContextRefresh', handleUserContextRefresh);
+    
+    return () => {
+      window.removeEventListener('userContextRefresh', handleUserContextRefresh);
+    };
+  }, [user, refreshUserIdentity]);
 
   const value: UserContextType = {
     user,
