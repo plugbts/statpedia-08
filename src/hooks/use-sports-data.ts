@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { sportsAPIService } from '@/services/sports-api';
+import { espnAPIService } from '@/services/espn-api-service';
+import { gamesService } from '@/services/games-service';
+import { predictionService } from '@/services/prediction-service';
 
 interface UseSportsDataOptions {
   sport?: string;
@@ -16,10 +18,42 @@ export function useLiveGames(sport: string, options: { autoFetch?: boolean; refr
     try {
       setLoading(true);
       setError(null);
-      const data = await sportsAPIService.getLiveGames(sport);
-      setGames(data);
+      
+      // Get real games from ESPN API
+      const espnGames = await espnAPIService.getCurrentWeekGames(sport);
+      
+      // Filter for future and current day games only
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      const filteredGames = espnGames.filter(game => {
+        const gameDate = new Date(game.date);
+        // Include games from today onwards (future and current day)
+        return gameDate >= today && game.status !== 'final';
+      });
+      
+      setGames(filteredGames);
     } catch (err) {
+      console.error('Error fetching games:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch games');
+      // Fallback to games service if ESPN fails
+      try {
+        const fallbackGames = await gamesService.getCurrentWeekGames(sport);
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        
+        const filteredFallback = fallbackGames.filter(game => {
+          const gameDate = new Date(game.date);
+          return gameDate >= today && game.status !== 'final';
+        });
+        
+        setGames(filteredFallback);
+      } catch (fallbackErr) {
+        console.error('Fallback also failed:', fallbackErr);
+        setGames([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -55,10 +89,43 @@ export function usePlayers(sport: string, teamId?: string) {
     try {
       setLoading(true);
       setError(null);
-      const data = await sportsAPIService.getPlayers(sport, teamId);
-      setPlayers(data);
+      
+      // Get players from current week games
+      const games = await espnAPIService.getCurrentWeekGames(sport);
+      const allPlayers: any[] = [];
+      
+      // Extract players from games
+      games.forEach(game => {
+        // Add home team players
+        if (game.homeTeam) {
+          allPlayers.push({
+            id: `${game.homeTeam.id}-home`,
+            name: game.homeTeam.name,
+            team: game.homeTeam.abbreviation,
+            position: 'Player',
+            sport: sport.toUpperCase(),
+            logo: game.homeTeam.logo
+          });
+        }
+        
+        // Add away team players
+        if (game.awayTeam) {
+          allPlayers.push({
+            id: `${game.awayTeam.id}-away`,
+            name: game.awayTeam.name,
+            team: game.awayTeam.abbreviation,
+            position: 'Player',
+            sport: sport.toUpperCase(),
+            logo: game.awayTeam.logo
+          });
+        }
+      });
+      
+      setPlayers(allPlayers);
     } catch (err) {
+      console.error('Error fetching players:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch players');
+      setPlayers([]);
     } finally {
       setLoading(false);
     }
@@ -85,10 +152,40 @@ export function usePlayerProps(sport: string, market?: string) {
     try {
       setLoading(true);
       setError(null);
-      const data = await sportsAPIService.getPlayerPropsForSport(sport);
-      setProps(data);
+      
+      // Get real props from ESPN API
+      const espnProps = await espnAPIService.getCurrentWeekProps(sport);
+      
+      // Filter for future games only
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      
+      const filteredProps = espnProps.filter(prop => {
+        const gameDate = new Date(prop.game_date || prop.lastUpdated);
+        return gameDate >= today;
+      });
+      
+      setProps(filteredProps);
     } catch (err) {
+      console.error('Error fetching player props:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch player props');
+      
+      // Fallback to prediction service
+      try {
+        const fallbackProps = await predictionService.getRecentPredictions(50);
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        
+        const filteredFallback = fallbackProps.filter(prop => {
+          const gameDate = new Date(prop.game_date);
+          return gameDate >= today;
+        });
+        
+        setProps(filteredFallback);
+      } catch (fallbackErr) {
+        console.error('Fallback also failed:', fallbackErr);
+        setProps([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -115,10 +212,27 @@ export function usePredictions(sport: string, limit?: number) {
     try {
       setLoading(true);
       setError(null);
-      const data = await sportsAPIService.getPredictions(sport, limit);
-      setPredictions(data);
+      
+      // Get real predictions from games service
+      const gamePredictions = await gamesService.getCurrentWeekPredictions(sport);
+      
+      // Filter for future games only
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      
+      const filteredPredictions = gamePredictions.filter(prediction => {
+        const gameDate = new Date(prediction.game.date);
+        return gameDate >= today && prediction.game.status !== 'final';
+      });
+      
+      // Limit results if specified
+      const limitedPredictions = limit ? filteredPredictions.slice(0, limit) : filteredPredictions;
+      
+      setPredictions(limitedPredictions);
     } catch (err) {
+      console.error('Error fetching predictions:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch predictions');
+      setPredictions([]);
     } finally {
       setLoading(false);
     }

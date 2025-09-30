@@ -23,6 +23,7 @@ import type { User } from '@supabase/supabase-js';
 import { useOddsAPI } from '@/hooks/use-odds-api';
 import { useToast } from '@/hooks/use-toast';
 import { predictionTracker } from '@/services/prediction-tracker';
+import { gamesService } from '@/services/games-service';
 import { SeasonalVideoBackground } from '@/components/ui/seasonal-video-background';
 import { BetTrackingTab } from '@/components/bet-tracking/bet-tracking-tab';
 import { SocialTab } from '@/components/social/social-tab';
@@ -254,59 +255,78 @@ const Index = () => {
   const loadRealPredictions = async () => {
     setIsLoadingPredictions(true);
     try {
-      const sports = await fetchInSeasonSports();
-      const allPredictions: any[] = [];
+      // Get real predictions from games service using ESPN API
+      const gamePredictions = await gamesService.getCurrentWeekPredictions(selectedSport);
       
-      // Fetch odds for each active sport - get ALL games in current week
-      for (const sport of sports.slice(0, 8)) { // Get up to 8 sports for more variety
-        const sportKey = sport.key;
-        const odds = await fetchOdds(sportKey);
-        
-        // Transform ALL odds to predictions for the current week
-        odds.forEach((game: any) => {
-          const prediction = transformGameToPrediction(game, sportKey);
-          if (prediction) {
-            allPredictions.push(prediction);
-          }
-        });
-      }
+      // Filter for future and current day games only
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       
-      // If we don't have enough predictions, generate more mock ones
-      if (allPredictions.length < 20) {
-        const additionalPredictions = [];
-        const sports = ['nfl', 'nba', 'mlb', 'nhl'];
-        const teams = ['LAL', 'GSW', 'BOS', 'MIA', 'BUF', 'KC', 'SF', 'DAL'];
-        
-        for (let i = 0; i < 20 - allPredictions.length; i++) {
-          const sport = sports[Math.floor(Math.random() * sports.length)];
-          const homeTeam = teams[Math.floor(Math.random() * teams.length)];
-          const awayTeam = teams[Math.floor(Math.random() * teams.length)];
-          
-          if (homeTeam !== awayTeam) {
-            const prediction = transformGameToPrediction({
-              id: `mock-${i}`,
-              home_team: homeTeam,
-              away_team: awayTeam,
-              commence_time: new Date(Date.now() + Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString()
-            }, sport);
-            
-            if (prediction) {
-              additionalPredictions.push(prediction);
-            }
-          }
-        }
-        
-        allPredictions.push(...additionalPredictions);
-      }
+      const filteredPredictions = gamePredictions.filter(prediction => {
+        const gameDate = new Date(prediction.game.date);
+        return gameDate >= today && prediction.game.status !== 'finished';
+      });
       
-      // Sort predictions by game date to show this week's games first
-      allPredictions.sort((a, b) => {
-        const dateA = new Date(a.gameDate || Date.now());
-        const dateB = new Date(b.gameDate || Date.now());
+      // Transform to dashboard format with proper home/away team display
+      const transformedPredictions = filteredPredictions.map(prediction => {
+        const game = prediction.game;
+        const homeTeam = game.homeTeam;
+        const awayTeam = game.awayTeam;
+        
+        return {
+          id: game.id,
+          sport: game.sport,
+          homeTeam: homeTeam,
+          awayTeam: awayTeam,
+          gameDate: game.date,
+          gameTime: game.time,
+          venue: game.venue,
+          homeRecord: game.homeRecord,
+          awayRecord: game.awayRecord,
+          homeOdds: game.homeOdds,
+          awayOdds: game.awayOdds,
+          prediction: {
+            homeScore: prediction.prediction.homeScore,
+            awayScore: prediction.prediction.awayScore,
+            homeWinProbability: prediction.prediction.homeWinProbability,
+            awayWinProbability: prediction.prediction.awayWinProbability,
+            confidence: prediction.prediction.confidence,
+            reasoning: `Confidence: ${Math.round(prediction.prediction.confidence * 100)}% | Expected Value: ${prediction.prediction.expectedValue.toFixed(2)} | Risk: ${prediction.prediction.riskLevel}`
+          },
+          analysis: {
+            form: prediction.prediction.factors.form,
+            h2h: prediction.prediction.factors.h2h,
+            rest: prediction.prediction.factors.rest,
+            injuries: prediction.prediction.factors.injuries,
+            venue: prediction.prediction.factors.venue,
+            weather: prediction.prediction.factors.weather
+          },
+          simulation: {
+            accuracy: prediction.backtestData.accuracy,
+            roi: prediction.backtestData.roi,
+            totalGames: prediction.backtestData.totalGames
+          },
+          // Legacy format for compatibility
+          player: `${awayTeam} @ ${homeTeam}`,
+          team: homeTeam,
+          opponent: awayTeam,
+          prop: 'Moneyline',
+          line: 'Win',
+          odds: game.homeOdds > 0 ? `+${game.homeOdds}` : game.homeOdds.toString(),
+          status: 'pending'
+        };
+      });
+      
+      // Sort by game date (earliest first)
+      transformedPredictions.sort((a, b) => {
+        const dateA = new Date(a.gameDate);
+        const dateB = new Date(b.gameDate);
         return dateA.getTime() - dateB.getTime();
       });
       
-      setRealPredictions(allPredictions);
+      setRealPredictions(transformedPredictions);
+      setPredictionsCount(transformedPredictions.length);
+      
     } catch (error) {
       console.error('Error loading predictions:', error);
       toast({
@@ -314,6 +334,8 @@ const Index = () => {
         description: "Failed to load predictions. Please try again.",
         variant: "destructive",
       });
+      setRealPredictions([]);
+      setPredictionsCount(0);
     } finally {
       setIsLoadingPredictions(false);
     }
