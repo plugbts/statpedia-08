@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -19,16 +19,28 @@ export const SubscriptionGatePopup: React.FC<SubscriptionGatePopupProps> = ({
   featureName,
   featureDescription
 }) => {
+  // Apply blur to body when popup is visible
+  useEffect(() => {
+    if (isVisible) {
+      document.body.style.filter = 'blur(10px)';
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.filter = 'none';
+      document.body.style.overflow = 'unset';
+    }
+
+    // Cleanup on unmount
+    return () => {
+      document.body.style.filter = 'none';
+      document.body.style.overflow = 'unset';
+    };
+  }, [isVisible]);
+
   if (!isVisible) return null;
 
   return (
-    <>
-      {/* Blur overlay for entire screen */}
-      <div className="fixed inset-0 backdrop-blur-lg bg-black/30 z-40"></div>
-      
-      {/* Main popup container */}
-      <div className="fixed inset-0 bg-gradient-to-br from-black via-gray-900 to-black flex items-start justify-center z-50 pt-16 sm:pt-20 px-4">
-        <div className="relative z-10">
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-20 px-4">
+      <div className="relative">
         {/* 3D Effect Container */}
         <div className="relative transform perspective-1000">
           {/* Main Card with 3D effect */}
@@ -115,8 +127,7 @@ export const SubscriptionGatePopup: React.FC<SubscriptionGatePopupProps> = ({
           <div className="absolute -bottom-4 -left-3 w-2 h-2 bg-purple-400 rounded-full opacity-50 animate-bounce delay-1000"></div>
           <div className="absolute -bottom-2 -right-4 w-1.5 h-1.5 bg-blue-400 rounded-full opacity-40 animate-bounce delay-1500"></div>
         </div>
-        </div>
       </div>
-    </>
+    </div>
   );
 };
