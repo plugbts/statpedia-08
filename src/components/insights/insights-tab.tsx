@@ -19,11 +19,13 @@ import {
   Zap,
   ArrowUp,
   ArrowDown,
-  Minus
+  Minus,
+  Calendar
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MoneylineProps } from '@/components/predictions/moneyline-props';
 import { UnderdogAnalysis } from '@/components/predictions/underdog-analysis';
+import { seasonService } from '@/services/season-service';
 
 interface InsightsTabProps {
   selectedSport: string;
@@ -440,24 +442,51 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
               <p className="text-muted-foreground">
                 AI-powered analysis of the top 3 underdog moneyline opportunities with detailed reasoning
               </p>
-              <UnderdogAnalysis />
+              <UnderdogAnalysis selectedSport={selectedSport} />
             </div>
 
             {/* Moneyline Predictions Section */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <BarChart3 className="w-6 h-6 text-primary" />
-                <h2 className="text-2xl font-bold text-foreground">Moneyline Predictions</h2>
-                <Badge variant="outline" className="gap-1">
-                  <Activity className="w-3 h-3" />
-                  Simulations
-                </Badge>
+            {seasonService.shouldShowMoneylinePredictions(selectedSport) ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <BarChart3 className="w-6 h-6 text-primary" />
+                  <h2 className="text-2xl font-bold text-foreground">Moneyline Predictions</h2>
+                  <Badge variant="outline" className="gap-1">
+                    <Activity className="w-3 h-3" />
+                    Simulations
+                  </Badge>
+                </div>
+                <p className="text-muted-foreground">
+                  AI-powered final score predictions with thousands of simulations and backtesting
+                </p>
+                <MoneylineProps userSubscription={userSubscription || 'free'} userRole={userRole} selectedSport={selectedSport} />
               </div>
-              <p className="text-muted-foreground">
-                AI-powered final score predictions with thousands of simulations and backtesting
-              </p>
-              <MoneylineProps userSubscription={userSubscription || 'free'} userRole={userRole} />
-            </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <BarChart3 className="w-6 h-6 text-muted-foreground" />
+                  <h2 className="text-2xl font-bold text-muted-foreground">Moneyline Predictions</h2>
+                  <Badge variant="outline" className="gap-1">
+                    <Activity className="w-3 h-3" />
+                    Offseason
+                  </Badge>
+                </div>
+                <div className="p-6 bg-muted/30 rounded-lg border border-muted">
+                  <div className="text-center space-y-3">
+                    <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto">
+                      <Calendar className="w-8 h-8 text-muted-foreground" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-muted-foreground">Season Ended</h3>
+                    <p className="text-muted-foreground">
+                      {seasonService.getOffseasonMessage(selectedSport)}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Moneyline predictions will return when the season begins.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </TabsContent>
       </Tabs>

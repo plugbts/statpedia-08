@@ -64,23 +64,29 @@ interface MoneylineGame {
 interface MoneylinePropsProps {
   userSubscription: string;
   userRole?: string;
+  selectedSport?: string;
 }
 
 export const MoneylineProps: React.FC<MoneylinePropsProps> = ({ 
   userSubscription, 
-  userRole = 'user' 
+  userRole = 'user',
+  selectedSport = 'nfl'
 }) => {
   const [predictions, setPredictions] = useState<GamePrediction[]>([]);
   const [selectedGame, setSelectedGame] = useState<RealGame | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('games');
-  const [selectedSport, setSelectedSport] = useState('nba');
+  const [localSelectedSport, setLocalSelectedSport] = useState(selectedSport);
 
   const isSubscribed = userRole === 'owner' || userSubscription !== 'free';
 
   useEffect(() => {
     loadPredictions();
+  }, [selectedSport]);
+
+  useEffect(() => {
+    setLocalSelectedSport(selectedSport);
   }, [selectedSport]);
 
   const loadPredictions = async () => {

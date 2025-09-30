@@ -29,17 +29,25 @@ import { useToast } from '@/hooks/use-toast';
 import { underdogAnalysisService, UnderdogAnalysis, WeeklyUnderdogReport } from '@/services/underdog-analysis-service';
 import { cn } from '@/lib/utils';
 
-export const UnderdogAnalysis: React.FC = () => {
+interface UnderdogAnalysisProps {
+  selectedSport?: string;
+}
+
+export const UnderdogAnalysis: React.FC<UnderdogAnalysisProps> = ({ selectedSport = 'nfl' }) => {
   const [underdogs, setUnderdogs] = useState<UnderdogAnalysis[]>([]);
   const [weeklyReport, setWeeklyReport] = useState<WeeklyUnderdogReport | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedSport, setSelectedSport] = useState('nfl');
+  const [localSelectedSport, setLocalSelectedSport] = useState(selectedSport);
   const [activeTab, setActiveTab] = useState('analysis');
   const { toast } = useToast();
 
   useEffect(() => {
     loadUnderdogAnalysis();
+  }, [selectedSport]);
+
+  useEffect(() => {
+    setLocalSelectedSport(selectedSport);
   }, [selectedSport]);
 
   const loadUnderdogAnalysis = async () => {
