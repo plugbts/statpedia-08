@@ -2,6 +2,15 @@
 // Centralizes user identification across the entire website using display name, username, and user ID
 
 import { supabase } from '@/integrations/supabase/client';
+import DOMPurify from 'isomorphic-dompurify';
+
+// Security constants - must match user-context.tsx
+const OWNER_EMAILS = [
+  'plug@statpedia.com',
+  'plug@plugbts.com', 
+  'plugbts@gmail.com',
+  'lifesplugg@gmail.com'
+];
 
 export interface UserIdentity {
   user_id: string;
@@ -40,8 +49,14 @@ class UserIdentificationService {
    * Get user identity by user ID
    */
   async getUserIdentity(userId: string): Promise<UserIdentity | null> {
+    // Sanitize input
+    const sanitizedUserId = DOMPurify.sanitize(userId);
+    if (!sanitizedUserId || sanitizedUserId !== userId) {
+      throw new Error('Invalid user ID provided');
+    }
+    
     // Check cache first
-    const cached = this.getCachedUser(userId);
+    const cached = this.getCachedUser(sanitizedUserId);
     if (cached) return cached;
 
     try {
@@ -97,9 +112,9 @@ class UserIdentificationService {
         .single();
 
       if (fallbackProfile && !fallbackError) {
-        // Determine role based on email
+        // Determine role based on email using secure constants
         let role = 'user';
-        if (fallbackProfile.email === 'plug@statpedia.com' || fallbackProfile.email === 'plug@plugbts.com' || fallbackProfile.email === 'plugbts@gmail.com' || fallbackProfile.email === 'lifesplugg@gmail.com') {
+        if (fallbackProfile.email && OWNER_EMAILS.includes(fallbackProfile.email.toLowerCase())) {
           role = 'owner';
         } else if (fallbackProfile.email?.includes('admin')) {
           role = 'admin';
@@ -125,9 +140,9 @@ class UserIdentificationService {
       // Final fallback - create basic identity from auth user
       const { data: { user } } = await supabase.auth.getUser();
       if (user && user.id === userId) {
-        // Determine role based on email
+        // Determine role based on email using secure constants
         let role = 'user';
-        if (user.email === 'plug@statpedia.com' || user.email === 'plug@plugbts.com' || user.email === 'plugbts@gmail.com' || user.email === 'lifesplugg@gmail.com') {
+        if (user.email && OWNER_EMAILS.includes(user.email.toLowerCase())) {
           role = 'owner';
         } else if (user.email?.includes('admin')) {
           role = 'admin';
