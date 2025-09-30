@@ -3,6 +3,7 @@
 
 import { gamesService, GamePrediction, RealGame } from './games-service';
 import { simulationService } from './simulation-service';
+import { crossReferenceService, CrossReferenceResult } from './cross-reference-service';
 
 export interface UnderdogAnalysis {
   game: RealGame;
@@ -46,6 +47,7 @@ export interface UnderdogAnalysis {
     reasoning: string;
     expectedValue: number;
   };
+  crossReference?: CrossReferenceResult;
   lastUpdated: string;
 }
 
@@ -141,6 +143,14 @@ class UnderdogAnalysisService {
     // Generate recommendation
     const recommendation = this.generateRecommendation(valueRating, confidence, underdog.odds);
 
+    // Get cross-reference data
+    const crossReference = await crossReferenceService.crossReferencePrediction(
+      game.homeTeam, game.awayTeam, game.sport.toLowerCase(), 
+      game.homeForm, game.awayForm, game.h2hData, 
+      game.injuries, game.restDays, game.weather, game.venue, 
+      game.homeOdds, game.awayOdds, game.drawOdds
+    );
+
     return {
       game,
       underdog: {
@@ -152,6 +162,7 @@ class UnderdogAnalysisService {
       favorite,
       analysis,
       recommendation,
+      crossReference,
       lastUpdated: new Date().toISOString()
     };
   }

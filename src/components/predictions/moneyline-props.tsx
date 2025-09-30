@@ -23,7 +23,8 @@ import {
   MapPin,
   RefreshCw,
   CheckCircle,
-  XCircle
+  XCircle,
+  Star
 } from 'lucide-react';
 import { SimulationAnalysis } from './simulation-analysis';
 import { gamesService, GamePrediction, RealGame } from '@/services/games-service';
@@ -339,6 +340,39 @@ export const MoneylineProps: React.FC<MoneylinePropsProps> = ({
                         Confidence: {(pred.confidence * 100).toFixed(0)}%
                       </div>
                     </div>
+
+                    {/* Cross-Reference Analysis */}
+                    {pred.crossReference && (
+                      <div className="space-y-2 p-3 bg-muted/30 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Brain className="w-4 h-4 text-primary" />
+                            <span className="text-sm font-medium">AI Model Consensus</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {Array.from({ length: 5 }, (_, i) => (
+                              <Star 
+                                key={i} 
+                                className={cn(
+                                  "w-3 h-3",
+                                  i < pred.crossReference!.valueRating 
+                                    ? "text-yellow-400 fill-current" 
+                                    : "text-muted-foreground"
+                                )} 
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {pred.crossReference.consensus.toUpperCase()} • 
+                          {pred.crossReference.agreement.toFixed(0)}% Agreement • 
+                          {pred.crossReference.riskLevel.toUpperCase()} Risk
+                        </div>
+                        <div className="text-xs text-foreground">
+                          {pred.crossReference.reasoning}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Quick Stats */}
                     <div className="grid grid-cols-3 gap-2 text-xs text-center">

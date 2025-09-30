@@ -361,6 +361,39 @@ export const UnderdogAnalysis: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* Cross-Reference Analysis */}
+                  {underdog.crossReference && (
+                    <div className="space-y-3 p-4 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-lg border border-blue-500/20">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Brain className="w-5 h-5 text-blue-500" />
+                          <span className="font-semibold">AI Model Consensus</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: 5 }, (_, i) => (
+                            <Star 
+                              key={i} 
+                              className={cn(
+                                "w-4 h-4",
+                                i < underdog.crossReference!.valueRating 
+                                  ? "text-yellow-400 fill-current" 
+                                  : "text-muted-foreground"
+                              )} 
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {underdog.crossReference.consensus.toUpperCase()} • 
+                        {underdog.crossReference.agreement.toFixed(0)}% Agreement • 
+                        {underdog.crossReference.riskLevel.toUpperCase()} Risk
+                      </div>
+                      <div className="text-sm text-foreground">
+                        {underdog.crossReference.reasoning}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Key Factors */}
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold">Why This Underdog Wins</h3>
