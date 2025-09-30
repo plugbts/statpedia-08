@@ -32,6 +32,7 @@ import { bannerService, type BannerSettings } from '@/services/banner-service';
 import { BannerEditor } from '@/components/social/banner-editor';
 import { UserPredictionStats } from '@/components/predictions/user-prediction-stats';
 import { KarmaTutorialPopup } from '@/components/ui/karma-tutorial-popup';
+import { UsernamePrompt } from '@/components/ui/username-prompt';
 import { SocialFeedAd } from '@/components/ads/ad-placements';
 import { BetSlipSharer } from './bet-slip-sharer';
 import { BetSlipCard } from './bet-slip-card';
@@ -72,6 +73,8 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
   const [currentBanner, setCurrentBanner] = useState<BannerSettings | null>(null);
   const [showKarmaTutorial, setShowKarmaTutorial] = useState(false);
   const [karmaTutorialChecked, setKarmaTutorialChecked] = useState(false);
+  const [showUsernamePrompt, setShowUsernamePrompt] = useState(false);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string>('');
   const [sharedBetSlips, setSharedBetSlips] = useState<SharedBetSlip[]>([]);
   const [isLoadingBetSlips, setIsLoadingBetSlips] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
@@ -202,6 +205,24 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
     }
   };
 
+  const handleUsernameSet = async (username: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      // Create or update user profile with username
+      const profile = await socialService.createOrUpdateUserProfile(user.id, username, user.email);
+      setUserProfile(profile);
+      setShowUsernamePrompt(false);
+      
+      // Reload all data now that profile is set up
+      await loadInitialData();
+    } catch (error: any) {
+      console.error('Failed to set username:', error);
+      throw error;
+    }
+  };
+
   useEffect(() => {
     if (userProfile) {
       loadAlgorithmInsights();
@@ -225,6 +246,7 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
         return;
       }
       console.log('User found:', user.id);
+      setCurrentUserEmail(user.email || '');
 
       // Load each service individually to handle errors gracefully
       let profile: UserProfile | null = null;
@@ -236,31 +258,26 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
       try {
         profile = await socialService.getUserProfile(user.id);
         if (!profile) {
-          // Create profile if it doesn't exist using user's metadata or email
-          const displayName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'user';
-          const username = user.user_metadata?.username || user.email?.split('@')[0] || 'user';
-          profile = await socialService.createUserProfile(user.id, username, displayName);
+          // Show username prompt if no profile exists
+          console.log('No profile found, showing username prompt');
+          setShowUsernamePrompt(true);
+          setIsLoading(false);
+          return;
+        }
+
+        // Check if user has a username set
+        if (!profile.username || profile.username.trim() === '') {
+          console.log('No username found, showing prompt');
+          setShowUsernamePrompt(true);
+          setIsLoading(false);
+          return;
         }
       } catch (error: any) {
         console.log('Profile service error (expected if tables missing):', error);
-        // Create a default profile for UI
-        const displayName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'user';
-        const username = user.user_metadata?.username || user.email?.split('@')[0] || 'user';
-        profile = {
-          id: '',
-          user_id: user.id,
-          username: username,
-          display_name: displayName,
-          bio: '',
-          avatar_url: '',
-          karma: 0,
-          roi_percentage: 0,
-          total_posts: 0,
-          total_comments: 0,
-          is_muted: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
+        // Show username prompt if there's an error
+        setShowUsernamePrompt(true);
+        setIsLoading(false);
+        return;
       }
 
       // Load posts with recommendation system
@@ -1352,6 +1369,14 @@ export const SocialTab: React.FC<SocialTabProps> = ({ userRole, userSubscription
       <KarmaTutorialPopup
         isVisible={showKarmaTutorial}
         onClose={handleKarmaTutorialClose}
+      />
+
+      {/* Username Prompt */}
+      <UsernamePrompt
+        isVisible={showUsernamePrompt}
+        onClose={() => setShowUsernamePrompt(false)}
+        onUsernameSet={handleUsernameSet}
+        currentEmail={currentUserEmail}
       />
     </div>
   );

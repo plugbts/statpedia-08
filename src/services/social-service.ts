@@ -208,6 +208,79 @@ class SocialService {
     return data;
   }
 
+  // Create or update user profile with username
+  async createOrUpdateUserProfile(userId: string, username: string, email?: string): Promise<UserProfile> {
+    try {
+      // Check if username is already taken
+      const { data: existingUser } = await supabase
+        .from('user_profiles')
+        .select('user_id')
+        .eq('username', username)
+        .neq('user_id', userId)
+        .single();
+
+      if (existingUser) {
+        throw new Error('Username is already taken. Please choose a different one.');
+      }
+
+      // Check if profile already exists
+      const { data: existingProfile } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (existingProfile) {
+        // Update existing profile with username
+        const { data, error } = await supabase
+          .from('user_profiles')
+          .update({ 
+            username,
+            display_name: existingProfile.display_name || username,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', userId)
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
+      } else {
+        // Create new profile
+        const { data, error } = await supabase
+          .from('user_profiles')
+          .insert({
+            user_id: userId,
+            username,
+            display_name: username,
+            email: email || '',
+            karma: 0,
+            roi_percentage: 0,
+            total_posts: 0,
+            total_comments: 0,
+            bio: '',
+            avatar_url: '',
+            banner_url: '',
+            banner_position: 'center',
+            banner_blur: 0,
+            banner_brightness: 1.0,
+            banner_contrast: 1.0,
+            banner_saturation: 1.0,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
+      }
+    } catch (error: any) {
+      console.error('Failed to create/update user profile:', error);
+      throw error;
+    }
+  }
+
   async getUserProfileByUsername(username: string): Promise<UserProfile | null> {
     const { data, error } = await supabase
       .from('user_profiles')

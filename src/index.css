@@ -11,6 +11,24 @@
   display: none;
 }
 
+/* 3D Effects for Username Prompt */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.rotate-y-2 {
+  transform: rotateY(2deg);
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotateY(2deg); }
+  50% { transform: translateY(-10px) rotateY(2deg); }
+}
+
+.float-animation {
+  animation: float 3s ease-in-out infinite;
+}
+
 /* Sports Analytics Design System - Professional Dark Theme */
 
 @layer base {
