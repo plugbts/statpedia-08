@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Users, Ban, Gift, Activity, Mail, AlertTriangle, MessageSquare, Target, DollarSign, Lock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Shield, Users, Ban, Gift, Activity, Mail, AlertTriangle, MessageSquare, Target, DollarSign, Lock, ArrowLeft } from "lucide-react";
 import { UserManagement } from "@/components/admin/user-management";
 import { DiscordManagement } from "@/components/admin/discord-management";
 import { PromoCodesAdmin } from "@/components/admin/promo-codes-admin";
@@ -18,7 +19,7 @@ import { useUser } from "@/contexts/user-context";
 
 export default function Admin() {
   const navigate = useNavigate();
-  const { userRole, isLoading: userLoading } = useUser();
+  const { userRole, isLoading: userLoading, logSecurityEvent } = useUser();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -38,6 +39,14 @@ export default function Admin() {
     setLoading(false);
   };
 
+  const handleGoBack = () => {
+    logSecurityEvent('ADMIN_PANEL_EXIT', {
+      adminRole: userRole,
+      action: 'navigate_back_to_main'
+    });
+    navigate("/");
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -53,12 +62,22 @@ export default function Admin() {
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex items-center gap-3">
-          <Shield className="h-8 w-8 text-primary" />
-          <div>
-            <h1 className="text-3xl font-bold">Admin Panel</h1>
-            <p className="text-muted-foreground">Manage users, Discord integrations, and system settings</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Shield className="h-8 w-8 text-primary" />
+            <div>
+              <h1 className="text-3xl font-bold">Admin Panel</h1>
+              <p className="text-muted-foreground">Manage users, Discord integrations, and system settings</p>
+            </div>
           </div>
+          <Button 
+            onClick={handleGoBack} 
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Go Back to Navigation
+          </Button>
         </div>
 
         <Tabs defaultValue="users" className="w-full">
