@@ -243,6 +243,18 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   if (realProps.length > 0) {
     logDebug('PlayerPropsTab', 'First realProp:', realProps[0]);
     logDebug('PlayerPropsTab', 'First 3 props:', realProps.slice(0, 3));
+    
+    // Debug specific data fields
+    const firstProp = realProps[0];
+    logDebug('PlayerPropsTab', 'First prop data check:', {
+      playerName: firstProp.playerName,
+      line: firstProp.line,
+      overOdds: firstProp.overOdds,
+      underOdds: firstProp.underOdds,
+      confidence: firstProp.confidence,
+      expectedValue: firstProp.expectedValue,
+      propType: firstProp.propType
+    });
   } else {
     logWarning('PlayerPropsTab', 'No realProps available');
   }
@@ -304,6 +316,35 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   
   if (filteredProps.length === 0 && realProps.length > 0) {
     logWarning('PlayerPropsTab', 'All props filtered out! Checking first few props:', realProps.slice(0, 3));
+    
+    // Debug why props are being filtered out
+    const sampleProp = realProps[0];
+    const matchesConfidence = (sampleProp.confidence || 0.5) >= (minConfidence / 100);
+    const matchesEV = (sampleProp.expectedValue || 0) >= (minEV / 100);
+    const matchesPropType = propTypeFilter === 'all' || sampleProp.propType === propTypeFilter;
+    
+    logWarning('PlayerPropsTab', 'Sample prop filter check:', {
+      playerName: sampleProp.playerName,
+      confidence: sampleProp.confidence,
+      expectedValue: sampleProp.expectedValue,
+      propType: sampleProp.propType,
+      matchesConfidence,
+      matchesEV,
+      matchesPropType,
+      minConfidence: minConfidence / 100,
+      minEV: minEV / 100
+    });
+  }
+  
+  if (filteredProps.length > 0) {
+    logSuccess('PlayerPropsTab', `Successfully filtered ${filteredProps.length} props`);
+    const firstFiltered = filteredProps[0];
+    logDebug('PlayerPropsTab', 'First filtered prop:', {
+      playerName: firstFiltered.playerName,
+      line: firstFiltered.line,
+      overOdds: firstFiltered.overOdds,
+      underOdds: firstFiltered.underOdds
+    });
   }
 
   // Handle player analysis
