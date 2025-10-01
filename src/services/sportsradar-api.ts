@@ -144,6 +144,56 @@ class SportsRadarAPI {
     return SPORTRADAR_API_KEYS[sportKey as keyof typeof SPORTRADAR_API_KEYS] || SPORTRADAR_API_KEYS.NFL;
   }
 
+  // Make authenticated request with specific API key
+  private async makeRequestWithKey<T>(endpoint: string, apiKey: string, cacheDuration: number = CACHE_DURATION.ODDS): Promise<T> {
+    const cacheKey = `${endpoint}-${apiKey.substring(0, 10)}`;
+    const now = Date.now();
+    
+    // Check cache first
+    if (this.cache.has(cacheKey)) {
+      const cached = this.cache.get(cacheKey)!;
+      if (now - cached.timestamp < cacheDuration) {
+        logAPI('SportsRadarAPI', `Using cached data for ${endpoint}`);
+        return cached.data;
+      }
+    }
+
+    try {
+      const url = `${SPORTRADAR_BASE_URL}${endpoint}`;
+      
+      logAPI('SportsRadarAPI', `Making request to: ${endpoint}`);
+      logAPI('SportsRadarAPI', `Using API key: ${apiKey.substring(0, 10)}...`);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'Statpedia/1.0',
+          'X-API-Key': apiKey
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        logError('SportsRadarAPI', `HTTP ${response.status}: ${response.statusText}`);
+        logError('SportsRadarAPI', `Response: ${errorText}`);
+        throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      
+      // Cache the response
+      this.cache.set(cacheKey, { data, timestamp: now });
+      
+      logSuccess('SportsRadarAPI', `Successfully fetched data from ${endpoint}`);
+      return data;
+      
+    } catch (error) {
+      logError('SportsRadarAPI', `Request failed for ${endpoint}:`, error);
+      throw error;
+    }
+  }
+
   // Map sport names to SportsRadar keys
   private mapSportToKey(sport: string): string {
     const sportMap: { [key: string]: string } = {
@@ -286,6 +336,9 @@ class SportsRadarAPI {
         return [];
       }
 
+      // Use dedicated Player Props API key
+      const playerPropsApiKey = SPORTRADAR_API_KEYS.ODDS_COMPARISONS_PLAYER_PROPS;
+      
       // Try different Player Props API endpoints
       const endpoints = [
         `/oddscomparison-player-props/trial/v2/en/sports/${sportId}/competitions`,
@@ -297,8 +350,9 @@ class SportsRadarAPI {
       for (const endpoint of endpoints) {
         try {
           logAPI('SportsRadarAPI', `Trying Player Props API endpoint: ${endpoint}`);
+          logAPI('SportsRadarAPI', `Using Player Props API key: ${playerPropsApiKey.substring(0, 10)}...`);
           
-          const data = await this.makeRequest<any>(endpoint, sportKey, CACHE_DURATION.ODDS);
+          const data = await this.makeRequestWithKey<any>(endpoint, playerPropsApiKey, CACHE_DURATION.ODDS);
           
           if (data && (Array.isArray(data) || data.competitions || data.events || data.markets)) {
             logAPI('SportsRadarAPI', `Found data from Player Props API: ${endpoint}`);
