@@ -339,12 +339,20 @@ class SportsRadarAPI {
       // Use dedicated Player Props API key
       const playerPropsApiKey = SPORTRADAR_API_KEYS.ODDS_COMPARISONS_PLAYER_PROPS;
       
-      // Try different Player Props API endpoints
+      // Use correct Player Props API endpoints based on official documentation
+      const sportIdFormatted = `sr:sport:${sportId}`;
+      const currentDate = this.getCurrentDate();
       const endpoints = [
-        `/oddscomparison-player-props/trial/v2/en/sports/${sportId}/competitions`,
-        `/oddscomparison-player-props/trial/v2/en/sports/${sportId}`,
-        `/oddscomparison-player-props/trial/v2/en/sports/${sportId}/events`,
-        `/oddscomparison-player-props/trial/v2/en/sports/${sportId}/markets`
+        // Daily schedules for player props
+        `/oddscomparison-player-props/trial/v2/en/sports/${sportIdFormatted}/daily_schedules/${currentDate}`,
+        // Competition schedules
+        `/oddscomparison-player-props/trial/v2/en/sports/${sportIdFormatted}/competition_schedules`,
+        // Sport competitions
+        `/oddscomparison-player-props/trial/v2/en/sports/${sportIdFormatted}/competitions`,
+        // Daily player props
+        `/oddscomparison-player-props/trial/v2/en/sports/${sportIdFormatted}/daily_player_props/${currentDate}`,
+        // Sport categories
+        `/oddscomparison-player-props/trial/v2/en/sports/${sportIdFormatted}/categories`
       ];
 
       for (const endpoint of endpoints) {
