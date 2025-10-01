@@ -40,8 +40,7 @@ import {
   Target,
   Zap
 } from 'lucide-react';
-import { sportsDataIOAPI } from '@/services/sportsdataio-api';
-import { sportsDataIOAPIFixed } from '@/services/sportsdataio-api-fixed';
+import { sportsGameOddsAPI } from '@/services/sportsgameodds-api';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -133,7 +132,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     }
   }, [selectedSport]);
 
-    // Load player props from Fixed API Service - WORKING SOLUTION
+    // Load player props from SportsGameOdds API - NEW SOLUTION
     const loadPlayerProps = async (sport: string) => {
       if (!sport) {
         logWarning('PlayerPropsTab', 'No sport provided to loadPlayerProps');
@@ -149,11 +148,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       setRealProps([]);
       
       try {
-        logAPI('PlayerPropsTab', `Calling sportsDataIOAPIFixed.getPlayerProps(${sport})`);
-        logDebug('PlayerPropsTab', `sportsDataIOAPIFixed service: ${typeof sportsDataIOAPIFixed}`);
-        logDebug('PlayerPropsTab', `getPlayerProps method: ${typeof sportsDataIOAPIFixed.getPlayerProps}`);
-        const props = await sportsDataIOAPIFixed.getPlayerProps(sport);
-        logAPI('PlayerPropsTab', `Fixed API returned ${props?.length || 0} props`);
+        logAPI('PlayerPropsTab', `Calling sportsGameOddsAPI.getPlayerProps(${sport})`);
+        logDebug('PlayerPropsTab', `sportsGameOddsAPI service: ${typeof sportsGameOddsAPI}`);
+        logDebug('PlayerPropsTab', `getPlayerProps method: ${typeof sportsGameOddsAPI.getPlayerProps}`);
+        const props = await sportsGameOddsAPI.getPlayerProps(sport);
+        logAPI('PlayerPropsTab', `SportsGameOdds API returned ${props?.length || 0} props`);
         
         // DEBUG: Log first few props to check data quality
         if (props && props.length > 0) {

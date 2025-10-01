@@ -40,7 +40,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { seasonService } from '@/services/season-service';
-import { sportsDataIOAPI } from '@/services/sportsdataio-api';
+import { sportsGameOddsAPI } from '@/services/sportsgameodds-api';
 import { simulationService, PredictionAnalysis } from '@/services/simulation-service';
 import { crossReferenceService, CrossReferenceResult } from '@/services/cross-reference-service';
 
@@ -53,7 +53,7 @@ interface PredictionsTabProps {
 
 interface AdvancedPrediction {
   id: string;
-  playerId: number;
+  playerId: string;
   playerName: string;
   team: string;
   teamAbbr: string;
@@ -178,7 +178,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
       console.log(`🔮 Loading advanced predictions for ${selectedSport}...`);
       
       // Get player props from SportsDataIO API
-      const playerProps = await sportsDataIOAPI.getPlayerProps(selectedSport);
+      const playerProps = await sportsGameOddsAPI.getPlayerProps(selectedSport);
       console.log(`📊 Retrieved ${playerProps.length} player props for analysis`);
       
       // Generate advanced predictions from player props
