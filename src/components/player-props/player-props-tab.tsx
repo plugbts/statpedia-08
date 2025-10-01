@@ -121,7 +121,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const [showOnlyPositiveEV, setShowOnlyPositiveEV] = useState(false);
   const [showSelection, setShowSelection] = useState(false);
   const [viewMode, setViewMode] = useState<'column' | 'cards'>('column');
-  const [selectedSportsbook, setSelectedSportsbook] = useState<string>('');
+  const [selectedSportsbook, setSelectedSportsbook] = useState<string>('all');
   const [availableSportsbooks, setAvailableSportsbooks] = useState<{ key: string; title: string; lastUpdate: string }[]>([]);
 
   // Update sport filter when selectedSport changes
@@ -139,7 +139,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
 
   // Reload props when sportsbook changes
   useEffect(() => {
-    if (selectedSport && selectedSportsbook) {
+    if (selectedSport && selectedSportsbook !== '') {
       logState('PlayerPropsTab', `Sportsbook changed to: ${selectedSportsbook}`);
       loadPlayerProps(selectedSport);
     }
@@ -172,10 +172,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       setRealProps([]);
       
       try {
-        logAPI('PlayerPropsTab', `Calling unifiedSportsAPI.getPlayerProps(${sport})${selectedSportsbook ? ` with sportsbook: ${selectedSportsbook}` : ''}`);
+        const sportsbookFilter = selectedSportsbook === 'all' ? undefined : selectedSportsbook;
+        logAPI('PlayerPropsTab', `Calling unifiedSportsAPI.getPlayerProps(${sport})${sportsbookFilter ? ` with sportsbook: ${sportsbookFilter}` : ''}`);
         logDebug('PlayerPropsTab', `unifiedSportsAPI service: ${typeof unifiedSportsAPI}`);
         logDebug('PlayerPropsTab', `getPlayerProps method: ${typeof unifiedSportsAPI.getPlayerProps}`);
-        const props = await unifiedSportsAPI.getPlayerProps(sport, undefined, undefined, selectedSportsbook);
+        const props = await unifiedSportsAPI.getPlayerProps(sport, undefined, undefined, sportsbookFilter);
         logAPI('PlayerPropsTab', `Fixed API returned ${props?.length || 0} props`);
         
         // DEBUG: Log first few props to check data quality
@@ -508,7 +509,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                     <SelectValue placeholder="All Sportsbooks" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Sportsbooks</SelectItem>
+                    <SelectItem value="all">All Sportsbooks</SelectItem>
                     {availableSportsbooks.map(sportsbook => (
                       <SelectItem key={sportsbook.key} value={sportsbook.key}>
                         {sportsbook.title}
