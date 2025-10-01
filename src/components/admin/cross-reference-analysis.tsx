@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
+import { Loader2, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, RefreshCw, Copy, Check } from 'lucide-react';
 import { crossReferenceService, CrossReferenceAnalysis } from '@/services/cross-reference-service';
 import { unifiedSportsAPI } from '@/services/unified-sports-api';
 
@@ -11,6 +11,7 @@ export const CrossReferenceAnalysis: React.FC = () => {
   const [analysis, setAnalysis] = useState<CrossReferenceAnalysis | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedSport, setSelectedSport] = useState('NBA');
+  const [copied, setCopied] = useState(false);
 
   const runAnalysis = async () => {
     setIsLoading(true);
@@ -31,6 +32,77 @@ export const CrossReferenceAnalysis: React.FC = () => {
   useEffect(() => {
     runAnalysis();
   }, [selectedSport]);
+
+  const formatAnalysisForCoding = (analysis: CrossReferenceAnalysis): string => {
+    const criticalDiscrepancies = analysis.detailedDiscrepancies.filter(d => d.severity === 'critical');
+    const highDiscrepancies = analysis.detailedDiscrepancies.filter(d => d.severity === 'high');
+    
+    return `# Cross Reference Analysis Report - ${selectedSport}
+Generated: ${new Date(analysis.lastUpdated).toISOString()}
+
+## Summary Metrics
+- Total Props Analyzed: ${analysis.totalPropsAnalyzed}
+- Props with Discrepancies: ${analysis.propsWithDiscrepancies} (${((analysis.propsWithDiscrepancies / analysis.totalPropsAnalyzed) * 100).toFixed(1)}%)
+- Average Line Difference: ${analysis.averageLineDifference.toFixed(2)} points
+- Average Odds Difference: ${analysis.averageOddsDifference.toFixed(0)} points
+- Sync Status: ${analysis.debugInfo.syncStatus.toUpperCase()}
+- Our Accuracy: ${analysis.debugInfo.ourAccuracy.toFixed(1)}%
+- Sportsbook Consistency: ${analysis.debugInfo.sportsbookConsistency.toFixed(1)}%
+
+## Critical Issues (${criticalDiscrepancies.length} found)
+${criticalDiscrepancies.length > 0 ? criticalDiscrepancies.map(d => 
+`### ${d.playerName} - ${d.propType}
+- Our Line: ${d.ourLine} | Sportsbook Line: ${d.sportsbookLine.toFixed(1)}
+- Our Odds: ${d.ourOverOdds}/${d.ourUnderOdds} | Sportsbook Odds: ${d.sportsbookOverOdds}/${d.sportsbookUnderOdds}
+- Line Difference: ${d.lineDifference.toFixed(2)} points
+- Odds Difference: ${d.oddsDifference.toFixed(0)} points
+- Action Required: ${d.suggestedAction}
+`).join('\n') : 'No critical issues found.'}
+
+## High Priority Issues (${highDiscrepancies.length} found)
+${highDiscrepancies.length > 0 ? highDiscrepancies.map(d => 
+`### ${d.playerName} - ${d.propType}
+- Line Difference: ${d.lineDifference.toFixed(2)} points
+- Odds Difference: ${d.oddsDifference.toFixed(0)} points
+- Action: ${d.suggestedAction}
+`).join('\n') : 'No high priority issues found.'}
+
+## Recommended Fixes
+${analysis.recommendations.map((rec, index) => `${index + 1}. ${rec}`).join('\n')}
+
+## Code Implementation Priority
+1. **IMMEDIATE (Critical Issues)**: Fix ${criticalDiscrepancies.length} critical discrepancies
+2. **HIGH (Line Differences)**: ${analysis.averageLineDifference > 0.5 ? 'Update statistical models with recent data' : 'Line differences within acceptable range'}
+3. **HIGH (Odds Differences)**: ${analysis.averageOddsDifference > 5 ? 'Implement proper vig/juice calculations' : 'Odds differences within acceptable range'}
+4. **MEDIUM (Sync Status)**: ${analysis.debugInfo.syncStatus === 'outdated' ? 'Implement real-time sportsbook synchronization' : 'Sync status acceptable'}
+5. **LOW (API Integration)**: Replace mock data with real sportsbook APIs
+
+## Technical Implementation Notes
+- Current mock data variations: ±0.5 points for lines, ±4 points for odds
+- Discrepancy thresholds: 0.5 points for lines, 5 points for odds
+- Severity levels: Low (<1), Medium (<3), High (<6), Critical (≥6)
+- Sportsbooks included: FanDuel, DraftKings, BetMGM, Caesars, PointsBet
+
+## Next Steps for Development Team
+1. Review critical discrepancies above
+2. Update statistical models if line differences > 0.5 points
+3. Implement proper vig calculations if odds differences > 5 points
+4. Set up real-time API integration with major sportsbooks
+5. Add automated testing for discrepancy detection`;
+  };
+
+  const handleCopyAnalysis = async () => {
+    if (!analysis) return;
+    
+    try {
+      const formattedText = formatAnalysisForCoding(analysis);
+      await navigator.clipboard.writeText(formattedText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error('Failed to copy analysis:', error);
+    }
+  };
 
   const getSeverityColor = (value: number, threshold: number) => {
     if (value > threshold * 1.5) return 'text-red-500';
@@ -69,6 +141,20 @@ export const CrossReferenceAnalysis: React.FC = () => {
                 <option value="MLB">MLB</option>
                 <option value="NHL">NHL</option>
               </select>
+              {analysis && (
+                <Button
+                  onClick={handleCopyAnalysis}
+                  variant="outline"
+                  className="bg-slate-800 hover:bg-slate-700 text-white border-slate-600"
+                >
+                  {copied ? (
+                    <Check className="w-4 h-4 text-green-400" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                  {copied ? 'Copied!' : 'Copy Report'}
+                </Button>
+              )}
               <Button
                 onClick={runAnalysis}
                 disabled={isLoading}
