@@ -15,6 +15,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SeasonalCardBackground } from '@/components/ui/seasonal-card-background';
 
 interface PlayerProp {
   id: string;
@@ -156,9 +157,9 @@ export function PlayerPropCard3D({
       <Card
         className={cn(
           "relative overflow-hidden cursor-pointer transition-all duration-500 ease-out",
-          "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900",
-          "border border-slate-700/50 shadow-2xl",
-          "hover:shadow-3xl hover:shadow-blue-500/20",
+          "bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900",
+          "border border-gray-800/60 shadow-2xl",
+          "hover:shadow-3xl hover:shadow-blue-500/10",
           "transform-gpu",
           isHovered && "scale-105 rotate-1",
           isSelected && "ring-2 ring-blue-500 ring-opacity-50",
@@ -174,14 +175,15 @@ export function PlayerPropCard3D({
         onMouseLeave={() => setIsHovered(false)}
         onClick={handleCardClick}
       >
-        {/* Animated Background Gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-purple-500/5 to-cyan-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-        
-        {/* Glow Effect */}
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-cyan-500/20 opacity-0 group-hover:opacity-100 blur-xl transition-all duration-500" />
-        
-        {/* Card Content */}
-        <CardContent className="relative z-10 p-6">
+        <SeasonalCardBackground intensity="subtle" className="h-full">
+          {/* Animated Background Gradient */}
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 via-purple-600/3 to-cyan-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          
+          {/* Glow Effect */}
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/8 via-purple-600/8 to-cyan-600/8 opacity-0 group-hover:opacity-100 blur-xl transition-all duration-500" />
+          
+          {/* Card Content */}
+          <CardContent className="relative z-10 p-6">
           {/* Header with Player Info */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-3">
@@ -189,13 +191,13 @@ export function PlayerPropCard3D({
                 {prop.playerName.split(' ').map(n => n[0]).join('')}
               </div>
               <div>
-                <h3 className="font-bold text-white text-lg leading-tight">
+                <h3 className="font-semibold text-white text-lg leading-tight tracking-tight">
                   {prop.playerName}
                 </h3>
-                <div className="flex items-center space-x-2 text-sm text-gray-300">
-                  <span className="font-medium">{prop.teamAbbr}</span>
-                  <span className="text-gray-500">vs</span>
-                  <span className="font-medium">{prop.opponentAbbr}</span>
+                <div className="flex items-center space-x-2 text-sm text-gray-400">
+                  <span className="font-medium text-gray-300">{prop.teamAbbr}</span>
+                  <span className="text-gray-500 font-light">vs</span>
+                  <span className="font-medium text-gray-300">{prop.opponentAbbr}</span>
                 </div>
               </div>
             </div>
@@ -218,8 +220,8 @@ export function PlayerPropCard3D({
           {/* Prop Details */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-300 text-sm font-medium">{prop.propType}</span>
-              <span className="text-white text-xl font-bold">
+              <span className="text-gray-400 text-sm font-medium tracking-wide uppercase">{prop.propType}</span>
+              <span className="text-white text-2xl font-bold tracking-tight">
                 {prop.line}
               </span>
             </div>
@@ -260,14 +262,14 @@ export function PlayerPropCard3D({
           {/* Odds and Stats */}
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div className="space-y-2">
-              <div className="text-xs text-gray-400 uppercase tracking-wide">Over</div>
-              <div className="text-lg font-bold text-green-400">
+              <div className="text-xs text-gray-500 uppercase tracking-wider font-medium">Over</div>
+              <div className="text-xl font-bold text-green-400 tracking-tight">
                 {formatOdds(prop.overOdds)}
               </div>
             </div>
             <div className="space-y-2">
-              <div className="text-xs text-gray-400 uppercase tracking-wide">Under</div>
-              <div className="text-lg font-bold text-red-400">
+              <div className="text-xs text-gray-500 uppercase tracking-wider font-medium">Under</div>
+              <div className="text-xl font-bold text-red-400 tracking-tight">
                 {formatOdds(prop.underOdds)}
               </div>
             </div>
@@ -277,9 +279,9 @@ export function PlayerPropCard3D({
           {prop.expectedValue !== undefined && (
             <div className="mb-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-400 uppercase tracking-wide">Expected Value</span>
+                <span className="text-xs text-gray-500 uppercase tracking-wider font-medium">Expected Value</span>
                 <div className={cn(
-                  "flex items-center space-x-1 text-sm font-bold",
+                  "flex items-center space-x-1 text-sm font-bold tracking-tight",
                   getEVColor(prop.expectedValue)
                 )}>
                   <Zap className="h-3 w-3" />
@@ -290,20 +292,21 @@ export function PlayerPropCard3D({
           )}
 
           {/* Game Info */}
-          <div className="flex items-center justify-between text-xs text-gray-400 mb-4">
-            <span>{new Date(prop.gameDate).toLocaleDateString()}</span>
-            <span>{prop.gameTime}</span>
+          <div className="flex items-center justify-between text-xs text-gray-500 mb-4 font-medium">
+            <span className="tracking-wide">{new Date(prop.gameDate).toLocaleDateString()}</span>
+            <span className="tracking-wide">{prop.gameTime}</span>
           </div>
 
           {/* Action Button */}
           <Button
             className={cn(
               "w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700",
-              "text-white font-bold py-3 px-4 rounded-lg",
+              "text-white font-semibold py-3 px-4 rounded-lg",
               "transition-all duration-300 ease-out",
               "hover:shadow-lg hover:shadow-blue-500/25",
               "transform hover:scale-105",
-              "border border-blue-500/30"
+              "border border-blue-500/30",
+              "tracking-wide"
             )}
             onClick={(e) => {
               e.stopPropagation();
@@ -314,7 +317,8 @@ export function PlayerPropCard3D({
             View Analysis
             <ChevronRight className="h-4 w-4 ml-2" />
           </Button>
-        </CardContent>
+          </CardContent>
+        </SeasonalCardBackground>
 
         {/* 3D Border Effect */}
         <div className="absolute inset-0 rounded-lg border border-gradient-to-r from-blue-500/30 via-purple-500/30 to-cyan-500/30 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
