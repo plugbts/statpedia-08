@@ -276,12 +276,18 @@ export function PropFinderAnalysisOverlay({ prediction, isOpen, onClose }: PropF
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-7xl max-h-[95vh] overflow-hidden bg-gradient-to-br from-slate-950 via-gray-900 to-slate-950 border border-slate-800/80 shadow-2xl">
-        {/* DEBUG: Very visible test element */}
-        <div className="fixed top-4 right-4 z-[9999] bg-red-500 text-white p-4 rounded-lg shadow-lg">
-          🚀 NEW PROPFINDER OVERLAY IS WORKING! 🚀
-        </div>
+    <>
+      {/* DEBUG: Test if component is rendering at all */}
+      <div className="fixed top-4 left-4 z-[9999] bg-green-500 text-white p-4 rounded-lg shadow-lg">
+        COMPONENT RENDERING: {prediction?.playerName} - {isOpen ? 'OPEN' : 'CLOSED'}
+      </div>
+      
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-7xl max-h-[95vh] overflow-hidden bg-gradient-to-br from-slate-950 via-gray-900 to-slate-950 border border-slate-800/80 shadow-2xl">
+          {/* DEBUG: Very visible test element */}
+          <div className="fixed top-4 right-4 z-[9999] bg-red-500 text-white p-4 rounded-lg shadow-lg">
+            🚀 NEW PROPFINDER OVERLAY IS WORKING! 🚀
+          </div>
         {/* Header */}
         <DialogHeader className="relative z-20 pb-4">
           <div className="flex items-center justify-between">
@@ -930,5 +936,6 @@ export function PropFinderAnalysisOverlay({ prediction, isOpen, onClose }: PropF
         </div>
       </DialogContent>
     </Dialog>
+    </>
   );
 }

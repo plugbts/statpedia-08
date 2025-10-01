@@ -461,9 +461,12 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
   };
 
   const handlePredictionClick = (prediction: AdvancedPrediction) => {
-    console.log('Prediction clicked:', prediction);
+    console.log('🎯 Prediction clicked:', prediction);
+    console.log('🎯 Setting selectedPrediction to:', prediction.playerName);
+    console.log('🎯 Setting showPredictionModal to true');
     setSelectedPrediction(prediction);
     setShowPredictionModal(true);
+    console.log('🎯 State should be updated now');
   };
 
   const addToPicks = (prediction: AdvancedPrediction) => {
