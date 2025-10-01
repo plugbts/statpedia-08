@@ -63,6 +63,7 @@ interface PlayerProp {
   underOdds: number;
   gameDate: string;
   gameTime: string;
+  headshotUrl?: string;
   confidence?: number;
   expectedValue?: number;
   recentForm?: string;
@@ -296,6 +297,28 @@ class SportsDataIOAPI {
     
     // Round to nearest 0.5
     return Math.round(value * 2) / 2;
+  }
+
+  // Generate headshot URL for a player
+  private generateHeadshotUrl(playerId: number, playerName: string, team: string): string | undefined {
+    try {
+      // Try to generate a headshot URL using a free service
+      // This is a placeholder implementation - in production, you'd use a licensed API
+      
+      // For now, we'll use a placeholder service or return undefined to fall back to initials
+      // You can replace this with a real headshot service when available
+      
+      // Example: Using a placeholder service (replace with actual service)
+      const cleanName = playerName.toLowerCase().replace(/\s+/g, '-');
+      const teamCode = team.toLowerCase();
+      
+      // This is a placeholder URL - replace with actual headshot service
+      return `https://via.placeholder.com/100x100/1e293b/ffffff?text=${encodeURIComponent(playerName.split(' ').map(n => n[0]).join(''))}`;
+      
+    } catch (error) {
+      console.warn(`Failed to generate headshot URL for ${playerName}:`, error);
+      return undefined;
+    }
   }
 
   // Get current week games for a sport
@@ -660,6 +683,7 @@ class SportsDataIOAPI {
           underOdds: underOdds,
           gameDate: prop.DateTime || new Date().toISOString(),
           gameTime: prop.DateTime ? new Date(prop.DateTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }) : 'TBD',
+          headshotUrl: this.generateHeadshotUrl(prop.PlayerID, prop.Name, prop.Team),
           confidence: confidence,
           expectedValue: this.calculateExpectedValue(overOdds, underOdds, confidence),
           recentForm: this.determineRecentForm(prop.PlayerID, prop.Description),

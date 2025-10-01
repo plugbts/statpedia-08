@@ -35,6 +35,7 @@ interface PlayerProp {
   line: number;
   overOdds: number;
   underOdds: number;
+  headshotUrl?: string;
   confidence?: number;
   expectedValue?: number;
   aiPrediction?: {
@@ -254,8 +255,25 @@ export function PlayerPropsColumnView({
               <div className="grid grid-cols-12 gap-4 items-center">
                 {/* Player Info */}
                 <div className="col-span-3 flex items-center space-x-3">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-slate-200 font-bold text-sm">
-                    {prop.playerName.split(' ').map(n => n[0]).join('')}
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-slate-200 font-bold text-sm overflow-hidden">
+                    {prop.headshotUrl ? (
+                      <img 
+                        src={prop.headshotUrl} 
+                        alt={prop.playerName}
+                        className="w-full h-full object-cover rounded-full"
+                        onError={(e) => {
+                          // Fallback to initials if image fails to load
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          const parent = target.parentElement;
+                          if (parent) {
+                            parent.innerHTML = prop.playerName.split(' ').map(n => n[0]).join('');
+                          }
+                        }}
+                      />
+                    ) : (
+                      prop.playerName.split(' ').map(n => n[0]).join('')
+                    )}
                   </div>
                   <div>
                     <div className="font-semibold text-slate-100 text-sm">
