@@ -1,5 +1,5 @@
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
-import { theOddsAPI, PlayerPropOdds } from './theoddsapi';
+import { sportsRadarAPI, SportsRadarPlayerProp } from './sportsradar-api';
 
 // Real-time sportsbook synchronization service
 export interface SportsbookOdds {
@@ -124,68 +124,46 @@ class RealTimeSportsbookSync {
   // Perform a full synchronization
   private async performSync(sport: string): Promise<void> {
     const startTime = Date.now();
-    logAPI('RealTimeSportsbookSync', `🔄 Starting sync for ${sport}`);
+    logAPI('RealTimeSportsbookSync', `🔄 Starting sync for ${sport} using SportsRadar`);
 
     try {
       const sportKey = this.mapSportToKey(sport);
       
-      // First, let's check what sports are available and what markets exist
-      logAPI('RealTimeSportsbookSync', `Checking available sports and markets for ${sportKey}...`);
+      logAPI('RealTimeSportsbookSync', `Fetching player props from SportsRadar for ${sportKey}...`);
       
-      try {
-        const availableSports = await theOddsAPI.getSports();
-        const sportInfo = availableSports.find(s => s.key === sportKey);
-        logAPI('RealTimeSportsbookSync', `Sport info: ${JSON.stringify(sportInfo)}`);
-      } catch (error) {
-        logWarning('RealTimeSportsbookSync', `Could not get sports info:`, error);
-      }
-
-      // Try to get basic odds first to see if the sport is available
-      try {
-        const basicOdds = await theOddsAPI.getOdds(sportKey, ['us'], ['h2h'], ['fanduel']);
-        logAPI('RealTimeSportsbookSync', `Basic odds test: Found ${basicOdds.length} games for ${sportKey}`);
-      } catch (error) {
-        logError('RealTimeSportsbookSync', `Basic odds test failed for ${sportKey}:`, error);
-      }
-
-      const markets = this.PLAYER_PROP_MARKETS[sportKey] || [];
+      // Get player props directly from SportsRadar
+      const sportsRadarProps = await sportsRadarAPI.getPlayerProps(sport);
       
-      logAPI('RealTimeSportsbookSync', `Sport key: ${sportKey}, Markets: ${markets.join(', ')}`);
+      logAPI('RealTimeSportsbookSync', `Received ${sportsRadarProps.length} player props from SportsRadar`);
       
-      if (markets.length === 0) {
-        logWarning('RealTimeSportsbookSync', `No player prop markets defined for ${sport} (key: ${sportKey})`);
-        return;
+      if (sportsRadarProps.length > 0) {
+        logAPI('RealTimeSportsbookSync', `Sample SportsRadar data: ${JSON.stringify(sportsRadarProps[0], null, 2)}`);
       }
 
-      const allProps: RealTimePlayerProp[] = [];
-
-      // Fetch odds for each market
-      for (const market of markets) {
-        try {
-          logAPI('RealTimeSportsbookSync', `Fetching ${market} odds for ${sportKey}...`);
-          
-          const marketOdds = await theOddsAPI.getMarketOdds(
-            sportKey, 
-            market, 
-            ['us'], 
-            this.SPORTSBOOKS
-          );
-
-          logAPI('RealTimeSportsbookSync', `Received ${marketOdds.length} games for ${market}`);
-          
-          if (marketOdds.length > 0) {
-            logAPI('RealTimeSportsbookSync', `Sample market data: ${JSON.stringify(marketOdds[0], null, 2)}`);
-          }
-
-          // Process market odds into player props
-          const processedProps = this.processMarketOdds(marketOdds, market, sportKey);
-          allProps.push(...processedProps);
-
-          logAPI('RealTimeSportsbookSync', `Processed ${processedProps.length} props for ${market}`);
-        } catch (error) {
-          logError('RealTimeSportsbookSync', `Failed to sync ${market}:`, error);
-        }
-      }
+      // Convert SportsRadar props to our format
+      const allProps: RealTimePlayerProp[] = sportsRadarProps.map(srProp => ({
+        id: srProp.id,
+        playerName: srProp.playerName,
+        propType: srProp.propType,
+        gameId: srProp.gameId,
+        gameTime: srProp.gameTime,
+        homeTeam: srProp.homeTeam,
+        awayTeam: srProp.awayTeam,
+        sportsbookOdds: [{
+          sportsbook: srProp.sportsbook,
+          sportsbookKey: srProp.sportsbookKey,
+          line: srProp.line,
+          overOdds: srProp.overOdds,
+          underOdds: srProp.underOdds,
+          lastUpdate: srProp.lastUpdate,
+          confidence: srProp.confidence
+        }],
+        consensusLine: srProp.line,
+        consensusOverOdds: srProp.overOdds,
+        consensusUnderOdds: srProp.underOdds,
+        lastSync: new Date().toISOString(),
+        syncStatus: 'synced' as const
+      }));
 
       // Update cache and stats
       this.updateCache(allProps);
@@ -202,176 +180,7 @@ class RealTimeSportsbookSync {
     }
   }
 
-  // Process market odds data into structured player props
-  private processMarketOdds(marketOdds: any[], market: string, sport: string): RealTimePlayerProp[] {
-    const propsMap = new Map<string, RealTimePlayerProp>();
-
-    logAPI('RealTimeSportsbookSync', `Processing ${marketOdds.length} games for ${market}`);
-
-    marketOdds.forEach((game, gameIndex) => {
-      if (!game.bookmakers) {
-        logAPI('RealTimeSportsbookSync', `Game ${gameIndex}: No bookmakers`);
-        return;
-      }
-
-      logAPI('RealTimeSportsbookSync', `Game ${gameIndex}: ${game.home_team} vs ${game.away_team}, ${game.bookmakers.length} bookmakers`);
-
-      game.bookmakers.forEach((bookmaker: any, bookmakerIndex: number) => {
-        if (!bookmaker.markets) {
-          logAPI('RealTimeSportsbookSync', `Bookmaker ${bookmakerIndex}: No markets`);
-          return;
-        }
-
-        const marketData = bookmaker.markets.find((m: any) => m.key === market);
-        if (!marketData || !marketData.outcomes) {
-          logAPI('RealTimeSportsbookSync', `Bookmaker ${bookmakerIndex}: No ${market} market data`);
-          return;
-        }
-
-        logAPI('RealTimeSportsbookSync', `Bookmaker ${bookmakerIndex}: Found ${marketData.outcomes.length} outcomes for ${market}`);
-
-        // Group outcomes by player
-        const playerOutcomes = this.groupOutcomesByPlayer(marketData.outcomes);
-        
-        logAPI('RealTimeSportsbookSync', `Grouped into ${playerOutcomes.length} player props`);
-
-        playerOutcomes.forEach(({ playerName, overOutcome, underOutcome }) => {
-          const propId = `${playerName}_${market}_${game.id}`;
-          
-          if (!propsMap.has(propId)) {
-            propsMap.set(propId, {
-              id: propId,
-              playerName,
-              propType: this.mapMarketToPropType(market),
-              gameId: game.id,
-              gameTime: game.commence_time,
-              homeTeam: game.home_team,
-              awayTeam: game.away_team,
-              sportsbookOdds: [],
-              consensusLine: 0,
-              consensusOverOdds: 0,
-              consensusUnderOdds: 0,
-              lastSync: new Date().toISOString(),
-              syncStatus: 'outdated'
-            });
-          }
-
-          const prop = propsMap.get(propId)!;
-          
-          // Add sportsbook odds
-          prop.sportsbookOdds.push({
-            sportsbook: bookmaker.title,
-            sportsbookKey: bookmaker.key,
-            line: overOutcome.point || underOutcome.point || 0,
-            overOdds: overOutcome.price,
-            underOdds: underOutcome.price,
-            lastUpdate: bookmaker.last_update,
-            confidence: this.calculateConfidence(overOutcome.price, underOutcome.price)
-          });
-        });
-      });
-    });
-
-    // Calculate consensus odds for each prop
-    const props = Array.from(propsMap.values());
-    props.forEach(prop => {
-      this.calculateConsensusOdds(prop);
-      prop.syncStatus = this.determineSyncStatus(prop);
-    });
-
-    logAPI('RealTimeSportsbookSync', `Final result: ${props.length} props created for ${market}`);
-    return props;
-  }
-
-  // Group outcomes by player name
-  private groupOutcomesByPlayer(outcomes: any[]): Array<{ playerName: string; overOutcome: any; underOutcome: any }> {
-    const playerMap = new Map<string, { overOutcome?: any; underOutcome?: any }>();
-
-    outcomes.forEach(outcome => {
-      const outcomeName = outcome.name || '';
-      
-      // Parse player name from outcome name
-      // Format: "Player Name Over/Under X.X"
-      const parts = outcomeName.split(' ');
-      if (parts.length < 3) return;
-
-      const overUnder = parts[parts.length - 2];
-      const playerName = parts.slice(0, -2).join(' ');
-
-      if (!playerMap.has(playerName)) {
-        playerMap.set(playerName, {});
-      }
-
-      const player = playerMap.get(playerName)!;
-      if (overUnder.toLowerCase() === 'over') {
-        player.overOutcome = outcome;
-      } else if (overUnder.toLowerCase() === 'under') {
-        player.underOutcome = outcome;
-      }
-    });
-
-    return Array.from(playerMap.entries())
-      .filter(([_, outcomes]) => outcomes.overOutcome && outcomes.underOutcome)
-      .map(([playerName, outcomes]) => ({
-        playerName,
-        overOutcome: outcomes.overOutcome!,
-        underOutcome: outcomes.underOutcome!
-      }));
-  }
-
-  // Calculate consensus odds from all sportsbooks
-  private calculateConsensusOdds(prop: RealTimePlayerProp): void {
-    if (prop.sportsbookOdds.length === 0) return;
-
-    // Calculate weighted average line (weighted by confidence)
-    const totalWeight = prop.sportsbookOdds.reduce((sum, odds) => sum + this.getConfidenceWeight(odds.confidence), 0);
-    
-    prop.consensusLine = prop.sportsbookOdds.reduce((sum, odds) => {
-      return sum + (odds.line * this.getConfidenceWeight(odds.confidence));
-    }, 0) / totalWeight;
-
-    // Calculate average odds
-    prop.consensusOverOdds = Math.round(
-      prop.sportsbookOdds.reduce((sum, odds) => sum + odds.overOdds, 0) / prop.sportsbookOdds.length
-    );
-    
-    prop.consensusUnderOdds = Math.round(
-      prop.sportsbookOdds.reduce((sum, odds) => sum + odds.underOdds, 0) / prop.sportsbookOdds.length
-    );
-  }
-
-  // Determine sync status based on data freshness and sportsbook coverage
-  private determineSyncStatus(prop: RealTimePlayerProp): 'synced' | 'partial' | 'outdated' {
-    const now = new Date();
-    const lastUpdate = new Date(prop.lastSync);
-    const timeDiff = now.getTime() - lastUpdate.getTime();
-
-    // Check if data is fresh (less than 5 minutes old)
-    if (timeDiff > 5 * 60 * 1000) return 'outdated';
-
-    // Check sportsbook coverage
-    const activeSportsbooks = prop.sportsbookOdds.length;
-    const expectedSportsbooks = this.SPORTSBOOKS.length;
-
-    if (activeSportsbooks >= expectedSportsbooks * 0.8) return 'synced';
-    if (activeSportsbooks >= expectedSportsbooks * 0.5) return 'partial';
-    return 'outdated';
-  }
-
-  // Calculate confidence based on odds
-  private calculateConfidence(overOdds: number, underOdds: number): 'high' | 'medium' | 'low' {
-    const oddsDiff = Math.abs(overOdds - underOdds);
-    
-    if (oddsDiff <= 10) return 'high';      // Very close odds = high confidence
-    if (oddsDiff <= 20) return 'medium';    // Moderate difference
-    return 'low';                           // Large difference = low confidence
-  }
-
-  // Get confidence weight for calculations
-  private getConfidenceWeight(confidence: 'high' | 'medium' | 'low'): number {
-    const weights = { high: 3, medium: 2, low: 1 };
-    return weights[confidence];
-  }
+  // Note: Market processing methods removed as we now use SportsRadar directly
 
   // Map sport name to API key
   private mapSportToKey(sport: string): string {
@@ -384,34 +193,7 @@ class RealTimeSportsbookSync {
     return sportMap[sport.toLowerCase()] || sport.toLowerCase();
   }
 
-  // Map market key to readable prop type
-  private mapMarketToPropType(market: string): string {
-    const mappings: { [key: string]: string } = {
-      'player_pass_tds': 'Passing TDs',
-      'player_pass_yds': 'Passing Yards',
-      'player_pass_completions': 'Pass Completions',
-      'player_rush_yds': 'Rushing Yards',
-      'player_rush_attempts': 'Rush Attempts',
-      'player_receiving_yds': 'Receiving Yards',
-      'player_receiving_receptions': 'Receptions',
-      'player_pass_interceptions': 'Interceptions',
-      'player_points': 'Points',
-      'player_rebounds': 'Rebounds',
-      'player_assists': 'Assists',
-      'player_steals': 'Steals',
-      'player_blocks': 'Blocks',
-      'player_threes': '3-Pointers',
-      'player_turnovers': 'Turnovers',
-      'player_hits': 'Hits',
-      'player_home_runs': 'Home Runs',
-      'player_rbis': 'RBIs',
-      'player_strikeouts': 'Strikeouts',
-      'player_runs': 'Runs',
-      'player_total_bases': 'Total Bases',
-      'player_walks': 'Walks'
-    };
-    return mappings[market] || market;
-  }
+  // Note: Market mapping removed as SportsRadar handles this
 
   // Update cache with new props
   private updateCache(props: RealTimePlayerProp[]): void {
