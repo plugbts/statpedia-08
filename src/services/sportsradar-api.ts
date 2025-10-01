@@ -260,62 +260,24 @@ class SportsRadarAPI {
     }
   }
 
-  // Get player props using correct SportsRadar API endpoints
+  // Get player props using SportsRadar Player Props API
   async getPlayerProps(sport: string): Promise<SportsRadarPlayerProp[]> {
     try {
       const sportKey = this.mapSportToKey(sport);
-      const currentDate = this.getCurrentDate();
       
-      logAPI('SportsRadarAPI', `Fetching player props for ${sportKey} on ${currentDate}`);
+      logAPI('SportsRadarAPI', `Fetching player props for ${sportKey} using Player Props API`);
       
-      // Try correct SportsRadar API endpoints based on sport
-      const endpoints = this.getEndpointsForSport(sportKey, currentDate);
+      // Go directly to the Player Props API - this is the only way to get actual player props
+      const playerPropsData = await this.getPlayerPropsFromOddsAPI(sportKey);
       
-      let playerProps: SportsRadarPlayerProp[] = [];
-      
-      for (const endpoint of endpoints) {
-        try {
-          logAPI('SportsRadarAPI', `Trying endpoint: ${endpoint}`);
-          
-          const data = await this.makeRequest<any[]>(endpoint, sportKey, CACHE_DURATION.ODDS);
-          
-          if (Array.isArray(data) && data.length > 0) {
-            logAPI('SportsRadarAPI', `Found data with ${data.length} items from ${endpoint}`);
-            
-            // Process the data structure from SportsRadar
-            const processedProps = this.processPlayerPropsData(data, sportKey, endpoint);
-            playerProps = [...playerProps, ...processedProps];
-            
-            logSuccess('SportsRadarAPI', `Successfully processed ${processedProps.length} props from ${endpoint}`);
-            
-            // If we found props, break and use them
-            if (processedProps.length > 0) {
-              break;
-            }
-          } else {
-            logWarning('SportsRadarAPI', `No data returned from ${endpoint}`);
-          }
-        } catch (error) {
-          logWarning('SportsRadarAPI', `Endpoint ${endpoint} failed:`, error);
-          continue; // Try next endpoint
-        }
+      if (playerPropsData.length > 0) {
+        logSuccess('SportsRadarAPI', `Found ${playerPropsData.length} props from Player Props API`);
+        console.log('🎯 SportsRadar API returning props:', playerPropsData);
+        return playerPropsData;
+      } else {
+        logWarning('SportsRadarAPI', `No player props found from Player Props API for ${sport}`);
+        return [];
       }
-      
-      // If no player props found, try the SportsRadar Player Props API
-      if (playerProps.length === 0) {
-        logWarning('SportsRadarAPI', `No real player props found for ${sport}. Trying Player Props API...`);
-        const playerPropsData = await this.getPlayerPropsFromOddsAPI(sportKey);
-        if (playerPropsData.length > 0) {
-          playerProps = playerPropsData;
-          logInfo('SportsRadarAPI', `Found ${playerProps.length} props from Player Props API`);
-        } else {
-          logWarning('SportsRadarAPI', `No player props found from Player Props API.`);
-        }
-      }
-      
-      logSuccess('SportsRadarAPI', `Retrieved ${playerProps.length} player props for ${sport}`);
-      console.log('🎯 SportsRadar API returning props:', playerProps);
-      return playerProps;
     } catch (error) {
       logError('SportsRadarAPI', `Failed to get player props for ${sport}:`, error);
       return [];
