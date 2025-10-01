@@ -22,7 +22,9 @@ import {
   Save,
   Eye,
   EyeOff,
-  X
+  X,
+  Mail,
+  RefreshCw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -30,6 +32,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { useUser } from '@/contexts/user-context';
 import { UserDisplay } from '@/components/ui/user-display';
+import { emailVerificationService } from '@/services/email-verification-service';
 
 interface SettingsProps {
   user?: SupabaseUser | null;
@@ -58,6 +61,9 @@ export const Settings: React.FC<SettingsProps> = ({ user: propUser, userRole: pr
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [emailVerificationSent, setEmailVerificationSent] = useState(false);
+  const [passwordVerificationCode, setPasswordVerificationCode] = useState('');
+  const [passwordVerificationSent, setPasswordVerificationSent] = useState(false);
+  const [passwordVerificationVerified, setPasswordVerificationVerified] = useState(false);
   
   // Profile form state
   const [profileForm, setProfileForm] = useState({
@@ -197,6 +203,95 @@ export const Settings: React.FC<SettingsProps> = ({ user: propUser, userRole: pr
     });
   };
 
+  // Send password verification code
+  const sendPasswordVerificationCode = async () => {
+    if (!user?.email) {
+      toast({
+        title: "Error",
+        description: "No email address found",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await emailVerificationService.sendVerificationCode(
+        user.email,
+        'password_change'
+      );
+
+      if (result.success) {
+        setPasswordVerificationSent(true);
+        toast({
+          title: "Verification Code Sent",
+          description: result.message,
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: result.message,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error sending verification code:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send verification code",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Verify password change code
+  const verifyPasswordChangeCode = async () => {
+    if (!user?.email || !passwordVerificationCode) {
+      toast({
+        title: "Error",
+        description: "Please enter the verification code",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await emailVerificationService.verifyCode(
+        user.email,
+        passwordVerificationCode,
+        'password_change'
+      );
+
+      if (result.success) {
+        setPasswordVerificationVerified(true);
+        toast({
+          title: "Code Verified",
+          description: "You can now change your password",
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Invalid Code",
+          description: result.message,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error verifying code:', error);
+      toast({
+        title: "Error",
+        description: "Failed to verify code",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Handle profile update
   const handleProfileUpdate = async () => {
     if (!user) return;
@@ -298,8 +393,12 @@ export const Settings: React.FC<SettingsProps> = ({ user: propUser, userRole: pr
         });
       }
       
-      // Update password
+      // Update password (requires email verification)
       if (profileForm.newPassword) {
+        if (!passwordVerificationVerified) {
+          throw new Error('Email verification required to change password');
+        }
+        
         if (profileForm.newPassword !== profileForm.confirmPassword) {
           throw new Error('Passwords do not match');
         }
@@ -309,6 +408,12 @@ export const Settings: React.FC<SettingsProps> = ({ user: propUser, userRole: pr
         });
         
         if (passwordError) throw passwordError;
+        
+        // Reset verification state
+        setPasswordVerificationVerified(false);
+        setPasswordVerificationSent(false);
+        setPasswordVerificationCode('');
+        setProfileForm(prev => ({ ...prev, newPassword: '', confirmPassword: '' }));
         
         toast({
           title: "Password Updated",
@@ -659,43 +764,106 @@ export const Settings: React.FC<SettingsProps> = ({ user: propUser, userRole: pr
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="newPassword">New Password</Label>
-                  <div className="relative">
-                    <Input
-                      id="newPassword"
-                      type={showPassword ? 'text' : 'password'}
-                      value={profileForm.newPassword}
-                      onChange={(e) => setProfileForm(prev => ({ ...prev, newPassword: e.target.value }))}
-                      placeholder="Enter new password"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-full px-3"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {/* Email Verification Step */}
+                {!passwordVerificationSent && !passwordVerificationVerified && (
+                  <div className="space-y-4">
+                    <Alert>
+                      <Shield className="h-4 w-4" />
+                      <AlertDescription>
+                        For security, we'll send a verification code to your email before allowing password changes.
+                      </AlertDescription>
+                    </Alert>
+                    
+                    <Button onClick={sendPasswordVerificationCode} disabled={isLoading} className="w-full">
+                      <Mail className="w-4 h-4 mr-2" />
+                      {isLoading ? 'Sending...' : 'Send Verification Code'}
                     </Button>
                   </div>
-                </div>
+                )}
 
-                <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Confirm Password</Label>
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    value={profileForm.confirmPassword}
-                    onChange={(e) => setProfileForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                    placeholder="Confirm new password"
-                  />
-                </div>
+                {/* Verification Code Input */}
+                {passwordVerificationSent && !passwordVerificationVerified && (
+                  <div className="space-y-4">
+                    <Alert>
+                      <CheckCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        Verification code sent to your email. Please enter the 6-digit code below.
+                      </AlertDescription>
+                    </Alert>
+                    
+                    <div>
+                      <Label htmlFor="verificationCode">Verification Code</Label>
+                      <Input
+                        id="verificationCode"
+                        type="text"
+                        value={passwordVerificationCode}
+                        onChange={(e) => setPasswordVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        placeholder="Enter 6-digit code"
+                        className="text-center text-lg tracking-widest"
+                      />
+                    </div>
+                    
+                    <Button onClick={verifyPasswordChangeCode} disabled={isLoading || passwordVerificationCode.length !== 6} className="w-full">
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      {isLoading ? 'Verifying...' : 'Verify Code'}
+                    </Button>
+                    
+                    <Button variant="outline" onClick={sendPasswordVerificationCode} disabled={isLoading} className="w-full">
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Resend Code
+                    </Button>
+                  </div>
+                )}
 
-                <Button onClick={handleProfileUpdate} disabled={isLoading} className="w-full">
-                  <Shield className="w-4 h-4 mr-2" />
-                  {isLoading ? 'Updating...' : 'Update Password'}
-                </Button>
+                {/* Password Change Form */}
+                {passwordVerificationVerified && (
+                  <div className="space-y-4">
+                    <Alert>
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <AlertDescription className="text-green-700">
+                        Email verified! You can now change your password.
+                      </AlertDescription>
+                    </Alert>
+                    
+                    <div>
+                      <Label htmlFor="newPassword">New Password</Label>
+                      <div className="relative">
+                        <Input
+                          id="newPassword"
+                          type={showPassword ? 'text' : 'password'}
+                          value={profileForm.newPassword}
+                          onChange={(e) => setProfileForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                          placeholder="Enter new password"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3"
+                          onClick={() => setShowPassword(!showPassword)}
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="confirmPassword">Confirm Password</Label>
+                      <Input
+                        id="confirmPassword"
+                        type="password"
+                        value={profileForm.confirmPassword}
+                        onChange={(e) => setProfileForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                        placeholder="Confirm new password"
+                      />
+                    </div>
+
+                    <Button onClick={handleProfileUpdate} disabled={isLoading} className="w-full">
+                      <Shield className="w-4 h-4 mr-2" />
+                      {isLoading ? 'Updating...' : 'Update Password'}
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
