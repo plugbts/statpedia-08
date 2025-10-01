@@ -146,6 +146,95 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const [selectedSportsbook, setSelectedSportsbook] = useState<string>('all');
   const [availableSportsbooks, setAvailableSportsbooks] = useState<{ key: string; title: string; lastUpdate: string }[]>([]);
 
+  // Filter presets
+  const filterPresets = {
+    'high-confidence': { minConfidence: 70, minEV: 5, showOnlyPositiveEV: true, name: 'High Confidence' },
+    'value-plays': { minConfidence: 50, minEV: 10, showOnlyPositiveEV: true, name: 'Value Plays' },
+    'conservative': { minConfidence: 80, minEV: 0, showOnlyPositiveEV: false, name: 'Conservative' },
+    'aggressive': { minConfidence: 40, minEV: 15, showOnlyPositiveEV: true, name: 'Aggressive' },
+    'all': { minConfidence: 0, minEV: 0, showOnlyPositiveEV: false, name: 'Show All' }
+  };
+
+  // Load saved filter preferences
+  useEffect(() => {
+    const savedFilters = localStorage.getItem(`player-props-filters-${sportFilter}`);
+    if (savedFilters) {
+      try {
+        const filters = JSON.parse(savedFilters);
+        setMinConfidence(filters.minConfidence || 0);
+        setMinEV(filters.minEV || 0);
+        setShowOnlyPositiveEV(filters.showOnlyPositiveEV || false);
+        setMinLine(filters.minLine || 0);
+        setMaxLine(filters.maxLine || getMaxLineForSport(sportFilter));
+        setPropTypeFilter(filters.propTypeFilter || 'all');
+        setSortBy(filters.sortBy || 'confidence');
+        setSortOrder(filters.sortOrder || 'desc');
+        setSelectedSportsbook(filters.selectedSportsbook || 'all');
+        logInfo('PlayerPropsTab', 'Loaded saved filter preferences');
+      } catch (error) {
+        logError('PlayerPropsTab', 'Failed to load saved filters:', error);
+      }
+    }
+  }, [sportFilter]);
+
+  // Save filter preferences
+  const saveFilterPreferences = () => {
+    const filters = {
+      minConfidence,
+      minEV,
+      showOnlyPositiveEV,
+      minLine,
+      maxLine,
+      propTypeFilter,
+      sortBy,
+      sortOrder,
+      selectedSportsbook
+    };
+    localStorage.setItem(`player-props-filters-${sportFilter}`, JSON.stringify(filters));
+    logInfo('PlayerPropsTab', 'Saved filter preferences');
+  };
+
+  // Reset all filters to default
+  const resetFilters = () => {
+    setMinConfidence(0);
+    setMinEV(0);
+    setShowOnlyPositiveEV(false);
+    setMinLine(0);
+    setMaxLine(getMaxLineForSport(sportFilter));
+    setPropTypeFilter('all');
+    setSortBy('confidence');
+    setSortOrder('desc');
+    setSelectedSportsbook('all');
+    setSearchQuery('');
+    localStorage.removeItem(`player-props-filters-${sportFilter}`);
+    toast({
+      title: "Filters Reset",
+      description: "All filters have been reset to default values.",
+    });
+    logInfo('PlayerPropsTab', 'Reset all filters to default');
+  };
+
+  // Apply filter preset
+  const applyPreset = (presetKey: keyof typeof filterPresets) => {
+    const preset = filterPresets[presetKey];
+    setMinConfidence(preset.minConfidence);
+    setMinEV(preset.minEV);
+    setShowOnlyPositiveEV(preset.showOnlyPositiveEV);
+    toast({
+      title: "Filter Preset Applied",
+      description: `Applied "${preset.name}" filter preset.`,
+    });
+    logInfo('PlayerPropsTab', `Applied filter preset: ${preset.name}`);
+  };
+
+  // Auto-save filters when they change
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      saveFilterPreferences();
+    }, 1000); // Debounce saves
+    return () => clearTimeout(timeoutId);
+  }, [minConfidence, minEV, showOnlyPositiveEV, minLine, maxLine, propTypeFilter, sortBy, sortOrder, selectedSportsbook]);
+
   // Update sport filter when selectedSport changes
   useEffect(() => {
     logState('PlayerPropsTab', `useEffect triggered - selectedSport: ${selectedSport}`);
@@ -533,36 +622,84 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
           </div>
         </div>
 
-        {/* Filters */}
-        <Card>
+        {/* Enhanced Filters */}
+        <Card className="border-2 border-primary/20 bg-gradient-to-r from-primary/5 to-secondary/5">
           <CardContent className="p-6">
-            <div className="flex flex-wrap items-center gap-4">
+            {/* Filter Presets */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-semibold text-foreground">Quick Filters</h3>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={resetFilters}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-1" />
+                    Reset
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={saveFilterPreferences}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <Save className="w-4 h-4 mr-1" />
+                    Save
+                  </Button>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(filterPresets).map(([key, preset]) => (
+                  <Button
+                    key={key}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => applyPreset(key as keyof typeof filterPresets)}
+                    className="hover:bg-primary/10 hover:border-primary/30 transition-all duration-200"
+                  >
+                    <Target className="w-4 h-4 mr-1" />
+                    {preset.name}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Main Filters */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
               {/* Sport Filter */}
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium">Sport:</label>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground flex items-center gap-1">
+                  <Activity className="w-4 h-4" />
+                  Sport
+                </label>
                 <Select value={sportFilter} onValueChange={(value) => {
                   setSportFilter(value);
                   loadPlayerProps(value);
                 }}>
-                  <SelectTrigger className="w-32">
+                  <SelectTrigger className="w-full bg-background/50 border-primary/20 hover:border-primary/40">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="nfl">NFL</SelectItem>
-                    <SelectItem value="nba">NBA</SelectItem>
-                    <SelectItem value="mlb">MLB</SelectItem>
-                    <SelectItem value="nhl">NHL</SelectItem>
+                    <SelectItem value="nfl">🏈 NFL</SelectItem>
+                    <SelectItem value="nba">🏀 NBA</SelectItem>
+                    <SelectItem value="mlb">⚾ MLB</SelectItem>
+                    <SelectItem value="nhl">🏒 NHL</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               {/* Sportsbook Filter */}
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium">Sportsbook:</label>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground flex items-center gap-1">
+                  <Zap className="w-4 h-4" />
+                  Sportsbook
+                </label>
                 <Select value={selectedSportsbook} onValueChange={(value) => {
                   setSelectedSportsbook(value);
                 }}>
-                  <SelectTrigger className="w-40">
+                  <SelectTrigger className="w-full bg-background/50 border-primary/20 hover:border-primary/40">
                     <SelectValue placeholder="All Sportsbooks" />
                   </SelectTrigger>
                   <SelectContent>
@@ -576,22 +713,14 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                 </Select>
               </div>
 
-              {/* Search */}
-              <div className="flex items-center gap-2">
-                <Search className="w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search players, teams, props..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-64"
-                />
-              </div>
-
               {/* Prop Type Filter */}
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium">Prop Type:</label>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground flex items-center gap-1">
+                  <BarChart3 className="w-4 h-4" />
+                  Prop Type
+                </label>
                 <Select value={propTypeFilter} onValueChange={setPropTypeFilter}>
-                  <SelectTrigger className="w-40">
+                  <SelectTrigger className="w-full bg-background/50 border-primary/20 hover:border-primary/40">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -604,106 +733,171 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
               </div>
 
               {/* Sort */}
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium">Sort by:</label>
-                <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="confidence">Confidence</SelectItem>
-                    <SelectItem value="ev">Expected Value</SelectItem>
-                    <SelectItem value="line">Line</SelectItem>
-                    <SelectItem value="player">Player</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                >
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground flex items-center gap-1">
                   <ArrowUpDown className="w-4 h-4" />
-                </Button>
+                  Sort By
+                </label>
+                <div className="flex gap-1">
+                  <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                    <SelectTrigger className="flex-1 bg-background/50 border-primary/20 hover:border-primary/40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="confidence">Confidence</SelectItem>
+                      <SelectItem value="ev">Expected Value</SelectItem>
+                      <SelectItem value="line">Line</SelectItem>
+                      <SelectItem value="player">Player</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                    className="px-2 bg-background/50 border-primary/20 hover:border-primary/40"
+                  >
+                    {sortOrder === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Search and View Mode */}
+            <div className="flex flex-wrap items-center gap-4">
+              {/* Search */}
+              <div className="flex-1 min-w-64">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search players, teams, props..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 bg-background/50 border-primary/20 hover:border-primary/40 focus:border-primary/60"
+                  />
+                </div>
               </div>
 
-              {/* View Mode Selector */}
-              <Select value={viewMode} onValueChange={(value: 'column' | 'cards') => setViewMode(value)}>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="View" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="column">Column</SelectItem>
-                  <SelectItem value="cards">Cards</SelectItem>
-                </SelectContent>
-              </Select>
+              {/* View Mode */}
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-foreground">View:</label>
+                <Select value={viewMode} onValueChange={(value: 'column' | 'cards') => setViewMode(value)}>
+                  <SelectTrigger className="w-32 bg-background/50 border-primary/20 hover:border-primary/40">
+                    <SelectValue placeholder="View" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="column">📊 Column</SelectItem>
+                    <SelectItem value="cards">🎴 Cards</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-              {/* Advanced Filters */}
+              {/* Advanced Filters Toggle */}
               <Dialog open={showFilterDialog} onOpenChange={setShowFilterDialog}>
                 <DialogTrigger asChild>
-                  <Button variant="outline">
+                  <Button variant="outline" className="bg-background/50 border-primary/20 hover:border-primary/40">
                     <Filter className="w-4 h-4 mr-2" />
-                    Filters
+                    Advanced Filters
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-md">
+                <DialogContent className="max-w-lg">
                   <DialogHeader>
-                    <DialogTitle>Advanced Filters</DialogTitle>
+                    <DialogTitle className="flex items-center gap-2">
+                      <Settings className="w-5 h-5" />
+                      Advanced Filters
+                    </DialogTitle>
                   </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium">Min Confidence: {minConfidence}%</label>
+                  <div className="space-y-6">
+                    {/* Confidence Filter */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium">Min Confidence</label>
+                        <Badge variant="outline" className="text-primary border-primary/30">
+                          {minConfidence}%
+                        </Badge>
+                      </div>
                       <Slider
                         value={[minConfidence]}
                         onValueChange={([value]) => setMinConfidence(value)}
                         max={100}
                         step={5}
-                        className="mt-2"
+                        className="w-full"
                       />
                     </div>
-                    <div>
-                      <label className="text-sm font-medium">Min Expected Value: {minEV}%</label>
+
+                    {/* Expected Value Filter */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium">Min Expected Value</label>
+                        <Badge variant="outline" className="text-primary border-primary/30">
+                          {minEV}%
+                        </Badge>
+                      </div>
                       <Slider
                         value={[minEV]}
                         onValueChange={([value]) => setMinEV(value)}
                         max={50}
                         step={1}
-                        className="mt-2"
+                        className="w-full"
                       />
                     </div>
-                    <div>
-                      <label className="text-sm font-medium">Line Range: {minLine} - {maxLine} (Max: {getMaxLineForSport(sportFilter)})</label>
-                      <div className="space-y-2 mt-2">
+
+                    {/* Line Range Filter */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium">Line Range</label>
+                        <Badge variant="outline" className="text-primary border-primary/30">
+                          {minLine} - {maxLine}
+                        </Badge>
+                      </div>
+                      <div className="space-y-3">
                         <div>
-                          <label className="text-xs text-muted-foreground">Min Line</label>
+                          <label className="text-xs text-muted-foreground mb-1 block">Min Line</label>
                           <Slider
                             value={[minLine]}
                             onValueChange={([value]) => setMinLine(value)}
                             max={Math.min(maxLine - 0.5, getMaxLineForSport(sportFilter) - 0.5)}
                             min={0}
                             step={0.5}
+                            className="w-full"
                           />
                         </div>
                         <div>
-                          <label className="text-xs text-muted-foreground">Max Line</label>
+                          <label className="text-xs text-muted-foreground mb-1 block">Max Line</label>
                           <Slider
                             value={[maxLine]}
                             onValueChange={([value]) => setMaxLine(value)}
                             max={getMaxLineForSport(sportFilter)}
                             min={minLine + 0.5}
                             step={0.5}
+                            className="w-full"
                           />
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
+
+                    {/* Positive EV Toggle */}
+                    <div className="flex items-center space-x-3 p-3 bg-muted/30 rounded-lg">
                       <Checkbox
                         id="positiveEV"
                         checked={showOnlyPositiveEV}
                         onCheckedChange={(checked) => setShowOnlyPositiveEV(checked as boolean)}
+                        className="border-primary/30 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                       />
-                      <label htmlFor="positiveEV" className="text-sm font-medium">
-                        Only positive expected value
+                      <label htmlFor="positiveEV" className="text-sm font-medium cursor-pointer">
+                        Only show positive expected value props
                       </label>
+                    </div>
+
+                    {/* Filter Summary */}
+                    <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
+                      <h4 className="text-sm font-medium text-primary mb-2">Active Filters Summary</h4>
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        <div>Confidence: ≥ {minConfidence}%</div>
+                        <div>Expected Value: ≥ {minEV}%</div>
+                        <div>Line Range: {minLine} - {maxLine}</div>
+                        <div>Positive EV Only: {showOnlyPositiveEV ? 'Yes' : 'No'}</div>
+                        <div>Prop Type: {propTypeFilter === 'all' ? 'All Types' : propTypeFilter}</div>
+                      </div>
                     </div>
                   </div>
                 </DialogContent>
