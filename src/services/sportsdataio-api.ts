@@ -290,6 +290,14 @@ class SportsDataIOAPI {
     }
   }
 
+  // Round line values to .5 intervals (e.g., 6.7 -> 6.5, 6.2 -> 6.0)
+  private roundToHalfIntervals(value: number): number {
+    if (value === 0) return 0;
+    
+    // Round to nearest 0.5
+    return Math.round(value * 2) / 2;
+  }
+
   // Get current week games for a sport
   async getCurrentWeekGames(sport: string): Promise<Game[]> {
     console.log(`🏈 [SportsDataIO] Fetching current week games for ${sport}...`);
@@ -627,7 +635,8 @@ class SportsDataIOAPI {
     return rawProps
       .filter(prop => prop && prop.PlayerID && prop.Description)
       .map(prop => {
-        const line = prop.OverUnder || 0;
+        const rawLine = prop.OverUnder || 0;
+        const line = this.roundToHalfIntervals(rawLine);
         const overOdds = prop.OverPayout || 0;
         const underOdds = prop.UnderPayout || 0;
         
@@ -656,13 +665,13 @@ class SportsDataIOAPI {
           recentForm: this.determineRecentForm(prop.PlayerID, prop.Description),
           last5Games: this.generateLast5Games(line),
           seasonStats: {
-            average: line + (Math.random() - 0.5) * line * 0.2,
-            median: line + (Math.random() - 0.5) * line * 0.1,
+            average: this.roundToHalfIntervals(line + (Math.random() - 0.5) * line * 0.2),
+            median: this.roundToHalfIntervals(line + (Math.random() - 0.5) * line * 0.1),
             gamesPlayed: 10 + Math.floor(Math.random() * 10),
             hitRate: 0.4 + Math.random() * 0.4,
             last5Games: this.generateLast5Games(line),
-            seasonHigh: line * 1.5,
-            seasonLow: line * 0.5,
+            seasonHigh: this.roundToHalfIntervals(line * 1.5),
+            seasonLow: this.roundToHalfIntervals(line * 0.5),
           },
           aiPrediction: {
             recommended: recommended,
@@ -802,7 +811,7 @@ class SportsDataIOAPI {
 
   private generateLast5Games(line: number): number[] {
     return Array.from({ length: 5 }, () => 
-      line + (Math.random() - 0.5) * line * 0.3
+      this.roundToHalfIntervals(line + (Math.random() - 0.5) * line * 0.3)
     );
   }
 
