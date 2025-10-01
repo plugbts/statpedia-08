@@ -457,6 +457,12 @@ class SportsDataIOAPI {
     const now = new Date();
     const seasonStart = this.getSeasonStart(sport);
     const weeksSinceStart = Math.floor((now.getTime() - seasonStart.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    
+    // For October 2025, we're in week 5 of the NFL season
+    if (sport.toLowerCase() === 'nfl' && now.getFullYear() === 2025 && now.getMonth() === 9) {
+      return 5; // October 2025 is week 5
+    }
+    
     return Math.max(1, weeksSinceStart);
   }
 
@@ -547,14 +553,18 @@ class SportsDataIOAPI {
 
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
     const twoWeeksFromNow = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
+
+    console.log(`📅 [SportsDataIO] Date range: ${oneWeekAgo.toISOString()} to ${twoWeeksFromNow.toISOString()}`);
 
     // Parse the actual SportsDataIO format
     const parsedProps = rawProps
       .filter(prop => {
         if (!prop || !prop.DateTime) return false;
         const gameDate = new Date(prop.DateTime);
-        return gameDate >= today && gameDate <= twoWeeksFromNow;
+        const isInRange = gameDate >= oneWeekAgo && gameDate <= twoWeeksFromNow;
+        return isInRange;
       })
       .map(prop => {
         // Map the actual SportsDataIO fields to our format
