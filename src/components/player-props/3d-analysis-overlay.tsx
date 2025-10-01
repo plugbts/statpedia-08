@@ -202,8 +202,27 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
   const risk = getRiskLevel(prop.confidence || 0, prop.expectedValue || 0);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden bg-gradient-to-br from-slate-950 via-gray-900 to-slate-950 border border-slate-800/80 shadow-2xl">
+    <>
+      <style jsx>{`
+        @keyframes wave {
+          0%, 100% { transform: translateY(0px) scaleY(1); }
+          25% { transform: translateY(-2px) scaleY(1.2); }
+          50% { transform: translateY(0px) scaleY(1); }
+          75% { transform: translateY(2px) scaleY(0.8); }
+        }
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-3px); }
+        }
+        .wave-animation {
+          animation: wave 3s ease-in-out infinite;
+        }
+        .float-animation {
+          animation: float 2s ease-in-out infinite;
+        }
+      `}</style>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden bg-gradient-to-br from-slate-950 via-gray-900 to-slate-950 border border-slate-800/80 shadow-2xl">
         {/* Sparkle Animation Overlay */}
         {isAnimating && (
           <div className="absolute inset-0 pointer-events-none z-10">
@@ -223,14 +242,14 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
         )}
 
         {/* Header */}
-        <DialogHeader className="relative z-20 pb-6">
+        <DialogHeader className="relative z-20 pb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-slate-200 font-bold text-xl shadow-2xl border border-slate-600">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-slate-200 font-bold text-lg shadow-2xl border border-slate-600">
                 {prop.playerName.split(' ').map(n => n[0]).join('')}
               </div>
               <div>
-                <DialogTitle className="text-2xl font-bold text-slate-100">
+                <DialogTitle className="text-xl font-bold text-slate-100">
                   {prop.playerName} - {prop.propType}
                 </DialogTitle>
                 <div className="flex items-center space-x-4 text-slate-300 mt-2">
@@ -283,7 +302,7 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="overview" className="mt-6 space-y-6">
+            <TabsContent value="overview" className="mt-6 space-y-6 max-h-[60vh] overflow-y-auto pr-2">
               {/* Key Stats Grid */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Line Value */}
@@ -390,7 +409,7 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
               </div>
             </TabsContent>
 
-            <TabsContent value="analysis" className="mt-6 space-y-6">
+            <TabsContent value="analysis" className="mt-6 space-y-6 max-h-[60vh] overflow-y-auto pr-2">
               {/* Detailed Analysis */}
               <div className="bg-slate-900/60 rounded-xl p-6 border border-slate-700/60">
                 <h3 className="text-xl font-bold text-white mb-4">Detailed Analysis</h3>
@@ -419,7 +438,7 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
               </div>
             </TabsContent>
 
-            <TabsContent value="history" className="mt-6 space-y-6">
+            <TabsContent value="history" className="mt-6 space-y-6 max-h-[60vh] overflow-y-auto pr-2">
               {/* Interactive 3D Graph */}
               <div className="bg-slate-900/60 rounded-xl p-6 border border-slate-700/60">
                 <div className="flex items-center justify-between mb-6">
@@ -478,7 +497,7 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
                 </div>
 
                 {/* 3D Graph Container */}
-                <div className="relative h-96 bg-gradient-to-br from-slate-950/50 to-slate-900/50 rounded-lg border border-slate-700/50 overflow-hidden">
+                <div className="relative h-72 bg-gradient-to-br from-slate-950/50 to-slate-900/50 rounded-lg border border-slate-700/50 overflow-hidden">
                   {/* 3D Graph Bars */}
                   <div className="absolute inset-0 flex items-end justify-center space-x-2 p-6">
                     {graphData.map((dataPoint, index) => {
@@ -543,15 +562,21 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
                     })}
                   </div>
 
-                  {/* Reference Line */}
+                  {/* Animated Reference Line */}
                   <div 
-                    className="absolute left-0 right-0 h-px bg-slate-400/50"
+                    className="absolute left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-400/70 to-transparent wave-animation"
                     style={{ 
-                      bottom: `${100 - (prop.line / Math.max(...graphData.map(d => d.value))) * 100}%` 
+                      bottom: `${100 - (prop.line / Math.max(...graphData.map(d => d.value))) * 100}%`
                     }}
                   >
-                    <div className="absolute -left-8 -top-2 text-xs text-slate-400 font-medium">
+                    <div className="absolute -left-8 -top-2 text-xs text-slate-400 font-medium float-animation">
                       Line: {formatNumber(prop.line, 1)}
+                    </div>
+                    {/* Animated dots along the line */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-2 h-2 bg-slate-400/80 rounded-full animate-ping" style={{ animationDelay: '0s' }} />
+                      <div className="w-1 h-1 bg-slate-400/60 rounded-full animate-ping absolute left-1/4" style={{ animationDelay: '0.5s' }} />
+                      <div className="w-1 h-1 bg-slate-400/60 rounded-full animate-ping absolute right-1/4" style={{ animationDelay: '1s' }} />
                     </div>
                   </div>
 
@@ -615,7 +640,7 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
               </div>
             </TabsContent>
 
-            <TabsContent value="odds" className="mt-6 space-y-6">
+            <TabsContent value="odds" className="mt-6 space-y-6 max-h-[60vh] overflow-y-auto pr-2">
               {/* Odds Comparison */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-slate-900/60 rounded-xl p-6 border border-slate-700/60">
@@ -640,7 +665,7 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
               </div>
             </TabsContent>
 
-            <TabsContent value="predictions" className="mt-6 space-y-6">
+            <TabsContent value="predictions" className="mt-6 space-y-6 max-h-[60vh] overflow-y-auto pr-2">
               {/* AI Predictions */}
               <div className="bg-slate-900/60 rounded-xl p-6 border border-slate-700/60">
                 <h3 className="text-xl font-bold text-white mb-4 flex items-center">
@@ -722,7 +747,7 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
               </div>
             </TabsContent>
 
-            <TabsContent value="advanced" className="mt-6 space-y-6">
+            <TabsContent value="advanced" className="mt-6 space-y-6 max-h-[60vh] overflow-y-auto pr-2">
               {/* Advanced Statistics */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-slate-900/60 rounded-xl p-6 border border-slate-700/60">
@@ -901,5 +926,6 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
         </div>
       </DialogContent>
     </Dialog>
+    </>
   );
 }
