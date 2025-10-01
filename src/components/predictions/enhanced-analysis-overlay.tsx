@@ -49,6 +49,7 @@ import {
 import { cn } from '@/lib/utils';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { consistentPropsService } from '@/services/consistent-props-service';
+import { useToast } from '@/hooks/use-toast';
 import { 
   LineChart as RechartsLineChart, 
   Line, 
@@ -218,6 +219,251 @@ interface AdvancedPrediction {
   historicalTrends: string;
   keyInsights: string[];
 }
+
+interface VotePredictionsTabProps {
+  prediction: EnhancedPrediction;
+}
+
+interface UserVote {
+  id: string;
+  userId: string;
+  predictionId: string;
+  vote: 'over' | 'under';
+  timestamp: Date;
+  karmaEarned?: number;
+  result?: 'win' | 'loss' | 'pending';
+}
+
+const VotePredictionsTab: React.FC<VotePredictionsTabProps> = ({ prediction }) => {
+  const { toast } = useToast();
+  const [userVote, setUserVote] = useState<UserVote | null>(null);
+  const [isVoting, setIsVoting] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const [communityVotes, setCommunityVotes] = useState<{ over: number; under: number } | null>(null);
+
+  // Check if user has already voted
+  useEffect(() => {
+    const savedVote = localStorage.getItem(`vote_${prediction.id}`);
+    if (savedVote) {
+      try {
+        const vote = JSON.parse(savedVote);
+        setUserVote(vote);
+        setShowResults(true);
+        // Load community results after user has voted
+        loadCommunityResults();
+      } catch (error) {
+        console.error('Failed to load saved vote:', error);
+      }
+    }
+  }, [prediction.id]);
+
+  const loadCommunityResults = async () => {
+    // Simulate loading community results
+    // In a real app, this would fetch from your backend
+    const mockResults = {
+      over: Math.floor(Math.random() * 100) + 20,
+      under: Math.floor(Math.random() * 100) + 20
+    };
+    setCommunityVotes(mockResults);
+  };
+
+  const handleVote = async (vote: 'over' | 'under') => {
+    setIsVoting(true);
+    
+    try {
+      // Create user vote
+      const newVote: UserVote = {
+        id: `vote_${Date.now()}`,
+        userId: 'current_user', // In real app, get from auth context
+        predictionId: prediction.id,
+        vote,
+        timestamp: new Date(),
+        result: 'pending'
+      };
+
+      // Save to localStorage (in real app, save to backend)
+      localStorage.setItem(`vote_${prediction.id}`, JSON.stringify(newVote));
+      
+      setUserVote(newVote);
+      setShowResults(true);
+      
+      // Load community results
+      await loadCommunityResults();
+      
+      toast({
+        title: "Vote Cast! 🎯",
+        description: `You voted ${vote.toUpperCase()} on ${prediction.playerName} ${prediction.propType} ${prediction.line}`,
+      });
+
+      // Update user profile and karma (simulate)
+      updateUserProfile(vote);
+      
+    } catch (error) {
+      console.error('Failed to cast vote:', error);
+      toast({
+        title: "Vote Failed",
+        description: "There was an error casting your vote. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsVoting(false);
+    }
+  };
+
+  const updateUserProfile = (vote: 'over' | 'under') => {
+    // Update user prediction stats
+    const userStats = JSON.parse(localStorage.getItem('user_prediction_stats') || '{"total": 0, "wins": 0, "losses": 0, "karma": 0}');
+    userStats.total += 1;
+    
+    // Save updated stats
+    localStorage.setItem('user_prediction_stats', JSON.stringify(userStats));
+    
+    // Update karma in social system
+    const socialKarma = JSON.parse(localStorage.getItem('social_karma') || '{"total": 0, "recent": []}');
+    socialKarma.total += 10; // Award karma for voting
+    socialKarma.recent.unshift({
+      action: 'prediction_vote',
+      karma: 10,
+      timestamp: new Date().toISOString(),
+      description: `Voted on ${prediction.playerName} ${prediction.propType}`
+    });
+    
+    // Keep only last 10 karma actions
+    socialKarma.recent = socialKarma.recent.slice(0, 10);
+    localStorage.setItem('social_karma', JSON.stringify(socialKarma));
+  };
+
+  const getVoteButtonStyle = (voteType: 'over' | 'under', isSelected: boolean) => {
+    const baseStyle = "relative overflow-hidden transition-all duration-300 transform hover:scale-105 active:scale-95";
+    const glowStyle = "shadow-lg shadow-purple-500/50 animate-pulse";
+    
+    if (voteType === 'over') {
+      return cn(
+        baseStyle,
+        isSelected ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white" : "bg-gradient-to-r from-green-600/20 to-emerald-600/20 text-green-400 border border-green-500/30",
+        isSelected ? glowStyle : "hover:shadow-green-500/30"
+      );
+    } else {
+      return cn(
+        baseStyle,
+        isSelected ? "bg-gradient-to-r from-red-500 to-rose-600 text-white" : "bg-gradient-to-r from-red-600/20 to-rose-600/20 text-red-400 border border-red-500/30",
+        isSelected ? glowStyle : "hover:shadow-red-500/30"
+      );
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <Card className="bg-gradient-to-r from-purple-900/20 to-blue-900/20 border-purple-500/30">
+        <CardHeader>
+          <CardTitle className="text-slate-200 flex items-center gap-2">
+            <Target className="w-6 h-6 text-purple-400" />
+            Community Predictions
+          </CardTitle>
+          <p className="text-slate-400 text-sm">
+            Cast your vote and see how the community predicts this prop
+          </p>
+        </CardHeader>
+      </Card>
+
+      {/* Voting Section */}
+      <Card className="bg-slate-800/50 border-slate-700">
+        <CardContent className="p-6">
+          <div className="text-center space-y-6">
+            {/* Prop Display */}
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold text-slate-200">
+                {prediction.playerName}
+              </h3>
+              <p className="text-slate-400">
+                {prediction.propType} • Line: {prediction.line}
+              </p>
+              <p className="text-sm text-slate-500">
+                {prediction.teamAbbr} vs {prediction.opponentAbbr}
+              </p>
+            </div>
+
+            {/* Vote Buttons */}
+            {!userVote ? (
+              <div className="flex gap-4 justify-center">
+                <Button
+                  size="lg"
+                  className={getVoteButtonStyle('over', false)}
+                  onClick={() => handleVote('over')}
+                  disabled={isVoting}
+                >
+                  <TrendingUp className="w-5 h-5 mr-2" />
+                  OVER {prediction.line}
+                  {isVoting && <Sparkles className="w-4 h-4 ml-2 animate-spin" />}
+                </Button>
+                
+                <Button
+                  size="lg"
+                  className={getVoteButtonStyle('under', false)}
+                  onClick={() => handleVote('under')}
+                  disabled={isVoting}
+                >
+                  <TrendingDown className="w-5 h-5 mr-2" />
+                  UNDER {prediction.line}
+                  {isVoting && <Sparkles className="w-4 h-4 ml-2 animate-spin" />}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* User's Vote */}
+                <div className="flex justify-center">
+                  <Badge 
+                    className={cn(
+                      "px-4 py-2 text-lg font-semibold",
+                      userVote.vote === 'over' 
+                        ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg shadow-green-500/50" 
+                        : "bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-lg shadow-red-500/50"
+                    )}
+                  >
+                    <Target className="w-5 h-5 mr-2" />
+                    You voted {userVote.vote.toUpperCase()}
+                  </Badge>
+                </div>
+
+                {/* Community Results */}
+                {communityVotes && (
+                  <div className="space-y-4">
+                    <h4 className="text-slate-300 font-semibold text-center">Community Results</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-green-400">{communityVotes.over}%</div>
+                        <div className="text-sm text-slate-400">OVER</div>
+                        <Progress value={communityVotes.over} className="mt-2 h-2" />
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-red-400">{communityVotes.under}%</div>
+                        <div className="text-sm text-slate-400">UNDER</div>
+                        <Progress value={communityVotes.under} className="mt-2 h-2" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Karma Info */}
+      <Card className="bg-slate-800/50 border-slate-700">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-center gap-2 text-slate-400">
+            <Award className="w-4 h-4 text-yellow-400" />
+            <span className="text-sm">
+              Earn 10 karma for each prediction vote • Results tracked in your profile
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
 
 interface EnhancedAnalysisOverlayProps {
   prediction: any;
@@ -408,11 +654,12 @@ const EnhancedLineChart = React.memo(({
 
   return (
     <ChartContainer config={enhancedChartConfig} className={cn("w-full", className)}>
-      <div className="h-6 mb-4">
-        <h3 className="text-lg font-bold text-slate-200">Performance Trend</h3>
-        <p className="text-sm text-slate-400">Last 10 games vs opponents</p>
-      </div>
-      <ResponsiveContainer width="100%" height={height}>
+      <div>
+        <div className="h-6 mb-4">
+          <h3 className="text-lg font-bold text-slate-200">Performance Trend</h3>
+          <p className="text-sm text-slate-400">Last 10 games vs opponents</p>
+        </div>
+        <ResponsiveContainer width="100%" height={height}>
         <RechartsLineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
           <defs>
             <linearGradient id="performanceGradient" x1="0" y1="0" x2="0" y2="1">
@@ -465,6 +712,7 @@ const EnhancedLineChart = React.memo(({
           ))}
         </RechartsLineChart>
       </ResponsiveContainer>
+      </div>
     </ChartContainer>
   );
 });
@@ -521,11 +769,12 @@ const EnhancedBarChart = React.memo(({
 
   return (
     <ChartContainer config={enhancedChartConfig} className={cn("w-full", className)}>
-      <div className="h-6 mb-4">
-        <h3 className="text-lg font-bold text-slate-200">Performance by Game</h3>
-        <p className="text-sm text-slate-400">Bar chart showing performance vs line</p>
-      </div>
-      <ResponsiveContainer width="100%" height={height}>
+      <div>
+        <div className="h-6 mb-4">
+          <h3 className="text-lg font-bold text-slate-200">Performance by Game</h3>
+          <p className="text-sm text-slate-400">Bar chart showing performance vs line</p>
+        </div>
+        <ResponsiveContainer width="100%" height={height}>
         <RechartsBarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.2)" />
           <XAxis 
@@ -563,6 +812,7 @@ const EnhancedBarChart = React.memo(({
           </Bar>
         </RechartsBarChart>
       </ResponsiveContainer>
+      </div>
     </ChartContainer>
   );
 });
@@ -693,7 +943,7 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
 
         {/* Enhanced Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
-          <TabsList className="grid w-full grid-cols-5 bg-slate-800/50 border border-slate-700 rounded-lg p-1">
+          <TabsList className="grid w-full grid-cols-6 bg-slate-800/50 border border-slate-700 rounded-lg p-1">
             <TabsTrigger value="overview" className="data-[state=active]:bg-slate-700 data-[state=active]:text-white">
               <Eye className="w-4 h-4 mr-2" />
               Overview
@@ -705,6 +955,10 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
             <TabsTrigger value="trends" className="data-[state=active]:bg-slate-700 data-[state=active]:text-white">
               <TrendingUp className="w-4 h-4 mr-2" />
               Trends
+            </TabsTrigger>
+            <TabsTrigger value="vote" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25">
+              <Target className="w-4 h-4 mr-2" />
+              Vote
             </TabsTrigger>
             <TabsTrigger value="advanced" className="data-[state=active]:bg-slate-700 data-[state=active]:text-white">
               <Brain className="w-4 h-4 mr-2" />
@@ -1075,6 +1329,11 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* Vote Predictions Tab */}
+          <TabsContent value="vote" className="space-y-6 mt-6">
+            <VotePredictionsTab prediction={enhancedData} />
           </TabsContent>
 
           {/* Advanced Tab */}
