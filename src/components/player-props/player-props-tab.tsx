@@ -771,7 +771,6 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                     <SelectValue placeholder="Select Sportsbook" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Sportsbooks</SelectItem>
                     {availableSportsbooks.map(sportsbook => (
                       <SelectItem key={sportsbook.key} value={sportsbook.key}>
                         {sportsbook.title}

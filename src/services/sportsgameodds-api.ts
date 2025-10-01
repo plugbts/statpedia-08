@@ -319,12 +319,49 @@ class SportsGameOddsAPI {
         return [];
       }
 
+      // Try to get player props from the markets endpoint first
+      logAPI('SportsGameOddsAPI', `Trying markets endpoint for ${sport}`);
+      try {
+        const marketsResponse = await this.makeRequest<any>(
+          `/v2/markets?leagueID=${leagueId}&sportID=${this.mapSportToId(sport)}&oddsAvailable=true&limit=50`, 
+          CACHE_DURATION.ODDS
+        );
+        
+        logAPI('SportsGameOddsAPI', `Markets response:`, {
+          hasData: !!marketsResponse.data,
+          dataLength: marketsResponse.data?.length || 0,
+          responseKeys: Object.keys(marketsResponse)
+        });
+        
+        if (marketsResponse.data && marketsResponse.data.length > 0) {
+          const marketProps = this.processPlayerPropsData(marketsResponse.data, sport, 'markets');
+          if (marketProps.length > 0) {
+            logSuccess('SportsGameOddsAPI', `Found ${marketProps.length} player props from markets endpoint`);
+            return marketProps;
+          }
+        }
+      } catch (error) {
+        logWarning('SportsGameOddsAPI', `Markets endpoint failed:`, error);
+      }
+
       // Get events/games for the sport with optimized query parameters
       // Only fetch events with odds available and limit to recent games
       const response = await this.makeRequest<any>(
         `/v2/events?leagueID=${leagueId}&oddsAvailable=true&limit=10`, 
         CACHE_DURATION.ODDS
       );
+      
+      logAPI('SportsGameOddsAPI', `API Response structure:`, {
+        hasData: !!response.data,
+        dataLength: response.data?.length || 0,
+        responseKeys: Object.keys(response),
+        firstEvent: response.data?.[0] ? {
+          eventID: response.data[0].eventID,
+          hasOdds: !!response.data[0].odds,
+          oddsKeys: response.data[0].odds ? Object.keys(response.data[0].odds) : [],
+          teams: response.data[0].teams
+        } : null
+      });
       
       // Handle the response structure: { success: true, data: [...], nextCursor: ... }
       const eventsData = response.data || response;
@@ -343,14 +380,23 @@ class SportsGameOddsAPI {
           // Check if this event has player props markets
           const eventPlayerProps = await this.extractPlayerPropsFromEvent(event, sport);
           playerProps.push(...eventPlayerProps);
+          
+          // Also try to get player props from the markets endpoint
+          if (eventPlayerProps.length === 0) {
+            logAPI('SportsGameOddsAPI', `No player props found in event odds, trying markets endpoint for event ${event.eventID}`);
+            const marketPlayerProps = await this.getPlayerDataForEvent(event.eventID, sport);
+            playerProps.push(...marketPlayerProps);
+          }
         } catch (error) {
           logWarning('SportsGameOddsAPI', `Failed to extract props from event ${event.eventID}:`, error);
         }
       }
 
-      // SportsGameOdds only provides team-level betting data, not individual player props
+      // Check if we found any player props using the consensus odds system
       if (playerProps.length === 0) {
-        logWarning('SportsGameOddsAPI', `No player props found in SportsGameOdds markets for ${sport}. SportsGameOdds only provides team-level betting data, not individual player props.`);
+        logWarning('SportsGameOddsAPI', `No player props found in SportsGameOdds markets for ${sport}. This could mean no games are currently available or no player prop markets exist for the current time period.`);
+      } else {
+        logSuccess('SportsGameOddsAPI', `Successfully extracted ${playerProps.length} player props using SportsGameOdds v2 consensus odds system for ${sport}`);
       }
 
       logSuccess('SportsGameOddsAPI', `Retrieved ${playerProps.length} player props from SportsGameOdds markets for ${sport}`);
@@ -387,14 +433,17 @@ class SportsGameOddsAPI {
       try {
         const odd = oddData as any;
         
-        // Log the odd structure for debugging
-        logAPI('SportsGameOddsAPI', `Processing oddID: ${oddId}, odd data:`, {
+        // Log the odd structure for debugging with v2 consensus odds info
+        logAPI('SportsGameOddsAPI', `Processing oddID: ${oddId}, consensus odds data:`, {
           fairOdds: odd.fairOdds,
+          fairOddsAvailable: odd.fairOddsAvailable,
+          fairOverUnder: odd.fairOverUnder,
+          fairSpread: odd.fairSpread,
           overOdds: odd.overOdds,
           underOdds: odd.underOdds,
-          fairOverUnder: odd.fairOverUnder,
           bookOverUnder: odd.bookOverUnder,
-          line: odd.line
+          line: odd.line,
+          consensusCalculated: odd.fairOddsAvailable ? 'Yes - Using consensus odds' : 'No - Using book odds'
         });
         
         // Check if this is a player prop market (has playerID as statEntityID)
@@ -491,29 +540,28 @@ class SportsGameOddsAPI {
       // Extract prop type from statID
       const propType = this.extractPropTypeFromStatID(statID);
 
-      // Extract line and odds
-      const line = odd.fairOverUnder || odd.bookOverUnder || odd.fairSpread || odd.line || 0;
+      // Extract line and odds using SportsGameOdds v2 consensus odds system
+      // Use fairOverUnder for over/under props and fairSpread for spread props
+      const line = odd.fairOverUnder || odd.fairSpread || odd.bookOverUnder || odd.line || 0;
       
-      // For player props, we need to get both over and under odds
-      // The API might provide them in different fields or we need to calculate them
+      // Use consensus odds calculations - fairOdds represents the most fair odds
+      // The API calculates these by removing juice and finding median odds across bookmakers
       let overOdds = -110; // Default fallback
       let underOdds = -110; // Default fallback
       
-      if (odd.fairOdds) {
-        // If we have fair odds, use them for the appropriate side
-        if (sideID === 'over') {
-          overOdds = odd.fairOdds;
-          // For under odds, we might need to calculate or use a different field
-          underOdds = odd.underOdds || odd.fairOdds || -110;
-        } else if (sideID === 'under') {
-          underOdds = odd.fairOdds;
-          // For over odds, we might need to calculate or use a different field
-          overOdds = odd.overOdds || odd.fairOdds || -110;
-        }
+      if (odd.fairOddsAvailable && odd.fairOdds) {
+        // Use the consensus fair odds from the API
+        // The fairOdds represents the most balanced odds after removing juice
+        overOdds = odd.fairOdds;
+        underOdds = odd.fairOdds;
+        
+        logAPI('SportsGameOddsAPI', `Using consensus fair odds: ${odd.fairOdds} for ${playerName} ${propType}`);
       } else {
-        // Fallback to default odds
+        // Fallback to book odds if consensus not available
         overOdds = odd.overOdds || -110;
         underOdds = odd.underOdds || -110;
+        
+        logAPI('SportsGameOddsAPI', `Using book odds (consensus not available): Over ${overOdds}, Under ${underOdds} for ${playerName} ${propType}`);
       }
 
       logAPI('SportsGameOddsAPI', `Converting player prop: ${playerName} - ${propType} - Line: ${line} - Over: ${overOdds} - Under: ${underOdds}`);
@@ -830,76 +878,7 @@ class SportsGameOddsAPI {
 
 
 
-  // Create sample player props for testing
-  private createSamplePlayerProps(sport: string): SportsGameOddsPlayerProp[] {
-    const sportKey = sport.toLowerCase();
-    const sampleProps: SportsGameOddsPlayerProp[] = [];
-
-    const sampleData = {
-      nfl: [
-        { player: 'Josh Allen', team: 'Bills', prop: 'Passing Yards', line: 275, overOdds: -110, underOdds: -110 },
-        { player: 'Derrick Henry', team: 'Titans', prop: 'Rushing Yards', line: 85, overOdds: -115, underOdds: -105 },
-        { player: 'Davante Adams', team: 'Raiders', prop: 'Receiving Yards', line: 75, overOdds: -110, underOdds: -110 },
-        { player: 'Travis Kelce', team: 'Chiefs', prop: 'Receptions', line: 6.5, overOdds: -105, underOdds: -115 },
-        { player: 'Cooper Kupp', team: 'Rams', prop: 'Receiving Yards', line: 80, overOdds: -110, underOdds: -110 }
-      ],
-      nba: [
-        { player: 'LeBron James', team: 'Lakers', prop: 'Points', line: 25.5, overOdds: -110, underOdds: -110 },
-        { player: 'Stephen Curry', team: 'Warriors', prop: 'Points', line: 28.5, overOdds: -105, underOdds: -115 },
-        { player: 'Nikola Jokic', team: 'Nuggets', prop: 'Rebounds', line: 12.5, overOdds: -110, underOdds: -110 },
-        { player: 'Luka Doncic', team: 'Mavericks', prop: 'Assists', line: 8.5, overOdds: -115, underOdds: -105 },
-        { player: 'Giannis Antetokounmpo', team: 'Bucks', prop: 'Points', line: 30.5, overOdds: -110, underOdds: -110 }
-      ],
-      mlb: [
-        { player: 'Aaron Judge', team: 'Yankees', prop: 'Hits', line: 1.5, overOdds: -110, underOdds: -110 },
-        { player: 'Mookie Betts', team: 'Dodgers', prop: 'Hits', line: 1.5, overOdds: -105, underOdds: -115 },
-        { player: 'Ronald Acuña Jr.', team: 'Braves', prop: 'Home Runs', line: 0.5, overOdds: -120, underOdds: -100 },
-        { player: 'Mike Trout', team: 'Angels', prop: 'RBIs', line: 0.5, overOdds: -110, underOdds: -110 },
-        { player: 'Vladimir Guerrero Jr.', team: 'Blue Jays', prop: 'Hits', line: 1.5, overOdds: -110, underOdds: -110 }
-      ],
-      nhl: [
-        { player: 'Connor McDavid', team: 'Oilers', prop: 'Points', line: 1.5, overOdds: -110, underOdds: -110 },
-        { player: 'Nathan MacKinnon', team: 'Avalanche', prop: 'Points', line: 1.5, overOdds: -105, underOdds: -115 },
-        { player: 'Leon Draisaitl', team: 'Oilers', prop: 'Assists', line: 0.5, overOdds: -110, underOdds: -110 },
-        { player: 'Auston Matthews', team: 'Maple Leafs', prop: 'Goals', line: 0.5, overOdds: -120, underOdds: -100 },
-        { player: 'Artemi Panarin', team: 'Rangers', prop: 'Points', line: 1.5, overOdds: -110, underOdds: -110 }
-      ]
-    };
-
-    const data = sampleData[sportKey as keyof typeof sampleData] || sampleData.nfl;
-    
-    data.forEach((item, index) => {
-      const playerProp: SportsGameOddsPlayerProp = {
-        id: `sgo-sample-${sportKey}-${index}`,
-        playerId: `player-${index}`,
-        playerName: item.player,
-        team: item.team,
-        sport: sport.toUpperCase(),
-        propType: item.prop,
-        line: item.line,
-        overOdds: item.overOdds,
-        underOdds: item.underOdds,
-        sportsbook: 'SportsGameOdds',
-        sportsbookKey: 'sgo',
-        lastUpdate: new Date().toISOString(),
-        gameId: `game-${index}`,
-        gameTime: new Date().toISOString(),
-        homeTeam: 'Home Team',
-        awayTeam: 'Away Team',
-        confidence: 0.5,
-        market: item.prop,
-        outcome: 'pending',
-        betType: 'over_under',
-        side: 'over',
-        period: 'full_game',
-        statEntity: item.prop.toLowerCase().replace(/\s+/g, '_')
-      };
-      
-      sampleProps.push(playerProp);
-    });
-
-    return sampleProps;
-  }
+  // Note: Sample data creation method removed to focus on real SportsGameOdds API data only
 
   // Get games for a specific sport
   async getGames(sport: string): Promise<SportsGameOddsGame[]> {

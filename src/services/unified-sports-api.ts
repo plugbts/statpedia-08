@@ -109,8 +109,21 @@ class UnifiedSportsAPI {
       logAPI('UnifiedSportsAPI', `SportsGameOdds: ${sportsGameOddsProps.length} props`);
       console.log('🎯 UnifiedSportsAPI received props from SportsGameOdds:', sportsGameOddsProps.length);
 
-      // Convert SportsGameOdds props to unified format
-      const enhancedProps: PlayerProp[] = sportsGameOddsProps.map(sgoProp => ({
+      // If SportsGameOdds doesn't provide data, try TheOddsAPI as fallback
+      let allProps = sportsGameOddsProps;
+      if (sportsGameOddsProps.length === 0) {
+        logAPI('UnifiedSportsAPI', `No props from SportsGameOdds, trying TheOddsAPI as fallback`);
+        const theOddsProps = await theOddsAPI.getPlayerProps(sport);
+        logAPI('UnifiedSportsAPI', `TheOddsAPI: ${theOddsProps.length} props`);
+        allProps = theOddsProps;
+      }
+
+      // Convert props to unified format
+      const enhancedProps: PlayerProp[] = allProps.map(prop => {
+        // Handle SportsGameOdds props
+        if ('sgoProp' in prop || prop.id?.startsWith('sgo-')) {
+          const sgoProp = prop as SportsGameOddsPlayerProp;
+          return {
         id: `sgo-${sgoProp.id}`,
         playerId: sgoProp.playerId,
         playerName: sgoProp.playerName,
