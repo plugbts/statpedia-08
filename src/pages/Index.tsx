@@ -255,8 +255,8 @@ const Index = () => {
   const loadRealPredictions = async () => {
     setIsLoadingPredictions(true);
     try {
-      // Get live predictions from games service
-      const gamePredictions = await gamesService.getLivePredictions(selectedSport);
+      // Get predictions from games service
+      const gamePredictions = await gamesService.getCurrentWeekPredictions(selectedSport);
       
       // Filter for current and future games only
       const now = new Date();

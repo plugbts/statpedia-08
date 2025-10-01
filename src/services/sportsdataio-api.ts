@@ -270,34 +270,42 @@ class SportsDataIOAPI {
     }
   }
 
-  // Get live games (currently playing)
+  // Get live games (currently playing) - filter from regular games
   async getLiveGames(sport: string): Promise<Game[]> {
     console.log(`🔴 Fetching live games for ${sport}...`);
     
     try {
-      const endpoint = this.getLiveGamesEndpoint(sport);
-      const rawGames = await this.makeRequest<any[]>(endpoint);
-
-      const games = this.parseGames(rawGames, sport);
-      console.log(`✅ Successfully fetched ${games.length} live games for ${sport}`);
-      return games;
+      // Get all current week games and filter for live ones
+      const allGames = await this.getCurrentWeekGames(sport);
+      const liveGames = allGames.filter(game => game.status === 'live');
+      
+      console.log(`✅ Successfully filtered ${liveGames.length} live games for ${sport}`);
+      return liveGames;
     } catch (error) {
       console.error(`❌ Failed to fetch live games for ${sport}:`, error);
       throw new Error(`Failed to fetch live games for ${sport}: ${error}`);
     }
   }
 
-  // Get live player props (real-time)
+  // Get live player props (real-time) - use regular props with live filtering
   async getLivePlayerProps(sport: string): Promise<PlayerProp[]> {
     console.log(`🎯 Fetching live player props for ${sport}...`);
     
     try {
-      const endpoint = this.getPlayerPropsEndpoint(sport);
-      const rawProps = await this.makeRequest<any[]>(endpoint);
-
-      const props = this.parsePlayerProps(rawProps, sport);
-      console.log(`✅ Successfully fetched ${props.length} live player props for ${sport}`);
-      return props;
+      // Get all current week player props
+      const allProps = await this.getPlayerProps(sport);
+      
+      // Filter for props from live games or upcoming games
+      const liveGames = await this.getLiveGames(sport);
+      const upcomingGames = await this.getCurrentWeekGames(sport);
+      const allActiveGames = [...liveGames, ...upcomingGames.filter(g => g.status === 'scheduled')];
+      
+      const liveProps = allProps.filter(prop => 
+        allActiveGames.some(game => game.id === prop.gameId)
+      );
+      
+      console.log(`✅ Successfully filtered ${liveProps.length} live player props for ${sport}`);
+      return liveProps;
     } catch (error) {
       console.error(`❌ Failed to fetch live player props for ${sport}:`, error);
       throw new Error(`Failed to fetch live player props for ${sport}: ${error}`);
@@ -1250,11 +1258,6 @@ class SportsDataIOAPI {
     };
   }
 
-  // Get live games endpoint
-  private getLiveGamesEndpoint(sport: string): string {
-    const sportKey = this.getSportKey(sport);
-    return `${this.config.baseUrl}/${sportKey}/LiveGames`;
-  }
 
   // Generate live predictions based on current data
   private generateLivePredictions(games: Game[], props: PlayerProp[], sport: string): Prediction[] {

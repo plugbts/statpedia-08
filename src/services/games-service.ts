@@ -118,7 +118,7 @@ class GamesService {
     return realGames;
   }
 
-  // Get live games (currently playing)
+  // Get live games (currently playing) - filter from regular games
   async getLiveGames(sport: string): Promise<RealGame[]> {
     const cacheKey = `live_games_${sport}`;
     const cached = this.cache.get(cacheKey);
@@ -129,14 +129,15 @@ class GamesService {
       return cached.data;
     }
 
-    const apiGames = await sportsDataIOAPI.getLiveGames(sport);
-    const realGames = this.convertAPIGamesToRealGames(apiGames);
+    // Get all games and filter for live ones
+    const allGames = await this.getCurrentWeekGames(sport);
+    const liveGames = allGames.filter(game => game.status === 'live');
     
-    this.cache.set(cacheKey, { data: realGames, timestamp: now });
-    return realGames;
+    this.cache.set(cacheKey, { data: liveGames, timestamp: now });
+    return liveGames;
   }
 
-  // Get live predictions
+  // Get live predictions - use regular predictions with live filtering
   async getLivePredictions(sport: string): Promise<PredictionCardProps[]> {
     const cacheKey = `live_predictions_${sport}`;
     const cached = this.cache.get(cacheKey);
@@ -147,11 +148,18 @@ class GamesService {
       return cached.data;
     }
 
-    const apiPredictions = await sportsDataIOAPI.getLivePredictions(sport);
-    const realPredictions = this.convertAPIPredictionsToRealPredictions(apiPredictions);
+    // Get regular predictions and filter for live/upcoming games
+    const allPredictions = await this.getCurrentWeekPredictions(sport);
+    const liveGames = await this.getLiveGames(sport);
+    const upcomingGames = await this.getCurrentWeekGames(sport);
+    const allActiveGames = [...liveGames, ...upcomingGames.filter(g => g.status === 'scheduled')];
     
-    this.cache.set(cacheKey, { data: realPredictions, timestamp: now });
-    return realPredictions;
+    const livePredictions = allPredictions.filter(prediction => 
+      allActiveGames.some(game => game.id === prediction.game?.id)
+    );
+    
+    this.cache.set(cacheKey, { data: livePredictions, timestamp: now });
+    return livePredictions;
   }
 
   // Convert API games to RealGame format
