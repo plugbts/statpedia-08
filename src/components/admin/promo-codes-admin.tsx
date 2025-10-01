@@ -85,15 +85,11 @@ export const PromoCodesAdmin: React.FC = () => {
             .select('*', { count: 'exact', head: true })
             .eq('promo_code', code.code);
 
-          return { 
-            ...code, 
-            usage_count: count || 0,
-            discount_type: code.discount_type as 'free_trial' | 'percentage'
-          };
+          return { ...code, usage_count: count || 0 };
         })
       );
 
-      setPromoCodes(codesWithUsage as any);
+      setPromoCodes(codesWithUsage);
     } catch (error) {
       console.error('Error loading promo codes:', error);
     } finally {
@@ -113,7 +109,7 @@ export const PromoCodesAdmin: React.FC = () => {
 
       if (error) throw error;
 
-      setPromoUsage(data as any || []);
+      setPromoUsage(data || []);
     } catch (error) {
       console.error('Error loading promo usage:', error);
     }

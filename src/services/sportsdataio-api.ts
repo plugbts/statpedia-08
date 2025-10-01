@@ -258,15 +258,11 @@ class SportsDataIOAPI {
   private getCurrentSeason(sport: string): number {
     const now = new Date();
     const year = now.getFullYear();
-    const month = now.getMonth();
     
     switch (sport.toLowerCase()) {
       case 'nfl':
-        // NFL season year is the year it starts in (September)
-        // For October 2025, we're in the 2025 season
-        // But the API might use 2024 for the 2024-2025 season
-        // Let's try 2024 first since that's more common
-        return month < 2 ? year - 1 : 2024; // Use 2024 for now
+        // NFL season starts in September, so if we're before September, use previous year
+        return now.getMonth() < 8 ? year - 1 : year;
       case 'nba':
         // NBA season starts in October, so if we're before October, use previous year
         return now.getMonth() < 9 ? year - 1 : year;
@@ -288,8 +284,9 @@ class SportsDataIOAPI {
     
     switch (sport.toLowerCase()) {
       case 'nfl':
-        // Try week 4 instead of 5
-        return 4;
+        // Since we're in late September 2025, we should be in Week 5
+        // The API is returning Week 5 data, so let's use that
+        return 5;
       case 'nba':
         // NBA season starts last week of October
         const nbaStart = new Date(season, 9, 20); // October 20th

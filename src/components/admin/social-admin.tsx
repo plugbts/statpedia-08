@@ -98,7 +98,7 @@ export const SocialAdmin: React.FC = () => {
           .limit(100);
         
         if (!commentsError && comments) {
-          commentsData = comments as any;
+          commentsData = comments;
         }
       } catch (commentError) {
         console.warn('Could not load comments:', commentError);
