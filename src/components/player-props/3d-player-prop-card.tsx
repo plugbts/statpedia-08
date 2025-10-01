@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SeasonalCardBackground } from '@/components/ui/seasonal-card-background';
+import { teamColorsService } from '@/services/team-colors-service';
 
 interface PlayerProp {
   id: string;
@@ -188,24 +189,24 @@ export function PlayerPropCard3D({
           {/* Header with Player Info */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-slate-200 font-bold text-sm shadow-lg border border-slate-600 overflow-hidden">
+              <div className={`w-10 h-10 rounded-full ${teamColorsService.getTeamGradient(prop.teamAbbr, prop.sport)} flex items-center justify-center text-white font-bold text-sm shadow-lg border-2 ${teamColorsService.getTeamBorder(prop.teamAbbr, prop.sport)} overflow-hidden`}>
                 {prop.headshotUrl ? (
                   <img 
                     src={prop.headshotUrl} 
                     alt={prop.playerName}
                     className="w-full h-full object-cover rounded-full"
                     onError={(e) => {
-                      // Fallback to initials if image fails to load
+                      // Fallback to team abbreviation if image fails to load
                       const target = e.target as HTMLImageElement;
                       target.style.display = 'none';
                       const parent = target.parentElement;
                       if (parent) {
-                        parent.innerHTML = prop.playerName.split(' ').map(n => n[0]).join('');
+                        parent.innerHTML = prop.teamAbbr.toUpperCase();
                       }
                     }}
                   />
                 ) : (
-                  prop.playerName.split(' ').map(n => n[0]).join('')
+                  prop.teamAbbr.toUpperCase()
                 )}
               </div>
               <div>

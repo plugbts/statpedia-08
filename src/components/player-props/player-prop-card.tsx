@@ -172,6 +172,7 @@ export const PlayerPropCard: React.FC<PlayerPropCardProps> = ({
               playerName={playerName}
               sport={sport}
               playerId={id}
+              teamAbbr={team}
             />
             <div className="flex flex-col">
               <div className="flex items-center gap-2">

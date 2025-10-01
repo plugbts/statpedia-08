@@ -78,6 +78,7 @@ export const PitcherStrikeoutCard: React.FC<PitcherStrikeoutCardProps> = ({
               playerName={pitcher}
               sport="mlb"
               playerId={pitcher.toLowerCase().replace(/\s+/g, '-')}
+              teamAbbr={team}
             />
             <div>
               <CardTitle className="text-lg">{pitcher}</CardTitle>

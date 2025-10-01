@@ -1,10 +1,12 @@
 import React from 'react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { teamColorsService } from '@/services/team-colors-service';
 
 interface PlayerHeadshotProps {
   playerName: string;
   sport: string;
   playerId?: string;
+  teamAbbr?: string;
   className?: string;
 }
 
@@ -12,6 +14,7 @@ export const PlayerHeadshot: React.FC<PlayerHeadshotProps> = ({
   playerName,
   sport,
   playerId,
+  teamAbbr,
   className = ''
 }) => {
   // Generate ESPN headshot URL based on sport and player ID
@@ -39,6 +42,10 @@ export const PlayerHeadshot: React.FC<PlayerHeadshotProps> = ({
       `https://a.espncdn.com/i/headshots/${espnSport}/players/full/${playerId}.jpg`,
       `https://a.espncdn.com/combiner/i?img=/i/headshots/${espnSport}/players/full/${playerId}.png`,
     ];
+  };
+
+  const getTeamAbbr = () => {
+    return teamAbbr ? teamAbbr.toUpperCase() : 'TM';
   };
 
   const getInitials = () => {
@@ -91,8 +98,8 @@ export const PlayerHeadshot: React.FC<PlayerHeadshotProps> = ({
                 onError={handleImageError}
               />
             ) : null}
-            <AvatarFallback className="bg-gradient-card text-foreground font-heading text-lg border border-border/50">
-              {getInitials()}
+            <AvatarFallback className={`${teamColorsService.getTeamGradient(teamAbbr || '', sport)} text-white font-bold text-lg border-2 ${teamColorsService.getTeamBorder(teamAbbr || '', sport)} shadow-lg`}>
+              {getTeamAbbr()}
             </AvatarFallback>
           </Avatar>
 
