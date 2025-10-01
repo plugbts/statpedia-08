@@ -582,8 +582,8 @@ class SportsGameOddsAPI {
         line: line,
         overOdds: overOdds,
         underOdds: underOdds,
-        sportsbook: 'SportsGameOdds',
-        sportsbookKey: 'sgo',
+        sportsbook: this.extractSportsbookFromOdd(odd, oddId),
+        sportsbookKey: this.extractBookmakerIdFromOdd(odd, oddId),
         lastUpdate: new Date().toISOString(),
         gameId: gameId,
         gameTime: gameTime,
@@ -877,6 +877,80 @@ class SportsGameOddsAPI {
   }
 
 
+
+  // Map bookmaker ID to display name using official SportsGameOdds API bookmaker list
+  private mapBookmakerIdToName(bookmakerId: string): string {
+    const bookmakerMap: { [key: string]: string } = {
+      'fanduel': 'FanDuel',
+      'draftkings': 'Draft Kings',
+      'betmgm': 'BetMGM',
+      'caesars': 'Caesars',
+      'pointsbet': 'PointsBet',
+      'betrivers': 'BetRivers',
+      'foxbet': 'FOX Bet',
+      'bet365': 'bet365',
+      'williamhill': 'William Hill',
+      'pinnacle': 'Pinnacle',
+      'bovada': 'Bovada',
+      'betonline': 'BetOnline',
+      'betway': 'Betway',
+      'unibet': 'Unibet',
+      'ladbrokes': 'Ladbrokes',
+      'coral': 'Coral',
+      'paddypower': 'Paddy Power',
+      'skybet': 'Sky Bet',
+      'boylesports': 'BoyleSports',
+      'betfair': 'Betfair',
+      'betvictor': 'Bet Victor',
+      'betfred': 'Betfred',
+      'unknown': 'Unknown Sportsbook'
+    };
+
+    return bookmakerMap[bookmakerId.toLowerCase()] || bookmakerId;
+  }
+
+  // Extract sportsbook name from odd data
+  private extractSportsbookFromOdd(odd: any, oddId: string): string {
+    // Check if the odd has bookmaker information
+    if (odd.bookmakerId) {
+      return this.mapBookmakerIdToName(odd.bookmakerId);
+    }
+    
+    // Check if oddId contains bookmaker information (format: bookmaker_stat_entity)
+    const oddIdParts = oddId.split('_');
+    if (oddIdParts.length >= 2) {
+      const potentialBookmaker = oddIdParts[0];
+      return this.mapBookmakerIdToName(potentialBookmaker);
+    }
+    
+    // Fallback to consensus odds indicator
+    if (odd.fairOddsAvailable) {
+      return 'Consensus Odds';
+    }
+    
+    return 'SportsGameOdds';
+  }
+
+  // Extract bookmaker ID from odd data
+  private extractBookmakerIdFromOdd(odd: any, oddId: string): string {
+    // Check if the odd has bookmaker information
+    if (odd.bookmakerId) {
+      return odd.bookmakerId;
+    }
+    
+    // Check if oddId contains bookmaker information (format: bookmaker_stat_entity)
+    const oddIdParts = oddId.split('_');
+    if (oddIdParts.length >= 2) {
+      return oddIdParts[0];
+    }
+    
+    // Fallback to consensus odds indicator
+    if (odd.fairOddsAvailable) {
+      return 'consensus';
+    }
+    
+    return 'sgo';
+  }
 
   // Note: Sample data creation method removed to focus on real SportsGameOdds API data only
 

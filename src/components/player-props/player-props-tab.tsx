@@ -315,16 +315,31 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   // Load available sportsbooks for the selected sport
   const loadAvailableSportsbooks = async (sport: string) => {
     try {
-      // Create list of real sportsbooks (SportsRadar aggregates data from these)
+      // Create list of real sportsbooks using official SportsGameOdds API bookmaker IDs
       const sportsbooks = [
         { key: 'all', title: 'All Sportsbooks', lastUpdate: new Date().toISOString() },
         { key: 'fanduel', title: 'FanDuel', lastUpdate: new Date().toISOString() },
-        { key: 'draftkings', title: 'DraftKings', lastUpdate: new Date().toISOString() },
+        { key: 'draftkings', title: 'Draft Kings', lastUpdate: new Date().toISOString() },
         { key: 'betmgm', title: 'BetMGM', lastUpdate: new Date().toISOString() },
         { key: 'caesars', title: 'Caesars', lastUpdate: new Date().toISOString() },
         { key: 'pointsbet', title: 'PointsBet', lastUpdate: new Date().toISOString() },
-        { key: 'bet365', title: 'Bet365', lastUpdate: new Date().toISOString() },
-        { key: 'unibet', title: 'Unibet', lastUpdate: new Date().toISOString() }
+        { key: 'betrivers', title: 'BetRivers', lastUpdate: new Date().toISOString() },
+        { key: 'foxbet', title: 'FOX Bet', lastUpdate: new Date().toISOString() },
+        { key: 'bet365', title: 'bet365', lastUpdate: new Date().toISOString() },
+        { key: 'williamhill', title: 'William Hill', lastUpdate: new Date().toISOString() },
+        { key: 'pinnacle', title: 'Pinnacle', lastUpdate: new Date().toISOString() },
+        { key: 'bovada', title: 'Bovada', lastUpdate: new Date().toISOString() },
+        { key: 'betonline', title: 'BetOnline', lastUpdate: new Date().toISOString() },
+        { key: 'betway', title: 'Betway', lastUpdate: new Date().toISOString() },
+        { key: 'unibet', title: 'Unibet', lastUpdate: new Date().toISOString() },
+        { key: 'ladbrokes', title: 'Ladbrokes', lastUpdate: new Date().toISOString() },
+        { key: 'coral', title: 'Coral', lastUpdate: new Date().toISOString() },
+        { key: 'paddypower', title: 'Paddy Power', lastUpdate: new Date().toISOString() },
+        { key: 'skybet', title: 'Sky Bet', lastUpdate: new Date().toISOString() },
+        { key: 'boylesports', title: 'BoyleSports', lastUpdate: new Date().toISOString() },
+        { key: 'betfair', title: 'Betfair', lastUpdate: new Date().toISOString() },
+        { key: 'betvictor', title: 'Bet Victor', lastUpdate: new Date().toISOString() },
+        { key: 'betfred', title: 'Betfred', lastUpdate: new Date().toISOString() }
       ];
       setAvailableSportsbooks(sportsbooks);
       logSuccess('PlayerPropsTab', `Loaded ${sportsbooks.length} available sportsbooks for ${sport}`);
