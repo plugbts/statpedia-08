@@ -44,6 +44,11 @@ import { unifiedSportsAPI } from '@/services/unified-sports-api';
 import { simulationService, PredictionAnalysis } from '@/services/simulation-service';
 import { crossReferenceService, CrossReferenceAnalysis } from '@/services/cross-reference-service';
 import { enhancedUnifiedSportsAPI, EnhancedPlayerProp } from '@/services/enhanced-unified-sports-api';
+
+// Extended interface for predictions with UI-specific properties
+interface PredictionWithUI extends EnhancedPlayerProp {
+  isBookmarked?: boolean;
+}
 import { EnhancedAnalysisOverlay } from './enhanced-analysis-overlay';
 
 interface PredictionsTabProps {
@@ -111,7 +116,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
   userSubscription = 'free',
   onPredictionsCountChange
 }) => {
-  const [predictions, setPredictions] = useState<EnhancedPlayerProp[]>([]);
+  const [predictions, setPredictions] = useState<PredictionWithUI[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('all');
@@ -124,7 +129,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
   const [shouldShowPredictions, setShouldShowPredictions] = useState(true);
   const [offseasonMessage, setOffseasonMessage] = useState('');
   const [seasonLoading, setSeasonLoading] = useState(true);
-  const [selectedPrediction, setSelectedPrediction] = useState<EnhancedPlayerProp | null>(null);
+  const [selectedPrediction, setSelectedPrediction] = useState<PredictionWithUI | null>(null);
   const [showPredictionModal, setShowPredictionModal] = useState(false);
   const { toast } = useToast();
 
@@ -144,8 +149,8 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
       } catch (error) {
         console.error('Error loading season data:', error);
         // Fallback to sync methods
-        setShouldShowPredictions(seasonService.shouldShowMoneylinePredictionsSync(selectedSport));
-        setOffseasonMessage(seasonService.getOffseasonMessageSync(selectedSport));
+        setShouldShowPredictions(await seasonService.shouldShowMoneylinePredictions(selectedSport));
+        setOffseasonMessage(await seasonService.getOffseasonMessage(selectedSport));
       } finally {
         setSeasonLoading(false);
       }
@@ -191,15 +196,18 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
       
       console.log(`🎯 Selected top ${sortedProps.length} props by confidence for predictions`);
       
-      // Use enhanced props directly (they already have ML predictions)
-      const advancedPredictions: EnhancedPlayerProp[] = sortedProps;
+      // Convert to PredictionWithUI by adding isBookmarked property
+      const advancedPredictions: PredictionWithUI[] = sortedProps.map(prop => ({
+        ...prop,
+        isBookmarked: bookmarkedPredictions.has(prop.id)
+      }));
 
       // Sort by confidence and value
       const sortedPredictions = advancedPredictions.sort((a, b) => {
         if (sortBy === 'confidence') {
           return sortOrder === 'desc' ? b.confidence - a.confidence : a.confidence - b.confidence;
         } else if (sortBy === 'value') {
-          return sortOrder === 'desc' ? b.valueRating - a.valueRating : a.valueRating - b.valueRating;
+          return sortOrder === 'desc' ? b.valueIndicators.expectedValue - a.valueIndicators.expectedValue : a.valueIndicators.expectedValue - b.valueIndicators.expectedValue;
         }
         return 0;
       });
@@ -448,7 +456,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
     ));
   };
 
-  const handlePredictionClick = (prediction: EnhancedPlayerProp) => {
+  const handlePredictionClick = (prediction: PredictionWithUI) => {
     console.log('🎯 Prediction clicked:', prediction);
     console.log('🎯 Setting selectedPrediction to:', prediction.playerName);
     console.log('🎯 Setting showPredictionModal to true');
@@ -473,7 +481,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
   };
 
   const filteredPredictions = predictions.filter(prediction => {
-    if (filterRisk !== 'all' && prediction.riskLevel !== filterRisk) return false;
+    if (filterRisk !== 'all' && prediction.riskAssessment.level !== filterRisk) return false;
     if (showLiveOnly && !prediction.isLive) return false;
     return true;
   });
@@ -486,7 +494,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
         comparison = a.confidence - b.confidence;
         break;
       case 'value':
-        comparison = a.valueRating - b.valueRating;
+        comparison = a.valueIndicators.expectedValue - b.valueIndicators.expectedValue;
         break;
       case 'time':
         comparison = new Date(a.lastUpdated).getTime() - new Date(b.lastUpdated).getTime();
@@ -712,18 +720,18 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-sm font-medium">Value Rating</span>
                       <span className="text-sm font-bold text-primary">
-                        {prediction.valueRating || 0}/100
+                        {prediction.valueIndicators.expectedValue || 0}/100
                       </span>
                     </div>
-                    <Progress value={prediction.valueRating || 0} className="h-2" />
+                    <Progress value={prediction.valueIndicators.expectedValue || 0} className="h-2" />
                   </div>
                 </div>
 
                 {/* Risk Level */}
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Risk Level</span>
-                  <Badge className={cn("text-xs", getRiskColor(prediction.riskLevel))}>
-                    {prediction.riskLevel?.toUpperCase() || 'UNKNOWN'}
+                  <Badge className={cn("text-xs", getRiskColor(prediction.riskAssessment.level))}>
+                    {prediction.riskAssessment.level?.toUpperCase() || 'UNKNOWN'}
                   </Badge>
                 </div>
 
@@ -754,51 +762,17 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
                   </div>
                 )}
 
-                {/* Cross-Reference Analysis */}
-                {prediction.crossReference && (
-                  <div className="space-y-2">
-                    <div className="text-sm">
-                      <span className="font-medium">Props Analyzed: </span>
-                      <span className="text-muted-foreground">
-                        {prediction.crossReference.totalPropsAnalyzed}
-                      </span>
-                    </div>
-                    
-                    <div className="text-sm">
-                      <span className="font-medium">Discrepancies: </span>
-                      <span className="text-muted-foreground">
-                        {prediction.crossReference.propsWithDiscrepancies}
-                      </span>
-                    </div>
-                    
-                    <div className="text-sm">
-                      <span className="font-medium">Avg Line Diff: </span>
-                      <span className="text-muted-foreground">
-                        {prediction.crossReference.averageLineDifference.toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-                )}
+                {/* Cross-Reference Analysis - Temporarily disabled */}
+                {/* TODO: Add cross-reference analysis to EnhancedPlayerProp interface */}
 
-                {/* Advanced Insights */}
-                {prediction.keyInsights && prediction.keyInsights.length > 0 && (
-                  <div className="space-y-1">
-                    <span className="text-sm font-medium">Key Insights:</span>
-                    <div className="space-y-1">
-                      {prediction.keyInsights.slice(0, 2).map((insight, index) => (
-                        <div key={index} className="text-xs text-blue-600 font-medium">
-                          • {insight}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {/* Advanced Insights - Temporarily disabled */}
+                {/* TODO: Add keyInsights to EnhancedPlayerProp interface */}
 
                 {/* Key Factors */}
                 <div className="space-y-1">
                   <span className="text-sm font-medium">Analysis Factors:</span>
                   <div className="space-y-1">
-                    {(prediction.factors || []).slice(0, 3).map((factor, index) => (
+                    {(prediction.riskAssessment.factors || []).slice(0, 3).map((factor, index) => (
                       <div key={index} className="text-xs text-muted-foreground">
                         • {factor}
                       </div>
