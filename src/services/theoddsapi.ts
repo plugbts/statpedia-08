@@ -51,13 +51,18 @@ export interface BookmakerOdds {
 
 export interface PlayerPropOdds {
   id: string;
+  gameId: string;
   playerName: string;
   propType: string;
   line: number;
   overOdds: number;
   underOdds: number;
-  bookmaker: string;
+  sportsbook: string;
+  sportsbookKey: string;
   lastUpdate: string;
+  gameTime?: string;
+  homeTeam?: string;
+  awayTeam?: string;
 }
 
 interface CacheEntry<T> {
@@ -252,6 +257,35 @@ class TheOddsAPI {
     }
   }
 
+  // Get available sportsbooks for a specific sport
+  async getAvailableSportsbooks(sport: string): Promise<{ key: string; title: string; lastUpdate: string }[]> {
+    try {
+      // Use a simple odds call to get available bookmakers
+      const endpoint = `/sports/${sport}/odds/?regions=us&markets=h2h&bookmakers=fanduel,draftkings,betmgm,caesars,pointsbet,espnbet,hardrock&oddsFormat=american&apiKey=${THEODDS_API_KEY}`;
+      
+      const data = await this.makeRequest<any[]>(endpoint, CACHE_DURATION.BOOKMAKERS);
+      
+      const sportsbooks = new Map<string, { key: string; title: string; lastUpdate: string }>();
+      
+      data.forEach(game => {
+        game.bookmakers?.forEach((bookmaker: any) => {
+          sportsbooks.set(bookmaker.key, {
+            key: bookmaker.key,
+            title: bookmaker.title,
+            lastUpdate: bookmaker.last_update
+          });
+        });
+      });
+      
+      const result = Array.from(sportsbooks.values());
+      logSuccess('TheOddsAPI', `Retrieved ${result.length} available sportsbooks for ${sport}`);
+      return result;
+    } catch (error) {
+      logError('TheOddsAPI', `Failed to get available sportsbooks for ${sport}:`, error);
+      return [];
+    }
+  }
+
   // Get odds for a specific sport
   async getOdds(sport: string, regions: string[] = ['us'], markets: string[] = ['h2h'], bookmakers: string[] = ['fanduel', 'draftkings', 'betmgm']): Promise<GameOdds[]> {
     try {
@@ -298,8 +332,8 @@ class TheOddsAPI {
     }
   }
 
-  // Get player prop odds (if available)
-  async getPlayerPropOdds(sport: string, regions: string[] = ['us'], bookmakers: string[] = ['fanduel', 'draftkings']): Promise<PlayerPropOdds[]> {
+  // Get team odds for games (h2h, spreads, totals)
+  async getTeamOdds(sport: string, regions: string[] = ['us'], bookmakers: string[] = ['fanduel', 'draftkings', 'betmgm', 'caesars', 'pointsbet']): Promise<GameOdds[]> {
     try {
       const regionsParam = regions.join(',');
       const bookmakersParam = bookmakers.join(',');
@@ -311,46 +345,148 @@ class TheOddsAPI {
       nextDay.setDate(nextDay.getDate() + 1);
       const nextDayDateTime = `${nextDay.toISOString().split('T')[0]}T00:00:00Z`;
       
-      const endpoint = `/sports/${sport}/odds/?regions=${regionsParam}&markets=player_pass_tds,player_pass_yds,player_pass_completions&bookmakers=${bookmakersParam}&oddsFormat=american&dateFormat=iso&commenceTimeFrom=${currentDateTime}&commenceTimeTo=${nextDayDateTime}`;
+      const endpoint = `/sports/${sport}/odds/?regions=${regionsParam}&markets=h2h,spreads,totals&bookmakers=${bookmakersParam}&oddsFormat=american&dateFormat=iso&commenceTimeFrom=${currentDateTime}&commenceTimeTo=${nextDayDateTime}`;
       
       const data = await this.makeRequest<any[]>(endpoint, CACHE_DURATION.ODDS);
       
-      const playerPropOdds: PlayerPropOdds[] = [];
-      
-      data.forEach(game => {
-        game.bookmakers?.forEach((bookmaker: any) => {
-          bookmaker.markets?.forEach((market: any) => {
-            if (market.key.includes('player_')) {
-              market.outcomes?.forEach((outcome: any) => {
-                // Parse player name and prop type from outcome name
-                const outcomeName = outcome.name || '';
-                const playerName = outcomeName.split(' ').slice(0, -2).join(' '); // Remove "Over/Under X.X"
-                const propType = this.mapMarketToPropType(market.key);
-                
-                if (playerName && propType) {
-                  playerPropOdds.push({
-                    id: `${bookmaker.key}_${game.id}_${market.key}_${outcome.name}`,
-                    playerName,
-                    propType,
-                    line: outcome.point || 0,
-                    overOdds: outcome.price > 0 ? outcome.price : -110,
-                    underOdds: outcome.price > 0 ? -outcome.price : -110,
-                    bookmaker: bookmaker.title,
-                    lastUpdate: new Date().toISOString(),
-                  });
-                }
-              });
-            }
-          });
-        });
-      });
+      const gameOdds: GameOdds[] = data.map(game => ({
+        id: game.id,
+        sport: game.sport_title,
+        homeTeam: game.home_team,
+        awayTeam: game.away_team,
+        commenceTime: game.commence_time,
+        bookmakers: game.bookmakers?.map((bookmaker: any) => ({
+          bookmaker: {
+            id: bookmaker.key,
+            name: bookmaker.title,
+            logo: '',
+          },
+          markets: bookmaker.markets?.map((market: any) => ({
+            key: market.key,
+            outcomes: market.outcomes?.map((outcome: any) => ({
+              name: outcome.name,
+              price: outcome.price,
+              point: outcome.point,
+            })) || [],
+            lastUpdate: market.last_update,
+          })) || [],
+          lastUpdate: bookmaker.last_update,
+        })) || [],
+      }));
 
-      logSuccess('TheOddsAPI', `Retrieved ${playerPropOdds.length} player prop odds for ${sport}`);
-      return playerPropOdds;
+      logSuccess('TheOddsAPI', `Retrieved ${gameOdds.length} team odds for ${sport}`);
+      return gameOdds;
     } catch (error) {
       logError('TheOddsAPI', `Failed to get player prop odds for ${sport}:`, error);
       return [];
     }
+  }
+
+  // Get available player prop markets for a sport
+  private getAvailablePlayerPropMarkets(sport: string): string[] {
+    const sportMarkets: { [key: string]: string[] } = {
+      'americanfootball_nfl': [
+        'player_pass_tds', 'player_pass_yds', 'player_pass_completions', 'player_pass_attempts',
+        'player_rush_yds', 'player_rush_attempts', 'player_receiving_yds', 'player_receiving_receptions',
+        'player_pass_interceptions', 'player_fumbles_lost'
+      ],
+      'basketball_nba': [
+        'player_points', 'player_rebounds', 'player_assists', 'player_steals', 'player_blocks',
+        'player_turnovers', 'player_threes', 'player_fgs'
+      ],
+      'baseball_mlb': [
+        'player_hits', 'player_home_runs', 'player_rbis', 'player_strikeouts', 'player_runs',
+        'player_total_bases', 'player_walks', 'pitcher_strikeouts', 'pitcher_hits_allowed'
+      ]
+    };
+    
+    return sportMarkets[sport] || [];
+  }
+
+  // Check if a market is a player prop market
+  private isPlayerPropMarket(marketKey: string): boolean {
+    return marketKey.includes('player_') || marketKey.includes('pitcher_');
+  }
+
+  // Group player prop outcomes by player and prop type
+  private groupPlayerPropOutcomes(outcomes: any[], marketKey: string): any[] {
+    const playerProps = new Map<string, any>();
+    
+    outcomes.forEach(outcome => {
+      const outcomeName = outcome.name || '';
+      
+      // Parse player name and prop type from outcome name
+      // Format is usually "Player Name Over/Under X.X"
+      const parts = outcomeName.split(' ');
+      if (parts.length < 3) return;
+      
+      const overUnder = parts[parts.length - 2]; // "Over" or "Under"
+      const line = parseFloat(parts[parts.length - 1]); // The number
+      const playerName = parts.slice(0, -2).join(' '); // Everything before "Over/Under X.X"
+      
+      if (!playerName || isNaN(line)) return;
+      
+      const key = `${playerName}_${marketKey}`;
+      
+      if (!playerProps.has(key)) {
+        playerProps.set(key, {
+          playerName,
+          propType: this.mapMarketToPropType(marketKey),
+          line,
+          overOdds: 0,
+          underOdds: 0
+        });
+      }
+      
+      const prop = playerProps.get(key);
+      if (overUnder.toLowerCase() === 'over') {
+        prop.overOdds = outcome.price;
+      } else if (overUnder.toLowerCase() === 'under') {
+        prop.underOdds = outcome.price;
+      }
+    });
+    
+    return Array.from(playerProps.values());
+  }
+
+  // Enhanced market to prop type mapping
+  private mapMarketToPropType(marketKey: string): string {
+    const mappings: { [key: string]: string } = {
+      // NFL
+      'player_pass_tds': 'Passing TDs',
+      'player_pass_yds': 'Passing Yards',
+      'player_pass_completions': 'Pass Completions',
+      'player_pass_attempts': 'Pass Attempts',
+      'player_rush_yds': 'Rushing Yards',
+      'player_rush_attempts': 'Rush Attempts',
+      'player_receiving_yds': 'Receiving Yards',
+      'player_receiving_receptions': 'Receptions',
+      'player_pass_interceptions': 'Interceptions',
+      'player_fumbles_lost': 'Fumbles',
+      
+      // NBA
+      'player_points': 'Points',
+      'player_rebounds': 'Rebounds',
+      'player_assists': 'Assists',
+      'player_steals': 'Steals',
+      'player_blocks': 'Blocks',
+      'player_turnovers': 'Turnovers',
+      'player_threes': '3-Pointers',
+      'player_fgs': 'Field Goals',
+      
+      // MLB
+      'player_hits': 'Hits',
+      'player_home_runs': 'Home Runs',
+      'player_rbis': 'RBIs',
+      'player_strikeouts': 'Strikeouts',
+      'player_runs': 'Runs',
+      'player_total_bases': 'Total Bases',
+      'player_walks': 'Walks',
+      'pitcher_strikeouts': 'Pitching Strikeouts',
+      'pitcher_hits_allowed': 'Hits Allowed'
+    };
+    
+    return mappings[marketKey] || marketKey;
   }
 
   // Get specific market odds (e.g., totals, spreads)

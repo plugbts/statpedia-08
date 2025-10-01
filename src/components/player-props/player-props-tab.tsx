@@ -121,6 +121,8 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const [showOnlyPositiveEV, setShowOnlyPositiveEV] = useState(false);
   const [showSelection, setShowSelection] = useState(false);
   const [viewMode, setViewMode] = useState<'column' | 'cards'>('column');
+  const [selectedSportsbook, setSelectedSportsbook] = useState<string>('');
+  const [availableSportsbooks, setAvailableSportsbooks] = useState<{ key: string; title: string; lastUpdate: string }[]>([]);
 
   // Update sport filter when selectedSport changes
   useEffect(() => {
@@ -129,10 +131,30 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     if (selectedSport) {
       logState('PlayerPropsTab', `Loading props for sport: ${selectedSport}`);
       loadPlayerProps(selectedSport);
+      loadAvailableSportsbooks(selectedSport);
     } else {
       logWarning('PlayerPropsTab', 'No sport selected, skipping load');
     }
   }, [selectedSport]);
+
+  // Reload props when sportsbook changes
+  useEffect(() => {
+    if (selectedSport && selectedSportsbook) {
+      logState('PlayerPropsTab', `Sportsbook changed to: ${selectedSportsbook}`);
+      loadPlayerProps(selectedSport);
+    }
+  }, [selectedSportsbook]);
+
+  // Load available sportsbooks for the selected sport
+  const loadAvailableSportsbooks = async (sport: string) => {
+    try {
+      const sportsbooks = await unifiedSportsAPI.getAvailableSportsbooks(sport.toLowerCase());
+      setAvailableSportsbooks(sportsbooks);
+      logSuccess('PlayerPropsTab', `Loaded ${sportsbooks.length} available sportsbooks for ${sport}`);
+    } catch (error) {
+      logError('PlayerPropsTab', `Failed to load sportsbooks for ${sport}:`, error);
+    }
+  };
 
     // Load player props from Fixed API Service - WORKING SOLUTION
     const loadPlayerProps = async (sport: string) => {
@@ -150,10 +172,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       setRealProps([]);
       
       try {
-        logAPI('PlayerPropsTab', `Calling unifiedSportsAPI.getPlayerProps(${sport})`);
+        logAPI('PlayerPropsTab', `Calling unifiedSportsAPI.getPlayerProps(${sport})${selectedSportsbook ? ` with sportsbook: ${selectedSportsbook}` : ''}`);
         logDebug('PlayerPropsTab', `unifiedSportsAPI service: ${typeof unifiedSportsAPI}`);
         logDebug('PlayerPropsTab', `getPlayerProps method: ${typeof unifiedSportsAPI.getPlayerProps}`);
-        const props = await unifiedSportsAPI.getPlayerProps(sport);
+        const props = await unifiedSportsAPI.getPlayerProps(sport, undefined, undefined, selectedSportsbook);
         logAPI('PlayerPropsTab', `Fixed API returned ${props?.length || 0} props`);
         
         // DEBUG: Log first few props to check data quality
@@ -472,6 +494,26 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                     <SelectItem value="nba">NBA</SelectItem>
                     <SelectItem value="mlb">MLB</SelectItem>
                     <SelectItem value="nhl">NHL</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Sportsbook Filter */}
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Sportsbook:</label>
+                <Select value={selectedSportsbook} onValueChange={(value) => {
+                  setSelectedSportsbook(value);
+                }}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="All Sportsbooks" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">All Sportsbooks</SelectItem>
+                    {availableSportsbooks.map(sportsbook => (
+                      <SelectItem key={sportsbook.key} value={sportsbook.key}>
+                        {sportsbook.title}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

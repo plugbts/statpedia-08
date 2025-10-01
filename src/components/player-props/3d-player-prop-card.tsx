@@ -20,7 +20,7 @@ import { teamColorsService } from '@/services/team-colors-service';
 
 interface PlayerProp {
   id: string;
-  playerId: number;
+  playerId: string;
   playerName: string;
   team: string;
   teamAbbr: string;
@@ -50,6 +50,14 @@ interface PlayerProp {
     confidence: number;
     reasoning: string;
     factors: string[];
+  };
+  sportsbookSource?: string;
+  lastOddsUpdate?: string;
+  teamOddsContext?: {
+    homeTeam: string;
+    awayTeam: string;
+    hasTeamOdds: boolean;
+    sportsbooks: string[];
   };
 }
 
@@ -310,6 +318,38 @@ export function PlayerPropCard3D({
               </div>
             </div>
           </div>
+
+          {/* Sportsbook Source */}
+          {prop.sportsbookSource && (
+            <div className="mb-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Data Source</span>
+                <Badge variant="outline" className="text-xs">
+                  {prop.sportsbookSource}
+                </Badge>
+              </div>
+              {prop.lastOddsUpdate && (
+                <div className="text-xs text-slate-400 mt-1">
+                  Updated: {new Date(prop.lastOddsUpdate).toLocaleTimeString()}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Team Odds Context */}
+          {prop.teamOddsContext && prop.teamOddsContext.hasTeamOdds && (
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Team Odds Available</span>
+                <Badge variant="secondary" className="text-xs">
+                  {prop.teamOddsContext.sportsbooks.length} Sportsbooks
+                </Badge>
+              </div>
+              <div className="text-xs text-slate-400">
+                {prop.teamOddsContext.homeTeam} vs {prop.teamOddsContext.awayTeam}
+              </div>
+            </div>
+          )}
 
           {/* Expected Value */}
           {prop.expectedValue !== undefined && (

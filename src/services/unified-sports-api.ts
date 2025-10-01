@@ -39,6 +39,14 @@ export interface PlayerProp {
     reasoning: string;
     factors: string[];
   };
+  sportsbookSource?: string;
+  lastOddsUpdate?: string;
+  teamOddsContext?: {
+    homeTeam: string;
+    awayTeam: string;
+    hasTeamOdds: boolean;
+    sportsbooks: string[];
+  };
 }
 
 export interface APIUsageStats {
@@ -83,7 +91,7 @@ class UnifiedSportsAPI {
   }
 
   // Get player props with enhanced odds from both APIs
-  async getPlayerProps(sport: string, season?: number, week?: number): Promise<PlayerProp[]> {
+  async getPlayerProps(sport: string, season?: number, week?: number, selectedSportsbook?: string): Promise<PlayerProp[]> {
     logAPI('UnifiedSportsAPI', `Getting player props for ${sport}${season ? ` ${season}` : ''}${week ? ` week ${week}` : ''}`);
     
     try {
@@ -95,35 +103,45 @@ class UnifiedSportsAPI {
       const filteredProps = this.filterCurrentAndFutureGames(sportsDataIOProps);
       logAPI('UnifiedSportsAPI', `Filtered to ${filteredProps.length} current/future game props`);
 
-      // Get enhanced odds from TheOddsAPI
-      let oddsAPIProps: PlayerPropOdds[] = [];
+      // Get team odds from TheOddsAPI for context (not player props)
+      let teamOdds: GameOdds[] = [];
       try {
-        oddsAPIProps = await theOddsAPI.getPlayerPropOdds(sport);
-        logAPI('UnifiedSportsAPI', `Retrieved ${oddsAPIProps.length} odds from TheOddsAPI`);
+        const bookmakers = selectedSportsbook ? [selectedSportsbook] : ['fanduel', 'draftkings', 'betmgm', 'caesars', 'pointsbet'];
+        teamOdds = await theOddsAPI.getTeamOdds(sport, ['us'], bookmakers);
+        logAPI('UnifiedSportsAPI', `Retrieved ${teamOdds.length} team odds from TheOddsAPI${selectedSportsbook ? ` for ${selectedSportsbook}` : ''}`);
       } catch (error) {
-        logWarning('UnifiedSportsAPI', 'Failed to get odds from TheOddsAPI, using SportsDataIO odds only:', error);
+        logWarning('UnifiedSportsAPI', 'Failed to get team odds from TheOddsAPI:', error);
       }
 
       // Combine and enhance the data with date formatting
       const enhancedProps: PlayerProp[] = filteredProps.map(prop => {
-        // Try to find matching odds from TheOddsAPI
-        const matchingOdds = oddsAPIProps.find(odds => 
-          odds.playerName.toLowerCase().includes(prop.playerName.toLowerCase()) &&
-          odds.propType === prop.propType
+        // Find team odds context for this game
+        const gameTeamOdds = teamOdds.find(game => 
+          game.homeTeam === prop.team || game.awayTeam === prop.team ||
+          game.homeTeam === prop.opponent || game.awayTeam === prop.opponent
         );
 
-        // Use TheOddsAPI odds if available, otherwise keep SportsDataIO odds
-        const finalOverOdds = matchingOdds?.overOdds || prop.overOdds;
-        const finalUnderOdds = matchingOdds?.underOdds || prop.underOdds;
-
+        // Use SportsDataIO odds as primary source for player props
+        const sportsbookSource = selectedSportsbook || 'SportsDataIO';
+        
         return {
           ...prop,
-          overOdds: finalOverOdds,
-          underOdds: finalUnderOdds,
           gameDate: this.formatDate(prop.gameDate), // Format date to M/D/YYYY
           gameTime: this.formatTime(prop.gameTime), // Format time to readable format
-          // Add metadata about data source
-          confidence: matchingOdds ? Math.min(prop.confidence! + 0.1, 1.0) : prop.confidence, // Boost confidence if we have odds data
+          sportsbookSource, // Track which sportsbook provided the odds
+          lastOddsUpdate: new Date().toISOString(),
+          // Add team odds context if available
+          teamOddsContext: gameTeamOdds ? {
+            homeTeam: gameTeamOdds.homeTeam,
+            awayTeam: gameTeamOdds.awayTeam,
+            hasTeamOdds: true,
+            sportsbooks: gameTeamOdds.bookmakers.map(b => b.bookmaker.name)
+          } : {
+            homeTeam: prop.team,
+            awayTeam: prop.opponent,
+            hasTeamOdds: false,
+            sportsbooks: []
+          }
         };
       });
 
@@ -158,6 +176,12 @@ class UnifiedSportsAPI {
   async getBookmakers(sport?: string): Promise<any[]> {
     logAPI('UnifiedSportsAPI', `Getting bookmakers${sport ? ` for ${sport}` : ''} from TheOddsAPI`);
     return await theOddsAPI.getBookmakers(sport);
+  }
+
+  // Get available sportsbooks for a specific sport
+  async getAvailableSportsbooks(sport: string): Promise<{ key: string; title: string; lastUpdate: string }[]> {
+    logAPI('UnifiedSportsAPI', `Getting available sportsbooks for ${sport} from TheOddsAPI`);
+    return await theOddsAPI.getAvailableSportsbooks(sport);
   }
 
   // Get combined usage statistics from both APIs
@@ -250,6 +274,52 @@ class UnifiedSportsAPI {
       logWarning('UnifiedSportsAPI', `Invalid time format: ${timeString}`, error);
       return timeString;
     }
+  }
+
+  // Enhanced player name matching for better odds integration
+  private isPlayerMatch(oddsPlayerName: string, propPlayerName: string): boolean {
+    if (!oddsPlayerName || !propPlayerName) return false;
+    
+    // Normalize names for comparison
+    const normalizeName = (name: string) => {
+      return name.toLowerCase()
+        .replace(/[^a-z\s]/g, '') // Remove special characters
+        .replace(/\s+/g, ' ') // Normalize spaces
+        .trim();
+    };
+    
+    const normalizedOdds = normalizeName(oddsPlayerName);
+    const normalizedProp = normalizeName(propPlayerName);
+    
+    // Direct match
+    if (normalizedOdds === normalizedProp) return true;
+    
+    // Check if one name contains the other (for nicknames, etc.)
+    if (normalizedOdds.includes(normalizedProp) || normalizedProp.includes(normalizedOdds)) return true;
+    
+    // Check for common name variations (first name + last name vs full name)
+    const oddsParts = normalizedOdds.split(' ');
+    const propParts = normalizedProp.split(' ');
+    
+    if (oddsParts.length >= 2 && propParts.length >= 2) {
+      // Check if last names match and first names are similar
+      const oddsLastName = oddsParts[oddsParts.length - 1];
+      const propLastName = propParts[propParts.length - 1];
+      
+      if (oddsLastName === propLastName) {
+        const oddsFirstName = oddsParts[0];
+        const propFirstName = propParts[0];
+        
+        // Check if first names match or one is a nickname of the other
+        if (oddsFirstName === propFirstName || 
+            oddsFirstName.startsWith(propFirstName) || 
+            propFirstName.startsWith(oddsFirstName)) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
   }
 }
 
