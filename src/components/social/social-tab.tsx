@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -96,6 +96,7 @@ export const SocialTab: React.FC<SocialTabProps> = ({ onReturnToDashboard }) => 
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [showFileAttachment, setShowFileAttachment] = useState(false);
   const { toast } = useToast();
+  const isLoadingRef = useRef(false);
 
   useEffect(() => {
     loadInitialData();
@@ -263,11 +264,18 @@ export const SocialTab: React.FC<SocialTabProps> = ({ onReturnToDashboard }) => 
 
   const loadInitialData = async () => {
     try {
-      console.log('Loading initial data...');
+      console.log('Loading initial data...', { isLoading, isLoadingRef: isLoadingRef.current });
+      if (isLoadingRef.current) {
+        console.log('Already loading, skipping...');
+        return;
+      }
+      isLoadingRef.current = true;
       setIsLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         console.log('No user found, returning');
+        isLoadingRef.current = false;
+        setIsLoading(false);
         return;
       }
       console.log('User found:', user.id);
@@ -403,6 +411,7 @@ export const SocialTab: React.FC<SocialTabProps> = ({ onReturnToDashboard }) => 
       });
     } finally {
       console.log('Finished loading initial data, isLoading set to false');
+      isLoadingRef.current = false;
       setIsLoading(false);
     }
   };
