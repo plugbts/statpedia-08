@@ -174,6 +174,17 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     };
   }, [sportFilter]);
 
+  // Update max line when sport changes
+  useEffect(() => {
+    const newMaxLine = getMaxLineForSport(sportFilter);
+    if (maxLine > newMaxLine) {
+      setMaxLine(newMaxLine);
+    }
+    if (minLine > newMaxLine) {
+      setMinLine(0);
+    }
+  }, [sportFilter, maxLine, minLine]);
+
   // Load available sportsbooks for the selected sport
   const loadAvailableSportsbooks = async (sport: string) => {
     try {
@@ -407,6 +418,19 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const handleEnhancedAnalysis = (prop: PlayerProp) => {
     setSelectedPropForEnhancedAnalysis(prop);
     setShowEnhancedAnalysis(true);
+  };
+
+  // Get maximum line value based on sport
+  const getMaxLineForSport = (sport: string): number => {
+    switch (sport.toLowerCase()) {
+      case 'nfl':
+        return 500;
+      case 'nba':
+      case 'mlb':
+      case 'nhl':
+      default:
+        return 100;
+    }
   };
 
 
@@ -647,14 +671,14 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="text-sm font-medium">Line Range: {minLine} - {maxLine}</label>
+                      <label className="text-sm font-medium">Line Range: {minLine} - {maxLine} (Max: {getMaxLineForSport(sportFilter)})</label>
                       <div className="space-y-2 mt-2">
                         <div>
                           <label className="text-xs text-muted-foreground">Min Line</label>
                           <Slider
                             value={[minLine]}
                             onValueChange={([value]) => setMinLine(value)}
-                            max={maxLine - 0.5}
+                            max={Math.min(maxLine - 0.5, getMaxLineForSport(sportFilter) - 0.5)}
                             min={0}
                             step={0.5}
                           />
@@ -664,7 +688,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                           <Slider
                             value={[maxLine]}
                             onValueChange={([value]) => setMaxLine(value)}
-                            max={100}
+                            max={getMaxLineForSport(sportFilter)}
                             min={minLine + 0.5}
                             step={0.5}
                           />
