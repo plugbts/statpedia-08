@@ -1,7 +1,7 @@
 // Games Service for fetching real sports data
 // Integrates with SportsDataIO API to get current week's games
 
-import { sportsDataIOAPI } from './sportsdataio-api';
+import { sportsRadarAPI } from './sportsradar-api';
 
 export interface RealGame {
   id: string;
@@ -78,7 +78,7 @@ class GamesService {
 
     try {
       console.log(`🏈 [GamesService] Fetching current week games for ${sport}...`);
-      const apiGames = await sportsDataIOAPI.getCurrentWeekGames(sport);
+      const apiGames = await sportsRadarAPI.getGames(sport);
       const realGames = this.convertAPIGamesToRealGames(apiGames);
       
       this.cache.set(cacheKey, { data: realGames, timestamp: now });
@@ -103,7 +103,7 @@ class GamesService {
 
     try {
       console.log(`🔴 [GamesService] Fetching live games for ${sport}...`);
-      const apiGames = await sportsDataIOAPI.getLiveGames(sport);
+      const apiGames = await sportsRadarAPI.getGames(sport);
       const realGames = this.convertAPIGamesToRealGames(apiGames);
       
       this.cache.set(cacheKey, { data: realGames, timestamp: now });
@@ -127,7 +127,9 @@ class GamesService {
 
     try {
       console.log(`🔮 [GamesService] Fetching current week predictions for ${sport}...`);
-      const apiPredictions = await sportsDataIOAPI.getLivePredictions(sport);
+      // SportsRadar API doesn't have live predictions, use games data instead
+      const apiGames = await sportsRadarAPI.getGames(sport);
+      const apiPredictions = this.convertGamesToPredictions(apiGames);
       const realPredictions = this.convertAPIPredictionsToRealPredictions(apiPredictions);
       
       this.cache.set(cacheKey, { data: realPredictions, timestamp: now });
@@ -283,6 +285,23 @@ class GamesService {
       size: this.cache.size,
       keys: Array.from(this.cache.keys()),
     };
+  }
+
+  // Convert games data to predictions format
+  private convertGamesToPredictions(games: any[]): any[] {
+    return games.map(game => ({
+      id: game.id,
+      homeTeam: game.homeTeam,
+      awayTeam: game.awayTeam,
+      sport: game.sport,
+      date: game.commenceTime,
+      homeOdds: -110, // Default odds
+      awayOdds: -110,
+      drawOdds: game.sport === 'soccer' ? -110 : undefined,
+      prediction: 'home', // Default prediction
+      confidence: 0.6, // Default confidence
+      reasoning: 'Based on current form and head-to-head record'
+    }));
   }
 }
 

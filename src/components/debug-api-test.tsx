@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { sportsDataIOAPIFixed } from '@/services/sportsdataio-api-fixed';
+// Removed sportsDataIOAPIFixed import - now using SportsRadar API exclusively
 
 export const DebugAPITest: React.FC = () => {
   const [testResult, setTestResult] = useState<any>(null);

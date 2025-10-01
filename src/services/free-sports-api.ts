@@ -1,7 +1,7 @@
 // Free Sports Data API Service
 // Uses multiple free APIs to get real sports data
 
-import { sportsDataIOAPI } from './sportsdataio-api';
+import { sportsRadarAPI } from './sportsradar-api';
 
 export interface FreeGame {
   id: string;

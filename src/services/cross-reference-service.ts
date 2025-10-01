@@ -186,7 +186,7 @@ class CrossReferenceService {
       'RBIs': 1.5,
       'Strikeouts': 6.5,
       'Goals': 0.5,
-      'Assists': 0.5,
+      'Hockey Assists': 0.5,
       'Saves': 25
     };
     

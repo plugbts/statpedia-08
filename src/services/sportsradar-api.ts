@@ -525,9 +525,9 @@ class SportsRadarAPI {
       'hits_allowed': 'Hits Allowed',
       
       // NHL
-      'points': 'Points',
+      'hockey_points': 'Points',
       'goals': 'Goals',
-      'assists': 'Assists',
+      'hockey_assists': 'Assists',
       'shots': 'Shots',
       'saves': 'Saves',
       'goals_against': 'Goals Against'

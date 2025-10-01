@@ -9,7 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { X, BarChart3, TrendingUp, ArrowUp, ArrowDown, Star, DollarSign, CalendarDays, History, LineChart, Activity, Target, Zap, RefreshCw } from 'lucide-react';
-import { sportsDataIOAPI } from '@/services/sportsdataio-api';
+// Removed sportsDataIOAPI import - now using SportsRadar API exclusively
 
 interface PlayerAnalysisOverlayProps {
   isOpen: boolean;
