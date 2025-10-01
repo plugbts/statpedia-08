@@ -28,6 +28,7 @@ import {
   Check
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { gameHistoryService, GameData } from '@/services/game-history-service';
 
 interface PlayerProp {
   id: string;
@@ -106,12 +107,11 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
     }
   }, [isOpen]);
 
-  // Generate mock data for different prop types and time periods
+  // Generate realistic data with real team names and correct positioning
   useEffect(() => {
     if (!prop) return;
 
-    const generateData = () => {
-      const baseValue = prop.line;
+    const generateData = async () => {
       const dataPoints = {
         last5: 5,
         last10: 10,
@@ -121,45 +121,54 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
       };
 
       const count = dataPoints[selectedTimePeriod as keyof typeof dataPoints] || 5;
-      const data = [];
-
-      for (let i = 0; i < count; i++) {
-        // Generate realistic data around the line
-        const isHit = Math.random() > 0.4; // 60% chance of hitting
-        let value;
-        
-        if (isHit) {
-          // If it hits, go above the line (1.1x to 1.5x the line)
-          const multiplier = 1.1 + Math.random() * 0.4; // 1.1 to 1.5
-          value = baseValue * multiplier;
-        } else {
-          // If it misses, go below the line (0.5x to 0.95x the line)
-          const multiplier = 0.5 + Math.random() * 0.45; // 0.5 to 0.95
-          value = baseValue * multiplier;
-        }
-        
-        const date = new Date();
-        date.setDate(date.getDate() - (count - i - 1));
-        
-        data.push({
-          id: i,
-          value: Math.round(value * 10) / 10, // Round to 1 decimal
-          date: date,
-          game: `Game ${i + 1}`,
-          opponent: i % 2 === 0 ? 'Team A' : 'Team B',
-          hit: value > prop.line,
-          performance: value / prop.line
-        });
-      }
-
-      setGraphData(data);
-      setAnimatedBars(new Array(count).fill(false));
       
-      // Initialize voting counts
-      setVoteCounts({
-        over: Math.floor(Math.random() * 200) + 50,
-        under: Math.floor(Math.random() * 150) + 30
-      });
+      try {
+        // Get real game history with actual team matchups
+        const gameHistory = await gameHistoryService.getPlayerGameHistory(prop.teamAbbr, prop.sport, count);
+        const performanceData = gameHistoryService.generatePerformanceData(prop.propType, prop.line, gameHistory);
+        
+        const data = performanceData.map((game, index) => ({
+          id: game.id,
+          value: game.result || prop.line,
+          date: new Date(game.date),
+          game: `Game ${index + 1}`,
+          opponent: gameHistoryService.formatOpponentName(game.opponentAbbr, game.isHome),
+          hit: game.hit || false,
+          performance: (game.result || prop.line) / prop.line,
+          teamFullName: gameHistoryService.getTeamFullName(game.opponentAbbr, prop.sport)
+        }));
+
+        setGraphData(data);
+        setAnimatedBars(new Array(count).fill(false));
+        
+        // Initialize voting counts
+        setVoteCounts({
+          over: Math.floor(Math.random() * 200) + 50,
+          under: Math.floor(Math.random() * 150) + 30
+        });
+      } catch (error) {
+        console.error('Error generating game data:', error);
+        // Fallback to simple data if service fails
+        const data = [];
+        for (let i = 0; i < count; i++) {
+          const isHit = Math.random() > 0.4;
+          let value = isHit ? prop.line * (1.1 + Math.random() * 0.4) : prop.line * (0.5 + Math.random() * 0.45);
+          value = Math.round(value * 10) / 10;
+          
+          data.push({
+            id: `game_${i}`,
+            value: value,
+            date: new Date(Date.now() - (count - i - 1) * 7 * 24 * 60 * 60 * 1000),
+            game: `Game ${i + 1}`,
+            opponent: `vs ${['MIA', 'BUF', 'LAL', 'DAL', 'NYG', 'PHI', 'CHI', 'GB'][i % 8]}`,
+            hit: value > prop.line,
+            performance: value / prop.line,
+            teamFullName: 'Opponent'
+          });
+        }
+        setGraphData(data);
+        setAnimatedBars(new Array(count).fill(false));
+      }
     };
 
     generateData();
@@ -271,7 +280,7 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
 
   return (
     <>
-      <style jsx>{`
+      <style>{`
         @keyframes wave {
           0%, 100% { transform: translateY(0px) scaleY(1); }
           25% { transform: translateY(-2px) scaleY(1.2); }
@@ -620,9 +629,23 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
                     const range = maxValue - minValue;
                     const centerValue = propLine;
                     
-                    // Calculate Y-axis positions
+                    // Calculate Y-axis positions - FIXED to show higher values above the line
                     const getYPosition = (value: number) => {
+                      // Higher values should be higher on the graph (smaller bottom percentage)
                       return ((maxValue - value) / range) * 100;
+                    };
+                    
+                    // Calculate bar height from bottom - FIXED to show correct positioning
+                    const getBarHeight = (value: number) => {
+                      // If value is above the line, bar should extend above the line
+                      // If value is below the line, bar should stay below the line
+                      if (value >= centerValue) {
+                        // Above the line - bar goes from line to value
+                        return ((value - centerValue) / range) * 100;
+                      } else {
+                        // Below the line - bar goes from value to line
+                        return ((centerValue - value) / range) * 100;
+                      }
                     };
                     
                     const lineYPosition = getYPosition(centerValue);
@@ -671,10 +694,14 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
                         {/* Data bars */}
                         <div className="absolute left-12 right-6 top-0 bottom-0 flex items-end justify-between px-4 py-6">
                           {graphData.map((dataPoint, index) => {
-                            const height = getYPosition(dataPoint.value);
                             const isActive = animatedBars[index] || index <= currentDataIndex;
                             const isCurrent = index === currentDataIndex;
                             const isAnimated = animatedBars[index];
+                            
+                            // FIXED: Calculate bar height based on position relative to the line
+                            const isAboveLine = dataPoint.value > centerValue;
+                            const barHeight = getBarHeight(dataPoint.value);
+                            const bottomPosition = getYPosition(dataPoint.value);
                             
                             return (
                               <div
@@ -692,17 +719,19 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
                                     "relative w-full rounded-t transition-all duration-800 ease-out cursor-pointer",
                                     "shadow-lg hover:shadow-xl group-hover:scale-105",
                                     isCurrent && "ring-1 ring-blue-400/60 shadow-blue-400/20",
-                                    dataPoint.hit ? "bg-gradient-to-t from-emerald-600/90 to-emerald-500/90" : "bg-gradient-to-t from-red-600/90 to-red-500/90",
-                                    isAnimated && dataPoint.hit && "over-bounce-animation",
-                                    isAnimated && !dataPoint.hit && "under-shrink-animation",
+                                    isAboveLine ? "bg-gradient-to-t from-emerald-600/90 to-emerald-500/90" : "bg-gradient-to-t from-red-600/90 to-red-500/90",
+                                    isAnimated && isAboveLine && "over-bounce-animation",
+                                    isAnimated && !isAboveLine && "under-shrink-animation",
                                     isActive && "data-rise-animation"
                                   )}
                                   style={{
-                                    height: `${Math.max(height, 4)}%`,
+                                    height: `${Math.max(barHeight, 4)}%`,
+                                    bottom: `${bottomPosition}%`,
+                                    position: 'absolute',
                                     minHeight: '12px',
                                     transform: isCurrent ? 'scale(1.05) translateY(-2px)' : 'scale(1)',
                                     boxShadow: isAnimated 
-                                      ? dataPoint.hit 
+                                      ? isAboveLine
                                         ? '0 0 20px rgba(16, 185, 129, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
                                         : '0 0 20px rgba(239, 68, 68, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
                                       : isCurrent 
@@ -717,11 +746,11 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
                                   
                                   {/* Performance Indicator */}
                                   <div className="absolute -top-10 left-1/2 transform -translate-x-1/2">
-                                    <div className={cn(
-                                      "w-1.5 h-1.5 rounded-full border border-white/20",
-                                      dataPoint.hit ? "bg-emerald-400" : "bg-red-400",
-                                      isCurrent && "animate-pulse"
-                                    )} />
+                                  <div className={cn(
+                                    "w-1.5 h-1.5 rounded-full border border-white/20",
+                                    isAboveLine ? "bg-emerald-400" : "bg-red-400",
+                                    isCurrent && "animate-pulse"
+                                  )} />
                                   </div>
                                 </div>
 
