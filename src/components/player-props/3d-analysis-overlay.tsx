@@ -287,6 +287,19 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
           50% { transform: translateY(0px) scaleY(1); }
           75% { transform: translateY(2px) scaleY(0.8); }
         }
+        
+        @keyframes overStretch {
+          0% { 
+            height: 12px;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+          }
+          50% {
+            box-shadow: 0 0 30px rgba(16, 185, 129, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+          }
+          100% { 
+            box-shadow: 0 0 25px rgba(16, 185, 129, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+          }
+        }
         @keyframes float {
           0%, 100% { transform: translateY(0px); }
           50% { transform: translateY(-3px); }
@@ -691,48 +704,76 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
                           })}
                         </div>
 
-                        {/* Data bars */}
-                        <div className="absolute left-12 right-6 top-0 bottom-0 flex items-end justify-between px-4 py-6">
+                        {/* Data bars - SYMMETRICAL POSITIONING */}
+                        <div className="absolute left-12 right-6 top-0 bottom-0 flex justify-between px-4 py-6">
                           {graphData.map((dataPoint, index) => {
                             const isActive = animatedBars[index] || index <= currentDataIndex;
                             const isCurrent = index === currentDataIndex;
                             const isAnimated = animatedBars[index];
                             
-                            // FIXED: Calculate bar height based on position relative to the line
+                            // Calculate positioning for symmetrical bars above game text
                             const isAboveLine = dataPoint.value > centerValue;
-                            const barHeight = getBarHeight(dataPoint.value);
-                            const bottomPosition = getYPosition(dataPoint.value);
+                            
+                            // Calculate bar height as percentage of range
+                            const valueDistance = Math.abs(dataPoint.value - centerValue);
+                            const barHeight = Math.max((valueDistance / range) * 100, 8); // Minimum 8% height
+                            
+                            // For over hits, make bars extend above the reference line with animation
+                            // For under hits, keep them below the reference line
+                            let barStyle: React.CSSProperties;
+                            
+                            if (isAboveLine) {
+                              // Over hit - bar extends upward from reference line
+                              const overHeight = Math.min(barHeight * 2, 60); // Cap at 60% for dramatic effect
+                              barStyle = {
+                                height: `${overHeight}%`,
+                                bottom: `${lineYPosition}%`,
+                                position: 'absolute',
+                                minHeight: '16px',
+                                transform: isCurrent ? 'scale(1.05) translateY(-2px)' : 'scale(1)',
+                                animation: isAnimated ? 'overStretch 0.8s ease-out forwards' : 'none',
+                              };
+                            } else {
+                              // Under hit - bar stays below reference line
+                              barStyle = {
+                                height: `${barHeight}%`,
+                                bottom: `${lineYPosition - barHeight}%`,
+                                position: 'absolute',
+                                minHeight: '12px',
+                                transform: isCurrent ? 'scale(1.05) translateY(-2px)' : 'scale(1)',
+                              };
+                            }
                             
                             return (
                               <div
                                 key={dataPoint.id}
                                 className="relative flex flex-col items-center group flex-1 mx-1"
                                 style={{
-                                  transform: `translateY(${isActive ? 0 : 20}px)`,
-                                  transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
-                                  opacity: isActive ? 1 : 0.4
+                                  height: '100%',
+                                  justifyContent: 'flex-end',
+                                  paddingBottom: '60px', // Space for game text
                                 }}
                               >
                                 {/* Professional Bar */}
                                 <div
                                   className={cn(
-                                    "relative w-full rounded-t transition-all duration-800 ease-out cursor-pointer",
+                                    "relative w-8 rounded-lg transition-all duration-800 ease-out cursor-pointer",
                                     "shadow-lg hover:shadow-xl group-hover:scale-105",
                                     isCurrent && "ring-1 ring-blue-400/60 shadow-blue-400/20",
-                                    isAboveLine ? "bg-gradient-to-t from-emerald-600/90 to-emerald-500/90" : "bg-gradient-to-t from-red-600/90 to-red-500/90",
+                                    isAboveLine 
+                                      ? "bg-gradient-to-t from-emerald-600/90 to-emerald-500/90 rounded-t-lg" 
+                                      : "bg-gradient-to-t from-red-600/90 to-red-500/90 rounded-b-lg",
                                     isAnimated && isAboveLine && "over-bounce-animation",
                                     isAnimated && !isAboveLine && "under-shrink-animation",
                                     isActive && "data-rise-animation"
                                   )}
                                   style={{
-                                    height: `${Math.max(barHeight, 4)}%`,
-                                    bottom: `${bottomPosition}%`,
-                                    position: 'absolute',
-                                    minHeight: '12px',
-                                    transform: isCurrent ? 'scale(1.05) translateY(-2px)' : 'scale(1)',
+                                    ...barStyle,
+                                    left: '50%',
+                                    transform: `${barStyle.transform} translateX(-50%)`,
                                     boxShadow: isAnimated 
                                       ? isAboveLine
-                                        ? '0 0 20px rgba(16, 185, 129, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
+                                        ? '0 0 25px rgba(16, 185, 129, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
                                         : '0 0 20px rgba(239, 68, 68, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
                                       : isCurrent 
                                         ? '0 0 15px rgba(59, 130, 246, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15)'
@@ -740,22 +781,29 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
                                   }}
                                 >
                                   {/* Bar Value */}
-                                  <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-slate-100 whitespace-nowrap">
+                                  <div className={cn(
+                                    "absolute left-1/2 transform -translate-x-1/2 text-xs font-semibold text-slate-100 whitespace-nowrap",
+                                    isAboveLine ? "-top-8" : "-bottom-8"
+                                  )}>
                                     {formatNumber(dataPoint.value, 1)}
                                   </div>
                                   
                                   {/* Performance Indicator */}
-                                  <div className="absolute -top-10 left-1/2 transform -translate-x-1/2">
                                   <div className={cn(
-                                    "w-1.5 h-1.5 rounded-full border border-white/20",
-                                    isAboveLine ? "bg-emerald-400" : "bg-red-400",
-                                    isCurrent && "animate-pulse"
-                                  )} />
+                                    "absolute left-1/2 transform -translate-x-1/2",
+                                    isAboveLine ? "-top-12" : "-bottom-12"
+                                  )}>
+                                    <div className={cn(
+                                      "w-2 h-2 rounded-full border border-white/30",
+                                      isAboveLine ? "bg-emerald-400" : "bg-red-400",
+                                      isCurrent && "animate-pulse",
+                                      isAnimated && isAboveLine && "animate-ping"
+                                    )} />
                                   </div>
                                 </div>
 
-                                {/* Game Info */}
-                                <div className="mt-3 text-center">
+                                {/* Game Info - Fixed at bottom */}
+                                <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 text-center w-full">
                                   <div className="text-xs text-slate-400 font-medium">
                                     {dataPoint.game}
                                   </div>
