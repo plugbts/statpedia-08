@@ -241,15 +241,27 @@ class SportsDataIOAPIFixed {
     }
     line = this.roundToHalf(line);
     
-    // Get odds
-    let overOdds = item.OverPayout || -110;
-    let underOdds = item.UnderPayout || -110;
+    // Get odds from API (these are already realistic)
+    let overOdds = item.OverPayout;
+    let underOdds = item.UnderPayout;
     
-    // Ensure odds are realistic
-    if (Math.abs(overOdds) < 100 || Math.abs(underOdds) < 100) {
+    // Only use fallback odds if API doesn't provide them
+    if (overOdds === null || overOdds === undefined || overOdds === 0) {
       overOdds = -110;
+    }
+    if (underOdds === null || underOdds === undefined || underOdds === 0) {
       underOdds = -110;
     }
+    
+    // Log the actual API data for debugging
+    logAPI('SportsDataIO-Fixed', `Parsing ${playerName}: Line=${line}, Over=${overOdds}, Under=${underOdds}`, {
+      originalData: {
+        OverUnder: item.OverUnder,
+        OverPayout: item.OverPayout,
+        UnderPayout: item.UnderPayout,
+        Description: item.Description
+      }
+    });
     
     // Generate confidence and EV
     const confidence = this.roundToHalf(0.5 + Math.random() * 0.4); // 0.5 to 0.9
@@ -395,6 +407,7 @@ class SportsDataIOAPIFixed {
       // Log sample data
       if (props.length > 0) {
         logAPI('SportsDataIO-Fixed', `Sample ${sport} props:`, props.slice(0, 3));
+        logSuccess('SportsDataIO-Fixed', `✅ REAL API DATA SUCCESSFUL for ${sport} - ${props.length} props`);
       }
       
       return props;
@@ -403,8 +416,10 @@ class SportsDataIOAPIFixed {
       logError('SportsDataIO-Fixed', `Error getting ${sport} player props:`, error);
       
       // Generate realistic mock data as fallback
-      logWarning('SportsDataIO-Fixed', `Generating mock data for ${sport}`);
-      return this.generateMockPlayerProps(sport);
+      logWarning('SportsDataIO-Fixed', `🔄 FALLING BACK TO MOCK DATA for ${sport} due to API error`);
+      const mockProps = this.generateMockPlayerProps(sport);
+      logWarning('SportsDataIO-Fixed', `⚠️ USING MOCK DATA: ${mockProps.length} props generated`);
+      return mockProps;
     }
   }
 
