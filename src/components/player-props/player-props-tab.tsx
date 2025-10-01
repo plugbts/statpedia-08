@@ -158,6 +158,14 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         // DEBUG: Log first few props to check data quality
         if (props && props.length > 0) {
           logDebug('PlayerPropsTab', 'First 3 props:', props.slice(0, 3));
+          
+          // Log specific line and odds data for debugging
+          props.slice(0, 3).forEach((prop, index) => {
+            logAPI('PlayerPropsTab', `Prop ${index + 1}: ${prop.playerName} - ${prop.propType}`);
+            logAPI('PlayerPropsTab', `  Line: ${prop.line} (type: ${typeof prop.line})`);
+            logAPI('PlayerPropsTab', `  Over Odds: ${prop.overOdds} (type: ${typeof prop.overOdds})`);
+            logAPI('PlayerPropsTab', `  Under Odds: ${prop.underOdds} (type: ${typeof prop.underOdds})`);
+          });
         } else {
           logError('PlayerPropsTab', 'NO PROPS RETURNED FROM API');
         }

@@ -236,22 +236,33 @@ class SportsDataIOAPIFixed {
     
     // Get line value
     let line = item.OverUnder;
+    logAPI('SportsDataIO-Fixed', `Raw line value for ${playerName}: ${line} (type: ${typeof line})`);
+    
     if (!line || line <= 0 || line > 1000) {
-      line = this.getDefaultLineForPropType(propType);
+      const defaultLine = this.getDefaultLineForPropType(propType);
+      logWarning('SportsDataIO-Fixed', `Invalid line ${line} for ${playerName}, using default: ${defaultLine}`);
+      line = defaultLine;
     }
     line = this.roundToHalf(line);
+    logAPI('SportsDataIO-Fixed', `Final line value for ${playerName}: ${line}`);
     
     // Get odds from API (these are already realistic)
     let overOdds = item.OverPayout;
     let underOdds = item.UnderPayout;
     
+    logAPI('SportsDataIO-Fixed', `Raw odds for ${playerName}: Over=${overOdds} (type: ${typeof overOdds}), Under=${underOdds} (type: ${typeof underOdds})`);
+    
     // Only use fallback odds if API doesn't provide them
     if (overOdds === null || overOdds === undefined || overOdds === 0) {
+      logWarning('SportsDataIO-Fixed', `Invalid over odds ${overOdds} for ${playerName}, using fallback: -110`);
       overOdds = -110;
     }
     if (underOdds === null || underOdds === undefined || underOdds === 0) {
+      logWarning('SportsDataIO-Fixed', `Invalid under odds ${underOdds} for ${playerName}, using fallback: -110`);
       underOdds = -110;
     }
+    
+    logAPI('SportsDataIO-Fixed', `Final odds for ${playerName}: Over=${overOdds}, Under=${underOdds}`);
     
     // Log the actual API data for debugging
     logAPI('SportsDataIO-Fixed', `Parsing ${playerName}: Line=${line}, Over=${overOdds}, Under=${underOdds}`, {
@@ -321,9 +332,25 @@ class SportsDataIOAPIFixed {
           break;
           
         case 'mlb':
-          // MLB 2025 playoffs - October 1st, 2025 (current date)
-          // Working date confirmed: 2025-09-26 has 1723 props
-          const mlbDates = ['2025-09-26', '2025-09-27', '2025-09-28', '2025-09-29', '2025-09-30', '2025-10-01'];
+          // MLB 2025 playoffs - Current October 2025 dates
+          // Try current and upcoming playoff dates
+          const today = new Date();
+          const tomorrow = new Date(today);
+          tomorrow.setDate(today.getDate() + 1);
+          const dayAfter = new Date(today);
+          dayAfter.setDate(today.getDate() + 2);
+          
+          const mlbDates = [
+            today.toISOString().split('T')[0], // Today
+            tomorrow.toISOString().split('T')[0], // Tomorrow
+            dayAfter.toISOString().split('T')[0], // Day after
+            '2025-10-15', // Playoff game date
+            '2025-10-16', // Playoff game date
+            '2025-10-17', // Playoff game date
+            '2025-10-18', // Playoff game date
+            '2025-10-19', // Playoff game date
+            '2025-10-20', // Playoff game date
+          ];
           for (const date of mlbDates) {
             const testEndpoint = `${this.BASE_URL}/mlb/odds/json/PlayerPropsByDate/${date}?key=${this.API_KEY}`;
             logAPI('SportsDataIO-Fixed', `Testing MLB 2025 playoff date: ${date}`);
@@ -350,8 +377,20 @@ class SportsDataIOAPIFixed {
           break;
           
         case 'nba':
-          // NBA 2025 season - try recent dates
-          const nbaDates = ['2025-10-01', '2025-09-30', '2025-09-29', '2025-09-28', '2025-09-27'];
+          // NBA 2025 season - try current and recent dates
+          const nbaToday = new Date();
+          const nbaTomorrow = new Date(nbaToday);
+          nbaTomorrow.setDate(nbaToday.getDate() + 1);
+          const nbaYesterday = new Date(nbaToday);
+          nbaYesterday.setDate(nbaToday.getDate() - 1);
+          
+          const nbaDates = [
+            nbaToday.toISOString().split('T')[0], // Today
+            nbaTomorrow.toISOString().split('T')[0], // Tomorrow
+            nbaYesterday.toISOString().split('T')[0], // Yesterday
+            '2025-10-15', // Regular season game
+            '2025-10-16', // Regular season game
+          ];
           for (const date of nbaDates) {
             const testEndpoint = `${this.BASE_URL}/nba/odds/json/PlayerPropsByGame/${date}?key=${this.API_KEY}`;
             console.log(`📡 [SportsDataIO-Fixed] Testing NBA 2025 date: ${date}`);
