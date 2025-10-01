@@ -300,12 +300,12 @@ class SportsRadarAPI {
       const sportIdFormatted = `sr:sport:${sportId}`;
       const currentDate = this.getCurrentDate();
       const endpoints = [
-        // Daily schedules for player props
-        `/oddscomparison-player-props/trial/v2/en/sports/${sportIdFormatted}/daily_schedules/${currentDate}`,
-        // Competition schedules
-        `/oddscomparison-player-props/trial/v2/en/sports/${sportIdFormatted}/competition_schedules`,
-        // Sport competitions
+        // Try different endpoint formats
         `/oddscomparison-player-props/trial/v2/en/sports/${sportIdFormatted}/competitions`,
+        `/oddscomparison-player-props/trial/v2/en/sports/${sportIdFormatted}/competition_schedules`,
+        // Try without the sport prefix
+        `/oddscomparison-player-props/trial/v2/en/competitions`,
+        `/oddscomparison-player-props/trial/v2/en/competition_schedules`,
         // Daily player props
         `/oddscomparison-player-props/trial/v2/en/sports/${sportIdFormatted}/daily_player_props/${currentDate}`,
         // Sport categories

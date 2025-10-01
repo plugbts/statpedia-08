@@ -321,13 +321,16 @@ class SportsGameOddsAPI {
 
       // Get events/games for the sport with optimized query parameters
       // Only fetch events with odds available and limit to recent games
-      const eventsData = await this.makeRequest<any>(
+      const response = await this.makeRequest<any>(
         `/v2/events?leagueID=${leagueId}&oddsAvailable=true&limit=10`, 
         CACHE_DURATION.ODDS
       );
+      
+      // Handle the response structure: { success: true, data: [...], nextCursor: ... }
+      const eventsData = response.data || response;
       logAPI('SportsGameOddsAPI', `Found ${eventsData.length} events for ${sport}`);
       
-      if (eventsData.length === 0) {
+      if (!Array.isArray(eventsData) || eventsData.length === 0) {
         logWarning('SportsGameOddsAPI', `No events found for ${sport}`);
         return [];
       }
