@@ -115,6 +115,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const [minConfidence, setMinConfidence] = useState(0);
   const [minEV, setMinEV] = useState(0);
   const [showOnlyPositiveEV, setShowOnlyPositiveEV] = useState(false);
+  const [showSelection, setShowSelection] = useState(false);
 
   // Update sport filter when selectedSport changes
   useEffect(() => {
