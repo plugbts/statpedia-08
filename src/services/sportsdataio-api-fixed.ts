@@ -46,7 +46,7 @@ class SportsDataIOAPIFixed {
   private readonly BASE_URL = 'https://api.sportsdata.io/v3';
 
   constructor() {
-    console.log('🚀 [SportsDataIO-Fixed] Service initialized - Version 1.0.0');
+    console.log('🚀 [SportsDataIO-Fixed] Service initialized - Version 1.0.0 - October 1st, 2025');
   }
 
   // Get current NFL week from API
@@ -71,17 +71,18 @@ class SportsDataIOAPIFixed {
 
   // Get current season for different sports
   private getCurrentSeason(sport: string): string {
-    const currentYear = new Date().getFullYear();
+    // We're in 2025, so use 2025 for all sports
+    const currentYear = 2025;
     
     switch (sport.toLowerCase()) {
       case 'nfl':
-        // NFL season starts in September, so current year is correct
+        // NFL 2025 season
         return currentYear.toString();
       case 'mlb':
-        // MLB season starts in March/April
+        // MLB 2025 season (playoffs in October)
         return currentYear.toString();
       case 'nba':
-        // NBA season starts in October, so current year is correct
+        // NBA 2025 season
         return currentYear.toString();
       default:
         return currentYear.toString();
@@ -264,8 +265,8 @@ class SportsDataIOAPIFixed {
       line: line,
       overOdds: overOdds,
       underOdds: underOdds,
-      gameDate: item.DateTime || new Date().toISOString(),
-      gameTime: item.DateTime ? new Date(item.DateTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }) : 'TBD',
+        gameDate: item.DateTime || new Date('2025-10-01').toISOString(),
+        gameTime: item.DateTime ? new Date(item.DateTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }) : 'TBD',
       headshotUrl: `https://a.espncdn.com/i/headshots/${sport.toLowerCase()}/players/full/${item.PlayerID}.png`,
       confidence: confidence,
       expectedValue: expectedValue,
@@ -304,38 +305,47 @@ class SportsDataIOAPIFixed {
           break;
           
         case 'mlb':
-          // MLB season is over, try recent playoff dates
-          const mlbDates = ['2024-10-15', '2024-10-14', '2024-10-13', '2024-10-12', '2024-10-11'];
+          // MLB 2025 playoffs - October 1st, 2025 (current date)
+          // Working date confirmed: 2025-09-26 has 1723 props
+          const mlbDates = ['2025-09-26', '2025-09-27', '2025-09-28', '2025-09-29', '2025-09-30', '2025-10-01'];
           for (const date of mlbDates) {
-            const testEndpoint = `${this.BASE_URL}/mlb/odds/json/PlayerPropsByGame/${date}?key=${this.API_KEY}`;
-            console.log(`📡 [SportsDataIO-Fixed] Testing MLB date: ${date}`);
+            const testEndpoint = `${this.BASE_URL}/mlb/odds/json/PlayerPropsByDate/${date}?key=${this.API_KEY}`;
+            console.log(`📡 [SportsDataIO-Fixed] Testing MLB 2025 playoff date: ${date}`);
             
             const testResponse = await fetch(testEndpoint);
             if (testResponse.ok) {
-              endpoint = testEndpoint;
-              break;
+              const testData = await testResponse.json();
+              if (testData && testData.length > 0) {
+                endpoint = testEndpoint;
+                console.log(`✅ [SportsDataIO-Fixed] Found MLB 2025 playoff data for ${date}: ${testData.length} props`);
+                break;
+              }
             }
           }
           if (!endpoint) {
-            throw new Error('No MLB data available for recent dates');
+            throw new Error('No MLB 2025 playoff data available for October 2025 dates');
           }
           break;
           
         case 'nba':
-          // NBA season just started, try recent dates
-          const nbaDates = ['2024-10-15', '2024-10-14', '2024-10-13', '2024-10-12', '2024-10-11'];
+          // NBA 2025 season - try recent dates
+          const nbaDates = ['2025-10-01', '2025-09-30', '2025-09-29', '2025-09-28', '2025-09-27'];
           for (const date of nbaDates) {
             const testEndpoint = `${this.BASE_URL}/nba/odds/json/PlayerPropsByGame/${date}?key=${this.API_KEY}`;
-            console.log(`📡 [SportsDataIO-Fixed] Testing NBA date: ${date}`);
+            console.log(`📡 [SportsDataIO-Fixed] Testing NBA 2025 date: ${date}`);
             
             const testResponse = await fetch(testEndpoint);
             if (testResponse.ok) {
-              endpoint = testEndpoint;
-              break;
+              const testData = await testResponse.json();
+              if (testData && testData.length > 0) {
+                endpoint = testEndpoint;
+                console.log(`✅ [SportsDataIO-Fixed] Found NBA data for ${date}: ${testData.length} props`);
+                break;
+              }
             }
           }
           if (!endpoint) {
-            throw new Error('No NBA data available for recent dates');
+            throw new Error('No NBA 2025 data available for recent dates');
           }
           break;
           
@@ -437,7 +447,7 @@ class SportsDataIOAPIFixed {
         line: line,
         overOdds: -110,
         underOdds: -110,
-        gameDate: new Date().toISOString(),
+        gameDate: new Date('2025-10-01').toISOString(),
         gameTime: '8:00 PM EST',
         headshotUrl: `https://a.espncdn.com/i/headshots/${sport.toLowerCase()}/players/full/${1000 + i}.png`,
         confidence: this.roundToHalf(0.6 + Math.random() * 0.3),
