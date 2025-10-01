@@ -12,6 +12,7 @@ import { SubscriptionOverlay } from '@/components/ui/subscription-overlay';
 import { PlayerAnalysisOverlay } from './player-analysis-overlay';
 import { PlayerPropCard3D } from './3d-player-prop-card';
 import { AnalysisOverlay3D } from './3d-analysis-overlay';
+import { PlayerPropsColumnView } from './player-props-column-view';
 import { PlayerPropCardAd } from '@/components/ads/ad-placements';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -116,6 +117,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const [minEV, setMinEV] = useState(0);
   const [showOnlyPositiveEV, setShowOnlyPositiveEV] = useState(false);
   const [showSelection, setShowSelection] = useState(false);
+  const [viewMode, setViewMode] = useState<'column' | 'cards'>('column');
 
   // Update sport filter when selectedSport changes
   useEffect(() => {
@@ -396,6 +398,17 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                 </Button>
               </div>
 
+              {/* View Mode Selector */}
+              <Select value={viewMode} onValueChange={(value: 'column' | 'cards') => setViewMode(value)}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="View" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="column">Column</SelectItem>
+                  <SelectItem value="cards">Cards</SelectItem>
+                </SelectContent>
+              </Select>
+
               {/* Advanced Filters */}
               <Dialog open={showFilterDialog} onOpenChange={setShowFilterDialog}>
                 <DialogTrigger asChild>
@@ -473,26 +486,37 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
           </Card>
         )}
 
-        {/* Player Props Grid */}
+        {/* Player Props Content */}
         {!isLoadingData && filteredProps.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredProps.map((prop) => (
-              <PlayerPropCard3D
-                key={prop.id}
-                prop={prop}
+          <>
+            {viewMode === 'column' ? (
+              <PlayerPropsColumnView
+                props={filteredProps}
+                selectedSport={sportFilter}
                 onAnalysisClick={handlePlayerAnalysis}
-                isSelected={selectedProps.includes(prop.id)}
-                onSelect={showSelection ? (propId) => {
-                  setSelectedProps(prev => 
-                    prev.includes(propId) 
-                      ? prev.filter(id => id !== propId)
-                      : [...prev, propId]
-                  );
-                } : undefined}
-                showSelection={showSelection}
+                isLoading={isLoadingData}
               />
-            ))}
-          </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredProps.map((prop) => (
+                  <PlayerPropCard3D
+                    key={prop.id}
+                    prop={prop}
+                    onAnalysisClick={handlePlayerAnalysis}
+                    isSelected={selectedProps.includes(prop.id)}
+                    onSelect={showSelection ? (propId) => {
+                      setSelectedProps(prev => 
+                        prev.includes(propId) 
+                          ? prev.filter(id => id !== propId)
+                          : [...prev, propId]
+                      );
+                    } : undefined}
+                    showSelection={showSelection}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
 
         {/* My Picks Dialog */}

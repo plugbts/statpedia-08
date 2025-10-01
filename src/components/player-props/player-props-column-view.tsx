@@ -1,0 +1,380 @@
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  BarChart3, 
+  Star,
+  Zap,
+  Target,
+  Activity,
+  Calendar,
+  Clock,
+  Users,
+  Award,
+  Sparkles,
+  ChevronRight,
+  ChevronLeft,
+  Filter,
+  SortAsc,
+  SortDesc
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { AnalysisOverlay3D } from './3d-analysis-overlay';
+
+interface PlayerProp {
+  id: string;
+  playerId: number;
+  playerName: string;
+  teamAbbr: string;
+  opponentAbbr: string;
+  propType: string;
+  line: number;
+  overOdds: number;
+  underOdds: number;
+  confidence?: number;
+  expectedValue?: number;
+  aiPrediction?: {
+    recommended: 'over' | 'under';
+    confidence: number;
+    reasoning: string;
+    factors: string[];
+  };
+  recentForm?: 'hot' | 'cold' | 'average';
+  gameDate: string;
+  gameTime: string;
+  last5Games?: number[];
+  seasonStats?: {
+    average: number;
+    gamesPlayed: number;
+    hitRate: number;
+  };
+}
+
+interface PlayerPropsColumnViewProps {
+  props: PlayerProp[];
+  selectedSport: string;
+  onAnalysisClick?: (prop: PlayerProp) => void;
+  isLoading?: boolean;
+}
+
+export function PlayerPropsColumnView({ 
+  props, 
+  selectedSport, 
+  onAnalysisClick,
+  isLoading = false 
+}: PlayerPropsColumnViewProps) {
+  const [sortBy, setSortBy] = useState('confidence');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [filterBy, setFilterBy] = useState('all');
+  const [selectedProp, setSelectedProp] = useState<PlayerProp | null>(null);
+  const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
+
+  // Format number helper
+  const formatNumber = (value: number, decimals: number = 1): string => {
+    if (value >= 1000000) {
+      return (value / 1000000).toFixed(decimals) + 'M';
+    }
+    if (value >= 1000) {
+      return (value / 1000).toFixed(decimals) + 'K';
+    }
+    return value.toFixed(decimals);
+  };
+
+  const formatOdds = (odds: number): string => {
+    if (odds > 0) return `+${odds}`;
+    return odds.toString();
+  };
+
+  const formatPercentage = (value: number): string => {
+    return `${(value * 100).toFixed(1)}%`;
+  };
+
+  // Filter and sort props
+  const filteredAndSortedProps = props
+    .filter(prop => {
+      if (filterBy === 'all') return true;
+      if (filterBy === 'over') return prop.aiPrediction?.recommended === 'over';
+      if (filterBy === 'under') return prop.aiPrediction?.recommended === 'under';
+      if (filterBy === 'high-confidence') return (prop.confidence || 0) > 0.7;
+      return true;
+    })
+    .sort((a, b) => {
+      let aValue = 0;
+      let bValue = 0;
+
+      switch (sortBy) {
+        case 'confidence':
+          aValue = a.confidence || 0;
+          bValue = b.confidence || 0;
+          break;
+        case 'expectedValue':
+          aValue = a.expectedValue || 0;
+          bValue = b.expectedValue || 0;
+          break;
+        case 'line':
+          aValue = a.line;
+          bValue = b.line;
+          break;
+        case 'overOdds':
+          aValue = a.overOdds;
+          bValue = b.overOdds;
+          break;
+        case 'playerName':
+          aValue = a.playerName.localeCompare(b.playerName);
+          bValue = 0;
+          break;
+        default:
+          aValue = a.confidence || 0;
+          bValue = b.confidence || 0;
+      }
+
+      if (sortBy === 'playerName') {
+        return sortOrder === 'asc' ? aValue : -aValue;
+      }
+
+      return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+    });
+
+  const handlePropClick = (prop: PlayerProp) => {
+    setSelectedProp(prop);
+    setIsAnalysisOpen(true);
+    if (onAnalysisClick) {
+      onAnalysisClick(prop);
+    }
+  };
+
+  const getConfidenceColor = (confidence: number) => {
+    if (confidence >= 0.8) return 'text-green-400';
+    if (confidence >= 0.6) return 'text-yellow-400';
+    return 'text-red-400';
+  };
+
+  const getEVColor = (ev: number) => {
+    if (ev > 0.1) return 'text-green-400';
+    if (ev > 0) return 'text-yellow-400';
+    return 'text-red-400';
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-slate-100">Player Props - {selectedSport.toUpperCase()}</h2>
+          <div className="flex items-center space-x-4">
+            <div className="h-10 w-32 bg-slate-800/60 rounded-lg animate-pulse" />
+            <div className="h-10 w-24 bg-slate-800/60 rounded-lg animate-pulse" />
+            <div className="h-10 w-20 bg-slate-800/60 rounded-lg animate-pulse" />
+          </div>
+        </div>
+        <div className="space-y-3">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="h-16 bg-slate-800/60 rounded-lg animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header with Controls */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <h2 className="text-2xl font-bold text-slate-100">
+          Player Props - {selectedSport.toUpperCase()}
+        </h2>
+        
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Filter Dropdown */}
+          <Select value={filterBy} onValueChange={setFilterBy}>
+            <SelectTrigger className="w-40 bg-slate-800/60 border-slate-600/60 text-slate-200">
+              <Filter className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Filter" />
+            </SelectTrigger>
+            <SelectContent className="bg-slate-800 border-slate-600">
+              <SelectItem value="all" className="text-slate-200">All Props</SelectItem>
+              <SelectItem value="over" className="text-slate-200">Over Picks</SelectItem>
+              <SelectItem value="under" className="text-slate-200">Under Picks</SelectItem>
+              <SelectItem value="high-confidence" className="text-slate-200">High Confidence</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Sort Dropdown */}
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-40 bg-slate-800/60 border-slate-600/60 text-slate-200">
+              <SortAsc className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent className="bg-slate-800 border-slate-600">
+              <SelectItem value="confidence" className="text-slate-200">Confidence</SelectItem>
+              <SelectItem value="expectedValue" className="text-slate-200">Expected Value</SelectItem>
+              <SelectItem value="line" className="text-slate-200">Line</SelectItem>
+              <SelectItem value="overOdds" className="text-slate-200">Over Odds</SelectItem>
+              <SelectItem value="playerName" className="text-slate-200">Player Name</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Sort Order Toggle */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+            className="bg-slate-800/60 border-slate-600/60 text-slate-200 hover:bg-slate-700/60"
+          >
+            {sortOrder === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
+          </Button>
+        </div>
+      </div>
+
+      {/* Column Headers */}
+      <div className="grid grid-cols-12 gap-4 px-4 py-2 bg-slate-900/60 rounded-lg border border-slate-700/60">
+        <div className="col-span-3 text-sm font-semibold text-slate-300">Player</div>
+        <div className="col-span-2 text-sm font-semibold text-slate-300">Prop</div>
+        <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">Line</div>
+        <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">Over</div>
+        <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">Under</div>
+        <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">Confidence</div>
+        <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">EV</div>
+        <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">Prediction</div>
+        <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">Action</div>
+      </div>
+
+      {/* Props List */}
+      <div className="space-y-2">
+        {filteredAndSortedProps.map((prop) => (
+          <Card
+            key={prop.id}
+            className="bg-slate-900/60 border-slate-700/60 hover:bg-slate-800/60 transition-colors duration-200 cursor-pointer group"
+            onClick={() => handlePropClick(prop)}
+          >
+            <CardContent className="p-4">
+              <div className="grid grid-cols-12 gap-4 items-center">
+                {/* Player Info */}
+                <div className="col-span-3 flex items-center space-x-3">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-slate-200 font-bold text-sm">
+                    {prop.playerName.split(' ').map(n => n[0]).join('')}
+                  </div>
+                  <div>
+                    <div className="font-semibold text-slate-100 text-sm">
+                      {prop.playerName}
+                    </div>
+                    <div className="text-xs text-slate-400">
+                      {prop.teamAbbr} vs {prop.opponentAbbr}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Prop Type */}
+                <div className="col-span-2">
+                  <div className="text-sm font-medium text-slate-200">
+                    {prop.propType}
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    {new Date(prop.gameDate).toLocaleDateString()} {prop.gameTime}
+                  </div>
+                </div>
+
+                {/* Line */}
+                <div className="col-span-1 text-center">
+                  <div className="text-lg font-bold text-slate-100">
+                    {formatNumber(prop.line, 1)}
+                  </div>
+                </div>
+
+                {/* Over Odds */}
+                <div className="col-span-1 text-center">
+                  <div className="text-sm font-semibold text-green-300">
+                    {formatOdds(prop.overOdds)}
+                  </div>
+                </div>
+
+                {/* Under Odds */}
+                <div className="col-span-1 text-center">
+                  <div className="text-sm font-semibold text-red-300">
+                    {formatOdds(prop.underOdds)}
+                  </div>
+                </div>
+
+                {/* Confidence */}
+                <div className="col-span-1 text-center">
+                  <div className={cn(
+                    "text-sm font-semibold",
+                    getConfidenceColor(prop.confidence || 0)
+                  )}>
+                    {prop.confidence ? formatPercentage(prop.confidence) : 'N/A'}
+                  </div>
+                </div>
+
+                {/* Expected Value */}
+                <div className="col-span-1 text-center">
+                  <div className={cn(
+                    "text-sm font-semibold",
+                    getEVColor(prop.expectedValue || 0)
+                  )}>
+                    {prop.expectedValue ? (prop.expectedValue > 0 ? '+' : '') + formatPercentage(prop.expectedValue) : 'N/A'}
+                  </div>
+                </div>
+
+                {/* AI Prediction */}
+                <div className="col-span-1 text-center">
+                  {prop.aiPrediction ? (
+                    <Badge 
+                      className={cn(
+                        "text-xs font-semibold",
+                        prop.aiPrediction.recommended === 'over' 
+                          ? "bg-green-600/20 text-green-300 border-green-500/40"
+                          : "bg-red-600/20 text-red-300 border-red-500/40"
+                      )}
+                    >
+                      {prop.aiPrediction.recommended.toUpperCase()}
+                    </Badge>
+                  ) : (
+                    <span className="text-xs text-slate-500">N/A</span>
+                  )}
+                </div>
+
+                {/* Action Button */}
+                <div className="col-span-1 text-center">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-slate-400 hover:text-slate-200 hover:bg-slate-700/60 opacity-0 group-hover:opacity-100 transition-all duration-200"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePropClick(prop);
+                    }}
+                  >
+                    <BarChart3 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Empty State */}
+      {filteredAndSortedProps.length === 0 && (
+        <div className="text-center py-12">
+          <div className="text-slate-400 text-lg mb-2">No props found</div>
+          <div className="text-slate-500 text-sm">Try adjusting your filters or check back later</div>
+        </div>
+      )}
+
+      {/* Analysis Overlay */}
+      {selectedProp && (
+        <AnalysisOverlay3D
+          prop={selectedProp}
+          isOpen={isAnalysisOpen}
+          onClose={() => {
+            setIsAnalysisOpen(false);
+            setSelectedProp(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
