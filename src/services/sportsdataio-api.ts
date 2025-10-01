@@ -384,22 +384,22 @@ class SportsDataIOAPI {
       const props: PlayerProp[] = data
         .filter(item => item && item.PlayerID && item.Name && item.Description)
         .map(item => ({
-          id: `${item.PlayerID}_${item.GameID}_${item.StatType}`,
+          id: `${item.PlayerID}_${item.ScoreID}_${item.Description}`,
           playerId: item.PlayerID?.toString() || '',
           playerName: item.Name,
           team: item.Team,
-          teamAbbr: item.TeamAbbr || this.getTeamAbbreviation(item.Team),
+          teamAbbr: item.Team || this.getTeamAbbreviation(item.Team),
           opponent: item.Opponent,
-          opponentAbbr: item.OpponentAbbr || this.getTeamAbbreviation(item.Opponent),
-          gameId: item.GameID?.toString(),
+          opponentAbbr: item.Opponent || this.getTeamAbbreviation(item.Opponent),
+          gameId: item.ScoreID?.toString(),
           sport: sport.toUpperCase(),
-          propType: this.mapStatTypeToPropType(item.StatType),
+          propType: this.mapStatTypeToPropType(item.Description),
           line: parseFloat(item.OverUnder) || 0,
           overOdds: parseInt(item.OverPayout) || -110,
           underOdds: parseInt(item.UnderPayout) || -110,
-          gameDate: item.GameDate || item.DateTime,
+          gameDate: item.DateTime,
           gameTime: item.DateTime,
-          headshotUrl: item.PhotoUrl || '',
+          headshotUrl: '',
           confidence: this.generateConfidence(),
           expectedValue: this.generateExpectedValue(),
           recentForm: 'average',
@@ -436,31 +436,29 @@ class SportsDataIOAPI {
 
   private mapStatTypeToPropType(statType: string): string {
     const mappings: { [key: string]: string } = {
-      // NFL
-      'PassingYards': 'Passing Yards',
-      'RushingYards': 'Rushing Yards',
-      'ReceivingYards': 'Receiving Yards',
-      'PassingTouchdowns': 'Passing TDs',
-      'RushingTouchdowns': 'Rushing TDs',
-      'ReceivingTouchdowns': 'Receiving TDs',
-      'PassingCompletions': 'Passing Completions',
-      'PassingAttempts': 'Passing Attempts',
+      // NFL - based on actual API response
+      'Receiving Yards': 'Receiving Yards',
+      'Total Yards': 'Total Yards',
+      'Fantasy Points': 'Fantasy Points',
+      'Fantasy Points PPR': 'Fantasy Points PPR',
+      'Rushing Attempts': 'Rush Attempts',
+      'Rushing Yards': 'Rushing Yards',
       'Receptions': 'Receptions',
       
       // MLB
       'Hits': 'Hits',
-      'HomeRuns': 'Home Runs',
+      'Home Runs': 'Home Runs',
       'RBIs': 'RBIs',
       'Strikeouts': 'Strikeouts',
       'Runs': 'Runs',
-      'TotalBases': 'Total Bases',
-      'StolenBases': 'Stolen Bases',
+      'Total Bases': 'Total Bases',
+      'Stolen Bases': 'Stolen Bases',
       'Walks': 'Walks',
-      'PitchingStrikeouts': 'Pitching Strikeouts',
-      'PitchingWalks': 'Pitching Walks',
-      'PitchingHitsAllowed': 'Pitching Hits Allowed',
-      'PitchingEarnedRuns': 'Pitching Earned Runs',
-      'PitchingInnings': 'Pitching Innings',
+      'Pitching Strikeouts': 'Pitching Strikeouts',
+      'Pitching Walks': 'Pitching Walks',
+      'Pitching Hits Allowed': 'Pitching Hits Allowed',
+      'Pitching Earned Runs': 'Pitching Earned Runs',
+      'Pitching Innings': 'Pitching Innings',
       
       // NBA
       'Points': 'Points',
@@ -468,9 +466,9 @@ class SportsDataIOAPI {
       'Assists': 'Assists',
       'Steals': 'Steals',
       'Blocks': 'Blocks',
-      'ThreePointersMade': '3-Pointers Made',
-      'FreeThrowsMade': 'Free Throws Made',
-      'FieldGoalsMade': 'Field Goals Made',
+      '3-Pointers Made': '3-Pointers Made',
+      'Free Throws Made': 'Free Throws Made',
+      'Field Goals Made': 'Field Goals Made',
     };
     
     return mappings[statType] || statType;

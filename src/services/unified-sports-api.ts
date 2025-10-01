@@ -91,6 +91,10 @@ class UnifiedSportsAPI {
       const sportsDataIOProps = await sportsDataIOAPI.getPlayerProps(sport, season, week);
       logAPI('UnifiedSportsAPI', `Retrieved ${sportsDataIOProps.length} props from SportsDataIO`);
 
+      // Filter for current and future games only
+      const filteredProps = this.filterCurrentAndFutureGames(sportsDataIOProps);
+      logAPI('UnifiedSportsAPI', `Filtered to ${filteredProps.length} current/future game props`);
+
       // Get enhanced odds from TheOddsAPI
       let oddsAPIProps: PlayerPropOdds[] = [];
       try {
@@ -100,8 +104,8 @@ class UnifiedSportsAPI {
         logWarning('UnifiedSportsAPI', 'Failed to get odds from TheOddsAPI, using SportsDataIO odds only:', error);
       }
 
-      // Combine and enhance the data
-      const enhancedProps: PlayerProp[] = sportsDataIOProps.map(prop => {
+      // Combine and enhance the data with date formatting
+      const enhancedProps: PlayerProp[] = filteredProps.map(prop => {
         // Try to find matching odds from TheOddsAPI
         const matchingOdds = oddsAPIProps.find(odds => 
           odds.playerName.toLowerCase().includes(prop.playerName.toLowerCase()) &&
@@ -116,12 +120,14 @@ class UnifiedSportsAPI {
           ...prop,
           overOdds: finalOverOdds,
           underOdds: finalUnderOdds,
+          gameDate: this.formatDate(prop.gameDate), // Format date to M/D/YYYY
+          gameTime: this.formatTime(prop.gameTime), // Format time to readable format
           // Add metadata about data source
           confidence: matchingOdds ? Math.min(prop.confidence! + 0.1, 1.0) : prop.confidence, // Boost confidence if we have odds data
         };
       });
 
-      logSuccess('UnifiedSportsAPI', `Enhanced ${enhancedProps.length} player props with dual API data`);
+      logSuccess('UnifiedSportsAPI', `Enhanced ${enhancedProps.length} player props with dual API data (current/future games only)`);
       return enhancedProps;
 
     } catch (error) {
@@ -189,6 +195,61 @@ class UnifiedSportsAPI {
     sportsDataIOAPI.clearCache();
     theOddsAPI.clearCache();
     logInfo('UnifiedSportsAPI', 'Cache cleared for both APIs');
+  }
+
+  // Filter props to only include current and future games
+  private filterCurrentAndFutureGames(props: SportsDataIOPlayerProp[]): SportsDataIOPlayerProp[] {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    return props.filter(prop => {
+      if (!prop.gameDate) return false;
+      
+      try {
+        const gameDate = new Date(prop.gameDate);
+        const gameDay = new Date(gameDate.getFullYear(), gameDate.getMonth(), gameDate.getDate());
+        
+        // Include games from today onwards (current and future)
+        return gameDay >= today;
+      } catch (error) {
+        logWarning('UnifiedSportsAPI', `Invalid game date format: ${prop.gameDate}`, error);
+        return false;
+      }
+    });
+  }
+
+  // Format date to M/D/YYYY format
+  private formatDate(dateString: string): string {
+    if (!dateString) return '';
+    
+    try {
+      const date = new Date(dateString);
+      const month = date.getMonth() + 1; // getMonth() returns 0-11
+      const day = date.getDate();
+      const year = date.getFullYear();
+      
+      return `${month}/${day}/${year}`;
+    } catch (error) {
+      logWarning('UnifiedSportsAPI', `Invalid date format: ${dateString}`, error);
+      return dateString;
+    }
+  }
+
+  // Format time to readable format
+  private formatTime(timeString: string): string {
+    if (!timeString) return '';
+    
+    try {
+      const date = new Date(timeString);
+      return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch (error) {
+      logWarning('UnifiedSportsAPI', `Invalid time format: ${timeString}`, error);
+      return timeString;
+    }
   }
 }
 
