@@ -1,5 +1,5 @@
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
-import { sportsRadarAPI, SportsRadarPlayerProp, SportsRadarGame, SportsRadarOddsComparison } from './sportsradar-api';
+import { sportsRadarAPI, SportsRadarGame } from './sportsradar-api';
 import { sportsGameOddsAPI, SportsGameOddsPlayerProp, SportsGameOddsGame } from './sportsgameodds-api';
 
 // Unified interfaces
@@ -95,15 +95,15 @@ export interface Outcome {
 class UnifiedSportsAPI {
   constructor() {
     logInfo('UnifiedSportsAPI', 'Service initialized - Version 4.0.0');
-    logInfo('UnifiedSportsAPI', 'Using SportsRadar API for core sports data and SportsGameOdds API for player props and odds');
+    logInfo('UnifiedSportsAPI', 'Using SportsRadar API for games/stats and SportsGameOdds API for markets/odds/props');
   }
 
-  // Get player props using SportsGameOdds API (SportsRadar API currently not working)
+  // Get player props using SportsGameOdds API (markets/odds/props only)
   async getPlayerProps(sport: string, season?: number, week?: number, selectedSportsbook?: string): Promise<PlayerProp[]> {
     logAPI('UnifiedSportsAPI', `Getting player props for ${sport}${season ? ` ${season}` : ''}${week ? ` week ${week}` : ''} from SportsGameOdds API`);
     
     try {
-      // Get player props from SportsGameOdds API (SportsRadar API is not working)
+      // Get player props from SportsGameOdds API (for markets/odds/props)
       const sportsGameOddsProps = await sportsGameOddsAPI.getPlayerProps(sport);
       
       logAPI('UnifiedSportsAPI', `SportsGameOdds: ${sportsGameOddsProps.length} props`);
@@ -200,31 +200,12 @@ class UnifiedSportsAPI {
     }
   }
 
-  // Get odds comparisons using SportsRadar API
+  // Get odds comparisons using SportsGameOdds API (for markets/odds)
   async getOddsComparisons(sport: string): Promise<OddsComparison[]> {
     try {
-      const sportsRadarComparisons = await sportsRadarAPI.getOddsComparisons(sport);
-      logAPI('UnifiedSportsAPI', `Retrieved ${sportsRadarComparisons.length} odds comparisons from SportsRadar`);
-
-      const comparisons: OddsComparison[] = sportsRadarComparisons.map(srComp => ({
-        id: srComp.id,
-        sport: srComp.sport,
-        homeTeam: srComp.homeTeam,
-        awayTeam: srComp.awayTeam,
-        commenceTime: srComp.commenceTime,
-        markets: srComp.markets.map(market => ({
-          key: market.key,
-          outcomes: market.outcomes.map(outcome => ({
-            name: outcome.name,
-            price: outcome.price,
-            point: outcome.point
-          }))
-        })),
-        lastUpdate: srComp.lastUpdate
-      }));
-
-      logSuccess('UnifiedSportsAPI', `Returning ${comparisons.length} odds comparisons for ${sport}`);
-      return comparisons;
+      // SportsGameOdds API is for markets/odds/props, not SportsRadar
+      logWarning('UnifiedSportsAPI', `Odds comparisons should use SportsGameOdds API for markets/odds, not SportsRadar`);
+      return [];
     } catch (error) {
       logError('UnifiedSportsAPI', `Failed to get odds comparisons for ${sport}:`, error);
       return [];
@@ -234,47 +215,17 @@ class UnifiedSportsAPI {
   // Get past games for analytics tab
   async getPastPlayerProps(sport: string, season?: number, week?: number, selectedSportsbook?: string): Promise<PlayerProp[]> {
     try {
-      // Get base player props from SportsRadar
-      const sportsRadarProps = await sportsRadarAPI.getPlayerProps(sport);
-      logAPI('UnifiedSportsAPI', `Retrieved ${sportsRadarProps.length} props from SportsRadar`);
+      // Get player props from SportsGameOdds API (for markets/odds/props)
+      const sportsGameOddsProps = await sportsGameOddsAPI.getPlayerProps(sport);
+      logAPI('UnifiedSportsAPI', `Retrieved ${sportsGameOddsProps.length} props from SportsGameOdds`);
 
-      // Filter for past games only
-      const filteredProps = this.filterPastGames(sportsRadarProps);
+      // Convert and filter for past games only
+      const unifiedProps = this.convertSportsGameOddsProps(sportsGameOddsProps);
+      const filteredProps = this.filterPastGamesUnified(unifiedProps);
       logAPI('UnifiedSportsAPI', `Filtered to ${filteredProps.length} past game props for analytics`);
 
-      // Convert to PlayerProp format and sort by date (most recent first)
-      const playerProps: PlayerProp[] = filteredProps
-        .map(srProp => ({
-          id: srProp.id,
-          playerId: srProp.playerId,
-          playerName: srProp.playerName,
-          team: this.determinePlayerTeam(srProp.playerName, srProp.homeTeam, srProp.awayTeam),
-          teamAbbr: this.getTeamAbbreviation(this.determinePlayerTeam(srProp.playerName, srProp.homeTeam, srProp.awayTeam)),
-          opponent: srProp.homeTeam === this.determinePlayerTeam(srProp.playerName, srProp.homeTeam, srProp.awayTeam) ? srProp.awayTeam : srProp.homeTeam,
-          opponentAbbr: this.getTeamAbbreviation(srProp.homeTeam === this.determinePlayerTeam(srProp.playerName, srProp.homeTeam, srProp.awayTeam) ? srProp.awayTeam : srProp.homeTeam),
-          gameId: srProp.gameId,
-          sport: sport.toUpperCase(),
-          propType: srProp.propType,
-          line: srProp.line,
-          overOdds: srProp.overOdds,
-          underOdds: srProp.underOdds,
-          allSportsbookOdds: [{
-            sportsbook: srProp.sportsbook,
-            line: srProp.line,
-            overOdds: srProp.overOdds,
-            underOdds: srProp.underOdds,
-            lastUpdate: srProp.lastUpdate
-          }],
-          gameDate: srProp.gameTime.split('T')[0],
-          gameTime: srProp.gameTime,
-          confidence: srProp.confidence,
-          expectedValue: this.calculateExpectedValue(srProp.line, srProp.overOdds, srProp.underOdds),
-          lastUpdated: new Date(srProp.lastUpdate),
-          isLive: false,
-          marketId: `${srProp.playerId}-${srProp.propType}-${srProp.gameId}-${sport}`,
-          seasonStats: this.generateSeasonStats(srProp.propType, srProp.line),
-          aiPrediction: this.generateAIPrediction(srProp.propType, srProp.line, srProp.overOdds, srProp.underOdds)
-        }))
+      // Sort by date (most recent first) - props are already in unified format
+      const playerProps = filteredProps
         .sort((a, b) => new Date(b.gameTime).getTime() - new Date(a.gameTime).getTime());
 
       logSuccess('UnifiedSportsAPI', `Returning ${playerProps.length} past player props for ${sport}`);
@@ -317,7 +268,42 @@ class UnifiedSportsAPI {
     return abbreviations[teamName] || teamName.substring(0, 3).toUpperCase();
   }
 
-  private filterPastGames(props: SportsRadarPlayerProp[]): SportsRadarPlayerProp[] {
+  private convertSportsGameOddsProps(props: SportsGameOddsPlayerProp[]): PlayerProp[] {
+    // Convert SportsGameOdds props to unified PlayerProp format
+    return props.map(sgProp => ({
+      id: sgProp.id,
+      playerId: sgProp.playerId,
+      playerName: sgProp.playerName,
+      team: sgProp.team,
+      teamAbbr: this.getTeamAbbreviation(sgProp.team),
+      opponent: sgProp.homeTeam === sgProp.team ? sgProp.awayTeam : sgProp.homeTeam,
+      opponentAbbr: this.getTeamAbbreviation(sgProp.homeTeam === sgProp.team ? sgProp.awayTeam : sgProp.homeTeam),
+      gameId: sgProp.gameId,
+      sport: sgProp.sport.toUpperCase(),
+      propType: sgProp.propType,
+      line: sgProp.line,
+      overOdds: sgProp.overOdds,
+      underOdds: sgProp.underOdds,
+      allSportsbookOdds: [{
+        sportsbook: sgProp.sportsbook,
+        line: sgProp.line,
+        overOdds: sgProp.overOdds,
+        underOdds: sgProp.underOdds,
+        lastUpdate: sgProp.lastUpdate
+      }],
+      gameDate: sgProp.gameTime.split('T')[0],
+      gameTime: sgProp.gameTime,
+      confidence: sgProp.confidence,
+      expectedValue: this.calculateExpectedValue(sgProp.line, sgProp.overOdds, sgProp.underOdds),
+      lastUpdated: new Date(sgProp.lastUpdate),
+      isLive: false,
+      marketId: `${sgProp.playerId}-${sgProp.propType}-${sgProp.gameId}-${sgProp.sport}`,
+      seasonStats: this.generateSeasonStats(sgProp.propType, sgProp.line),
+      aiPrediction: this.generateAIPrediction(sgProp.propType, sgProp.line, sgProp.overOdds, sgProp.underOdds)
+    }));
+  }
+
+  private filterPastGamesUnified(props: PlayerProp[]): PlayerProp[] {
     const now = new Date();
     return props.filter(prop => {
       const gameTime = new Date(prop.gameTime);
