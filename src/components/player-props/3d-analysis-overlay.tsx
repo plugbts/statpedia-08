@@ -80,6 +80,12 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
   const [animationSpeed, setAnimationSpeed] = useState(1);
   const [graphData, setGraphData] = useState<any[]>([]);
   const [currentDataIndex, setCurrentDataIndex] = useState(0);
+  const [animatedBars, setAnimatedBars] = useState<boolean[]>([]);
+  
+  // Voting state
+  const [userVote, setUserVote] = useState<'over' | 'under' | null>(null);
+  const [voteCounts, setVoteCounts] = useState({ over: 0, under: 0 });
+  const [hasVoted, setHasVoted] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -134,6 +140,13 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
       }
 
       setGraphData(data);
+      setAnimatedBars(new Array(count).fill(false));
+      
+      // Initialize voting counts
+      setVoteCounts({
+        over: Math.floor(Math.random() * 200) + 50,
+        under: Math.floor(Math.random() * 150) + 30
+      });
     };
 
     generateData();
@@ -144,11 +157,25 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
     if (!isPlaying || graphData.length === 0) return;
 
     const interval = setInterval(() => {
-      setCurrentDataIndex(prev => (prev + 1) % graphData.length);
+      setCurrentDataIndex(prev => {
+        const nextIndex = (prev + 1) % graphData.length;
+        setAnimatedBars(prevBars => {
+          const newBars = [...prevBars];
+          newBars[nextIndex] = true;
+          return newBars;
+        });
+        return nextIndex;
+      });
     }, 1000 / animationSpeed);
 
     return () => clearInterval(interval);
   }, [isPlaying, graphData.length, animationSpeed]);
+
+  // Reset animation when data changes
+  useEffect(() => {
+    setAnimatedBars(new Array(graphData.length).fill(false));
+    setCurrentDataIndex(0);
+  }, [graphData.length]);
 
   if (!prop) return null;
 
@@ -201,6 +228,23 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
 
   const risk = getRiskLevel(prop.confidence || 0, prop.expectedValue || 0);
 
+  const handleVote = (vote: 'over' | 'under') => {
+    if (hasVoted) return;
+    
+    setUserVote(vote);
+    setHasVoted(true);
+    setVoteCounts(prev => ({
+      over: vote === 'over' ? prev.over + 1 : prev.over,
+      under: vote === 'under' ? prev.under + 1 : prev.under
+    }));
+  };
+
+  const getVotePercentage = (type: 'over' | 'under') => {
+    const total = voteCounts.over + voteCounts.under;
+    if (total === 0) return 0;
+    return (voteCounts[type] / total) * 100;
+  };
+
   return (
     <>
       <style jsx>{`
@@ -213,6 +257,22 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
         @keyframes float {
           0%, 100% { transform: translateY(0px); }
           50% { transform: translateY(-3px); }
+        }
+        @keyframes glow {
+          0%, 100% { 
+            box-shadow: 0 0 25px rgba(34, 197, 94, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+          }
+          50% { 
+            box-shadow: 0 0 35px rgba(34, 197, 94, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+          }
+        }
+        @keyframes glow-red {
+          0%, 100% { 
+            box-shadow: 0 0 25px rgba(239, 68, 68, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+          }
+          50% { 
+            box-shadow: 0 0 35px rgba(239, 68, 68, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+          }
         }
         .wave-animation {
           animation: wave 3s ease-in-out infinite;
@@ -497,13 +557,14 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
                 </div>
 
                 {/* 3D Graph Container */}
-                <div className="relative h-72 bg-gradient-to-br from-slate-950/50 to-slate-900/50 rounded-lg border border-slate-700/50 overflow-hidden">
+                <div className="relative h-96 bg-gradient-to-br from-slate-950/50 to-slate-900/50 rounded-lg border border-slate-700/50 overflow-hidden">
                   {/* 3D Graph Bars */}
                   <div className="absolute inset-0 flex items-end justify-center space-x-2 p-6">
                     {graphData.map((dataPoint, index) => {
                       const height = (dataPoint.value / Math.max(...graphData.map(d => d.value))) * 100;
-                      const isActive = index <= currentDataIndex;
+                      const isActive = animatedBars[index] || index <= currentDataIndex;
                       const isCurrent = index === currentDataIndex;
+                      const isAnimated = animatedBars[index];
                       
                       return (
                         <div
@@ -519,18 +580,23 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
                           <div
                             className={cn(
                               "relative w-8 rounded-t-lg transition-all duration-1000 ease-out",
-                              "bg-gradient-to-t from-slate-700 to-slate-500",
                               "shadow-lg hover:shadow-xl",
                               isCurrent && "ring-2 ring-blue-400/50 shadow-blue-400/20",
-                              dataPoint.hit ? "from-green-600 to-green-400" : "from-red-600 to-red-400"
+                              dataPoint.hit ? "bg-gradient-to-t from-green-600 to-green-400" : "bg-gradient-to-t from-red-600 to-red-400",
+                              isAnimated && "animate-pulse"
                             )}
                             style={{
                               height: `${height}%`,
                               minHeight: '20px',
                               transform: isCurrent ? 'scale(1.1) translateY(-5px)' : 'scale(1)',
-                              boxShadow: isCurrent 
-                                ? '0 0 20px rgba(59, 130, 246, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
-                                : 'inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+                              boxShadow: isAnimated 
+                                ? dataPoint.hit 
+                                  ? '0 0 25px rgba(34, 197, 94, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
+                                  : '0 0 25px rgba(239, 68, 68, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
+                                : isCurrent 
+                                  ? '0 0 20px rgba(59, 130, 246, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
+                                  : 'inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+                              animation: isAnimated ? (dataPoint.hit ? 'glow 2s ease-in-out infinite' : 'glow-red 2s ease-in-out infinite') : 'none'
                             }}
                           >
                             {/* Bar Value */}
@@ -719,28 +785,113 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
                 </div>
               </div>
 
-              {/* Live Predictions */}
+              {/* Interactive Voting */}
               <div className="bg-slate-900/60 rounded-xl p-6 border border-slate-700/60">
                 <h3 className="text-xl font-bold text-white mb-4 flex items-center">
                   <Activity className="h-5 w-5 mr-2 text-blue-400" />
-                  Live Predictions
+                  Community Predictions
                 </h3>
+                
+                {/* Voting Buttons */}
+                <div className="mb-6">
+                  <div className="flex items-center justify-center space-x-4">
+                    <Button
+                      onClick={() => handleVote('over')}
+                      disabled={hasVoted}
+                      className={cn(
+                        "px-8 py-3 text-lg font-semibold transition-all duration-300",
+                        userVote === 'over' 
+                          ? "bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-500/25"
+                          : hasVoted 
+                            ? "bg-slate-700 text-slate-400 cursor-not-allowed"
+                            : "bg-green-600/20 hover:bg-green-600/30 text-green-300 border border-green-500/40 hover:shadow-lg hover:shadow-green-500/25"
+                      )}
+                    >
+                      <TrendingUp className="h-5 w-5 mr-2" />
+                      OVER {formatNumber(prop.line, 1)}
+                    </Button>
+                    
+                    <div className="text-slate-400 font-semibold">VS</div>
+                    
+                    <Button
+                      onClick={() => handleVote('under')}
+                      disabled={hasVoted}
+                      className={cn(
+                        "px-8 py-3 text-lg font-semibold transition-all duration-300",
+                        userVote === 'under' 
+                          ? "bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-500/25"
+                          : hasVoted 
+                            ? "bg-slate-700 text-slate-400 cursor-not-allowed"
+                            : "bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/40 hover:shadow-lg hover:shadow-red-500/25"
+                      )}
+                    >
+                      <TrendingDown className="h-5 w-5 mr-2" />
+                      UNDER {formatNumber(prop.line, 1)}
+                    </Button>
+                  </div>
+                  
+                  {hasVoted && (
+                    <div className="text-center mt-4">
+                      <div className="text-green-400 font-semibold flex items-center justify-center">
+                        <Check className="h-4 w-4 mr-2" />
+                        Vote submitted! Your prediction will be tracked.
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Vote Results */}
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="text-center p-4 bg-slate-800/60 rounded-lg">
-                      <div className="text-2xl font-bold text-green-400">85%</div>
-                      <div className="text-sm text-gray-400">Over Votes</div>
+                      <div className="text-2xl font-bold text-green-400">
+                        {getVotePercentage('over').toFixed(1)}%
+                      </div>
+                      <div className="text-sm text-slate-400">Over Votes</div>
+                      <div className="text-xs text-slate-500">{voteCounts.over} votes</div>
                     </div>
                     <div className="text-center p-4 bg-slate-800/60 rounded-lg">
-                      <div className="text-2xl font-bold text-red-400">15%</div>
-                      <div className="text-sm text-gray-400">Under Votes</div>
+                      <div className="text-2xl font-bold text-red-400">
+                        {getVotePercentage('under').toFixed(1)}%
+                      </div>
+                      <div className="text-sm text-slate-400">Under Votes</div>
+                      <div className="text-xs text-slate-500">{voteCounts.under} votes</div>
                     </div>
                     <div className="text-center p-4 bg-slate-800/60 rounded-lg">
-                      <div className="text-2xl font-bold text-blue-400">247</div>
-                      <div className="text-sm text-gray-400">Total Votes</div>
+                      <div className="text-2xl font-bold text-blue-400">
+                        {voteCounts.over + voteCounts.under}
+                      </div>
+                      <div className="text-sm text-slate-400">Total Votes</div>
+                      <div className="text-xs text-slate-500">Live count</div>
                     </div>
                   </div>
-                  <div className="text-center text-sm text-gray-400">
+                  
+                  {/* Progress Bars */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-green-400 font-medium">Over</span>
+                      <span className="text-slate-400">{getVotePercentage('over').toFixed(1)}%</span>
+                    </div>
+                    <div className="w-full bg-slate-700 rounded-full h-3">
+                      <div 
+                        className="bg-gradient-to-r from-green-500 to-green-400 h-3 rounded-full transition-all duration-500"
+                        style={{ width: `${getVotePercentage('over')}%` }}
+                      />
+                    </div>
+                    
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-red-400 font-medium">Under</span>
+                      <span className="text-slate-400">{getVotePercentage('under').toFixed(1)}%</span>
+                    </div>
+                    <div className="w-full bg-slate-700 rounded-full h-3">
+                      <div 
+                        className="bg-gradient-to-r from-red-500 to-red-400 h-3 rounded-full transition-all duration-500"
+                        style={{ width: `${getVotePercentage('under')}%` }}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="text-center text-sm text-slate-400">
                     Last updated: {new Date().toLocaleTimeString()}
                   </div>
                 </div>
