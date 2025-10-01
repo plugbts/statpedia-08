@@ -477,7 +477,7 @@ class SportsGameOddsAPI {
       const propType = this.extractPropTypeFromStatID(statID);
 
       // Extract line and odds
-      const line = odd.fairOverUnder || odd.fairSpread || odd.line || 0;
+      const line = odd.fairOverUnder || odd.bookOverUnder || odd.fairSpread || odd.line || 0;
       const overOdds = sideID === 'over' ? odd.fairOdds : -110;
       const underOdds = sideID === 'under' ? odd.fairOdds : -110;
 
@@ -633,7 +633,11 @@ class SportsGameOddsAPI {
       'defense_combinedTackles': 'Combined Tackles',
       'defense_sacks': 'Sacks',
       'fantasyScore': 'Fantasy Score',
-      'passing+rushing_yards': 'Passing + Rushing Yards'
+      'passing+rushing_yards': 'Passing + Rushing Yards',
+      // Additional stat types found in actual data
+      'touchdowns': 'Touchdowns',
+      'firstTouchdown': 'First Touchdown',
+      'lastTouchdown': 'Last Touchdown'
     };
     
     return statMap[statID.toLowerCase()] || statID.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
@@ -675,7 +679,9 @@ class SportsGameOddsAPI {
       'passing_completions', 'passing_attempts', 'passing_longestCompletion',
       'rushing_attempts', 'rushing_longestRush', 'fieldGoals_made', 
       'extraPoints_kicksMade', 'kicking_totalPoints', 'defense_combinedTackles',
-      'defense_sacks', 'fantasyScore', 'passing+rushing_yards'
+      'defense_sacks', 'fantasyScore', 'passing+rushing_yards',
+      // Additional stat types found in actual data
+      'touchdowns', 'firstTouchdown', 'lastTouchdown'
     ];
     
     const isPlayerStat = playerStats.includes(statID.toLowerCase());
