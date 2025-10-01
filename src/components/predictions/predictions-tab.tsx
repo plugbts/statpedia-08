@@ -127,7 +127,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
   const [shouldShowPredictions, setShouldShowPredictions] = useState(true);
   const [offseasonMessage, setOffseasonMessage] = useState('');
   const [seasonLoading, setSeasonLoading] = useState(true);
-  const [selectedPrediction, setSelectedPrediction] = useState<AdvancedPrediction | null>(null);
+  const [selectedPrediction, setSelectedPrediction] = useState<EnhancedPlayerProp | null>(null);
   const [showPredictionModal, setShowPredictionModal] = useState(false);
   const { toast } = useToast();
 
@@ -451,7 +451,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
     ));
   };
 
-  const handlePredictionClick = (prediction: AdvancedPrediction) => {
+  const handlePredictionClick = (prediction: EnhancedPlayerProp) => {
     console.log('🎯 Prediction clicked:', prediction);
     console.log('🎯 Setting selectedPrediction to:', prediction.playerName);
     console.log('🎯 Setting showPredictionModal to true');
@@ -492,7 +492,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
         comparison = a.valueRating - b.valueRating;
         break;
       case 'time':
-        comparison = a.lastUpdated.getTime() - b.lastUpdated.getTime();
+        comparison = new Date(a.lastUpdated).getTime() - new Date(b.lastUpdated).getTime();
         break;
       case 'sport':
         comparison = a.sport.localeCompare(b.sport);
@@ -824,7 +824,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
 
                 {/* Last Updated */}
                 <div className="text-xs text-muted-foreground">
-                  Updated: {prediction.lastUpdated ? prediction.lastUpdated.toLocaleTimeString() : 'Unknown'}
+                  Updated: {prediction.lastUpdated ? new Date(prediction.lastUpdated).toLocaleTimeString() : 'Unknown'}
                 </div>
               </CardContent>
             </Card>

@@ -2,6 +2,7 @@ import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/conso
 import { realTimeOddsService, OddsSnapshot, VigCalculation } from './real-time-odds-service';
 import { mlPredictionService, MLPrediction, MLFeatures } from './ml-prediction-service';
 import { unifiedSportsAPI } from './unified-sports-api';
+import { CrossReferenceAnalysis } from './cross-reference-service';
 
 // Enhanced player prop with real-time data and ML predictions
 export interface EnhancedPlayerProp {
@@ -103,6 +104,7 @@ export interface EnhancedPlayerProp {
   historicalTrends: string;
   keyInsights: string[];
   isBookmarked?: boolean;
+  crossReference?: CrossReferenceAnalysis;
   
   // Metadata
   lastUpdated: string;
@@ -280,6 +282,7 @@ class EnhancedUnifiedSportsAPI {
         historicalTrends: this.generateHistoricalTrends(baseProp),
         keyInsights: mlPrediction.featureImportance.slice(0, 3).map(f => `${f.feature}: ${f.impact} impact`),
         isBookmarked: false,
+        crossReference: null, // Will be populated by cross-reference service if needed
         
         // Enhanced AI prediction
         aiPrediction: {
