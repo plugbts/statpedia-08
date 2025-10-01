@@ -1,7 +1,20 @@
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
 
 // SportsRadar API Configuration
-const SPORTRADAR_API_KEY = 'your-sportsradar-api-key'; // Replace with actual API key
+const SPORTRADAR_API_KEYS = {
+  NFL: 'onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D',
+  NBA: 'onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D',
+  MLB: 'onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D',
+  NHL: 'onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D',
+  NCAAFB: 'onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D',
+  NCAAMB: 'onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D',
+  WNBA: 'onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D',
+  HEADSHOTS: 'onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D',
+  ODDS_COMPARISONS_PLAYER_PROPS: 'onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D',
+  ODDS_COMPARISONS_REGULAR: 'onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D',
+  ODDS_COMPARISONS_FUTURE: 'onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D'
+};
+
 const SPORTRADAR_BASE_URL = 'https://api.sportradar.com';
 
 // Cache configuration
@@ -12,9 +25,10 @@ const CACHE_DURATION = {
   BOOKMAKERS: 24 * 60 * 60 * 1000, // 24 hours
 };
 
-// Interfaces
+// SportsRadar API Interfaces
 export interface SportsRadarPlayerProp {
   id: string;
+  playerId: string;
   playerName: string;
   propType: string;
   line: number;
@@ -28,6 +42,8 @@ export interface SportsRadarPlayerProp {
   homeTeam: string;
   awayTeam: string;
   confidence: 'high' | 'medium' | 'low';
+  market: string;
+  outcome: string;
 }
 
 export interface SportsRadarGame {
@@ -37,6 +53,38 @@ export interface SportsRadarGame {
   awayTeam: string;
   commenceTime: string;
   playerProps: SportsRadarPlayerProp[];
+}
+
+export interface SportsRadarOddsComparison {
+  id: string;
+  sport: string;
+  market: string;
+  outcomes: SportsRadarOutcome[];
+  bookmakers: SportsRadarBookmaker[];
+  lastUpdate: string;
+}
+
+export interface SportsRadarOutcome {
+  id: string;
+  name: string;
+  price: number;
+  point?: number;
+  description?: string;
+}
+
+export interface SportsRadarBookmaker {
+  id: string;
+  name: string;
+  key: string;
+  markets: SportsRadarMarket[];
+  lastUpdate: string;
+}
+
+export interface SportsRadarMarket {
+  id: string;
+  key: string;
+  outcomes: SportsRadarOutcome[];
+  lastUpdate: string;
 }
 
 interface CacheEntry<T> {
@@ -64,8 +112,8 @@ class SportsRadarAPI {
   private cachedCurrentDate: string = '';
 
   constructor() {
-    logInfo('SportsRadarAPI', 'Service initialized - Version 1.0.0');
-    logInfo('SportsRadarAPI', `API Key: ${SPORTRADAR_API_KEY ? 'Present' : 'Missing'}`);
+    logInfo('SportsRadarAPI', 'Service initialized - Version 2.0.0');
+    logInfo('SportsRadarAPI', `API Keys: ${Object.keys(SPORTRADAR_API_KEYS).length} configured`);
     logInfo('SportsRadarAPI', `Base URL: ${SPORTRADAR_BASE_URL}`);
     
     this.loadUsageStats();
@@ -131,8 +179,8 @@ class SportsRadarAPI {
     return this.cachedCurrentDate;
   }
 
-  private async makeRequest<T>(endpoint: string, cacheDuration: number = CACHE_DURATION.ODDS): Promise<T> {
-    const cacheKey = endpoint;
+  private async makeRequest<T>(endpoint: string, sport: string = 'NFL', cacheDuration: number = CACHE_DURATION.ODDS): Promise<T> {
+    const cacheKey = `${endpoint}_${sport}`;
     const now = Date.now();
 
     // Check cache first
@@ -150,7 +198,9 @@ class SportsRadarAPI {
     this.saveUsageStats();
     this.resetUsageStatsDailyAndHourly();
 
-    const url = `${SPORTRADAR_BASE_URL}${endpoint}&api_key=${SPORTRADAR_API_KEY}`;
+    // Get the appropriate API key for the sport
+    const apiKey = this.getApiKeyForSport(sport);
+    const url = `${SPORTRADAR_BASE_URL}${endpoint}&api_key=${apiKey}`;
     
     logAPI('SportsRadarAPI', `Calling API: ${url}`);
     
@@ -182,6 +232,12 @@ class SportsRadarAPI {
     }
   }
 
+  // Get the appropriate API key for a sport
+  private getApiKeyForSport(sport: string): string {
+    const sportKey = sport.toUpperCase();
+    return SPORTRADAR_API_KEYS[sportKey as keyof typeof SPORTRADAR_API_KEYS] || SPORTRADAR_API_KEYS.NFL;
+  }
+
   // Map sport name to SportsRadar sport key
   private mapSportToKey(sport: string): string {
     const sportMap: { [key: string]: string } = {
@@ -193,51 +249,114 @@ class SportsRadarAPI {
     return sportMap[sport.toLowerCase()] || sport.toLowerCase();
   }
 
-  // Get player props for a specific sport
+  // Get player props using SportsRadar odds comparisons player props endpoint
   async getPlayerProps(sport: string): Promise<SportsRadarPlayerProp[]> {
     try {
       const sportKey = this.mapSportToKey(sport);
       const currentDate = this.getCurrentDate();
       
-      // SportsRadar player props endpoint
-      const endpoint = `/${sportKey}/odds/player_props/${currentDate}`;
+      // Use SportsRadar odds comparisons player props endpoint
+      const endpoint = `/oddscomparison/${sportKey}/player_props/${currentDate}`;
       
-      logAPI('SportsRadarAPI', `Fetching player props for ${sportKey} on ${currentDate}`);
+      logAPI('SportsRadarAPI', `Fetching player props odds comparisons for ${sportKey} on ${currentDate}`);
       
-      const data = await this.makeRequest<any[]>(endpoint, CACHE_DURATION.ODDS);
+      const data = await this.makeRequest<any[]>(endpoint, sport, CACHE_DURATION.ODDS);
       
       const playerProps: SportsRadarPlayerProp[] = [];
       
-      // Process the data structure from SportsRadar
-      data.forEach((game: any) => {
-        if (game.player_props && Array.isArray(game.player_props)) {
-          game.player_props.forEach((prop: any) => {
-            playerProps.push({
-              id: `${game.id}_${prop.player_id}_${prop.market}`,
-              playerName: prop.player_name,
-              propType: this.mapMarketToPropType(prop.market),
-              line: prop.line || 0,
-              overOdds: prop.over_odds || 0,
-              underOdds: prop.under_odds || 0,
-              sportsbook: 'SportsRadar',
-              sportsbookKey: 'sportsradar',
-              lastUpdate: prop.last_updated || new Date().toISOString(),
-              gameId: game.id,
-              gameTime: game.commence_time,
-              homeTeam: game.home_team,
-              awayTeam: game.away_team,
-              confidence: this.calculateConfidence(prop.over_odds, prop.under_odds)
-            });
+      // Process the odds comparison data structure from SportsRadar
+      data.forEach((comparison: any) => {
+        if (comparison.markets && Array.isArray(comparison.markets)) {
+          comparison.markets.forEach((market: any) => {
+            if (market.outcomes && Array.isArray(market.outcomes)) {
+              market.outcomes.forEach((outcome: any) => {
+                // Parse player name and prop type from outcome name
+                const playerInfo = this.parsePlayerPropOutcome(outcome.name, market.key);
+                if (playerInfo) {
+                  playerProps.push({
+                    id: `${comparison.id}_${playerInfo.playerId}_${market.key}`,
+                    playerId: playerInfo.playerId,
+                    playerName: playerInfo.playerName,
+                    propType: playerInfo.propType,
+                    line: outcome.point || 0,
+                    overOdds: outcome.price || 0,
+                    underOdds: 0, // Will be filled by matching under outcome
+                    sportsbook: 'SportsRadar',
+                    sportsbookKey: 'sportsradar',
+                    lastUpdate: comparison.last_update || new Date().toISOString(),
+                    gameId: comparison.id,
+                    gameTime: comparison.commence_time || new Date().toISOString(),
+                    homeTeam: comparison.home_team || 'N/A',
+                    awayTeam: comparison.away_team || 'N/A',
+                    confidence: this.calculateConfidence(outcome.price, outcome.price),
+                    market: market.key,
+                    outcome: outcome.name
+                  });
+                }
+              });
+            }
           });
         }
       });
 
-      logSuccess('SportsRadarAPI', `Retrieved ${playerProps.length} player props for ${sport}`);
-      return playerProps;
+      // Match over/under outcomes and calculate consensus
+      const matchedProps = this.matchOverUnderOutcomes(playerProps);
+      
+      logSuccess('SportsRadarAPI', `Retrieved ${matchedProps.length} player props for ${sport}`);
+      return matchedProps;
     } catch (error) {
       logError('SportsRadarAPI', `Failed to get player props for ${sport}:`, error);
       return [];
     }
+  }
+
+  // Parse player prop outcome name to extract player info
+  private parsePlayerPropOutcome(outcomeName: string, marketKey: string): { playerId: string; playerName: string; propType: string } | null {
+    try {
+      // SportsRadar format: "Player Name Over/Under X.X" or "Player Name - Prop Type Over/Under X.X"
+      const parts = outcomeName.split(' ');
+      if (parts.length < 3) return null;
+
+      const overUnder = parts[parts.length - 2];
+      const line = parts[parts.length - 1];
+      
+      if (overUnder.toLowerCase() !== 'over' && overUnder.toLowerCase() !== 'under') return null;
+      
+      // Extract player name (everything before "Over/Under")
+      const playerName = parts.slice(0, -2).join(' ');
+      
+      return {
+        playerId: playerName.toLowerCase().replace(/\s+/g, '_'),
+        playerName: playerName,
+        propType: this.mapMarketToPropType(marketKey)
+      };
+    } catch (error) {
+      logWarning('SportsRadarAPI', `Failed to parse outcome: ${outcomeName}`, error);
+      return null;
+    }
+  }
+
+  // Match over and under outcomes for the same player and prop
+  private matchOverUnderOutcomes(props: SportsRadarPlayerProp[]): SportsRadarPlayerProp[] {
+    const matchedProps = new Map<string, SportsRadarPlayerProp>();
+    
+    props.forEach(prop => {
+      const key = `${prop.playerId}_${prop.market}_${prop.gameId}`;
+      
+      if (!matchedProps.has(key)) {
+        matchedProps.set(key, { ...prop });
+      } else {
+        const existing = matchedProps.get(key)!;
+        // Update with the other outcome's odds
+        if (prop.outcome.toLowerCase().includes('over')) {
+          existing.overOdds = prop.overOdds;
+        } else if (prop.outcome.toLowerCase().includes('under')) {
+          existing.underOdds = prop.overOdds; // overOdds contains the price
+        }
+      }
+    });
+    
+    return Array.from(matchedProps.values()).filter(prop => prop.overOdds > 0 && prop.underOdds > 0);
   }
 
   // Map SportsRadar market to readable prop type
@@ -308,7 +427,7 @@ class SportsRadarAPI {
       
       logAPI('SportsRadarAPI', `Fetching games for ${sportKey} on ${currentDate}`);
       
-      const data = await this.makeRequest<any[]>(endpoint, CACHE_DURATION.ODDS);
+      const data = await this.makeRequest<any[]>(endpoint, sport, CACHE_DURATION.ODDS);
       
       const games: SportsRadarGame[] = data.map((game: any) => ({
         id: game.id,
@@ -323,6 +442,64 @@ class SportsRadarAPI {
       return games;
     } catch (error) {
       logError('SportsRadarAPI', `Failed to get games for ${sport}:`, error);
+      return [];
+    }
+  }
+
+  // Get odds comparisons for regular markets
+  async getOddsComparisons(sport: string): Promise<SportsRadarOddsComparison[]> {
+    try {
+      const sportKey = this.mapSportToKey(sport);
+      const currentDate = this.getCurrentDate();
+      
+      const endpoint = `/oddscomparison/${sportKey}/regular/${currentDate}`;
+      
+      logAPI('SportsRadarAPI', `Fetching odds comparisons for ${sportKey} on ${currentDate}`);
+      
+      const data = await this.makeRequest<any[]>(endpoint, sport, CACHE_DURATION.ODDS);
+      
+      const comparisons: SportsRadarOddsComparison[] = data.map((comparison: any) => ({
+        id: comparison.id,
+        sport: sportKey,
+        market: comparison.market,
+        outcomes: comparison.outcomes || [],
+        bookmakers: comparison.bookmakers || [],
+        lastUpdate: comparison.last_update || new Date().toISOString()
+      }));
+
+      logSuccess('SportsRadarAPI', `Retrieved ${comparisons.length} odds comparisons for ${sport}`);
+      return comparisons;
+    } catch (error) {
+      logError('SportsRadarAPI', `Failed to get odds comparisons for ${sport}:`, error);
+      return [];
+    }
+  }
+
+  // Get future odds comparisons
+  async getFutureOddsComparisons(sport: string): Promise<SportsRadarOddsComparison[]> {
+    try {
+      const sportKey = this.mapSportToKey(sport);
+      const currentDate = this.getCurrentDate();
+      
+      const endpoint = `/oddscomparison/${sportKey}/future/${currentDate}`;
+      
+      logAPI('SportsRadarAPI', `Fetching future odds comparisons for ${sportKey} on ${currentDate}`);
+      
+      const data = await this.makeRequest<any[]>(endpoint, sport, CACHE_DURATION.ODDS);
+      
+      const comparisons: SportsRadarOddsComparison[] = data.map((comparison: any) => ({
+        id: comparison.id,
+        sport: sportKey,
+        market: comparison.market,
+        outcomes: comparison.outcomes || [],
+        bookmakers: comparison.bookmakers || [],
+        lastUpdate: comparison.last_update || new Date().toISOString()
+      }));
+
+      logSuccess('SportsRadarAPI', `Retrieved ${comparisons.length} future odds comparisons for ${sport}`);
+      return comparisons;
+    } catch (error) {
+      logError('SportsRadarAPI', `Failed to get future odds comparisons for ${sport}:`, error);
       return [];
     }
   }
