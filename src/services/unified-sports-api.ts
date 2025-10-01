@@ -83,6 +83,7 @@ class UnifiedSportsAPI {
       // Get player props directly from SportsRadar
       const sportsRadarProps = await sportsRadarAPI.getPlayerProps(sport);
       logAPI('UnifiedSportsAPI', `Retrieved ${sportsRadarProps.length} player props from SportsRadar`);
+      console.log('🎯 UnifiedSportsAPI received props:', sportsRadarProps);
 
       if (sportsRadarProps.length === 0) {
         logWarning('UnifiedSportsAPI', `No player props available from SportsRadar for ${sport}`);

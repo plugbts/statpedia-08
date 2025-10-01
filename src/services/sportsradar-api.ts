@@ -305,9 +305,11 @@ class SportsRadarAPI {
       if (playerProps.length === 0) {
         logWarning('SportsRadarAPI', 'No player props found from any endpoint, creating sample data for testing');
         playerProps = this.createSamplePlayerProps(sport);
+        logInfo('SportsRadarAPI', `Created ${playerProps.length} sample props for ${sport}`);
       }
       
       logSuccess('SportsRadarAPI', `Retrieved ${playerProps.length} player props for ${sport}`);
+      console.log('🎯 SportsRadar API returning props:', playerProps);
       return playerProps;
     } catch (error) {
       logError('SportsRadarAPI', `Failed to get player props for ${sport}:`, error);

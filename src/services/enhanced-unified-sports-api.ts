@@ -163,9 +163,11 @@ class EnhancedUnifiedSportsAPI {
       // Get base player props from unified sports API
       const baseProps = await unifiedSportsAPI.getPlayerProps(sport, season, week, selectedSportsbook);
       logAPI('EnhancedUnifiedSportsAPI', `Retrieved ${baseProps.length} base props`);
+      console.log('🎯 EnhancedUnifiedSportsAPI received base props:', baseProps);
       
       // Enhance props with real-time data and ML predictions
       const enhancedProps = await this.enhancePlayerProps(baseProps);
+      console.log('🎯 EnhancedUnifiedSportsAPI enhanced props:', enhancedProps);
       
       // Cache the results
       this.cache.set(cacheKey, {
