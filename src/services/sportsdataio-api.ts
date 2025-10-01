@@ -672,37 +672,36 @@ class SportsDataIOAPI {
     }
 
     return rawProps
-      .filter(prop => prop && prop.PlayerID && prop.Description)
+      .filter(prop => prop && prop.PlayerID && prop.Description && prop.Name)
       .map(prop => {
-        // Fix line parsing - handle different possible field names
-        let rawLine = prop.OverUnder || prop.Line || prop.Total || 0;
+        // Use the correct field names from the API response
+        const playerName = prop.Name;
+        const propType = this.mapStatTypeToPropType(prop.Description);
         
-        // If line is still 0 or unrealistic, try to calculate from other fields
-        if (rawLine <= 0 || rawLine > 1000) {
+        // Line parsing - use OverUnder field which is the correct field name
+        let rawLine = prop.OverUnder;
+        
+        // Validate line is realistic
+        if (!rawLine || rawLine <= 0 || rawLine > 1000) {
+          console.warn(`⚠️ [SportsDataIO] Invalid line for ${playerName} ${propType}: ${rawLine}`);
           // Try to get historical data for this player to set realistic line
-          const historicalData = mockPlayerPropsService.getHistoricalPlayerData(sport, prop.Name);
-          if (historicalData) {
-            const propType = this.mapStatTypeToPropType(prop.Description);
-            const historicalProp = historicalData.props[propType];
-            if (historicalProp) {
-              rawLine = historicalProp.typicalLine;
-            }
-          }
-          
-          // Fallback to reasonable defaults based on prop type
-          if (rawLine <= 0) {
-            rawLine = this.getDefaultLineForPropType(prop.Description);
+          const historicalData = mockPlayerPropsService.getHistoricalPlayerData(sport, playerName);
+          if (historicalData && historicalData.props[propType]) {
+            rawLine = historicalData.props[propType].typicalLine;
+          } else {
+            rawLine = this.getDefaultLineForPropType(propType);
           }
         }
         
         const line = this.roundToHalfIntervals(rawLine);
         
-        // Fix odds parsing - handle different possible field names and formats
-        let overOdds = prop.OverPayout || prop.OverOdds || prop.OverPrice || -110;
-        let underOdds = prop.UnderPayout || prop.UnderOdds || prop.UnderPrice || -110;
+        // Odds parsing - use OverPayout and UnderPayout which are the correct field names
+        let overOdds = prop.OverPayout;
+        let underOdds = prop.UnderPayout;
         
-        // Ensure odds are realistic
-        if (Math.abs(overOdds) < 100 || Math.abs(underOdds) < 100) {
+        // Validate odds are realistic
+        if (!overOdds || !underOdds || Math.abs(overOdds) < 100 || Math.abs(underOdds) < 100) {
+          console.warn(`⚠️ [SportsDataIO] Invalid odds for ${playerName} ${propType}: Over=${overOdds}, Under=${underOdds}`);
           overOdds = -110;
           underOdds = -110;
         }
@@ -712,51 +711,46 @@ class SportsDataIOAPI {
         const recommended = overOdds < underOdds ? 'over' : 'under';
         
         // Try to get historical data for better predictions
-        const historicalData = mockPlayerPropsService.getHistoricalPlayerData(sport, prop.Name);
+        const historicalData = mockPlayerPropsService.getHistoricalPlayerData(sport, playerName);
         let aiPrediction;
         
-        if (historicalData) {
-          const propType = this.mapStatTypeToPropType(prop.Description);
+        if (historicalData && historicalData.props[propType]) {
           const historicalProp = historicalData.props[propType];
-          if (historicalProp) {
-            aiPrediction = {
-              recommended: historicalProp.recentTrend > 0 ? 'over' : 'under',
-              confidence: Math.min(0.95, confidence + historicalProp.hitRate * 0.2),
-              reasoning: this.generateReasoning(prop.Description, prop.Name, prop.Team, prop.Opponent),
-              factors: this.generateFactors(prop.Description, sport),
-            };
-          }
-        }
-        
-        if (!aiPrediction) {
+          aiPrediction = {
+            recommended: historicalProp.recentTrend > 0 ? 'over' : 'under',
+            confidence: Math.min(0.95, confidence + historicalProp.hitRate * 0.2),
+            reasoning: this.generateReasoning(propType, playerName, prop.Team, prop.Opponent),
+            factors: this.generateFactors(propType, sport),
+          };
+        } else {
           aiPrediction = {
             recommended: recommended,
             confidence: confidence,
-            reasoning: this.generateReasoning(prop.Description, prop.Name, prop.Team, prop.Opponent),
-            factors: this.generateFactors(prop.Description, sport),
+            reasoning: this.generateReasoning(propType, playerName, prop.Team, prop.Opponent),
+            factors: this.generateFactors(propType, sport),
           };
         }
         
         return {
-          id: `${prop.PlayerID}_${prop.Description}_${Date.now()}`,
+          id: `${prop.PlayerID}_${propType}_${Date.now()}`,
           playerId: prop.PlayerID || 0,
-          playerName: prop.Name || 'Unknown Player',
+          playerName: playerName,
           team: prop.Team || 'Unknown',
           teamAbbr: prop.Team || 'UNK',
           opponent: prop.Opponent || 'Unknown',
           opponentAbbr: prop.Opponent || 'UNK',
           gameId: prop.ScoreID?.toString() || '',
           sport: sport.toUpperCase(),
-          propType: this.mapStatTypeToPropType(prop.Description),
+          propType: propType,
           line: line,
           overOdds: overOdds,
           underOdds: underOdds,
           gameDate: prop.DateTime || new Date().toISOString(),
           gameTime: prop.DateTime ? new Date(prop.DateTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }) : 'TBD',
-          headshotUrl: this.generateHeadshotUrl(prop.PlayerID, prop.Name, prop.Team),
+          headshotUrl: this.generateHeadshotUrl(prop.PlayerID, playerName, prop.Team),
           confidence: aiPrediction.confidence,
           expectedValue: this.calculateExpectedValue(overOdds, underOdds, aiPrediction.confidence),
-          recentForm: this.determineRecentForm(prop.PlayerID, prop.Description),
+          recentForm: this.determineRecentForm(prop.PlayerID, propType),
           last5Games: this.generateLast5Games(line),
           seasonStats: {
             average: this.roundToHalfIntervals(line + (Math.random() - 0.5) * line * 0.2),
@@ -849,13 +843,28 @@ class SportsDataIOAPI {
 
   private mapStatTypeToPropType(statType: string): string {
     const mapping: Record<string, string> = {
+      // NFL specific mappings based on actual API response
+      'Passing Yards': 'Passing Yards',
+      'Passing Touchdowns': 'Passing TDs',
+      'Passing Attempts': 'Passing Attempts',
+      'Passing Completions': 'Passing Completions',
+      'Passing Interceptions': 'Passing Interceptions',
+      'Rushing Yards': 'Rushing Yards',
+      'Rushing Touchdowns': 'Rushing TDs',
+      'Rushing Attempts': 'Rushing Attempts',
+      'Receiving Yards': 'Receiving Yards',
+      'Receiving Touchdowns': 'Receiving TDs',
+      'Receptions': 'Receptions',
+      'Total Touchdowns': 'Total Touchdowns',
+      'Fantasy Points': 'Fantasy Points',
+      'Fantasy Points PPR': 'Fantasy Points PPR',
+      // Legacy mappings for backward compatibility
       'PassingYards': 'Passing Yards',
       'PassingTouchdowns': 'Passing TDs',
       'RushingYards': 'Rushing Yards',
       'RushingTouchdowns': 'Rushing TDs',
       'ReceivingYards': 'Receiving Yards',
       'ReceivingTouchdowns': 'Receiving TDs',
-      'Receptions': 'Receptions',
       'Points': 'Points',
       'Rebounds': 'Rebounds',
       'Assists': 'Assists',
@@ -875,13 +884,25 @@ class SportsDataIOAPI {
 
   private getDefaultLineForPropType(propType: string): number {
     const defaultLines: Record<string, number> = {
+      // NFL specific defaults based on actual prop types
       'Passing Yards': 250.5,
+      'Passing Touchdowns': 2.5,
       'Passing TDs': 2.5,
+      'Passing Attempts': 30.5,
+      'Passing Completions': 20.5,
+      'Passing Interceptions': 1.5,
       'Rushing Yards': 75.5,
+      'Rushing Touchdowns': 0.5,
       'Rushing TDs': 0.5,
+      'Rushing Attempts': 15.5,
       'Receiving Yards': 60.5,
+      'Receiving Touchdowns': 0.5,
       'Receiving TDs': 0.5,
       'Receptions': 4.5,
+      'Total Touchdowns': 1.5,
+      'Fantasy Points': 18.5,
+      'Fantasy Points PPR': 20.5,
+      // Legacy defaults for other sports
       'Points': 20.5,
       'Rebounds': 8.5,
       'Assists': 5.5,
