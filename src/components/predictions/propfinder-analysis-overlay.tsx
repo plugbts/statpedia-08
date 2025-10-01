@@ -166,6 +166,7 @@ const generatePieData = (prediction: AdvancedPrediction) => {
 };
 
 export function PropFinderAnalysisOverlay({ prediction, isOpen, onClose }: PropFinderAnalysisOverlayProps) {
+  console.log('PropFinderAnalysisOverlay rendered:', { prediction, isOpen });
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedTimeframe, setSelectedTimeframe] = useState('last10');
   const [isAnimating, setIsAnimating] = useState(false);
