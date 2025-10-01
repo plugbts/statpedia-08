@@ -118,16 +118,10 @@ class UnifiedSportsAPI {
       const realTimeProps = realTimeSportsbookSync.getCachedProps();
       logAPI('UnifiedSportsAPI', `Retrieved ${realTimeProps.length} real-time sportsbook props`);
 
-      // Get fallback data from SportsDataIO if needed
-      let fallbackProps: SportsDataIOPlayerProp[] = [];
-      if (realTimeProps.length < 10) { // If we don't have enough real-time data
-        try {
-          fallbackProps = await sportsDataIOAPI.getPlayerProps(sport, season, week);
-          const filteredFallback = this.filterCurrentAndFutureGames(fallbackProps);
-          logAPI('UnifiedSportsAPI', `Retrieved ${filteredFallback.length} fallback props from SportsDataIO`);
-        } catch (error) {
-          logWarning('UnifiedSportsAPI', 'Failed to get fallback props from SportsDataIO:', error);
-        }
+      // NO FALLBACK - Only use real sportsbook data
+      if (realTimeProps.length === 0) {
+        logWarning('UnifiedSportsAPI', `No real-time sportsbook data available for ${sport}. Waiting for sync to establish connection.`);
+        return []; // Return empty array instead of fallback data
       }
 
       // Convert real-time props to unified format
@@ -175,45 +169,8 @@ class UnifiedSportsAPI {
         };
       });
 
-      // Convert fallback props to unified format
-      const enhancedFallbackProps: PlayerProp[] = fallbackProps.map(prop => ({
-        ...prop,
-        allSportsbookOdds: [{
-          sportsbook: 'SportsDataIO',
-          line: prop.line,
-          overOdds: prop.overOdds,
-          underOdds: prop.underOdds,
-          lastUpdate: new Date().toISOString()
-        }],
-        gameDate: this.formatDate(prop.gameDate),
-        gameTime: this.formatTime(prop.gameTime),
-        sportsbookSource: 'sportsdataio-fallback',
-        lastOddsUpdate: new Date().toISOString(),
-        teamOddsContext: {
-          homeTeam: prop.team,
-          awayTeam: prop.opponent,
-          hasTeamOdds: false,
-          sportsbooks: ['SportsDataIO']
-        }
-      }));
-
-      // Combine and deduplicate props (real-time takes priority)
-      const combinedProps = [...enhancedRealTimeProps];
-      
-      // Add fallback props that don't conflict with real-time props
-      enhancedFallbackProps.forEach(fallbackProp => {
-        const exists = combinedProps.some(prop => 
-          prop.playerName === fallbackProp.playerName && 
-          prop.propType === fallbackProp.propType &&
-          prop.gameId === fallbackProp.gameId
-        );
-        if (!exists) {
-          combinedProps.push(fallbackProp);
-        }
-      });
-
       // Sort by game date ascending (closest games first, then future games)
-      const sortedProps = combinedProps.sort((a, b) => {
+      const sortedProps = enhancedRealTimeProps.sort((a, b) => {
         const dateA = new Date(a.gameDate).getTime();
         const dateB = new Date(b.gameDate).getTime();
         return dateA - dateB; // Ascending order (closest games first)
