@@ -127,71 +127,49 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     loadPlayerProps(selectedSport);
   }, [selectedSport]);
 
-  // Load player props from SportsDataIO API - WITH INTELLIGENT FALLBACK TO REALISTIC MOCK DATA
+  // Load player props from Fresh API Service - COMPLETELY REWRITTEN
   const loadPlayerProps = async (sport: string) => {
     if (!sport) {
       console.log('⚠️ No sport provided to loadPlayerProps');
       return;
     }
     
-    console.log(`🎯 Starting to load player props for ${sport}...`);
-    console.log(`🔄 Force refresh at ${new Date().toISOString()}`);
+    console.log(`🎯 [PlayerPropsTab] Starting to load player props for ${sport}...`);
+    console.log(`🔄 [PlayerPropsTab] Force refresh at ${new Date().toISOString()}`);
     setIsLoadingData(true);
     
     // Force clear any cached data
     setRealProps([]);
     
     try {
-      console.log(`📡 Calling freshAPIService.getPlayerProps(${sport})...`);
+      console.log(`📡 [PlayerPropsTab] Calling freshAPIService.getPlayerProps(${sport})...`);
       const props = await freshAPIService.getPlayerProps(sport);
-      console.log(`📊 Fresh API returned ${props?.length || 0} props:`, props);
+      console.log(`📊 [PlayerPropsTab] Fresh API returned ${props?.length || 0} props`);
       
       // DEBUG: Log first few props to check data quality
       if (props && props.length > 0) {
-        console.log('🔍 DEBUG: First 3 props:');
+        console.log('🔍 [PlayerPropsTab] First 3 props:');
         props.slice(0, 3).forEach((prop, index) => {
           console.log(`  ${index + 1}. ${prop.playerName} - ${prop.propType}: ${prop.line} (${prop.overOdds}/${prop.underOdds})`);
+          console.log(`      Confidence: ${prop.confidence}, EV: ${prop.expectedValue}`);
         });
-        
-        // Check for problematic data
-        const problematicProps = props.filter(prop => 
-          prop.line === 6.5 && prop.propType.toLowerCase().includes('touchdown')
-        );
-        
-        if (problematicProps.length > 0) {
-          console.error('❌ PROBLEMATIC PROPS FOUND:', problematicProps);
-        } else {
-          console.log('✅ No problematic props found');
-        }
       } else {
-        console.error('❌ NO PROPS RETURNED FROM API');
+        console.error('❌ [PlayerPropsTab] NO PROPS RETURNED FROM API');
       }
       
       if (props && Array.isArray(props) && props.length > 0) {
-        // Filter for current and future games only (be more lenient with date range)
-        const now = new Date();
-        const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); // Allow games from 1 week ago
-        const oneMonthFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // Allow games up to 1 month from now
+        // Don't filter by date for now - just use all props
+        console.log(`✅ [PlayerPropsTab] Setting ${props.length} player props for ${sport}`);
+        setRealProps(props);
         
-        const filteredProps = props.filter(prop => {
-          const gameDate = new Date(prop.gameDate);
-          return gameDate >= oneWeekAgo && gameDate <= oneMonthFromNow;
+        // Show success message
+        toast({
+          title: "Player Props Loaded",
+          description: `Found ${props.length} player props for ${sport.toUpperCase()}`,
+          variant: "default",
         });
-        
-        setRealProps(filteredProps);
-        console.log(`✅ Successfully set ${filteredProps.length} player props for ${sport}`);
-        console.log(`🔍 Real props state updated with ${filteredProps.length} items`);
-        
-        // Show success message with realistic data
-        if (filteredProps.length > 0) {
-          toast({
-            title: "Player Props Loaded",
-            description: `Found ${filteredProps.length} realistic player props for ${sport.toUpperCase()}`,
-            variant: "default",
-          });
-        }
       } else {
-        console.warn('⚠️ API returned no valid props, this should not happen with fallback system');
+        console.warn('⚠️ [PlayerPropsTab] API returned no valid props');
         setRealProps([]);
         toast({
           title: "No Data",
@@ -200,14 +178,13 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         });
       }
     } catch (error) {
-      console.error('❌ Failed to load player props:', error);
+      console.error('❌ [PlayerPropsTab] Failed to load player props:', error);
       console.error('Error details:', {
         message: error.message,
         stack: error.stack,
         name: error.name
       });
       
-      // This should rarely happen now with the fallback system
       toast({
         title: "Error",
         description: `Failed to load player props: ${error.message}`,
@@ -216,7 +193,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       setRealProps([]);
     } finally {
       setIsLoadingData(false);
-      console.log(`🏁 Finished loading player props for ${sport}`);
+      console.log(`🏁 [PlayerPropsTab] Finished loading player props for ${sport}`);
     }
   };
 
@@ -249,25 +226,30 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   };
 
   // Debug realProps state
-  console.log(`🔍 Current realProps length: ${realProps.length}`);
+  console.log(`🔍 [PlayerPropsTab] Current realProps length: ${realProps.length}`);
   if (realProps.length > 0) {
-    console.log(`🔍 First realProp:`, realProps[0]);
+    console.log(`🔍 [PlayerPropsTab] First realProp:`, realProps[0]);
   }
 
-  // Filter and sort props
+  // Simplified filtering - much less restrictive
   const filteredProps = realProps
     .filter(prop => {
-      const matchesSearch = prop.playerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      const matchesSearch = searchQuery === '' || 
+                           prop.playerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            prop.team.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            prop.propType.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesPropType = propTypeFilter === 'all' || prop.propType === propTypeFilter;
-      const matchesConfidence = (prop.confidence || 0.5) >= minConfidence / 100;
-      const matchesEV = (prop.expectedValue || 0) >= minEV / 100;
-      const matchesPositiveEV = !showOnlyPositiveEV || (prop.expectedValue || 0) >= 0; // Changed to >= 0 to be more lenient
+      const matchesConfidence = (prop.confidence || 0.5) >= (minConfidence / 100);
+      const matchesEV = (prop.expectedValue || 0) >= (minEV / 100);
+      const matchesPositiveEV = !showOnlyPositiveEV || (prop.expectedValue || 0) >= 0;
       
-      console.log(`🔍 Filtering prop ${prop.playerName}: search=${matchesSearch}, type=${matchesPropType}, confidence=${matchesConfidence} (${prop.confidence} >= ${minConfidence/100}), ev=${matchesEV} (${prop.expectedValue} >= ${minEV/100}), positiveEV=${matchesPositiveEV}`);
+      const passes = matchesSearch && matchesPropType && matchesConfidence && matchesEV && matchesPositiveEV;
       
-      return matchesSearch && matchesPropType && matchesConfidence && matchesEV && matchesPositiveEV;
+      if (!passes && realProps.length < 10) {
+        console.log(`🔍 [PlayerPropsTab] Prop ${prop.playerName} filtered out: search=${matchesSearch}, type=${matchesPropType}, confidence=${matchesConfidence}, ev=${matchesEV}, positiveEV=${matchesPositiveEV}`);
+      }
+      
+      return passes;
     })
     .sort((a, b) => {
       let aValue: any, bValue: any;
@@ -300,7 +282,8 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
     });
 
-  console.log(`🔍 Final filteredProps length: ${filteredProps.length}`);
+  console.log(`🔍 [PlayerPropsTab] Final filteredProps length: ${filteredProps.length}`);
+  console.log(`🔍 [PlayerPropsTab] Filter settings: minConfidence=${minConfidence}, minEV=${minEV}, showOnlyPositiveEV=${showOnlyPositiveEV}, propTypeFilter=${propTypeFilter}`);
 
   // Handle player analysis
   const handlePlayerAnalysis = (prop: PlayerProp) => {
