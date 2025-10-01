@@ -48,7 +48,7 @@ class SportsDataIOAPIFixed {
   private readonly BASE_URL = 'https://api.sportsdata.io/v3';
 
   constructor() {
-    logInfo('SportsDataIO-Fixed', 'Service initialized - Version 1.0.0 - October 1st, 2025');
+    logInfo('SportsDataIO-Fixed', 'Service initialized - Version 1.0.0 - October 1st, 2024');
     logInfo('SportsDataIO-Fixed', `API Key: ${this.API_KEY ? 'Present' : 'Missing'}`);
     logInfo('SportsDataIO-Fixed', `Base URL: ${this.BASE_URL}`);
   }
@@ -75,18 +75,18 @@ class SportsDataIOAPIFixed {
 
   // Get current season for different sports
   private getCurrentSeason(sport: string): string {
-    // We're in 2025, so use 2025 for all sports
-    const currentYear = 2025;
+    // Use 2024 for current season data
+    const currentYear = 2024;
     
     switch (sport.toLowerCase()) {
       case 'nfl':
-        // NFL 2025 season
+        // NFL 2024 season
         return currentYear.toString();
       case 'mlb':
-        // MLB 2025 season (playoffs in October)
+        // MLB 2024 season
         return currentYear.toString();
       case 'nba':
-        // NBA 2025 season
+        // NBA 2024 season
         return currentYear.toString();
       default:
         return currentYear.toString();
@@ -292,7 +292,7 @@ class SportsDataIOAPIFixed {
       line: line,
       overOdds: overOdds,
       underOdds: underOdds,
-        gameDate: item.DateTime || new Date('2025-10-01').toISOString(),
+        gameDate: item.DateTime || new Date('2024-10-01').toISOString(),
         gameTime: item.DateTime ? new Date(item.DateTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }) : 'TBD',
       headshotUrl: `https://a.espncdn.com/i/headshots/${sport.toLowerCase()}/players/full/${item.PlayerID}.png`,
       confidence: confidence,
@@ -332,28 +332,25 @@ class SportsDataIOAPIFixed {
           break;
           
         case 'mlb':
-          // MLB 2025 playoffs - Current October 2025 dates
-          // Try current and upcoming playoff dates
+          // MLB 2024 season - Try current and recent dates
           const today = new Date();
           const tomorrow = new Date(today);
           tomorrow.setDate(today.getDate() + 1);
-          const dayAfter = new Date(today);
-          dayAfter.setDate(today.getDate() + 2);
+          const yesterday = new Date(today);
+          yesterday.setDate(today.getDate() - 1);
           
           const mlbDates = [
             today.toISOString().split('T')[0], // Today
             tomorrow.toISOString().split('T')[0], // Tomorrow
-            dayAfter.toISOString().split('T')[0], // Day after
-            '2025-10-15', // Playoff game date
-            '2025-10-16', // Playoff game date
-            '2025-10-17', // Playoff game date
-            '2025-10-18', // Playoff game date
-            '2025-10-19', // Playoff game date
-            '2025-10-20', // Playoff game date
+            yesterday.toISOString().split('T')[0], // Yesterday
+            '2024-10-15', // Recent date
+            '2024-10-14', // Recent date
+            '2024-10-13', // Recent date
+            '2024-09-26', // Known working date from test
           ];
           for (const date of mlbDates) {
             const testEndpoint = `${this.BASE_URL}/mlb/odds/json/PlayerPropsByDate/${date}?key=${this.API_KEY}`;
-            logAPI('SportsDataIO-Fixed', `Testing MLB 2025 playoff date: ${date}`);
+            logAPI('SportsDataIO-Fixed', `Testing MLB 2024 date: ${date}`);
             
             const testResponse = await fetch(testEndpoint);
             logAPI('SportsDataIO-Fixed', `MLB test response for ${date}: ${testResponse.status} ${testResponse.statusText}`);
@@ -362,7 +359,7 @@ class SportsDataIOAPIFixed {
               logAPI('SportsDataIO-Fixed', `MLB test data for ${date}: ${testData?.length || 0} items`);
               if (testData && testData.length > 0) {
                 endpoint = testEndpoint;
-                logSuccess('SportsDataIO-Fixed', `Found MLB 2025 playoff data for ${date}: ${testData.length} props`);
+                logSuccess('SportsDataIO-Fixed', `Found MLB 2024 data for ${date}: ${testData.length} props`);
                 break;
               } else {
                 logWarning('SportsDataIO-Fixed', `No data in response for ${date}`);
@@ -372,12 +369,12 @@ class SportsDataIOAPIFixed {
             }
           }
           if (!endpoint) {
-            throw new Error('No MLB 2025 playoff data available for October 2025 dates');
+            throw new Error('No MLB 2024 data available for recent dates');
           }
           break;
           
         case 'nba':
-          // NBA 2025 season - try current and recent dates
+          // NBA 2024 season - try current and recent dates
           const nbaToday = new Date();
           const nbaTomorrow = new Date(nbaToday);
           nbaTomorrow.setDate(nbaToday.getDate() + 1);
@@ -388,12 +385,13 @@ class SportsDataIOAPIFixed {
             nbaToday.toISOString().split('T')[0], // Today
             nbaTomorrow.toISOString().split('T')[0], // Tomorrow
             nbaYesterday.toISOString().split('T')[0], // Yesterday
-            '2025-10-15', // Regular season game
-            '2025-10-16', // Regular season game
+            '2024-10-15', // Recent date
+            '2024-10-14', // Recent date
+            '2024-10-13', // Recent date
           ];
           for (const date of nbaDates) {
             const testEndpoint = `${this.BASE_URL}/nba/odds/json/PlayerPropsByGame/${date}?key=${this.API_KEY}`;
-            console.log(`📡 [SportsDataIO-Fixed] Testing NBA 2025 date: ${date}`);
+            logAPI('SportsDataIO-Fixed', `Testing NBA 2024 date: ${date}`);
             
             const testResponse = await fetch(testEndpoint);
             if (testResponse.ok) {
@@ -406,7 +404,7 @@ class SportsDataIOAPIFixed {
             }
           }
           if (!endpoint) {
-            throw new Error('No NBA 2025 data available for recent dates');
+            throw new Error('No NBA 2024 data available for recent dates');
           }
           break;
           
@@ -512,7 +510,7 @@ class SportsDataIOAPIFixed {
         line: line,
         overOdds: -110,
         underOdds: -110,
-        gameDate: new Date('2025-10-01').toISOString(),
+        gameDate: new Date('2024-10-01').toISOString(),
         gameTime: '8:00 PM EST',
         headshotUrl: `https://a.espncdn.com/i/headshots/${sport.toLowerCase()}/players/full/${1000 + i}.png`,
         confidence: this.roundToHalf(0.6 + Math.random() * 0.3),
@@ -546,4 +544,3 @@ class SportsDataIOAPIFixed {
 
 // Export singleton instance
 export const sportsDataIOAPIFixed = new SportsDataIOAPIFixed();
-export type { PlayerProp };
