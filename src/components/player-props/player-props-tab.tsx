@@ -17,6 +17,7 @@ import { PropFinderAnalysisOverlay } from '../predictions/propfinder-analysis-ov
 import { PlayerPropCardAd } from '@/components/ads/ad-placements';
 import { logAPI, logState, logFilter, logSuccess, logError, logWarning, logInfo, logDebug } from '@/utils/console-logger';
 import { unifiedSportsAPI } from '@/services/unified-sports-api';
+import { consistentPropsService, ConsistentPlayerProp } from '@/services/consistent-props-service';
 import { useNavigate } from 'react-router-dom';
 import { 
   TrendingUp, 
@@ -55,7 +56,7 @@ interface PlayerPropsTabProps {
 
 interface PlayerProp {
   id: string;
-  playerId: number;
+  playerId: string;
   playerName: string;
   team: string;
   teamAbbr: string;
@@ -78,6 +79,9 @@ interface PlayerProp {
     median: number;
     gamesPlayed: number;
     hitRate: number;
+    last5Games: number[];
+    seasonHigh: number;
+    seasonLow: number;
   };
   aiPrediction?: {
     recommended: 'over' | 'under';
@@ -85,6 +89,23 @@ interface PlayerProp {
     reasoning: string;
     factors: string[];
   };
+  // Additional properties for consistency
+  headshotUrl?: string;
+  valueRating?: number;
+  riskLevel?: 'low' | 'medium' | 'high';
+  factors?: string[];
+  lastUpdated?: Date;
+  isLive?: boolean;
+  isBookmarked?: boolean;
+  advancedReasoning?: string;
+  injuryImpact?: string;
+  weatherImpact?: string;
+  matchupAnalysis?: string;
+  historicalTrends?: string;
+  keyInsights?: string[];
+  allSportsbookOdds?: any[];
+  confidenceFactors?: any[];
+  marketId?: string;
 }
 
 interface MyPick {
@@ -108,7 +129,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const [sportFilter, setSportFilter] = useState(selectedSport || 'nfl');
   const [propTypeFilter, setPropTypeFilter] = useState('all');
   const [selectedProps, setSelectedProps] = useState<string[]>([]);
-  const [realProps, setRealProps] = useState<PlayerProp[]>([]);
+  const [realProps, setRealProps] = useState<ConsistentPlayerProp[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [showFilterDialog, setShowFilterDialog] = useState(false);
   const [myPicks, setMyPicks] = useState<MyPick[]>([]);
@@ -148,6 +169,13 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     }
   }, [selectedSportsbook]);
 
+  // Cleanup odds updates on unmount
+  useEffect(() => {
+    return () => {
+      consistentPropsService.stopOddsUpdates(sportFilter);
+    };
+  }, [sportFilter]);
+
   // Load available sportsbooks for the selected sport
   const loadAvailableSportsbooks = async (sport: string) => {
     try {
@@ -176,10 +204,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       
       try {
         const sportsbookFilter = selectedSportsbook === 'all' ? undefined : selectedSportsbook;
-        logAPI('PlayerPropsTab', `Calling unifiedSportsAPI.getPlayerProps(${sport})${sportsbookFilter ? ` with sportsbook: ${sportsbookFilter}` : ''}`);
-        logDebug('PlayerPropsTab', `unifiedSportsAPI service: ${typeof unifiedSportsAPI}`);
-        logDebug('PlayerPropsTab', `getPlayerProps method: ${typeof unifiedSportsAPI.getPlayerProps}`);
-        const props = await unifiedSportsAPI.getPlayerProps(sport, undefined, undefined, sportsbookFilter);
+        logAPI('PlayerPropsTab', `Calling consistentPropsService.getConsistentPlayerProps(${sport})${sportsbookFilter ? ` with sportsbook: ${sportsbookFilter}` : ''}`);
+        logDebug('PlayerPropsTab', `consistentPropsService: ${typeof consistentPropsService}`);
+        const props = await consistentPropsService.getConsistentPlayerProps(sport, sportsbookFilter);
         logAPI('PlayerPropsTab', `Fixed API returned ${props?.length || 0} props`);
         
         // DEBUG: Log first few props to check data quality
@@ -198,14 +225,17 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         }
         
         if (props && Array.isArray(props) && props.length > 0) {
-          logSuccess('PlayerPropsTab', `Setting ${props.length} player props for ${sport}`);
-          logDebug('PlayerPropsTab', 'Props sample:', props.slice(0, 2));
+          logSuccess('PlayerPropsTab', `Setting ${props.length} consistent player props for ${sport}`);
+          logDebug('PlayerPropsTab', 'Consistent props sample:', props.slice(0, 2));
           setRealProps(props);
+          
+          // Start periodic odds updates for this sport
+          consistentPropsService.startOddsUpdates(sport);
           
           // Show success message
           toast({
             title: "Player Props Loaded",
-            description: `Found ${props.length} player props for ${sport.toUpperCase()}`,
+            description: `Found ${props.length} consistent player props for ${sport.toUpperCase()} with real-time FanDuel odds`,
             variant: "default",
           });
         } else {
@@ -461,7 +491,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   if (!isSubscribed) {
     return (
       <div className="relative">
-        <SubscriptionOverlay />
+        <SubscriptionOverlay isVisible={true} />
         <div className="min-h-screen bg-background p-6">
           <div className="max-w-7xl mx-auto">
             <div className="text-center py-20">
@@ -711,9 +741,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
           <>
             {viewMode === 'column' ? (
               <PlayerPropsColumnView
-                props={filteredProps}
+                props={filteredProps as any}
                 selectedSport={sportFilter}
-                onAnalysisClick={handlePropFinderAnalysis}
+                onAnalysisClick={handlePropFinderAnalysis as any}
                 isLoading={isLoadingData}
               />
             ) : (
@@ -721,7 +751,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                 {filteredProps.map((prop, index) => (
                   <PlayerPropCard3D
                     key={prop.id || `prop-${prop.playerId}-${prop.propType}-${index}`}
-                    prop={prop}
+                    prop={prop as any}
                     onAnalysisClick={handlePropFinderAnalysis}
                     isSelected={selectedProps.includes(prop.id)}
                     onSelect={showSelection ? (propId) => {
@@ -791,7 +821,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
             setShowAnalysisOverlay(false);
             setSelectedPlayerForAnalysis(null);
           }}
-          prop={selectedPlayerForAnalysis}
+          prop={selectedPlayerForAnalysis as any}
         />
 
         {/* PropFinder Analysis Overlay */}

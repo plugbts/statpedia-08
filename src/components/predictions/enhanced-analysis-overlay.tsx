@@ -49,6 +49,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { consistentPropsService } from '@/services/consistent-props-service';
 import { 
   LineChart as RechartsLineChart, 
   Line, 
@@ -575,6 +576,9 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
   const [userVote, setUserVote] = useState<'over' | 'under' | null>(null);
   const [hasVoted, setHasVoted] = useState(false);
   const [voteCounts, setVoteCounts] = useState({ over: 0, under: 0 });
+  const [adjustedLine, setAdjustedLine] = useState<number | null>(null);
+  const [adjustedOdds, setAdjustedOdds] = useState<{ over: number; under: number } | null>(null);
+  const [isUpdatingOdds, setIsUpdatingOdds] = useState(false);
 
   // Enhanced data generation
   const enhancedData = useMemo(() => {
@@ -628,6 +632,34 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
       ...prev,
       [vote]: prev[vote] + 1
     }));
+  };
+
+  const handleLineAdjustment = async (newLine: number) => {
+    if (!enhancedData) return;
+    
+    setIsUpdatingOdds(true);
+    setAdjustedLine(newLine);
+    
+    try {
+      // Get updated odds for the new line from FanDuel
+      const updatedOdds = await consistentPropsService.getOddsForLine(enhancedData as any, newLine);
+      
+      if (updatedOdds) {
+        setAdjustedOdds({
+          over: updatedOdds.overOdds,
+          under: updatedOdds.underOdds
+        });
+      }
+    } catch (error) {
+      console.error('Failed to update odds for line:', error);
+    } finally {
+      setIsUpdatingOdds(false);
+    }
+  };
+
+  const resetLineAdjustment = () => {
+    setAdjustedLine(null);
+    setAdjustedOdds(null);
   };
 
   return (
@@ -715,6 +747,66 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                       {enhancedData.expectedValue > 0 ? '+' : ''}{Math.round(enhancedData.expectedValue * 100)}%
                     </Badge>
                   </div>
+                  
+                  {/* Line Adjustment Interface */}
+                  <div className="pt-4 border-t border-slate-700">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-slate-400 text-sm">Adjust Line</span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleLineAdjustment(enhancedData.line - 0.5)}
+                          disabled={isUpdatingOdds}
+                          className="text-slate-400 border-slate-600 hover:bg-slate-700"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </Button>
+                        <span className="text-white font-bold min-w-[60px] text-center">
+                          {adjustedLine !== null ? adjustedLine : enhancedData.line}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleLineAdjustment(enhancedData.line + 0.5)}
+                          disabled={isUpdatingOdds}
+                          className="text-slate-400 border-slate-600 hover:bg-slate-700"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </Button>
+                        {adjustedLine !== null && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={resetLineAdjustment}
+                            className="text-slate-400 hover:text-white"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {adjustedOdds && (
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="bg-slate-800/50 rounded p-2">
+                          <div className="text-slate-400">Over</div>
+                          <div className="text-emerald-400 font-bold">{adjustedOdds.over}</div>
+                        </div>
+                        <div className="bg-slate-800/50 rounded p-2">
+                          <div className="text-slate-400">Under</div>
+                          <div className="text-red-400 font-bold">{adjustedOdds.under}</div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {isUpdatingOdds && (
+                      <div className="text-center text-slate-400 text-xs mt-2">
+                        <RefreshCw className="w-3 h-3 animate-spin inline mr-1" />
+                        Updating odds...
+                      </div>
+                    )}
+                  </div>
                   <div className="flex justify-between items-center">
                     <span className="text-slate-400">Risk Level</span>
                     <Badge className={cn(
@@ -764,37 +856,61 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
               </Card>
 
               {/* AI Prediction */}
-              <Card className="bg-slate-800/50 border-slate-700">
-                <CardHeader>
-                  <CardTitle className="text-slate-200 flex items-center gap-2">
-                    <Brain className="w-5 h-5 text-purple-400" />
-                    AI Prediction
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-center">
-                    <Badge className={cn(
-                      "text-lg px-4 py-2 border-2",
-                      enhancedData.aiPrediction?.recommended === 'over' 
-                        ? "bg-emerald-600/20 text-emerald-300 border-emerald-500/50"
-                        : "bg-red-600/20 text-red-300 border-red-500/50"
-                    )}>
-                      {enhancedData.aiPrediction?.recommended === 'over' ? (
-                        <ArrowUp className="w-4 h-4 mr-2" />
-                      ) : (
-                        <ArrowDown className="w-4 h-4 mr-2" />
-                      )}
-                      {enhancedData.aiPrediction?.recommended.toUpperCase()}
-                    </Badge>
+            <Card className="bg-slate-800/50 border-slate-700">
+              <CardHeader>
+                <CardTitle className="text-slate-200 flex items-center gap-2">
+                  <Brain className="w-5 h-5 text-purple-400" />
+                  AI Prediction
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-center">
+                  <Badge className={cn(
+                    "text-lg px-4 py-2 border-2",
+                    enhancedData.aiPrediction?.recommended === 'over' 
+                      ? "bg-emerald-600/20 text-emerald-300 border-emerald-500/50"
+                      : "bg-red-600/20 text-red-300 border-red-500/50"
+                  )}>
+                    {enhancedData.aiPrediction?.recommended === 'over' ? (
+                      <ArrowUp className="w-4 h-4 mr-2" />
+                    ) : (
+                      <ArrowDown className="w-4 h-4 mr-2" />
+                    )}
+                    {enhancedData.aiPrediction?.recommended.toUpperCase()}
+                  </Badge>
+                </div>
+                <div className="text-center">
+                  <p className="text-slate-400 text-sm">Confidence</p>
+                  <p className="text-white font-bold">
+                    {Math.round((enhancedData.aiPrediction?.confidence || 0) * 100)}%
+                  </p>
+                </div>
+                
+                {/* Confidence Factors */}
+                {enhancedData.confidenceFactors && enhancedData.confidenceFactors.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-slate-400 text-xs font-semibold">Confidence Factors:</p>
+                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                      {enhancedData.confidenceFactors.map((factor, index) => (
+                        <div key={index} className="flex items-center justify-between text-xs bg-slate-700/30 rounded px-2 py-1">
+                          <div className="flex items-center gap-2">
+                            <div className={cn(
+                              "w-2 h-2 rounded-full",
+                              factor.impact === 'positive' ? "bg-emerald-400" :
+                              factor.impact === 'negative' ? "bg-red-400" : "bg-slate-400"
+                            )} />
+                            <span className="text-slate-300">{factor.factor}</span>
+                          </div>
+                          <span className="text-slate-400">
+                            {Math.round(factor.weight * 100)}%
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="text-center">
-                    <p className="text-slate-400 text-sm">Confidence</p>
-                    <p className="text-white font-bold">
-                      {Math.round((enhancedData.aiPrediction?.confidence || 0) * 100)}%
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+                )}
+              </CardContent>
+            </Card>
             </div>
 
             {/* Quick Performance Chart */}
