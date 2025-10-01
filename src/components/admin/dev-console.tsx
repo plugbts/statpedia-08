@@ -8,7 +8,6 @@ import { Separator } from '@/components/ui/separator';
 import { logger, LogEntry, LogLevel } from '@/utils/console-logger';
 import { TestAPIDebug } from '@/components/test-api-debug';
 import { DebugAPITest } from '@/components/debug-api-test';
-import { sportsGameOddsAPI } from '@/services/sportsgameodds-api';
 import { 
   Terminal, 
   Trash2, 
@@ -21,8 +20,7 @@ import {
   AlertCircle,
   CheckCircle,
   Info,
-  Bug,
-  Activity
+  Bug
 } from 'lucide-react';
 
 export const DevConsole: React.FC = () => {
@@ -433,7 +431,7 @@ export const DevConsole: React.FC = () => {
             </TabsContent>
             
             <TabsContent value="stats" className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card className="border border-border/50 shadow-lg">
                   <CardHeader className="bg-gradient-to-r from-green-600/10 to-green-600/5 border-b border-green-200/20 dark:border-green-800/20">
                     <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
@@ -472,65 +470,6 @@ export const DevConsole: React.FC = () => {
                     </div>
                   </CardContent>
                 </Card>
-
-                <Card className="border border-border/50 shadow-lg">
-                  <CardHeader className="bg-gradient-to-r from-purple-600/10 to-purple-600/5 border-b border-purple-200/20 dark:border-purple-800/20">
-                    <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
-                      <Activity className="h-4 w-4 text-purple-600" />
-                      SportsGameOdds API Usage
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-6">
-                    <div className="space-y-3">
-                      {(() => {
-                        const usage = sportsGameOddsAPI.getUsageStats();
-                        return (
-                          <>
-                            <div className="flex items-center justify-between p-3 bg-gradient-to-r from-muted/30 to-muted/10 rounded-lg border border-border/30">
-                              <span className="font-medium">Total Calls</span>
-                              <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800">
-                                {usage.totalCalls}
-                              </Badge>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                              <div className="p-2 rounded border border-border/30 bg-muted/20 text-center">
-                                <div className="text-xs text-muted-foreground">Today</div>
-                                <div className="text-sm font-semibold text-blue-600">{usage.callsToday}</div>
-                              </div>
-                              <div className="p-2 rounded border border-border/30 bg-muted/20 text-center">
-                                <div className="text-xs text-muted-foreground">This Hour</div>
-                                <div className="text-sm font-semibold text-orange-600">{usage.callsThisHour}</div>
-                              </div>
-                            </div>
-                            <div className="space-y-1">
-                              <div className="text-xs font-medium text-muted-foreground">Top Endpoints:</div>
-                              {Object.entries(usage.endpointUsage)
-                                .sort(([,a], [,b]) => b - a)
-                                .slice(0, 3)
-                                .map(([endpoint, count]) => (
-                                  <div key={endpoint} className="flex justify-between text-xs">
-                                    <span className="truncate">{endpoint}</span>
-                                    <span className="font-semibold">{count}</span>
-                                  </div>
-                                ))}
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                sportsGameOddsAPI.resetUsageStats();
-                                logger.info('DevConsole', 'SportsGameOdds API usage stats reset');
-                              }}
-                              className="w-full text-xs"
-                            >
-                              Reset Usage Stats
-                            </Button>
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </CardContent>
-                </Card>
                 
                 <Card className="border border-border/50 shadow-lg">
                   <CardHeader className="bg-gradient-to-r from-blue-600/10 to-blue-600/5 border-b border-blue-200/20 dark:border-blue-800/20">
@@ -543,7 +482,7 @@ export const DevConsole: React.FC = () => {
                     <div className="space-y-3">
                       <div className="p-3 bg-gradient-to-r from-muted/30 to-muted/10 rounded-lg border border-border/30">
                         <div className="text-xs font-medium text-muted-foreground mb-1">User Agent</div>
-                        <div className="text-sm font-mono break-all">{navigator.userAgent.slice(0, 40)}...</div>
+                        <div className="text-sm font-mono break-all">{navigator.userAgent.slice(0, 60)}...</div>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="p-2 rounded border border-border/30 bg-muted/20 text-center">
