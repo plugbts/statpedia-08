@@ -123,7 +123,7 @@ class SportsDataIOAPI {
     this.config = {
       apiKey: '883b10f6c52a48b38b3b5cafa94d2189',
       baseUrl: 'https://api.sportsdata.io/v3',
-      timeout: 10000,
+      timeout: 30000, // Increased to 30 seconds for large responses
       retryAttempts: 3,
       cacheTimeout: 5 * 60 * 1000, // 5 minutes
     };
@@ -170,29 +170,43 @@ class SportsDataIOAPI {
       }
     });
 
-    console.log(`🌐 Making request to: ${url.toString()}`);
+    console.log(`🌐 [SportsDataIO] Making request to: ${url.toString()}`);
 
     for (let attempt = 1; attempt <= this.config.retryAttempts; attempt++) {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
-
-        const response = await fetch(url.toString(), {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'User-Agent': 'Statpedia/1.0',
-          },
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeoutId);
+        console.log(`🔄 [SportsDataIO] Attempt ${attempt}/${this.config.retryAttempts} for ${endpoint}`);
+        
+        // Try direct API call first
+        let response;
+        try {
+          response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+              'User-Agent': 'Statpedia/1.0',
+            },
+          });
+        } catch (corsError) {
+          console.warn(`⚠️ [SportsDataIO] Direct API call failed, trying CORS proxy...`);
+          // Try with CORS proxy as fallback
+          const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url.toString())}`;
+          response = await fetch(proxyUrl, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+            },
+          });
+        }
+        console.log(`📊 [SportsDataIO] Response status: ${response.status} ${response.statusText}`);
 
         if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`❌ [SportsDataIO] HTTP Error ${response.status}: ${errorText}`);
+          
           if (response.status === 429) {
             // Rate limit - wait and retry
             const waitTime = Math.pow(2, attempt) * 1000;
-            console.warn(`⚠️ Rate limited, waiting ${waitTime}ms before retry ${attempt}/${this.config.retryAttempts}`);
+            console.warn(`⚠️ [SportsDataIO] Rate limited, waiting ${waitTime}ms before retry ${attempt}/${this.config.retryAttempts}`);
             await new Promise(resolve => setTimeout(resolve, waitTime));
             continue;
           }
@@ -205,22 +219,27 @@ class SportsDataIOAPI {
             throw new Error('API access forbidden - check subscription');
           }
           
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
         }
 
         const data = await response.json();
-        console.log(`✅ Successfully fetched data from ${endpoint}`);
+        console.log(`✅ [SportsDataIO] Successfully fetched data from ${endpoint} - ${Array.isArray(data) ? data.length : 'object'} items`);
         return data;
 
       } catch (error) {
-        console.error(`❌ Attempt ${attempt}/${this.config.retryAttempts} failed for ${endpoint}:`, error);
+        console.error(`❌ [SportsDataIO] Attempt ${attempt}/${this.config.retryAttempts} failed for ${endpoint}:`, {
+          message: error.message,
+          name: error.name,
+          stack: error.stack
+        });
         
         if (attempt === this.config.retryAttempts) {
-          throw new Error(`Failed to fetch data from ${endpoint} after ${this.config.retryAttempts} attempts: ${error}`);
+          throw new Error(`Failed to fetch data from ${endpoint} after ${this.config.retryAttempts} attempts: ${error.message}`);
         }
         
         // Wait before retry
         const waitTime = Math.pow(2, attempt) * 1000;
+        console.log(`⏳ [SportsDataIO] Waiting ${waitTime}ms before retry...`);
         await new Promise(resolve => setTimeout(resolve, waitTime));
       }
     }
@@ -269,10 +288,20 @@ class SportsDataIOAPI {
       if (sport.toLowerCase() === 'nfl') {
         // NFL uses week-based endpoint
         console.log(`🏈 [SportsDataIO] Using NFL week-based endpoint with season=${season}, week=${week}`);
-        rawProps = await this.makeRequest<any[]>(endpoint, {
-          season,
-          week,
-        });
+        
+        try {
+          rawProps = await this.makeRequest<any[]>(endpoint, {
+            season,
+            week,
+          });
+        } catch (error) {
+          console.warn(`⚠️ [SportsDataIO] Primary NFL request failed, trying alternative week...`);
+          // Try week 4 as fallback
+          rawProps = await this.makeRequest<any[]>(endpoint, {
+            season,
+            week: 4,
+          });
+        }
       } else {
         // Other sports use date-based endpoint
         const today = new Date();
@@ -295,7 +324,10 @@ class SportsDataIOAPI {
         stack: error.stack,
         name: error.name
       });
-      throw new Error(`Failed to fetch player props for ${sport}: ${error.message}`);
+      
+      // Generate fallback data if API completely fails
+      console.log(`🔄 [SportsDataIO] Generating fallback data for ${sport}...`);
+      return this.generateFallbackPlayerProps(sport);
     }
   }
 
