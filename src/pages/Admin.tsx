@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Shield, Users, Ban, Gift, Activity, Mail, AlertTriangle, MessageSquare, Target, DollarSign, Lock, ArrowLeft } from "lucide-react";
+import { Shield, Users, Ban, Gift, Activity, Mail, AlertTriangle, MessageSquare, Target, DollarSign, Lock, ArrowLeft, Terminal } from "lucide-react";
 import { UserManagement } from "@/components/admin/user-management";
 import { DiscordManagement } from "@/components/admin/discord-management";
 import { PromoCodesAdmin } from "@/components/admin/promo-codes-admin";
@@ -16,6 +16,7 @@ import { PredictionsAdmin } from "@/components/admin/predictions-admin";
 import { AdManager } from "@/components/ads/ad-manager";
 import { SecurityDashboard } from "@/components/admin/security-dashboard";
 import { SyncStatus } from "@/components/sync/sync-status";
+import { DevConsole } from "@/components/admin/dev-console";
 import { useUser } from "@/contexts/user-context";
 
 export default function Admin() {
@@ -82,7 +83,7 @@ export default function Admin() {
         </div>
 
         <Tabs defaultValue="users" className="w-full">
-          <TabsList className={`grid w-full ${userRole === 'owner' ? 'grid-cols-11' : 'grid-cols-10'}`}>
+          <TabsList className={`grid w-full ${userRole === 'owner' ? 'grid-cols-12' : 'grid-cols-11'}`}>
             <TabsTrigger value="users">
               <Users className="h-4 w-4 mr-2" />
               Users
@@ -123,6 +124,12 @@ export default function Admin() {
               <Lock className="h-4 w-4 mr-2" />
               Security
             </TabsTrigger>
+            {userRole === 'owner' && (
+              <TabsTrigger value="dev-console">
+                <Terminal className="h-4 w-4 mr-2" />
+                Dev Console
+              </TabsTrigger>
+            )}
             {userRole === 'owner' && (
               <TabsTrigger value="sync">
                 <Activity className="h-4 w-4 mr-2" />
@@ -170,6 +177,12 @@ export default function Admin() {
           <TabsContent value="security" className="space-y-4">
             <SecurityDashboard />
           </TabsContent>
+
+          {userRole === 'owner' && (
+            <TabsContent value="dev-console" className="space-y-4">
+              <DevConsole />
+            </TabsContent>
+          )}
 
           {userRole === 'owner' && (
             <TabsContent value="sync" className="space-y-4">

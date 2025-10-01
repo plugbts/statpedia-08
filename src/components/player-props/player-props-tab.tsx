@@ -14,8 +14,7 @@ import { PlayerPropCard3D } from './3d-player-prop-card';
 import { AnalysisOverlay3D } from './3d-analysis-overlay';
 import { PlayerPropsColumnView } from './player-props-column-view';
 import { PlayerPropCardAd } from '@/components/ads/ad-placements';
-import { TestAPIDebug } from '@/components/test-api-debug';
-import { DebugAPITest } from '@/components/debug-api-test';
+import { logAPI, logState, logFilter, logSuccess, logError, logWarning, logInfo, logDebug } from '@/utils/console-logger';
 import { useNavigate } from 'react-router-dom';
 import { 
   TrendingUp, 
@@ -124,52 +123,48 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
 
   // Update sport filter when selectedSport changes
   useEffect(() => {
-    console.log(`🔄 [PlayerPropsTab] useEffect triggered - selectedSport: ${selectedSport}`);
+    logState('PlayerPropsTab', `useEffect triggered - selectedSport: ${selectedSport}`);
     setSportFilter(selectedSport);
     if (selectedSport) {
-      console.log(`🎯 [PlayerPropsTab] Loading props for sport: ${selectedSport}`);
+      logState('PlayerPropsTab', `Loading props for sport: ${selectedSport}`);
       loadPlayerProps(selectedSport);
     } else {
-      console.log(`⚠️ [PlayerPropsTab] No sport selected, skipping load`);
+      logWarning('PlayerPropsTab', 'No sport selected, skipping load');
     }
   }, [selectedSport]);
 
     // Load player props from Fixed API Service - WORKING SOLUTION
     const loadPlayerProps = async (sport: string) => {
       if (!sport) {
-        console.log('⚠️ No sport provided to loadPlayerProps');
+        logWarning('PlayerPropsTab', 'No sport provided to loadPlayerProps');
         return;
       }
       
-      console.log(`🎯 [PlayerPropsTab] Starting to load player props for ${sport}...`);
-      console.log(`🔄 [PlayerPropsTab] Force refresh at ${new Date().toISOString()}`);
-      console.log(`🔍 [PlayerPropsTab] Current realProps length before load: ${realProps.length}`);
+      logState('PlayerPropsTab', `Starting to load player props for ${sport}`);
+      logState('PlayerPropsTab', `Force refresh at ${new Date().toISOString()}`);
+      logDebug('PlayerPropsTab', `Current realProps length before load: ${realProps.length}`);
       setIsLoadingData(true);
       
       // Force clear any cached data
       setRealProps([]);
       
       try {
-        console.log(`📡 [PlayerPropsTab] Calling sportsDataIOAPIFixed.getPlayerProps(${sport})...`);
-        console.log(`🔍 [PlayerPropsTab] sportsDataIOAPIFixed service:`, typeof sportsDataIOAPIFixed);
-        console.log(`🔍 [PlayerPropsTab] getPlayerProps method:`, typeof sportsDataIOAPIFixed.getPlayerProps);
+        logAPI('PlayerPropsTab', `Calling sportsDataIOAPIFixed.getPlayerProps(${sport})`);
+        logDebug('PlayerPropsTab', `sportsDataIOAPIFixed service: ${typeof sportsDataIOAPIFixed}`);
+        logDebug('PlayerPropsTab', `getPlayerProps method: ${typeof sportsDataIOAPIFixed.getPlayerProps}`);
         const props = await sportsDataIOAPIFixed.getPlayerProps(sport);
-        console.log(`📊 [PlayerPropsTab] Fixed API returned ${props?.length || 0} props`);
+        logAPI('PlayerPropsTab', `Fixed API returned ${props?.length || 0} props`);
         
         // DEBUG: Log first few props to check data quality
         if (props && props.length > 0) {
-          console.log('🔍 [PlayerPropsTab] First 3 props:');
-          props.slice(0, 3).forEach((prop, index) => {
-            console.log(`  ${index + 1}. ${prop.playerName} - ${prop.propType}: ${prop.line} (${prop.overOdds}/${prop.underOdds})`);
-            console.log(`      Confidence: ${prop.confidence}, EV: ${prop.expectedValue}`);
-          });
+          logDebug('PlayerPropsTab', 'First 3 props:', props.slice(0, 3));
         } else {
-          console.error('❌ [PlayerPropsTab] NO PROPS RETURNED FROM API');
+          logError('PlayerPropsTab', 'NO PROPS RETURNED FROM API');
         }
         
         if (props && Array.isArray(props) && props.length > 0) {
-          console.log(`✅ [PlayerPropsTab] Setting ${props.length} player props for ${sport}`);
-          console.log(`🔍 [PlayerPropsTab] Props sample:`, props.slice(0, 2));
+          logSuccess('PlayerPropsTab', `Setting ${props.length} player props for ${sport}`);
+          logDebug('PlayerPropsTab', 'Props sample:', props.slice(0, 2));
           setRealProps(props);
           
           // Show success message
@@ -179,8 +174,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
             variant: "default",
           });
         } else {
-          console.warn('⚠️ [PlayerPropsTab] API returned no valid props');
-          console.warn('⚠️ [PlayerPropsTab] Props value:', props);
+          logWarning('PlayerPropsTab', 'API returned no valid props', props);
           setRealProps([]);
           toast({
             title: "No Data",
@@ -189,8 +183,8 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
           });
         }
       } catch (error) {
-        console.error('❌ [PlayerPropsTab] Failed to load player props:', error);
-        console.error('Error details:', {
+        logError('PlayerPropsTab', 'Failed to load player props:', error);
+        logError('PlayerPropsTab', 'Error details:', {
           message: error.message,
           stack: error.stack,
           name: error.name
@@ -204,7 +198,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         setRealProps([]);
       } finally {
         setIsLoadingData(false);
-        console.log(`🏁 [PlayerPropsTab] Finished loading player props for ${sport}`);
+        logState('PlayerPropsTab', `Finished loading player props for ${sport}`);
       }
     };
 
@@ -237,12 +231,12 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   };
 
   // Debug realProps state
-  console.log(`🔍 [PlayerPropsTab] Current realProps length: ${realProps.length}`);
+  logDebug('PlayerPropsTab', `Current realProps length: ${realProps.length}`);
   if (realProps.length > 0) {
-    console.log(`🔍 [PlayerPropsTab] First realProp:`, realProps[0]);
-    console.log(`🔍 [PlayerPropsTab] First 3 props:`, realProps.slice(0, 3));
+    logDebug('PlayerPropsTab', 'First realProp:', realProps[0]);
+    logDebug('PlayerPropsTab', 'First 3 props:', realProps.slice(0, 3));
   } else {
-    console.log(`⚠️ [PlayerPropsTab] No realProps available`);
+    logWarning('PlayerPropsTab', 'No realProps available');
   }
 
   // Simplified filtering - much less restrictive
@@ -260,7 +254,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       const passes = matchesSearch && matchesPropType && matchesConfidence && matchesEV && matchesPositiveEV;
       
       if (!passes && realProps.length < 10) {
-        console.log(`🔍 [PlayerPropsTab] Prop ${prop.playerName} filtered out: search=${matchesSearch}, type=${matchesPropType}, confidence=${matchesConfidence}, ev=${matchesEV}, positiveEV=${matchesPositiveEV}`);
+        logFilter('PlayerPropsTab', `Prop ${prop.playerName} filtered out: search=${matchesSearch}, type=${matchesPropType}, confidence=${matchesConfidence}, ev=${matchesEV}, positiveEV=${matchesPositiveEV}`);
       }
       
       return passes;
@@ -296,15 +290,12 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
     });
 
-  console.log(`🔍 [PlayerPropsTab] Final filteredProps length: ${filteredProps.length}`);
-  console.log(`🔍 [PlayerPropsTab] Filter settings: minConfidence=${minConfidence}, minEV=${minEV}, showOnlyPositiveEV=${showOnlyPositiveEV}, propTypeFilter=${propTypeFilter}`);
-  console.log(`🔍 [PlayerPropsTab] Search query: "${searchQuery}"`);
+  logFilter('PlayerPropsTab', `Final filteredProps length: ${filteredProps.length}`);
+  logFilter('PlayerPropsTab', `Filter settings: minConfidence=${minConfidence}, minEV=${minEV}, showOnlyPositiveEV=${showOnlyPositiveEV}, propTypeFilter=${propTypeFilter}`);
+  logFilter('PlayerPropsTab', `Search query: "${searchQuery}"`);
   
   if (filteredProps.length === 0 && realProps.length > 0) {
-    console.log(`⚠️ [PlayerPropsTab] All props filtered out! Checking first few props:`);
-    realProps.slice(0, 3).forEach((prop, index) => {
-      console.log(`  ${index + 1}. ${prop.playerName} - Confidence: ${prop.confidence}, EV: ${prop.expectedValue}`);
-    });
+    logWarning('PlayerPropsTab', 'All props filtered out! Checking first few props:', realProps.slice(0, 3));
   }
 
   // Handle player analysis
@@ -366,29 +357,6 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* DEBUG: API Test Component */}
-        <TestAPIDebug />
-        <DebugAPITest />
-        
-        {/* Debug Info - Live Props Status */}
-        {realProps.length > 0 && (
-          <Card className="mb-4 border-blue-500">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-blue-600">🔍 Debug: Live Props Status</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-2">
-              <div className="text-xs space-y-1">
-                <div>📊 Total Props: {realProps.length}</div>
-                <div>🎯 Filtered Props: {filteredProps.length}</div>
-                <div>🏆 Sport: {selectedSport}</div>
-                <div>⏳ Loading: {isLoadingData ? 'Yes' : 'No'}</div>
-                {realProps.length > 0 && (
-                  <div>✅ Sample: {realProps[0].playerName} - {realProps[0].propType}: {realProps[0].line}</div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
         
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -402,7 +370,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
             <Button
               variant="outline"
               onClick={() => {
-                console.log(`🔄 [PlayerPropsTab] Manual refresh triggered for ${sportFilter}`);
+                logState('PlayerPropsTab', `Manual refresh triggered for ${sportFilter}`);
                 loadPlayerProps(sportFilter);
               }}
               disabled={isLoadingData}
@@ -414,10 +382,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
               variant="destructive"
               size="sm"
               onClick={() => {
-                console.log(`🧹 [PlayerPropsTab] Force clearing all data`);
+                logState('PlayerPropsTab', 'Force clearing all data');
                 setRealProps([]);
                 setTimeout(() => {
-                  console.log(`🔄 [PlayerPropsTab] Force reloading after clear`);
+                  logState('PlayerPropsTab', 'Force reloading after clear');
                   loadPlayerProps(sportFilter);
                 }, 100);
               }}

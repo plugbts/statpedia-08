@@ -3,6 +3,8 @@
  * Version: 1.0.0 - Complete rewrite to fix all API issues
  */
 
+import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
+
 export interface PlayerProp {
   id: string;
   playerId: number;
@@ -46,9 +48,9 @@ class SportsDataIOAPIFixed {
   private readonly BASE_URL = 'https://api.sportsdata.io/v3';
 
   constructor() {
-    console.log('🚀 [SportsDataIO-Fixed] Service initialized - Version 1.0.0 - October 1st, 2025');
-    console.log('🔍 [SportsDataIO-Fixed] API Key:', this.API_KEY ? 'Present' : 'Missing');
-    console.log('🔍 [SportsDataIO-Fixed] Base URL:', this.BASE_URL);
+    logInfo('SportsDataIO-Fixed', 'Service initialized - Version 1.0.0 - October 1st, 2025');
+    logInfo('SportsDataIO-Fixed', `API Key: ${this.API_KEY ? 'Present' : 'Missing'}`);
+    logInfo('SportsDataIO-Fixed', `Base URL: ${this.BASE_URL}`);
   }
 
   // Get current NFL week from API
@@ -294,7 +296,7 @@ class SportsDataIOAPIFixed {
 
   // Main method to get player props
   async getPlayerProps(sport: string): Promise<PlayerProp[]> {
-    console.log(`🎯 [SportsDataIO-Fixed] Getting player props for ${sport}`);
+    logAPI('SportsDataIO-Fixed', `Getting LIVE player props for ${sport}`);
     
     try {
       let endpoint: string;
@@ -312,22 +314,22 @@ class SportsDataIOAPIFixed {
           const mlbDates = ['2025-09-26', '2025-09-27', '2025-09-28', '2025-09-29', '2025-09-30', '2025-10-01'];
           for (const date of mlbDates) {
             const testEndpoint = `${this.BASE_URL}/mlb/odds/json/PlayerPropsByDate/${date}?key=${this.API_KEY}`;
-            console.log(`📡 [SportsDataIO-Fixed] Testing MLB 2025 playoff date: ${date}`);
+            logAPI('SportsDataIO-Fixed', `Testing MLB 2025 playoff date: ${date}`);
             
             const testResponse = await fetch(testEndpoint);
-            console.log(`📡 [SportsDataIO-Fixed] MLB test response for ${date}: ${testResponse.status} ${testResponse.statusText}`);
+            logAPI('SportsDataIO-Fixed', `MLB test response for ${date}: ${testResponse.status} ${testResponse.statusText}`);
             if (testResponse.ok) {
               const testData = await testResponse.json();
-              console.log(`📊 [SportsDataIO-Fixed] MLB test data for ${date}: ${testData?.length || 0} items`);
+              logAPI('SportsDataIO-Fixed', `MLB test data for ${date}: ${testData?.length || 0} items`);
               if (testData && testData.length > 0) {
                 endpoint = testEndpoint;
-                console.log(`✅ [SportsDataIO-Fixed] Found MLB 2025 playoff data for ${date}: ${testData.length} props`);
+                logSuccess('SportsDataIO-Fixed', `Found MLB 2025 playoff data for ${date}: ${testData.length} props`);
                 break;
               } else {
-                console.log(`⚠️ [SportsDataIO-Fixed] No data in response for ${date}`);
+                logWarning('SportsDataIO-Fixed', `No data in response for ${date}`);
               }
             } else {
-              console.log(`❌ [SportsDataIO-Fixed] MLB test failed for ${date}: ${testResponse.status}`);
+              logError('SportsDataIO-Fixed', `MLB test failed for ${date}: ${testResponse.status}`);
             }
           }
           if (!endpoint) {
@@ -361,18 +363,18 @@ class SportsDataIOAPIFixed {
           throw new Error(`Unsupported sport: ${sport}`);
       }
       
-      console.log(`📡 [SportsDataIO-Fixed] Calling endpoint: ${endpoint}`);
+      logAPI('SportsDataIO-Fixed', `Calling endpoint: ${endpoint}`);
       
       const response = await fetch(endpoint);
-      console.log(`📡 [SportsDataIO-Fixed] Main response: ${response.status} ${response.statusText}`);
+      logAPI('SportsDataIO-Fixed', `Main response: ${response.status} ${response.statusText}`);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
       const rawData = await response.json();
-      console.log(`📊 [SportsDataIO-Fixed] Raw data received: ${rawData?.length || 0} items`);
+      logAPI('SportsDataIO-Fixed', `Raw data received: ${rawData?.length || 0} items`);
       if (rawData && rawData.length > 0) {
-        console.log(`📊 [SportsDataIO-Fixed] Sample raw data:`, rawData[0]);
+        logAPI('SportsDataIO-Fixed', 'Sample raw data:', rawData[0]);
       }
       
       if (!rawData || rawData.length === 0) {
@@ -384,7 +386,7 @@ class SportsDataIOAPIFixed {
         .filter((item: any) => item && item.Name && item.Description)
         .map((item: any) => this.parsePlayerProp(item, sport));
       
-      console.log(`✅ [SportsDataIO-Fixed] Successfully parsed ${props.length} player props for ${sport}`);
+      logSuccess('SportsDataIO-Fixed', `Successfully parsed ${props.length} player props for ${sport}`);
       
       if (props.length === 0) {
         throw new Error('No valid props after parsing');
@@ -392,19 +394,16 @@ class SportsDataIOAPIFixed {
       
       // Log sample data
       if (props.length > 0) {
-        console.log(`🔍 [SportsDataIO-Fixed] Sample ${sport} props:`);
-        props.slice(0, 3).forEach((prop, index) => {
-          console.log(`  ${index + 1}. ${prop.playerName} - ${prop.propType}: ${prop.line} (${prop.overOdds}/${prop.underOdds})`);
-        });
+        logAPI('SportsDataIO-Fixed', `Sample ${sport} props:`, props.slice(0, 3));
       }
       
       return props;
       
     } catch (error) {
-      console.error(`❌ [SportsDataIO-Fixed] Error getting ${sport} player props:`, error);
+      logError('SportsDataIO-Fixed', `Error getting ${sport} player props:`, error);
       
       // Generate realistic mock data as fallback
-      console.log(`🔄 [SportsDataIO-Fixed] Generating mock data for ${sport}`);
+      logWarning('SportsDataIO-Fixed', `Generating mock data for ${sport}`);
       return this.generateMockPlayerProps(sport);
     }
   }
