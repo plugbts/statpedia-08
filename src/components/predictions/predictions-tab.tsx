@@ -10,7 +10,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { 
   TrendingUp, 
   TrendingDown, 
-  Target, 
   BarChart3, 
   Brain, 
   Zap,
@@ -46,7 +45,6 @@ import { simulationService, PredictionAnalysis } from '@/services/simulation-ser
 import { crossReferenceService, CrossReferenceAnalysis } from '@/services/cross-reference-service';
 import { enhancedUnifiedSportsAPI, EnhancedPlayerProp } from '@/services/enhanced-unified-sports-api';
 import { EnhancedAnalysisOverlay } from './enhanced-analysis-overlay';
-import { ConfidenceIntervalChart } from './confidence-interval-chart';
 
 interface PredictionsTabProps {
   selectedSport: string;
@@ -118,7 +116,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [sortBy, setSortBy] = useState<'confidence' | 'value' | 'time' | 'sport'>('confidence');
-  const [showConfidenceInterval, setShowConfidenceInterval] = useState(false);
+  // Removed showConfidenceInterval state - no longer needed
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filterRisk, setFilterRisk] = useState<'all' | 'low' | 'medium' | 'high'>('all');
   const [showLiveOnly, setShowLiveOnly] = useState(false);
@@ -670,20 +668,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
                 )}
               </button>
 
-              {/* Confidence Interval Button */}
-              {prediction.mlPrediction && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedPrediction(prediction);
-                    setShowConfidenceInterval(true);
-                  }}
-                  className="absolute top-3 right-12 z-10 p-1 rounded-full hover:bg-muted/50 transition-colors"
-                  title="View Confidence Interval"
-                >
-                  <Target className="w-4 h-4 text-blue-400" />
-                </button>
-              )}
+              {/* Confidence Interval Button - REMOVED to prevent double overlay */}
 
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between mb-2">
@@ -834,7 +819,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
       {/* No Predictions */}
       {!isLoading && sortedPredictions.length === 0 && (
         <div className="text-center py-12">
-          <Target className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <BarChart3 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-muted-foreground mb-2">No Predictions Found</h3>
           <p className="text-muted-foreground mb-4">
             No predictions match your current filters.
@@ -855,31 +840,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
         onClose={() => setShowPredictionModal(false)}
       />
 
-      {/* Confidence Interval Dialog */}
-      {selectedPrediction?.mlPrediction && (
-        <Dialog open={showConfidenceInterval} onOpenChange={setShowConfidenceInterval}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-2xl font-bold">
-                Confidence Interval Analysis
-              </DialogTitle>
-              <DialogDescription>
-                {selectedPrediction.playerName} • {selectedPrediction.propType} {selectedPrediction.line}
-              </DialogDescription>
-            </DialogHeader>
-            <ConfidenceIntervalChart 
-              data={{
-                prediction: selectedPrediction.mlPrediction.prediction,
-                probability: selectedPrediction.mlPrediction.probability,
-                confidenceInterval: selectedPrediction.mlPrediction.confidenceInterval,
-                confidence: selectedPrediction.mlPrediction.confidence,
-                expectedValue: selectedPrediction.mlPrediction.expectedValue,
-                featureImportance: selectedPrediction.mlPrediction.featureImportance
-              }}
-            />
-          </DialogContent>
-        </Dialog>
-      )}
+      {/* Confidence Interval Dialog - REMOVED to prevent double overlay */}
     </div>
   );
 };
