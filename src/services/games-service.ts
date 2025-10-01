@@ -1,7 +1,7 @@
 // Games Service for fetching real sports data
 // Integrates with ESPN API to get current week's games
 
-import { workingSportsAPIService } from './working-sports-api';
+import { sportsDataIOAPI } from './sportsdataio-api';
 
 export interface RealGame {
   id: string;
@@ -110,15 +110,43 @@ class GamesService {
       return cached.data;
     }
 
-    // Use working sports API only - no fallbacks
-    const scrapedGames = await workingSportsAPIService.getGamesFromESPN(sport);
-    const realGames = this.convertScrapedGamesToRealGames(scrapedGames);
+    // Use SportsDataIO API - no fallbacks, no mock data
+    const apiGames = await sportsDataIOAPI.getCurrentWeekGames(sport);
+    const realGames = this.convertAPIGamesToRealGames(apiGames);
     
     this.cache.set(cacheKey, { data: realGames, timestamp: now });
     return realGames;
   }
 
-  // Convert scraped games to RealGame format
+  // Convert API games to RealGame format
+  private convertAPIGamesToRealGames(apiGames: any[]): RealGame[] {
+    return apiGames.map(game => ({
+      id: game.id,
+      homeTeam: game.homeTeam,
+      awayTeam: game.awayTeam,
+      sport: game.sport,
+      date: game.date,
+      time: game.time,
+      homeOdds: game.homeOdds,
+      awayOdds: game.awayOdds,
+      drawOdds: game.drawOdds,
+      homeRecord: game.homeRecord,
+      awayRecord: game.awayRecord,
+      homeForm: this.generateFormData(),
+      awayForm: this.generateFormData(),
+      h2hData: this.generateH2HData(),
+      venue: game.venue,
+      weather: game.weather,
+      injuries: game.injuries,
+      trends: this.generateTrendData(),
+      keyStats: this.generateKeyStats(),
+      league: game.sport,
+      season: '2025',
+      week: this.getCurrentWeek()
+    }));
+  }
+
+  // Convert scraped games to RealGame format (legacy)
   private convertScrapedGamesToRealGames(scrapedGames: any[]): RealGame[] {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());

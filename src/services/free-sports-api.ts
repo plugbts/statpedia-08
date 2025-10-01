@@ -1,7 +1,7 @@
 // Free Sports Data API Service
 // Uses multiple free APIs to get real sports data
 
-import { workingSportsAPIService } from './working-sports-api';
+import { sportsDataIOAPI } from './sportsdataio-api';
 
 export interface FreeGame {
   id: string;
@@ -87,15 +87,15 @@ class FreeSportsAPIService {
 
   // Get current week games using real site scraper
   async getCurrentWeekGames(sport: string): Promise<FreeGame[]> {
-    console.log(`🏈 Using real site scraper for ${sport}...`);
+    console.log(`🏈 Using SportsDataIO API for ${sport}...`);
 
     return this.getCachedData(`games_${sport}`, async () => {
       try {
-        // Use the working sports API
-        const scrapedGames = await workingSportsAPIService.getGamesFromESPN(sport);
+        // Use the SportsDataIO API
+        const apiGames = await sportsDataIOAPI.getCurrentWeekGames(sport);
         
         // Convert to FreeGame format
-        const freeGames: FreeGame[] = scrapedGames.map(game => ({
+        const freeGames: FreeGame[] = apiGames.map(game => ({
           id: game.id,
           sport: game.sport,
           homeTeam: game.homeTeam,
@@ -114,10 +114,10 @@ class FreeSportsAPIService {
           awayRecord: game.awayRecord,
         }));
 
-        console.log(`✅ Site scraper returned ${freeGames.length} games for ${sport}`);
+        console.log(`✅ SportsDataIO API returned ${freeGames.length} games for ${sport}`);
         return freeGames;
       } catch (error) {
-        console.error(`❌ Site scraper failed for ${sport}:`, error);
+        console.error(`❌ SportsDataIO API failed for ${sport}:`, error);
         throw new Error(`Failed to get real data for ${sport} games: ${error}`);
       }
     });
@@ -223,19 +223,19 @@ class FreeSportsAPIService {
 
   // Get player props using real site scraper
   async getPlayerProps(sport: string): Promise<FreePlayerProp[]> {
-    console.log(`🎯 Using real site scraper for player props: ${sport}`);
+    console.log(`🎯 Using SportsDataIO API for player props: ${sport}`);
 
     return this.getCachedData(`props_${sport}`, async () => {
       try {
-        // Use the working sports API
-        const scrapedProps = await workingSportsAPIService.getPropsFromOddsAPI(sport);
+        // Use the SportsDataIO API
+        const apiProps = await sportsDataIOAPI.getPlayerProps(sport);
         
         // Convert to FreePlayerProp format
-        const freeProps: FreePlayerProp[] = scrapedProps.map(prop => ({
+        const freeProps: FreePlayerProp[] = apiProps.map(prop => ({
           id: prop.id,
-          player: prop.player,
+          player: prop.playerName,
           team: prop.team,
-          prop: prop.prop,
+          prop: prop.propType,
           line: prop.line,
           overOdds: prop.overOdds,
           underOdds: prop.underOdds,
@@ -250,10 +250,10 @@ class FreeSportsAPIService {
           aiPrediction: prop.aiPrediction
         }));
 
-        console.log(`✅ Site scraper returned ${freeProps.length} player props for ${sport}`);
+        console.log(`✅ SportsDataIO API returned ${freeProps.length} player props for ${sport}`);
         return freeProps;
       } catch (error) {
-        console.error(`❌ Site scraper failed for ${sport}:`, error);
+        console.error(`❌ SportsDataIO API failed for ${sport}:`, error);
         throw new Error(`Failed to get real data for ${sport} props: ${error}`);
       }
     });

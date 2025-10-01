@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { workingSportsAPIService } from '@/services/working-sports-api';
+import { sportsDataIOAPI } from '@/services/sportsdataio-api';
 import { gamesService } from '@/services/games-service';
 import { predictionService } from '@/services/prediction-service';
 
@@ -19,8 +19,8 @@ export function useLiveGames(sport: string, options: { autoFetch?: boolean; refr
       setLoading(true);
       setError(null);
       
-      // Get real games from working API
-      const freeGames = await workingSportsAPIService.getGamesFromESPN(sport);
+          // Get real games from SportsDataIO API
+          const freeGames = await sportsDataIOAPI.getCurrentWeekGames(sport);
       
       // Filter for current and future games only
       const now = new Date();
@@ -76,38 +76,10 @@ export function usePlayers(sport: string, teamId?: string) {
       setLoading(true);
       setError(null);
       
-      // Get players from current week games
-      const games = await workingSportsAPIService.getGamesFromESPN(sport);
-      const allPlayers: any[] = [];
+          // Get players from SportsDataIO API
+          const players = await sportsDataIOAPI.getPlayers(sport, teamId);
       
-      // Extract players from games
-      games.forEach(game => {
-        // Add home team players
-        if (game.homeTeam) {
-          allPlayers.push({
-            id: `${game.homeTeamAbbr}-home`,
-            name: game.homeTeam,
-            team: game.homeTeamAbbr,
-            position: 'Player',
-            sport: sport.toUpperCase(),
-            logo: ''
-          });
-        }
-        
-        // Add away team players
-        if (game.awayTeam) {
-          allPlayers.push({
-            id: `${game.awayTeamAbbr}-away`,
-            name: game.awayTeam,
-            team: game.awayTeamAbbr,
-            position: 'Player',
-            sport: sport.toUpperCase(),
-            logo: ''
-          });
-        }
-      });
-      
-      setPlayers(allPlayers);
+      setPlayers(players);
     } catch (err) {
       console.error('Error fetching players:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch players');
@@ -139,8 +111,8 @@ export function usePlayerProps(sport: string, market?: string) {
       setLoading(true);
       setError(null);
       
-      // Get real props from working API
-      const freeProps = await workingSportsAPIService.getPropsFromOddsAPI(sport);
+          // Get real props from SportsDataIO API
+          const freeProps = await sportsDataIOAPI.getPlayerProps(sport);
       
       // Filter for current and future games only
       const now = new Date();
