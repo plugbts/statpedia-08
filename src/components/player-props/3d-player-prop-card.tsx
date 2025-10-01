@@ -72,6 +72,20 @@ export function PlayerPropCard3D({
   const [isAnimating, setIsAnimating] = useState(false);
   const [sparklePositions, setSparklePositions] = useState<Array<{ id: number; x: number; y: number; delay: number }>>([]);
 
+  // Debug logging for received prop data
+  React.useEffect(() => {
+    console.log(`🎯 PlayerPropCard3D received prop:`, {
+      playerName: prop.playerName,
+      propType: prop.propType,
+      line: prop.line,
+      overOdds: prop.overOdds,
+      underOdds: prop.underOdds,
+      lineType: typeof prop.line,
+      overOddsType: typeof prop.overOdds,
+      underOddsType: typeof prop.underOdds
+    });
+  }, [prop]);
+
   // Generate sparkle positions for animation
   useEffect(() => {
     if (isHovered) {
