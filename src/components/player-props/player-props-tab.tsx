@@ -15,6 +15,7 @@ import { AnalysisOverlay3D } from './3d-analysis-overlay';
 import { PlayerPropsColumnView } from './player-props-column-view';
 import { PlayerPropCardAd } from '@/components/ads/ad-placements';
 import { TestAPIDebug } from '@/components/test-api-debug';
+import { DebugAPITest } from '@/components/debug-api-test';
 import { useNavigate } from 'react-router-dom';
 import { 
   TrendingUp, 
@@ -367,6 +368,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       <div className="max-w-7xl mx-auto space-y-6">
         {/* DEBUG: API Test Component */}
         <TestAPIDebug />
+        <DebugAPITest />
         
         {/* Debug Info - Live Props Status */}
         {realProps.length > 0 && (
@@ -407,6 +409,21 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
             >
               <RefreshCw className={cn("w-4 h-4 mr-2", isLoadingData && "animate-spin")} />
               Refresh
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                console.log(`🧹 [PlayerPropsTab] Force clearing all data`);
+                setRealProps([]);
+                setTimeout(() => {
+                  console.log(`🔄 [PlayerPropsTab] Force reloading after clear`);
+                  loadPlayerProps(sportFilter);
+                }, 100);
+              }}
+              disabled={isLoadingData}
+            >
+              Force Clear
             </Button>
             <Button
               variant="outline"
