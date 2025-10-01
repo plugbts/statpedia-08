@@ -239,6 +239,47 @@ class SportsGameOddsAPI {
     };
   }
 
+  // Get player props cache status for debugging
+  getPlayerPropsCacheStatus(): string {
+    const cacheSize = this.playerPropsCache.size;
+    if (cacheSize === 0) {
+      return 'Empty - No cached props';
+    }
+    
+    const now = Date.now();
+    const validCaches = Array.from(this.playerPropsCache.entries()).filter(([_, cache]) => 
+      (now - cache.timestamp) < this.CACHE_DURATION.PLAYER_PROPS
+    );
+    
+    if (validCaches.length === 0) {
+      return 'Expired - All caches need refresh';
+    }
+    
+    return `Active - ${validCaches.length}/${cacheSize} valid caches`;
+  }
+
+  // Get list of cached sports
+  getCachedSports(): string[] {
+    return Array.from(this.playerPropsCache.keys()).map(key => key.replace('player-props-', ''));
+  }
+
+  // Get last cache update time
+  getLastCacheUpdate(): string {
+    if (this.playerPropsCache.size === 0) {
+      return 'Never';
+    }
+    
+    const timestamps = Array.from(this.playerPropsCache.values()).map(cache => cache.timestamp);
+    const latest = Math.max(...timestamps);
+    return new Date(latest).toLocaleString();
+  }
+
+  // Clear player props cache
+  clearPlayerPropsCache(): void {
+    this.playerPropsCache.clear();
+    logInfo('SportsGameOddsAPI', 'Player props cache cleared');
+  }
+
   // Make authenticated request to SportsGameOdds API
   private async makeRequest<T>(endpoint: string, cacheDuration: number = CACHE_DURATION.ODDS): Promise<T> {
     const cacheKey = endpoint;

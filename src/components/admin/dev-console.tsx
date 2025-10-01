@@ -586,6 +586,58 @@ export const DevConsole: React.FC = () => {
                               </div>
                             )}
 
+                            {/* Player Props Cache Status */}
+                            <div className="p-3 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/10 rounded-lg border border-blue-200 dark:border-blue-800">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="font-semibold text-blue-800 dark:text-blue-200">Player Props Cache</span>
+                                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700">
+                                  Debug
+                                </Badge>
+                              </div>
+                              <div className="space-y-2">
+                                <div className="text-xs text-blue-700 dark:text-blue-300">
+                                  Cache Status: {sportsGameOddsAPI.getPlayerPropsCacheStatus()}
+                                </div>
+                                <div className="text-xs text-blue-700 dark:text-blue-300">
+                                  Cached Sports: {sportsGameOddsAPI.getCachedSports().join(', ') || 'None'}
+                                </div>
+                                <div className="text-xs text-blue-700 dark:text-blue-300">
+                                  Last Cache Update: {sportsGameOddsAPI.getLastCacheUpdate()}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                  logger.info('DevConsole', 'Testing player props fetch for NFL...');
+                                  try {
+                                    const props = await sportsGameOddsAPI.getPlayerProps('nfl');
+                                    logger.success('DevConsole', `Fetched ${props.length} NFL player props`);
+                                    console.log('NFL Player Props:', props);
+                                  } catch (error) {
+                                    logger.error('DevConsole', 'Failed to fetch NFL player props:', error);
+                                  }
+                                }}
+                                className="flex-1 text-xs"
+                              >
+                                Test NFL Props
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  sportsGameOddsAPI.clearPlayerPropsCache();
+                                  logger.info('DevConsole', 'Player props cache cleared');
+                                }}
+                                className="flex-1 text-xs"
+                              >
+                                Clear Cache
+                              </Button>
+                            </div>
+                            
                             <Button
                               variant="outline"
                               size="sm"
