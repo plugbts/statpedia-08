@@ -276,10 +276,16 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   // Load available sportsbooks for the selected sport
   const loadAvailableSportsbooks = async (sport: string) => {
     try {
-      // SportsRadar API provides sportsbook data - create mock list for now
+      // Create list of real sportsbooks (SportsRadar aggregates data from these)
       const sportsbooks = [
-        { key: 'sportsradar', title: 'SportsRadar', lastUpdate: new Date().toISOString() },
-        { key: 'all', title: 'All Sportsbooks', lastUpdate: new Date().toISOString() }
+        { key: 'all', title: 'All Sportsbooks', lastUpdate: new Date().toISOString() },
+        { key: 'fanduel', title: 'FanDuel', lastUpdate: new Date().toISOString() },
+        { key: 'draftkings', title: 'DraftKings', lastUpdate: new Date().toISOString() },
+        { key: 'betmgm', title: 'BetMGM', lastUpdate: new Date().toISOString() },
+        { key: 'caesars', title: 'Caesars', lastUpdate: new Date().toISOString() },
+        { key: 'pointsbet', title: 'PointsBet', lastUpdate: new Date().toISOString() },
+        { key: 'bet365', title: 'Bet365', lastUpdate: new Date().toISOString() },
+        { key: 'unibet', title: 'Unibet', lastUpdate: new Date().toISOString() }
       ];
       setAvailableSportsbooks(sportsbooks);
       logSuccess('PlayerPropsTab', `Loaded ${sportsbooks.length} available sportsbooks for ${sport}`);
