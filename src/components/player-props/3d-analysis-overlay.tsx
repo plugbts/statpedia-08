@@ -840,61 +840,63 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
                   )}
                 </div>
 
-                {/* Vote Results */}
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="text-center p-4 bg-slate-800/60 rounded-lg">
-                      <div className="text-2xl font-bold text-green-400">
-                        {getVotePercentage('over').toFixed(1)}%
+                {/* Vote Results - Only show after user votes */}
+                {hasVoted && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="text-center p-4 bg-slate-800/60 rounded-lg">
+                        <div className="text-2xl font-bold text-green-400">
+                          {getVotePercentage('over').toFixed(1)}%
+                        </div>
+                        <div className="text-sm text-slate-400">Over Votes</div>
+                        <div className="text-xs text-slate-500">{voteCounts.over} votes</div>
                       </div>
-                      <div className="text-sm text-slate-400">Over Votes</div>
-                      <div className="text-xs text-slate-500">{voteCounts.over} votes</div>
-                    </div>
-                    <div className="text-center p-4 bg-slate-800/60 rounded-lg">
-                      <div className="text-2xl font-bold text-red-400">
-                        {getVotePercentage('under').toFixed(1)}%
+                      <div className="text-center p-4 bg-slate-800/60 rounded-lg">
+                        <div className="text-2xl font-bold text-red-400">
+                          {getVotePercentage('under').toFixed(1)}%
+                        </div>
+                        <div className="text-sm text-slate-400">Under Votes</div>
+                        <div className="text-xs text-slate-500">{voteCounts.under} votes</div>
                       </div>
-                      <div className="text-sm text-slate-400">Under Votes</div>
-                      <div className="text-xs text-slate-500">{voteCounts.under} votes</div>
-                    </div>
-                    <div className="text-center p-4 bg-slate-800/60 rounded-lg">
-                      <div className="text-2xl font-bold text-blue-400">
-                        {voteCounts.over + voteCounts.under}
+                      <div className="text-center p-4 bg-slate-800/60 rounded-lg">
+                        <div className="text-2xl font-bold text-blue-400">
+                          {voteCounts.over + voteCounts.under}
+                        </div>
+                        <div className="text-sm text-slate-400">Total Votes</div>
+                        <div className="text-xs text-slate-500">Live count</div>
                       </div>
-                      <div className="text-sm text-slate-400">Total Votes</div>
-                      <div className="text-xs text-slate-500">Live count</div>
-                    </div>
-                  </div>
-                  
-                  {/* Progress Bars */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-green-400 font-medium">Over</span>
-                      <span className="text-slate-400">{getVotePercentage('over').toFixed(1)}%</span>
-                    </div>
-                    <div className="w-full bg-slate-700 rounded-full h-3">
-                      <div 
-                        className="bg-gradient-to-r from-green-500 to-green-400 h-3 rounded-full transition-all duration-500"
-                        style={{ width: `${getVotePercentage('over')}%` }}
-                      />
                     </div>
                     
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-red-400 font-medium">Under</span>
-                      <span className="text-slate-400">{getVotePercentage('under').toFixed(1)}%</span>
+                    {/* Progress Bars */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-green-400 font-medium">Over</span>
+                        <span className="text-slate-400">{getVotePercentage('over').toFixed(1)}%</span>
+                      </div>
+                      <div className="w-full bg-slate-700 rounded-full h-3">
+                        <div 
+                          className="bg-gradient-to-r from-green-500 to-green-400 h-3 rounded-full transition-all duration-500"
+                          style={{ width: `${getVotePercentage('over')}%` }}
+                        />
+                      </div>
+                      
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-red-400 font-medium">Under</span>
+                        <span className="text-slate-400">{getVotePercentage('under').toFixed(1)}%</span>
+                      </div>
+                      <div className="w-full bg-slate-700 rounded-full h-3">
+                        <div 
+                          className="bg-gradient-to-r from-red-500 to-red-400 h-3 rounded-full transition-all duration-500"
+                          style={{ width: `${getVotePercentage('under')}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="w-full bg-slate-700 rounded-full h-3">
-                      <div 
-                        className="bg-gradient-to-r from-red-500 to-red-400 h-3 rounded-full transition-all duration-500"
-                        style={{ width: `${getVotePercentage('under')}%` }}
-                      />
+                    
+                    <div className="text-center text-sm text-slate-400">
+                      Last updated: {new Date().toLocaleTimeString()}
                     </div>
                   </div>
-                  
-                  <div className="text-center text-sm text-slate-400">
-                    Last updated: {new Date().toLocaleTimeString()}
-                  </div>
-                </div>
+                )}
               </div>
             </TabsContent>
 

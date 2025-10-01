@@ -125,7 +125,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     loadPlayerProps(selectedSport);
   }, [selectedSport]);
 
-  // Load player props from SportsDataIO API
+  // Load player props from SportsDataIO API - NO FALLBACKS
   const loadPlayerProps = async (sport: string) => {
     if (!sport) {
       console.log('⚠️ No sport provided to loadPlayerProps');
@@ -140,12 +140,27 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       const props = await sportsDataIOAPI.getPlayerProps(sport);
       console.log(`📊 API returned ${props?.length || 0} props:`, props);
       
-      if (props && Array.isArray(props)) {
-        setRealProps(props);
-        console.log(`✅ Successfully set ${props.length} player props for ${sport}`);
+      if (props && Array.isArray(props) && props.length > 0) {
+        // Filter for current and future games only
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const twoWeeksFromNow = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
+        
+        const filteredProps = props.filter(prop => {
+          const gameDate = new Date(prop.gameDate);
+          return gameDate >= today && gameDate <= twoWeeksFromNow;
+        });
+        
+        setRealProps(filteredProps);
+        console.log(`✅ Successfully set ${filteredProps.length} player props for ${sport}`);
       } else {
-        console.warn('⚠️ API returned invalid data:', props);
+        console.warn('⚠️ API returned no valid props:', props);
         setRealProps([]);
+        toast({
+          title: "No Data",
+          description: `No player props available for ${sport.toUpperCase()}`,
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('❌ Failed to load player props:', error);
