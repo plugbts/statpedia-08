@@ -73,8 +73,8 @@ export interface Game {
 export interface OddsComparison {
   id: string;
   sport: string;
-  homeTeam: string;
-  awayTeam: string;
+    homeTeam: string;
+    awayTeam: string;
   commenceTime: string;
   markets: Market[];
   lastUpdate: string;
@@ -158,7 +158,7 @@ class UnifiedSportsAPI {
 
       logSuccess('UnifiedSportsAPI', `Returning ${filteredProps.length} enhanced player props for ${sport}`);
       return filteredProps;
-      
+
     } catch (error) {
       logError('UnifiedSportsAPI', `Failed to get player props for ${sport}:`, error);
       return [];

@@ -187,10 +187,10 @@ class SportsRadarAPI {
       
       case 'nfl':
         return [
-          `/${sport}/trial/v7/en/games/${currentYear}/REG/schedule.json`,
-          `/${sport}/trial/v7/en/games/schedule.json`,
-          `/${sport}/trial/v7/en/league/hierarchy.json`,
-          `/${sport}/trial/v7/en/teams.json`
+          `/${sport}/official/trial/v7/en/games/current_season/schedule.json`,
+          `/${sport}/official/trial/v7/en/games/schedule.json`,
+          `/${sport}/official/trial/v7/en/league/hierarchy.json`,
+          `/${sport}/official/trial/v7/en/teams.json`
         ];
       
       case 'mlb':
@@ -251,11 +251,18 @@ class SportsRadarAPI {
         }
       }
       
-      // If no player props found, create sample data for testing
+      // If no player props found, try the SportsRadar Player Props API
       if (playerProps.length === 0) {
-        logWarning('SportsRadarAPI', `No real player props found for ${sport}. Creating sample data for testing...`);
-        playerProps = this.createSamplePlayerProps(sport);
-        logInfo('SportsRadarAPI', `Created ${playerProps.length} sample props for ${sport}`);
+        logWarning('SportsRadarAPI', `No real player props found for ${sport}. Trying Player Props API...`);
+        const playerPropsData = await this.getPlayerPropsFromOddsAPI(sportKey);
+        if (playerPropsData.length > 0) {
+          playerProps = playerPropsData;
+          logInfo('SportsRadarAPI', `Found ${playerProps.length} props from Player Props API`);
+        } else {
+          logWarning('SportsRadarAPI', `No player props found from Player Props API. Creating sample data for testing...`);
+          playerProps = this.createSamplePlayerProps(sport);
+          logInfo('SportsRadarAPI', `Created ${playerProps.length} sample props for ${sport}`);
+        }
       }
       
       logSuccess('SportsRadarAPI', `Retrieved ${playerProps.length} player props for ${sport}`);
@@ -267,6 +274,112 @@ class SportsRadarAPI {
       const sampleProps = this.createSamplePlayerProps(sport);
       logInfo('SportsRadarAPI', `Returning ${sampleProps.length} sample props due to error`);
       return sampleProps;
+    }
+  }
+
+  // Get player props from SportsRadar Player Props API
+  private async getPlayerPropsFromOddsAPI(sportKey: string): Promise<SportsRadarPlayerProp[]> {
+    try {
+      const sportId = this.mapSportToOddsAPIId(sportKey);
+      if (!sportId) {
+        logWarning('SportsRadarAPI', `No odds API sport ID found for ${sportKey}`);
+        return [];
+      }
+
+      // Try different Player Props API endpoints
+      const endpoints = [
+        `/oddscomparison-player-props/trial/v2/en/sports/${sportId}/competitions`,
+        `/oddscomparison-player-props/trial/v2/en/sports/${sportId}`,
+        `/oddscomparison-player-props/trial/v2/en/sports/${sportId}/events`,
+        `/oddscomparison-player-props/trial/v2/en/sports/${sportId}/markets`
+      ];
+
+      for (const endpoint of endpoints) {
+        try {
+          logAPI('SportsRadarAPI', `Trying Player Props API endpoint: ${endpoint}`);
+          
+          const data = await this.makeRequest<any>(endpoint, sportKey, CACHE_DURATION.ODDS);
+          
+          if (data && (Array.isArray(data) || data.competitions || data.events || data.markets)) {
+            logAPI('SportsRadarAPI', `Found data from Player Props API: ${endpoint}`);
+            
+            // Process the player props data
+            const processedProps = this.processPlayerPropsFromOddsAPI(data, sportKey, endpoint);
+            if (processedProps.length > 0) {
+              logSuccess('SportsRadarAPI', `Successfully processed ${processedProps.length} props from Player Props API`);
+              return processedProps;
+            }
+          }
+        } catch (error) {
+          logWarning('SportsRadarAPI', `Player Props API endpoint ${endpoint} failed:`, error);
+        }
+      }
+      
+      return [];
+    } catch (error) {
+      logError('SportsRadarAPI', 'Failed to get player props from Odds API:', error);
+      return [];
+    }
+  }
+
+  // Map sport to SportsRadar Odds API sport ID
+  private mapSportToOddsAPIId(sportKey: string): string | null {
+    const sportMap: { [key: string]: string } = {
+      'nfl': '16',      // American Football
+      'nba': '2',       // Basketball
+      'mlb': '3',       // Baseball
+      'nhl': '4',       // Ice Hockey
+      'soccer': '1'     // Soccer
+    };
+    return sportMap[sportKey.toLowerCase()] || null;
+  }
+
+  // Process player props data from Odds API
+  private processPlayerPropsFromOddsAPI(data: any, sportKey: string, endpoint: string): SportsRadarPlayerProp[] {
+    try {
+      logAPI('SportsRadarAPI', `Processing Player Props API data from ${endpoint}`);
+      
+      // Handle different data structures from Player Props API
+      let props: any[] = [];
+      
+      if (Array.isArray(data)) {
+        props = data;
+      } else if (data.competitions) {
+        props = data.competitions;
+      } else if (data.events) {
+        props = data.events;
+      } else if (data.markets) {
+        props = data.markets;
+      }
+      
+      if (props.length === 0) {
+        logWarning('SportsRadarAPI', 'No props data found in Player Props API response');
+        return [];
+      }
+      
+      // Convert to our standard format
+      const playerProps: SportsRadarPlayerProp[] = props.map((prop, index) => ({
+        id: prop.id || `prop-${index}`,
+        playerName: prop.player_name || prop.playerName || 'Unknown Player',
+        team: prop.team || 'Unknown Team',
+        sport: sportKey.toUpperCase(),
+        propType: prop.market || prop.propType || 'Points',
+        line: prop.line || prop.overUnder || 0,
+        overOdds: prop.over_odds || prop.overOdds || -110,
+        underOdds: prop.under_odds || prop.underOdds || -110,
+        gameId: prop.game_id || prop.gameId || 'unknown',
+        gameDate: prop.game_date || prop.gameDate || new Date().toISOString(),
+        lastUpdated: prop.last_updated || prop.lastUpdated || new Date().toISOString(),
+        sportsbook: prop.sportsbook || 'SportsRadar',
+        confidence: prop.confidence || 0.5
+      }));
+      
+      logSuccess('SportsRadarAPI', `Processed ${playerProps.length} player props from Player Props API`);
+      return playerProps;
+      
+    } catch (error) {
+      logError('SportsRadarAPI', 'Failed to process Player Props API data:', error);
+      return [];
     }
   }
 

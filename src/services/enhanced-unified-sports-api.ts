@@ -27,7 +27,7 @@ export interface EnhancedPlayerProp extends PlayerProp {
   // Risk assessment
   riskAssessment: {
     level: 'low' | 'medium' | 'high';
-    factors: string[];
+  factors: string[];
     recommendation: string;
   };
   
