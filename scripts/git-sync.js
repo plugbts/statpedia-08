@@ -99,7 +99,15 @@ class GitSyncScript {
     console.log('👀 Starting file watcher...');
     
     // Watch for file changes
-    const { default: chokidar } = await import('chokidar');
+    let chokidar;
+    try {
+      const { default: chokidarModule } = await import('chokidar');
+      chokidar = chokidarModule;
+    } catch (error) {
+      console.warn('⚠️ Chokidar not available, using fallback polling method');
+      this.startPolling();
+      return;
+    }
     
     const watcher = chokidar.watch('src/**/*', {
       ignored: /(^|[\/\\])\../, // ignore dotfiles
@@ -150,6 +158,17 @@ class GitSyncScript {
       watcher.close();
       process.exit(0);
     });
+  }
+
+  startPolling() {
+    console.log('🔄 Starting polling method...');
+    
+    // Poll for changes every 5 seconds
+    setInterval(async () => {
+      await this.checkForUpdates();
+    }, 5000);
+    
+    console.log('✅ Polling started');
   }
 
   async setupGitHooks() {

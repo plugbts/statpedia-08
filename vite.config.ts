@@ -15,6 +15,14 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  optimizeDeps: {
+    exclude: ['fsevents'],
+  },
+  build: {
+    rollupOptions: {
+      external: ['fsevents'],
+    },
+  },
   define: {
     // Ensure environment variables are available
     'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(process.env.VITE_SUPABASE_URL || "https://rfdrifnsfobqlzorcesn.supabase.co"),
