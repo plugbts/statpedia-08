@@ -31,8 +31,7 @@ export const DevConsole: React.FC = () => {
   const [isOwner, setIsOwner] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  // Debug: Always show Dev Console for now
-  console.log('🔍 DevConsole: Component rendering');
+  // Debug: Dev Console component initialized
 
   useEffect(() => {
     // Check if user is owner
@@ -40,14 +39,13 @@ export const DevConsole: React.FC = () => {
       const ownerEmails = ['jackie@statpedia.com', 'admin@statpedia.com'];
       const currentUser = localStorage.getItem('userEmail') || '';
       const ownerStatus = ownerEmails.includes(currentUser) || currentUser.includes('jackie');
-      console.log('🔍 DevConsole: Owner check', { currentUser, ownerStatus, ownerEmails });
+      // Debug: Owner check completed
       setIsOwner(ownerStatus);
     };
 
     checkOwner();
     
     // TEMPORARY: Force owner status for debugging
-    console.log('🔍 DevConsole: Forcing owner status for debugging');
     setIsOwner(true);
 
     // Intercept console logs
@@ -115,8 +113,21 @@ export const DevConsole: React.FC = () => {
     // Update logs every second to get logger's logs
     const interval = setInterval(() => {
       const loggerLogs = logger.getLogs();
-      console.log('🔍 DevConsole: Updating logs from logger', { logCount: loggerLogs.length });
+      // Only update if there are new logs to prevent infinite re-renders
       setLogs(prevLogs => {
+        // Check if we have new logs
+        const hasNewLogs = loggerLogs.some(log => 
+          !prevLogs.some(prevLog => 
+            prevLog.timestamp === log.timestamp && 
+            prevLog.message === log.message && 
+            prevLog.category === log.category
+          )
+        );
+        
+        if (!hasNewLogs) {
+          return prevLogs; // No new logs, don't update state
+        }
+        
         // Merge logger logs with console interception logs
         const allLogs = [...prevLogs, ...loggerLogs];
         // Remove duplicates and sort by timestamp
@@ -194,8 +205,7 @@ export const DevConsole: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  // TEMPORARY: Always show for debugging
-  console.log('🔍 DevConsole: Rendering component', { isOwner, logsCount: logs.length });
+  // Debug: Component rendering (removed console.log to prevent infinite re-renders)
   
   if (!isOwner) {
     return (
