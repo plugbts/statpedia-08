@@ -107,6 +107,38 @@ class MockPlayerPropsService {
         'San Francisco 49ers': 'SF',
         'Seattle Seahawks': 'SEA'
       },
+      mlb: {
+        'Arizona Diamondbacks': 'ARI',
+        'Atlanta Braves': 'ATL',
+        'Baltimore Orioles': 'BAL',
+        'Boston Red Sox': 'BOS',
+        'Chicago Cubs': 'CHC',
+        'Chicago White Sox': 'CWS',
+        'Cincinnati Reds': 'CIN',
+        'Cleveland Guardians': 'CLE',
+        'Colorado Rockies': 'COL',
+        'Detroit Tigers': 'DET',
+        'Houston Astros': 'HOU',
+        'Kansas City Royals': 'KC',
+        'Los Angeles Angels': 'LAA',
+        'Los Angeles Dodgers': 'LAD',
+        'Miami Marlins': 'MIA',
+        'Milwaukee Brewers': 'MIL',
+        'Minnesota Twins': 'MIN',
+        'New York Mets': 'NYM',
+        'New York Yankees': 'NYY',
+        'Oakland Athletics': 'OAK',
+        'Philadelphia Phillies': 'PHI',
+        'Pittsburgh Pirates': 'PIT',
+        'San Diego Padres': 'SD',
+        'San Francisco Giants': 'SF',
+        'Seattle Mariners': 'SEA',
+        'St. Louis Cardinals': 'STL',
+        'Tampa Bay Rays': 'TB',
+        'Texas Rangers': 'TEX',
+        'Toronto Blue Jays': 'TOR',
+        'Washington Nationals': 'WSH'
+      },
       nba: {
         'Boston Celtics': 'BOS',
         'Brooklyn Nets': 'BKN',
@@ -557,6 +589,240 @@ class MockPlayerPropsService {
             lastSeasonAverage: 5.8,
             careerHigh: 15,
             careerLow: 1
+          }
+        }
+      }
+    ];
+
+    // MLB Historical Data
+    this.historicalData.mlb = [
+      {
+        name: 'Ronald Acuña Jr.',
+        position: 'OF',
+        team: 'Atlanta Braves',
+        props: {
+          'Hits': {
+            average: 1.3,
+            median: 1,
+            stdDev: 0.8,
+            hitRate: 0.72,
+            recentTrend: 0.15,
+            typicalLine: 1.5,
+            typicalOverOdds: -110,
+            typicalUnderOdds: -110,
+            lastSeasonAverage: 1.2,
+            careerHigh: 4,
+            careerLow: 0
+          },
+          'Home Runs': {
+            average: 0.2,
+            median: 0,
+            stdDev: 0.5,
+            hitRate: 0.18,
+            recentTrend: 0.08,
+            typicalLine: 0.5,
+            typicalOverOdds: -115,
+            typicalUnderOdds: -105,
+            lastSeasonAverage: 0.19,
+            careerHigh: 2,
+            careerLow: 0
+          },
+          'RBI': {
+            average: 0.8,
+            median: 0,
+            stdDev: 1.1,
+            hitRate: 0.45,
+            recentTrend: 0.12,
+            typicalLine: 1.5,
+            typicalOverOdds: -110,
+            typicalUnderOdds: -110,
+            lastSeasonAverage: 0.75,
+            careerHigh: 6,
+            careerLow: 0
+          }
+        }
+      },
+      {
+        name: 'Shohei Ohtani',
+        position: 'DH/SP',
+        team: 'Los Angeles Dodgers',
+        props: {
+          'Hits': {
+            average: 1.1,
+            median: 1,
+            stdDev: 0.7,
+            hitRate: 0.68,
+            recentTrend: 0.05,
+            typicalLine: 1.5,
+            typicalOverOdds: -110,
+            typicalUnderOdds: -110,
+            lastSeasonAverage: 1.0,
+            careerHigh: 3,
+            careerLow: 0
+          },
+          'Home Runs': {
+            average: 0.25,
+            median: 0,
+            stdDev: 0.6,
+            hitRate: 0.22,
+            recentTrend: 0.10,
+            typicalLine: 0.5,
+            typicalOverOdds: -115,
+            typicalUnderOdds: -105,
+            lastSeasonAverage: 0.23,
+            careerHigh: 2,
+            careerLow: 0
+          },
+          'Strikeouts': {
+            average: 6.8,
+            median: 6,
+            stdDev: 3.2,
+            hitRate: 0.65,
+            recentTrend: -0.05,
+            typicalLine: 7.5,
+            typicalOverOdds: -110,
+            typicalUnderOdds: -110,
+            lastSeasonAverage: 7.1,
+            careerHigh: 14,
+            careerLow: 2
+          }
+        }
+      },
+      {
+        name: 'Aaron Judge',
+        position: 'OF',
+        team: 'New York Yankees',
+        props: {
+          'Hits': {
+            average: 1.0,
+            median: 1,
+            stdDev: 0.6,
+            hitRate: 0.62,
+            recentTrend: 0.08,
+            typicalLine: 1.5,
+            typicalOverOdds: -110,
+            typicalUnderOdds: -110,
+            lastSeasonAverage: 0.95,
+            careerHigh: 3,
+            careerLow: 0
+          },
+          'Home Runs': {
+            average: 0.28,
+            median: 0,
+            stdDev: 0.6,
+            hitRate: 0.25,
+            recentTrend: 0.12,
+            typicalLine: 0.5,
+            typicalOverOdds: -115,
+            typicalUnderOdds: -105,
+            lastSeasonAverage: 0.26,
+            careerHigh: 2,
+            careerLow: 0
+          },
+          'RBI': {
+            average: 0.9,
+            median: 0,
+            stdDev: 1.2,
+            hitRate: 0.48,
+            recentTrend: 0.15,
+            typicalLine: 1.5,
+            typicalOverOdds: -110,
+            typicalUnderOdds: -110,
+            lastSeasonAverage: 0.85,
+            careerHigh: 6,
+            careerLow: 0
+          }
+        }
+      },
+      {
+        name: 'Mookie Betts',
+        position: 'OF',
+        team: 'Los Angeles Dodgers',
+        props: {
+          'Hits': {
+            average: 1.2,
+            median: 1,
+            stdDev: 0.7,
+            hitRate: 0.70,
+            recentTrend: 0.03,
+            typicalLine: 1.5,
+            typicalOverOdds: -110,
+            typicalUnderOdds: -110,
+            lastSeasonAverage: 1.15,
+            careerHigh: 3,
+            careerLow: 0
+          },
+          'Runs': {
+            average: 0.7,
+            median: 0,
+            stdDev: 0.8,
+            hitRate: 0.42,
+            recentTrend: 0.06,
+            typicalLine: 1.5,
+            typicalOverOdds: -110,
+            typicalUnderOdds: -110,
+            lastSeasonAverage: 0.68,
+            careerHigh: 4,
+            careerLow: 0
+          },
+          'Total Bases': {
+            average: 2.1,
+            median: 2,
+            stdDev: 1.3,
+            hitRate: 0.58,
+            recentTrend: 0.04,
+            typicalLine: 2.5,
+            typicalOverOdds: -110,
+            typicalUnderOdds: -110,
+            lastSeasonAverage: 2.05,
+            careerHigh: 8,
+            careerLow: 0
+          }
+        }
+      },
+      {
+        name: 'Mike Trout',
+        position: 'OF',
+        team: 'Los Angeles Angels',
+        props: {
+          'Hits': {
+            average: 1.1,
+            median: 1,
+            stdDev: 0.6,
+            hitRate: 0.66,
+            recentTrend: -0.02,
+            typicalLine: 1.5,
+            typicalOverOdds: -110,
+            typicalUnderOdds: -110,
+            lastSeasonAverage: 1.12,
+            careerHigh: 3,
+            careerLow: 0
+          },
+          'Home Runs': {
+            average: 0.22,
+            median: 0,
+            stdDev: 0.5,
+            hitRate: 0.20,
+            recentTrend: -0.05,
+            typicalLine: 0.5,
+            typicalOverOdds: -115,
+            typicalUnderOdds: -105,
+            lastSeasonAverage: 0.24,
+            careerHigh: 2,
+            careerLow: 0
+          },
+          'RBI': {
+            average: 0.8,
+            median: 0,
+            stdDev: 1.0,
+            hitRate: 0.44,
+            recentTrend: -0.08,
+            typicalLine: 1.5,
+            typicalOverOdds: -110,
+            typicalUnderOdds: -110,
+            lastSeasonAverage: 0.85,
+            careerHigh: 5,
+            careerLow: 0
           }
         }
       }

@@ -1,6 +1,6 @@
 /**
- * Fresh API Service - Completely rewritten to match exact API response structure
- * Version: 3.0.0 - Complete rewrite with exact field mapping
+ * Fresh API Service - Live data integration for all sports
+ * Version: 4.0.0 - Live API calls for NFL, MLB, and NBA with proper fallbacks
  */
 
 import { mockPlayerPropsService } from './mock-player-props-service.js';
@@ -48,24 +48,35 @@ class FreshAPIService {
   private readonly BASE_URL = 'https://api.sportsdata.io/v3';
 
   constructor() {
-    console.log('🚀 [FreshAPI] Service initialized - Version 3.0.0');
+    console.log('🚀 [FreshAPI] Service initialized - Version 4.0.0 - LIVE DATA');
   }
 
   async getPlayerProps(sport: string): Promise<PlayerProp[]> {
-    console.log(`🎯 [FreshAPI] Getting player props for ${sport}`);
+    console.log(`🎯 [FreshAPI] Getting LIVE player props for ${sport}`);
     
     try {
-      // For now, let's use mock data to ensure it works
-      console.log(`🔄 [FreshAPI] Using mock data for ${sport} to ensure functionality`);
-      return this.getMockPlayerProps(sport);
+      let endpoint: string;
       
-      // TODO: Uncomment this when API is working properly
-      /*
-      const season = '2024';
-      const week = '18';
-      const endpoint = `${this.BASE_URL}/nfl/odds/json/PlayerPropsByWeek/${season}/${week}?key=${this.API_KEY}`;
+      // Build the correct endpoint based on sport
+      switch (sport.toLowerCase()) {
+        case 'nfl':
+          endpoint = `${this.BASE_URL}/nfl/odds/json/PlayerPropsByWeek/2024/18?key=${this.API_KEY}`;
+          break;
+        case 'mlb':
+          // MLB uses current games endpoint - try today's date
+          const today = new Date().toISOString().split('T')[0];
+          endpoint = `${this.BASE_URL}/mlb/odds/json/PlayerPropsByGame/${today}?key=${this.API_KEY}`;
+          break;
+        case 'nba':
+          const todayNBA = new Date().toISOString().split('T')[0];
+          endpoint = `${this.BASE_URL}/nba/odds/json/PlayerPropsByGame/${todayNBA}?key=${this.API_KEY}`;
+          break;
+        default:
+          console.warn(`⚠️ [FreshAPI] Unsupported sport: ${sport}, falling back to mock data`);
+          return this.getMockPlayerProps(sport);
+      }
       
-      console.log(`📡 [FreshAPI] Calling endpoint: ${endpoint}`);
+      console.log(`📡 [FreshAPI] Calling LIVE endpoint: ${endpoint}`);
       
       const response = await fetch(endpoint);
       if (!response.ok) {
@@ -73,11 +84,11 @@ class FreshAPIService {
       }
       
       const rawData = await response.json();
-      console.log(`📊 [FreshAPI] Raw data received: ${rawData.length} items`);
+      console.log(`📊 [FreshAPI] LIVE data received: ${rawData?.length || 0} items`);
       
       // Check if we got valid data
       if (!rawData || rawData.length === 0) {
-        console.warn(`⚠️ [FreshAPI] No data returned from API, using mock data`);
+        console.warn(`⚠️ [FreshAPI] No LIVE data returned from API, using mock data`);
         return this.getMockPlayerProps(sport);
       }
       
@@ -86,27 +97,26 @@ class FreshAPIService {
         .filter((item: any) => item && item.PlayerID && item.Description && item.Name)
         .map((item: any) => this.parsePlayerProp(item, sport));
       
-      console.log(`✅ [FreshAPI] Successfully parsed ${props.length} player props`);
+      console.log(`✅ [FreshAPI] Successfully parsed ${props.length} LIVE player props`);
       
       // Check if we got valid props
       if (props.length === 0) {
-        console.warn(`⚠️ [FreshAPI] No valid props after parsing, using mock data`);
+        console.warn(`⚠️ [FreshAPI] No valid LIVE props after parsing, using mock data`);
         return this.getMockPlayerProps(sport);
       }
       
       // Log first few props to verify data quality
       if (props.length > 0) {
-        console.log('🔍 [FreshAPI] Sample props:');
+        console.log('🔍 [FreshAPI] LIVE Sample props:');
         props.slice(0, 3).forEach((prop, index) => {
           console.log(`  ${index + 1}. ${prop.playerName} - ${prop.propType}: ${prop.line} (${prop.overOdds}/${prop.underOdds})`);
         });
       }
       
       return props;
-      */
       
     } catch (error) {
-      console.error(`❌ [FreshAPI] Error getting player props:`, error);
+      console.error(`❌ [FreshAPI] Error getting LIVE player props:`, error);
       console.log(`🔄 [FreshAPI] Falling back to mock data for ${sport}`);
       return this.getMockPlayerProps(sport);
     }
@@ -210,7 +220,7 @@ class FreshAPIService {
 
   private mapStatTypeToPropType(statType: string): string {
     const mapping: Record<string, string> = {
-      // Exact API response mappings
+      // NFL API response mappings
       'Fantasy Points': 'Fantasy Points',
       'Fantasy Points PPR': 'Fantasy Points PPR',
       'Passing Attempts': 'Passing Attempts',
@@ -225,16 +235,30 @@ class FreshAPIService {
       'Receiving Touchdowns': 'Receiving TDs',
       'Receptions': 'Receptions',
       'Total Touchdowns': 'Total Touchdowns',
-      // Legacy mappings for backward compatibility
+      
+      // MLB API response mappings
+      'Hits': 'Hits',
+      'Runs': 'Runs',
+      'RBIs': 'RBIs',
+      'Strikeouts': 'Strikeouts',
+      'Home Runs': 'Home Runs',
+      'Total Bases': 'Total Bases',
+      'Stolen Bases': 'Stolen Bases',
+      'Walks': 'Walks',
+      'Pitching Strikeouts': 'Pitching Strikeouts',
+      'Pitching Walks': 'Pitching Walks',
+      'Pitching Hits Allowed': 'Pitching Hits Allowed',
+      'Pitching Earned Runs': 'Pitching Earned Runs',
+      'Pitching Innings': 'Pitching Innings',
+      
+      // NBA API response mappings
       'Points': 'Points',
       'Rebounds': 'Rebounds',
       'Assists': 'Assists',
       'Steals': 'Steals',
       'Blocks': 'Blocks',
-      'Hits': 'Hits',
-      'Runs': 'Runs',
-      'RBIs': 'RBIs',
-      'Strikeouts': 'Strikeouts',
+      
+      // Legacy mappings for backward compatibility
       'HomeRuns': 'Home Runs',
       'Goals': 'Goals',
       'ShotsOnGoal': 'Shots on Goal',
@@ -263,7 +287,23 @@ class FreshAPIService {
       'Receiving TDs': 0.5,
       'Receptions': 4.5,
       'Total Touchdowns': 1.5,
-      // Legacy defaults for other sports
+      
+      // MLB specific defaults based on actual prop types
+      'Hits': 1.5,
+      'Runs': 0.5,
+      'RBIs': 1.5,
+      'Strikeouts': 0.5,
+      'Home Runs': 0.5,
+      'Total Bases': 2.5,
+      'Stolen Bases': 0.5,
+      'Walks': 0.5,
+      'Pitching Strikeouts': 6.5,
+      'Pitching Walks': 2.5,
+      'Pitching Hits Allowed': 6.5,
+      'Pitching Earned Runs': 2.5,
+      'Pitching Innings': 5.5,
+      
+      // NBA specific defaults
       'Points': 20.5,
       'Rebounds': 8.5,
       'Assists': 5.5,
@@ -271,11 +311,8 @@ class FreshAPIService {
       'Blocks': 1.5,
       '3-Pointers Made': 2.5,
       'Free Throws Made': 4.5,
-      'Hits': 1.5,
-      'Runs': 0.5,
-      'RBIs': 0.5,
-      'Strikeouts': 6.5,
-      'Home Runs': 0.5,
+      
+      // Legacy defaults for other sports
       'Goals': 0.5,
       'Shots on Goal': 3.5,
       'Saves': 25.5,
@@ -324,4 +361,3 @@ class FreshAPIService {
 
 // Export a singleton instance
 export const freshAPIService = new FreshAPIService();
-export type { PlayerProp };
