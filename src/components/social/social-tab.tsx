@@ -241,8 +241,9 @@ export const SocialTab: React.FC<SocialTabProps> = ({ onReturnToDashboard }) => 
       // Trigger user context refresh event for admin panel and other components
       window.dispatchEvent(new CustomEvent('userContextRefresh'));
       
-      // Reload all data now that profile is set up
-      await loadInitialData();
+      // Set loading to false since we have the profile now
+      isLoadingRef.current = false;
+      setIsLoading(false);
     } catch (error: any) {
       console.error('Failed to set username:', error);
       throw error;
@@ -296,6 +297,7 @@ export const SocialTab: React.FC<SocialTabProps> = ({ onReturnToDashboard }) => 
             console.log('No profile found, showing username prompt');
             setShowUsernamePrompt(true);
           }
+          isLoadingRef.current = false;
           setIsLoading(false);
           return;
         }
@@ -314,6 +316,7 @@ export const SocialTab: React.FC<SocialTabProps> = ({ onReturnToDashboard }) => 
             console.log('No username found, showing prompt');
             setShowUsernamePrompt(true);
           }
+          isLoadingRef.current = false;
           setIsLoading(false);
           return;
         } else {
@@ -327,6 +330,7 @@ export const SocialTab: React.FC<SocialTabProps> = ({ onReturnToDashboard }) => 
         if (!hasCompletedUsernameSetup) {
           setShowUsernamePrompt(true);
         }
+        isLoadingRef.current = false;
         setIsLoading(false);
         return;
       }

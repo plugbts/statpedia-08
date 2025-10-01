@@ -467,7 +467,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       const isComplete = checkUsernameSetupCompletion(user.id);
       setHasCompletedUsernameSetup(isComplete);
     }
-  }, [user, checkUsernameSetupCompletion]);
+  }, [user]);
 
   // Listen for user context refresh events
   useEffect(() => {
