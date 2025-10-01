@@ -42,12 +42,70 @@ export const DevConsole: React.FC = () => {
 
     checkOwner();
 
-    // Update logs every second
-    const interval = setInterval(() => {
-      setLogs([...logger.getLogs()]);
-    }, 1000);
+    // Intercept console logs
+    const originalConsoleLog = console.log;
+    const originalConsoleWarn = console.warn;
+    const originalConsoleError = console.error;
+    const originalConsoleInfo = console.info;
+    const originalConsoleDebug = console.debug;
 
-    return () => clearInterval(interval);
+    const addLog = (level: LogLevel, message: string, category: string = 'Console', data?: any) => {
+      const newLog: LogEntry = {
+        id: Date.now() + Math.random(),
+        timestamp: new Date(),
+        level,
+        category,
+        message,
+        data
+      };
+      setLogs(prev => [...prev.slice(-999), newLog]); // Keep last 1000 logs
+    };
+
+    console.log = (...args: any[]) => {
+      originalConsoleLog(...args);
+      const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
+      addLog('info', message, 'Console');
+    };
+
+    console.warn = (...args: any[]) => {
+      originalConsoleWarn(...args);
+      const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
+      addLog('warning', message, 'Console');
+    };
+
+    console.error = (...args: any[]) => {
+      originalConsoleError(...args);
+      const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
+      addLog('error', message, 'Console');
+    };
+
+    console.info = (...args: any[]) => {
+      originalConsoleInfo(...args);
+      const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
+      addLog('info', message, 'Console');
+    };
+
+    console.debug = (...args: any[]) => {
+      originalConsoleDebug(...args);
+      const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
+      addLog('debug', message, 'Console');
+    };
+
+    // Add initial log
+    addLog('info', 'Dev Console initialized - Console interception active', 'DevConsole');
+    
+    // Test the logger
+    logger.info('DevConsole', 'Dev Console component mounted and ready');
+    logger.success('DevConsole', 'Console interception is now active');
+    logger.warning('DevConsole', 'All console logs will now appear in this Dev Console');
+
+    return () => {
+      console.log = originalConsoleLog;
+      console.warn = originalConsoleWarn;
+      console.error = originalConsoleError;
+      console.info = originalConsoleInfo;
+      console.debug = originalConsoleDebug;
+    };
   }, []);
 
   // Auto scroll to bottom
@@ -281,6 +339,23 @@ export const DevConsole: React.FC = () => {
                       }}
                     >
                       Test Logs
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        logger.api('PlayerPropsTab', 'Testing API debugging logs');
+                        logger.api('SportsDataIO-Fixed', 'Sample API call: Getting NFL props');
+                        logger.api('SportsDataIO-Fixed', 'Sample API response: 1301 props received');
+                        logger.api('PlayerPropsTab', 'Sample prop data:', {
+                          playerName: 'Josh Allen',
+                          line: 37,
+                          overOdds: -202,
+                          underOdds: -175
+                        });
+                        logger.success('PlayerPropsTab', 'API test logs generated successfully');
+                      }}
+                    >
+                      Test API Logs
                     </Button>
                     <Button
                       variant="outline"

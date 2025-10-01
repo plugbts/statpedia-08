@@ -86,23 +86,31 @@ class ConsoleLogger {
   }
 
   private logToConsole(entry: LogEntry) {
-    if (!this.isOwner) return;
-
+    // Always log to console, but only show styled logs for owners
     const color = this.getColor(entry.level);
     const message = this.formatMessage(entry);
     
-    // Create styled console log
-    const style = `
-      color: ${color};
-      font-weight: bold;
-      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-      font-size: 12px;
-    `;
-    
-    if (entry.data) {
-      console.log(`%c${message}`, style, entry.data);
+    if (this.isOwner) {
+      // Create styled console log for owners
+      const style = `
+        color: ${color};
+        font-weight: bold;
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 12px;
+      `;
+      
+      if (entry.data) {
+        console.log(`%c${message}`, style, entry.data);
+      } else {
+        console.log(`%c${message}`, style);
+      }
     } else {
-      console.log(`%c${message}`, style);
+      // Plain console log for non-owners (still goes to Dev Console)
+      if (entry.data) {
+        console.log(message, entry.data);
+      } else {
+        console.log(message);
+      }
     }
   }
 

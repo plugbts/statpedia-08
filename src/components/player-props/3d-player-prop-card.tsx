@@ -74,15 +74,18 @@ export function PlayerPropCard3D({
 
   // Debug logging for received prop data
   React.useEffect(() => {
-    console.log(`🎯 PlayerPropCard3D received prop:`, {
-      playerName: prop.playerName,
-      propType: prop.propType,
-      line: prop.line,
-      overOdds: prop.overOdds,
-      underOdds: prop.underOdds,
-      lineType: typeof prop.line,
-      overOddsType: typeof prop.overOdds,
-      underOddsType: typeof prop.underOdds
+    // Import logger dynamically to avoid circular imports
+    import('@/utils/console-logger').then(({ logger }) => {
+      logger.debug('PlayerPropCard3D', `Received prop: ${prop.playerName} - ${prop.propType}`, {
+        playerName: prop.playerName,
+        propType: prop.propType,
+        line: prop.line,
+        overOdds: prop.overOdds,
+        underOdds: prop.underOdds,
+        lineType: typeof prop.line,
+        overOddsType: typeof prop.overOdds,
+        underOddsType: typeof prop.underOdds
+      });
     });
   }, [prop]);
 
