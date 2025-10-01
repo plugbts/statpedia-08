@@ -131,7 +131,7 @@ class UnifiedSportsAPI {
           underOdds: sgoProp.underOdds,
           lastUpdate: sgoProp.lastUpdate
         }],
-        gameDate: sgoProp.gameTime.split('T')[0],
+        gameDate: this.formatGameDate(sgoProp.gameTime),
         gameTime: sgoProp.gameTime,
         confidence: sgoProp.confidence,
         expectedValue: this.calculateExpectedValue(sgoProp.line, sgoProp.overOdds, sgoProp.underOdds),
@@ -291,7 +291,7 @@ class UnifiedSportsAPI {
         underOdds: sgProp.underOdds,
         lastUpdate: sgProp.lastUpdate
       }],
-      gameDate: sgProp.gameTime.split('T')[0],
+      gameDate: this.formatGameDate(sgProp.gameTime),
       gameTime: sgProp.gameTime,
       confidence: sgProp.confidence,
       expectedValue: this.calculateExpectedValue(sgProp.line, sgProp.overOdds, sgProp.underOdds),
@@ -384,6 +384,23 @@ class UnifiedSportsAPI {
       return 100 / (odds + 100);
     } else {
       return Math.abs(odds) / (Math.abs(odds) + 100);
+    }
+  }
+
+  private formatGameDate(gameTime: string): string {
+    try {
+      const date = new Date(gameTime);
+      
+      // If the date is in UTC, convert to Eastern Time for NFL games
+      // This ensures we get the correct date for games that might cross midnight UTC
+      const easternDate = new Date(date.getTime() + (5 * 60 * 60 * 1000)); // UTC+5 for Eastern Time
+      
+      // Format as YYYY-MM-DD
+      return easternDate.toISOString().split('T')[0];
+    } catch (error) {
+      console.error('Error formatting game date:', error);
+      // Fallback to simple split if date parsing fails
+      return gameTime.split('T')[0];
     }
   }
 

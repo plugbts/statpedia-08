@@ -485,7 +485,26 @@ class SportsGameOddsAPI {
     const homeTeam = event.teams?.home?.names?.short || 'HOME';
     const awayTeam = event.teams?.away?.names?.short || 'AWAY';
     const gameId = event.eventID;
-    const gameTime = event.status?.startsAt || new Date().toISOString();
+    // Parse game time and ensure it's in the correct timezone
+    let gameTime = event.status?.startsAt || new Date().toISOString();
+    
+    // Log the original game time for debugging
+    logAPI('SportsGameOddsAPI', `Original game time: ${gameTime}`);
+    
+    // If the game time is in UTC, we need to be careful about date conversion
+    // NFL games are typically in Eastern Time, so we need to account for timezone
+    if (gameTime.includes('Z') || gameTime.includes('+00:00')) {
+      const utcDate = new Date(gameTime);
+      // For NFL games, they're typically in Eastern Time (UTC-5 or UTC-4)
+      // We'll add 5 hours to convert from UTC to Eastern, then format properly
+      const easternDate = new Date(utcDate.getTime() + (5 * 60 * 60 * 1000));
+      gameTime = easternDate.toISOString();
+      logAPI('SportsGameOddsAPI', `Converted to Eastern time: ${gameTime}`);
+    }
+    
+    // Log the final game time and date for debugging
+    const finalDate = gameTime.split('T')[0];
+    logAPI('SportsGameOddsAPI', `Final game date: ${finalDate}`);
 
     // Look for player-specific markets in the odds using v2 structure
     // Player props have playerID as statEntityID in the oddID format: {statID}-{playerID}-{periodID}-{betTypeID}-{sideID}
