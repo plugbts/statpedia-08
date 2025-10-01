@@ -1,7 +1,7 @@
 // Free Sports Data API Service
 // Uses multiple free APIs to get real sports data
 
-import { siteScraperService } from './site-scraper';
+import { workingSportsAPIService } from './working-sports-api';
 
 export interface FreeGame {
   id: string;
@@ -91,8 +91,8 @@ class FreeSportsAPIService {
 
     return this.getCachedData(`games_${sport}`, async () => {
       try {
-        // Use the real site scraper
-        const scrapedGames = await siteScraperService.getGamesFromPropFinder(sport);
+        // Use the working sports API
+        const scrapedGames = await workingSportsAPIService.getGamesFromESPN(sport);
         
         // Convert to FreeGame format
         const freeGames: FreeGame[] = scrapedGames.map(game => ({
@@ -227,8 +227,8 @@ class FreeSportsAPIService {
 
     return this.getCachedData(`props_${sport}`, async () => {
       try {
-        // Use the real site scraper
-        const scrapedProps = await siteScraperService.getPropsFromOutlier(sport);
+        // Use the working sports API
+        const scrapedProps = await workingSportsAPIService.getPropsFromOddsAPI(sport);
         
         // Convert to FreePlayerProp format
         const freeProps: FreePlayerProp[] = scrapedProps.map(prop => ({

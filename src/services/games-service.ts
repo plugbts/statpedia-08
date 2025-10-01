@@ -1,7 +1,7 @@
 // Games Service for fetching real sports data
 // Integrates with ESPN API to get current week's games
 
-import { siteScraperService } from './site-scraper';
+import { workingSportsAPIService } from './working-sports-api';
 
 export interface RealGame {
   id: string;
@@ -110,8 +110,8 @@ class GamesService {
       return cached.data;
     }
 
-    // Use real site scraper only - no fallbacks
-    const scrapedGames = await siteScraperService.getGamesFromPropFinder(sport);
+    // Use working sports API only - no fallbacks
+    const scrapedGames = await workingSportsAPIService.getGamesFromESPN(sport);
     const realGames = this.convertScrapedGamesToRealGames(scrapedGames);
     
     this.cache.set(cacheKey, { data: realGames, timestamp: now });
