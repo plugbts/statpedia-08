@@ -45,7 +45,6 @@ import {
   Minus,
   Plus,
   BarChart,
-  Scatter
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
@@ -62,8 +61,6 @@ import {
   Cell, 
   AreaChart, 
   Area, 
-  ScatterChart, 
-  Scatter,
   ResponsiveContainer,
   ReferenceLine,
   ReferenceArea
@@ -121,6 +118,12 @@ interface EnhancedPrediction {
   gameHistory: GameHistoryEntry[];
   performanceMetrics: PerformanceMetrics;
   advancedStats: AdvancedStats;
+  confidenceFactors?: Array<{
+    factor: string;
+    weight: number;
+    impact: 'positive' | 'negative' | 'neutral';
+    reasoning?: string;
+  }>;
 }
 
 interface GameHistoryEntry {
@@ -254,11 +257,6 @@ const enhancedChartConfig = {
   volume: {
     label: "Volume",
     color: "#6b7280", // Professional gray
-  },
-  background: {
-    primary: "rgba(15, 23, 42, 0.95)", // Dark slate
-    secondary: "rgba(30, 41, 59, 0.8)", // Slate
-    accent: "rgba(51, 65, 85, 0.6)", // Light slate
   }
 };
 
@@ -398,7 +396,7 @@ const EnhancedLineChart = React.memo(({
                 data.hit ? "text-emerald-400" : "text-red-400"
               )}>
                 {data.hit ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                {data.overUnder.toUpperCase()}
+                {data.overUnder?.toUpperCase() || 'N/A'}
               </span>
             </div>
           </div>
@@ -441,7 +439,7 @@ const EnhancedLineChart = React.memo(({
             stroke="#f59e0b" 
             strokeDasharray="5 5" 
             strokeWidth={2}
-            label={{ value: `Line: ${line}`, position: "topRight", fill: "#f59e0b" }}
+            label={{ value: `Line: ${line}`, position: "top", fill: "#f59e0b" }}
           />
           
           {/* Performance line */}
@@ -548,7 +546,7 @@ const EnhancedBarChart = React.memo(({
             stroke="#f59e0b" 
             strokeDasharray="5 5" 
             strokeWidth={2}
-            label={{ value: `Line: ${line}`, position: "topRight", fill: "#f59e0b" }}
+            label={{ value: `Line: ${line}`, position: "top", fill: "#f59e0b" }}
           />
           
           {/* Performance bars with color coding */}
@@ -802,7 +800,7 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                     
                     {isUpdatingOdds && (
                       <div className="text-center text-slate-400 text-xs mt-2">
-                        <RefreshCw className="w-3 h-3 animate-spin inline mr-1" />
+                        <RotateCcw className="w-3 h-3 animate-spin inline mr-1" />
                         Updating odds...
                       </div>
                     )}
@@ -815,7 +813,7 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                       enhancedData.riskLevel === 'medium' ? "bg-yellow-600/20 text-yellow-300 border-yellow-500/30" :
                       "bg-red-600/20 text-red-300 border-red-500/30"
                     )}>
-                      {enhancedData.riskLevel.toUpperCase()}
+                      {enhancedData.riskLevel?.toUpperCase() || 'UNKNOWN'}
                     </Badge>
                   </div>
                 </CardContent>
@@ -832,23 +830,23 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                 <CardContent className="space-y-4">
                   <div className="flex justify-between items-center">
                     <span className="text-slate-400">Current Streak</span>
-                    <span className="text-white font-semibold">{enhancedData.performanceMetrics.currentStreak}</span>
+                    <span className="text-white font-semibold">{enhancedData.performanceMetrics?.currentStreak || 0}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-slate-400">Recent Form</span>
                     <Badge className={cn(
                       "border",
-                      enhancedData.performanceMetrics.recentForm === 'hot' ? "bg-red-600/20 text-red-300 border-red-500/30" :
-                      enhancedData.performanceMetrics.recentForm === 'cold' ? "bg-blue-600/20 text-blue-300 border-blue-500/30" :
+                      enhancedData.performanceMetrics?.recentForm === 'hot' ? "bg-red-600/20 text-red-300 border-red-500/30" :
+                      enhancedData.performanceMetrics?.recentForm === 'cold' ? "bg-blue-600/20 text-blue-300 border-blue-500/30" :
                       "bg-slate-600/20 text-slate-300 border-slate-500/30"
                     )}>
-                      {enhancedData.performanceMetrics.recentForm.toUpperCase()}
+                      {enhancedData.performanceMetrics?.recentForm?.toUpperCase() || 'AVERAGE'}
                     </Badge>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-slate-400">Consistency</span>
                     <Progress 
-                      value={enhancedData.performanceMetrics.consistency * 100} 
+                      value={(enhancedData.performanceMetrics?.consistency || 0) * 100} 
                       className="w-20"
                     />
                   </div>
@@ -876,7 +874,7 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                     ) : (
                       <ArrowDown className="w-4 h-4 mr-2" />
                     )}
-                    {enhancedData.aiPrediction?.recommended.toUpperCase()}
+                    {enhancedData.aiPrediction?.recommended?.toUpperCase() || 'OVER'}
                   </Badge>
                 </div>
                 <div className="text-center">
@@ -983,7 +981,7 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                       </tr>
                     </thead>
                     <tbody>
-                      {enhancedData.gameHistory.map((game, index) => (
+                      {enhancedData.gameHistory?.map((game, index) => (
                         <tr key={index} className="border-b border-slate-700/50">
                           <td className="py-2 text-slate-300">{game.gameNumber}</td>
                           <td className="py-2 text-slate-300">{game.opponentAbbr}</td>
@@ -996,7 +994,7 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                                 ? "bg-emerald-600/20 text-emerald-300 border-emerald-500/30"
                                 : "bg-red-600/20 text-red-300 border-red-500/30"
                             )}>
-                              {game.overUnder.toUpperCase()}
+                              {game.overUnder?.toUpperCase() || 'N/A'}
                             </Badge>
                           </td>
                           <td className={cn(
@@ -1025,19 +1023,19 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                 <CardContent className="space-y-4">
                   <div className="flex justify-between items-center">
                     <span className="text-slate-400">Current Streak</span>
-                    <span className="text-white font-bold">{enhancedData.performanceMetrics.currentStreak}</span>
+                    <span className="text-white font-bold">{enhancedData.performanceMetrics?.currentStreak || 0}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-slate-400">Longest Streak</span>
-                    <span className="text-white font-bold">{enhancedData.performanceMetrics.longestStreak}</span>
+                    <span className="text-white font-bold">{enhancedData.performanceMetrics?.longestStreak || 0}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-slate-400">Consistency</span>
-                    <Progress value={enhancedData.performanceMetrics.consistency * 100} />
+                    <Progress value={(enhancedData.performanceMetrics?.consistency || 0) * 100} />
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-slate-400">Volatility</span>
-                    <Progress value={enhancedData.performanceMetrics.volatility * 100} />
+                    <Progress value={(enhancedData.performanceMetrics?.volatility || 0) * 100} />
                   </div>
                 </CardContent>
               </Card>
@@ -1053,11 +1051,11 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
                         <span className="text-slate-400">Home:</span>
-                        <span className="text-white ml-2">{enhancedData.advancedStats.homeAwaySplit.home.hitRate * 100}%</span>
+                        <span className="text-white ml-2">{((enhancedData.advancedStats?.homeAwaySplit?.home?.hitRate || 0) * 100).toFixed(1)}%</span>
                       </div>
                       <div>
                         <span className="text-slate-400">Away:</span>
-                        <span className="text-white ml-2">{enhancedData.advancedStats.homeAwaySplit.away.hitRate * 100}%</span>
+                        <span className="text-white ml-2">{((enhancedData.advancedStats?.homeAwaySplit?.away?.hitRate || 0) * 100).toFixed(1)}%</span>
                       </div>
                     </div>
                   </div>
@@ -1066,11 +1064,11 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
                         <span className="text-slate-400">Strong:</span>
-                        <span className="text-white ml-2">{enhancedData.advancedStats.opponentStrength.strong.hitRate * 100}%</span>
+                        <span className="text-white ml-2">{((enhancedData.advancedStats?.opponentStrength?.strong?.hitRate || 0) * 100).toFixed(1)}%</span>
                       </div>
                       <div>
                         <span className="text-slate-400">Weak:</span>
-                        <span className="text-white ml-2">{enhancedData.advancedStats.opponentStrength.weak.hitRate * 100}%</span>
+                        <span className="text-white ml-2">{((enhancedData.advancedStats?.opponentStrength?.weak?.hitRate || 0) * 100).toFixed(1)}%</span>
                       </div>
                     </div>
                   </div>
@@ -1093,7 +1091,7 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                 <div>
                   <h4 className="text-slate-300 font-semibold mb-2">Key Factors</h4>
                   <div className="flex flex-wrap gap-2">
-                    {enhancedData.factors.map((factor, index) => (
+                    {enhancedData.factors?.map((factor, index) => (
                       <Badge key={index} variant="outline" className="text-slate-300 border-slate-600">
                         {factor}
                       </Badge>
