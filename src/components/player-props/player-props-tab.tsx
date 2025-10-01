@@ -10,6 +10,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
 import { SubscriptionOverlay } from '@/components/ui/subscription-overlay';
 import { PlayerAnalysisOverlay } from './player-analysis-overlay';
+import { PlayerPropCard3D } from './3d-player-prop-card';
+import { AnalysisOverlay3D } from './3d-analysis-overlay';
 import { PlayerPropCardAd } from '@/components/ads/ad-placements';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -472,149 +474,22 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
 
         {/* Player Props Grid */}
         {!isLoadingData && filteredProps.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredProps.map((prop) => (
-              <Card 
+              <PlayerPropCard3D
                 key={prop.id}
-                className="p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer"
-                onClick={() => handlePlayerAnalysis(prop)}
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-foreground text-lg mb-1">
-                      {prop.playerName}
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      {prop.team} vs {prop.opponent}
-                    </p>
-                    <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
-                      <p className="text-lg font-bold text-primary">
-                        {prop.propType} Over {formatNumber(prop.line)}
-                      </p>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {prop.propType === 'Passing Yards' && 'Total passing yards in the game'}
-                        {prop.propType === 'Rushing Yards' && 'Total rushing yards in the game'}
-                        {prop.propType === 'Receiving Yards' && 'Total receiving yards in the game'}
-                        {prop.propType === 'Passing TDs' && 'Total passing touchdowns in the game'}
-                        {prop.propType === 'Rushing TDs' && 'Total rushing touchdowns in the game'}
-                        {prop.propType === 'Receptions' && 'Total receptions in the game'}
-                        {prop.propType === 'Points' && 'Total points scored in the game'}
-                        {prop.propType === 'Rebounds' && 'Total rebounds in the game'}
-                        {prop.propType === 'Assists' && 'Total assists in the game'}
-                        {prop.propType === '3-Pointers Made' && 'Total 3-pointers made in the game'}
-                        {prop.propType === 'Steals' && 'Total steals in the game'}
-                        {prop.propType === 'Blocks' && 'Total blocks in the game'}
-                        {prop.propType === 'Hits' && 'Total hits in the game'}
-                        {prop.propType === 'Runs' && 'Total runs scored in the game'}
-                        {prop.propType === 'Strikeouts' && 'Total strikeouts in the game'}
-                        {prop.propType === 'Home Runs' && 'Total home runs in the game'}
-                        {prop.propType === 'RBIs' && 'Total RBIs in the game'}
-                        {prop.propType === 'Total Bases' && 'Total bases in the game'}
-                        {prop.propType === 'Goals' && 'Total goals scored in the game'}
-                        {prop.propType === 'Shots on Goal' && 'Total shots on goal in the game'}
-                        {prop.propType === 'Saves' && 'Total saves in the game'}
-                        {prop.propType === 'PIM' && 'Total penalty minutes in the game'}
-                        {!['Passing Yards', 'Rushing Yards', 'Receiving Yards', 'Passing TDs', 'Rushing TDs', 'Receptions', 'Points', 'Rebounds', 'Assists', '3-Pointers Made', 'Steals', 'Blocks', 'Hits', 'Runs', 'Strikeouts', 'Home Runs', 'RBIs', 'Total Bases', 'Goals', 'Shots on Goal', 'Saves', 'PIM'].includes(prop.propType) && 'Player performance in the game'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePlayerAnalysis(prop);
-                      }}
-                      className="p-1"
-                      title="Player Analysis"
-                    >
-                      <BarChart3 className="w-4 h-4 text-blue-500" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleToggleMyPick(prop);
-                      }}
-                      className="p-1"
-                    >
-                      {myPicks.some(pick => pick.prop.id === prop.id) ? (
-                        <BookmarkCheck className="w-4 h-4 text-primary" />
-                      ) : (
-                        <Bookmark className="w-4 h-4 text-muted-foreground" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Stats Row */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div className="text-center">
-                    <p className="text-xs text-muted-foreground">Confidence</p>
-                    <p className="text-lg font-bold text-primary">
-                      {formatPercentage(prop.confidence || 0)}
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xs text-muted-foreground">Expected Value</p>
-                    <p className={cn(
-                      "text-lg font-bold",
-                      (prop.expectedValue || 0) > 0 ? "text-green-500" : "text-red-500"
-                    )}>
-                      {formatPercentage(prop.expectedValue || 0)}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Odds Row */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="text-center p-2 bg-green-50 dark:bg-green-900/20 rounded">
-                    <p className="text-xs text-muted-foreground">Over</p>
-                    <p className="text-sm font-bold text-green-600">
-                      {formatOdds(prop.overOdds)}
-                    </p>
-                  </div>
-                  <div className="text-center p-2 bg-red-50 dark:bg-red-900/20 rounded">
-                    <p className="text-xs text-muted-foreground">Under</p>
-                    <p className="text-sm font-bold text-red-600">
-                      {formatOdds(prop.underOdds)}
-                    </p>
-                  </div>
-                </div>
-
-                {/* AI Prediction */}
-                {prop.aiPrediction && (
-                  <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Zap className="w-4 h-4 text-blue-500" />
-                      <span className="text-sm font-medium">AI Prediction</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {prop.aiPrediction.recommended === 'over' ? (
-                        <ArrowUp className="w-4 h-4 text-green-500" />
-                      ) : (
-                        <ArrowDown className="w-4 h-4 text-red-500" />
-                      )}
-                      <span className="text-sm font-medium">
-                        {prop.aiPrediction.recommended.toUpperCase()} {formatNumber(prop.line)}
-                      </span>
-                      <Badge variant="outline" className="text-xs">
-                        {formatPercentage(prop.aiPrediction.confidence)}
-                      </Badge>
-                    </div>
-                  </div>
-                )}
-
-                {/* Game Info */}
-                <div className="mt-4 pt-3 border-t border-border/50">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{prop.gameTime}</span>
-                    <span>{prop.gameDate.split('T')[0]}</span>
-                  </div>
-                </div>
-              </Card>
+                prop={prop}
+                onAnalysisClick={handlePlayerAnalysis}
+                isSelected={selectedProps.includes(prop.id)}
+                onSelect={showSelection ? (propId) => {
+                  setSelectedProps(prev => 
+                    prev.includes(propId) 
+                      ? prev.filter(id => id !== propId)
+                      : [...prev, propId]
+                  );
+                } : undefined}
+                showSelection={showSelection}
+              />
             ))}
           </div>
         )}
@@ -665,16 +540,14 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         </Dialog>
 
         {/* Player Analysis Overlay */}
-        {selectedPlayerForAnalysis && (
-          <PlayerAnalysisOverlay
-            isOpen={showAnalysisOverlay}
-            onClose={() => {
-              setShowAnalysisOverlay(false);
-              setSelectedPlayerForAnalysis(null);
-            }}
-            playerProp={selectedPlayerForAnalysis}
-          />
-        )}
+        <AnalysisOverlay3D
+          isOpen={showAnalysisOverlay}
+          onClose={() => {
+            setShowAnalysisOverlay(false);
+            setSelectedPlayerForAnalysis(null);
+          }}
+          prop={selectedPlayerForAnalysis}
+        />
       </div>
     </div>
   );

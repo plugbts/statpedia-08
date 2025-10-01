@@ -343,8 +343,9 @@ export const PlayerAnalysisOverlay: React.FC<PlayerAnalysisOverlayProps> = ({
 
         {/* Content */}
         <ScrollArea className="p-6 h-[calc(90vh-160px)]">
-          {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            {/* Overview Tab */}
+            <TabsContent value="overview" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
@@ -613,6 +614,7 @@ export const PlayerAnalysisOverlay: React.FC<PlayerAnalysisOverlayProps> = ({
               </CardContent>
             </Card>
           </TabsContent>
+          </Tabs>
         </ScrollArea>
       </div>
     </div>
