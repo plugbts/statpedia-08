@@ -142,19 +142,19 @@ export function UserManagement() {
 
       // Load user profiles for social data
       const { data: userProfiles, error: userProfilesError } = await supabase
-        .from('user_profiles')
-        .select('*');
+        .from('user_profiles' as any)
+        .select('*') as any;
 
       if (userProfilesError) {
         console.warn('Could not load user profiles:', userProfilesError);
       }
 
       // Combine data
-      const usersData: UserData[] = profiles.map(profile => {
-        const userProfile = userProfiles?.find(up => up.user_id === profile.user_id);
+      const usersData: UserData[] = (profiles as any[]).map((profile: any) => {
+        const userProfile = (userProfiles as any[])?.find((up: any) => up.user_id === profile.user_id);
         
         // Determine role based on email (for owner accounts)
-        let role = userProfile?.role || 'user';
+        let role = (userProfile as any)?.role || 'user';
         if (profile.email && isOwnerEmail(profile.email)) {
           role = 'owner';
         } else if (profile.email?.includes('admin')) {
@@ -164,7 +164,7 @@ export function UserManagement() {
         }
         
         // Get username with better fallback - prioritize social tab username
-        let username = userProfile?.username;
+        let username = (userProfile as any)?.username;
         if (!username) {
           // Try to get from email prefix
           username = profile.email?.split('@')[0] || `user_${profile.user_id.slice(0, 8)}`;
@@ -186,12 +186,12 @@ export function UserManagement() {
           created_at: profile.created_at,
           last_sign_in: profile.last_sign_in || profile.created_at,
           is_active: profile.is_active !== false,
-          karma: userProfile?.karma || 0,
-          roi_percentage: userProfile?.roi_percentage || 0,
-          total_posts: userProfile?.total_posts || 0,
-          total_comments: userProfile?.total_comments || 0,
-          is_muted: userProfile?.is_muted || false,
-          avatar_url: userProfile?.avatar_url
+          karma: (userProfile as any)?.karma || 0,
+          roi_percentage: (userProfile as any)?.roi_percentage || 0,
+          total_posts: (userProfile as any)?.total_posts || 0,
+          total_comments: (userProfile as any)?.total_comments || 0,
+          is_muted: (userProfile as any)?.is_muted || false,
+          avatar_url: (userProfile as any)?.avatar_url
         };
       });
 

@@ -98,7 +98,8 @@ export const EmailCampaignsAdmin: React.FC = () => {
         html_content: formData.html_content || template.html_template,
         target_audience: formData.target_audience as 'non_subscribed' | 'free_trial' | 'all',
         is_active: true,
-        scheduled_at: formData.scheduled_at || null
+        scheduled_at: formData.scheduled_at || null,
+        sent_at: null
       };
 
       await emailService.createCampaign(campaign);

@@ -159,7 +159,7 @@ serve(async (req) => {
           user_id: user.user_id,
           email: user.email,
           status: 'failed',
-          error: error.message
+          error: error instanceof Error ? error.message : 'Unknown error'
         })
       }
     }

@@ -51,8 +51,12 @@ export const DevConsole: React.FC = () => {
 
     const addLog = (level: LogLevel, message: string, category: string = 'Console', data?: any) => {
       const newLog: LogEntry = {
-        id: Date.now() + Math.random(),
-        timestamp: new Date(),
+        timestamp: new Date().toLocaleTimeString('en-US', { 
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        }),
         level,
         category,
         message,
@@ -64,35 +68,35 @@ export const DevConsole: React.FC = () => {
     console.log = (...args: any[]) => {
       originalConsoleLog(...args);
       const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
-      addLog('info', message, 'Console');
+      addLog(LogLevel.INFO, message, 'Console');
     };
 
     console.warn = (...args: any[]) => {
       originalConsoleWarn(...args);
       const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
-      addLog('warning', message, 'Console');
+      addLog(LogLevel.WARNING, message, 'Console');
     };
 
     console.error = (...args: any[]) => {
       originalConsoleError(...args);
       const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
-      addLog('error', message, 'Console');
+      addLog(LogLevel.ERROR, message, 'Console');
     };
 
     console.info = (...args: any[]) => {
       originalConsoleInfo(...args);
       const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
-      addLog('info', message, 'Console');
+      addLog(LogLevel.INFO, message, 'Console');
     };
 
     console.debug = (...args: any[]) => {
       originalConsoleDebug(...args);
       const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
-      addLog('debug', message, 'Console');
+      addLog(LogLevel.DEBUG, message, 'Console');
     };
 
     // Add initial log
-    addLog('info', 'Dev Console initialized - Console interception active', 'DevConsole');
+    addLog(LogLevel.INFO, 'Dev Console initialized - Console interception active', 'DevConsole');
     
     // Test the logger
     logger.info('DevConsole', 'Dev Console component mounted and ready');
