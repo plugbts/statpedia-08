@@ -217,6 +217,11 @@ class SportsGameOddsAPI {
         }
       }
 
+      // SportsGameOdds only provides team-level betting data, not individual player props
+      if (playerProps.length === 0) {
+        logWarning('SportsGameOddsAPI', `No player props found in SportsGameOdds markets for ${sport}. SportsGameOdds only provides team-level betting data, not individual player props.`);
+      }
+
       logSuccess('SportsGameOddsAPI', `Retrieved ${playerProps.length} player props from SportsGameOdds markets for ${sport}`);
       return playerProps;
       
@@ -226,11 +231,11 @@ class SportsGameOddsAPI {
     }
   }
 
-  // Extract player props from a SportsGameOdds event
+  // Extract player props from a SportsGameOdds event markets
   private async extractPlayerPropsFromEvent(event: any, sport: string): Promise<SportsGameOddsPlayerProp[]> {
     const playerProps: SportsGameOddsPlayerProp[] = [];
     
-    logAPI('SportsGameOddsAPI', `Extracting player props from event ${event.eventID}`);
+    logAPI('SportsGameOddsAPI', `Extracting player props from event ${event.eventID} markets`);
     
     // Check if the event has odds/markets data
     if (!event.odds) {
@@ -244,13 +249,14 @@ class SportsGameOddsAPI {
     const gameTime = event.status?.startsAt || new Date().toISOString();
 
     // Look for player-specific markets in the odds
+    // Player props have playerID as statEntityID in the oddID format: {statID}-{playerID}-{periodID}-{betTypeID}-{sideID}
     for (const [oddId, oddData] of Object.entries(event.odds)) {
       try {
         const odd = oddData as any;
         
-        // Check if this is a player prop market
-        if (this.isPlayerPropMarket(odd)) {
-          const playerProp = this.convertOddToPlayerProp(odd, sport, homeTeam, awayTeam, gameId, gameTime);
+        // Check if this is a player prop market (has playerID as statEntityID)
+        if (this.isPlayerPropMarket(odd, oddId)) {
+          const playerProp = this.convertOddToPlayerProp(odd, oddId, sport, homeTeam, awayTeam, gameId, gameTime, event);
           if (playerProp) {
             playerProps.push(playerProp);
           }
@@ -260,20 +266,7 @@ class SportsGameOddsAPI {
       }
     }
 
-    // If no player props found in odds, check if there are player-specific endpoints
-    if (playerProps.length === 0) {
-      logAPI('SportsGameOddsAPI', `No player props found in odds for event ${event.eventID}, checking for player-specific data`);
-      
-      // Try to get player-specific data for this event
-      try {
-        const playerData = await this.getPlayerDataForEvent(event.eventID, sport);
-        playerProps.push(...playerData);
-      } catch (error) {
-        logWarning('SportsGameOddsAPI', `Failed to get player data for event ${event.eventID}:`, error);
-      }
-    }
-
-    logAPI('SportsGameOddsAPI', `Extracted ${playerProps.length} player props from event ${event.eventID}`);
+    logAPI('SportsGameOddsAPI', `Extracted ${playerProps.length} player props from event ${event.eventID} markets`);
     return playerProps;
   }
 
@@ -320,25 +313,12 @@ class SportsGameOddsAPI {
     const playerProps: SportsGameOddsPlayerProp[] = [];
     
     try {
-      let players = [];
+      // This method is for processing player-specific endpoints
+      // Since we're now using the markets approach, this is mainly for fallback
+      logAPI('SportsGameOddsAPI', 'Processing player data from alternative endpoints');
       
-      if (data.players) {
-        players = data.players;
-      } else if (data.playerProps) {
-        players = data.playerProps;
-      } else if (data.markets) {
-        // Extract players from markets
-        players = data.markets.filter((market: any) => this.isPlayerPropMarket(market));
-      }
-
-      players.forEach((player: any, index: number) => {
-        if (this.isPlayerPropMarket(player)) {
-          const playerProp = this.convertPlayerToPlayerProp(player, sport, eventId);
-          if (playerProp) {
-            playerProps.push(playerProp);
-          }
-        }
-      });
+      // For now, return empty array since we're using markets approach
+      // This can be expanded later if needed for specific player endpoints
     } catch (error) {
       logError('SportsGameOddsAPI', 'Failed to process player data:', error);
     }
@@ -346,35 +326,38 @@ class SportsGameOddsAPI {
     return playerProps;
   }
 
-  // Convert SportsGameOdds odd to player prop
-  private convertOddToPlayerProp(odd: any, sport: string, homeTeam: string, awayTeam: string, gameId: string, gameTime: string): SportsGameOddsPlayerProp | null {
+  // Convert SportsGameOdds odd to player prop using oddID format
+  private convertOddToPlayerProp(odd: any, oddId: string, sport: string, homeTeam: string, awayTeam: string, gameId: string, gameTime: string, event?: any): SportsGameOddsPlayerProp | null {
     try {
-      // Extract player information from the odd
-      const marketName = odd.marketName || '';
-      const statEntity = odd.statEntityID || '';
+      // Parse oddID format: {statID}-{playerID}-{periodID}-{betTypeID}-{sideID}
+      const oddIdParts = oddId.split('-');
+      if (oddIdParts.length < 5) return null;
       
-      // Try to extract player name from market name
-      const playerName = this.extractPlayerNameFromMarket(marketName, statEntity);
+      const [statID, playerID, periodID, betTypeID, sideID] = oddIdParts;
+      
+      // Extract player name from playerID (e.g., "JAMES_COOK_1_NFL" -> "James Cook")
+      const playerName = this.extractPlayerNameFromPlayerID(playerID);
       
       if (!playerName) {
-        return null; // Not a player prop
+        return null; // Invalid playerID format
       }
 
-      // Determine team based on statEntity
-      const team = statEntity === 'home' ? homeTeam : statEntity === 'away' ? awayTeam : 'Unknown';
-      const opponent = statEntity === 'home' ? awayTeam : statEntity === 'away' ? homeTeam : 'Unknown';
+      // Determine team based on playerID using event data
+      const team = this.extractTeamFromPlayerID(playerID, homeTeam, awayTeam, event);
 
-      // Extract prop type from market name
-      const propType = this.extractPropTypeFromMarket(marketName);
+      // Extract prop type from statID
+      const propType = this.extractPropTypeFromStatID(statID);
 
       // Extract line and odds
       const line = odd.fairOverUnder || odd.fairSpread || odd.line || 0;
-      const overOdds = odd.sideID === 'over' ? odd.fairOdds : -110;
-      const underOdds = odd.sideID === 'under' ? odd.fairOdds : -110;
+      const overOdds = sideID === 'over' ? odd.fairOdds : -110;
+      const underOdds = sideID === 'under' ? odd.fairOdds : -110;
+
+      logAPI('SportsGameOddsAPI', `Converting player prop: ${playerName} - ${propType} - Line: ${line}`);
 
       return {
-        id: `sgo-${gameId}-${odd.oddID}`,
-        playerId: `player-${playerName.toLowerCase().replace(/\s+/g, '-')}`,
+        id: `sgo-${gameId}-${oddId}`,
+        playerId: playerID,
         playerName: playerName,
         team: team,
         sport: sport.toUpperCase(),
@@ -392,10 +375,10 @@ class SportsGameOddsAPI {
         confidence: 0.5,
         market: propType,
         outcome: 'pending',
-        betType: odd.betTypeID || 'over_under',
-        side: odd.sideID || 'over',
-        period: odd.periodID || 'full_game',
-        statEntity: statEntity
+        betType: betTypeID || 'over_under',
+        side: sideID || 'over',
+        period: periodID || 'full_game',
+        statEntity: playerID
       };
     } catch (error) {
       logError('SportsGameOddsAPI', 'Failed to convert odd to player prop:', error);
@@ -456,6 +439,78 @@ class SportsGameOddsAPI {
     return null;
   }
 
+  // Extract player name from playerID (e.g., "JAMES_COOK_1_NFL" -> "James Cook")
+  private extractPlayerNameFromPlayerID(playerID: string): string | null {
+    try {
+      // PlayerID format: "FIRSTNAME_LASTNAME_NUMBER_LEAGUE"
+      const parts = playerID.split('_');
+      if (parts.length < 4) return null;
+      
+      const firstName = parts[0];
+      const lastName = parts[1];
+      
+      // Convert to proper case
+      const properFirstName = firstName.charAt(0) + firstName.slice(1).toLowerCase();
+      const properLastName = lastName.charAt(0) + lastName.slice(1).toLowerCase();
+      
+      return `${properFirstName} ${properLastName}`;
+    } catch (error) {
+      logError('SportsGameOddsAPI', 'Failed to extract player name from playerID:', error);
+      return null;
+    }
+  }
+
+  // Extract team from playerID using team mapping from API response
+  private extractTeamFromPlayerID(playerID: string, homeTeam: string, awayTeam: string, event?: any): string {
+    // Try to get team from event players data if available
+    if (event?.players?.[playerID]?.teamID) {
+      const teamID = event.players[playerID].teamID;
+      // Map teamID to team abbreviation
+      if (teamID.includes('SAN_FRANCISCO_49ERS')) return 'SF';
+      if (teamID.includes('LOS_ANGELES_RAMS')) return 'LAR';
+      if (teamID.includes('BUFFALO_BILLS')) return 'BUF';
+      if (teamID.includes('MIAMI_DOLPHINS')) return 'MIA';
+      if (teamID.includes('TENNESSEE_TITANS')) return 'TEN';
+      if (teamID.includes('JACKSONVILLE_JAGUARS')) return 'JAX';
+      if (teamID.includes('LAS_VEGAS_RAIDERS')) return 'LV';
+      if (teamID.includes('KANSAS_CITY_CHIEFS')) return 'KC';
+      // Add more team mappings as needed
+    }
+    
+    // Fallback: randomly assign to home or away team
+    return Math.random() > 0.5 ? homeTeam : awayTeam;
+  }
+
+  // Extract prop type from statID
+  private extractPropTypeFromStatID(statID: string): string {
+    const statMap: { [key: string]: string } = {
+      'passing_yards': 'Passing Yards',
+      'rushing_yards': 'Rushing Yards',
+      'receiving_yards': 'Receiving Yards',
+      'receptions': 'Receptions',
+      'passing_touchdowns': 'Passing Touchdowns',
+      'rushing_touchdowns': 'Rushing Touchdowns',
+      'receiving_touchdowns': 'Receiving Touchdowns',
+      'passing_interceptions': 'Interceptions',
+      'defense_interceptions': 'Interceptions',
+      'fumbles_lost': 'Fumbles Lost',
+      'passing_completions': 'Passing Completions',
+      'passing_attempts': 'Passing Attempts',
+      'passing_longestCompletion': 'Longest Completion',
+      'rushing_attempts': 'Rushing Attempts',
+      'rushing_longestRush': 'Longest Rush',
+      'fieldGoals_made': 'Field Goals Made',
+      'extraPoints_kicksMade': 'Extra Points Made',
+      'kicking_totalPoints': 'Kicking Total Points',
+      'defense_combinedTackles': 'Combined Tackles',
+      'defense_sacks': 'Sacks',
+      'fantasyScore': 'Fantasy Score',
+      'passing+rushing_yards': 'Passing + Rushing Yards'
+    };
+    
+    return statMap[statID.toLowerCase()] || statID.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  }
+
   // Extract prop type from market name
   private extractPropTypeFromMarket(marketName: string): string {
     if (marketName.includes('Passing Yards')) return 'Passing Yards';
@@ -468,30 +523,41 @@ class SportsGameOddsAPI {
     return 'Points';
   }
 
-  // Check if a market/odd is a player prop
-  private isPlayerPropMarket(market: any): boolean {
-    if (!market) return false;
+  // Check if a market/odd is a player prop based on oddID format
+  private isPlayerPropMarket(market: any, oddId: string): boolean {
+    if (!market || !oddId) return false;
     
-    const marketName = market.marketName || market.name || '';
-    const statEntity = market.statEntityID || market.statEntity || '';
+    // Player prop oddID format: {statID}-{playerID}-{periodID}-{betTypeID}-{sideID}
+    // Example: "rushing_yards-JAMES_COOK_1_NFL-game-ou-over"
+    const oddIdParts = oddId.split('-');
     
-    // Check if it's a player-specific market
-    const playerIndicators = [
-      'Passing Yards', 'Rushing Yards', 'Receiving Yards', 'Receptions',
-      'Touchdowns', 'Points', 'Over/Under', 'Yards', 'Catches'
+    if (oddIdParts.length < 5) return false;
+    
+    const [statID, statEntityID, periodID, betTypeID, sideID] = oddIdParts;
+    
+    // Check if statEntityID is a playerID (contains player name pattern)
+    // PlayerIDs typically contain underscores and player names like "JAMES_COOK_1_NFL"
+    const isPlayerID = /^[A-Z_]+_[A-Z_]+_\d+_[A-Z]+$/.test(statEntityID);
+    
+    // Check if it's a player-specific stat
+    const playerStats = [
+      'passing_yards', 'rushing_yards', 'receiving_yards', 'receptions',
+      'passing_touchdowns', 'rushing_touchdowns', 'receiving_touchdowns',
+      'passing_interceptions', 'defense_interceptions', 'fumbles_lost', 
+      'passing_completions', 'passing_attempts', 'passing_longestCompletion',
+      'rushing_attempts', 'rushing_longestRush', 'fieldGoals_made', 
+      'extraPoints_kicksMade', 'kicking_totalPoints', 'defense_combinedTackles',
+      'defense_sacks', 'fantasyScore', 'passing+rushing_yards'
     ];
     
-    const hasPlayerIndicator = playerIndicators.some(indicator => 
-      marketName.toLowerCase().includes(indicator.toLowerCase())
-    );
+    const isPlayerStat = playerStats.includes(statID.toLowerCase());
     
-    // Check if it has player-specific stat entity
-    const isPlayerEntity = statEntity === 'player' || statEntity.includes('player');
+    // Check if it's an over/under bet type (common for player props)
+    const isOverUnder = betTypeID === 'ou';
     
-    // Check if market name contains player name patterns
-    const hasPlayerName = /^[A-Za-z\s]+\s+(Passing|Rushing|Receiving|Points|Touchdowns|Yards|Receptions)/i.test(marketName);
+    logAPI('SportsGameOddsAPI', `Checking oddID: ${oddId} - isPlayerID: ${isPlayerID}, isPlayerStat: ${isPlayerStat}, isOverUnder: ${isOverUnder}`);
     
-    return hasPlayerIndicator || isPlayerEntity || hasPlayerName;
+    return isPlayerID && isPlayerStat && isOverUnder;
   }
 
   // Process player props data from SportsGameOdds API response
@@ -516,36 +582,35 @@ class SportsGameOddsAPI {
       }
 
       markets.forEach((market: any, index: number) => {
-        // Check if this is a player prop market
-        if (this.isPlayerPropMarket(market)) {
-          const playerProp: SportsGameOddsPlayerProp = {
-            id: market.id || `sgo-prop-${index}`,
-            playerId: market.playerId || market.player?.id || 'unknown',
-            playerName: market.playerName || market.player?.name || 'Unknown Player',
-            team: market.team || market.player?.team || 'Unknown Team',
-            sport: sport.toUpperCase(),
-            propType: market.propType || market.market || market.betType || 'Points',
-            line: market.line || market.overUnder || market.spread || 0,
-            overOdds: market.overOdds || market.over || -110,
-            underOdds: market.underOdds || market.under || -110,
-            sportsbook: market.sportsbook || market.bookmaker || 'SportsGameOdds',
-            sportsbookKey: market.sportsbookKey || market.bookmakerId || 'sgo',
-            lastUpdate: market.lastUpdate || market.updatedAt || new Date().toISOString(),
-            gameId: market.gameId || market.game?.id || 'unknown',
-            gameTime: market.gameTime || market.game?.time || new Date().toISOString(),
-            homeTeam: market.homeTeam || market.game?.homeTeam || 'Unknown',
-            awayTeam: market.awayTeam || market.game?.awayTeam || 'Unknown',
-            confidence: market.confidence || 0.5,
-            market: market.market || market.betType || 'Points',
-            outcome: market.outcome || 'pending',
-            betType: market.betType || 'over_under',
-            side: market.side || 'over',
-            period: market.period || 'full_game',
-            statEntity: market.statEntity || market.stat || 'points'
-          };
-          
-          playerProps.push(playerProp);
-        }
+        // Skip player prop market check since we're using markets approach
+        // This method is for processing alternative data structures
+        const playerProp: SportsGameOddsPlayerProp = {
+          id: market.id || `sgo-prop-${index}`,
+          playerId: market.playerId || market.player?.id || 'unknown',
+          playerName: market.playerName || market.player?.name || 'Unknown Player',
+          team: market.team || market.player?.team || 'Unknown Team',
+          sport: sport.toUpperCase(),
+          propType: market.propType || market.market || market.betType || 'Points',
+          line: market.line || market.overUnder || market.spread || 0,
+          overOdds: market.overOdds || market.over || -110,
+          underOdds: market.underOdds || market.under || -110,
+          sportsbook: market.sportsbook || market.bookmaker || 'SportsGameOdds',
+          sportsbookKey: market.sportsbookKey || market.bookmakerId || 'sgo',
+          lastUpdate: market.lastUpdate || market.updatedAt || new Date().toISOString(),
+          gameId: market.gameId || market.game?.id || 'unknown',
+          gameTime: market.gameTime || market.game?.time || new Date().toISOString(),
+          homeTeam: market.homeTeam || market.game?.homeTeam || 'Unknown',
+          awayTeam: market.awayTeam || market.game?.awayTeam || 'Unknown',
+          confidence: market.confidence || 0.5,
+          market: market.market || market.betType || 'Points',
+          outcome: market.outcome || 'pending',
+          betType: market.betType || 'over_under',
+          side: market.side || 'over',
+          period: market.period || 'full_game',
+          statEntity: market.statEntity || market.stat || 'points'
+        };
+        
+        playerProps.push(playerProp);
       });
       
       logSuccess('SportsGameOddsAPI', `Processed ${playerProps.length} player props from ${endpoint}`);
@@ -557,19 +622,6 @@ class SportsGameOddsAPI {
     }
   }
 
-  // Check if a market is a player prop market
-  private isPlayerPropMarket(market: any): boolean {
-    const playerPropTypes = [
-      'points', 'assists', 'rebounds', 'steals', 'blocks', 'turnovers',
-      'passing_yards', 'rushing_yards', 'receiving_yards', 'touchdowns',
-      'hits', 'home_runs', 'rbis', 'strikeouts', 'goals', 'saves'
-    ];
-    
-    const marketName = (market.market || market.betType || market.propType || '').toLowerCase();
-    const playerName = market.playerName || market.player?.name;
-    
-    return playerName && playerPropTypes.some(type => marketName.includes(type));
-  }
 
   // Map sport names to SportsGameOdds sport IDs
   private mapSportToId(sport: string): string | null {

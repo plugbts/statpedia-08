@@ -309,9 +309,7 @@ class SportsRadarAPI {
           playerProps = playerPropsData;
           logInfo('SportsRadarAPI', `Found ${playerProps.length} props from Player Props API`);
         } else {
-          logWarning('SportsRadarAPI', `No player props found from Player Props API. Creating sample data for testing...`);
-          playerProps = this.createSamplePlayerProps(sport);
-          logInfo('SportsRadarAPI', `Created ${playerProps.length} sample props for ${sport}`);
+          logWarning('SportsRadarAPI', `No player props found from Player Props API.`);
         }
       }
       
@@ -320,10 +318,7 @@ class SportsRadarAPI {
       return playerProps;
     } catch (error) {
       logError('SportsRadarAPI', `Failed to get player props for ${sport}:`, error);
-      // Return sample data on error
-      const sampleProps = this.createSamplePlayerProps(sport);
-      logInfo('SportsRadarAPI', `Returning ${sampleProps.length} sample props due to error`);
-      return sampleProps;
+      return [];
     }
   }
 
