@@ -6,10 +6,13 @@ const SPORTSGAMEODDS_BASE_URL = 'https://api.sportsgameodds.com';
 
 // Cache configuration
 const CACHE_DURATION = {
-  ODDS: 2 * 60 * 1000, // 2 minutes
-  MARKETS: 5 * 60 * 1000, // 5 minutes
-  SPORTS: 24 * 60 * 60 * 1000, // 24 hours
-  BOOKMAKERS: 24 * 60 * 60 * 1000, // 24 hours
+  ODDS: 5 * 60 * 1000, // 5 minutes for odds
+  MARKETS: 5 * 60 * 1000, // 5 minutes for markets
+  GAMES: 15 * 60 * 1000, // 15 minutes for games
+  SPORTS: 24 * 60 * 60 * 1000, // 24 hours for sports (rarely change)
+  BOOKMAKERS: 24 * 60 * 60 * 1000, // 24 hours for bookmakers (rarely change)
+  PLAYERS: 12 * 60 * 60 * 1000, // 12 hours for players (rarely change)
+  TEAMS: 24 * 60 * 60 * 1000 // 24 hours for teams (rarely change)
 };
 
 // SportsGameOdds API Interfaces
@@ -86,9 +89,118 @@ export interface SportsGameOddsLeague {
 
 class SportsGameOddsAPI {
   private cache = new Map<string, { data: any; timestamp: number }>();
+  private usageStats = {
+    totalCalls: 0,
+    callsToday: 0,
+    lastResetDate: new Date().toDateString(),
+    callsByEndpoint: new Map<string, number>(),
+    cacheHits: 0,
+    cacheMisses: 0
+  };
+  private readonly MAX_DAILY_CALLS = 1000; // Conservative limit for trial plan
 
   constructor() {
-    logInfo('SportsGameOddsAPI', 'SportsGameOdds API initialized');
+    logInfo('SportsGameOddsAPI', 'SportsGameOdds API initialized with usage tracking');
+  }
+
+  // Track API usage for monitoring
+  private trackAPIUsage(endpoint: string): void {
+    const today = new Date().toDateString();
+    
+    // Reset daily counter if new day
+    if (this.usageStats.lastResetDate !== today) {
+      this.usageStats.callsToday = 0;
+      this.usageStats.lastResetDate = today;
+    }
+    
+    // Increment counters
+    this.usageStats.totalCalls++;
+    this.usageStats.callsToday++;
+    
+    // Track by endpoint
+    const currentCount = this.usageStats.callsByEndpoint.get(endpoint) || 0;
+    this.usageStats.callsByEndpoint.set(endpoint, currentCount + 1);
+    
+    // Log warning if approaching limit
+    const usagePercentage = (this.usageStats.callsToday / this.MAX_DAILY_CALLS) * 100;
+    if (usagePercentage >= 80) {
+      logWarning('SportsGameOddsAPI', `High API usage: ${this.usageStats.callsToday}/${this.MAX_DAILY_CALLS} calls today (${usagePercentage.toFixed(1)}%)`);
+    }
+  }
+
+  // Get usage statistics
+  getUsageStats() {
+    const today = new Date().toDateString();
+    const usagePercentage = (this.usageStats.callsToday / this.MAX_DAILY_CALLS) * 100;
+    
+    return {
+      totalCalls: this.usageStats.totalCalls,
+      callsToday: this.usageStats.callsToday,
+      maxDailyCalls: this.MAX_DAILY_CALLS,
+      usagePercentage: Math.round(usagePercentage * 100) / 100,
+      lastResetDate: this.usageStats.lastResetDate,
+      callsByEndpoint: Object.fromEntries(this.usageStats.callsByEndpoint),
+      isNearLimit: usagePercentage >= 80,
+      isAtLimit: this.usageStats.callsToday >= this.MAX_DAILY_CALLS
+    };
+  }
+
+  // Reset usage statistics
+  resetUsageStats(): void {
+    this.usageStats = {
+      totalCalls: 0,
+      callsToday: 0,
+      lastResetDate: new Date().toDateString(),
+      callsByEndpoint: new Map<string, number>(),
+      cacheHits: 0,
+      cacheMisses: 0
+    };
+    logInfo('SportsGameOddsAPI', 'Usage statistics reset');
+  }
+
+  // Check if we should avoid making API calls due to high usage
+  shouldAvoidAPICall(): boolean {
+    const usagePercentage = (this.usageStats.callsToday / this.MAX_DAILY_CALLS) * 100;
+    return usagePercentage >= 95; // Avoid calls when at 95% of limit
+  }
+
+  // Get detailed endpoint usage statistics
+  getDetailedUsageStats() {
+    const stats = this.getUsageStats();
+    return {
+      ...stats,
+      topEndpoints: Array.from(this.usageStats.callsByEndpoint.entries())
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 5)
+        .map(([endpoint, count]) => ({ endpoint, count })),
+      cacheHitRate: this.calculateCacheHitRate(),
+      recommendations: this.getUsageRecommendations()
+    };
+  }
+
+  // Calculate cache hit rate
+  private calculateCacheHitRate(): number {
+    const totalCacheRequests = this.usageStats.cacheHits + this.usageStats.cacheMisses;
+    if (totalCacheRequests === 0) return 0;
+    return Math.round((this.usageStats.cacheHits / totalCacheRequests) * 100) / 100;
+  }
+
+  // Get usage recommendations
+  private getUsageRecommendations(): string[] {
+    const recommendations = [];
+    const usagePercentage = this.usageStats.callsToday / this.MAX_DAILY_CALLS;
+    
+    if (usagePercentage >= 0.8) {
+      recommendations.push('Consider reducing API call frequency');
+      recommendations.push('Increase cache duration for static data');
+    }
+    
+    if (usagePercentage >= 0.9) {
+      recommendations.push('Switch to cached data only mode');
+      recommendations.push('Consider upgrading API plan');
+    }
+    
+    return recommendations;
   }
 
   // Make authenticated request to SportsGameOdds API
@@ -100,10 +212,22 @@ class SportsGameOddsAPI {
     if (this.cache.has(cacheKey)) {
       const cached = this.cache.get(cacheKey)!;
       if (now - cached.timestamp < cacheDuration) {
+        this.usageStats.cacheHits++;
         logAPI('SportsGameOddsAPI', `Using cached data for ${endpoint}`);
         return cached.data;
       }
     }
+    
+    this.usageStats.cacheMisses++;
+
+    // Check if we should avoid API calls due to high usage
+    if (this.shouldAvoidAPICall()) {
+      logWarning('SportsGameOddsAPI', `Avoiding API call due to high usage: ${this.usageStats.callsToday}/${this.MAX_DAILY_CALLS} calls today`);
+      throw new Error('API call avoided due to high usage - consider using cached data');
+    }
+
+    // Track API usage
+    this.trackAPIUsage(endpoint);
 
     try {
       const url = `${SPORTSGAMEODDS_BASE_URL}${endpoint}`;
@@ -195,8 +319,12 @@ class SportsGameOddsAPI {
         return [];
       }
 
-      // Get events/games for the sport
-      const eventsData = await this.makeRequest<any>(`/v2/events?leagueID=${leagueId}`, CACHE_DURATION.ODDS);
+      // Get events/games for the sport with optimized query parameters
+      // Only fetch events with odds available and limit to recent games
+      const eventsData = await this.makeRequest<any>(
+        `/v2/events?leagueID=${leagueId}&oddsAvailable=true&limit=10`, 
+        CACHE_DURATION.ODDS
+      );
       logAPI('SportsGameOddsAPI', `Found ${eventsData.length} events for ${sport}`);
       
       if (eventsData.length === 0) {

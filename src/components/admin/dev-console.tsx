@@ -9,6 +9,7 @@ import { logger, LogEntry, LogLevel } from '@/utils/console-logger';
 import { TestAPIDebug } from '@/components/test-api-debug';
 import { DebugAPITest } from '@/components/debug-api-test';
 import { unifiedSportsAPI } from '@/services/unified-sports-api';
+import { sportsGameOddsAPI } from '@/services/sportsgameodds-api';
 import { 
   Terminal, 
   Trash2, 
@@ -482,76 +483,108 @@ export const DevConsole: React.FC = () => {
                   </CardHeader>
                   <CardContent className="p-6">
                     <div className="space-y-4">
-                      {(() => {
-                        const usageStats = unifiedSportsAPI.getUsageStats();
-                        return (
-                          <>
-                            {/* SportsDataIO API */}
-                            <div className="p-3 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/10 rounded-lg border border-blue-200 dark:border-blue-800">
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="font-semibold text-blue-800 dark:text-blue-200">SportsDataIO API</span>
-                                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700">
-                                  {usageStats.sportsDataIO.totalCalls} calls
-                                </Badge>
-                              </div>
-                              <div className="grid grid-cols-2 gap-2 text-xs">
-                                <div className="flex justify-between">
-                                  <span className="text-blue-700 dark:text-blue-300">Today:</span>
-                                  <span className="font-semibold">{usageStats.sportsDataIO.callsToday}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-blue-700 dark:text-blue-300">This Hour:</span>
-                                  <span className="font-semibold">{usageStats.sportsDataIO.callsThisHour}</span>
-                                </div>
-                              </div>
-                            </div>
+                      <>
 
-                            {/* TheOddsAPI */}
-                            <div className="p-3 bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/10 rounded-lg border border-green-200 dark:border-green-800">
+                            {/* SportsGameOdds API */}
+                            <div className="p-3 bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/10 rounded-lg border border-purple-200 dark:border-purple-800">
                               <div className="flex items-center justify-between mb-2">
-                                <span className="font-semibold text-green-800 dark:text-green-200">TheOddsAPI</span>
+                                <span className="font-semibold text-purple-800 dark:text-purple-200">SportsGameOdds API</span>
                                 <div className="flex gap-2">
-                                  <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700">
-                                    {usageStats.theOddsAPI.totalCalls} calls
+                                  <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700">
+                                    {sportsGameOddsAPI.getUsageStats().callsToday} calls today
                                   </Badge>
-                                  {usageStats.theOddsAPI.remainingQuota && (
+                                  {sportsGameOddsAPI.getUsageStats().isNearLimit && (
                                     <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700">
-                                      {usageStats.theOddsAPI.remainingQuota} left
+                                      Near Limit
+                                    </Badge>
+                                  )}
+                                  {sportsGameOddsAPI.getUsageStats().isAtLimit && (
+                                    <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700">
+                                      At Limit
                                     </Badge>
                                   )}
                                 </div>
                               </div>
-                              <div className="grid grid-cols-2 gap-2 text-xs">
-                                <div className="flex justify-between">
-                                  <span className="text-green-700 dark:text-green-300">Today:</span>
-                                  <span className="font-semibold">{usageStats.theOddsAPI.callsToday}</span>
+                              <div className="space-y-2">
+                                <div className="flex justify-between text-xs">
+                                  <span className="text-purple-700 dark:text-purple-300">Usage:</span>
+                                  <span className="font-semibold">
+                                    {sportsGameOddsAPI.getUsageStats().callsToday} / {sportsGameOddsAPI.getUsageStats().maxDailyCalls}
+                                  </span>
                                 </div>
-                                <div className="flex justify-between">
-                                  <span className="text-green-700 dark:text-green-300">This Hour:</span>
-                                  <span className="font-semibold">{usageStats.theOddsAPI.callsThisHour}</span>
+                                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                  <div 
+                                    className={`h-2 rounded-full transition-all duration-300 ${
+                                      sportsGameOddsAPI.getUsageStats().isAtLimit 
+                                        ? 'bg-red-500' 
+                                        : sportsGameOddsAPI.getUsageStats().isNearLimit 
+                                        ? 'bg-orange-500' 
+                                        : 'bg-purple-500'
+                                    }`}
+                                    style={{ width: `${Math.min(sportsGameOddsAPI.getUsageStats().usagePercentage, 100)}%` }}
+                                  ></div>
+                                </div>
+                                <div className="text-xs text-purple-600 dark:text-purple-400">
+                                  {sportsGameOddsAPI.getUsageStats().usagePercentage}% of daily limit
+                                </div>
+                                <div className="text-xs text-purple-600 dark:text-purple-400">
+                                  Total calls: {sportsGameOddsAPI.getUsageStats().totalCalls}
+                                </div>
+                                <div className="text-xs text-purple-600 dark:text-purple-400">
+                                  Cache hit rate: {Math.round(sportsGameOddsAPI.getDetailedUsageStats().cacheHitRate * 100)}%
                                 </div>
                               </div>
-                              {usageStats.theOddsAPI.quotaResetTime && (
-                                <div className="text-xs text-green-600 dark:text-green-400 mt-1">
-                                  Resets: {new Date(usageStats.theOddsAPI.quotaResetTime).toLocaleString()}
-                                </div>
-                              )}
                             </div>
+
+                            {/* Detailed SportsGameOdds Usage */}
+                            {sportsGameOddsAPI.getUsageStats().callsToday > 0 && (
+                              <div className="p-3 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-900/20 dark:to-gray-800/10 rounded-lg border border-gray-200 dark:border-gray-800">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="font-semibold text-gray-800 dark:text-gray-200">Top Endpoints</span>
+                                  <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-900/30 dark:text-gray-300 dark:border-gray-700">
+                                    {sportsGameOddsAPI.getDetailedUsageStats().topEndpoints.length} tracked
+                                  </Badge>
+                                </div>
+                                <div className="space-y-1">
+                                  {sportsGameOddsAPI.getDetailedUsageStats().topEndpoints.map((endpoint, index) => (
+                                    <div key={index} className="flex justify-between text-xs">
+                                      <span className="text-gray-700 dark:text-gray-300 truncate max-w-[200px]">
+                                        {endpoint.endpoint}
+                                      </span>
+                                      <span className="font-semibold text-gray-800 dark:text-gray-200">
+                                        {endpoint.count} calls
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                                {sportsGameOddsAPI.getDetailedUsageStats().recommendations.length > 0 && (
+                                  <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                    <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Recommendations:</div>
+                                    <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                                      {sportsGameOddsAPI.getDetailedUsageStats().recommendations.map((rec, index) => (
+                                        <li key={index} className="flex items-start gap-1">
+                                          <span className="text-orange-500">•</span>
+                                          <span>{rec}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+                            )}
 
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => {
-                                unifiedSportsAPI.resetUsageStats();
-                                logger.info('DevConsole', 'API usage statistics reset for both APIs');
+                                sportsGameOddsAPI.resetUsageStats();
+                                logger.info('DevConsole', 'SportsGameOdds API usage statistics reset');
                               }}
                               className="w-full text-xs"
                             >
                               Reset Usage Stats
                             </Button>
-                          </>
-                        );
-                      })()}
+                      </>
                     </div>
                   </CardContent>
                 </Card>
