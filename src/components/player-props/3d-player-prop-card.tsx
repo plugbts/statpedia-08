@@ -18,6 +18,14 @@ import { cn } from '@/lib/utils';
 import { SeasonalCardBackground } from '@/components/ui/seasonal-card-background';
 import { teamColorsService } from '@/services/team-colors-service';
 
+interface SportsbookOdds {
+  sportsbook: string;
+  line: number;
+  overOdds: number;
+  underOdds: number;
+  lastUpdate: string;
+}
+
 interface PlayerProp {
   id: string;
   playerId: string;
@@ -32,6 +40,8 @@ interface PlayerProp {
   line: number;
   overOdds: number;
   underOdds: number;
+  // Multiple sportsbook odds
+  allSportsbookOdds?: SportsbookOdds[];
   gameDate: string;
   gameTime: string;
   headshotUrl?: string;
@@ -304,19 +314,44 @@ export function PlayerPropCard3D({
           </div>
 
           {/* Odds and Stats */}
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div className="space-y-2">
-              <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Over</div>
-              <div className="text-xl font-bold text-green-300 tracking-tight">
-                {formatOdds(prop.overOdds)}
+          <div className="space-y-3 mb-4">
+            {/* Primary Odds Display */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Over</div>
+                <div className="text-xl font-bold text-green-300 tracking-tight">
+                  {formatOdds(prop.overOdds)}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Under</div>
+                <div className="text-xl font-bold text-red-300 tracking-tight">
+                  {formatOdds(prop.underOdds)}
+                </div>
               </div>
             </div>
-            <div className="space-y-2">
-              <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Under</div>
-              <div className="text-xl font-bold text-red-300 tracking-tight">
-                {formatOdds(prop.underOdds)}
+
+            {/* Multiple Sportsbook Odds */}
+            {prop.allSportsbookOdds && prop.allSportsbookOdds.length > 1 && (
+              <div className="space-y-2">
+                <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">All Sportsbooks</div>
+                <div className="space-y-1 max-h-24 overflow-y-auto">
+                  {prop.allSportsbookOdds.map((odds, index) => (
+                    <div key={index} className="flex items-center justify-between text-xs bg-slate-800/30 rounded px-2 py-1">
+                      <span className="text-slate-300 font-medium">{odds.sportsbook}</span>
+                      <div className="flex items-center space-x-3">
+                        <span className="text-green-300 font-semibold">{formatOdds(odds.overOdds)}</span>
+                        <span className="text-slate-400">|</span>
+                        <span className="text-red-300 font-semibold">{formatOdds(odds.underOdds)}</span>
+                        {odds.line !== prop.line && (
+                          <span className="text-slate-500">({odds.line})</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Sportsbook Source */}

@@ -3,6 +3,14 @@ import { sportsDataIOAPI, PlayerProp as SportsDataIOPlayerProp, Team, Player, Ga
 import { theOddsAPI, PlayerPropOdds, GameOdds } from './theoddsapi';
 
 // Unified interfaces
+export interface SportsbookOdds {
+  sportsbook: string;
+  line: number;
+  overOdds: number;
+  underOdds: number;
+  lastUpdate: string;
+}
+
 export interface PlayerProp {
   id: string;
   playerId: string;
@@ -14,9 +22,13 @@ export interface PlayerProp {
   gameId: string;
   sport: string;
   propType: string;
+  // Primary odds (default from FanDuel or first available)
   line: number;
   overOdds: number;
   underOdds: number;
+  // Multiple sportsbook odds
+  allSportsbookOdds?: SportsbookOdds[];
+  // Metadata
   gameDate: string;
   gameTime: string;
   headshotUrl?: string;
@@ -103,17 +115,41 @@ class UnifiedSportsAPI {
       const filteredProps = this.filterCurrentAndFutureGames(sportsDataIOProps);
       logAPI('UnifiedSportsAPI', `Filtered to ${filteredProps.length} current/future game props`);
 
-      // Get team odds from TheOddsAPI for context (not player props)
+      // Get player prop odds from multiple sportsbooks via TheOddsAPI
+      let multiSportsbookOdds: any[] = [];
+      try {
+        const bookmakers = selectedSportsbook === 'all' ? ['fanduel', 'draftkings', 'betmgm', 'caesars', 'pointsbet'] : 
+                          selectedSportsbook ? [selectedSportsbook] : ['fanduel', 'draftkings', 'betmgm', 'caesars', 'pointsbet'];
+        
+        // Get player prop markets for the sport
+        const playerPropMarkets = this.getPlayerPropMarkets(sport);
+        if (playerPropMarkets.length > 0) {
+          for (const market of playerPropMarkets) {
+            try {
+              const marketOdds = await theOddsAPI.getMarketOdds(sport, market, ['us'], bookmakers);
+              multiSportsbookOdds.push(...marketOdds);
+            } catch (error) {
+              logWarning('UnifiedSportsAPI', `Failed to get ${market} odds:`, error);
+            }
+          }
+        }
+        logAPI('UnifiedSportsAPI', `Retrieved ${multiSportsbookOdds.length} player prop odds from TheOddsAPI`);
+      } catch (error) {
+        logWarning('UnifiedSportsAPI', 'Failed to get player prop odds from TheOddsAPI:', error);
+      }
+
+      // Get team odds from TheOddsAPI for context
       let teamOdds: GameOdds[] = [];
       try {
-        const bookmakers = selectedSportsbook ? [selectedSportsbook] : ['fanduel', 'draftkings', 'betmgm', 'caesars', 'pointsbet'];
+        const bookmakers = selectedSportsbook === 'all' ? ['fanduel', 'draftkings', 'betmgm', 'caesars', 'pointsbet'] : 
+                          selectedSportsbook ? [selectedSportsbook] : ['fanduel', 'draftkings', 'betmgm', 'caesars', 'pointsbet'];
         teamOdds = await theOddsAPI.getTeamOdds(sport, ['us'], bookmakers);
-        logAPI('UnifiedSportsAPI', `Retrieved ${teamOdds.length} team odds from TheOddsAPI${selectedSportsbook ? ` for ${selectedSportsbook}` : ''}`);
+        logAPI('UnifiedSportsAPI', `Retrieved ${teamOdds.length} team odds from TheOddsAPI`);
       } catch (error) {
         logWarning('UnifiedSportsAPI', 'Failed to get team odds from TheOddsAPI:', error);
       }
 
-      // Combine and enhance the data with date formatting
+      // Combine and enhance the data with multiple sportsbook odds
       const enhancedProps: PlayerProp[] = filteredProps.map(prop => {
         // Find team odds context for this game
         const gameTeamOdds = teamOdds.find(game => 
@@ -121,15 +157,48 @@ class UnifiedSportsAPI {
           game.homeTeam === prop.opponent || game.awayTeam === prop.opponent
         );
 
-        // Use SportsDataIO odds as primary source for player props
-        const sportsbookSource = selectedSportsbook || 'SportsDataIO';
+        // Find matching player prop odds from TheOddsAPI
+        const matchingPropOdds = this.findMatchingPlayerPropOdds(prop, multiSportsbookOdds);
+        
+        // Create multiple sportsbook odds array
+        const allSportsbookOdds: SportsbookOdds[] = [];
+        
+        // Add SportsDataIO odds as one source
+        allSportsbookOdds.push({
+          sportsbook: 'SportsDataIO',
+          line: prop.line,
+          overOdds: prop.overOdds,
+          underOdds: prop.underOdds,
+          lastUpdate: new Date().toISOString()
+        });
+
+        // Add TheOddsAPI odds for different sportsbooks
+        if (matchingPropOdds.length > 0) {
+          matchingPropOdds.forEach(odds => {
+            allSportsbookOdds.push({
+              sportsbook: odds.bookmaker.name,
+              line: odds.line,
+              overOdds: odds.overOdds,
+              underOdds: odds.underOdds,
+              lastUpdate: odds.lastUpdate
+            });
+          });
+        }
+
+        // Determine primary odds (prefer FanDuel, fallback to first available)
+        let primaryOdds = allSportsbookOdds.find(o => o.sportsbook.toLowerCase() === 'fanduel') || allSportsbookOdds[0];
         
         return {
           ...prop,
-          gameDate: this.formatDate(prop.gameDate), // Format date to M/D/YYYY
-          gameTime: this.formatTime(prop.gameTime), // Format time to readable format
-          sportsbookSource, // Track which sportsbook provided the odds
-          lastOddsUpdate: new Date().toISOString(),
+          // Use primary odds for main display
+          line: primaryOdds.line,
+          overOdds: primaryOdds.overOdds,
+          underOdds: primaryOdds.underOdds,
+          // Store all sportsbook odds
+          allSportsbookOdds,
+          // Format dates
+          gameDate: this.formatDate(prop.gameDate),
+          gameTime: this.formatTime(prop.gameTime),
           // Add team odds context if available
           teamOddsContext: gameTeamOdds ? {
             homeTeam: gameTeamOdds.homeTeam,
@@ -330,6 +399,51 @@ class UnifiedSportsAPI {
         return false;
       }
     });
+  }
+
+  // Get player prop markets for a sport
+  private getPlayerPropMarkets(sport: string): string[] {
+    const sportKey = this.getSportKey(sport);
+    const sportMarkets: { [key: string]: string[] } = {
+      'americanfootball_nfl': [
+        'player_pass_tds', 'player_pass_yds', 'player_pass_completions', 'player_pass_attempts',
+        'player_rush_yds', 'player_rush_attempts', 'player_receptions', 'player_receiving_yds',
+        'player_receiving_tds', 'player_fumbles', 'player_interceptions'
+      ],
+      'basketball_nba': [
+        'player_points', 'player_rebounds', 'player_assists', 'player_steals',
+        'player_blocks', 'player_threes', 'player_turnovers', 'player_fantasy_points'
+      ],
+      'baseball_mlb': [
+        'player_hits', 'player_runs', 'player_rbis', 'player_home_runs',
+        'player_stolen_bases', 'player_strikeouts', 'player_walks'
+      ],
+      'icehockey_nhl': [
+        'player_points', 'player_goals', 'player_assists', 'player_shots',
+        'player_saves', 'player_goals_against'
+      ]
+    };
+    
+    return sportMarkets[sportKey] || [];
+  }
+
+  // Convert sport name to TheOddsAPI sport key
+  private getSportKey(sport: string): string {
+    const sportMap: { [key: string]: string } = {
+      'nfl': 'americanfootball_nfl',
+      'nba': 'basketball_nba',
+      'mlb': 'baseball_mlb',
+      'nhl': 'icehockey_nhl'
+    };
+    
+    return sportMap[sport.toLowerCase()] || sport.toLowerCase();
+  }
+
+  // Find matching player prop odds from TheOddsAPI data
+  private findMatchingPlayerPropOdds(prop: SportsDataIOPlayerProp, oddsData: any[]): any[] {
+    // This would need to match player names and prop types between APIs
+    // For now, return empty array - this is a complex matching problem
+    return [];
   }
 
   // Format date to M/D/YYYY format
