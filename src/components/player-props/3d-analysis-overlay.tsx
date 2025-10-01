@@ -300,6 +300,19 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
             box-shadow: 0 0 25px rgba(16, 185, 129, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3);
           }
         }
+        
+        @keyframes underStretch {
+          0% { 
+            height: 12px;
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+          }
+          50% {
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+          }
+          100% { 
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+          }
+        }
         @keyframes float {
           0%, 100% { transform: translateY(0px); }
           50% { transform: translateY(-3px); }
@@ -325,6 +338,13 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
           25% { transform: scale(1.1) translateY(-8px); }
           50% { transform: scale(1.05) translateY(-4px); }
           75% { transform: scale(1.08) translateY(-6px); }
+          100% { transform: scale(1) translateY(0px); }
+        }
+        @keyframes under-bounce {
+          0% { transform: scale(1) translateY(0px); }
+          25% { transform: scale(1.08) translateY(-4px); }
+          50% { transform: scale(1.02) translateY(-2px); }
+          75% { transform: scale(1.05) translateY(-3px); }
           100% { transform: scale(1) translateY(0px); }
         }
         @keyframes under-shrink {
@@ -354,6 +374,9 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
         }
         .over-bounce-animation {
           animation: over-bounce 0.8s ease-out;
+        }
+        .under-bounce-animation {
+          animation: under-bounce 0.8s ease-out;
         }
         .under-shrink-animation {
           animation: under-shrink 0.6s ease-out;
@@ -714,32 +737,37 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
                             // Calculate positioning for symmetrical bars above game text
                             const isAboveLine = dataPoint.value > centerValue;
                             
-                            // Calculate bar height as percentage of range
-                            const valueDistance = Math.abs(dataPoint.value - centerValue);
-                            const barHeight = Math.max((valueDistance / range) * 100, 8); // Minimum 8% height
+                            // Calculate the actual Y position of the data value
+                            const valueYPosition = getYPosition(dataPoint.value);
                             
-                            // For over hits, make bars extend above the reference line with animation
-                            // For under hits, keep them below the reference line
+                            // Base position for all bars (symmetrical above games text)
+                            const baseBarBottom = 15; // Position above games text
+                            
+                            // Calculate bar height based on distance from base to actual value position
+                            const barHeight = Math.max(Math.abs(valueYPosition - baseBarBottom), 12); // Minimum 12px height
+                            
+                            // For over hits: stretch from base to actual value (can go above orange line)
+                            // For under hits: stretch from base to actual value (but cap at orange line)
                             let barStyle: React.CSSProperties;
                             
                             if (isAboveLine) {
-                              // Over hit - bar extends upward from reference line
-                              const overHeight = Math.min(barHeight * 2, 60); // Cap at 60% for dramatic effect
+                              // Over hit - bar stretches from base to actual value above the line
                               barStyle = {
-                                height: `${overHeight}%`,
-                                bottom: `${lineYPosition}%`,
+                                height: `${barHeight}px`,
+                                bottom: `${baseBarBottom}px`,
                                 position: 'absolute',
-                                minHeight: '16px',
                                 transform: isCurrent ? 'scale(1.05) translateY(-2px)' : 'scale(1)',
                                 animation: isAnimated ? 'overStretch 0.8s ease-out forwards' : 'none',
                               };
                             } else {
-                              // Under hit - bar stays below reference line
+                              // Under hit - bar stretches from base but caps at orange line
+                              const maxUnderHeight = Math.abs(baseBarBottom - lineYPosition);
+                              const cappedHeight = Math.min(barHeight, maxUnderHeight);
+                              
                               barStyle = {
-                                height: `${barHeight}%`,
-                                bottom: `${lineYPosition - barHeight}%`,
+                                height: `${cappedHeight}px`,
+                                bottom: `${baseBarBottom}px`,
                                 position: 'absolute',
-                                minHeight: '12px',
                                 transform: isCurrent ? 'scale(1.05) translateY(-2px)' : 'scale(1)',
                               };
                             }
@@ -764,7 +792,7 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
                                       ? "bg-gradient-to-t from-emerald-600/90 to-emerald-500/90 rounded-t-lg" 
                                       : "bg-gradient-to-t from-red-600/90 to-red-500/90 rounded-b-lg",
                                     isAnimated && isAboveLine && "over-bounce-animation",
-                                    isAnimated && !isAboveLine && "under-shrink-animation",
+                                    isAnimated && !isAboveLine && "under-bounce-animation",
                                     isActive && "data-rise-animation"
                                   )}
                                   style={{
@@ -780,19 +808,13 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
                                         : 'inset 0 1px 0 rgba(255, 255, 255, 0.1)',
                                   }}
                                 >
-                                  {/* Bar Value */}
-                                  <div className={cn(
-                                    "absolute left-1/2 transform -translate-x-1/2 text-xs font-semibold text-slate-100 whitespace-nowrap",
-                                    isAboveLine ? "-top-8" : "-bottom-8"
-                                  )}>
+                                  {/* Bar Value - positioned at the top of each bar */}
+                                  <div className="absolute left-1/2 transform -translate-x-1/2 text-xs font-semibold text-slate-100 whitespace-nowrap -top-8">
                                     {formatNumber(dataPoint.value, 1)}
                                   </div>
                                   
-                                  {/* Performance Indicator */}
-                                  <div className={cn(
-                                    "absolute left-1/2 transform -translate-x-1/2",
-                                    isAboveLine ? "-top-12" : "-bottom-12"
-                                  )}>
+                                  {/* Performance Indicator - positioned at the top of each bar */}
+                                  <div className="absolute left-1/2 transform -translate-x-1/2 -top-12">
                                     <div className={cn(
                                       "w-2 h-2 rounded-full border border-white/30",
                                       isAboveLine ? "bg-emerald-400" : "bg-red-400",
