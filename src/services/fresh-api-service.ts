@@ -3,7 +3,7 @@
  * Version: 3.0.0 - Complete rewrite with exact field mapping
  */
 
-import { mockPlayerPropsService, MockPlayerProp } from './mock-player-props-service';
+import { mockPlayerPropsService } from './mock-player-props-service.js';
 
 export interface PlayerProp {
   id: string;
@@ -182,7 +182,7 @@ class FreshAPIService {
     const mockProps = mockPlayerPropsService.generateMockPlayerProps(sport, 25);
     
     // Convert mock props to PlayerProp format with proper confidence and EV
-    return mockProps.map((mockProp: MockPlayerProp) => ({
+    return mockProps.map((mockProp: any) => ({
       id: mockProp.id,
       playerId: mockProp.playerId,
       playerName: mockProp.playerName,
