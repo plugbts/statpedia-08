@@ -67,7 +67,7 @@ class EmailService {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = process.env.NODE_ENV === 'production' 
+    this.baseUrl = import.meta.env.MODE === 'production' 
       ? 'https://statpedia.com' 
       : 'http://localhost:5173';
   }

@@ -63,7 +63,7 @@ class SecurityMonitoringService {
     this.events.push(event);
     
     // Log to console in development
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.MODE === 'development') {
       console.warn(`[SECURITY EVENT] ${type.toUpperCase()}: ${message}`, details);
     }
 
@@ -71,7 +71,7 @@ class SecurityMonitoringService {
     this.checkForAlert(event);
 
     // In production, send to external monitoring service
-    if (process.env.NODE_ENV === 'production') {
+    if (import.meta.env.MODE === 'production') {
       this.sendToExternalMonitoring(event);
     }
   }
@@ -112,7 +112,7 @@ class SecurityMonitoringService {
     this.alerts.push(alert);
 
     // In production, send immediate notification
-    if (process.env.NODE_ENV === 'production') {
+    if (import.meta.env.MODE === 'production') {
       this.sendImmediateAlert(alert);
     }
   }

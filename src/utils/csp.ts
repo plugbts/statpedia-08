@@ -33,7 +33,7 @@ export const setupCSPReporting = () => {
       });
       
       // In production, send to monitoring service
-      if (process.env.NODE_ENV === 'production') {
+      if (import.meta.env.MODE === 'production') {
         // Send to security monitoring service
         fetch('/api/security/csp-violation', {
           method: 'POST',

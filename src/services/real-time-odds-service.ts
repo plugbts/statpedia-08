@@ -55,31 +55,31 @@ class RealTimeOddsService {
   private readonly SPORTSBOOK_APIS = {
     fanduel: {
       name: 'FanDuel',
-      apiKey: process.env.FANDUEL_API_KEY,
+      apiKey: import.meta.env.VITE_FANDUEL_API_KEY,
       baseUrl: 'https://api.fanduel.com/v1',
       rateLimit: 100 // requests per minute
     },
     draftkings: {
       name: 'DraftKings',
-      apiKey: process.env.DRAFTKINGS_API_KEY,
+      apiKey: import.meta.env.VITE_DRAFTKINGS_API_KEY,
       baseUrl: 'https://api.draftkings.com/v1',
       rateLimit: 100
     },
     betmgm: {
       name: 'BetMGM',
-      apiKey: process.env.BETMGM_API_KEY,
+      apiKey: import.meta.env.VITE_BETMGM_API_KEY,
       baseUrl: 'https://api.betmgm.com/v1',
       rateLimit: 80
     },
     caesars: {
       name: 'Caesars',
-      apiKey: process.env.CAESARS_API_KEY,
+      apiKey: import.meta.env.VITE_CAESARS_API_KEY,
       baseUrl: 'https://api.caesars.com/v1',
       rateLimit: 80
     },
     pointsbet: {
       name: 'PointsBet',
-      apiKey: process.env.POINTSBET_API_KEY,
+      apiKey: import.meta.env.VITE_POINTSBET_API_KEY,
       baseUrl: 'https://api.pointsbet.com/v1',
       rateLimit: 60
     }
