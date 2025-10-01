@@ -42,7 +42,7 @@ import { cn } from '@/lib/utils';
 import { seasonService } from '@/services/season-service';
 import { unifiedSportsAPI } from '@/services/unified-sports-api';
 import { simulationService, PredictionAnalysis } from '@/services/simulation-service';
-import { crossReferenceService, CrossReferenceResult } from '@/services/cross-reference-service';
+import { crossReferenceService, CrossReferenceAnalysis } from '@/services/cross-reference-service';
 import { PropFinderAnalysisOverlay } from './propfinder-analysis-overlay';
 import { EnhancedAnalysisOverlay } from './enhanced-analysis-overlay';
 
@@ -90,7 +90,7 @@ interface AdvancedPrediction {
     factors: string[];
   };
   analysis?: PredictionAnalysis;
-  crossReference?: CrossReferenceResult;
+  crossReference?: CrossReferenceAnalysis;
   valueRating: number;
   riskLevel: 'low' | 'medium' | 'high';
   factors: string[];
@@ -776,16 +776,23 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
                 {prediction.crossReference && (
                   <div className="space-y-2">
                     <div className="text-sm">
-                      <span className="font-medium">Model Consensus: </span>
+                      <span className="font-medium">Props Analyzed: </span>
                       <span className="text-muted-foreground">
-                        {prediction.crossReference.consensus}
+                        {prediction.crossReference.totalPropsAnalyzed}
                       </span>
                     </div>
                     
                     <div className="text-sm">
-                      <span className="font-medium">Agreement: </span>
+                      <span className="font-medium">Discrepancies: </span>
                       <span className="text-muted-foreground">
-                        {prediction.crossReference.agreement.toFixed(0)}%
+                        {prediction.crossReference.propsWithDiscrepancies}
+                      </span>
+                    </div>
+                    
+                    <div className="text-sm">
+                      <span className="font-medium">Avg Line Diff: </span>
+                      <span className="text-muted-foreground">
+                        {prediction.crossReference.averageLineDifference.toFixed(2)}
                       </span>
                     </div>
                   </div>
