@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Shield, Users, Ban, Gift, Activity, Mail, AlertTriangle, MessageSquare, Target, DollarSign, Lock, ArrowLeft, Terminal } from "lucide-react";
+import { Shield, Users, Ban, Gift, Activity, Mail, AlertTriangle, MessageSquare, Target, DollarSign, Lock, ArrowLeft, Terminal, TrendingUp } from "lucide-react";
 import { UserManagement } from "@/components/admin/user-management";
 import { DiscordManagement } from "@/components/admin/discord-management";
 import { PromoCodesAdmin } from "@/components/admin/promo-codes-admin";
@@ -17,6 +17,7 @@ import { AdManager } from "@/components/ads/ad-manager";
 import { SecurityDashboard } from "@/components/admin/security-dashboard";
 import { SyncStatus } from "@/components/sync/sync-status";
 import { DevConsole } from "@/components/admin/dev-console";
+import { CrossReferenceAnalysis } from "@/components/admin/cross-reference-analysis";
 import { useUser } from "@/contexts/user-context";
 
 export default function Admin() {
@@ -116,6 +117,10 @@ export default function Admin() {
               <Target className="h-4 w-4 mr-2" />
               Predictions
             </TabsTrigger>
+            <TabsTrigger value="cross-reference">
+              <TrendingUp className="h-4 w-4 mr-2" />
+              Cross-Reference
+            </TabsTrigger>
             <TabsTrigger value="ads">
               <DollarSign className="h-4 w-4 mr-2" />
               Ads
@@ -168,6 +173,10 @@ export default function Admin() {
 
           <TabsContent value="predictions" className="space-y-4">
             <PredictionsAdmin />
+          </TabsContent>
+
+          <TabsContent value="cross-reference" className="space-y-4">
+            <CrossReferenceAnalysis />
           </TabsContent>
 
           <TabsContent value="ads" className="space-y-4">

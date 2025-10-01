@@ -1,337 +1,159 @@
-// Cross-Reference Service for AI Model Predictions
-// Similar to Rithm AI model cross-referencing system
+import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
 
-export interface CrossReferenceData {
-  modelId: string;
-  modelName: string;
-  confidence: number;
-  prediction: 'home' | 'away' | 'draw';
-  reasoning: string;
-  factors: {
-    form: number;
-    h2h: number;
-    rest: number;
-    injuries: number;
-    venue: number;
-    weather: number;
-    momentum: number;
-    value: number;
-  };
+export interface SportsbookComparison {
+  sportsbook: string;
+  line: number;
+  overOdds: number;
+  underOdds: number;
   lastUpdated: string;
 }
 
-export interface CrossReferenceResult {
-  consensus: 'home' | 'away' | 'draw';
-  confidence: number;
-  agreement: number; // Percentage of models that agree
-  models: CrossReferenceData[];
-  reasoning: string;
-  riskLevel: 'low' | 'medium' | 'high';
-  valueRating: number; // 1-5 stars
+export interface PropComparison {
+  playerName: string;
+  propType: string;
+  ourLine: number;
+  ourOverOdds: number;
+  ourUnderOdds: number;
+  sportsbookComparisons: SportsbookComparison[];
+  averageLine: number;
+  averageOverOdds: number;
+  averageUnderOdds: number;
+  lineVariance: number;
+  oddsVariance: number;
+}
+
+export interface CrossReferenceAnalysis {
+  totalPropsAnalyzed: number;
+  propsWithDiscrepancies: number;
+  averageLineDifference: number;
+  averageOddsDifference: number;
+  recommendations: string[];
+  lastUpdated: string;
 }
 
 class CrossReferenceService {
-  private models: CrossReferenceData[] = [];
-
-  constructor() {
-    this.initializeModels();
-  }
-
-  private initializeModels() {
-    this.models = [
+  private getMockSportsbookData(playerName: string, propType: string): SportsbookComparison[] {
+    const baseLine = this.getBaseLineForProp(propType);
+    const baseOdds = -110;
+    
+    return [
       {
-        modelId: 'statistical',
-        modelName: 'Statistical Analysis Model',
-        confidence: 0.0,
-        prediction: 'home',
-        reasoning: 'Based on historical data and team performance metrics',
-        factors: {
-          form: 0,
-          h2h: 0,
-          rest: 0,
-          injuries: 0,
-          venue: 0,
-          weather: 0,
-          momentum: 0,
-          value: 0
-        },
+        sportsbook: 'FanDuel',
+        line: baseLine + (Math.random() - 0.5) * 2,
+        overOdds: baseOdds + Math.floor((Math.random() - 0.5) * 20),
+        underOdds: baseOdds + Math.floor((Math.random() - 0.5) * 20),
         lastUpdated: new Date().toISOString()
       },
       {
-        modelId: 'momentum',
-        modelName: 'Momentum & Form Model',
-        confidence: 0.0,
-        prediction: 'home',
-        reasoning: 'Analyzes recent team form and momentum shifts',
-        factors: {
-          form: 0,
-          h2h: 0,
-          rest: 0,
-          injuries: 0,
-          venue: 0,
-          weather: 0,
-          momentum: 0,
-          value: 0
-        },
+        sportsbook: 'DraftKings',
+        line: baseLine + (Math.random() - 0.5) * 2,
+        overOdds: baseOdds + Math.floor((Math.random() - 0.5) * 20),
+        underOdds: baseOdds + Math.floor((Math.random() - 0.5) * 20),
         lastUpdated: new Date().toISOString()
       },
       {
-        modelId: 'value',
-        modelName: 'Value & Odds Model',
-        confidence: 0.0,
-        prediction: 'home',
-        reasoning: 'Focuses on betting value and market inefficiencies',
-        factors: {
-          form: 0,
-          h2h: 0,
-          rest: 0,
-          injuries: 0,
-          venue: 0,
-          weather: 0,
-          momentum: 0,
-          value: 0
-        },
-        lastUpdated: new Date().toISOString()
-      },
-      {
-        modelId: 'injury',
-        modelName: 'Injury & Rest Model',
-        confidence: 0.0,
-        prediction: 'home',
-        reasoning: 'Evaluates impact of injuries and rest days',
-        factors: {
-          form: 0,
-          h2h: 0,
-          rest: 0,
-          injuries: 0,
-          venue: 0,
-          weather: 0,
-          momentum: 0,
-          value: 0
-        },
-        lastUpdated: new Date().toISOString()
-      },
-      {
-        modelId: 'venue',
-        modelName: 'Venue & Weather Model',
-        confidence: 0.0,
-        prediction: 'home',
-        reasoning: 'Considers home advantage and weather conditions',
-        factors: {
-          form: 0,
-          h2h: 0,
-          rest: 0,
-          injuries: 0,
-          venue: 0,
-          weather: 0,
-          momentum: 0,
-          value: 0
-        },
+        sportsbook: 'BetMGM',
+        line: baseLine + (Math.random() - 0.5) * 2,
+        overOdds: baseOdds + Math.floor((Math.random() - 0.5) * 20),
+        underOdds: baseOdds + Math.floor((Math.random() - 0.5) * 20),
         lastUpdated: new Date().toISOString()
       }
     ];
   }
 
-  public async crossReferencePrediction(
-    homeTeam: string,
-    awayTeam: string,
-    sport: string,
-    homeForm: number[],
-    awayForm: number[],
-    h2hData: { homeWins: number; awayWins: number; draws: number },
-    injuries: { home: string[]; away: string[] },
-    restDays: { home: number; away: number },
-    weather: string = 'clear',
-    venue: string = 'neutral',
-    homeOdds: number,
-    awayOdds: number,
-    drawOdds?: number
-  ): Promise<CrossReferenceResult> {
-    // Update all models with current data
-    await this.updateAllModels(
-      homeTeam, awayTeam, sport, homeForm, awayForm, h2hData, 
-      injuries, restDays, weather, venue, homeOdds, awayOdds, drawOdds
-    );
-
-    // Calculate consensus
-    const homeVotes = this.models.filter(m => m.prediction === 'home').length;
-    const awayVotes = this.models.filter(m => m.prediction === 'away').length;
-    const drawVotes = this.models.filter(m => m.prediction === 'draw').length;
-
-    const totalVotes = this.models.length;
-    const consensus = homeVotes > awayVotes && homeVotes > drawVotes ? 'home' :
-                     awayVotes > homeVotes && awayVotes > drawVotes ? 'away' : 'draw';
-    
-    const agreement = Math.max(homeVotes, awayVotes, drawVotes) / totalVotes * 100;
-    
-    // Calculate weighted confidence
-    const totalConfidence = this.models.reduce((sum, model) => sum + model.confidence, 0);
-    const avgConfidence = totalConfidence / this.models.length;
-    
-    // Calculate risk level
-    const riskLevel = agreement > 80 ? 'low' : agreement > 60 ? 'medium' : 'high';
-    
-    // Calculate value rating (1-5 stars)
-    const valueRating = this.calculateValueRating(homeOdds, awayOdds, drawOdds, consensus);
-    
-    // Generate reasoning
-    const reasoning = this.generateReasoning(consensus, agreement, this.models);
-
-    return {
-      consensus,
-      confidence: avgConfidence,
-      agreement,
-      models: [...this.models],
-      reasoning,
-      riskLevel,
-      valueRating
+  private getBaseLineForProp(propType: string): number {
+    const baseLines: { [key: string]: number } = {
+      'Points': 20,
+      'Rebounds': 8,
+      'Assists': 5,
+      'Steals': 1.5,
+      'Blocks': 1.5,
+      'Threes': 2.5,
+      'Passing Yards': 250,
+      'Rushing Yards': 80,
+      'Receiving Yards': 60,
+      'Touchdowns': 0.5,
+      'Hits': 1.5,
+      'Home Runs': 0.5,
+      'RBIs': 1.5,
+      'Strikeouts': 6.5,
+      'Goals': 0.5,
+      'Assists': 0.5,
+      'Saves': 25
     };
-  }
-
-  private async updateAllModels(
-    homeTeam: string,
-    awayTeam: string,
-    sport: string,
-    homeForm: number[],
-    awayForm: number[],
-    h2hData: { homeWins: number; awayWins: number; draws: number },
-    injuries: { home: string[]; away: string[] },
-    restDays: { home: number; away: number },
-    weather: string,
-    venue: string,
-    homeOdds: number,
-    awayOdds: number,
-    drawOdds?: number
-  ) {
-    for (const model of this.models) {
-      await this.updateModel(model, {
-        homeTeam, awayTeam, sport, homeForm, awayForm, h2hData,
-        injuries, restDays, weather, venue, homeOdds, awayOdds, drawOdds
-      });
-    }
-  }
-
-  private async updateModel(
-    model: CrossReferenceData,
-    data: any
-  ) {
-    // Simulate different model calculations
-    const { homeForm, awayForm, h2hData, injuries, restDays, homeOdds, awayOdds } = data;
     
-    let confidence = 0;
-    let prediction: 'home' | 'away' | 'draw' = 'home';
-    let reasoning = '';
-    let factors = {
-      form: 0,
-      h2h: 0,
-      rest: 0,
-      injuries: 0,
-      venue: 0,
-      weather: 0,
-      momentum: 0,
-      value: 0
+    return baseLines[propType] || 10;
+  }
+
+  async analyzePropDiscrepancies(ourProps: any[]): Promise<CrossReferenceAnalysis> {
+    logAPI('CrossReferenceService', `Analyzing ${ourProps.length} props for discrepancies`);
+    
+    let totalLineDifference = 0;
+    let totalOddsDifference = 0;
+    let propsWithDiscrepancies = 0;
+
+    for (const prop of ourProps) {
+      try {
+        const sportsbookData = this.getMockSportsbookData(prop.playerName, prop.propType);
+        
+        const averageLine = sportsbookData.reduce((sum, sb) => sum + sb.line, 0) / sportsbookData.length;
+        const averageOverOdds = sportsbookData.reduce((sum, sb) => sum + sb.overOdds, 0) / sportsbookData.length;
+        const averageUnderOdds = sportsbookData.reduce((sum, sb) => sum + sb.underOdds, 0) / sportsbookData.length;
+        
+        const lineVariance = Math.abs(prop.line - averageLine);
+        const overOddsVariance = Math.abs(prop.overOdds - averageOverOdds);
+        const underOddsVariance = Math.abs(prop.underOdds - averageUnderOdds);
+        const oddsVariance = (overOddsVariance + underOddsVariance) / 2;
+        
+        totalLineDifference += lineVariance;
+        totalOddsDifference += oddsVariance;
+        
+        if (lineVariance > 1 || oddsVariance > 15) {
+          propsWithDiscrepancies++;
+        }
+        
+      } catch (error) {
+        logWarning('CrossReferenceService', `Error analyzing prop for ${prop.playerName}:`, error);
+      }
+    }
+    
+    const recommendations = this.generateRecommendations(propsWithDiscrepancies, ourProps.length, totalLineDifference / ourProps.length, totalOddsDifference / ourProps.length);
+    
+    const analysis: CrossReferenceAnalysis = {
+      totalPropsAnalyzed: ourProps.length,
+      propsWithDiscrepancies,
+      averageLineDifference: totalLineDifference / ourProps.length,
+      averageOddsDifference: totalOddsDifference / ourProps.length,
+      recommendations,
+      lastUpdated: new Date().toISOString()
     };
-
-    switch (model.modelId) {
-      case 'statistical':
-        const homeFormAvg = homeForm.reduce((a: number, b: number) => a + b, 0) / homeForm.length;
-        const awayFormAvg = awayForm.reduce((a: number, b: number) => a + b, 0) / awayForm.length;
-        const h2hAdvantage = h2hData.homeWins / (h2hData.homeWins + h2hData.awayWins);
-        
-        factors.form = (homeFormAvg - awayFormAvg) * 50;
-        factors.h2h = (h2hAdvantage - 0.5) * 100;
-        factors.rest = (restDays.away - restDays.home) * 10;
-        
-        confidence = Math.min(0.95, 0.5 + Math.abs(factors.form + factors.h2h + factors.rest) / 300);
-        prediction = factors.form + factors.h2h + factors.rest > 0 ? 'home' : 'away';
-        reasoning = `Statistical analysis shows ${prediction === 'home' ? 'home' : 'away'} team advantage based on form and head-to-head records`;
-        break;
-
-      case 'momentum':
-        const recentHomeForm = homeForm.slice(-5).reduce((a: number, b: number) => a + b, 0) / 5;
-        const recentAwayForm = awayForm.slice(-5).reduce((a: number, b: number) => a + b, 0) / 5;
-        
-        factors.momentum = (recentHomeForm - recentAwayForm) * 60;
-        factors.form = (homeForm[homeForm.length - 1] - awayForm[awayForm.length - 1]) * 40;
-        
-        confidence = Math.min(0.9, 0.4 + Math.abs(factors.momentum + factors.form) / 200);
-        prediction = factors.momentum + factors.form > 0 ? 'home' : 'away';
-        reasoning = `Momentum analysis favors ${prediction === 'home' ? 'home' : 'away'} team based on recent form trends`;
-        break;
-
-      case 'value':
-        const homeImpliedProb = homeOdds > 0 ? 100 / (homeOdds + 100) : Math.abs(homeOdds) / (Math.abs(homeOdds) + 100);
-        const awayImpliedProb = awayOdds > 0 ? 100 / (awayOdds + 100) : Math.abs(awayOdds) / (Math.abs(awayOdds) + 100);
-        
-        // Simulate value calculation
-        const homeValue = (0.6 - homeImpliedProb) * 100;
-        const awayValue = (0.6 - awayImpliedProb) * 100;
-        
-        factors.value = Math.max(homeValue, awayValue);
-        confidence = Math.min(0.85, 0.3 + Math.abs(factors.value) / 100);
-        prediction = homeValue > awayValue ? 'home' : 'away';
-        reasoning = `Value analysis identifies ${prediction === 'home' ? 'home' : 'away'} team as better betting value`;
-        break;
-
-      case 'injury':
-        const homeInjuryImpact = injuries.home.length * -5;
-        const awayInjuryImpact = injuries.away.length * -5;
-        const restAdvantage = (restDays.away - restDays.home) * 8;
-        
-        factors.injuries = homeInjuryImpact - awayInjuryImpact;
-        factors.rest = restAdvantage;
-        
-        confidence = Math.min(0.8, 0.4 + Math.abs(factors.injuries + factors.rest) / 50);
-        prediction = factors.injuries + factors.rest > 0 ? 'home' : 'away';
-        reasoning = `Injury and rest analysis shows ${prediction === 'home' ? 'home' : 'away'} team advantage`;
-        break;
-
-      case 'venue':
-        const venueAdvantage = venue === 'home' ? 15 : venue === 'away' ? -15 : 0;
-        const weatherImpact = weather === 'clear' ? 0 : weather === 'rain' ? -10 : -5;
-        
-        factors.venue = venueAdvantage;
-        factors.weather = weatherImpact;
-        
-        confidence = Math.min(0.75, 0.3 + Math.abs(factors.venue + factors.weather) / 30);
-        prediction = factors.venue + factors.weather > 0 ? 'home' : 'away';
-        reasoning = `Venue and weather analysis favors ${prediction === 'home' ? 'home' : 'away'} team`;
-        break;
-    }
-
-    // Update model
-    model.confidence = confidence;
-    model.prediction = prediction;
-    model.reasoning = reasoning;
-    model.factors = factors;
-    model.lastUpdated = new Date().toISOString();
+    
+    logSuccess('CrossReferenceService', `Analysis complete: ${propsWithDiscrepancies} props with discrepancies found`);
+    return analysis;
   }
 
-  private calculateValueRating(homeOdds: number, awayOdds: number, drawOdds: number | undefined, consensus: string): number {
-    // Simple value rating based on odds and consensus
-    const odds = consensus === 'home' ? homeOdds : consensus === 'away' ? awayOdds : drawOdds || 0;
-    const impliedProb = odds > 0 ? 100 / (odds + 100) : Math.abs(odds) / (Math.abs(odds) + 100);
+  private generateRecommendations(discrepancies: number, total: number, avgLineDiff: number, avgOddsDiff: number): string[] {
+    const recommendations: string[] = [];
     
-    // Higher value rating for better odds
-    if (impliedProb < 0.4) return 5;
-    if (impliedProb < 0.5) return 4;
-    if (impliedProb < 0.6) return 3;
-    if (impliedProb < 0.7) return 2;
-    return 1;
-  }
-
-  private generateReasoning(consensus: string, agreement: number, models: CrossReferenceData[]): string {
-    const topModel = models.reduce((prev, current) => 
-      (prev.confidence > current.confidence) ? prev : current
-    );
-    
-    if (agreement > 80) {
-      return `Strong consensus (${agreement.toFixed(0)}% agreement) - All models favor ${consensus} team. ${topModel.reasoning}`;
-    } else if (agreement > 60) {
-      return `Moderate consensus (${agreement.toFixed(0)}% agreement) - Majority of models favor ${consensus} team. ${topModel.reasoning}`;
-    } else {
-      return `Mixed signals (${agreement.toFixed(0)}% agreement) - Models show conflicting predictions, but ${consensus} team has slight edge. ${topModel.reasoning}`;
+    if (avgLineDiff > 1.5) {
+      recommendations.push(`📊 Average line difference is ${avgLineDiff.toFixed(2)} points. Our lines may be using outdated statistical models.`);
     }
+    
+    if (avgOddsDiff > 15) {
+      recommendations.push(`💰 Average odds difference is ${avgOddsDiff.toFixed(0)} points. Consider reviewing our odds calculation algorithm.`);
+    }
+    
+    if (discrepancies > total * 0.3) {
+      recommendations.push(`⚠️ ${discrepancies} props show significant discrepancies. Our prediction models may need recalibration.`);
+    }
+    
+    recommendations.push('🔧 Suggested fixes:');
+    recommendations.push('• Replace mock data with real sportsbook APIs');
+    recommendations.push('• Implement proper vig/juice calculations (4-5% house edge)');
+    recommendations.push('• Use more recent statistical data (last 10 games)');
+    recommendations.push('• Add real-time odds synchronization with major sportsbooks');
+    
+    return recommendations;
   }
 }
 

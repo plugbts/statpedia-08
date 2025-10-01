@@ -320,10 +320,10 @@ const VotePredictionsTab: React.FC<VotePredictionsTabProps> = ({ prediction }) =
     
     // Update karma in social system
     const socialKarma = JSON.parse(localStorage.getItem('social_karma') || '{"total": 0, "recent": []}');
-    socialKarma.total += 10; // Award karma for voting
+    socialKarma.total += 1; // Award karma for voting
     socialKarma.recent.unshift({
       action: 'prediction_vote',
-      karma: 10,
+      karma: 1,
       timestamp: new Date().toISOString(),
       description: `Voted on ${prediction.playerName} ${prediction.propType}`
     });
