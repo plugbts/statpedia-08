@@ -121,6 +121,13 @@ export function PlayerPropCard3D({
   }, [isHovered]);
 
   const formatNumber = (value: number, decimals: number = 1): string => {
+    // For lines, round to nearest .5 or .0 interval
+    if (value < 1000) { // Assuming lines are typically under 1000
+      const rounded = Math.round(value * 2) / 2;
+      return rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
+    }
+    
+    // For larger numbers, use compact formatting
     if (value >= 1000000) {
       return (value / 1000000).toFixed(decimals) + 'M';
     }
@@ -130,9 +137,21 @@ export function PlayerPropCard3D({
     return value.toFixed(decimals);
   };
 
+  // Format American odds with .5 and .0 intervals only
+  const formatAmericanOdds = (odds: number): string => {
+    // Round to nearest .5 or .0 interval
+    const rounded = Math.round(odds * 2) / 2;
+    
+    // Format as American odds
+    if (rounded > 0) {
+      return `+${Math.round(rounded)}`;
+    } else {
+      return `${Math.round(rounded)}`;
+    }
+  };
+
   const formatOdds = (odds: number): string => {
-    if (odds > 0) return `+${odds}`;
-    return odds.toString();
+    return formatAmericanOdds(odds);
   };
 
   const getConfidenceColor = (confidence: number): string => {
