@@ -45,7 +45,6 @@ import { unifiedSportsAPI } from '@/services/unified-sports-api';
 import { simulationService, PredictionAnalysis } from '@/services/simulation-service';
 import { crossReferenceService, CrossReferenceAnalysis } from '@/services/cross-reference-service';
 import { enhancedUnifiedSportsAPI, EnhancedPlayerProp } from '@/services/enhanced-unified-sports-api';
-import { PropFinderAnalysisOverlay } from './propfinder-analysis-overlay';
 import { EnhancedAnalysisOverlay } from './enhanced-analysis-overlay';
 import { ConfidenceIntervalChart } from './confidence-interval-chart';
 
