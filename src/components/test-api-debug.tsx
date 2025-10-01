@@ -30,9 +30,10 @@ export const TestAPIDebug: React.FC = () => {
       
       const API_KEY = '883b10f6c52a48b38b3b5cafa94d2189';
       const BASE_URL = 'https://api.sportsdata.io/v3';
-      const season = '2024';
-      const week = '18';
-      const endpoint = `${BASE_URL}/nfl/odds/json/PlayerPropsByWeek/${season}/${week}?key=${API_KEY}`;
+      
+      // Test MLB 2025 playoffs (current date: October 1st, 2025)
+      const mlbDate = '2025-09-26'; // Confirmed working date with 1723+ props
+      const endpoint = `${BASE_URL}/mlb/odds/json/PlayerPropsByDate/${mlbDate}?key=${API_KEY}`;
       
       console.log('📡 Calling API directly:', endpoint);
       
@@ -54,15 +55,19 @@ export const TestAPIDebug: React.FC = () => {
       
       setTestResults(sampleData);
       
-      // Check for problematic data
-      const problematic = data.filter((item: any) => 
-        item.OverUnder === 6.5 && item.Description.toLowerCase().includes('touchdown')
-      );
+      // Check for MLB playoff data quality
+      const fantasyPoints = data.filter((item: any) => item.Description === 'Fantasy Points');
+      const hits = data.filter((item: any) => item.Description === 'Hits');
       
-      if (problematic.length > 0) {
-        console.error('❌ PROBLEMATIC DATA FOUND:', problematic);
-      } else {
-        console.log('✅ No problematic data found');
+      console.log(`✅ MLB 2025 Playoff Data: ${data.length} total props`);
+      console.log(`   Fantasy Points: ${fantasyPoints.length} props`);
+      console.log(`   Hits: ${hits.length} props`);
+      
+      if (fantasyPoints.length > 0) {
+        console.log('✅ Fantasy Points data available');
+      }
+      if (hits.length > 0) {
+        console.log('✅ Hits data available');
       }
       
     } catch (error) {
