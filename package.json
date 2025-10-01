@@ -14,7 +14,10 @@
     "git-sync:setup": "node scripts/git-sync.js setup-hooks",
     "git-sync:sync": "node scripts/git-sync.js sync",
     "git-sync:pull": "node scripts/git-sync.js pull",
-    "git-sync:check": "node scripts/git-sync.js check"
+    "git-sync:check": "node scripts/git-sync.js check",
+    "loveable-sync": "node scripts/loveable-sync.js",
+    "loveable-sync:watch": "node scripts/loveable-sync.js watch",
+    "loveable-sync:check": "node scripts/loveable-sync.js check"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

@@ -140,6 +140,14 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       const props = await sportsDataIOAPI.getPlayerProps(sport);
       console.log(`📊 API returned ${props?.length || 0} props:`, props);
       
+      // DEBUG: Log first few props to check data quality
+      if (props && props.length > 0) {
+        console.log('🔍 DEBUG: First 3 props:');
+        props.slice(0, 3).forEach((prop, index) => {
+          console.log(`  ${index + 1}. ${prop.playerName} - ${prop.propType}: ${prop.line} (${prop.overOdds}/${prop.underOdds})`);
+        });
+      }
+      
       if (props && Array.isArray(props) && props.length > 0) {
         // Filter for current and future games only (be more lenient with date range)
         const now = new Date();
