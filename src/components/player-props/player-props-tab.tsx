@@ -41,7 +41,7 @@ import {
   Zap
 } from 'lucide-react';
 import { sportsDataIOAPI } from '@/services/sportsdataio-api';
-import { freshAPIService } from '@/services/fresh-api-service';
+import { sportsDataIOAPIFixed } from '@/services/sportsdataio-api-fixed';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -127,75 +127,74 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     loadPlayerProps(selectedSport);
   }, [selectedSport]);
 
-  // Load player props from Fresh API Service - COMPLETELY REWRITTEN
-  const loadPlayerProps = async (sport: string) => {
-    if (!sport) {
-      console.log('⚠️ No sport provided to loadPlayerProps');
-      return;
-    }
-    
-    console.log(`🎯 [PlayerPropsTab] Starting to load player props for ${sport}...`);
-    console.log(`🔄 [PlayerPropsTab] Force refresh at ${new Date().toISOString()}`);
-    setIsLoadingData(true);
-    
-    // Force clear any cached data
-    setRealProps([]);
-    
-    try {
-      console.log(`📡 [PlayerPropsTab] Calling freshAPIService.getPlayerProps(${sport})...`);
-      const props = await freshAPIService.getPlayerProps(sport);
-      console.log(`📊 [PlayerPropsTab] Fresh API returned ${props?.length || 0} props`);
-      
-      // DEBUG: Log first few props to check data quality
-      if (props && props.length > 0) {
-        console.log('🔍 [PlayerPropsTab] First 3 props:');
-        props.slice(0, 3).forEach((prop, index) => {
-          console.log(`  ${index + 1}. ${prop.playerName} - ${prop.propType}: ${prop.line} (${prop.overOdds}/${prop.underOdds})`);
-          console.log(`      Confidence: ${prop.confidence}, EV: ${prop.expectedValue}`);
-        });
-      } else {
-        console.error('❌ [PlayerPropsTab] NO PROPS RETURNED FROM API');
+    // Load player props from Fixed API Service - WORKING SOLUTION
+    const loadPlayerProps = async (sport: string) => {
+      if (!sport) {
+        console.log('⚠️ No sport provided to loadPlayerProps');
+        return;
       }
       
-      if (props && Array.isArray(props) && props.length > 0) {
-        // Don't filter by date for now - just use all props
-        console.log(`✅ [PlayerPropsTab] Setting ${props.length} player props for ${sport}`);
-        setRealProps(props);
+      console.log(`🎯 [PlayerPropsTab] Starting to load player props for ${sport}...`);
+      console.log(`🔄 [PlayerPropsTab] Force refresh at ${new Date().toISOString()}`);
+      setIsLoadingData(true);
+      
+      // Force clear any cached data
+      setRealProps([]);
+      
+      try {
+        console.log(`📡 [PlayerPropsTab] Calling sportsDataIOAPIFixed.getPlayerProps(${sport})...`);
+        const props = await sportsDataIOAPIFixed.getPlayerProps(sport);
+        console.log(`📊 [PlayerPropsTab] Fixed API returned ${props?.length || 0} props`);
         
-        // Show success message
-        toast({
-          title: "Player Props Loaded",
-          description: `Found ${props.length} player props for ${sport.toUpperCase()}`,
-          variant: "default",
+        // DEBUG: Log first few props to check data quality
+        if (props && props.length > 0) {
+          console.log('🔍 [PlayerPropsTab] First 3 props:');
+          props.slice(0, 3).forEach((prop, index) => {
+            console.log(`  ${index + 1}. ${prop.playerName} - ${prop.propType}: ${prop.line} (${prop.overOdds}/${prop.underOdds})`);
+            console.log(`      Confidence: ${prop.confidence}, EV: ${prop.expectedValue}`);
+          });
+        } else {
+          console.error('❌ [PlayerPropsTab] NO PROPS RETURNED FROM API');
+        }
+        
+        if (props && Array.isArray(props) && props.length > 0) {
+          console.log(`✅ [PlayerPropsTab] Setting ${props.length} player props for ${sport}`);
+          setRealProps(props);
+          
+          // Show success message
+          toast({
+            title: "Player Props Loaded",
+            description: `Found ${props.length} player props for ${sport.toUpperCase()}`,
+            variant: "default",
+          });
+        } else {
+          console.warn('⚠️ [PlayerPropsTab] API returned no valid props');
+          setRealProps([]);
+          toast({
+            title: "No Data",
+            description: `No player props available for ${sport.toUpperCase()}`,
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error('❌ [PlayerPropsTab] Failed to load player props:', error);
+        console.error('Error details:', {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
         });
-      } else {
-        console.warn('⚠️ [PlayerPropsTab] API returned no valid props');
-        setRealProps([]);
+        
         toast({
-          title: "No Data",
-          description: `No player props available for ${sport.toUpperCase()}`,
+          title: "Error",
+          description: `Failed to load player props: ${error.message}`,
           variant: "destructive",
         });
+        setRealProps([]);
+      } finally {
+        setIsLoadingData(false);
+        console.log(`🏁 [PlayerPropsTab] Finished loading player props for ${sport}`);
       }
-    } catch (error) {
-      console.error('❌ [PlayerPropsTab] Failed to load player props:', error);
-      console.error('Error details:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
-      });
-      
-      toast({
-        title: "Error",
-        description: `Failed to load player props: ${error.message}`,
-        variant: "destructive",
-      });
-      setRealProps([]);
-    } finally {
-      setIsLoadingData(false);
-      console.log(`🏁 [PlayerPropsTab] Finished loading player props for ${sport}`);
-    }
-  };
+    };
 
   // Format numbers to be compact
   const formatNumber = (value: number, decimals: number = 1): string => {
