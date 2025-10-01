@@ -277,6 +277,7 @@ export function PropFinderAnalysisOverlay({ prediction, isOpen, onClose }: PropF
 
   // SIMPLE TEST - Just return a basic div to see if component renders at all
   if (isOpen && prediction) {
+    console.log('🚀 RENDERING TEST MODAL for:', prediction.playerName);
     return (
       <div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center">
         <div className="bg-white p-8 rounded-lg max-w-2xl w-full mx-4">

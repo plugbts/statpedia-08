@@ -467,6 +467,12 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
     setSelectedPrediction(prediction);
     setShowPredictionModal(true);
     console.log('🎯 State should be updated now');
+    
+    // Force a re-render to test
+    setTimeout(() => {
+      console.log('🎯 After timeout - showPredictionModal:', showPredictionModal);
+      console.log('🎯 After timeout - selectedPrediction:', selectedPrediction?.playerName);
+    }, 100);
   };
 
   const addToPicks = (prediction: AdvancedPrediction) => {
