@@ -103,20 +103,25 @@ class SportsRadarAPI {
     try {
       // Get the appropriate API key for the sport
       const apiKey = this.getApiKeyForSport(sport);
-      const url = `${SPORTRADAR_BASE_URL}${endpoint}?api_key=${apiKey}`;
+      const url = `${SPORTRADAR_BASE_URL}${endpoint}`;
       
       logAPI('SportsRadarAPI', `Making request to: ${endpoint}`);
+      logAPI('SportsRadarAPI', `Using API key: ${apiKey.substring(0, 10)}...`);
       
       const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
-          'User-Agent': 'Statpedia/1.0'
+          'User-Agent': 'Statpedia/1.0',
+          'X-API-Key': apiKey
         }
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const errorText = await response.text();
+        logError('SportsRadarAPI', `HTTP ${response.status}: ${response.statusText}`);
+        logError('SportsRadarAPI', `Response: ${errorText}`);
+        throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
       }
 
       const data = await response.json();
@@ -158,6 +163,53 @@ class SportsRadarAPI {
     return new Date().toISOString().split('T')[0];
   }
 
+  // Get correct endpoints for each sport based on SportsRadar API documentation
+  private getEndpointsForSport(sportKey: string, currentDate: string): string[] {
+    const sport = sportKey.toLowerCase();
+    const currentYear = new Date().getFullYear();
+    
+    switch (sport) {
+      case 'nhl':
+        return [
+          `/${sport}/trial/v7/en/games/${currentYear}/REG/schedule.json`,
+          `/${sport}/trial/v7/en/games/schedule.json`,
+          `/${sport}/trial/v7/en/league/hierarchy.json`,
+          `/${sport}/trial/v7/en/teams.json`
+        ];
+      
+      case 'nba':
+        return [
+          `/${sport}/trial/v7/en/games/${currentYear}/REG/schedule.json`,
+          `/${sport}/trial/v7/en/games/schedule.json`,
+          `/${sport}/trial/v7/en/league/hierarchy.json`,
+          `/${sport}/trial/v7/en/teams.json`
+        ];
+      
+      case 'nfl':
+        return [
+          `/${sport}/trial/v7/en/games/${currentYear}/REG/schedule.json`,
+          `/${sport}/trial/v7/en/games/schedule.json`,
+          `/${sport}/trial/v7/en/league/hierarchy.json`,
+          `/${sport}/trial/v7/en/teams.json`
+        ];
+      
+      case 'mlb':
+        return [
+          `/${sport}/trial/v7/en/games/${currentYear}/REG/schedule.json`,
+          `/${sport}/trial/v7/en/games/schedule.json`,
+          `/${sport}/trial/v7/en/league/hierarchy.json`,
+          `/${sport}/trial/v7/en/teams.json`
+        ];
+      
+      default:
+        return [
+          `/${sport}/trial/v7/en/games/schedule.json`,
+          `/${sport}/trial/v7/en/league/hierarchy.json`,
+          `/${sport}/trial/v7/en/teams.json`
+        ];
+    }
+  }
+
   // Get player props using correct SportsRadar API endpoints
   async getPlayerProps(sport: string): Promise<SportsRadarPlayerProp[]> {
     try {
@@ -166,17 +218,8 @@ class SportsRadarAPI {
       
       logAPI('SportsRadarAPI', `Fetching player props for ${sportKey} on ${currentDate}`);
       
-      // Try multiple SportsRadar endpoints for player props
-      const endpoints = [
-        // Sport Event Player Props endpoint
-        `/oddscomparison/${sportKey}/player_props/${currentDate}`,
-        // Competitions with player props
-        `/oddscomparison/${sportKey}/competitions`,
-        // Regular odds comparison (may contain player props)
-        `/oddscomparison/${sportKey}/regular/${currentDate}`,
-        // Future odds comparison
-        `/oddscomparison/${sportKey}/future/${currentDate}`
-      ];
+      // Try correct SportsRadar API endpoints based on sport
+      const endpoints = this.getEndpointsForSport(sportKey, currentDate);
       
       let playerProps: SportsRadarPlayerProp[] = [];
       
