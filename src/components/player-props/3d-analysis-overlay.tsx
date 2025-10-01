@@ -103,6 +103,11 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
     return odds.toString();
   };
 
+  // Format percentage
+  const formatPercentage = (value: number): string => {
+    return `${(value * 100).toFixed(1)}%`;
+  };
+
   const getConfidenceColor = (confidence: number): string => {
     if (confidence >= 0.8) return 'text-green-400';
     if (confidence >= 0.6) return 'text-yellow-400';
