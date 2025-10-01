@@ -360,69 +360,72 @@ class SportsGameOddsAPI {
         logWarning('SportsGameOddsAPI', `Markets endpoint failed:`, error);
       }
 
-      // Get events/games for the sport with optimized query parameters
-      // Only fetch events with odds available and limit to recent games
-      let response;
-      try {
-        response = await this.makeRequest<any>(
-          `/v2/events?leagueID=${leagueId}&oddsAvailable=true&limit=10`, 
-          CACHE_DURATION.ODDS
-        );
-      } catch (error: any) {
-        if (error.message && error.message.includes('Rate limit')) {
-          logWarning('SportsGameOddsAPI', `Rate limit exceeded for ${sport}. Using cached data if available.`);
-          // Try to get cached data instead
-          const cacheKey = `/v2/events?leagueID=${leagueId}&oddsAvailable=true&limit=10`;
-          if (this.cache.has(cacheKey)) {
-            const cached = this.cache.get(cacheKey)!;
-            response = cached.data;
-            logAPI('SportsGameOddsAPI', `Using cached data for ${sport} due to rate limit`);
-          } else {
-            logError('SportsGameOddsAPI', `No cached data available for ${sport} and rate limit exceeded`);
-            return [];
+      // Get events/games for the sport with proper cursor pagination
+      // Based on SportsGameOdds docs: https://sportsgameodds.com/docs/guides/data-batches
+      let allEvents: any[] = [];
+      let nextCursor: string | null = null;
+      let response: any;
+      
+      do {
+        try {
+          const endpoint = `/v2/events?leagueID=${leagueId}&marketOddsAvailable=true&limit=50${nextCursor ? `&cursor=${nextCursor}` : ''}`;
+          response = await this.makeRequest<any>(endpoint, CACHE_DURATION.ODDS);
+          
+          // Based on docs: response.data contains the events array
+          if (response.data && Array.isArray(response.data)) {
+            allEvents = allEvents.concat(response.data);
+            logAPI('SportsGameOddsAPI', `Fetched ${response.data.length} events for ${sport} (total: ${allEvents.length})`);
           }
-        } else {
-          throw error;
+          
+          nextCursor = response.nextCursor || null;
+          
+        } catch (error: any) {
+          if (error.message && error.message.includes('Rate limit')) {
+            logWarning('SportsGameOddsAPI', `Rate limit exceeded for ${sport}. Using cached data if available.`);
+            // Try to get cached data instead
+            const cacheKey = `/v2/events?leagueID=${leagueId}&marketOddsAvailable=true&limit=50`;
+            if (this.cache.has(cacheKey)) {
+              const cached = this.cache.get(cacheKey)!;
+              if (cached.data.data && Array.isArray(cached.data.data)) {
+                allEvents = cached.data.data;
+                logAPI('SportsGameOddsAPI', `Using cached data for ${sport} due to rate limit`);
+              }
+            } else {
+              logError('SportsGameOddsAPI', `No cached data available for ${sport} and rate limit exceeded`);
+              return [];
+            }
+            break;
+          } else {
+            throw error;
+          }
         }
-      }
+      } while (nextCursor && allEvents.length < 100); // Limit to reasonable number of events
       
-      logAPI('SportsGameOddsAPI', `API Response structure:`, {
-        hasData: !!response.data,
-        dataLength: response.data?.length || 0,
-        responseKeys: Object.keys(response),
-        firstEvent: response.data?.[0] ? {
-          eventID: response.data[0].eventID,
-          hasOdds: !!response.data[0].odds,
-          oddsKeys: response.data[0].odds ? Object.keys(response.data[0].odds) : [],
-          teams: response.data[0].teams
-        } : null
-      });
+      logAPI('SportsGameOddsAPI', `Total events fetched: ${allEvents.length} for ${sport}`);
       
-      // Handle the response structure: { success: true, data: [...], nextCursor: ... }
-      const eventsData = response.data || response;
-      logAPI('SportsGameOddsAPI', `Found ${eventsData.length} events for ${sport}`);
-      
-      if (!Array.isArray(eventsData) || eventsData.length === 0) {
+      if (allEvents.length === 0) {
         logWarning('SportsGameOddsAPI', `No events found for ${sport}`);
         return [];
       }
 
-      // Log the first event structure for debugging
-      if (eventsData.length > 0) {
-        const firstEvent = eventsData[0];
+      // Log the first event structure for debugging based on docs
+      if (allEvents.length > 0) {
+        const firstEvent = allEvents[0];
         logAPI('SportsGameOddsAPI', `First event structure:`, {
           eventID: firstEvent.eventID,
           hasOdds: !!firstEvent.odds,
           oddsCount: firstEvent.odds ? Object.keys(firstEvent.odds).length : 0,
           oddsKeys: firstEvent.odds ? Object.keys(firstEvent.odds).slice(0, 5) : [],
-          teams: firstEvent.teams
+          teams: firstEvent.teams,
+          startsAt: firstEvent.startsAt,
+          status: firstEvent.status
         });
       }
 
       // Extract player props from the markets in each event
       const playerProps: SportsGameOddsPlayerProp[] = [];
       
-      for (const event of eventsData) {
+      for (const event of allEvents) {
         try {
           // Check if this event has player props markets
           const eventPlayerProps = await this.extractPlayerPropsFromEvent(event, sport);
@@ -480,15 +483,18 @@ class SportsGameOddsAPI {
       try {
         const odd = oddData as any;
         
-        // Log the v2 structure for debugging
-        logAPI('SportsGameOddsAPI', `Processing oddID: ${oddId}, v2 structure:`, {
+        // Log the v2 structure for debugging based on docs
+        logAPI('SportsGameOddsAPI', `Processing oddID: ${oddId}, structure:`, {
+          oddID: odd.oddID,
           marketName: odd.marketName,
           hasByBookmaker: !!odd.byBookmaker,
           bookmakerCount: odd.byBookmaker ? Object.keys(odd.byBookmaker).length : 0,
           bookmakers: odd.byBookmaker ? Object.keys(odd.byBookmaker) : [],
           oddKeys: Object.keys(odd),
           isPlayerPropCheck: this.isPlayerPropMarket(odd, oddId),
-          fullOddStructure: odd
+          closeOverUnder: odd.closeOverUnder,
+          closeSpread: odd.closeSpread,
+          closeOdds: odd.closeOdds
         });
         
         // Check if this is a player prop market
@@ -512,13 +518,15 @@ class SportsGameOddsAPI {
     
     // Check if we have byBookmaker data (v2 structure)
     if (!odd.byBookmaker) {
-      logAPI('SportsGameOddsAPI', `No byBookmaker data for oddID ${oddId}, falling back to legacy processing`);
-      const legacyProp = this.convertOddToPlayerProp(odd, oddId, sport, homeTeam, awayTeam, gameId, gameTime, event);
-      if (legacyProp) {
-        playerProps.push(legacyProp);
-        logAPI('SportsGameOddsAPI', `Successfully created legacy prop for ${oddId}`);
+      logAPI('SportsGameOddsAPI', `No byBookmaker data for oddID ${oddId}, using consensus odds from docs`);
+      // Based on docs: https://sportsgameodds.com/docs/guides/handling-odds
+      // Use closeOverUnder, closeSpread, closeOdds for consensus odds
+      const consensusProp = this.createConsensusPlayerProp(odd, oddId, sport, homeTeam, awayTeam, gameId, gameTime, event);
+      if (consensusProp) {
+        playerProps.push(consensusProp);
+        logAPI('SportsGameOddsAPI', `Successfully created consensus prop for ${oddId}`);
       } else {
-        logAPI('SportsGameOddsAPI', `Failed to create legacy prop for ${oddId}`);
+        logAPI('SportsGameOddsAPI', `Failed to create consensus prop for ${oddId}`);
       }
       return playerProps;
     }
@@ -554,6 +562,67 @@ class SportsGameOddsAPI {
     }
 
     return playerProps;
+  }
+
+  // Create a consensus player prop from odds data (when no byBookmaker data available)
+  private createConsensusPlayerProp(
+    odd: any, 
+    oddId: string, 
+    sport: string, 
+    homeTeam: string, 
+    awayTeam: string, 
+    gameId: string, 
+    gameTime: string, 
+    event: any
+  ): SportsGameOddsPlayerProp | null {
+    try {
+      // Parse oddID to extract player info
+      const oddIdParts = oddId.split('-');
+      if (oddIdParts.length < 5) return null;
+      
+      const [statID, playerID, periodID, betTypeID, sideID] = oddIdParts;
+      
+      // Extract player name from playerID
+      const playerName = this.extractPlayerNameFromPlayerID(playerID);
+      const propType = this.extractPropTypeFromStatID(statID);
+      
+      // Use consensus odds from docs: https://sportsgameodds.com/docs/guides/handling-odds
+      const line = odd.closeOverUnder || odd.closeSpread || 0;
+      const consensusOdds = odd.closeOdds || 0;
+      
+      // Convert to American odds format
+      const overOdds = this.normalizeOddsToAmerican(consensusOdds);
+      const underOdds = this.calculateOpposingOdds(overOdds);
+      
+      return {
+        id: `${gameId}-${oddId}-consensus`,
+        playerId: playerID,
+        playerName: playerName,
+        team: homeTeam, // Default to home team, could be improved
+        sport: sport,
+        propType: propType,
+        line: line,
+        overOdds: overOdds,
+        underOdds: underOdds,
+        sportsbook: 'Consensus',
+        sportsbookKey: 'consensus',
+        lastUpdate: new Date().toISOString(),
+        gameId: gameId,
+        gameTime: gameTime,
+        homeTeam: homeTeam,
+        awayTeam: awayTeam,
+        confidence: 0.8, // Default confidence for consensus
+        market: propType,
+        outcome: 'pending',
+        betType: betTypeID,
+        side: sideID,
+        period: periodID,
+        statEntity: playerID
+      };
+    } catch (error) {
+      logWarning('SportsGameOddsAPI', `Failed to create consensus prop for ${oddId}:`, error);
+      return null;
+    }
   }
 
   // Convert bookmaker-specific odds to player prop using v2 byBookmaker structure
