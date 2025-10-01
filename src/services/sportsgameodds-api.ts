@@ -89,6 +89,14 @@ export interface SportsGameOddsLeague {
 
 class SportsGameOddsAPI {
   private cache = new Map<string, { data: any; timestamp: number }>();
+  
+  // Player props cache - stores processed player props by sport and date
+  private playerPropsCache = new Map<string, { 
+    props: SportsGameOddsPlayerProp[]; 
+    timestamp: number; 
+    gameInfo: { homeTeam: string; awayTeam: string; gameTime: string }[];
+  }>();
+  
   private usageStats = {
     totalCalls: 0,
     callsToday: 0,
@@ -98,6 +106,18 @@ class SportsGameOddsAPI {
     cacheMisses: 0
   };
   private readonly MAX_DAILY_CALLS = 1000; // Removed daily restrictions - allow more API calls
+  
+  // Cache duration in milliseconds
+  private CACHE_DURATION = {
+    ODDS: 5 * 60 * 1000, // 5 minutes
+    MARKETS: 10 * 60 * 1000, // 10 minutes
+    GAMES: 30 * 60 * 1000, // 30 minutes
+    SPORTS: 24 * 60 * 60 * 1000, // 24 hours
+    BOOKMAKERS: 24 * 60 * 60 * 1000, // 24 hours
+    PLAYERS: 24 * 60 * 60 * 1000, // 24 hours
+    TEAMS: 24 * 60 * 60 * 1000, // 24 hours
+    PLAYER_PROPS: 2 * 60 * 60 * 1000 // 2 hours - longer cache for player props
+  };
 
   constructor() {
     logInfo('SportsGameOddsAPI', 'SportsGameOdds API initialized with usage tracking');
@@ -338,7 +358,17 @@ class SportsGameOddsAPI {
   // Get player props for a specific sport from SportsGameOdds markets
   async getPlayerProps(sport: string): Promise<SportsGameOddsPlayerProp[]> {
     try {
-      logAPI('SportsGameOddsAPI', `Fetching player props for ${sport} from SportsGameOdds markets`);
+      // Check cache first
+      const cacheKey = `player-props-${sport}`;
+      const cached = this.playerPropsCache.get(cacheKey);
+      
+      if (cached && (Date.now() - cached.timestamp) < this.CACHE_DURATION.PLAYER_PROPS) {
+        logAPI('SportsGameOddsAPI', `Using cached player props for ${sport} (${cached.props.length} props)`);
+        this.usageStats.cacheHits++;
+        return cached.props;
+      }
+      
+      logAPI('SportsGameOddsAPI', `Fetching fresh player props for ${sport} from SportsGameOdds markets`);
       
       const leagueId = this.mapSportToLeagueId(sport);
       if (!leagueId) {
@@ -461,7 +491,15 @@ class SportsGameOddsAPI {
         logSuccess('SportsGameOddsAPI', `Successfully extracted ${playerProps.length} player props using SportsGameOdds v2 consensus odds system for ${sport}`);
       }
 
-      logSuccess('SportsGameOddsAPI', `Retrieved ${playerProps.length} player props from SportsGameOdds markets for ${sport}`);
+      // Cache the results
+      const gameInfo = this.extractGameInfo(playerProps);
+      this.playerPropsCache.set(cacheKey, {
+        props: playerProps,
+        timestamp: Date.now(),
+        gameInfo: gameInfo
+      });
+      
+      logSuccess('SportsGameOddsAPI', `Retrieved ${playerProps.length} player props from SportsGameOdds markets for ${sport} and cached them`);
       return playerProps;
       
     } catch (error) {
@@ -482,8 +520,12 @@ class SportsGameOddsAPI {
       return [];
     }
 
-    const homeTeam = event.teams?.home?.names?.short || 'HOME';
-    const awayTeam = event.teams?.away?.names?.short || 'AWAY';
+    // Extract team names with better fallback logic
+    const homeTeam = this.extractTeamName(event.teams?.home) || 'HOME';
+    const awayTeam = this.extractTeamName(event.teams?.away) || 'AWAY';
+    
+    // Log team names for debugging
+    logAPI('SportsGameOddsAPI', `Game: ${awayTeam} @ ${homeTeam}`);
     const gameId = event.eventID;
     // Parse game time and ensure it's in the correct timezone
     let gameTime = event.status?.startsAt || new Date().toISOString();
@@ -978,6 +1020,37 @@ class SportsGameOddsAPI {
       logError('SportsGameOddsAPI', 'Failed to extract player name from playerID:', error);
       return null;
     }
+  }
+
+  // Extract team name from team object with proper fallback
+  private extractTeamName(team: any): string | null {
+    if (!team) return null;
+    
+    // Try different name fields in order of preference
+    return team.names?.short || 
+           team.names?.abbreviation || 
+           team.names?.full || 
+           team.name || 
+           team.abbreviation ||
+           null;
+  }
+
+  // Extract game information from player props for caching
+  private extractGameInfo(playerProps: SportsGameOddsPlayerProp[]): { homeTeam: string; awayTeam: string; gameTime: string }[] {
+    const gameMap = new Map<string, { homeTeam: string; awayTeam: string; gameTime: string }>();
+    
+    playerProps.forEach(prop => {
+      const gameKey = `${prop.gameId}-${prop.homeTeam}-${prop.awayTeam}`;
+      if (!gameMap.has(gameKey)) {
+        gameMap.set(gameKey, {
+          homeTeam: prop.homeTeam,
+          awayTeam: prop.awayTeam,
+          gameTime: prop.gameTime
+        });
+      }
+    });
+    
+    return Array.from(gameMap.values());
   }
 
   // Extract team from playerID using team mapping from API response
