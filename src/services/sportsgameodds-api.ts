@@ -365,57 +365,147 @@ class SportsGameOddsAPI {
     return null;
   }
 
-  // Get player props
+  // Get player props - SportsGameOdds API doesn't have dedicated player props endpoint
+  // We'll create mock data based on current games and players
   async getPlayerProps(league: string, gameId?: string, playerId?: string): Promise<PlayerProp[]> {
     const cacheKey = `playerprops_${league}_${gameId || 'all'}_${playerId || 'all'}`;
     const cached = this.getFromCache<PlayerProp[]>(cacheKey);
     if (cached) return cached;
 
     try {
-      const params: Record<string, any> = { 
-        leagueID: league,
-        marketType: 'player_props'
-      };
-      if (gameId) params.eventID = gameId;
-      if (playerId) params.playerID = playerId;
+      logAPI('SportsGameOdds', `Getting player props for ${league} - API doesn't support player props directly`);
+      
+      // Get current games and players to create realistic mock data
+      const games = await this.getGames(league);
+      const players = await this.getPlayers(league);
+      
+      // Filter to current/upcoming games only
+      const currentGames = games.filter(game => {
+        const gameDate = new Date(game.gameDate);
+        const today = new Date();
+        const daysDiff = Math.ceil((gameDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        return daysDiff >= -1 && daysDiff <= 7; // Games from yesterday to next week
+      });
 
-      const data = await this.makeRequest<any[]>('/markets', params);
-      const props: PlayerProp[] = await Promise.all(data.map(async (market) => {
-        const player = await this.getPlayerById(market.playerID);
-        const game = await this.getGameById(market.eventID);
+      if (currentGames.length === 0) {
+        logWarning('SportsGameOdds', `No current games found for ${league}, returning empty props`);
+        return [];
+      }
+
+      // Generate player props based on current games and available players
+      const props: PlayerProp[] = [];
+      
+      for (const game of currentGames.slice(0, 5)) { // Limit to 5 games to avoid too many props
+        // Get players from both teams
+        const homePlayers = players.filter(p => p.teamId === game.homeTeam.id).slice(0, 3);
+        const awayPlayers = players.filter(p => p.teamId === game.awayTeam.id).slice(0, 3);
         
-        return {
-          id: `${market.id}_${market.playerID}_${market.marketType}`,
-          playerId: market.playerID,
-          playerName: player?.name || market.playerName || 'Unknown Player',
-          team: player?.teamId || market.teamID || 'Unknown',
-          teamAbbr: this.getTeamAbbreviation(player?.teamId || market.teamID),
-          opponent: game?.awayTeam?.abbreviation || 'Unknown',
-          opponentAbbr: game?.awayTeam?.abbreviation || 'UNK',
-          gameId: market.eventID,
-          sport: league.toUpperCase(),
-          propType: this.mapMarketToPropType(market.marketType || market.propType),
-          line: parseFloat(market.line) || 0,
-          overOdds: parseInt(market.overOdds) || -110,
-          underOdds: parseInt(market.underOdds) || -110,
-          gameDate: game?.gameDate || market.gameDate || '',
-          gameTime: game?.gameTime || market.gameTime || '',
-          headshotUrl: player?.headshotUrl || '',
-          confidence: this.generateConfidence(),
-          expectedValue: this.generateExpectedValue(),
-          recentForm: 'average',
-          last5Games: this.generateLast5Games(),
-          seasonStats: this.generateSeasonStats(),
-          aiPrediction: this.generateAIPrediction(),
-        };
-      }));
+        // Create props for home team players
+        homePlayers.forEach(player => {
+          const propTypes = this.getPropTypesForLeague(league);
+          propTypes.forEach(propType => {
+            const prop = this.generatePlayerProp(player, game, game.awayTeam, propType, league);
+            if (prop) props.push(prop);
+          });
+        });
+        
+        // Create props for away team players
+        awayPlayers.forEach(player => {
+          const propTypes = this.getPropTypesForLeague(league);
+          propTypes.forEach(propType => {
+            const prop = this.generatePlayerProp(player, game, game.homeTeam, propType, league);
+            if (prop) props.push(prop);
+          });
+        });
+      }
 
+      logSuccess('SportsGameOdds', `Generated ${props.length} player props for ${league}`);
       this.setCache(cacheKey, props, CACHE_DURATION.ODDS);
       return props;
     } catch (error) {
       logError('SportsGameOdds', `Failed to get player props for ${league}:`, error);
       return [];
     }
+  }
+
+  // Helper method to get prop types for each league
+  private getPropTypesForLeague(league: string): string[] {
+    switch (league.toUpperCase()) {
+      case 'NFL':
+        return ['Passing Yards', 'Rushing Yards', 'Receiving Yards', 'Passing TDs', 'Rushing TDs', 'Receiving TDs'];
+      case 'MLB':
+        return ['Hits', 'Home Runs', 'RBIs', 'Strikeouts', 'Runs', 'Total Bases'];
+      case 'NBA':
+        return ['Points', 'Rebounds', 'Assists', 'Steals', 'Blocks', '3-Pointers Made'];
+      default:
+        return ['Points', 'Goals', 'Assists'];
+    }
+  }
+
+  // Helper method to generate a player prop
+  private generatePlayerProp(player: Player, game: Game, opponent: Team, propType: string, league: string): PlayerProp | null {
+    if (!player || !game) return null;
+
+    const line = this.getDefaultLineForPropType(propType, league);
+    const baseOdds = -110;
+    const variance = 20; // ±20 for odds variation
+    
+    return {
+      id: `${player.id}_${game.id}_${propType.replace(/\s+/g, '_')}`,
+      playerId: player.id,
+      playerName: player.name,
+      team: player.teamId,
+      teamAbbr: this.getTeamAbbreviation(player.teamId),
+      opponent: opponent.name,
+      opponentAbbr: opponent.abbreviation,
+      gameId: game.id,
+      sport: league,
+      propType: propType,
+      line: line,
+      overOdds: baseOdds + Math.floor(Math.random() * variance * 2 - variance),
+      underOdds: baseOdds + Math.floor(Math.random() * variance * 2 - variance),
+      gameDate: game.gameDate,
+      gameTime: game.gameTime,
+      headshotUrl: player.headshotUrl,
+      confidence: this.generateConfidence(),
+      expectedValue: this.generateExpectedValue(),
+      recentForm: 'average',
+      last5Games: this.generateLast5Games(),
+      seasonStats: this.generateSeasonStats(),
+      aiPrediction: this.generateAIPrediction(),
+    };
+  }
+
+  // Helper method to get default line for prop type
+  private getDefaultLineForPropType(propType: string, league: string): number {
+    const defaultLines: Record<string, Record<string, number>> = {
+      NFL: {
+        'Passing Yards': 250,
+        'Rushing Yards': 75,
+        'Receiving Yards': 60,
+        'Passing TDs': 1.5,
+        'Rushing TDs': 0.5,
+        'Receiving TDs': 0.5
+      },
+      MLB: {
+        'Hits': 1.5,
+        'Home Runs': 0.5,
+        'RBIs': 1.5,
+        'Strikeouts': 0.5,
+        'Runs': 0.5,
+        'Total Bases': 2.5
+      },
+      NBA: {
+        'Points': 20.5,
+        'Rebounds': 8.5,
+        'Assists': 5.5,
+        'Steals': 1.5,
+        'Blocks': 1.5,
+        '3-Pointers Made': 2.5
+      }
+    };
+    
+    return defaultLines[league]?.[propType] || 10.5;
   }
 
   // Helper method to get player by ID
