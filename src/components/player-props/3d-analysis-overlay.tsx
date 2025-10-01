@@ -212,27 +212,53 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
 
   if (!prop) return null;
 
-  const formatNumber = (value: number, decimals: number = 1): string => {
+  const formatNumber = (value: number | string | undefined | null, decimals: number = 1): string => {
+    // Handle non-numeric values
+    if (value === null || value === undefined || value === '') {
+      return '0';
+    }
+    
+    // Convert to number if it's a string
+    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+    
+    // Check if the conversion resulted in a valid number
+    if (isNaN(numValue)) {
+      return '0';
+    }
+    
     // For lines, round to nearest .5 or .0 interval
-    if (value < 1000) { // Assuming lines are typically under 1000
-      const rounded = Math.round(value * 2) / 2;
+    if (numValue < 1000) { // Assuming lines are typically under 1000
+      const rounded = Math.round(numValue * 2) / 2;
       return rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
     }
     
     // For larger numbers, use compact formatting
-    if (value >= 1000000) {
-      return (value / 1000000).toFixed(decimals) + 'M';
+    if (numValue >= 1000000) {
+      return (numValue / 1000000).toFixed(decimals) + 'M';
     }
-    if (value >= 1000) {
-      return (value / 1000).toFixed(decimals) + 'K';
+    if (numValue >= 1000) {
+      return (numValue / 1000).toFixed(decimals) + 'K';
     }
-    return value.toFixed(decimals);
+    return numValue.toFixed(decimals);
   };
 
   // Format American odds with .5 and .0 intervals only
-  const formatAmericanOdds = (odds: number): string => {
+  const formatAmericanOdds = (odds: number | string | undefined | null): string => {
+    // Handle non-numeric values
+    if (odds === null || odds === undefined || odds === '') {
+      return '0';
+    }
+    
+    // Convert to number if it's a string
+    const numOdds = typeof odds === 'string' ? parseFloat(odds) : odds;
+    
+    // Check if the conversion resulted in a valid number
+    if (isNaN(numOdds)) {
+      return '0';
+    }
+    
     // Round to nearest .5 or .0 interval
-    const rounded = Math.round(odds * 2) / 2;
+    const rounded = Math.round(numOdds * 2) / 2;
     
     // Format as American odds
     if (rounded > 0) {
@@ -242,13 +268,26 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
     }
   };
 
-  const formatOdds = (odds: number): string => {
+  const formatOdds = (odds: number | string | undefined | null): string => {
     return formatAmericanOdds(odds);
   };
 
   // Format percentage
-  const formatPercentage = (value: number): string => {
-    return `${(value * 100).toFixed(1)}%`;
+  const formatPercentage = (value: number | string | undefined | null): string => {
+    // Handle non-numeric values
+    if (value === null || value === undefined || value === '') {
+      return '0%';
+    }
+    
+    // Convert to number if it's a string
+    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+    
+    // Check if the conversion resulted in a valid number
+    if (isNaN(numValue)) {
+      return '0%';
+    }
+    
+    return `${(numValue * 100).toFixed(1)}%`;
   };
 
   const getConfidenceColor = (confidence: number): string => {
@@ -291,10 +330,12 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
     }));
   };
 
-  const getVotePercentage = (type: 'over' | 'under') => {
+  const getVotePercentage = (type: 'over' | 'under'): number => {
     const total = voteCounts.over + voteCounts.under;
     if (total === 0) return 0;
-    return (voteCounts[type] / total) * 100;
+    
+    const percentage = (voteCounts[type] / total) * 100;
+    return isNaN(percentage) ? 0 : percentage;
   };
 
   return (
