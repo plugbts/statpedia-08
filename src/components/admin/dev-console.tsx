@@ -48,103 +48,44 @@ export const DevConsole: React.FC = () => {
     // TEMPORARY: Force owner status for debugging
     setIsOwner(true);
 
-    // Intercept console logs
-    const originalConsoleLog = console.log;
-    const originalConsoleWarn = console.warn;
-    const originalConsoleError = console.error;
-    const originalConsoleInfo = console.info;
-    const originalConsoleDebug = console.debug;
-
-    const addLog = (level: LogLevel, message: string, category: string = 'Console', data?: any) => {
-      const newLog: LogEntry = {
-        timestamp: new Date().toLocaleTimeString('en-US', { 
-          hour12: false,
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          fractionalSecondDigits: 3
-        }),
-        level,
-        category,
-        message,
-        data
-      };
-      setLogs(prev => [...prev.slice(-999), newLog]); // Keep last 1000 logs
-    };
-
-    console.log = (...args: any[]) => {
-      originalConsoleLog(...args);
-      const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
-      addLog('info', message, 'Console');
-    };
-
-    console.warn = (...args: any[]) => {
-      originalConsoleWarn(...args);
-      const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
-      addLog('warning', message, 'Console');
-    };
-
-    console.error = (...args: any[]) => {
-      originalConsoleError(...args);
-      const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
-      addLog('error', message, 'Console');
-    };
-
-    console.info = (...args: any[]) => {
-      originalConsoleInfo(...args);
-      const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
-      addLog('info', message, 'Console');
-    };
-
-    console.debug = (...args: any[]) => {
-      originalConsoleDebug(...args);
-      const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
-      addLog('debug', message, 'Console');
-    };
-
-    // Add initial log
-    addLog('info', 'Dev Console initialized - Console interception active', 'DevConsole');
-    
-    // Test the logger
+    // Set up proper logging system - use only the logger, don't intercept console
+    // Add initial logs to show Dev Console is active
     logger.info('DevConsole', 'Dev Console component mounted and ready');
-    logger.success('DevConsole', 'Console interception is now active');
-    logger.warning('DevConsole', 'All console logs will now appear in this Dev Console');
-
-    // Update logs every second to get logger's logs
+    logger.success('DevConsole', 'Console logging system initialized');
+    
+    // Update logs every 500ms to get new logs from the logger
     const interval = setInterval(() => {
       const loggerLogs = logger.getLogs();
-      // Only update if there are new logs to prevent infinite re-renders
+      
+      // Only update if we have new logs to prevent unnecessary re-renders
       setLogs(prevLogs => {
-        // Check if we have new logs
-        const hasNewLogs = loggerLogs.some(log => 
-          !prevLogs.some(prevLog => 
-            prevLog.timestamp === log.timestamp && 
-            prevLog.message === log.message && 
-            prevLog.category === log.category
-          )
-        );
-        
-        if (!hasNewLogs) {
-          return prevLogs; // No new logs, don't update state
+        // Check if we have new logs by comparing lengths and last few entries
+        if (loggerLogs.length === prevLogs.length) {
+          // Same length, check if last few entries are the same
+          const lastPrevLogs = prevLogs.slice(-3);
+          const lastLoggerLogs = loggerLogs.slice(-3);
+          
+          const isSame = lastPrevLogs.every((prevLog, index) => {
+            const loggerLog = lastLoggerLogs[index];
+            return loggerLog && 
+                   prevLog.timestamp === loggerLog.timestamp && 
+                   prevLog.message === loggerLog.message && 
+                   prevLog.category === loggerLog.category;
+          });
+          
+          if (isSame) {
+            return prevLogs; // No new logs, don't update state
+          }
         }
         
-        // Merge logger logs with console interception logs
-        const allLogs = [...prevLogs, ...loggerLogs];
-        // Remove duplicates and sort by timestamp
-        const uniqueLogs = allLogs.filter((log, index, self) => 
-          index === self.findIndex(l => l.timestamp === log.timestamp && l.message === log.message && l.category === log.category)
-        ).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-        return uniqueLogs.slice(-1000); // Keep last 1000 logs
+        // We have new logs, update with the latest from logger
+        return [...loggerLogs].slice(-1000); // Keep last 1000 logs
       });
-    }, 1000);
+    }, 500); // Reduced interval for more responsive updates
 
     return () => {
       clearInterval(interval);
-      console.log = originalConsoleLog;
-      console.warn = originalConsoleWarn;
-      console.error = originalConsoleError;
-      console.info = originalConsoleInfo;
-      console.debug = originalConsoleDebug;
+      // Don't restore console methods since we're not intercepting them
     };
   }, []);
 
@@ -225,7 +166,7 @@ export const DevConsole: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-dev-console-active>
       <Card className="border-2 border-gradient-to-r from-purple-500/20 to-blue-500/20 bg-gradient-to-br from-background via-background to-purple-50/5 dark:to-purple-950/5 shadow-2xl">
         <CardHeader className="bg-gradient-to-r from-purple-600/10 to-blue-600/10 border-b border-purple-200/20 dark:border-purple-800/20">
           <div className="flex items-center justify-between">

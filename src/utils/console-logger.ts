@@ -26,6 +26,7 @@ class ConsoleLogger {
   private logs: LogEntry[] = [];
   private maxLogs = 1000;
   private isOwner = false;
+  private lastLogHash = '';
 
   constructor() {
     this.checkOwnerStatus();
@@ -115,6 +116,16 @@ class ConsoleLogger {
   }
 
   private addLog(level: LogLevel, category: string, message: string, data?: any) {
+    // Create a hash to prevent duplicate logs
+    const logHash = `${level}-${category}-${message}-${JSON.stringify(data || '')}`;
+    
+    // Skip if this is the exact same log as the last one
+    if (logHash === this.lastLogHash) {
+      return;
+    }
+    
+    this.lastLogHash = logHash;
+    
     const entry: LogEntry = {
       level,
       category,
@@ -130,7 +141,13 @@ class ConsoleLogger {
       this.logs = this.logs.slice(-this.maxLogs);
     }
 
-    this.logToConsole(entry);
+    // Only log to console if we're not in Dev Console mode
+    // Check if Dev Console is active by looking for a global flag or DOM element
+    const isDevConsoleActive = document.querySelector('[data-dev-console-active]') !== null;
+    
+    if (!isDevConsoleActive) {
+      this.logToConsole(entry);
+    }
   }
 
   // Public logging methods
@@ -174,7 +191,11 @@ class ConsoleLogger {
   // Clear logs
   clearLogs() {
     this.logs = [];
-    console.clear();
+    // Don't clear browser console when Dev Console is active
+    const isDevConsoleActive = document.querySelector('[data-dev-console-active]') !== null;
+    if (!isDevConsoleActive) {
+      console.clear();
+    }
     this.success('ConsoleLogger', 'Logs cleared');
   }
 
