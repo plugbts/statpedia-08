@@ -36,7 +36,7 @@ export const FeatureTooltip: React.FC<FeatureTooltipProps> = ({ onDismiss }) => 
                 💡 Pro Tip!
               </h3>
               <p className="text-sm text-muted-foreground mb-3">
-                Click the <span className="font-semibold text-foreground">Statpedia logo</span> to access exclusive features like Strikeout Center, Admin Panel, and more!
+                Click the <span className="font-semibold text-foreground">Statpedia logo</span> to access exclusive features like Strikeout Center, Most Likely, Analytics, and more!
               </p>
               <Button
                 onClick={handleDismiss}
