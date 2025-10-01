@@ -1,4 +1,5 @@
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
+import { realTimeSportsbookSync } from './real-time-sportsbook-sync';
 
 export interface SportsbookComparison {
   sportsbook: string;
@@ -193,7 +194,7 @@ class CrossReferenceService {
   }
 
   async analyzePropDiscrepancies(ourProps: any[]): Promise<CrossReferenceAnalysis> {
-    logAPI('CrossReferenceService', `🔍 Starting detailed analysis of ${ourProps.length} props for discrepancies`);
+    logAPI('CrossReferenceService', `🔍 Starting detailed analysis of ${ourProps.length} props for discrepancies using real sportsbook data`);
     
     let totalLineDifference = 0;
     let totalOddsDifference = 0;
@@ -203,65 +204,131 @@ class CrossReferenceService {
     const detailedDiscrepancies: DiscrepancyDetail[] = [];
     const sportsbookConsistency: number[] = [];
 
+    // Get real-time sportsbook data
+    const realTimeProps = realTimeSportsbookSync.getCachedProps();
+    const syncStats = realTimeSportsbookSync.getSyncStats();
+    
+    logAPI('CrossReferenceService', `📊 Real-time sync stats: ${syncStats.syncedProps}/${syncStats.totalProps} props synced, ${syncStats.sportsbooksActive.length} sportsbooks active`);
+
     for (const prop of ourProps) {
       try {
-        const sportsbookData = this.getMockSportsbookData(prop.playerName, prop.propType);
-        
-        // Calculate averages across sportsbooks
-        const averageLine = sportsbookData.reduce((sum, sb) => sum + sb.line, 0) / sportsbookData.length;
-        const averageOverOdds = sportsbookData.reduce((sum, sb) => sum + sb.overOdds, 0) / sportsbookData.length;
-        const averageUnderOdds = sportsbookData.reduce((sum, sb) => sum + sb.underOdds, 0) / sportsbookData.length;
-        
-        // Calculate variances
-        const lineVariance = Math.abs(prop.line - averageLine);
-        const overOddsVariance = Math.abs(prop.overOdds - averageOverOdds);
-        const underOddsVariance = Math.abs(prop.underOdds - averageUnderOdds);
-        const oddsVariance = (overOddsVariance + underOddsVariance) / 2;
-        const totalPropVariance = lineVariance + oddsVariance;
-        
-        totalLineDifference += lineVariance;
-        totalOddsDifference += oddsVariance;
-        totalVariance += totalPropVariance;
-        maxVariance = Math.max(maxVariance, totalPropVariance);
-        
-        // Check sportsbook consistency (how much they agree with each other)
-        const sportsbookLineVariance = this.calculateSportsbookVariance(sportsbookData.map(sb => sb.line));
-        const sportsbookOddsVariance = this.calculateSportsbookVariance(sportsbookData.map(sb => sb.overOdds));
-        const consistency = 100 - ((sportsbookLineVariance + sportsbookOddsVariance) / 2);
-        sportsbookConsistency.push(consistency);
-        
-        if (lineVariance > 0.2 || oddsVariance > 2) {
-          propsWithDiscrepancies++;
+        // Find matching real-time sportsbook data
+        const realTimeProp = realTimeProps.find(rtProp => 
+          rtProp.playerName.toLowerCase() === prop.playerName.toLowerCase() &&
+          rtProp.propType === prop.propType
+        );
+
+        if (realTimeProp && realTimeProp.sportsbookOdds.length > 0) {
+          // Use real sportsbook data
+          const sportsbookData = realTimeProp.sportsbookOdds.map(odds => ({
+            sportsbook: odds.sportsbook,
+            line: odds.line,
+            overOdds: odds.overOdds,
+            underOdds: odds.underOdds,
+            lastUpdated: odds.lastUpdate
+          }));
+
+          // Calculate averages across real sportsbooks
+          const averageLine = sportsbookData.reduce((sum, sb) => sum + sb.line, 0) / sportsbookData.length;
+          const averageOverOdds = sportsbookData.reduce((sum, sb) => sum + sb.overOdds, 0) / sportsbookData.length;
+          const averageUnderOdds = sportsbookData.reduce((sum, sb) => sum + sb.underOdds, 0) / sportsbookData.length;
           
-          // Create detailed discrepancy record
-          const severity = this.calculateSeverity(lineVariance, oddsVariance);
-          const suggestedAction = this.generateDetailedAction(prop, averageLine, averageOverOdds, averageUnderOdds, lineVariance, oddsVariance);
+          // Calculate variances
+          const lineVariance = Math.abs(prop.line - averageLine);
+          const overOddsVariance = Math.abs(prop.overOdds - averageOverOdds);
+          const underOddsVariance = Math.abs(prop.underOdds - averageUnderOdds);
+          const oddsVariance = (overOddsVariance + underOddsVariance) / 2;
+          const totalPropVariance = lineVariance + oddsVariance;
           
-          detailedDiscrepancies.push({
-            playerName: prop.playerName,
-            propType: prop.propType,
-            ourLine: prop.line,
-            ourOverOdds: prop.overOdds,
-            ourUnderOdds: prop.underOdds,
-            sportsbookLine: averageLine,
-            sportsbookOverOdds: averageOverOdds,
-            sportsbookUnderOdds: averageUnderOdds,
-            lineDifference: lineVariance,
-            oddsDifference: oddsVariance,
-            severity,
-            suggestedAction,
-            sportsbook: 'Average of all sportsbooks'
-          });
+          totalLineDifference += lineVariance;
+          totalOddsDifference += oddsVariance;
+          totalVariance += totalPropVariance;
+          maxVariance = Math.max(maxVariance, totalPropVariance);
           
-          logWarning('CrossReferenceService', `🚨 Discrepancy found for ${prop.playerName} (${prop.propType}):`, {
-            ourLine: prop.line,
-            sportsbookLine: averageLine,
-            lineDiff: lineVariance,
-            ourOdds: `${prop.overOdds}/${prop.underOdds}`,
-            sportsbookOdds: `${averageOverOdds}/${averageUnderOdds}`,
-            oddsDiff: oddsVariance,
-            severity
-          });
+          // Check sportsbook consistency (how much they agree with each other)
+          const sportsbookLineVariance = this.calculateSportsbookVariance(sportsbookData.map(sb => sb.line));
+          const sportsbookOddsVariance = this.calculateSportsbookVariance(sportsbookData.map(sb => sb.overOdds));
+          const consistency = 100 - ((sportsbookLineVariance + sportsbookOddsVariance) / 2);
+          sportsbookConsistency.push(consistency);
+          
+          // Use more realistic thresholds for real sportsbook data
+          if (lineVariance > 0.5 || oddsVariance > 5) {
+            propsWithDiscrepancies++;
+            
+            // Create detailed discrepancy record
+            const severity = this.calculateSeverity(lineVariance, oddsVariance);
+            const suggestedAction = this.generateDetailedAction(prop, averageLine, averageOverOdds, averageUnderOdds, lineVariance, oddsVariance);
+            
+            detailedDiscrepancies.push({
+              playerName: prop.playerName,
+              propType: prop.propType,
+              ourLine: prop.line,
+              ourOverOdds: prop.overOdds,
+              ourUnderOdds: prop.underOdds,
+              sportsbookLine: averageLine,
+              sportsbookOverOdds: averageOverOdds,
+              sportsbookUnderOdds: averageUnderOdds,
+              lineDifference: lineVariance,
+              oddsDifference: oddsVariance,
+              severity,
+              suggestedAction,
+              sportsbook: `Real sportsbooks (${sportsbookData.length} sources)`
+            });
+            
+            logWarning('CrossReferenceService', `🚨 Real discrepancy found for ${prop.playerName} (${prop.propType}):`, {
+              ourLine: prop.line,
+              sportsbookLine: averageLine,
+              lineDiff: lineVariance,
+              ourOdds: `${prop.overOdds}/${prop.underOdds}`,
+              sportsbookOdds: `${averageOverOdds}/${averageUnderOdds}`,
+              oddsDiff: oddsVariance,
+              severity,
+              sportsbooks: sportsbookData.map(sb => sb.sportsbook).join(', ')
+            });
+          }
+        } else {
+          // Fallback to mock data if no real-time data available
+          logWarning('CrossReferenceService', `⚠️ No real-time data for ${prop.playerName} (${prop.propType}), using fallback analysis`);
+          
+          const sportsbookData = this.getMockSportsbookData(prop.playerName, prop.propType);
+          const averageLine = sportsbookData.reduce((sum, sb) => sum + sb.line, 0) / sportsbookData.length;
+          const averageOverOdds = sportsbookData.reduce((sum, sb) => sum + sb.overOdds, 0) / sportsbookData.length;
+          const averageUnderOdds = sportsbookData.reduce((sum, sb) => sum + sb.underOdds, 0) / sportsbookData.length;
+          
+          const lineVariance = Math.abs(prop.line - averageLine);
+          const overOddsVariance = Math.abs(prop.overOdds - averageOverOdds);
+          const underOddsVariance = Math.abs(prop.underOdds - averageUnderOdds);
+          const oddsVariance = (overOddsVariance + underOddsVariance) / 2;
+          const totalPropVariance = lineVariance + oddsVariance;
+          
+          totalLineDifference += lineVariance;
+          totalOddsDifference += oddsVariance;
+          totalVariance += totalPropVariance;
+          maxVariance = Math.max(maxVariance, totalPropVariance);
+          
+          // Use stricter thresholds for mock data
+          if (lineVariance > 0.2 || oddsVariance > 2) {
+            propsWithDiscrepancies++;
+            
+            const severity = this.calculateSeverity(lineVariance, oddsVariance);
+            const suggestedAction = this.generateDetailedAction(prop, averageLine, averageOverOdds, averageUnderOdds, lineVariance, oddsVariance);
+            
+            detailedDiscrepancies.push({
+              playerName: prop.playerName,
+              propType: prop.propType,
+              ourLine: prop.line,
+              ourOverOdds: prop.overOdds,
+              ourUnderOdds: prop.underOdds,
+              sportsbookLine: averageLine,
+              sportsbookOverOdds: averageOverOdds,
+              sportsbookUnderOdds: averageUnderOdds,
+              lineDifference: lineVariance,
+              oddsDifference: oddsVariance,
+              severity,
+              suggestedAction,
+              sportsbook: 'Mock data (fallback)'
+            });
+          }
         }
         
       } catch (error) {
@@ -281,9 +348,9 @@ class CrossReferenceService {
       debugInfo: {
         totalVariance,
         maxVariance,
-        sportsbookConsistency: sportsbookConsistency.reduce((sum, c) => sum + c, 0) / sportsbookConsistency.length,
+        sportsbookConsistency: sportsbookConsistency.length > 0 ? sportsbookConsistency.reduce((sum, c) => sum + c, 0) / sportsbookConsistency.length : 0,
         ourAccuracy: 100 - (totalVariance / ourProps.length),
-        syncStatus: this.determineSyncStatus(propsWithDiscrepancies, ourProps.length)
+        syncStatus: this.determineSyncStatusFromRealData(syncStats, propsWithDiscrepancies, ourProps.length)
       },
       lastUpdated: new Date().toISOString()
     };
@@ -293,7 +360,9 @@ class CrossReferenceService {
       maxVariance: maxVariance.toFixed(2),
       averageConsistency: analysis.debugInfo.sportsbookConsistency.toFixed(1) + '%',
       ourAccuracy: analysis.debugInfo.ourAccuracy.toFixed(1) + '%',
-      syncStatus: analysis.debugInfo.syncStatus
+      syncStatus: analysis.debugInfo.syncStatus,
+      realTimeProps: realTimeProps.length,
+      activeSportsbooks: syncStats.sportsbooksActive.length
     });
     
     return analysis;
@@ -336,6 +405,20 @@ class CrossReferenceService {
     if (discrepancyRate < 0.05) return 'synced'; // Very strict - only 5% discrepancy rate
     if (discrepancyRate < 0.15) return 'partial'; // Reduced threshold
     return 'outdated';
+  }
+
+  private determineSyncStatusFromRealData(syncStats: any, discrepancies: number, total: number): 'synced' | 'partial' | 'outdated' {
+    // If we have good real-time sync coverage, use that as primary indicator
+    if (syncStats.syncedProps > syncStats.totalProps * 0.8) {
+      return 'synced';
+    }
+    
+    if (syncStats.syncedProps > syncStats.totalProps * 0.5) {
+      return 'partial';
+    }
+    
+    // Fallback to discrepancy-based status
+    return this.determineSyncStatus(discrepancies, total);
   }
 
   private generateSmartRecommendations(discrepancies: number, total: number, avgLineDiff: number, avgOddsDiff: number, detailedDiscrepancies: DiscrepancyDetail[]): string[] {
