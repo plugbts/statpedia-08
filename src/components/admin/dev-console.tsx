@@ -31,16 +31,24 @@ export const DevConsole: React.FC = () => {
   const [isOwner, setIsOwner] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
+  // Debug: Always show Dev Console for now
+  console.log('🔍 DevConsole: Component rendering');
+
   useEffect(() => {
     // Check if user is owner
     const checkOwner = () => {
       const ownerEmails = ['jackie@statpedia.com', 'admin@statpedia.com'];
       const currentUser = localStorage.getItem('userEmail') || '';
       const ownerStatus = ownerEmails.includes(currentUser) || currentUser.includes('jackie');
+      console.log('🔍 DevConsole: Owner check', { currentUser, ownerStatus, ownerEmails });
       setIsOwner(ownerStatus);
     };
 
     checkOwner();
+    
+    // TEMPORARY: Force owner status for debugging
+    console.log('🔍 DevConsole: Forcing owner status for debugging');
+    setIsOwner(true);
 
     // Intercept console logs
     const originalConsoleLog = console.log;
@@ -51,8 +59,13 @@ export const DevConsole: React.FC = () => {
 
     const addLog = (level: LogLevel, message: string, category: string = 'Console', data?: any) => {
       const newLog: LogEntry = {
-        id: Date.now() + Math.random(),
-        timestamp: new Date(),
+        timestamp: new Date().toLocaleTimeString('en-US', { 
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          fractionalSecondDigits: 3
+        }),
         level,
         category,
         message,
@@ -99,7 +112,23 @@ export const DevConsole: React.FC = () => {
     logger.success('DevConsole', 'Console interception is now active');
     logger.warning('DevConsole', 'All console logs will now appear in this Dev Console');
 
+    // Update logs every second to get logger's logs
+    const interval = setInterval(() => {
+      const loggerLogs = logger.getLogs();
+      console.log('🔍 DevConsole: Updating logs from logger', { logCount: loggerLogs.length });
+      setLogs(prevLogs => {
+        // Merge logger logs with console interception logs
+        const allLogs = [...prevLogs, ...loggerLogs];
+        // Remove duplicates and sort by timestamp
+        const uniqueLogs = allLogs.filter((log, index, self) => 
+          index === self.findIndex(l => l.timestamp === log.timestamp && l.message === log.message && l.category === log.category)
+        ).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        return uniqueLogs.slice(-1000); // Keep last 1000 logs
+      });
+    }, 1000);
+
     return () => {
+      clearInterval(interval);
       console.log = originalConsoleLog;
       console.warn = originalConsoleWarn;
       console.error = originalConsoleError;
@@ -165,8 +194,24 @@ export const DevConsole: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
+  // TEMPORARY: Always show for debugging
+  console.log('🔍 DevConsole: Rendering component', { isOwner, logsCount: logs.length });
+  
   if (!isOwner) {
-    return null;
+    return (
+      <Card>
+        <CardContent className="p-6 text-center">
+          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Access Restricted</h3>
+          <p className="text-muted-foreground">
+            This developer console is only available to owners.
+          </p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Debug: isOwner = {isOwner.toString()}, logs = {logs.length}
+          </p>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
