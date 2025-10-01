@@ -44,6 +44,7 @@ import { unifiedSportsAPI } from '@/services/unified-sports-api';
 import { simulationService, PredictionAnalysis } from '@/services/simulation-service';
 import { crossReferenceService, CrossReferenceResult } from '@/services/cross-reference-service';
 import { PropFinderAnalysisOverlay } from './propfinder-analysis-overlay';
+import { EnhancedAnalysisOverlay } from './enhanced-analysis-overlay';
 
 interface PredictionsTabProps {
   selectedSport: string;
@@ -836,9 +837,9 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
         </div>
       )}
 
-      {/* PropFinder Analysis Overlay */}
-      <PropFinderAnalysisOverlay
-        prediction={selectedPrediction}
+      {/* Enhanced Analysis Overlay */}
+      <EnhancedAnalysisOverlay
+        prediction={selectedPrediction as any}
         isOpen={showPredictionModal}
         onClose={() => setShowPredictionModal(false)}
       />
