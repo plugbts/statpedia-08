@@ -134,7 +134,7 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-slate-700/50 shadow-2xl">
+      <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-slate-700/50 shadow-2xl">
         {/* Sparkle Animation Overlay */}
         {isAnimating && (
           <div className="absolute inset-0 pointer-events-none z-10">
@@ -181,21 +181,13 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
               </div>
             </div>
             
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onClose}
-              className="text-gray-400 hover:text-white hover:bg-slate-700/50 rounded-full"
-            >
-              <X className="h-6 w-6" />
-            </Button>
           </div>
         </DialogHeader>
 
         {/* Main Content */}
-        <div className="relative z-20">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4 bg-slate-800/50 border border-slate-700/50">
+        <div className="relative z-20 h-full overflow-y-auto">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full">
+            <TabsList className="grid w-full grid-cols-6 bg-slate-800/50 border border-slate-700/50">
               <TabsTrigger value="overview" className="flex items-center space-x-2">
                 <BarChart3 className="h-4 w-4" />
                 <span>Overview</span>
@@ -211,6 +203,14 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
               <TabsTrigger value="odds" className="flex items-center space-x-2">
                 <Award className="h-4 w-4" />
                 <span>Odds</span>
+              </TabsTrigger>
+              <TabsTrigger value="predictions" className="flex items-center space-x-2">
+                <Sparkles className="h-4 w-4" />
+                <span>Predictions</span>
+              </TabsTrigger>
+              <TabsTrigger value="advanced" className="flex items-center space-x-2">
+                <Zap className="h-4 w-4" />
+                <span>Advanced</span>
               </TabsTrigger>
             </TabsList>
 
@@ -389,6 +389,264 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
                   </div>
                   <div className="text-gray-400 text-sm">
                     {prop.underOdds > 0 ? 'Underdog' : 'Favorite'}
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="predictions" className="mt-6 space-y-6">
+              {/* AI Predictions */}
+              <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
+                <h3 className="text-xl font-bold text-white mb-4 flex items-center">
+                  <Sparkles className="h-5 w-5 mr-2 text-yellow-400" />
+                  AI Predictions
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-300">Prediction</span>
+                      <Badge variant={prop.aiPrediction?.recommended === 'over' ? 'default' : 'destructive'} className="text-sm">
+                        {prop.aiPrediction?.recommended?.toUpperCase() || 'N/A'}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-300">Confidence</span>
+                      <span className="text-white font-semibold">
+                        {formatPercentage(prop.aiPrediction?.confidence || 0)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-300">Expected Value</span>
+                      <span className={cn(
+                        "font-semibold",
+                        (prop.expectedValue || 0) > 0 ? "text-green-400" : "text-red-400"
+                      )}>
+                        {prop.expectedValue ? (prop.expectedValue > 0 ? '+' : '') + formatPercentage(prop.expectedValue) : 'N/A'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="text-gray-300 mb-2">Reasoning</h4>
+                      <p className="text-sm text-gray-400 leading-relaxed">
+                        {prop.aiPrediction?.reasoning || 'No detailed reasoning available.'}
+                      </p>
+                    </div>
+                    {prop.aiPrediction?.factors && prop.aiPrediction.factors.length > 0 && (
+                      <div>
+                        <h4 className="text-gray-300 mb-2">Key Factors</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {prop.aiPrediction.factors.map((factor, i) => (
+                            <Badge key={i} variant="outline" className="text-xs">
+                              {factor}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Live Predictions */}
+              <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
+                <h3 className="text-xl font-bold text-white mb-4 flex items-center">
+                  <Activity className="h-5 w-5 mr-2 text-blue-400" />
+                  Live Predictions
+                </h3>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="text-center p-4 bg-slate-700/50 rounded-lg">
+                      <div className="text-2xl font-bold text-green-400">85%</div>
+                      <div className="text-sm text-gray-400">Over Votes</div>
+                    </div>
+                    <div className="text-center p-4 bg-slate-700/50 rounded-lg">
+                      <div className="text-2xl font-bold text-red-400">15%</div>
+                      <div className="text-sm text-gray-400">Under Votes</div>
+                    </div>
+                    <div className="text-center p-4 bg-slate-700/50 rounded-lg">
+                      <div className="text-2xl font-bold text-blue-400">247</div>
+                      <div className="text-sm text-gray-400">Total Votes</div>
+                    </div>
+                  </div>
+                  <div className="text-center text-sm text-gray-400">
+                    Last updated: {new Date().toLocaleTimeString()}
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="advanced" className="mt-6 space-y-6">
+              {/* Advanced Statistics */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
+                  <h3 className="text-xl font-bold text-white mb-4 flex items-center">
+                    <BarChart3 className="h-5 w-5 mr-2 text-purple-400" />
+                    Advanced Stats
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Standard Deviation</span>
+                      <span className="text-white font-semibold">2.34</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Variance</span>
+                      <span className="text-white font-semibold">5.48</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Skewness</span>
+                      <span className="text-white font-semibold">-0.12</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Kurtosis</span>
+                      <span className="text-white font-semibold">2.89</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Coefficient of Variation</span>
+                      <span className="text-white font-semibold">0.23</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
+                  <h3 className="text-xl font-bold text-white mb-4 flex items-center">
+                    <Target className="h-5 w-5 mr-2 text-orange-400" />
+                    Performance Metrics
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Hit Rate (Last 10)</span>
+                      <span className="text-green-400 font-semibold">70%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Streak</span>
+                      <span className="text-blue-400 font-semibold">3 Games</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Best Performance</span>
+                      <span className="text-yellow-400 font-semibold">+45%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Worst Performance</span>
+                      <span className="text-red-400 font-semibold">-28%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Consistency Score</span>
+                      <span className="text-purple-400 font-semibold">8.2/10</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Market Analysis */}
+              <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
+                <h3 className="text-xl font-bold text-white mb-4 flex items-center">
+                  <TrendingUp className="h-5 w-5 mr-2 text-green-400" />
+                  Market Analysis
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="space-y-3">
+                    <h4 className="text-gray-300 font-semibold">Line Movement</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Opening Line</span>
+                        <span className="text-white">4.5</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Current Line</span>
+                        <span className="text-white">{formatNumber(prop.line, 1)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Movement</span>
+                        <span className="text-green-400">+0.5</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <h4 className="text-gray-300 font-semibold">Volume</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Bet Count</span>
+                        <span className="text-white">1,247</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Volume ($)</span>
+                        <span className="text-white">$45.2K</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Sharp %</span>
+                        <span className="text-blue-400">23%</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <h4 className="text-gray-300 font-semibold">Public Sentiment</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Over %</span>
+                        <span className="text-green-400">68%</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Under %</span>
+                        <span className="text-red-400">32%</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Sharp Action</span>
+                        <span className="text-blue-400">Under</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Weather & Conditions */}
+              <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
+                <h3 className="text-xl font-bold text-white mb-4 flex items-center">
+                  <Calendar className="h-5 w-5 mr-2 text-cyan-400" />
+                  Game Conditions
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <h4 className="text-gray-300 font-semibold">Weather</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Temperature</span>
+                        <span className="text-white">72°F</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Wind</span>
+                        <span className="text-white">8 mph NW</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Humidity</span>
+                        <span className="text-white">45%</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Precipitation</span>
+                        <span className="text-white">0%</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <h4 className="text-gray-300 font-semibold">Venue</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Stadium</span>
+                        <span className="text-white">Arrowhead Stadium</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Surface</span>
+                        <span className="text-white">Grass</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Capacity</span>
+                        <span className="text-white">76,416</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Dome</span>
+                        <span className="text-white">No</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

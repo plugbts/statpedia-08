@@ -118,6 +118,42 @@ class GamesService {
     return realGames;
   }
 
+  // Get live games (currently playing)
+  async getLiveGames(sport: string): Promise<RealGame[]> {
+    const cacheKey = `live_games_${sport}`;
+    const cached = this.cache.get(cacheKey);
+    const now = Date.now();
+
+    // Shorter cache for live data (30 seconds)
+    if (cached && (now - cached.timestamp) < 30000) {
+      return cached.data;
+    }
+
+    const apiGames = await sportsDataIOAPI.getLiveGames(sport);
+    const realGames = this.convertAPIGamesToRealGames(apiGames);
+    
+    this.cache.set(cacheKey, { data: realGames, timestamp: now });
+    return realGames;
+  }
+
+  // Get live predictions
+  async getLivePredictions(sport: string): Promise<PredictionCardProps[]> {
+    const cacheKey = `live_predictions_${sport}`;
+    const cached = this.cache.get(cacheKey);
+    const now = Date.now();
+
+    // Shorter cache for live data (30 seconds)
+    if (cached && (now - cached.timestamp) < 30000) {
+      return cached.data;
+    }
+
+    const apiPredictions = await sportsDataIOAPI.getLivePredictions(sport);
+    const realPredictions = this.convertAPIPredictionsToRealPredictions(apiPredictions);
+    
+    this.cache.set(cacheKey, { data: realPredictions, timestamp: now });
+    return realPredictions;
+  }
+
   // Convert API games to RealGame format
   private convertAPIGamesToRealGames(apiGames: any[]): RealGame[] {
     return apiGames.map(game => ({
@@ -143,6 +179,28 @@ class GamesService {
       league: game.sport,
       season: '2025',
       week: this.getCurrentWeek()
+    }));
+  }
+
+  // Convert API predictions to RealPredictions format
+  private convertAPIPredictionsToRealPredictions(apiPredictions: any[]): PredictionCardProps[] {
+    return apiPredictions.map(prediction => ({
+      id: prediction.id,
+      sport: prediction.sport,
+      player: prediction.player,
+      team: prediction.team,
+      opponent: prediction.opponent,
+      prop: prediction.prop,
+      line: prediction.line,
+      predictionDirection: prediction.prediction,
+      confidence: prediction.confidence,
+      odds: prediction.odds,
+      expectedValue: prediction.expectedValue,
+      gameDate: prediction.gameDate,
+      gameTime: prediction.gameTime,
+      factors: prediction.factors || [],
+      reasoning: prediction.reasoning || '',
+      lastUpdated: prediction.lastUpdated || new Date().toISOString(),
     }));
   }
 

@@ -123,30 +123,30 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     loadPlayerProps(selectedSport);
   }, [selectedSport]);
 
-  // Load player props from SportsDataIO API
+  // Load player props from SportsDataIO API (live data)
   const loadPlayerProps = async (sport: string) => {
     if (!sport) {
       console.log('⚠️ No sport provided to loadPlayerProps');
       return;
     }
     
-    console.log(`🎯 Starting to load player props for ${sport}...`);
+    console.log(`🎯 Starting to load live player props for ${sport}...`);
     setIsLoadingData(true);
     
     try {
-      console.log(`📡 Calling sportsDataIOAPI.getPlayerProps(${sport})...`);
-      const props = await sportsDataIOAPI.getPlayerProps(sport);
-      console.log(`📊 API returned ${props?.length || 0} props:`, props);
+      console.log(`📡 Calling sportsDataIOAPI.getLivePlayerProps(${sport})...`);
+      const props = await sportsDataIOAPI.getLivePlayerProps(sport);
+      console.log(`📊 API returned ${props?.length || 0} live props:`, props);
       
       if (props && Array.isArray(props)) {
         setRealProps(props);
-        console.log(`✅ Successfully set ${props.length} player props for ${sport}`);
+        console.log(`✅ Successfully set ${props.length} live player props for ${sport}`);
       } else {
         console.warn('⚠️ API returned invalid data:', props);
         setRealProps([]);
       }
     } catch (error) {
-      console.error('❌ Failed to load player props:', error);
+      console.error('❌ Failed to load live player props:', error);
       console.error('Error details:', {
         message: error.message,
         stack: error.stack,
@@ -155,13 +155,13 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       
       toast({
         title: "Error",
-        description: `Failed to load player props: ${error.message}`,
+        description: `Failed to load live player props: ${error.message}`,
         variant: "destructive",
       });
       setRealProps([]);
     } finally {
       setIsLoadingData(false);
-      console.log(`🏁 Finished loading player props for ${sport}`);
+      console.log(`🏁 Finished loading live player props for ${sport}`);
     }
   };
 

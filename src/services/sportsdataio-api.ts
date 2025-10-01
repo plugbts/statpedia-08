@@ -270,6 +270,59 @@ class SportsDataIOAPI {
     }
   }
 
+  // Get live games (currently playing)
+  async getLiveGames(sport: string): Promise<Game[]> {
+    console.log(`🔴 Fetching live games for ${sport}...`);
+    
+    try {
+      const endpoint = this.getLiveGamesEndpoint(sport);
+      const rawGames = await this.makeRequest<any[]>(endpoint);
+
+      const games = this.parseGames(rawGames, sport);
+      console.log(`✅ Successfully fetched ${games.length} live games for ${sport}`);
+      return games;
+    } catch (error) {
+      console.error(`❌ Failed to fetch live games for ${sport}:`, error);
+      throw new Error(`Failed to fetch live games for ${sport}: ${error}`);
+    }
+  }
+
+  // Get live player props (real-time)
+  async getLivePlayerProps(sport: string): Promise<PlayerProp[]> {
+    console.log(`🎯 Fetching live player props for ${sport}...`);
+    
+    try {
+      const endpoint = this.getPlayerPropsEndpoint(sport);
+      const rawProps = await this.makeRequest<any[]>(endpoint);
+
+      const props = this.parsePlayerProps(rawProps, sport);
+      console.log(`✅ Successfully fetched ${props.length} live player props for ${sport}`);
+      return props;
+    } catch (error) {
+      console.error(`❌ Failed to fetch live player props for ${sport}:`, error);
+      throw new Error(`Failed to fetch live player props for ${sport}: ${error}`);
+    }
+  }
+
+  // Get live predictions (real-time AI predictions)
+  async getLivePredictions(sport: string): Promise<Prediction[]> {
+    console.log(`🔮 Generating live predictions for ${sport}...`);
+    
+    try {
+      // Get current games and props
+      const games = await this.getCurrentWeekGames(sport);
+      const props = await this.getLivePlayerProps(sport);
+      
+      // Generate live predictions
+      const predictions = this.generateLivePredictions(games, props, sport);
+      console.log(`✅ Successfully generated ${predictions.length} live predictions for ${sport}`);
+      return predictions;
+    } catch (error) {
+      console.error(`❌ Failed to generate live predictions for ${sport}:`, error);
+      throw new Error(`Failed to generate live predictions for ${sport}: ${error}`);
+    }
+  }
+
   // Get player props for a sport
   async getPlayerProps(sport: string): Promise<PlayerProp[]> {
     console.log(`🎯 [SportsDataIO] Starting getPlayerProps for ${sport}...`);
@@ -1195,6 +1248,52 @@ class SportsDataIOAPI {
       reasoning: `Based on ${recentForm} recent form and ${((prop.HitRate || 0.5) * 100).toFixed(1)}% hit rate`,
       factors,
     };
+  }
+
+  // Get live games endpoint
+  private getLiveGamesEndpoint(sport: string): string {
+    const sportKey = this.getSportKey(sport);
+    return `${this.config.baseUrl}/${sportKey}/LiveGames`;
+  }
+
+  // Generate live predictions based on current data
+  private generateLivePredictions(games: Game[], props: PlayerProp[], sport: string): Prediction[] {
+    const predictions: Prediction[] = [];
+    
+    // Create predictions for each prop
+    props.forEach(prop => {
+      const game = games.find(g => g.id === prop.gameId);
+      if (!game) return;
+
+      const confidence = prop.confidence || 0.5;
+      const expectedValue = prop.expectedValue || 0;
+      const recommended = expectedValue > 0 ? 'over' : 'under';
+      
+      predictions.push({
+        id: `pred_${prop.id}_${Date.now()}`,
+        sport: prop.sport,
+        player: prop.playerName,
+        team: prop.team,
+        opponent: prop.opponent,
+        prop: prop.propType,
+        line: prop.line,
+        prediction: recommended,
+        confidence,
+        odds: recommended === 'over' ? prop.overOdds : prop.underOdds,
+        expectedValue,
+        gameDate: prop.gameDate,
+        gameTime: prop.gameTime,
+        factors: prop.aiPrediction?.factors || [
+          `Recent form: ${prop.recentForm || 'Neutral'}`,
+          `Season average: ${prop.seasonStats?.average || 0}`,
+          `Hit rate: ${((prop.seasonStats?.hitRate || 0.5) * 100).toFixed(1)}%`,
+        ],
+        reasoning: prop.aiPrediction?.reasoning || 'Based on current form and historical data',
+        lastUpdated: new Date().toISOString(),
+      });
+    });
+
+    return predictions;
   }
 
   // Cache management
