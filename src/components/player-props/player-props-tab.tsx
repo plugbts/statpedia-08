@@ -141,14 +141,14 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       console.log(`📊 API returned ${props?.length || 0} props:`, props);
       
       if (props && Array.isArray(props) && props.length > 0) {
-        // Filter for current and future games only
+        // Filter for current and future games only (be more lenient with date range)
         const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const twoWeeksFromNow = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
+        const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); // Allow games from 1 week ago
+        const oneMonthFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // Allow games up to 1 month from now
         
         const filteredProps = props.filter(prop => {
           const gameDate = new Date(prop.gameDate);
-          return gameDate >= today && gameDate <= twoWeeksFromNow;
+          return gameDate >= oneWeekAgo && gameDate <= oneMonthFromNow;
         });
         
         setRealProps(filteredProps);

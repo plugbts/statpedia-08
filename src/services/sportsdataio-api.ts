@@ -625,35 +625,35 @@ class SportsDataIOAPI {
     }
 
     return rawProps
-      .filter(prop => prop && prop.PlayerID && prop.StatType)
+      .filter(prop => prop && prop.PlayerID && prop.Description)
       .map(prop => {
-        const line = prop.Line || 0;
-        const overOdds = prop.OverOdds || 0;
-        const underOdds = prop.UnderOdds || 0;
+        const line = prop.OverUnder || 0;
+        const overOdds = prop.OverPayout || 0;
+        const underOdds = prop.UnderPayout || 0;
         
         // Generate AI prediction based on odds
         const confidence = this.calculateConfidence(overOdds, underOdds);
         const recommended = overOdds < underOdds ? 'over' : 'under';
         
         return {
-          id: prop.PlayerPropID?.toString() || `${prop.PlayerID}_${prop.StatType}_${Date.now()}`,
+          id: `${prop.PlayerID}_${prop.Description}_${Date.now()}`,
           playerId: prop.PlayerID || 0,
-          playerName: prop.PlayerName || 'Unknown Player',
+          playerName: prop.Name || 'Unknown Player',
           team: prop.Team || 'Unknown',
-          teamAbbr: prop.TeamAbbr || 'UNK',
+          teamAbbr: prop.Team || 'UNK',
           opponent: prop.Opponent || 'Unknown',
-          opponentAbbr: prop.OpponentAbbr || 'UNK',
-          gameId: prop.GameID?.toString() || '',
+          opponentAbbr: prop.Opponent || 'UNK',
+          gameId: prop.ScoreID?.toString() || '',
           sport: sport.toUpperCase(),
-          propType: this.mapStatTypeToPropType(prop.StatType),
+          propType: this.mapStatTypeToPropType(prop.Description),
           line: line,
           overOdds: overOdds,
           underOdds: underOdds,
-          gameDate: prop.GameDate || new Date().toISOString(),
-          gameTime: prop.GameTime || 'TBD',
+          gameDate: prop.DateTime || new Date().toISOString(),
+          gameTime: prop.DateTime ? new Date(prop.DateTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }) : 'TBD',
           confidence: confidence,
           expectedValue: this.calculateExpectedValue(overOdds, underOdds, confidence),
-          recentForm: this.determineRecentForm(prop.PlayerID, prop.StatType),
+          recentForm: this.determineRecentForm(prop.PlayerID, prop.Description),
           last5Games: this.generateLast5Games(line),
           seasonStats: {
             average: line + (Math.random() - 0.5) * line * 0.2,
@@ -667,8 +667,8 @@ class SportsDataIOAPI {
           aiPrediction: {
             recommended: recommended,
             confidence: confidence,
-            reasoning: this.generateReasoning(prop.StatType, prop.PlayerName, prop.Team, prop.Opponent),
-            factors: this.generateFactors(prop.StatType, sport),
+            reasoning: this.generateReasoning(prop.Description, prop.Name, prop.Team, prop.Opponent),
+            factors: this.generateFactors(prop.Description, sport),
           },
         };
       });
