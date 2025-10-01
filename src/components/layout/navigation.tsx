@@ -356,8 +356,7 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
                 size="sm"
                 className="gap-1 transition-all duration-200 hover:bg-card-hover hover-scale px-3 text-xs whitespace-nowrap"
               >
-                <SportIcon sport={selectedSport as any} size="sm" />
-                {sports.find(s => s.sport === selectedSport)?.label || 'Select Sport'}
+{sports.find(s => s.sport === selectedSport)?.label || 'Select Sport'}
                 <ChevronDown className="w-3 h-3" />
               </Button>
             </DropdownMenuTrigger>
@@ -367,11 +366,10 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
                   key={sport.id}
                   onClick={() => onSportChange?.(sport.sport)}
                   className={cn(
-                    "gap-2 cursor-pointer",
+                    "cursor-pointer",
                     selectedSport === sport.sport && "bg-secondary"
                   )}
                 >
-                  <SportIcon sport={sport.sport as any} size="sm" />
                   {sport.label}
                   {selectedSport === sport.sport && (
                     <div className="ml-auto w-2 h-2 rounded-full bg-primary" />
