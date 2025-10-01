@@ -403,15 +403,31 @@ class SportsGameOddsAPI {
       const cacheKey = `player-props-${sport}`;
       const cached = this.playerPropsCache.get(cacheKey);
       
-      if (cached && (Date.now() - cached.timestamp) < this.CACHE_DURATION.PLAYER_PROPS) {
-        logAPI('SportsGameOddsAPI', `Using cached player props for ${sport} (${cached.props.length} props)`);
-        this.usageStats.cacheHits++;
-        return cached.props;
+      logAPI('SportsGameOddsAPI', `=== DEBUGGING PLAYER PROPS FOR ${sport.toUpperCase()} ===`);
+      logAPI('SportsGameOddsAPI', `Cache key: ${cacheKey}`);
+      logAPI('SportsGameOddsAPI', `Cache exists: ${!!cached}`);
+      
+      if (cached) {
+        const age = Date.now() - cached.timestamp;
+        const isExpired = age >= this.CACHE_DURATION.PLAYER_PROPS;
+        logAPI('SportsGameOddsAPI', `Cache age: ${Math.round(age / 1000)}s, expired: ${isExpired}`);
+        logAPI('SportsGameOddsAPI', `Cache duration: ${Math.round(this.CACHE_DURATION.PLAYER_PROPS / 1000)}s`);
+        
+        if (!isExpired) {
+          logAPI('SportsGameOddsAPI', `Using cached player props for ${sport} (${cached.props.length} props)`);
+          this.usageStats.cacheHits++;
+          return cached.props;
+        } else {
+          logAPI('SportsGameOddsAPI', `Cache expired, fetching fresh data`);
+        }
+      } else {
+        logAPI('SportsGameOddsAPI', `No cache found, fetching fresh data`);
       }
       
       logAPI('SportsGameOddsAPI', `Fetching fresh player props for ${sport} from SportsGameOdds markets`);
       
       const leagueId = this.mapSportToLeagueId(sport);
+      logAPI('SportsGameOddsAPI', `League ID for ${sport}: ${leagueId}`);
       if (!leagueId) {
         logWarning('SportsGameOddsAPI', `No league ID found for ${sport}`);
         return [];
@@ -428,7 +444,8 @@ class SportsGameOddsAPI {
         logAPI('SportsGameOddsAPI', `Markets response:`, {
           hasData: !!marketsResponse.data,
           dataLength: marketsResponse.data?.length || 0,
-          responseKeys: Object.keys(marketsResponse)
+          responseKeys: Object.keys(marketsResponse),
+          fullResponse: marketsResponse
         });
         
         if (marketsResponse.data && marketsResponse.data.length > 0) {
@@ -457,6 +474,10 @@ class SportsGameOddsAPI {
           if (response.data && Array.isArray(response.data)) {
             allEvents = allEvents.concat(response.data);
             logAPI('SportsGameOddsAPI', `Fetched ${response.data.length} events for ${sport} (total: ${allEvents.length})`);
+            logAPI('SportsGameOddsAPI', `First event structure:`, response.data[0]);
+          } else {
+            logWarning('SportsGameOddsAPI', `Invalid response format from events endpoint:`, response);
+            logAPI('SportsGameOddsAPI', `Response keys:`, Object.keys(response));
           }
           
           nextCursor = response.nextCursor || null;
@@ -510,8 +531,14 @@ class SportsGameOddsAPI {
       
       for (const event of allEvents) {
         try {
+          logAPI('SportsGameOddsAPI', `Processing event ${event.eventID}:`, {
+            hasOdds: !!event.odds,
+            oddsCount: event.odds ? Object.keys(event.odds).length : 0,
+            teams: event.teams ? `${event.teams.away?.names?.short} @ ${event.teams.home?.names?.short}` : 'No teams'
+          });
           // Check if this event has player props markets
           const eventPlayerProps = await this.extractPlayerPropsFromEvent(event, sport);
+          logAPI('SportsGameOddsAPI', `Event ${event.eventID} produced ${eventPlayerProps.length} player props`);
           playerProps.push(...eventPlayerProps);
           
           // Also try to get player props from the markets endpoint
