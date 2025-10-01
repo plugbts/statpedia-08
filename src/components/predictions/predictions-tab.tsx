@@ -468,7 +468,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
     // Add to user's picks (implement this based on your picks system)
     toast({
       title: 'Added to Picks',
-      description: `${prediction.homeTeam} vs ${prediction.awayTeam} added to your picks`,
+      description: `${prediction.playerName} ${prediction.propType} ${prediction.line} added to your picks`,
     });
     setShowPredictionModal(false);
   };
@@ -832,10 +832,10 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-2xl font-bold text-foreground">
-                  {selectedPrediction.homeTeam || 'Home Team'} vs {selectedPrediction.awayTeam || 'Away Team'}
+                  {selectedPrediction.playerName} - {selectedPrediction.propType} {selectedPrediction.line}
                 </h2>
                 <p className="text-muted-foreground">
-                  {selectedPrediction.sport?.toUpperCase() || 'Unknown Sport'} • {selectedPrediction.date ? new Date(selectedPrediction.date).toLocaleDateString() : 'TBD'}
+                  {selectedPrediction.sport?.toUpperCase() || 'Unknown Sport'} • {selectedPrediction.gameDate ? new Date(selectedPrediction.gameDate).toLocaleDateString() : 'TBD'} • {selectedPrediction.teamAbbr} vs {selectedPrediction.opponentAbbr}
                 </p>
               </div>
               <Button
@@ -899,17 +899,24 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
                     {selectedPrediction.analysis && (
                       <div className="space-y-2">
                         <div className="text-sm">
-                          <span className="font-medium">Predicted Score: </span>
-                          <span className="text-muted-foreground">
-                            {selectedPrediction.homeTeam} {Math.round(selectedPrediction.analysis.predictedHomeScore)} - 
-                            {Math.round(selectedPrediction.analysis.predictedAwayScore)} {selectedPrediction.awayTeam}
+                          <span className="font-medium">AI Recommendation: </span>
+                          <span className={cn(
+                            "font-bold",
+                            selectedPrediction.aiPrediction?.recommended === 'over' 
+                              ? "text-green-600" 
+                              : "text-red-600"
+                          )}>
+                            {selectedPrediction.aiPrediction?.recommended?.toUpperCase() || 'N/A'}
                           </span>
                         </div>
                         
                         <div className="text-sm">
-                          <span className="font-medium">AI Recommendation: </span>
-                          <span className="text-muted-foreground">
-                            {selectedPrediction.analysis.recommendation}
+                          <span className="font-medium">Expected Value: </span>
+                          <span className={cn(
+                            "font-bold",
+                            selectedPrediction.expectedValue > 0 ? "text-green-600" : "text-red-600"
+                          )}>
+                            {selectedPrediction.expectedValue > 0 ? '+' : ''}{selectedPrediction.expectedValue?.toFixed(2) || 0}
                           </span>
                         </div>
                       </div>
@@ -975,34 +982,55 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
                   </CardContent>
                 </Card>
 
-                {/* Model Breakdown */}
-                {selectedPrediction.crossReference?.modelBreakdown && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">Model Breakdown</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        {selectedPrediction.crossReference.modelBreakdown.map((model, index) => (
-                          <div key={index} className="border rounded-lg p-3">
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="font-medium text-sm">{model.model}</span>
-                              <Badge variant="outline" className="text-xs">
-                                {model.confidence.toFixed(0)}% confidence
-                              </Badge>
-                            </div>
-                            <div className="text-sm text-muted-foreground mb-2">
-                              Recommendation: {model.recommendation.toUpperCase()}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              Factors: {model.factors.join(', ')}
-                            </div>
+                {/* Advanced Analysis */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Advanced Analysis</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {/* Injury Impact */}
+                      {selectedPrediction.injuryImpact && (
+                        <div className="border rounded-lg p-3">
+                          <div className="font-medium text-sm mb-2">Injury Impact</div>
+                          <div className="text-sm text-muted-foreground">
+                            {selectedPrediction.injuryImpact}
                           </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+                        </div>
+                      )}
+                      
+                      {/* Weather Impact */}
+                      {selectedPrediction.weatherImpact && (
+                        <div className="border rounded-lg p-3">
+                          <div className="font-medium text-sm mb-2">Weather Impact</div>
+                          <div className="text-sm text-muted-foreground">
+                            {selectedPrediction.weatherImpact}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Matchup Analysis */}
+                      {selectedPrediction.matchupAnalysis && (
+                        <div className="border rounded-lg p-3">
+                          <div className="font-medium text-sm mb-2">Matchup Analysis</div>
+                          <div className="text-sm text-muted-foreground">
+                            {selectedPrediction.matchupAnalysis}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Historical Trends */}
+                      {selectedPrediction.historicalTrends && (
+                        <div className="border rounded-lg p-3">
+                          <div className="font-medium text-sm mb-2">Historical Trends</div>
+                          <div className="text-sm text-muted-foreground">
+                            {selectedPrediction.historicalTrends}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
 
                 {/* Action Buttons */}
                 <div className="flex gap-2">

@@ -495,19 +495,6 @@ class SocialService {
     return data || [];
   }
 
-  async deletePost(postId: string, userId: string): Promise<void> {
-    const { error } = await supabase
-      .from('posts')
-      .update({
-        is_deleted: true,
-        deleted_at: new Date().toISOString()
-      })
-      .eq('id', postId)
-      .eq('user_id', userId);
-
-    if (error) throw error;
-  }
-
   // Comments Management
   async createComment(
     userId: string, 
