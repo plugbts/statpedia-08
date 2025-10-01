@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { logger, LogEntry, LogLevel } from '@/utils/console-logger';
 import { TestAPIDebug } from '@/components/test-api-debug';
 import { DebugAPITest } from '@/components/debug-api-test';
+import { unifiedSportsAPI } from '@/services/unified-sports-api';
 import { 
   Terminal, 
   Trash2, 
@@ -467,6 +468,89 @@ export const DevConsole: React.FC = () => {
                           );
                         })}
                       </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card className="border border-border/50 shadow-lg">
+                  <CardHeader className="bg-gradient-to-r from-purple-600/10 to-purple-600/5 border-b border-purple-200/20 dark:border-purple-800/20">
+                    <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <Activity className="h-4 w-4 text-purple-600" />
+                      API Usage Statistics
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6">
+                    <div className="space-y-4">
+                      {(() => {
+                        const usageStats = unifiedSportsAPI.getUsageStats();
+                        return (
+                          <>
+                            {/* SportsDataIO API */}
+                            <div className="p-3 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/10 rounded-lg border border-blue-200 dark:border-blue-800">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="font-semibold text-blue-800 dark:text-blue-200">SportsDataIO API</span>
+                                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700">
+                                  {usageStats.sportsDataIO.totalCalls} calls
+                                </Badge>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div className="flex justify-between">
+                                  <span className="text-blue-700 dark:text-blue-300">Today:</span>
+                                  <span className="font-semibold">{usageStats.sportsDataIO.callsToday}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-blue-700 dark:text-blue-300">This Hour:</span>
+                                  <span className="font-semibold">{usageStats.sportsDataIO.callsThisHour}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* TheOddsAPI */}
+                            <div className="p-3 bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/10 rounded-lg border border-green-200 dark:border-green-800">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="font-semibold text-green-800 dark:text-green-200">TheOddsAPI</span>
+                                <div className="flex gap-2">
+                                  <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700">
+                                    {usageStats.theOddsAPI.totalCalls} calls
+                                  </Badge>
+                                  {usageStats.theOddsAPI.remainingQuota && (
+                                    <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700">
+                                      {usageStats.theOddsAPI.remainingQuota} left
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div className="flex justify-between">
+                                  <span className="text-green-700 dark:text-green-300">Today:</span>
+                                  <span className="font-semibold">{usageStats.theOddsAPI.callsToday}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-green-700 dark:text-green-300">This Hour:</span>
+                                  <span className="font-semibold">{usageStats.theOddsAPI.callsThisHour}</span>
+                                </div>
+                              </div>
+                              {usageStats.theOddsAPI.quotaResetTime && (
+                                <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                                  Resets: {new Date(usageStats.theOddsAPI.quotaResetTime).toLocaleString()}
+                                </div>
+                              )}
+                            </div>
+
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                unifiedSportsAPI.resetUsageStats();
+                                logger.info('DevConsole', 'API usage statistics reset for both APIs');
+                              }}
+                              className="w-full text-xs"
+                            >
+                              Reset Usage Stats
+                            </Button>
+                          </>
+                        );
+                      })()}
                     </div>
                   </CardContent>
                 </Card>

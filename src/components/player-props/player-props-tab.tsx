@@ -15,6 +15,7 @@ import { AnalysisOverlay3D } from './3d-analysis-overlay';
 import { PlayerPropsColumnView } from './player-props-column-view';
 import { PlayerPropCardAd } from '@/components/ads/ad-placements';
 import { logAPI, logState, logFilter, logSuccess, logError, logWarning, logInfo, logDebug } from '@/utils/console-logger';
+import { unifiedSportsAPI } from '@/services/unified-sports-api';
 import { useNavigate } from 'react-router-dom';
 import { 
   TrendingUp, 
@@ -149,10 +150,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       setRealProps([]);
       
       try {
-        logAPI('PlayerPropsTab', `Calling sportsDataIOAPIFixed.getPlayerProps(${sport})`);
-        logDebug('PlayerPropsTab', `sportsDataIOAPIFixed service: ${typeof sportsDataIOAPIFixed}`);
-        logDebug('PlayerPropsTab', `getPlayerProps method: ${typeof sportsDataIOAPIFixed.getPlayerProps}`);
-        const props = await sportsDataIOAPIFixed.getPlayerProps(sport);
+        logAPI('PlayerPropsTab', `Calling unifiedSportsAPI.getPlayerProps(${sport})`);
+        logDebug('PlayerPropsTab', `unifiedSportsAPI service: ${typeof unifiedSportsAPI}`);
+        logDebug('PlayerPropsTab', `getPlayerProps method: ${typeof unifiedSportsAPI.getPlayerProps}`);
+        const props = await unifiedSportsAPI.getPlayerProps(sport);
         logAPI('PlayerPropsTab', `Fixed API returned ${props?.length || 0} props`);
         
         // DEBUG: Log first few props to check data quality
