@@ -1,6 +1,6 @@
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
 import { unifiedSportsAPI } from './unified-sports-api';
-import { theOddsAPI } from './theoddsapi';
+// Removed theOddsAPI import - now using SportsRadar API exclusively
 
 export interface ConsistentPlayerProp {
   id: string;
@@ -254,6 +254,7 @@ class ConsistentPropsService {
       // Get base props from unified API
       const baseProps = await unifiedSportsAPI.getPlayerProps(sport, undefined, undefined, selectedSportsbook);
       logAPI('ConsistentPropsService', `Retrieved ${baseProps.length} base props`);
+      console.log('🎯 ConsistentPropsService received base props:', baseProps);
       
       // Convert to consistent props with enhanced data
       const consistentProps: ConsistentPlayerProp[] = [];
@@ -290,6 +291,7 @@ class ConsistentPropsService {
       this.lastUpdateTime.set(cacheKey, now);
       
       logSuccess('ConsistentPropsService', `Generated ${sortedProps.length} consistent props for ${sport}`);
+      console.log('🎯 ConsistentPropsService returning props:', sortedProps);
       return sortedProps;
       
     } catch (error) {

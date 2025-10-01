@@ -41,8 +41,7 @@ import {
   Target,
   Zap
 } from 'lucide-react';
-import { sportsDataIOAPI } from '@/services/sportsdataio-api';
-import { sportsDataIOAPIFixed } from '@/services/sportsdataio-api-fixed';
+// Removed sportsDataIOAPI imports - now using SportsRadar API exclusively
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -277,7 +276,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   // Load available sportsbooks for the selected sport
   const loadAvailableSportsbooks = async (sport: string) => {
     try {
-      const sportsbooks = await unifiedSportsAPI.getAvailableSportsbooks(sport.toLowerCase());
+      // SportsRadar API provides sportsbook data - create mock list for now
+      const sportsbooks = [
+        { key: 'sportsradar', title: 'SportsRadar', lastUpdate: new Date().toISOString() },
+        { key: 'all', title: 'All Sportsbooks', lastUpdate: new Date().toISOString() }
+      ];
       setAvailableSportsbooks(sportsbooks);
       logSuccess('PlayerPropsTab', `Loaded ${sportsbooks.length} available sportsbooks for ${sport}`);
     } catch (error) {
