@@ -524,7 +524,7 @@ class SportsDataIOAPI {
   }
 
   private parsePlayerProps(rawProps: any[], sport: string): PlayerProp[] {
-    console.log(`📊 Raw player props data for ${sport}:`, rawProps);
+    console.log(`📊 Raw player props data for ${sport}:`, rawProps?.length || 0, 'items');
     
     // If no data or empty array, generate realistic fallback data
     if (!rawProps || rawProps.length === 0) {
@@ -536,43 +536,48 @@ class SportsDataIOAPI {
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const twoWeeksFromNow = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
 
-    // Try to parse the data as SportsDataIO format
+    // Parse the actual SportsDataIO format
     const parsedProps = rawProps
       .filter(prop => {
-        if (!prop) return false;
-        // Check if it has DateTime or Date field
-        const gameDate = prop.DateTime ? new Date(prop.DateTime) : 
-                        prop.Date ? new Date(prop.Date) : 
-                        new Date();
+        if (!prop || !prop.DateTime) return false;
+        const gameDate = new Date(prop.DateTime);
         return gameDate >= today && gameDate <= twoWeeksFromNow;
       })
-      .map(prop => ({
-        id: `${prop.PlayerID || prop.playerId || Math.random()}_${prop.GameID || prop.gameId || Math.random()}_${prop.StatType || prop.statType || 'prop'}`,
-        playerId: prop.PlayerID || prop.playerId || 0,
-        playerName: prop.Name || prop.name || prop.PlayerName || prop.playerName || 'Unknown Player',
-        team: prop.Team || prop.team || 'Unknown',
-        teamAbbr: prop.TeamAbbr || prop.teamAbbr || 'UNK',
-        opponent: prop.Opponent || prop.opponent || 'Unknown',
-        opponentAbbr: prop.OpponentAbbr || prop.opponentAbbr || 'UNK',
-        gameId: (prop.GameID || prop.gameId || Math.random()).toString(),
-        sport: sport.toUpperCase(),
-        propType: this.mapStatTypeToPropType(prop.StatType || prop.statType || 'passing_yards'),
-        line: this.calculatePropLine(prop),
-        overOdds: this.calculateOverOdds(prop),
-        underOdds: this.calculateUnderOdds(prop),
-        gameDate: prop.DateTime || prop.Date || prop.gameDate || new Date().toISOString(),
-        gameTime: new Date(prop.DateTime || prop.Date || prop.gameDate || new Date()).toLocaleTimeString('en-US', { 
-          hour: 'numeric', 
-          minute: '2-digit',
-          timeZoneName: 'short' 
-        }),
-        confidence: this.calculateConfidence(prop),
-        expectedValue: this.calculateExpectedValue(prop),
-        recentForm: this.calculateRecentForm(prop),
-        last5Games: this.calculateLast5Games(prop),
-        seasonStats: this.calculateSeasonStats(prop),
-        aiPrediction: this.generateAIPrediction(prop),
-      }));
+      .map(prop => {
+        // Map the actual SportsDataIO fields to our format
+        const propType = this.mapDescriptionToPropType(prop.Description);
+        const line = prop.OverUnder || 0;
+        const overOdds = prop.OverPayout || 0;
+        const underOdds = prop.UnderPayout || 0;
+        
+        return {
+          id: `${prop.PlayerID}_${prop.ScoreID}_${prop.Description}`,
+          playerId: prop.PlayerID || 0,
+          playerName: prop.Name || 'Unknown Player',
+          team: this.getTeamNameFromAbbr(prop.Team, sport),
+          teamAbbr: prop.Team || 'UNK',
+          opponent: this.getTeamNameFromAbbr(prop.Opponent, sport),
+          opponentAbbr: prop.Opponent || 'UNK',
+          gameId: prop.ScoreID?.toString() || '',
+          sport: sport.toUpperCase(),
+          propType: propType,
+          line: line,
+          overOdds: overOdds,
+          underOdds: underOdds,
+          gameDate: prop.DateTime || new Date().toISOString(),
+          gameTime: new Date(prop.DateTime).toLocaleTimeString('en-US', { 
+            hour: 'numeric', 
+            minute: '2-digit',
+            timeZoneName: 'short' 
+          }),
+          confidence: this.calculateConfidence(prop),
+          expectedValue: this.calculateExpectedValue(prop),
+          recentForm: this.calculateRecentForm(prop),
+          last5Games: this.calculateLast5Games(prop),
+          seasonStats: this.calculateSeasonStats(prop),
+          aiPrediction: this.generateAIPrediction(prop),
+        };
+      });
 
     // If we got some data, return it, otherwise generate fallback
     if (parsedProps.length > 0) {
@@ -945,6 +950,116 @@ class SportsDataIOAPI {
       'Saves': 'Saves',
     };
     return mapping[statType] || statType;
+  }
+
+  private mapDescriptionToPropType(description: string): string {
+    const mapping: Record<string, string> = {
+      'Fantasy Points': 'Fantasy Points',
+      'Fantasy Points PPR': 'Fantasy Points PPR',
+      'Passing Yards': 'Passing Yards',
+      'Rushing Yards': 'Rushing Yards',
+      'Receiving Yards': 'Receiving Yards',
+      'Passing Touchdowns': 'Passing TDs',
+      'Rushing Touchdowns': 'Rushing TDs',
+      'Rushing Attempts': 'Rushing Attempts',
+      'Receptions': 'Receptions',
+      'Total Yards': 'Total Yards',
+      'Points': 'Points',
+      'Rebounds': 'Rebounds',
+      'Assists': 'Assists',
+      '3-Pointers Made': '3-Pointers Made',
+      'Steals': 'Steals',
+      'Blocks': 'Blocks',
+      'Hits': 'Hits',
+      'Runs': 'Runs',
+      'Strikeouts': 'Strikeouts',
+      'Home Runs': 'Home Runs',
+      'RBIs': 'RBIs',
+      'Total Bases': 'Total Bases',
+      'Goals': 'Goals',
+      'Shots on Goal': 'Shots on Goal',
+      'Saves': 'Saves',
+      'PIM': 'PIM',
+    };
+    
+    return mapping[description] || description;
+  }
+
+  private getTeamNameFromAbbr(abbr: string, sport: string): string {
+    const teamMappings: Record<string, Record<string, string>> = {
+      'nfl': {
+        'KC': 'Kansas City Chiefs',
+        'BUF': 'Buffalo Bills',
+        'MIA': 'Miami Dolphins',
+        'NE': 'New England Patriots',
+        'NYJ': 'New York Jets',
+        'BAL': 'Baltimore Ravens',
+        'CIN': 'Cincinnati Bengals',
+        'CLE': 'Cleveland Browns',
+        'PIT': 'Pittsburgh Steelers',
+        'HOU': 'Houston Texans',
+        'IND': 'Indianapolis Colts',
+        'JAX': 'Jacksonville Jaguars',
+        'TEN': 'Tennessee Titans',
+        'DEN': 'Denver Broncos',
+        'LV': 'Las Vegas Raiders',
+        'LAC': 'Los Angeles Chargers',
+        'DAL': 'Dallas Cowboys',
+        'NYG': 'New York Giants',
+        'PHI': 'Philadelphia Eagles',
+        'WAS': 'Washington Commanders',
+        'CHI': 'Chicago Bears',
+        'DET': 'Detroit Lions',
+        'GB': 'Green Bay Packers',
+        'MIN': 'Minnesota Vikings',
+        'ATL': 'Atlanta Falcons',
+        'CAR': 'Carolina Panthers',
+        'NO': 'New Orleans Saints',
+        'TB': 'Tampa Bay Buccaneers',
+        'ARI': 'Arizona Cardinals',
+        'LAR': 'Los Angeles Rams',
+        'SF': 'San Francisco 49ers',
+        'SEA': 'Seattle Seahawks',
+      },
+      'nba': {
+        'LAL': 'Los Angeles Lakers',
+        'BOS': 'Boston Celtics',
+        'GSW': 'Golden State Warriors',
+        'MIA': 'Miami Heat',
+        'DEN': 'Denver Nuggets',
+        'PHX': 'Phoenix Suns',
+        'MIL': 'Milwaukee Bucks',
+        'PHI': 'Philadelphia 76ers',
+        'DAL': 'Dallas Mavericks',
+        'NYK': 'New York Knicks',
+      },
+      'mlb': {
+        'NYY': 'New York Yankees',
+        'LAD': 'Los Angeles Dodgers',
+        'HOU': 'Houston Astros',
+        'ATL': 'Atlanta Braves',
+        'TB': 'Tampa Bay Rays',
+        'SD': 'San Diego Padres',
+        'TOR': 'Toronto Blue Jays',
+        'SEA': 'Seattle Mariners',
+        'CLE': 'Cleveland Guardians',
+      },
+      'nhl': {
+        'COL': 'Colorado Avalanche',
+        'TB': 'Tampa Bay Lightning',
+        'NYR': 'New York Rangers',
+        'BOS': 'Boston Bruins',
+        'TOR': 'Toronto Maple Leafs',
+        'EDM': 'Edmonton Oilers',
+        'VGK': 'Vegas Golden Knights',
+        'CAR': 'Carolina Hurricanes',
+        'DAL': 'Dallas Stars',
+        'NJD': 'New Jersey Devils',
+      },
+    };
+    
+    const sportMapping = teamMappings[sport.toLowerCase()] || teamMappings['nfl'];
+    return sportMapping[abbr] || abbr;
   }
 
   private calculatePropLine(prop: any): number {
