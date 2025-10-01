@@ -63,138 +63,141 @@ export default function Admin() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-background p-3">
+      <div className="max-w-7xl mx-auto space-y-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Shield className="h-8 w-8 text-primary" />
+          <div className="flex items-center gap-2">
+            <Shield className="h-6 w-6 text-primary" />
             <div>
-              <h1 className="text-3xl font-bold">Admin Panel</h1>
-              <p className="text-muted-foreground">Manage users, Discord integrations, and system settings</p>
+              <h1 className="text-2xl font-bold">Admin Panel</h1>
+              <p className="text-sm text-muted-foreground">Manage users, Discord integrations, and system settings</p>
             </div>
           </div>
           <Button 
             onClick={handleGoBack} 
             variant="outline"
+            size="sm"
             className="flex items-center gap-2"
           >
             <ArrowLeft className="h-4 w-4" />
-            Go Back to Navigation
+            Back
           </Button>
         </div>
 
         <Tabs defaultValue="users" className="w-full">
-          <TabsList className={`grid w-full ${userRole === 'owner' ? 'grid-cols-12' : 'grid-cols-11'}`}>
-            <TabsTrigger value="users">
-              <Users className="h-4 w-4 mr-2" />
-              Users
-            </TabsTrigger>
-            <TabsTrigger value="discord">
-              <Activity className="h-4 w-4 mr-2" />
-              Discord
-            </TabsTrigger>
-            <TabsTrigger value="promos">
-              <Gift className="h-4 w-4 mr-2" />
-              Promo Codes
-            </TabsTrigger>
-            <TabsTrigger value="emails">
-              <Mail className="h-4 w-4 mr-2" />
-              Email Campaigns
-            </TabsTrigger>
-            <TabsTrigger value="abuse">
-              <AlertTriangle className="h-4 w-4 mr-2" />
-              Trial Abuse
-            </TabsTrigger>
-            <TabsTrigger value="logs">
-              <Ban className="h-4 w-4 mr-2" />
-              Audit Logs
-            </TabsTrigger>
-            <TabsTrigger value="social">
-              <MessageSquare className="h-4 w-4 mr-2" />
-              Social
-            </TabsTrigger>
-            <TabsTrigger value="predictions">
-              <Target className="h-4 w-4 mr-2" />
-              Predictions
-            </TabsTrigger>
-            <TabsTrigger value="cross-reference">
-              <TrendingUp className="h-4 w-4 mr-2" />
-              Cross-Reference
-            </TabsTrigger>
-            <TabsTrigger value="ads">
-              <DollarSign className="h-4 w-4 mr-2" />
-              Ads
-            </TabsTrigger>
-            <TabsTrigger value="security">
-              <Lock className="h-4 w-4 mr-2" />
-              Security
-            </TabsTrigger>
-            {userRole === 'owner' && (
-              <TabsTrigger value="dev-console">
-                <Terminal className="h-4 w-4 mr-2" />
-                Dev Console
+          <TabsList className="w-full h-auto p-1 bg-muted/50">
+            <div className="flex flex-wrap gap-1 w-full">
+              <TabsTrigger value="users" className="flex items-center gap-1 px-2 py-1 text-xs">
+                <Users className="h-3 w-3" />
+                <span className="hidden sm:inline">Users</span>
               </TabsTrigger>
-            )}
-            {userRole === 'owner' && (
-              <TabsTrigger value="sync">
-                <Activity className="h-4 w-4 mr-2" />
-                Sync
+              <TabsTrigger value="discord" className="flex items-center gap-1 px-2 py-1 text-xs">
+                <Activity className="h-3 w-3" />
+                <span className="hidden sm:inline">Discord</span>
               </TabsTrigger>
-            )}
+              <TabsTrigger value="promos" className="flex items-center gap-1 px-2 py-1 text-xs">
+                <Gift className="h-3 w-3" />
+                <span className="hidden sm:inline">Promos</span>
+              </TabsTrigger>
+              <TabsTrigger value="emails" className="flex items-center gap-1 px-2 py-1 text-xs">
+                <Mail className="h-3 w-3" />
+                <span className="hidden sm:inline">Emails</span>
+              </TabsTrigger>
+              <TabsTrigger value="abuse" className="flex items-center gap-1 px-2 py-1 text-xs">
+                <AlertTriangle className="h-3 w-3" />
+                <span className="hidden sm:inline">Abuse</span>
+              </TabsTrigger>
+              <TabsTrigger value="logs" className="flex items-center gap-1 px-2 py-1 text-xs">
+                <Ban className="h-3 w-3" />
+                <span className="hidden sm:inline">Logs</span>
+              </TabsTrigger>
+              <TabsTrigger value="social" className="flex items-center gap-1 px-2 py-1 text-xs">
+                <MessageSquare className="h-3 w-3" />
+                <span className="hidden sm:inline">Social</span>
+              </TabsTrigger>
+              <TabsTrigger value="predictions" className="flex items-center gap-1 px-2 py-1 text-xs">
+                <Target className="h-3 w-3" />
+                <span className="hidden sm:inline">Predictions</span>
+              </TabsTrigger>
+              <TabsTrigger value="cross-reference" className="flex items-center gap-1 px-2 py-1 text-xs">
+                <TrendingUp className="h-3 w-3" />
+                <span className="hidden sm:inline">Cross-Ref</span>
+              </TabsTrigger>
+              <TabsTrigger value="ads" className="flex items-center gap-1 px-2 py-1 text-xs">
+                <DollarSign className="h-3 w-3" />
+                <span className="hidden sm:inline">Ads</span>
+              </TabsTrigger>
+              <TabsTrigger value="security" className="flex items-center gap-1 px-2 py-1 text-xs">
+                <Lock className="h-3 w-3" />
+                <span className="hidden sm:inline">Security</span>
+              </TabsTrigger>
+              {userRole === 'owner' && (
+                <TabsTrigger value="dev-console" className="flex items-center gap-1 px-2 py-1 text-xs">
+                  <Terminal className="h-3 w-3" />
+                  <span className="hidden sm:inline">Dev</span>
+                </TabsTrigger>
+              )}
+              {userRole === 'owner' && (
+                <TabsTrigger value="sync" className="flex items-center gap-1 px-2 py-1 text-xs">
+                  <Activity className="h-3 w-3" />
+                  <span className="hidden sm:inline">Sync</span>
+                </TabsTrigger>
+              )}
+            </div>
           </TabsList>
 
-          <TabsContent value="users" className="space-y-4">
+          <TabsContent value="users" className="space-y-2 mt-2">
             <UserManagement />
           </TabsContent>
 
-          <TabsContent value="discord" className="space-y-4">
+          <TabsContent value="discord" className="space-y-2 mt-2">
             <DiscordManagement />
           </TabsContent>
 
-          <TabsContent value="promos" className="space-y-4">
+          <TabsContent value="promos" className="space-y-2 mt-2">
             <PromoCodesAdmin />
           </TabsContent>
 
-          <TabsContent value="emails" className="space-y-4">
+          <TabsContent value="emails" className="space-y-2 mt-2">
             <EmailCampaignsAdmin />
           </TabsContent>
 
-          <TabsContent value="abuse" className="space-y-4">
+          <TabsContent value="abuse" className="space-y-2 mt-2">
             <TrialAbuseAdmin />
           </TabsContent>
 
-          <TabsContent value="logs" className="space-y-4">
+          <TabsContent value="logs" className="space-y-2 mt-2">
             <AuditLogs />
           </TabsContent>
 
-          <TabsContent value="social" className="space-y-4">
+          <TabsContent value="social" className="space-y-2 mt-2">
             <SocialAdmin />
           </TabsContent>
 
-          <TabsContent value="predictions" className="space-y-4">
+          <TabsContent value="predictions" className="space-y-2 mt-2">
             <PredictionsAdmin />
           </TabsContent>
 
-          <TabsContent value="cross-reference" className="space-y-4">
+          <TabsContent value="cross-reference" className="space-y-2 mt-2">
             <CrossReferenceAnalysis />
           </TabsContent>
 
-          <TabsContent value="ads" className="space-y-4">
+          <TabsContent value="ads" className="space-y-2 mt-2">
             <AdManager isAdmin={true} />
           </TabsContent>
 
-          <TabsContent value="security" className="space-y-4">
+          <TabsContent value="security" className="space-y-2 mt-2">
             <SecurityDashboard />
           </TabsContent>
 
           {userRole === 'owner' && (
-            <TabsContent value="dev-console" className="space-y-4">
+            <TabsContent value="dev-console" className="space-y-2 mt-2">
               <DevConsole />
             </TabsContent>
           )}
 
           {userRole === 'owner' && (
-            <TabsContent value="sync" className="space-y-4">
+            <TabsContent value="sync" className="space-y-2 mt-2">
               <SyncStatus showDetails={true} />
             </TabsContent>
           )}
