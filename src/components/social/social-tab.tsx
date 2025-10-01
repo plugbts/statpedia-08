@@ -820,14 +820,6 @@ export const SocialTab: React.FC<SocialTabProps> = ({ onReturnToDashboard }) => 
                       size="lg"
                       variant="compact"
                     />
-                    <div className="text-center">
-                      <div className="text-xs font-medium text-foreground">
-                        {getUserDisplayName()}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {userProfile.karma} karma
-                      </div>
-                    </div>
                   </div>
                   <div className="flex-1 space-y-3">
                     <Textarea
