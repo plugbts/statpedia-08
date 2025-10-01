@@ -9,11 +9,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
 import { SubscriptionOverlay } from '@/components/ui/subscription-overlay';
-import { PlayerAnalysisOverlay } from './player-analysis-overlay';
 import { PlayerPropCard3D } from './3d-player-prop-card';
-import { AnalysisOverlay3D } from './3d-analysis-overlay';
 import { PlayerPropsColumnView } from './player-props-column-view';
-import { PropFinderAnalysisOverlay } from '../predictions/propfinder-analysis-overlay';
+import { EnhancedAnalysisOverlay } from '../predictions/enhanced-analysis-overlay';
 import { PlayerPropCardAd } from '@/components/ads/ad-placements';
 import { logAPI, logState, logFilter, logSuccess, logError, logWarning, logInfo, logDebug } from '@/utils/console-logger';
 import { unifiedSportsAPI } from '@/services/unified-sports-api';
@@ -134,15 +132,15 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const [showFilterDialog, setShowFilterDialog] = useState(false);
   const [myPicks, setMyPicks] = useState<MyPick[]>([]);
   const [showMyPicks, setShowMyPicks] = useState(false);
-  const [selectedPlayerForAnalysis, setSelectedPlayerForAnalysis] = useState<PlayerProp | null>(null);
-  const [showAnalysisOverlay, setShowAnalysisOverlay] = useState(false);
-  const [selectedPropForAnalysis, setSelectedPropForAnalysis] = useState<PlayerProp | null>(null);
-  const [showPropFinderAnalysis, setShowPropFinderAnalysis] = useState(false);
+  const [selectedPropForEnhancedAnalysis, setSelectedPropForEnhancedAnalysis] = useState<PlayerProp | null>(null);
+  const [showEnhancedAnalysis, setShowEnhancedAnalysis] = useState(false);
   const [sortBy, setSortBy] = useState<'confidence' | 'ev' | 'line' | 'player'>('confidence');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [minConfidence, setMinConfidence] = useState(0);
   const [minEV, setMinEV] = useState(0);
   const [showOnlyPositiveEV, setShowOnlyPositiveEV] = useState(false);
+  const [minLine, setMinLine] = useState(0);
+  const [maxLine, setMaxLine] = useState(100);
   const [showSelection, setShowSelection] = useState(false);
   const [viewMode, setViewMode] = useState<'column' | 'cards'>('column');
   const [selectedSportsbook, setSelectedSportsbook] = useState<string>('all');
@@ -327,11 +325,12 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       const matchesConfidence = (prop.confidence || 0.5) >= (minConfidence / 100);
       const matchesEV = (prop.expectedValue || 0) >= (minEV / 100);
       const matchesPositiveEV = !showOnlyPositiveEV || (prop.expectedValue || 0) >= 0;
+      const matchesLine = prop.line >= minLine && prop.line <= maxLine;
       
-      const passes = matchesSearch && matchesPropType && matchesConfidence && matchesEV && matchesPositiveEV;
+      const passes = matchesSearch && matchesPropType && matchesConfidence && matchesEV && matchesPositiveEV && matchesLine;
       
       if (!passes && realProps.length < 10) {
-        logFilter('PlayerPropsTab', `Prop ${prop.playerName} filtered out: search=${matchesSearch}, type=${matchesPropType}, confidence=${matchesConfidence}, ev=${matchesEV}, positiveEV=${matchesPositiveEV}`);
+        logFilter('PlayerPropsTab', `Prop ${prop.playerName} filtered out: search=${matchesSearch}, type=${matchesPropType}, confidence=${matchesConfidence}, ev=${matchesEV}, positiveEV=${matchesPositiveEV}, line=${matchesLine}`);
       }
       
       return passes;
@@ -368,7 +367,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     });
 
   logFilter('PlayerPropsTab', `Final filteredProps length: ${filteredProps.length}`);
-  logFilter('PlayerPropsTab', `Filter settings: minConfidence=${minConfidence}, minEV=${minEV}, showOnlyPositiveEV=${showOnlyPositiveEV}, propTypeFilter=${propTypeFilter}`);
+  logFilter('PlayerPropsTab', `Filter settings: minConfidence=${minConfidence}, minEV=${minEV}, showOnlyPositiveEV=${showOnlyPositiveEV}, propTypeFilter=${propTypeFilter}, lineRange=${minLine}-${maxLine}`);
   logFilter('PlayerPropsTab', `Search query: "${searchQuery}"`);
   
   if (filteredProps.length === 0 && realProps.length > 0) {
@@ -404,57 +403,12 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     });
   }
 
-  // Handle player analysis
-  const handlePlayerAnalysis = (prop: PlayerProp) => {
-    setSelectedPlayerForAnalysis(prop);
-    setShowAnalysisOverlay(true);
+  // Handle enhanced analysis
+  const handleEnhancedAnalysis = (prop: PlayerProp) => {
+    setSelectedPropForEnhancedAnalysis(prop);
+    setShowEnhancedAnalysis(true);
   };
 
-  // Handle PropFinder analysis
-  const handlePropFinderAnalysis = (prop: PlayerProp) => {
-    setSelectedPropForAnalysis(prop);
-    setShowPropFinderAnalysis(true);
-  };
-
-  // Convert PlayerProp to AdvancedPrediction for PropFinderAnalysisOverlay
-  const convertToAdvancedPrediction = (prop: PlayerProp) => {
-    return {
-      id: prop.id,
-      playerId: prop.playerId,
-      playerName: prop.playerName,
-      team: prop.team,
-      teamAbbr: prop.teamAbbr,
-      opponent: prop.opponent,
-      opponentAbbr: prop.opponentAbbr,
-      gameId: prop.gameId,
-      sport: prop.sport,
-      propType: prop.propType,
-      line: prop.line,
-      overOdds: prop.overOdds,
-      underOdds: prop.underOdds,
-      gameDate: prop.gameDate,
-      gameTime: prop.gameTime,
-      headshotUrl: prop.headshotUrl,
-      confidence: prop.confidence,
-      expectedValue: prop.expectedValue,
-      recentForm: prop.recentForm,
-      last5Games: prop.last5Games,
-      seasonStats: prop.seasonStats,
-      aiPrediction: prop.aiPrediction,
-      valueRating: prop.valueRating,
-      riskLevel: prop.riskLevel,
-      factors: prop.factors,
-      lastUpdated: prop.lastUpdated,
-      isLive: prop.isLive,
-      isBookmarked: prop.isBookmarked,
-      advancedReasoning: prop.advancedReasoning || '',
-      injuryImpact: prop.injuryImpact || '',
-      weatherImpact: prop.weatherImpact || '',
-      matchupAnalysis: prop.matchupAnalysis || '',
-      historicalTrends: prop.historicalTrends || '',
-      keyInsights: prop.keyInsights || []
-    };
-  };
 
   // Handle toggle my pick
   const handleToggleMyPick = (prop: PlayerProp) => {
@@ -692,6 +646,31 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                         className="mt-2"
                       />
                     </div>
+                    <div>
+                      <label className="text-sm font-medium">Line Range: {minLine} - {maxLine}</label>
+                      <div className="space-y-2 mt-2">
+                        <div>
+                          <label className="text-xs text-muted-foreground">Min Line</label>
+                          <Slider
+                            value={[minLine]}
+                            onValueChange={([value]) => setMinLine(value)}
+                            max={maxLine - 0.5}
+                            min={0}
+                            step={0.5}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-muted-foreground">Max Line</label>
+                          <Slider
+                            value={[maxLine]}
+                            onValueChange={([value]) => setMaxLine(value)}
+                            max={100}
+                            min={minLine + 0.5}
+                            step={0.5}
+                          />
+                        </div>
+                      </div>
+                    </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox
                         id="positiveEV"
@@ -743,7 +722,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
               <PlayerPropsColumnView
                 props={filteredProps as any}
                 selectedSport={sportFilter}
-                onAnalysisClick={handlePropFinderAnalysis as any}
+                onAnalysisClick={handleEnhancedAnalysis as any}
                 isLoading={isLoadingData}
               />
             ) : (
@@ -752,7 +731,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                   <PlayerPropCard3D
                     key={prop.id || `prop-${prop.playerId}-${prop.propType}-${index}`}
                     prop={prop as any}
-                    onAnalysisClick={handlePropFinderAnalysis}
+                    onAnalysisClick={handleEnhancedAnalysis}
                     isSelected={selectedProps.includes(prop.id)}
                     onSelect={showSelection ? (propId) => {
                       setSelectedProps(prev => 
@@ -814,23 +793,13 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
           </DialogContent>
         </Dialog>
 
-        {/* Player Analysis Overlay */}
-        <AnalysisOverlay3D
-          isOpen={showAnalysisOverlay}
+        {/* Enhanced Analysis Overlay */}
+        <EnhancedAnalysisOverlay
+          prediction={selectedPropForEnhancedAnalysis as any}
+          isOpen={showEnhancedAnalysis}
           onClose={() => {
-            setShowAnalysisOverlay(false);
-            setSelectedPlayerForAnalysis(null);
-          }}
-          prop={selectedPlayerForAnalysis as any}
-        />
-
-        {/* PropFinder Analysis Overlay */}
-        <PropFinderAnalysisOverlay
-          prediction={selectedPropForAnalysis ? convertToAdvancedPrediction(selectedPropForAnalysis) : null}
-          isOpen={showPropFinderAnalysis}
-          onClose={() => {
-            setShowPropFinderAnalysis(false);
-            setSelectedPropForAnalysis(null);
+            setShowEnhancedAnalysis(false);
+            setSelectedPropForEnhancedAnalysis(null);
           }}
         />
       </div>
