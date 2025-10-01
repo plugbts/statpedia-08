@@ -15,6 +15,7 @@ import { SocialAdmin } from "@/components/admin/social-admin";
 import { PredictionsAdmin } from "@/components/admin/predictions-admin";
 import { AdManager } from "@/components/ads/ad-manager";
 import { SecurityDashboard } from "@/components/admin/security-dashboard";
+import { SyncStatus } from "@/components/sync/sync-status";
 import { useUser } from "@/contexts/user-context";
 
 export default function Admin() {
@@ -81,7 +82,7 @@ export default function Admin() {
         </div>
 
         <Tabs defaultValue="users" className="w-full">
-          <TabsList className="grid w-full grid-cols-10">
+          <TabsList className="grid w-full grid-cols-11">
             <TabsTrigger value="users">
               <Users className="h-4 w-4 mr-2" />
               Users
@@ -121,6 +122,10 @@ export default function Admin() {
             <TabsTrigger value="security">
               <Lock className="h-4 w-4 mr-2" />
               Security
+            </TabsTrigger>
+            <TabsTrigger value="sync">
+              <Activity className="h-4 w-4 mr-2" />
+              Sync
             </TabsTrigger>
           </TabsList>
 
@@ -162,6 +167,10 @@ export default function Admin() {
 
           <TabsContent value="security" className="space-y-4">
             <SecurityDashboard />
+          </TabsContent>
+
+          <TabsContent value="sync" className="space-y-4">
+            <SyncStatus showDetails={true} />
           </TabsContent>
         </Tabs>
       </div>
