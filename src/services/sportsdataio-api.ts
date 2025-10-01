@@ -253,17 +253,22 @@ class SportsDataIOAPI {
 
   // Get player props for a sport
   async getPlayerProps(sport: string): Promise<PlayerProp[]> {
-    console.log(`🎯 Fetching player props for ${sport}...`);
+    console.log(`🎯 [SportsDataIO] Starting getPlayerProps for ${sport}...`);
     
     try {
       const season = this.getCurrentSeason(sport);
       const week = this.getCurrentWeek(sport);
       
+      console.log(`📅 [SportsDataIO] Season: ${season}, Week: ${week}`);
+      
       const endpoint = this.getPlayerPropsEndpoint(sport);
+      console.log(`🔗 [SportsDataIO] Endpoint: ${endpoint}`);
+      
       let rawProps: any[];
       
       if (sport.toLowerCase() === 'nfl') {
         // NFL uses week-based endpoint
+        console.log(`🏈 [SportsDataIO] Using NFL week-based endpoint with season=${season}, week=${week}`);
         rawProps = await this.makeRequest<any[]>(endpoint, {
           season,
           week,
@@ -272,17 +277,25 @@ class SportsDataIOAPI {
         // Other sports use date-based endpoint
         const today = new Date();
         const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+        console.log(`🏀 [SportsDataIO] Using date-based endpoint with date=${dateStr}`);
         rawProps = await this.makeRequest<any[]>(endpoint, {
           date: dateStr,
         });
       }
 
+      console.log(`📊 [SportsDataIO] Raw API response: ${rawProps?.length || 0} items`);
+      
       const props = this.parsePlayerProps(rawProps, sport);
-      console.log(`✅ Successfully fetched ${props.length} player props for ${sport}`);
+      console.log(`✅ [SportsDataIO] Successfully parsed ${props.length} player props for ${sport}`);
       return props;
     } catch (error) {
-      console.error(`❌ Failed to fetch player props for ${sport}:`, error);
-      throw new Error(`Failed to fetch player props for ${sport}: ${error}`);
+      console.error(`❌ [SportsDataIO] Failed to fetch player props for ${sport}:`, error);
+      console.error(`❌ [SportsDataIO] Error details:`, {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+      throw new Error(`Failed to fetch player props for ${sport}: ${error.message}`);
     }
   }
 

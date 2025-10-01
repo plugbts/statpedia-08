@@ -122,24 +122,43 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
 
   // Load player props from SportsDataIO API
   const loadPlayerProps = async (sport: string) => {
-    if (!sport) return;
+    if (!sport) {
+      console.log('⚠️ No sport provided to loadPlayerProps');
+      return;
+    }
     
+    console.log(`🎯 Starting to load player props for ${sport}...`);
     setIsLoadingData(true);
+    
     try {
-      console.log(`🎯 Loading player props for ${sport} from SportsDataIO...`);
+      console.log(`📡 Calling sportsDataIOAPI.getPlayerProps(${sport})...`);
       const props = await sportsDataIOAPI.getPlayerProps(sport);
-      setRealProps(props);
-      console.log(`✅ Loaded ${props.length} player props for ${sport}`);
+      console.log(`📊 API returned ${props?.length || 0} props:`, props);
+      
+      if (props && Array.isArray(props)) {
+        setRealProps(props);
+        console.log(`✅ Successfully set ${props.length} player props for ${sport}`);
+      } else {
+        console.warn('⚠️ API returned invalid data:', props);
+        setRealProps([]);
+      }
     } catch (error) {
       console.error('❌ Failed to load player props:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+      
       toast({
         title: "Error",
-        description: "Failed to load player props. Please try again.",
+        description: `Failed to load player props: ${error.message}`,
         variant: "destructive",
       });
       setRealProps([]);
     } finally {
       setIsLoadingData(false);
+      console.log(`🏁 Finished loading player props for ${sport}`);
     }
   };
 
