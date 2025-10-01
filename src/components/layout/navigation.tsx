@@ -7,7 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart3, Target, TrendingUp, Calendar, Settings, Wifi, LogOut, MoreVertical, Zap, Brain, Play, Pause, CreditCard, MessageCircle, Wallet, Users, X, Crown, Star, Lock, Sparkles } from 'lucide-react';
+import { BarChart3, Target, TrendingUp, Calendar, Settings, Wifi, LogOut, MoreVertical, Zap, Brain, Play, Pause, CreditCard, MessageCircle, Wallet, Users, X, Crown, Star, Lock, Sparkles, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { VerifiedCheckmark } from '@/components/ui/verified-checkmark';
 import { useBackgroundMusic } from '@/hooks/use-background-music';
@@ -347,25 +347,39 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
           </div>
         </div>
 
-        {/* Sports Filter - Compact */}
+        {/* Sports Filter - Dropdown */}
         <div className="flex items-center justify-center gap-0.5 py-1.5 animate-slide-up" style={{ animationDelay: '150ms' }}>
-          <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-hide">
-            {sports.map((sport) => (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button
-                key={sport.id}
                 variant="ghost"
                 size="sm"
-                onClick={() => onSportChange?.(sport.sport)}
-                className={cn(
-                  "gap-1 transition-all duration-200 hover:bg-card-hover hover-scale px-2 text-xs whitespace-nowrap",
-                  selectedSport === sport.sport && "bg-secondary"
-                )}
+                className="gap-1 transition-all duration-200 hover:bg-card-hover hover-scale px-3 text-xs whitespace-nowrap"
               >
-                <SportIcon sport={sport.sport as any} size="sm" />
-                {sport.label}
+                <SportIcon sport={selectedSport as any} size="sm" />
+                {sports.find(s => s.sport === selectedSport)?.label || 'Select Sport'}
+                <ChevronDown className="w-3 h-3" />
               </Button>
-            ))}
-          </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="w-48">
+              {sports.map((sport) => (
+                <DropdownMenuItem
+                  key={sport.id}
+                  onClick={() => onSportChange?.(sport.sport)}
+                  className={cn(
+                    "gap-2 cursor-pointer",
+                    selectedSport === sport.sport && "bg-secondary"
+                  )}
+                >
+                  <SportIcon sport={sport.sport as any} size="sm" />
+                  {sport.label}
+                  {selectedSport === sport.sport && (
+                    <div className="ml-auto w-2 h-2 rounded-full bg-primary" />
+                  )}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
       
