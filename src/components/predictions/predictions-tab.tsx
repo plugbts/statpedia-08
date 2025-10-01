@@ -180,11 +180,18 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
       console.log(`🔮 Loading advanced predictions for ${selectedSport}...`);
       
       // Get player props from Unified Sports API (SportsDataIO + TheOddsAPI)
-      const playerProps = await unifiedSportsAPI.getPlayerProps(selectedSport);
-      console.log(`📊 Retrieved ${playerProps.length} player props for analysis`);
+      const allPlayerProps = await unifiedSportsAPI.getPlayerProps(selectedSport);
+      console.log(`📊 Retrieved ${allPlayerProps.length} player props for analysis`);
       
-      // Generate advanced predictions from player props
-      const advancedPredictions: AdvancedPrediction[] = playerProps.map((prop) => {
+      // Sort props by confidence (highest first) and limit to top 200
+      const sortedProps = allPlayerProps
+        .sort((a, b) => (b.confidence || 0) - (a.confidence || 0))
+        .slice(0, 200);
+      
+      console.log(`🎯 Selected top ${sortedProps.length} props by confidence for predictions`);
+      
+      // Generate advanced predictions from top confidence props
+      const advancedPredictions: AdvancedPrediction[] = sortedProps.map((prop) => {
         // Generate advanced analysis based on prop data
         const advancedAnalysis = generateAdvancedAnalysis(prop, selectedSport);
         
