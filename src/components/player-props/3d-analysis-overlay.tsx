@@ -139,7 +139,7 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-slate-700/50 shadow-2xl">
+      <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden bg-gradient-to-br from-slate-950 via-gray-900 to-slate-950 border border-slate-800/80 shadow-2xl">
         {/* Sparkle Animation Overlay */}
         {isAnimating && (
           <div className="absolute inset-0 pointer-events-none z-10">
@@ -162,17 +162,17 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
         <DialogHeader className="relative z-20 pb-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl shadow-2xl">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-slate-200 font-bold text-xl shadow-2xl border border-slate-600">
                 {prop.playerName.split(' ').map(n => n[0]).join('')}
               </div>
               <div>
-                <DialogTitle className="text-2xl font-bold text-white">
+                <DialogTitle className="text-2xl font-bold text-slate-100">
                   {prop.playerName} - {prop.propType}
                 </DialogTitle>
-                <div className="flex items-center space-x-4 text-gray-300 mt-2">
+                <div className="flex items-center space-x-4 text-slate-300 mt-2">
                   <div className="flex items-center space-x-2">
                     <Users className="h-4 w-4" />
-                    <span className="font-medium">{prop.teamAbbr} vs {prop.opponentAbbr}</span>
+                    <span className="font-semibold">{prop.teamAbbr} vs {prop.opponentAbbr}</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Calendar className="h-4 w-4" />
@@ -192,7 +192,7 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
         {/* Main Content */}
         <div className="relative z-20 h-full overflow-y-auto">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full">
-            <TabsList className="grid w-full grid-cols-6 bg-slate-800/50 border border-slate-700/50">
+            <TabsList className="grid w-full grid-cols-6 bg-slate-900/60 border border-slate-700/60">
               <TabsTrigger value="overview" className="flex items-center space-x-2">
                 <BarChart3 className="h-4 w-4" />
                 <span>Overview</span>
@@ -223,7 +223,7 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
               {/* Key Stats Grid */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Line Value */}
-                <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
+                <div className="bg-slate-900/60 rounded-xl p-6 border border-slate-700/60">
                   <div className="text-center">
                     <div className="text-3xl font-bold text-white mb-2">{prop.line}</div>
                     <div className="text-gray-400 text-sm uppercase tracking-wide">Line</div>
@@ -232,7 +232,7 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
 
                 {/* Confidence */}
                 {prop.confidence && (
-                  <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
+                  <div className="bg-slate-900/60 rounded-xl p-6 border border-slate-700/60">
                     <div className="text-center">
                       <div className={cn("text-3xl font-bold mb-2", getConfidenceColor(prop.confidence))}>
                         {Math.round(prop.confidence * 100)}%
@@ -248,7 +248,7 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
 
                 {/* Expected Value */}
                 {prop.expectedValue !== undefined && (
-                  <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
+                  <div className="bg-slate-900/60 rounded-xl p-6 border border-slate-700/60">
                     <div className="text-center">
                       <div className={cn("text-3xl font-bold mb-2", getEVColor(prop.expectedValue))}>
                         {prop.expectedValue > 0 ? '+' : ''}{formatNumber(prop.expectedValue * 100, 1)}%
@@ -313,7 +313,7 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
               )}
 
               {/* Risk Assessment */}
-              <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
+              <div className="bg-slate-900/60 rounded-xl p-6 border border-slate-700/60">
                 <h3 className="text-xl font-bold text-white mb-4">Risk Assessment</h3>
                 <div className="flex items-center space-x-4">
                   <div className={cn("text-2xl font-bold", risk.color)}>
@@ -328,7 +328,7 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
 
             <TabsContent value="analysis" className="mt-6 space-y-6">
               {/* Detailed Analysis */}
-              <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
+              <div className="bg-slate-900/60 rounded-xl p-6 border border-slate-700/60">
                 <h3 className="text-xl font-bold text-white mb-4">Detailed Analysis</h3>
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -358,7 +358,7 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
             <TabsContent value="history" className="mt-6 space-y-6">
               {/* Last 5 Games */}
               {prop.last5Games && prop.last5Games.length > 0 && (
-                <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
+                <div className="bg-slate-900/60 rounded-xl p-6 border border-slate-700/60">
                   <h3 className="text-xl font-bold text-white mb-4">Last 5 Games</h3>
                   <div className="grid grid-cols-5 gap-4">
                     {prop.last5Games.map((game, index) => (
@@ -377,7 +377,7 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
             <TabsContent value="odds" className="mt-6 space-y-6">
               {/* Odds Comparison */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
+                <div className="bg-slate-900/60 rounded-xl p-6 border border-slate-700/60">
                   <h3 className="text-xl font-bold text-white mb-4">Over Odds</h3>
                   <div className="text-3xl font-bold text-green-400 mb-2">
                     {formatOdds(prop.overOdds)}
@@ -387,7 +387,7 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
                   </div>
                 </div>
                 
-                <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
+                <div className="bg-slate-900/60 rounded-xl p-6 border border-slate-700/60">
                   <h3 className="text-xl font-bold text-white mb-4">Under Odds</h3>
                   <div className="text-3xl font-bold text-red-400 mb-2">
                     {formatOdds(prop.underOdds)}
@@ -401,7 +401,7 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
 
             <TabsContent value="predictions" className="mt-6 space-y-6">
               {/* AI Predictions */}
-              <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
+              <div className="bg-slate-900/60 rounded-xl p-6 border border-slate-700/60">
                 <h3 className="text-xl font-bold text-white mb-4 flex items-center">
                   <Sparkles className="h-5 w-5 mr-2 text-yellow-400" />
                   AI Predictions
@@ -454,22 +454,22 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
               </div>
 
               {/* Live Predictions */}
-              <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
+              <div className="bg-slate-900/60 rounded-xl p-6 border border-slate-700/60">
                 <h3 className="text-xl font-bold text-white mb-4 flex items-center">
                   <Activity className="h-5 w-5 mr-2 text-blue-400" />
                   Live Predictions
                 </h3>
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="text-center p-4 bg-slate-700/50 rounded-lg">
+                    <div className="text-center p-4 bg-slate-800/60 rounded-lg">
                       <div className="text-2xl font-bold text-green-400">85%</div>
                       <div className="text-sm text-gray-400">Over Votes</div>
                     </div>
-                    <div className="text-center p-4 bg-slate-700/50 rounded-lg">
+                    <div className="text-center p-4 bg-slate-800/60 rounded-lg">
                       <div className="text-2xl font-bold text-red-400">15%</div>
                       <div className="text-sm text-gray-400">Under Votes</div>
                     </div>
-                    <div className="text-center p-4 bg-slate-700/50 rounded-lg">
+                    <div className="text-center p-4 bg-slate-800/60 rounded-lg">
                       <div className="text-2xl font-bold text-blue-400">247</div>
                       <div className="text-sm text-gray-400">Total Votes</div>
                     </div>
@@ -484,7 +484,7 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
             <TabsContent value="advanced" className="mt-6 space-y-6">
               {/* Advanced Statistics */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
+                <div className="bg-slate-900/60 rounded-xl p-6 border border-slate-700/60">
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center">
                     <BarChart3 className="h-5 w-5 mr-2 text-purple-400" />
                     Advanced Stats
@@ -513,7 +513,7 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
                   </div>
                 </div>
 
-                <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
+                <div className="bg-slate-900/60 rounded-xl p-6 border border-slate-700/60">
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center">
                     <Target className="h-5 w-5 mr-2 text-orange-400" />
                     Performance Metrics
@@ -544,7 +544,7 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
               </div>
 
               {/* Market Analysis */}
-              <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
+              <div className="bg-slate-900/60 rounded-xl p-6 border border-slate-700/60">
                 <h3 className="text-xl font-bold text-white mb-4 flex items-center">
                   <TrendingUp className="h-5 w-5 mr-2 text-green-400" />
                   Market Analysis
@@ -605,7 +605,7 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
               </div>
 
               {/* Weather & Conditions */}
-              <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
+              <div className="bg-slate-900/60 rounded-xl p-6 border border-slate-700/60">
                 <h3 className="text-xl font-bold text-white mb-4 flex items-center">
                   <Calendar className="h-5 w-5 mr-2 text-cyan-400" />
                   Game Conditions

@@ -157,13 +157,13 @@ export function PlayerPropCard3D({
       <Card
         className={cn(
           "relative overflow-hidden cursor-pointer transition-all duration-500 ease-out",
-          "bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900",
-          "border border-gray-800/60 shadow-2xl",
-          "hover:shadow-3xl hover:shadow-blue-500/10",
+          "bg-gradient-to-br from-slate-950 via-gray-900 to-slate-950",
+          "border border-slate-800/80 shadow-2xl",
+          "hover:shadow-3xl hover:shadow-slate-500/20",
           "transform-gpu",
           isHovered && "scale-105 rotate-1",
-          isSelected && "ring-2 ring-blue-500 ring-opacity-50",
-          showSelection && "hover:ring-2 hover:ring-blue-400 hover:ring-opacity-30"
+          isSelected && "ring-2 ring-slate-400 ring-opacity-60",
+          showSelection && "hover:ring-2 hover:ring-slate-300 hover:ring-opacity-40"
         )}
         style={{
           transform: isHovered 
@@ -177,27 +177,27 @@ export function PlayerPropCard3D({
       >
         <SeasonalCardBackground intensity="subtle" className="h-full">
           {/* Animated Background Gradient */}
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 via-purple-600/3 to-cyan-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-600/3 via-gray-600/2 to-slate-600/3 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
           
           {/* Glow Effect */}
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/8 via-purple-600/8 to-cyan-600/8 opacity-0 group-hover:opacity-100 blur-xl transition-all duration-500" />
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-600/5 via-gray-600/4 to-slate-600/5 opacity-0 group-hover:opacity-100 blur-xl transition-all duration-500" />
           
           {/* Card Content */}
           <CardContent className="relative z-10 p-6">
           {/* Header with Player Info */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-lg">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-slate-200 font-bold text-sm shadow-lg border border-slate-600">
                 {prop.playerName.split(' ').map(n => n[0]).join('')}
               </div>
               <div>
-                <h3 className="font-semibold text-white text-lg leading-tight tracking-tight">
+                <h3 className="font-bold text-slate-100 text-lg leading-tight tracking-tight">
                   {prop.playerName}
                 </h3>
-                <div className="flex items-center space-x-2 text-sm text-gray-400">
-                  <span className="font-medium text-gray-300">{prop.teamAbbr}</span>
-                  <span className="text-gray-500 font-light">vs</span>
-                  <span className="font-medium text-gray-300">{prop.opponentAbbr}</span>
+                <div className="flex items-center space-x-2 text-sm text-slate-400">
+                  <span className="font-semibold text-slate-200">{prop.teamAbbr}</span>
+                  <span className="text-slate-500 font-medium">vs</span>
+                  <span className="font-semibold text-slate-200">{prop.opponentAbbr}</span>
                 </div>
               </div>
             </div>
@@ -220,8 +220,8 @@ export function PlayerPropCard3D({
           {/* Prop Details */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-400 text-sm font-medium tracking-wide uppercase">{prop.propType}</span>
-              <span className="text-white text-2xl font-bold tracking-tight">
+              <span className="text-slate-400 text-sm font-semibold tracking-wide uppercase">{prop.propType}</span>
+              <span className="text-slate-100 text-2xl font-bold tracking-tight">
                 {prop.line}
               </span>
             </div>
@@ -230,10 +230,10 @@ export function PlayerPropCard3D({
             {prop.aiPrediction && (
               <div className="flex items-center space-x-2 mb-3">
                 <div className={cn(
-                  "flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium",
+                  "flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-semibold",
                   prop.aiPrediction.recommended === 'over' 
-                    ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                    : "bg-red-500/20 text-red-400 border border-red-500/30"
+                    ? "bg-green-600/20 text-green-300 border border-green-500/40"
+                    : "bg-red-600/20 text-red-300 border border-red-500/40"
                 )}>
                   {prop.aiPrediction.recommended === 'over' ? (
                     <TrendingUp className="h-3 w-3" />
@@ -248,8 +248,8 @@ export function PlayerPropCard3D({
                 {/* Recent Form */}
                 {prop.recentForm && (
                   <div className={cn(
-                    "flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium",
-                    "bg-slate-700/50 text-gray-300 border border-slate-600/50"
+                    "flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-semibold",
+                    "bg-slate-800/60 text-slate-200 border border-slate-600/60"
                   )}>
                     {getFormIcon(prop.recentForm)}
                     <span className="uppercase">{prop.recentForm}</span>
@@ -262,14 +262,14 @@ export function PlayerPropCard3D({
           {/* Odds and Stats */}
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div className="space-y-2">
-              <div className="text-xs text-gray-500 uppercase tracking-wider font-medium">Over</div>
-              <div className="text-xl font-bold text-green-400 tracking-tight">
+              <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Over</div>
+              <div className="text-xl font-bold text-green-300 tracking-tight">
                 {formatOdds(prop.overOdds)}
               </div>
             </div>
             <div className="space-y-2">
-              <div className="text-xs text-gray-500 uppercase tracking-wider font-medium">Under</div>
-              <div className="text-xl font-bold text-red-400 tracking-tight">
+              <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Under</div>
+              <div className="text-xl font-bold text-red-300 tracking-tight">
                 {formatOdds(prop.underOdds)}
               </div>
             </div>
@@ -279,7 +279,7 @@ export function PlayerPropCard3D({
           {prop.expectedValue !== undefined && (
             <div className="mb-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500 uppercase tracking-wider font-medium">Expected Value</span>
+                <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Expected Value</span>
                 <div className={cn(
                   "flex items-center space-x-1 text-sm font-bold tracking-tight",
                   getEVColor(prop.expectedValue)
@@ -292,7 +292,7 @@ export function PlayerPropCard3D({
           )}
 
           {/* Game Info */}
-          <div className="flex items-center justify-between text-xs text-gray-500 mb-4 font-medium">
+          <div className="flex items-center justify-between text-xs text-slate-500 mb-4 font-semibold">
             <span className="tracking-wide">{new Date(prop.gameDate).toLocaleDateString()}</span>
             <span className="tracking-wide">{prop.gameTime}</span>
           </div>
@@ -300,12 +300,12 @@ export function PlayerPropCard3D({
           {/* Action Button */}
           <Button
             className={cn(
-              "w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700",
-              "text-white font-semibold py-3 px-4 rounded-lg",
+              "w-full bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700",
+              "text-slate-100 font-semibold py-3 px-4 rounded-lg",
               "transition-all duration-300 ease-out",
-              "hover:shadow-lg hover:shadow-blue-500/25",
+              "hover:shadow-lg hover:shadow-slate-500/25",
               "transform hover:scale-105",
-              "border border-blue-500/30",
+              "border border-slate-600/50",
               "tracking-wide"
             )}
             onClick={(e) => {
@@ -321,7 +321,7 @@ export function PlayerPropCard3D({
         </SeasonalCardBackground>
 
         {/* 3D Border Effect */}
-        <div className="absolute inset-0 rounded-lg border border-gradient-to-r from-blue-500/30 via-purple-500/30 to-cyan-500/30 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+        <div className="absolute inset-0 rounded-lg border border-gradient-to-r from-slate-500/30 via-gray-500/30 to-slate-500/30 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
       </Card>
     </div>
   );
