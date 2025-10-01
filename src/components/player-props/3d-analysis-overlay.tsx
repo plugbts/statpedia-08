@@ -24,7 +24,8 @@ import {
   Play,
   Pause,
   RotateCcw,
-  Settings
+  Settings,
+  Check
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 

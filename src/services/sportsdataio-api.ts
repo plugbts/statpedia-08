@@ -2,9 +2,13 @@
  * SportsDataIO API Service - Live Data with Intelligent Mock Data Fallback
  * Comprehensive sports data API with realistic mock data fallbacks
  * API Key: 883b10f6c52a48b38b3b5cafa94d2189
+ * Version: 2.0.1 - Fixed field mapping and parsing logic
  */
 
 import { mockPlayerPropsService, MockPlayerProp } from './mock-player-props-service';
+
+// Version check to ensure we're loading the updated API service
+console.log('🚀 Loading SportsDataIO API Service v2.0.1 - Fixed field mapping and parsing logic');
 
 interface SportsDataConfig {
   apiKey: string;

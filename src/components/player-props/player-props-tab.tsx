@@ -14,6 +14,7 @@ import { PlayerPropCard3D } from './3d-player-prop-card';
 import { AnalysisOverlay3D } from './3d-analysis-overlay';
 import { PlayerPropsColumnView } from './player-props-column-view';
 import { PlayerPropCardAd } from '@/components/ads/ad-placements';
+import { TestAPIDebug } from '@/components/test-api-debug';
 import { useNavigate } from 'react-router-dom';
 import { 
   TrendingUp, 
@@ -133,7 +134,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     }
     
     console.log(`🎯 Starting to load player props for ${sport}...`);
+    console.log(`🔄 Force refresh at ${new Date().toISOString()}`);
     setIsLoadingData(true);
+    
+    // Force clear any cached data
+    setRealProps([]);
     
     try {
       console.log(`📡 Calling sportsDataIOAPI.getPlayerProps(${sport})...`);
@@ -146,6 +151,19 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         props.slice(0, 3).forEach((prop, index) => {
           console.log(`  ${index + 1}. ${prop.playerName} - ${prop.propType}: ${prop.line} (${prop.overOdds}/${prop.underOdds})`);
         });
+        
+        // Check for problematic data
+        const problematicProps = props.filter(prop => 
+          prop.line === 6.5 && prop.propType.toLowerCase().includes('touchdown')
+        );
+        
+        if (problematicProps.length > 0) {
+          console.error('❌ PROBLEMATIC PROPS FOUND:', problematicProps);
+        } else {
+          console.log('✅ No problematic props found');
+        }
+      } else {
+        console.error('❌ NO PROPS RETURNED FROM API');
       }
       
       if (props && Array.isArray(props) && props.length > 0) {
@@ -331,6 +349,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto space-y-6">
+        {/* DEBUG: API Test Component */}
+        <TestAPIDebug />
+        
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
