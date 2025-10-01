@@ -381,9 +381,21 @@ class SportsGameOddsAPI {
 
     // Look for player-specific markets in the odds
     // Player props have playerID as statEntityID in the oddID format: {statID}-{playerID}-{periodID}-{betTypeID}-{sideID}
+    logAPI('SportsGameOddsAPI', `Processing ${Object.keys(event.odds).length} odds for event ${event.eventID}`);
+    
     for (const [oddId, oddData] of Object.entries(event.odds)) {
       try {
         const odd = oddData as any;
+        
+        // Log the odd structure for debugging
+        logAPI('SportsGameOddsAPI', `Processing oddID: ${oddId}, odd data:`, {
+          fairOdds: odd.fairOdds,
+          overOdds: odd.overOdds,
+          underOdds: odd.underOdds,
+          fairOverUnder: odd.fairOverUnder,
+          bookOverUnder: odd.bookOverUnder,
+          line: odd.line
+        });
         
         // Check if this is a player prop market (has playerID as statEntityID)
         if (this.isPlayerPropMarket(odd, oddId)) {
@@ -481,10 +493,36 @@ class SportsGameOddsAPI {
 
       // Extract line and odds
       const line = odd.fairOverUnder || odd.bookOverUnder || odd.fairSpread || odd.line || 0;
-      const overOdds = sideID === 'over' ? odd.fairOdds : -110;
-      const underOdds = sideID === 'under' ? odd.fairOdds : -110;
+      
+      // For player props, we need to get both over and under odds
+      // The API might provide them in different fields or we need to calculate them
+      let overOdds = -110; // Default fallback
+      let underOdds = -110; // Default fallback
+      
+      if (odd.fairOdds) {
+        // If we have fair odds, use them for the appropriate side
+        if (sideID === 'over') {
+          overOdds = odd.fairOdds;
+          // For under odds, we might need to calculate or use a different field
+          underOdds = odd.underOdds || odd.fairOdds || -110;
+        } else if (sideID === 'under') {
+          underOdds = odd.fairOdds;
+          // For over odds, we might need to calculate or use a different field
+          overOdds = odd.overOdds || odd.fairOdds || -110;
+        }
+      } else {
+        // Fallback to default odds
+        overOdds = odd.overOdds || -110;
+        underOdds = odd.underOdds || -110;
+      }
 
-      logAPI('SportsGameOddsAPI', `Converting player prop: ${playerName} - ${propType} - Line: ${line}`);
+      logAPI('SportsGameOddsAPI', `Converting player prop: ${playerName} - ${propType} - Line: ${line} - Over: ${overOdds} - Under: ${underOdds}`);
+
+      // Validate the data before returning
+      if (isNaN(line) || isNaN(overOdds) || isNaN(underOdds)) {
+        logWarning('SportsGameOddsAPI', `Invalid numeric data for ${playerName}: line=${line}, overOdds=${overOdds}, underOdds=${underOdds}`);
+        return null;
+      }
 
       return {
         id: `sgo-${gameId}-${oddId}`,

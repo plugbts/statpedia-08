@@ -830,6 +830,32 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
   const [activeFeature, setActiveFeature] = useState<string | null>(null);
   const [featureData, setFeatureData] = useState<any>(null);
 
+  // Format American odds with proper NaN and null handling
+  const formatAmericanOdds = (odds: number | string | undefined | null): string => {
+    // Handle non-numeric values
+    if (odds === null || odds === undefined || odds === '') {
+      return 'N/A';
+    }
+    
+    // Convert to number if it's a string
+    const numOdds = typeof odds === 'string' ? parseFloat(odds) : odds;
+    
+    // Check if the conversion resulted in a valid number
+    if (isNaN(numOdds)) {
+      return 'N/A';
+    }
+    
+    // Round to nearest .5 or .0 interval
+    const rounded = Math.round(numOdds * 2) / 2;
+    
+    // Format as American odds
+    if (rounded > 0) {
+      return `+${Math.round(rounded)}`;
+    } else {
+      return `${Math.round(rounded)}`;
+    }
+  };
+
   // Calculate risk level based on AI confidence and hit probability
   const calculateRiskLevel = (confidence: number, hitRate: number): 'low' | 'medium' | 'high' => {
     // Combine confidence and hit rate for risk assessment
@@ -1080,7 +1106,10 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleLineAdjustment(enhancedData.line - 0.5)}
+                          onClick={() => {
+                            const currentLine = adjustedLine !== null ? adjustedLine : enhancedData.line;
+                            handleLineAdjustment(currentLine - 0.5);
+                          }}
                           disabled={isUpdatingOdds}
                           className="text-slate-400 border-slate-600 hover:bg-slate-700"
                         >
@@ -1092,7 +1121,10 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleLineAdjustment(enhancedData.line + 0.5)}
+                          onClick={() => {
+                            const currentLine = adjustedLine !== null ? adjustedLine : enhancedData.line;
+                            handleLineAdjustment(currentLine + 0.5);
+                          }}
                           disabled={isUpdatingOdds}
                           className="text-slate-400 border-slate-600 hover:bg-slate-700"
                         >
@@ -1115,11 +1147,11 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                       <div className="grid grid-cols-2 gap-2 text-xs">
                         <div className="bg-slate-800/50 rounded p-2">
                           <div className="text-slate-400">Over</div>
-                          <div className="text-emerald-400 font-bold">{adjustedOdds.over}</div>
+                          <div className="text-emerald-400 font-bold">{formatAmericanOdds(adjustedOdds.over)}</div>
                         </div>
                         <div className="bg-slate-800/50 rounded p-2">
                           <div className="text-slate-400">Under</div>
-                          <div className="text-red-400 font-bold">{adjustedOdds.under}</div>
+                          <div className="text-red-400 font-bold">{formatAmericanOdds(adjustedOdds.under)}</div>
                         </div>
                       </div>
                     )}
@@ -1667,11 +1699,11 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                           <div className="grid grid-cols-2 gap-4">
                             <div className="bg-slate-700/30 p-3 rounded-lg">
                               <div className="text-slate-400 text-sm">Current Odds</div>
-                              <div className="text-white font-semibold">{featureData.value.currentOdds}</div>
+                              <div className="text-white font-semibold">{formatAmericanOdds(featureData.value.currentOdds)}</div>
                             </div>
                             <div className="bg-slate-700/30 p-3 rounded-lg">
                               <div className="text-slate-400 text-sm">Fair Odds</div>
-                              <div className="text-white font-semibold">{featureData.value.fairOdds}</div>
+                              <div className="text-white font-semibold">{formatAmericanOdds(featureData.value.fairOdds)}</div>
                             </div>
                             <div className="bg-slate-700/30 p-3 rounded-lg">
                               <div className="text-slate-400 text-sm">Edge</div>
