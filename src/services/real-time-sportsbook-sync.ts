@@ -128,6 +128,26 @@ class RealTimeSportsbookSync {
 
     try {
       const sportKey = this.mapSportToKey(sport);
+      
+      // First, let's check what sports are available and what markets exist
+      logAPI('RealTimeSportsbookSync', `Checking available sports and markets for ${sportKey}...`);
+      
+      try {
+        const availableSports = await theOddsAPI.getSports();
+        const sportInfo = availableSports.find(s => s.key === sportKey);
+        logAPI('RealTimeSportsbookSync', `Sport info: ${JSON.stringify(sportInfo)}`);
+      } catch (error) {
+        logWarning('RealTimeSportsbookSync', `Could not get sports info:`, error);
+      }
+
+      // Try to get basic odds first to see if the sport is available
+      try {
+        const basicOdds = await theOddsAPI.getOdds(sportKey, ['us'], ['h2h'], ['fanduel']);
+        logAPI('RealTimeSportsbookSync', `Basic odds test: Found ${basicOdds.length} games for ${sportKey}`);
+      } catch (error) {
+        logError('RealTimeSportsbookSync', `Basic odds test failed for ${sportKey}:`, error);
+      }
+
       const markets = this.PLAYER_PROP_MARKETS[sportKey] || [];
       
       logAPI('RealTimeSportsbookSync', `Sport key: ${sportKey}, Markets: ${markets.join(', ')}`);
@@ -152,6 +172,10 @@ class RealTimeSportsbookSync {
           );
 
           logAPI('RealTimeSportsbookSync', `Received ${marketOdds.length} games for ${market}`);
+          
+          if (marketOdds.length > 0) {
+            logAPI('RealTimeSportsbookSync', `Sample market data: ${JSON.stringify(marketOdds[0], null, 2)}`);
+          }
 
           // Process market odds into player props
           const processedProps = this.processMarketOdds(marketOdds, market, sportKey);

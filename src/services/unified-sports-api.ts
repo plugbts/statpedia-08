@@ -115,60 +115,32 @@ class UnifiedSportsAPI {
       }
 
       // Get real-time sportsbook data (primary source)
-      const realTimeProps = realTimeSportsbookSync.getCachedProps();
+      let realTimeProps = realTimeSportsbookSync.getCachedProps();
       logAPI('UnifiedSportsAPI', `Retrieved ${realTimeProps.length} real-time sportsbook props`);
 
-      // Check if we have real-time data, if not, use temporary fallback
+      // Check if we have real-time data, if not, force sync and wait
       if (realTimeProps.length === 0) {
-        logWarning('UnifiedSportsAPI', `No real-time sportsbook data available for ${sport}. Using temporary fallback.`);
+        logWarning('UnifiedSportsAPI', `No real-time sportsbook data available for ${sport}. Forcing sync...`);
         
-        // TEMPORARY FALLBACK: Use SportsDataIO but mark it clearly
+        // Force a manual sync to get data immediately
         try {
-          const fallbackProps = await sportsDataIOAPI.getPlayerProps(sport, season, week);
-          const filteredFallback = this.filterCurrentAndFutureGames(fallbackProps);
+          await realTimeSportsbookSync.forceSync(sport);
           
-          if (filteredFallback.length > 0) {
-            logWarning('UnifiedSportsAPI', `Using ${filteredFallback.length} props from SportsDataIO as temporary fallback (marked as non-real-time)`);
-            
-            // Convert fallback props to unified format with clear marking
-            const enhancedFallbackProps: PlayerProp[] = filteredFallback.map(prop => ({
-              ...prop,
-              allSportsbookOdds: [{
-                sportsbook: 'SportsDataIO (Temporary)',
-                line: prop.line,
-                overOdds: prop.overOdds,
-                underOdds: prop.underOdds,
-                lastUpdate: new Date().toISOString()
-              }],
-              gameDate: this.formatDate(prop.gameDate),
-              gameTime: this.formatTime(prop.gameTime),
-              sportsbookSource: 'sportsdataio-temporary-fallback',
-              lastOddsUpdate: new Date().toISOString(),
-              teamOddsContext: {
-                homeTeam: prop.team,
-                awayTeam: prop.opponent,
-                hasTeamOdds: false,
-                sportsbooks: ['SportsDataIO (Temporary)']
-              }
-            }));
-
-            // Sort by game date
-            const sortedProps = enhancedFallbackProps.sort((a, b) => {
-              const dateA = new Date(a.gameDate).getTime();
-              const dateB = new Date(b.gameDate).getTime();
-              return dateA - dateB;
-            });
-
-            logWarning('UnifiedSportsAPI', `Returning ${sortedProps.length} temporary props. Real-time sync will replace these when available.`);
-            return sortedProps;
+          // Wait a moment for the sync to complete
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          // Check again for props
+          realTimeProps = realTimeSportsbookSync.getCachedProps();
+          if (realTimeProps.length > 0) {
+            logSuccess('UnifiedSportsAPI', `Force sync successful! Retrieved ${realTimeProps.length} props for ${sport}`);
+          } else {
+            logError('UnifiedSportsAPI', `Force sync failed for ${sport}. No props available.`);
+            return [];
           }
         } catch (error) {
-          logError('UnifiedSportsAPI', 'Failed to get temporary fallback props:', error);
+          logError('UnifiedSportsAPI', `Force sync failed for ${sport}:`, error);
+          return [];
         }
-        
-        // If all else fails, return empty array
-        logWarning('UnifiedSportsAPI', `No props available for ${sport}. Real-time sync may need more time to establish connection.`);
-        return [];
       }
 
       // Convert real-time props to unified format

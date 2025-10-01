@@ -187,8 +187,12 @@ class TheOddsAPI {
     try {
       const response = await fetch(url);
       
+      logAPI('TheOddsAPI', `Response status: ${response.status} ${response.statusText}`);
+      
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        logError('TheOddsAPI', `HTTP error response: ${errorText}`);
+        throw new Error(`HTTP error! status: ${response.status}, response: ${errorText}`);
       }
 
       const data = await response.json();
@@ -197,8 +201,13 @@ class TheOddsAPI {
       const remainingQuota = response.headers.get('x-requests-remaining');
       const quotaResetTime = response.headers.get('x-requests-reset');
       
+      logAPI('TheOddsAPI', `Quota info - Remaining: ${remainingQuota}, Reset: ${quotaResetTime}`);
+      
       if (remainingQuota) {
         this.usageStats.remainingQuota = parseInt(remainingQuota);
+        if (parseInt(remainingQuota) < 10) {
+          logWarning('TheOddsAPI', `Low API quota remaining: ${remainingQuota}`);
+        }
       }
       if (quotaResetTime) {
         this.usageStats.quotaResetTime = new Date(parseInt(quotaResetTime) * 1000).toISOString();
@@ -211,7 +220,7 @@ class TheOddsAPI {
         expiry: now + cacheDuration
       });
 
-      logSuccess('TheOddsAPI', `API call successful for ${endpoint}`);
+      logSuccess('TheOddsAPI', `API call successful for ${endpoint}, data length: ${Array.isArray(data) ? data.length : 'N/A'}`);
       return data;
     } catch (error) {
       logError('TheOddsAPI', `Error fetching from ${endpoint}:`, error);
