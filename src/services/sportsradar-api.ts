@@ -255,61 +255,58 @@ class SportsRadarAPI {
       const sportKey = this.mapSportToKey(sport);
       const currentDate = this.getCurrentDate();
       
-      // Try multiple SportsRadar endpoints for player props
-      const endpoints = [
-        `/oddscomparison/${sportKey}/player_props/${currentDate}`,
-        `/oddscomparison/${sportKey}/player_props`,
-        `/${sportKey}/odds/player_props/${currentDate}`,
-        `/${sportKey}/odds/player_props`
-      ];
+      logAPI('SportsRadarAPI', `Fetching real player props for ${sportKey} on ${currentDate}`);
+      
+      // First, get available competitions with player props
+      const competitions = await this.getCompetitionsWithPlayerProps(sportKey);
+      logAPI('SportsRadarAPI', `Found ${competitions.length} competitions with player props`);
       
       let playerProps: SportsRadarPlayerProp[] = [];
       
-      for (const endpoint of endpoints) {
+      // For each competition, get player props
+      for (const competition of competitions.slice(0, 5)) { // Limit to first 5 competitions
         try {
-          logAPI('SportsRadarAPI', `Trying endpoint: ${endpoint}`);
-          
-          const data = await this.makeRequest<any[]>(endpoint, sport, CACHE_DURATION.ODDS);
-          
-          if (Array.isArray(data) && data.length > 0) {
-            logAPI('SportsRadarAPI', `Found data with ${data.length} items from ${endpoint}`);
-            
-            // Process the data structure from SportsRadar
-            const processedProps = this.processPlayerPropsData(data, sportKey);
-            playerProps = [...playerProps, ...processedProps];
-            
-            logSuccess('SportsRadarAPI', `Successfully processed ${processedProps.length} props from ${endpoint}`);
-            break; // Use the first successful endpoint
-          } else {
-            logWarning('SportsRadarAPI', `No data returned from ${endpoint}`);
-          }
+          const competitionProps = await this.getPlayerPropsForCompetition(competition.id, sportKey);
+          playerProps = [...playerProps, ...competitionProps];
+          logAPI('SportsRadarAPI', `Retrieved ${competitionProps.length} props for competition ${competition.id}`);
         } catch (error) {
-          logWarning('SportsRadarAPI', `Endpoint ${endpoint} failed:`, error);
-          continue; // Try next endpoint
+          logWarning('SportsRadarAPI', `Failed to get props for competition ${competition.id}:`, error);
         }
       }
       
-      // If no player props found, try to get regular odds and extract player props
+      // If no player props found from competitions, try direct player props endpoint
       if (playerProps.length === 0) {
-        logAPI('SportsRadarAPI', 'No player props found, trying regular odds...');
+        logAPI('SportsRadarAPI', 'No props from competitions, trying direct player props endpoint...');
         try {
-          const regularOdds = await this.getOddsComparisons(sport);
-          const extractedProps = this.extractPlayerPropsFromOdds(regularOdds);
-          playerProps = [...playerProps, ...extractedProps];
+          const directProps = await this.getDirectPlayerProps(sportKey, currentDate);
+          playerProps = [...playerProps, ...directProps];
         } catch (error) {
-          logWarning('SportsRadarAPI', 'Failed to extract player props from regular odds:', error);
+          logWarning('SportsRadarAPI', 'Direct player props endpoint failed:', error);
         }
       }
       
-      // If still no player props found, create sample data for testing
+      // If still no player props found, try odds comparison with player props filter
       if (playerProps.length === 0) {
-        logWarning('SportsRadarAPI', 'No player props found from any endpoint, creating sample data for testing');
-        playerProps = this.createSamplePlayerProps(sport);
-        logInfo('SportsRadarAPI', `Created ${playerProps.length} sample props for ${sport}`);
+        logAPI('SportsRadarAPI', 'No direct props found, trying odds comparison with player props...');
+        try {
+          const oddsProps = await this.getPlayerPropsFromOddsComparison(sportKey, currentDate);
+          playerProps = [...playerProps, ...oddsProps];
+        } catch (error) {
+          logWarning('SportsRadarAPI', 'Odds comparison player props failed:', error);
+        }
       }
       
-      logSuccess('SportsRadarAPI', `Retrieved ${playerProps.length} player props for ${sport}`);
-      console.log('🎯 SportsRadar API returning props:', playerProps);
+      if (playerProps.length === 0) {
+        logError('SportsRadarAPI', `No real player props found for ${sport}. This could be due to:`);
+        logError('SportsRadarAPI', `1. No games scheduled for ${currentDate}`);
+        logError('SportsRadarAPI', `2. Player props not available for ${sportKey}`);
+        logError('SportsRadarAPI', `3. API key limitations or subscription level`);
+        logError('SportsRadarAPI', `4. Incorrect endpoint structure`);
+        return [];
+      }
+      
+      logSuccess('SportsRadarAPI', `Retrieved ${playerProps.length} real player props for ${sport}`);
+      console.log('🎯 SportsRadar API returning REAL props:', playerProps);
       return playerProps;
     } catch (error) {
       logError('SportsRadarAPI', `Failed to get player props for ${sport}:`, error);
@@ -321,7 +318,20 @@ class SportsRadarAPI {
   private processPlayerPropsData(data: any[], sportKey: string): SportsRadarPlayerProp[] {
     const playerProps: SportsRadarPlayerProp[] = [];
     
-    data.forEach((item: any) => {
+    logAPI('SportsRadarAPI', `Processing ${data.length} items from SportsRadar API`);
+    
+    data.forEach((item: any, index: number) => {
+      // Log the structure of first few items for debugging
+      if (index < 3) {
+        logAPI('SportsRadarAPI', `Item ${index} structure:`, {
+          id: item.id,
+          markets: item.markets?.length || 0,
+          player_props: item.player_props?.length || 0,
+          home_team: item.home_team,
+          away_team: item.away_team,
+          commence_time: item.commence_time
+        });
+      }
       // Handle different possible data structures
       if (item.markets && Array.isArray(item.markets)) {
         // Odds comparison structure
@@ -379,8 +389,13 @@ class SportsRadarAPI {
       }
     });
     
+    logAPI('SportsRadarAPI', `Processed ${playerProps.length} player props from ${data.length} items`);
+    
     // Match over/under outcomes and calculate consensus
-    return this.matchOverUnderOutcomes(playerProps);
+    const matchedProps = this.matchOverUnderOutcomes(playerProps);
+    logAPI('SportsRadarAPI', `After matching over/under: ${matchedProps.length} props`);
+    
+    return matchedProps;
   }
 
   // Extract player props from regular odds data
@@ -642,6 +657,76 @@ class SportsRadarAPI {
   clearCache() {
     this.cache.clear();
     logInfo('SportsRadarAPI', 'Cache cleared.');
+  }
+
+  // Get competitions that have player props available
+  private async getCompetitionsWithPlayerProps(sportKey: string): Promise<any[]> {
+    try {
+      const endpoint = `/oddscomparison/${sportKey}/competitions`;
+      const data = await this.makeRequest<any[]>(endpoint, sportKey, CACHE_DURATION.SPORTS);
+      
+      // Filter competitions that have player props
+      const competitionsWithProps = data.filter(comp => comp.player_props === true);
+      logAPI('SportsRadarAPI', `Found ${competitionsWithProps.length} competitions with player props`);
+      
+      return competitionsWithProps;
+    } catch (error) {
+      logWarning('SportsRadarAPI', 'Failed to get competitions with player props:', error);
+      return [];
+    }
+  }
+
+  // Get player props for a specific competition
+  private async getPlayerPropsForCompetition(competitionId: string, sportKey: string): Promise<SportsRadarPlayerProp[]> {
+    try {
+      const endpoint = `/oddscomparison/${sportKey}/competitions/${competitionId}/player_props`;
+      const data = await this.makeRequest<any[]>(endpoint, sportKey, CACHE_DURATION.ODDS);
+      
+      return this.processPlayerPropsData(data, sportKey);
+    } catch (error) {
+      logWarning('SportsRadarAPI', `Failed to get player props for competition ${competitionId}:`, error);
+      return [];
+    }
+  }
+
+  // Get player props using direct endpoint
+  private async getDirectPlayerProps(sportKey: string, date: string): Promise<SportsRadarPlayerProp[]> {
+    try {
+      const endpoint = `/oddscomparison/${sportKey}/player_props/${date}`;
+      const data = await this.makeRequest<any[]>(endpoint, sportKey, CACHE_DURATION.ODDS);
+      
+      return this.processPlayerPropsData(data, sportKey);
+    } catch (error) {
+      logWarning('SportsRadarAPI', 'Direct player props endpoint failed:', error);
+      return [];
+    }
+  }
+
+  // Get player props from odds comparison with player props filter
+  private async getPlayerPropsFromOddsComparison(sportKey: string, date: string): Promise<SportsRadarPlayerProp[]> {
+    try {
+      const endpoint = `/oddscomparison/${sportKey}/regular/${date}`;
+      const data = await this.makeRequest<any[]>(endpoint, sportKey, CACHE_DURATION.ODDS);
+      
+      // Filter for player prop markets
+      const playerPropMarkets = data.filter(item => 
+        item.markets && item.markets.some((market: any) => 
+          market.key && (
+            market.key.includes('player_') || 
+            market.key.includes('points') ||
+            market.key.includes('rebounds') ||
+            market.key.includes('assists') ||
+            market.key.includes('yards') ||
+            market.key.includes('touchdowns')
+          )
+        )
+      );
+      
+      return this.processPlayerPropsData(playerPropMarkets, sportKey);
+    } catch (error) {
+      logWarning('SportsRadarAPI', 'Odds comparison player props failed:', error);
+      return [];
+    }
   }
 
   // Create sample player props for testing when no real data is available
