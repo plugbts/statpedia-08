@@ -414,7 +414,25 @@ class SportsDataIOAPI {
       
       if (sport.toLowerCase() === 'nfl') {
         const currentWeek = week || this.getCurrentNFLWeek();
-        endpoint = `/${sport.toLowerCase()}/odds/json/PlayerPropsByWeek/${seasonYear}/${currentWeek}`;
+        // For NFL, try multiple weeks to get current data (like sportsbook analytics sites)
+        const weeksToTry = [currentWeek, currentWeek + 1, currentWeek + 2]; // Try current week and next 2 weeks
+        const allProps = [];
+        
+        for (const weekToTry of weeksToTry) {
+          try {
+            const weekEndpoint = `/${sport.toLowerCase()}/odds/json/PlayerPropsByWeek/${seasonYear}/${weekToTry}`;
+            const weekData = await this.makeRequest<any[]>(weekEndpoint, CACHE_DURATION.PLAYER_PROPS);
+            if (weekData && Array.isArray(weekData)) {
+              allProps.push(...weekData);
+            }
+          } catch (error) {
+            logWarning('SportsDataIO', `Failed to get props for ${sport} week ${weekToTry}:`, error);
+          }
+        }
+        
+        const props: PlayerProp[] = this.processPlayerPropsData(allProps, sport);
+        logSuccess('SportsDataIO', `Retrieved ${props.length} player props for ${sport} across weeks ${weeksToTry.join(', ')}`);
+        return props;
       } else if (sport.toLowerCase() === 'mlb') {
         // For MLB, try multiple dates to get more props
         const dates = this.getMultipleDates(3); // Get props for today, yesterday, and tomorrow
@@ -511,37 +529,9 @@ class SportsDataIOAPI {
         return props;
       }
 
-      const data = await this.makeRequest<any[]>(endpoint, CACHE_DURATION.PLAYER_PROPS);
-      
-      const props: PlayerProp[] = data
-        .filter(item => item && item.PlayerID && item.Name && item.Description)
-        .map(item => ({
-          id: `${item.PlayerID}_${item.ScoreID}_${item.Description}`,
-          playerId: item.PlayerID?.toString() || '',
-          playerName: item.Name,
-          team: item.Team,
-          teamAbbr: item.Team || this.getTeamAbbreviation(item.Team),
-          opponent: item.Opponent,
-          opponentAbbr: item.Opponent || this.getTeamAbbreviation(item.Opponent),
-          gameId: item.ScoreID?.toString(),
-          sport: sport.toUpperCase(),
-          propType: this.mapStatTypeToPropType(item.Description),
-          line: parseFloat(item.OverUnder) || 0,
-          overOdds: parseInt(item.OverPayout) || -110,
-          underOdds: parseInt(item.UnderPayout) || -110,
-          gameDate: item.DateTime,
-          gameTime: item.DateTime,
-          headshotUrl: '',
-          confidence: this.generateConfidence(),
-          expectedValue: this.generateExpectedValue(),
-          recentForm: 'average',
-          last5Games: this.generateLast5Games(),
-          seasonStats: this.generateSeasonStats(),
-          aiPrediction: this.generateAIPrediction(),
-        }));
-
-      logSuccess('SportsDataIO', `Retrieved ${props.length} player props for ${sport}`);
-      return props;
+      // This should not be reached since NFL, MLB, and other sports are handled above
+      logWarning('SportsDataIO', `No specific handling for sport: ${sport}`);
+      return [];
     } catch (error) {
       logError('SportsDataIO', `Failed to get player props for ${sport}:`, error);
       return [];
