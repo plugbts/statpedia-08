@@ -23,7 +23,6 @@ import {
   Eye,
   EyeOff,
   X,
-  Mail,
   RefreshCw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
