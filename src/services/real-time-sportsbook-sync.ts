@@ -130,8 +130,10 @@ class RealTimeSportsbookSync {
       const sportKey = this.mapSportToKey(sport);
       const markets = this.PLAYER_PROP_MARKETS[sportKey] || [];
       
+      logAPI('RealTimeSportsbookSync', `Sport key: ${sportKey}, Markets: ${markets.join(', ')}`);
+      
       if (markets.length === 0) {
-        logWarning('RealTimeSportsbookSync', `No player prop markets defined for ${sport}`);
+        logWarning('RealTimeSportsbookSync', `No player prop markets defined for ${sport} (key: ${sportKey})`);
         return;
       }
 
@@ -140,12 +142,16 @@ class RealTimeSportsbookSync {
       // Fetch odds for each market
       for (const market of markets) {
         try {
+          logAPI('RealTimeSportsbookSync', `Fetching ${market} odds for ${sportKey}...`);
+          
           const marketOdds = await theOddsAPI.getMarketOdds(
             sportKey, 
             market, 
             ['us'], 
             this.SPORTSBOOKS
           );
+
+          logAPI('RealTimeSportsbookSync', `Received ${marketOdds.length} games for ${market}`);
 
           // Process market odds into player props
           const processedProps = this.processMarketOdds(marketOdds, market, sportKey);
@@ -162,6 +168,10 @@ class RealTimeSportsbookSync {
       this.updateSyncStats(allProps, Date.now() - startTime);
 
       logSuccess('RealTimeSportsbookSync', `✅ Sync complete: ${allProps.length} props synced in ${Date.now() - startTime}ms`);
+      
+      if (allProps.length === 0) {
+        logWarning('RealTimeSportsbookSync', `No props found for ${sport}. This could be due to: 1) No games scheduled, 2) API quota limits, 3) Market not available`);
+      }
     } catch (error) {
       logError('RealTimeSportsbookSync', 'Sync failed:', error);
       throw error;
@@ -172,17 +182,34 @@ class RealTimeSportsbookSync {
   private processMarketOdds(marketOdds: any[], market: string, sport: string): RealTimePlayerProp[] {
     const propsMap = new Map<string, RealTimePlayerProp>();
 
-    marketOdds.forEach(game => {
-      if (!game.bookmakers) return;
+    logAPI('RealTimeSportsbookSync', `Processing ${marketOdds.length} games for ${market}`);
 
-      game.bookmakers.forEach((bookmaker: any) => {
-        if (!bookmaker.markets) return;
+    marketOdds.forEach((game, gameIndex) => {
+      if (!game.bookmakers) {
+        logAPI('RealTimeSportsbookSync', `Game ${gameIndex}: No bookmakers`);
+        return;
+      }
+
+      logAPI('RealTimeSportsbookSync', `Game ${gameIndex}: ${game.home_team} vs ${game.away_team}, ${game.bookmakers.length} bookmakers`);
+
+      game.bookmakers.forEach((bookmaker: any, bookmakerIndex: number) => {
+        if (!bookmaker.markets) {
+          logAPI('RealTimeSportsbookSync', `Bookmaker ${bookmakerIndex}: No markets`);
+          return;
+        }
 
         const marketData = bookmaker.markets.find((m: any) => m.key === market);
-        if (!marketData || !marketData.outcomes) return;
+        if (!marketData || !marketData.outcomes) {
+          logAPI('RealTimeSportsbookSync', `Bookmaker ${bookmakerIndex}: No ${market} market data`);
+          return;
+        }
+
+        logAPI('RealTimeSportsbookSync', `Bookmaker ${bookmakerIndex}: Found ${marketData.outcomes.length} outcomes for ${market}`);
 
         // Group outcomes by player
         const playerOutcomes = this.groupOutcomesByPlayer(marketData.outcomes);
+        
+        logAPI('RealTimeSportsbookSync', `Grouped into ${playerOutcomes.length} player props`);
 
         playerOutcomes.forEach(({ playerName, overOutcome, underOutcome }) => {
           const propId = `${playerName}_${market}_${game.id}`;
@@ -228,6 +255,7 @@ class RealTimeSportsbookSync {
       prop.syncStatus = this.determineSyncStatus(prop);
     });
 
+    logAPI('RealTimeSportsbookSync', `Final result: ${props.length} props created for ${market}`);
     return props;
   }
 

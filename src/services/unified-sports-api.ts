@@ -118,10 +118,57 @@ class UnifiedSportsAPI {
       const realTimeProps = realTimeSportsbookSync.getCachedProps();
       logAPI('UnifiedSportsAPI', `Retrieved ${realTimeProps.length} real-time sportsbook props`);
 
-      // NO FALLBACK - Only use real sportsbook data
+      // Check if we have real-time data, if not, use temporary fallback
       if (realTimeProps.length === 0) {
-        logWarning('UnifiedSportsAPI', `No real-time sportsbook data available for ${sport}. Waiting for sync to establish connection.`);
-        return []; // Return empty array instead of fallback data
+        logWarning('UnifiedSportsAPI', `No real-time sportsbook data available for ${sport}. Using temporary fallback.`);
+        
+        // TEMPORARY FALLBACK: Use SportsDataIO but mark it clearly
+        try {
+          const fallbackProps = await sportsDataIOAPI.getPlayerProps(sport, season, week);
+          const filteredFallback = this.filterCurrentAndFutureGames(fallbackProps);
+          
+          if (filteredFallback.length > 0) {
+            logWarning('UnifiedSportsAPI', `Using ${filteredFallback.length} props from SportsDataIO as temporary fallback (marked as non-real-time)`);
+            
+            // Convert fallback props to unified format with clear marking
+            const enhancedFallbackProps: PlayerProp[] = filteredFallback.map(prop => ({
+              ...prop,
+              allSportsbookOdds: [{
+                sportsbook: 'SportsDataIO (Temporary)',
+                line: prop.line,
+                overOdds: prop.overOdds,
+                underOdds: prop.underOdds,
+                lastUpdate: new Date().toISOString()
+              }],
+              gameDate: this.formatDate(prop.gameDate),
+              gameTime: this.formatTime(prop.gameTime),
+              sportsbookSource: 'sportsdataio-temporary-fallback',
+              lastOddsUpdate: new Date().toISOString(),
+              teamOddsContext: {
+                homeTeam: prop.team,
+                awayTeam: prop.opponent,
+                hasTeamOdds: false,
+                sportsbooks: ['SportsDataIO (Temporary)']
+              }
+            }));
+
+            // Sort by game date
+            const sortedProps = enhancedFallbackProps.sort((a, b) => {
+              const dateA = new Date(a.gameDate).getTime();
+              const dateB = new Date(b.gameDate).getTime();
+              return dateA - dateB;
+            });
+
+            logWarning('UnifiedSportsAPI', `Returning ${sortedProps.length} temporary props. Real-time sync will replace these when available.`);
+            return sortedProps;
+          }
+        } catch (error) {
+          logError('UnifiedSportsAPI', 'Failed to get temporary fallback props:', error);
+        }
+        
+        // If all else fails, return empty array
+        logWarning('UnifiedSportsAPI', `No props available for ${sport}. Real-time sync may need more time to establish connection.`);
+        return [];
       }
 
       // Convert real-time props to unified format

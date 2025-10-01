@@ -287,9 +287,15 @@ class CrossReferenceService {
             });
           }
         } else {
-          // Skip props without real-time sportsbook data - no fallback analysis
-          logInfo('CrossReferenceService', `⏭️ Skipping ${prop.playerName} (${prop.propType}) - no real-time sportsbook data available`);
-          continue; // Skip this prop entirely
+          // Check if this is temporary fallback data
+          if (prop.sportsbookSource === 'sportsdataio-temporary-fallback') {
+            logInfo('CrossReferenceService', `⏭️ Skipping ${prop.playerName} (${prop.propType}) - temporary fallback data (not real sportsbook data)`);
+            continue; // Skip temporary fallback data
+          } else {
+            // Skip props without real-time sportsbook data - no fallback analysis
+            logInfo('CrossReferenceService', `⏭️ Skipping ${prop.playerName} (${prop.propType}) - no real-time sportsbook data available`);
+            continue; // Skip this prop entirely
+          }
         }
         
       } catch (error) {
