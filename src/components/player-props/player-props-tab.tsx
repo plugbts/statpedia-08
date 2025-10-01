@@ -123,8 +123,14 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
 
   // Update sport filter when selectedSport changes
   useEffect(() => {
+    console.log(`🔄 [PlayerPropsTab] useEffect triggered - selectedSport: ${selectedSport}`);
     setSportFilter(selectedSport);
-    loadPlayerProps(selectedSport);
+    if (selectedSport) {
+      console.log(`🎯 [PlayerPropsTab] Loading props for sport: ${selectedSport}`);
+      loadPlayerProps(selectedSport);
+    } else {
+      console.log(`⚠️ [PlayerPropsTab] No sport selected, skipping load`);
+    }
   }, [selectedSport]);
 
     // Load player props from Fixed API Service - WORKING SOLUTION
@@ -136,6 +142,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       
       console.log(`🎯 [PlayerPropsTab] Starting to load player props for ${sport}...`);
       console.log(`🔄 [PlayerPropsTab] Force refresh at ${new Date().toISOString()}`);
+      console.log(`🔍 [PlayerPropsTab] Current realProps length before load: ${realProps.length}`);
       setIsLoadingData(true);
       
       // Force clear any cached data
@@ -143,6 +150,8 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       
       try {
         console.log(`📡 [PlayerPropsTab] Calling sportsDataIOAPIFixed.getPlayerProps(${sport})...`);
+        console.log(`🔍 [PlayerPropsTab] sportsDataIOAPIFixed service:`, typeof sportsDataIOAPIFixed);
+        console.log(`🔍 [PlayerPropsTab] getPlayerProps method:`, typeof sportsDataIOAPIFixed.getPlayerProps);
         const props = await sportsDataIOAPIFixed.getPlayerProps(sport);
         console.log(`📊 [PlayerPropsTab] Fixed API returned ${props?.length || 0} props`);
         
@@ -159,6 +168,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         
         if (props && Array.isArray(props) && props.length > 0) {
           console.log(`✅ [PlayerPropsTab] Setting ${props.length} player props for ${sport}`);
+          console.log(`🔍 [PlayerPropsTab] Props sample:`, props.slice(0, 2));
           setRealProps(props);
           
           // Show success message
@@ -169,6 +179,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
           });
         } else {
           console.warn('⚠️ [PlayerPropsTab] API returned no valid props');
+          console.warn('⚠️ [PlayerPropsTab] Props value:', props);
           setRealProps([]);
           toast({
             title: "No Data",
@@ -228,6 +239,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   console.log(`🔍 [PlayerPropsTab] Current realProps length: ${realProps.length}`);
   if (realProps.length > 0) {
     console.log(`🔍 [PlayerPropsTab] First realProp:`, realProps[0]);
+    console.log(`🔍 [PlayerPropsTab] First 3 props:`, realProps.slice(0, 3));
+  } else {
+    console.log(`⚠️ [PlayerPropsTab] No realProps available`);
   }
 
   // Simplified filtering - much less restrictive
@@ -283,6 +297,14 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
 
   console.log(`🔍 [PlayerPropsTab] Final filteredProps length: ${filteredProps.length}`);
   console.log(`🔍 [PlayerPropsTab] Filter settings: minConfidence=${minConfidence}, minEV=${minEV}, showOnlyPositiveEV=${showOnlyPositiveEV}, propTypeFilter=${propTypeFilter}`);
+  console.log(`🔍 [PlayerPropsTab] Search query: "${searchQuery}"`);
+  
+  if (filteredProps.length === 0 && realProps.length > 0) {
+    console.log(`⚠️ [PlayerPropsTab] All props filtered out! Checking first few props:`);
+    realProps.slice(0, 3).forEach((prop, index) => {
+      console.log(`  ${index + 1}. ${prop.playerName} - Confidence: ${prop.confidence}, EV: ${prop.expectedValue}`);
+    });
+  }
 
   // Handle player analysis
   const handlePlayerAnalysis = (prop: PlayerProp) => {
@@ -346,6 +368,26 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         {/* DEBUG: API Test Component */}
         <TestAPIDebug />
         
+        {/* Debug Info - Live Props Status */}
+        {realProps.length > 0 && (
+          <Card className="mb-4 border-blue-500">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm text-blue-600">🔍 Debug: Live Props Status</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-2">
+              <div className="text-xs space-y-1">
+                <div>📊 Total Props: {realProps.length}</div>
+                <div>🎯 Filtered Props: {filteredProps.length}</div>
+                <div>🏆 Sport: {selectedSport}</div>
+                <div>⏳ Loading: {isLoadingData ? 'Yes' : 'No'}</div>
+                {realProps.length > 0 && (
+                  <div>✅ Sample: {realProps[0].playerName} - {realProps[0].propType}: {realProps[0].line}</div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -357,7 +399,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
-              onClick={() => loadPlayerProps(sportFilter)}
+              onClick={() => {
+                console.log(`🔄 [PlayerPropsTab] Manual refresh triggered for ${sportFilter}`);
+                loadPlayerProps(sportFilter);
+              }}
               disabled={isLoadingData}
             >
               <RefreshCw className={cn("w-4 h-4 mr-2", isLoadingData && "animate-spin")} />

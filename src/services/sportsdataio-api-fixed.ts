@@ -47,6 +47,8 @@ class SportsDataIOAPIFixed {
 
   constructor() {
     console.log('🚀 [SportsDataIO-Fixed] Service initialized - Version 1.0.0 - October 1st, 2025');
+    console.log('🔍 [SportsDataIO-Fixed] API Key:', this.API_KEY ? 'Present' : 'Missing');
+    console.log('🔍 [SportsDataIO-Fixed] Base URL:', this.BASE_URL);
   }
 
   // Get current NFL week from API
@@ -313,13 +315,19 @@ class SportsDataIOAPIFixed {
             console.log(`📡 [SportsDataIO-Fixed] Testing MLB 2025 playoff date: ${date}`);
             
             const testResponse = await fetch(testEndpoint);
+            console.log(`📡 [SportsDataIO-Fixed] MLB test response for ${date}: ${testResponse.status} ${testResponse.statusText}`);
             if (testResponse.ok) {
               const testData = await testResponse.json();
+              console.log(`📊 [SportsDataIO-Fixed] MLB test data for ${date}: ${testData?.length || 0} items`);
               if (testData && testData.length > 0) {
                 endpoint = testEndpoint;
                 console.log(`✅ [SportsDataIO-Fixed] Found MLB 2025 playoff data for ${date}: ${testData.length} props`);
                 break;
+              } else {
+                console.log(`⚠️ [SportsDataIO-Fixed] No data in response for ${date}`);
               }
+            } else {
+              console.log(`❌ [SportsDataIO-Fixed] MLB test failed for ${date}: ${testResponse.status}`);
             }
           }
           if (!endpoint) {
@@ -356,12 +364,16 @@ class SportsDataIOAPIFixed {
       console.log(`📡 [SportsDataIO-Fixed] Calling endpoint: ${endpoint}`);
       
       const response = await fetch(endpoint);
+      console.log(`📡 [SportsDataIO-Fixed] Main response: ${response.status} ${response.statusText}`);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
       const rawData = await response.json();
       console.log(`📊 [SportsDataIO-Fixed] Raw data received: ${rawData?.length || 0} items`);
+      if (rawData && rawData.length > 0) {
+        console.log(`📊 [SportsDataIO-Fixed] Sample raw data:`, rawData[0]);
+      }
       
       if (!rawData || rawData.length === 0) {
         throw new Error('No data returned from API');
