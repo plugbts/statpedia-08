@@ -1,7 +1,5 @@
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
-import { sportsDataIOAPI, PlayerProp as SportsDataIOPlayerProp, Team, Player, Game } from './sportsdataio-api';
-import { theOddsAPI, PlayerPropOdds, GameOdds } from './theoddsapi';
-import { realTimeSportsbookSync, RealTimePlayerProp } from './real-time-sportsbook-sync';
+import { sportsRadarAPI, SportsRadarPlayerProp } from './sportsradar-api';
 
 // Unified interfaces
 export interface SportsbookOdds {
@@ -23,7 +21,7 @@ export interface PlayerProp {
   gameId: string;
   sport: string;
   propType: string;
-  // Primary odds (default from FanDuel or first available)
+  // Primary odds (default from SportsRadar)
   line: number;
   overOdds: number;
   underOdds: number;
@@ -63,250 +61,115 @@ export interface PlayerProp {
 }
 
 export interface APIUsageStats {
-  sportsDataIO: {
+  sportsRadar: {
     totalCalls: number;
     callsToday: number;
     callsThisHour: number;
     endpointUsage: { [key: string]: number };
-  };
-  theOddsAPI: {
-    totalCalls: number;
-    callsToday: number;
-    callsThisHour: number;
-    endpointUsage: { [key: string]: number };
-    remainingQuota?: number;
-    quotaResetTime?: string;
   };
 }
 
 class UnifiedSportsAPI {
   constructor() {
-    logInfo('UnifiedSportsAPI', 'Service initialized - Version 1.0.0');
-    logInfo('UnifiedSportsAPI', 'Combining SportsDataIO (player props) + TheOddsAPI (odds/lines)');
+    logInfo('UnifiedSportsAPI', 'Service initialized - Version 2.0.0');
+    logInfo('UnifiedSportsAPI', 'Using SportsRadar API exclusively for all sports data');
   }
 
-  // Get teams (from SportsDataIO)
-  async getTeams(sport: string): Promise<Team[]> {
-    logAPI('UnifiedSportsAPI', `Getting teams for ${sport} from SportsDataIO`);
-    return await sportsDataIOAPI.getTeams(sport);
-  }
-
-  // Get players (from SportsDataIO)
-  async getPlayers(sport: string, teamId?: string): Promise<Player[]> {
-    logAPI('UnifiedSportsAPI', `Getting players for ${sport}${teamId ? ` (team: ${teamId})` : ''} from SportsDataIO`);
-    return await sportsDataIOAPI.getPlayers(sport, teamId);
-  }
-
-  // Get games (from SportsDataIO)
-  async getGames(sport: string, season?: number, week?: number): Promise<Game[]> {
-    logAPI('UnifiedSportsAPI', `Getting games for ${sport}${season ? ` ${season}` : ''}${week ? ` week ${week}` : ''} from SportsDataIO`);
-    return await sportsDataIOAPI.getGames(sport, season, week);
-  }
-
-  // Get player props with real-time sportsbook synchronization
+  // Get player props using SportsRadar API exclusively
   async getPlayerProps(sport: string, season?: number, week?: number, selectedSportsbook?: string): Promise<PlayerProp[]> {
-    logAPI('UnifiedSportsAPI', `Getting player props for ${sport}${season ? ` ${season}` : ''}${week ? ` week ${week}` : ''}`);
+    logAPI('UnifiedSportsAPI', `Getting player props for ${sport}${season ? ` ${season}` : ''}${week ? ` week ${week}` : ''} from SportsRadar`);
     
     try {
-      // Start real-time sync if not already running
-      if (!realTimeSportsbookSync.isSyncRunning()) {
-        await realTimeSportsbookSync.startSync(sport, 30000); // Sync every 30 seconds
-        logInfo('UnifiedSportsAPI', `Started real-time sportsbook sync for ${sport}`);
+      // Get player props directly from SportsRadar
+      const sportsRadarProps = await sportsRadarAPI.getPlayerProps(sport);
+      logAPI('UnifiedSportsAPI', `Retrieved ${sportsRadarProps.length} player props from SportsRadar`);
+
+      if (sportsRadarProps.length === 0) {
+        logWarning('UnifiedSportsAPI', `No player props available from SportsRadar for ${sport}`);
+        return [];
       }
 
-      // Get real-time sportsbook data (primary source)
-      let realTimeProps = realTimeSportsbookSync.getCachedProps();
-      logAPI('UnifiedSportsAPI', `Retrieved ${realTimeProps.length} real-time sportsbook props`);
-
-      // Check if we have real-time data, if not, force sync and wait
-      if (realTimeProps.length === 0) {
-        logWarning('UnifiedSportsAPI', `No real-time sportsbook data available for ${sport}. Forcing sync...`);
-        
-        // Force a manual sync to get data immediately
-        try {
-          await realTimeSportsbookSync.forceSync(sport);
-          
-          // Wait a moment for the sync to complete
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          // Check again for props
-          realTimeProps = realTimeSportsbookSync.getCachedProps();
-          if (realTimeProps.length > 0) {
-            logSuccess('UnifiedSportsAPI', `Force sync successful! Retrieved ${realTimeProps.length} props for ${sport}`);
-          } else {
-            logError('UnifiedSportsAPI', `Force sync failed for ${sport}. No props available.`);
-            return [];
-          }
-        } catch (error) {
-          logError('UnifiedSportsAPI', `Force sync failed for ${sport}:`, error);
-          return [];
+      // Convert SportsRadar props to unified format
+      const enhancedProps: PlayerProp[] = sportsRadarProps.map(srProp => ({
+        id: srProp.id,
+        playerId: srProp.playerId,
+        playerName: srProp.playerName,
+        team: this.determinePlayerTeam(srProp.playerName, srProp.homeTeam, srProp.awayTeam),
+        teamAbbr: this.getTeamAbbreviation(this.determinePlayerTeam(srProp.playerName, srProp.homeTeam, srProp.awayTeam)),
+        opponent: srProp.homeTeam === this.determinePlayerTeam(srProp.playerName, srProp.homeTeam, srProp.awayTeam) ? srProp.awayTeam : srProp.homeTeam,
+        opponentAbbr: this.getTeamAbbreviation(srProp.homeTeam === this.determinePlayerTeam(srProp.playerName, srProp.homeTeam, srProp.awayTeam) ? srProp.awayTeam : srProp.homeTeam),
+        gameId: srProp.gameId,
+        sport: sport.toUpperCase(),
+        propType: srProp.propType,
+        line: srProp.line,
+        overOdds: srProp.overOdds,
+        underOdds: srProp.underOdds,
+        allSportsbookOdds: [{
+          sportsbook: srProp.sportsbook,
+          line: srProp.line,
+          overOdds: srProp.overOdds,
+          underOdds: srProp.underOdds,
+          lastUpdate: srProp.lastUpdate
+        }],
+        gameDate: this.formatDate(srProp.gameTime),
+        gameTime: this.formatTime(srProp.gameTime),
+        sportsbookSource: 'sportsradar-api',
+        lastOddsUpdate: srProp.lastUpdate,
+        teamOddsContext: {
+          homeTeam: srProp.homeTeam,
+          awayTeam: srProp.awayTeam,
+          hasTeamOdds: true,
+          sportsbooks: [srProp.sportsbookKey]
         }
-      }
-
-      // Convert real-time props to unified format
-      const enhancedRealTimeProps: PlayerProp[] = realTimeProps.map(rtProp => {
-        // Find best sportsbook odds (prefer FanDuel, then DraftKings, etc.)
-        const bestOdds = rtProp.sportsbookOdds.find(o => o.sportsbookKey === 'fanduel') ||
-                        rtProp.sportsbookOdds.find(o => o.sportsbookKey === 'draftkings') ||
-                        rtProp.sportsbookOdds[0];
-
-        return {
-          id: rtProp.id,
-          playerId: rtProp.playerName.replace(/\s+/g, '_').toLowerCase(),
-          playerName: rtProp.playerName,
-          team: rtProp.homeTeam, // This will need to be determined from game context
-          teamAbbr: this.getTeamAbbreviation(rtProp.homeTeam),
-          opponent: rtProp.awayTeam,
-          opponentAbbr: this.getTeamAbbreviation(rtProp.awayTeam),
-          gameId: rtProp.gameId,
-          sport: sport.toUpperCase(),
-          propType: rtProp.propType,
-          // Use consensus odds as primary
-          line: rtProp.consensusLine,
-          overOdds: rtProp.consensusOverOdds,
-          underOdds: rtProp.consensusUnderOdds,
-          // Store all sportsbook odds
-          allSportsbookOdds: rtProp.sportsbookOdds.map(odds => ({
-            sportsbook: odds.sportsbook,
-            line: odds.line,
-            overOdds: odds.overOdds,
-            underOdds: odds.underOdds,
-            lastUpdate: odds.lastUpdate
-          })),
-          // Format dates
-          gameDate: this.formatDate(rtProp.gameTime),
-          gameTime: this.formatTime(rtProp.gameTime),
-          // Add sync status
-          sportsbookSource: 'real-time-sync',
-          lastOddsUpdate: rtProp.lastSync,
-          teamOddsContext: {
-            homeTeam: rtProp.homeTeam,
-            awayTeam: rtProp.awayTeam,
-            hasTeamOdds: true,
-            sportsbooks: rtProp.sportsbookOdds.map(o => o.sportsbookKey)
-          }
-        };
-      });
+      }));
 
       // Sort by game date ascending (closest games first, then future games)
-      const sortedProps = enhancedRealTimeProps.sort((a, b) => {
+      const sortedProps = enhancedProps.sort((a, b) => {
         const dateA = new Date(a.gameDate).getTime();
         const dateB = new Date(b.gameDate).getTime();
         return dateA - dateB; // Ascending order (closest games first)
       });
 
-      logSuccess('UnifiedSportsAPI', `Enhanced and sorted ${sortedProps.length} player props with real-time sportsbook data`);
+      logSuccess('UnifiedSportsAPI', `Enhanced and sorted ${sortedProps.length} player props from SportsRadar`);
       return sortedProps;
 
     } catch (error) {
-      logError('UnifiedSportsAPI', `Failed to get player props for ${sport}:`, error);
+      logError('UnifiedSportsAPI', `Failed to get player props from SportsRadar for ${sport}:`, error);
       return [];
     }
-  }
-
-  // Get game odds (from TheOddsAPI)
-  async getGameOdds(sport: string, regions: string[] = ['us'], markets: string[] = ['h2h'], bookmakers: string[] = ['fanduel', 'draftkings', 'betmgm']): Promise<GameOdds[]> {
-    logAPI('UnifiedSportsAPI', `Getting game odds for ${sport} from TheOddsAPI`);
-    return await theOddsAPI.getOdds(sport, regions, markets, bookmakers);
-  }
-
-  // Get specific market odds (from TheOddsAPI)
-  async getMarketOdds(sport: string, market: string, regions: string[] = ['us'], bookmakers: string[] = ['fanduel', 'draftkings']): Promise<any[]> {
-    logAPI('UnifiedSportsAPI', `Getting ${market} odds for ${sport} from TheOddsAPI`);
-    return await theOddsAPI.getMarketOdds(sport, market, regions, bookmakers);
-  }
-
-  // Get available sports (from TheOddsAPI)
-  async getSports(): Promise<any[]> {
-    logAPI('UnifiedSportsAPI', 'Getting available sports from TheOddsAPI');
-    return await theOddsAPI.getSports();
-  }
-
-  // Get available bookmakers (from TheOddsAPI)
-  async getBookmakers(sport?: string): Promise<any[]> {
-    logAPI('UnifiedSportsAPI', `Getting bookmakers${sport ? ` for ${sport}` : ''} from TheOddsAPI`);
-    return await theOddsAPI.getBookmakers(sport);
-  }
-
-  // Get available sportsbooks for a specific sport
-  async getAvailableSportsbooks(sport: string): Promise<{ key: string; title: string; lastUpdate: string }[]> {
-    logAPI('UnifiedSportsAPI', `Getting available sportsbooks for ${sport} from TheOddsAPI`);
-    return await theOddsAPI.getAvailableSportsbooks(sport);
-  }
-
-  // Get combined usage statistics from both APIs
-  getUsageStats(): APIUsageStats {
-    const sportsDataIOStats = sportsDataIOAPI.getUsageStats();
-    const theOddsAPIStats = theOddsAPI.getUsageStats();
-
-    return {
-      sportsDataIO: {
-        totalCalls: sportsDataIOStats.totalCalls,
-        callsToday: sportsDataIOStats.callsToday,
-        callsThisHour: sportsDataIOStats.callsThisHour,
-        endpointUsage: sportsDataIOStats.endpointUsage,
-      },
-      theOddsAPI: {
-        totalCalls: theOddsAPIStats.totalCalls,
-        callsToday: theOddsAPIStats.callsToday,
-        callsThisHour: theOddsAPIStats.callsThisHour,
-        endpointUsage: theOddsAPIStats.endpointUsage,
-        remainingQuota: theOddsAPIStats.remainingQuota,
-        quotaResetTime: theOddsAPIStats.quotaResetTime,
-      },
-    };
-  }
-
-  // Reset usage statistics for both APIs
-  resetUsageStats() {
-    sportsDataIOAPI.resetUsageStats();
-    theOddsAPI.resetUsageStats();
-    logInfo('UnifiedSportsAPI', 'Usage statistics reset for both APIs');
-  }
-
-  // Clear cache for both APIs
-  clearCache() {
-    sportsDataIOAPI.clearCache();
-    theOddsAPI.clearCache();
-    logInfo('UnifiedSportsAPI', 'Cache cleared for both APIs');
   }
 
   // Get past games for analytics tab
   async getPastPlayerProps(sport: string, season?: number, week?: number, selectedSportsbook?: string): Promise<PlayerProp[]> {
     try {
-      // Get base player props from SportsDataIO
-      const sportsDataIOProps = await sportsDataIOAPI.getPlayerProps(sport, season, week);
-      logAPI('UnifiedSportsAPI', `Retrieved ${sportsDataIOProps.length} props from SportsDataIO`);
+      // Get base player props from SportsRadar
+      const sportsRadarProps = await sportsRadarAPI.getPlayerProps(sport);
+      logAPI('UnifiedSportsAPI', `Retrieved ${sportsRadarProps.length} props from SportsRadar`);
 
       // Filter for past games only
-      const filteredProps = this.filterPastGames(sportsDataIOProps);
+      const filteredProps = this.filterPastGames(sportsRadarProps);
       logAPI('UnifiedSportsAPI', `Filtered to ${filteredProps.length} past game props for analytics`);
 
       // Convert to PlayerProp format and sort by date (most recent first)
       const playerProps: PlayerProp[] = filteredProps
-        .map(prop => ({
-          id: prop.id,
-          playerId: prop.playerId,
-          playerName: prop.playerName,
-          team: prop.team,
-          teamAbbr: prop.teamAbbr,
-          opponent: prop.opponent,
-          opponentAbbr: prop.opponentAbbr,
-          gameId: prop.gameId,
-          sport: prop.sport,
-          propType: prop.propType,
-          line: prop.line,
-          overOdds: prop.overOdds,
-          underOdds: prop.underOdds,
-          gameDate: prop.gameDate,
-          gameTime: prop.gameTime,
-          headshotUrl: prop.headshotUrl,
-          confidence: prop.confidence,
-          expectedValue: prop.expectedValue,
-          recentForm: prop.recentForm,
-          last5Games: prop.last5Games,
-          seasonStats: prop.seasonStats,
-          aiPrediction: prop.aiPrediction,
+        .map(srProp => ({
+          id: srProp.id,
+          playerId: srProp.playerId,
+          playerName: srProp.playerName,
+          team: this.determinePlayerTeam(srProp.playerName, srProp.homeTeam, srProp.awayTeam),
+          teamAbbr: this.getTeamAbbreviation(this.determinePlayerTeam(srProp.playerName, srProp.homeTeam, srProp.awayTeam)),
+          opponent: srProp.homeTeam === this.determinePlayerTeam(srProp.playerName, srProp.homeTeam, srProp.awayTeam) ? srProp.awayTeam : srProp.homeTeam,
+          opponentAbbr: this.getTeamAbbreviation(srProp.homeTeam === this.determinePlayerTeam(srProp.playerName, srProp.homeTeam, srProp.awayTeam) ? srProp.awayTeam : srProp.homeTeam),
+          gameId: srProp.gameId,
+          sport: sport.toUpperCase(),
+          propType: srProp.propType,
+          line: srProp.line,
+          overOdds: srProp.overOdds,
+          underOdds: srProp.underOdds,
+          gameDate: this.formatDate(srProp.gameTime),
+          gameTime: this.formatTime(srProp.gameTime),
+          sportsbookSource: 'sportsradar-api',
+          lastOddsUpdate: srProp.lastUpdate,
         }))
         .sort((a, b) => {
           // Sort by game date descending (most recent past games first)
@@ -328,96 +191,79 @@ class UnifiedSportsAPI {
     }
   }
 
-  // Filter props to include only current and future games (no past games)
-  private filterCurrentAndFutureGames(props: SportsDataIOPlayerProp[]): SportsDataIOPlayerProp[] {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
-    // Only include games from today onwards (current and future games only)
-    // No past games - they will be moved to analytics tab
-    
-    return props.filter(prop => {
-      if (!prop.gameDate) return false;
-      
-      try {
-        const gameDate = new Date(prop.gameDate);
-        const gameDay = new Date(gameDate.getFullYear(), gameDate.getMonth(), gameDate.getDate());
-        
-        // Only include games from today onwards (no past games)
-        return gameDay >= today;
-      } catch (error) {
-        logWarning('UnifiedSportsAPI', `Invalid game date format: ${prop.gameDate}`, error);
-        return false;
+  // Get games from SportsRadar
+  async getGames(sport: string): Promise<any[]> {
+    logAPI('UnifiedSportsAPI', `Getting games for ${sport} from SportsRadar`);
+    return await sportsRadarAPI.getGames(sport);
+  }
+
+  // Get odds comparisons from SportsRadar
+  async getOddsComparisons(sport: string): Promise<any[]> {
+    logAPI('UnifiedSportsAPI', `Getting odds comparisons for ${sport} from SportsRadar`);
+    return await sportsRadarAPI.getOddsComparisons(sport);
+  }
+
+  // Get future odds comparisons from SportsRadar
+  async getFutureOddsComparisons(sport: string): Promise<any[]> {
+    logAPI('UnifiedSportsAPI', `Getting future odds comparisons for ${sport} from SportsRadar`);
+    return await sportsRadarAPI.getFutureOddsComparisons(sport);
+  }
+
+  // Get usage statistics from SportsRadar
+  getUsageStats(): APIUsageStats {
+    const sportsRadarStats = sportsRadarAPI.getUsageStats();
+
+    return {
+      sportsRadar: {
+        totalCalls: sportsRadarStats.totalCalls,
+        callsToday: sportsRadarStats.callsToday,
+        callsThisHour: sportsRadarStats.callsThisHour,
+        endpointUsage: sportsRadarStats.endpointUsage,
       }
-    });
+    };
+  }
+
+  // Reset usage statistics for SportsRadar
+  resetUsageStats() {
+    sportsRadarAPI.resetUsageStats();
+    logInfo('UnifiedSportsAPI', 'Usage statistics reset for SportsRadar API');
+  }
+
+  // Clear cache for SportsRadar
+  clearCache() {
+    sportsRadarAPI.clearCache();
+    logInfo('UnifiedSportsAPI', 'Cache cleared for SportsRadar API');
   }
 
   // Filter props to include only past games for analytics
-  private filterPastGames(props: SportsDataIOPlayerProp[]): SportsDataIOPlayerProp[] {
+  private filterPastGames(props: SportsRadarPlayerProp[]): SportsRadarPlayerProp[] {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
     // Only include games from before today (past games for analytics)
     
     return props.filter(prop => {
-      if (!prop.gameDate) return false;
+      if (!prop.gameTime) return false;
       
       try {
-        const gameDate = new Date(prop.gameDate);
+        const gameDate = new Date(prop.gameTime);
         const gameDay = new Date(gameDate.getFullYear(), gameDate.getMonth(), gameDate.getDate());
         
         // Only include games from before today (past games)
         return gameDay < today;
       } catch (error) {
-        logWarning('UnifiedSportsAPI', `Invalid game date format: ${prop.gameDate}`, error);
+        logWarning('UnifiedSportsAPI', `Invalid game date format: ${prop.gameTime}`, error);
         return false;
       }
     });
   }
 
-  // Get player prop markets for a sport
-  private getPlayerPropMarkets(sport: string): string[] {
-    const sportKey = this.getSportKey(sport);
-    const sportMarkets: { [key: string]: string[] } = {
-      'americanfootball_nfl': [
-        'player_pass_tds', 'player_pass_yds', 'player_pass_completions', 'player_pass_attempts',
-        'player_rush_yds', 'player_rush_attempts', 'player_receptions', 'player_receiving_yds',
-        'player_receiving_tds', 'player_fumbles', 'player_interceptions'
-      ],
-      'basketball_nba': [
-        'player_points', 'player_rebounds', 'player_assists', 'player_steals',
-        'player_blocks', 'player_threes', 'player_turnovers', 'player_fantasy_points'
-      ],
-      'baseball_mlb': [
-        'player_hits', 'player_runs', 'player_rbis', 'player_home_runs',
-        'player_stolen_bases', 'player_strikeouts', 'player_walks'
-      ],
-      'icehockey_nhl': [
-        'player_points', 'player_goals', 'player_assists', 'player_shots',
-        'player_saves', 'player_goals_against'
-      ]
-    };
-    
-    return sportMarkets[sportKey] || [];
-  }
-
-  // Convert sport name to TheOddsAPI sport key
-  private getSportKey(sport: string): string {
-    const sportMap: { [key: string]: string } = {
-      'nfl': 'americanfootball_nfl',
-      'nba': 'basketball_nba',
-      'mlb': 'baseball_mlb',
-      'nhl': 'icehockey_nhl'
-    };
-    
-    return sportMap[sport.toLowerCase()] || sport.toLowerCase();
-  }
-
-  // Find matching player prop odds from TheOddsAPI data
-  private findMatchingPlayerPropOdds(prop: SportsDataIOPlayerProp, oddsData: any[]): any[] {
-    // This would need to match player names and prop types between APIs
-    // For now, return empty array - this is a complex matching problem
-    return [];
+  // Determine which team a player belongs to (simplified logic)
+  private determinePlayerTeam(playerName: string, homeTeam: string, awayTeam: string): string {
+    // This is a simplified approach - in a real implementation, you'd need
+    // to match player names to team rosters
+    // For now, we'll assume players are on the home team
+    return homeTeam;
   }
 
   // Format date to M/D/YYYY format
@@ -452,52 +298,6 @@ class UnifiedSportsAPI {
       logWarning('UnifiedSportsAPI', `Invalid time format: ${timeString}`, error);
       return timeString;
     }
-  }
-
-  // Enhanced player name matching for better odds integration
-  private isPlayerMatch(oddsPlayerName: string, propPlayerName: string): boolean {
-    if (!oddsPlayerName || !propPlayerName) return false;
-    
-    // Normalize names for comparison
-    const normalizeName = (name: string) => {
-      return name.toLowerCase()
-        .replace(/[^a-z\s]/g, '') // Remove special characters
-        .replace(/\s+/g, ' ') // Normalize spaces
-        .trim();
-    };
-    
-    const normalizedOdds = normalizeName(oddsPlayerName);
-    const normalizedProp = normalizeName(propPlayerName);
-    
-    // Direct match
-    if (normalizedOdds === normalizedProp) return true;
-    
-    // Check if one name contains the other (for nicknames, etc.)
-    if (normalizedOdds.includes(normalizedProp) || normalizedProp.includes(normalizedOdds)) return true;
-    
-    // Check for common name variations (first name + last name vs full name)
-    const oddsParts = normalizedOdds.split(' ');
-    const propParts = normalizedProp.split(' ');
-    
-    if (oddsParts.length >= 2 && propParts.length >= 2) {
-      // Check if last names match and first names are similar
-      const oddsLastName = oddsParts[oddsParts.length - 1];
-      const propLastName = propParts[propParts.length - 1];
-      
-      if (oddsLastName === propLastName) {
-        const oddsFirstName = oddsParts[0];
-        const propFirstName = propParts[0];
-        
-        // Check if first names match or one is a nickname of the other
-        if (oddsFirstName === propFirstName || 
-            oddsFirstName.startsWith(propFirstName) || 
-            propFirstName.startsWith(oddsFirstName)) {
-          return true;
-        }
-      }
-    }
-    
-    return false;
   }
 
   // Helper method to get team abbreviation
@@ -566,7 +366,71 @@ class UnifiedSportsAPI {
       'San Antonio Spurs': 'SAS',
       'Toronto Raptors': 'TOR',
       'Utah Jazz': 'UTA',
-      'Washington Wizards': 'WAS'
+      'Washington Wizards': 'WAS',
+      // MLB
+      'Arizona Diamondbacks': 'ARI',
+      'Atlanta Braves': 'ATL',
+      'Baltimore Orioles': 'BAL',
+      'Boston Red Sox': 'BOS',
+      'Chicago Cubs': 'CHC',
+      'Chicago White Sox': 'CWS',
+      'Cincinnati Reds': 'CIN',
+      'Cleveland Guardians': 'CLE',
+      'Colorado Rockies': 'COL',
+      'Detroit Tigers': 'DET',
+      'Houston Astros': 'HOU',
+      'Kansas City Royals': 'KC',
+      'Los Angeles Angels': 'LAA',
+      'Los Angeles Dodgers': 'LAD',
+      'Miami Marlins': 'MIA',
+      'Milwaukee Brewers': 'MIL',
+      'Minnesota Twins': 'MIN',
+      'New York Mets': 'NYM',
+      'New York Yankees': 'NYY',
+      'Oakland Athletics': 'OAK',
+      'Philadelphia Phillies': 'PHI',
+      'Pittsburgh Pirates': 'PIT',
+      'San Diego Padres': 'SD',
+      'San Francisco Giants': 'SF',
+      'Seattle Mariners': 'SEA',
+      'St. Louis Cardinals': 'STL',
+      'Tampa Bay Rays': 'TB',
+      'Texas Rangers': 'TEX',
+      'Toronto Blue Jays': 'TOR',
+      'Washington Nationals': 'WSH',
+      // NHL
+      'Anaheim Ducks': 'ANA',
+      'Arizona Coyotes': 'ARI',
+      'Boston Bruins': 'BOS',
+      'Buffalo Sabres': 'BUF',
+      'Calgary Flames': 'CGY',
+      'Carolina Hurricanes': 'CAR',
+      'Chicago Blackhawks': 'CHI',
+      'Colorado Avalanche': 'COL',
+      'Columbus Blue Jackets': 'CBJ',
+      'Dallas Stars': 'DAL',
+      'Detroit Red Wings': 'DET',
+      'Edmonton Oilers': 'EDM',
+      'Florida Panthers': 'FLA',
+      'Los Angeles Kings': 'LAK',
+      'Minnesota Wild': 'MIN',
+      'Montreal Canadiens': 'MTL',
+      'Nashville Predators': 'NSH',
+      'New Jersey Devils': 'NJD',
+      'New York Islanders': 'NYI',
+      'New York Rangers': 'NYR',
+      'Ottawa Senators': 'OTT',
+      'Philadelphia Flyers': 'PHI',
+      'Pittsburgh Penguins': 'PIT',
+      'San Jose Sharks': 'SJ',
+      'Seattle Kraken': 'SEA',
+      'St. Louis Blues': 'STL',
+      'Tampa Bay Lightning': 'TB',
+      'Toronto Maple Leafs': 'TOR',
+      'Vancouver Canucks': 'VAN',
+      'Vegas Golden Knights': 'VGK',
+      'Washington Capitals': 'WSH',
+      'Winnipeg Jets': 'WPG'
     };
     
     return abbreviations[teamName] || teamName.substring(0, 3).toUpperCase();

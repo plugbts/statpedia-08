@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { sportsDataIOAPI } from '@/services/sportsdataio-api';
+import { unifiedSportsAPI } from '@/services/unified-sports-api';
 import { gamesService } from '@/services/games-service';
 import { predictionService } from '@/services/prediction-service';
 
@@ -19,8 +19,8 @@ export function useLiveGames(sport: string, options: { autoFetch?: boolean; refr
       setLoading(true);
       setError(null);
       
-          // Get real games from SportsDataIO API
-          const freeGames = await sportsDataIOAPI.getCurrentWeekGames(sport);
+          // Get real games from SportsRadar API
+          const freeGames = await unifiedSportsAPI.getGames(sport);
       
       // Filter for current and future games only
       const now = new Date();
@@ -76,8 +76,8 @@ export function usePlayers(sport: string, teamId?: string) {
       setLoading(true);
       setError(null);
       
-          // Get players from SportsDataIO API
-          const players = await sportsDataIOAPI.getPlayers(sport, teamId);
+          // Get players from SportsRadar API (placeholder - SportsRadar doesn't have direct player endpoint)
+          const players = []; // TODO: Implement player fetching from SportsRadar
       
       setPlayers(players);
     } catch (err) {
@@ -111,8 +111,8 @@ export function usePlayerProps(sport: string, market?: string) {
       setLoading(true);
       setError(null);
       
-          // Get real props from SportsDataIO API
-          const freeProps = await sportsDataIOAPI.getPlayerProps(sport);
+          // Get real props from SportsRadar API
+          const freeProps = await unifiedSportsAPI.getPlayerProps(sport);
       
       // Filter for current and future games only
       const now = new Date();
