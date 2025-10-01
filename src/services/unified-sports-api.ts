@@ -221,10 +221,17 @@ class UnifiedSportsAPI {
     logInfo('UnifiedSportsAPI', 'Cache cleared for both APIs');
   }
 
-  // Filter props to only include current and future games
+  // Filter props to include recent games and future games (like top sportsbook analytics sites)
   private filterCurrentAndFutureGames(props: SportsDataIOPlayerProp[]): SportsDataIOPlayerProp[] {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    // Include games from 3 days ago to 7 days in the future (more realistic range)
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - 3); // 3 days ago
+    
+    const endDate = new Date(today);
+    endDate.setDate(endDate.getDate() + 7); // 7 days in the future
     
     return props.filter(prop => {
       if (!prop.gameDate) return false;
@@ -233,8 +240,8 @@ class UnifiedSportsAPI {
         const gameDate = new Date(prop.gameDate);
         const gameDay = new Date(gameDate.getFullYear(), gameDate.getMonth(), gameDate.getDate());
         
-        // Include games from today onwards (current and future)
-        return gameDay >= today;
+        // Include games within the realistic range (3 days ago to 7 days future)
+        return gameDay >= startDate && gameDay <= endDate;
       } catch (error) {
         logWarning('UnifiedSportsAPI', `Invalid game date format: ${prop.gameDate}`, error);
         return false;

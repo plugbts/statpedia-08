@@ -13,6 +13,7 @@ import { PlayerAnalysisOverlay } from './player-analysis-overlay';
 import { PlayerPropCard3D } from './3d-player-prop-card';
 import { AnalysisOverlay3D } from './3d-analysis-overlay';
 import { PlayerPropsColumnView } from './player-props-column-view';
+import { PropFinderAnalysisOverlay } from '../predictions/propfinder-analysis-overlay';
 import { PlayerPropCardAd } from '@/components/ads/ad-placements';
 import { logAPI, logState, logFilter, logSuccess, logError, logWarning, logInfo, logDebug } from '@/utils/console-logger';
 import { unifiedSportsAPI } from '@/services/unified-sports-api';
@@ -114,6 +115,8 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const [showMyPicks, setShowMyPicks] = useState(false);
   const [selectedPlayerForAnalysis, setSelectedPlayerForAnalysis] = useState<PlayerProp | null>(null);
   const [showAnalysisOverlay, setShowAnalysisOverlay] = useState(false);
+  const [selectedPropForAnalysis, setSelectedPropForAnalysis] = useState<PlayerProp | null>(null);
+  const [showPropFinderAnalysis, setShowPropFinderAnalysis] = useState(false);
   const [sortBy, setSortBy] = useState<'confidence' | 'ev' | 'line' | 'player'>('confidence');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [minConfidence, setMinConfidence] = useState(0);
@@ -375,6 +378,52 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const handlePlayerAnalysis = (prop: PlayerProp) => {
     setSelectedPlayerForAnalysis(prop);
     setShowAnalysisOverlay(true);
+  };
+
+  // Handle PropFinder analysis
+  const handlePropFinderAnalysis = (prop: PlayerProp) => {
+    setSelectedPropForAnalysis(prop);
+    setShowPropFinderAnalysis(true);
+  };
+
+  // Convert PlayerProp to AdvancedPrediction for PropFinderAnalysisOverlay
+  const convertToAdvancedPrediction = (prop: PlayerProp) => {
+    return {
+      id: prop.id,
+      playerId: prop.playerId,
+      playerName: prop.playerName,
+      team: prop.team,
+      teamAbbr: prop.teamAbbr,
+      opponent: prop.opponent,
+      opponentAbbr: prop.opponentAbbr,
+      gameId: prop.gameId,
+      sport: prop.sport,
+      propType: prop.propType,
+      line: prop.line,
+      overOdds: prop.overOdds,
+      underOdds: prop.underOdds,
+      gameDate: prop.gameDate,
+      gameTime: prop.gameTime,
+      headshotUrl: prop.headshotUrl,
+      confidence: prop.confidence,
+      expectedValue: prop.expectedValue,
+      recentForm: prop.recentForm,
+      last5Games: prop.last5Games,
+      seasonStats: prop.seasonStats,
+      aiPrediction: prop.aiPrediction,
+      valueRating: prop.valueRating,
+      riskLevel: prop.riskLevel,
+      factors: prop.factors,
+      lastUpdated: prop.lastUpdated,
+      isLive: prop.isLive,
+      isBookmarked: prop.isBookmarked,
+      advancedReasoning: prop.advancedReasoning || '',
+      injuryImpact: prop.injuryImpact || '',
+      weatherImpact: prop.weatherImpact || '',
+      matchupAnalysis: prop.matchupAnalysis || '',
+      historicalTrends: prop.historicalTrends || '',
+      keyInsights: prop.keyInsights || []
+    };
   };
 
   // Handle toggle my pick
@@ -664,7 +713,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
               <PlayerPropsColumnView
                 props={filteredProps}
                 selectedSport={sportFilter}
-                onAnalysisClick={handlePlayerAnalysis}
+                onAnalysisClick={handlePropFinderAnalysis}
                 isLoading={isLoadingData}
               />
             ) : (
@@ -673,7 +722,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                   <PlayerPropCard3D
                     key={prop.id || `prop-${prop.playerId}-${prop.propType}-${index}`}
                     prop={prop}
-                    onAnalysisClick={handlePlayerAnalysis}
+                    onAnalysisClick={handlePropFinderAnalysis}
                     isSelected={selectedProps.includes(prop.id)}
                     onSelect={showSelection ? (propId) => {
                       setSelectedProps(prev => 
@@ -743,6 +792,16 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
             setSelectedPlayerForAnalysis(null);
           }}
           prop={selectedPlayerForAnalysis}
+        />
+
+        {/* PropFinder Analysis Overlay */}
+        <PropFinderAnalysisOverlay
+          prediction={selectedPropForAnalysis ? convertToAdvancedPrediction(selectedPropForAnalysis) : null}
+          isOpen={showPropFinderAnalysis}
+          onClose={() => {
+            setShowPropFinderAnalysis(false);
+            setSelectedPropForAnalysis(null);
+          }}
         />
       </div>
     </div>

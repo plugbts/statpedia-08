@@ -197,6 +197,50 @@ class SportsDataIOAPI {
     return this.cachedCurrentWeek;
   }
 
+  // Get multiple dates for broader data collection (like sportsbook analytics sites)
+  private getMultipleDates(daysCount: number): string[] {
+    const dates: string[] = [];
+    const today = new Date();
+    
+    for (let i = 0; i < daysCount; i++) {
+      const date = new Date(today);
+      date.setDate(date.getDate() + i - 1); // Start from yesterday
+      dates.push(date.toISOString().split('T')[0]); // YYYY-MM-DD format
+    }
+    
+    return dates;
+  }
+
+  // Helper method to process player props data
+  private processPlayerPropsData(rawData: any[], sport: string): PlayerProp[] {
+    return rawData
+      .filter(item => item && item.PlayerID && item.Name && item.Description)
+      .map(item => ({
+        id: `${item.PlayerID}_${item.ScoreID}_${item.Description}`,
+        playerId: item.PlayerID?.toString() || '',
+        playerName: item.Name,
+        team: item.Team,
+        teamAbbr: item.Team || this.getTeamAbbreviation(item.Team),
+        opponent: item.Opponent,
+        opponentAbbr: item.Opponent || this.getTeamAbbreviation(item.Opponent),
+        gameId: item.ScoreID?.toString(),
+        sport: sport.toUpperCase(),
+        propType: this.mapStatTypeToPropType(item.Description),
+        line: parseFloat(item.OverUnder) || 0,
+        overOdds: parseInt(item.OverPayout) || -110,
+        underOdds: parseInt(item.UnderPayout) || -110,
+        gameDate: item.DateTime,
+        gameTime: item.DateTime,
+        headshotUrl: '',
+        confidence: this.generateConfidence(),
+        expectedValue: this.generateExpectedValue(),
+        recentForm: 'average',
+        last5Games: this.generateLast5Games(),
+        seasonStats: this.generateSeasonStats(),
+        aiPrediction: this.generateAIPrediction(),
+      }));
+  }
+
   private async makeRequest<T>(endpoint: string, cacheDuration: number = CACHE_DURATION.PLAYER_PROPS): Promise<T> {
     const cacheKey = endpoint;
     const now = Date.now();
@@ -372,11 +416,99 @@ class SportsDataIOAPI {
         const currentWeek = week || this.getCurrentNFLWeek();
         endpoint = `/${sport.toLowerCase()}/odds/json/PlayerPropsByWeek/${seasonYear}/${currentWeek}`;
       } else if (sport.toLowerCase() === 'mlb') {
-        // Use current date for MLB playoffs
-        endpoint = `/${sport.toLowerCase()}/odds/json/PlayerPropsByGame/${currentDate}`;
+        // For MLB, try multiple dates to get more props
+        const dates = this.getMultipleDates(3); // Get props for today, yesterday, and tomorrow
+        const allProps = [];
+        
+        for (const date of dates) {
+          try {
+            const dateEndpoint = `/${sport.toLowerCase()}/odds/json/PlayerPropsByGame/${date}`;
+            const dateData = await this.makeRequest<any[]>(dateEndpoint, CACHE_DURATION.PLAYER_PROPS);
+            if (dateData && Array.isArray(dateData)) {
+              allProps.push(...dateData);
+            }
+          } catch (error) {
+            logWarning('SportsDataIO', `Failed to get props for ${sport} on ${date}:`, error);
+          }
+        }
+        
+        // Process all collected props
+        const props: PlayerProp[] = allProps
+          .filter(item => item && item.PlayerID && item.Name && item.Description)
+          .map(item => ({
+            id: `${item.PlayerID}_${item.ScoreID}_${item.Description}`,
+            playerId: item.PlayerID?.toString() || '',
+            playerName: item.Name,
+            team: item.Team,
+            teamAbbr: item.Team || this.getTeamAbbreviation(item.Team),
+            opponent: item.Opponent,
+            opponentAbbr: item.Opponent || this.getTeamAbbreviation(item.Opponent),
+            gameId: item.ScoreID?.toString(),
+            sport: sport.toUpperCase(),
+            propType: this.mapStatTypeToPropType(item.Description),
+            line: parseFloat(item.OverUnder) || 0,
+            overOdds: parseInt(item.OverPayout) || -110,
+            underOdds: parseInt(item.UnderPayout) || -110,
+            gameDate: item.DateTime,
+            gameTime: item.DateTime,
+            headshotUrl: '',
+            confidence: this.generateConfidence(),
+            expectedValue: this.generateExpectedValue(),
+            recentForm: 'average',
+            last5Games: this.generateLast5Games(),
+            seasonStats: this.generateSeasonStats(),
+            aiPrediction: this.generateAIPrediction(),
+          }));
+
+        logSuccess('SportsDataIO', `Retrieved ${props.length} player props for ${sport} across multiple dates`);
+        return props;
       } else {
-        // For other sports, use current date
-        endpoint = `/${sport.toLowerCase()}/odds/json/PlayerPropsByGame/${currentDate}`;
+        // For other sports (NBA, NHL), try multiple dates to get more props
+        const dates = this.getMultipleDates(3); // Get props for today, yesterday, and tomorrow
+        const allProps = [];
+        
+        for (const date of dates) {
+          try {
+            const dateEndpoint = `/${sport.toLowerCase()}/odds/json/PlayerPropsByGame/${date}`;
+            const dateData = await this.makeRequest<any[]>(dateEndpoint, CACHE_DURATION.PLAYER_PROPS);
+            if (dateData && Array.isArray(dateData)) {
+              allProps.push(...dateData);
+            }
+          } catch (error) {
+            logWarning('SportsDataIO', `Failed to get props for ${sport} on ${date}:`, error);
+          }
+        }
+        
+        // Process all collected props
+        const props: PlayerProp[] = allProps
+          .filter(item => item && item.PlayerID && item.Name && item.Description)
+          .map(item => ({
+            id: `${item.PlayerID}_${item.ScoreID}_${item.Description}`,
+            playerId: item.PlayerID?.toString() || '',
+            playerName: item.Name,
+            team: item.Team,
+            teamAbbr: item.Team || this.getTeamAbbreviation(item.Team),
+            opponent: item.Opponent,
+            opponentAbbr: item.Opponent || this.getTeamAbbreviation(item.Opponent),
+            gameId: item.ScoreID?.toString(),
+            sport: sport.toUpperCase(),
+            propType: this.mapStatTypeToPropType(item.Description),
+            line: parseFloat(item.OverUnder) || 0,
+            overOdds: parseInt(item.OverPayout) || -110,
+            underOdds: parseInt(item.UnderPayout) || -110,
+            gameDate: item.DateTime,
+            gameTime: item.DateTime,
+            headshotUrl: '',
+            confidence: this.generateConfidence(),
+            expectedValue: this.generateExpectedValue(),
+            recentForm: 'average',
+            last5Games: this.generateLast5Games(),
+            seasonStats: this.generateSeasonStats(),
+            aiPrediction: this.generateAIPrediction(),
+          }));
+
+        logSuccess('SportsDataIO', `Retrieved ${props.length} player props for ${sport} across multiple dates`);
+        return props;
       }
 
       const data = await this.makeRequest<any[]>(endpoint, CACHE_DURATION.PLAYER_PROPS);
