@@ -145,12 +145,22 @@ class UnifiedSportsAPI {
       // Filter by sportsbook if specified
       let filteredProps = enhancedProps;
       if (selectedSportsbook && selectedSportsbook !== 'all') {
-        filteredProps = enhancedProps.filter(prop => 
+        // Check if any props have sportsbook-specific odds
+        const propsWithSportsbookData = enhancedProps.filter(prop => 
           prop.allSportsbookOdds?.some(odds => 
-            odds.sportsbook.toLowerCase().includes(selectedSportsbook.toLowerCase())
+            odds.sportsbook && odds.sportsbook.toLowerCase().includes(selectedSportsbook.toLowerCase())
           )
         );
-        logAPI('UnifiedSportsAPI', `Filtered to ${filteredProps.length} props for sportsbook: ${selectedSportsbook}`);
+        
+        // If we have sportsbook-specific data, use it; otherwise show all props
+        // (since the API might aggregate data from all sportsbooks without specific attribution)
+        if (propsWithSportsbookData.length > 0) {
+          filteredProps = propsWithSportsbookData;
+          logAPI('UnifiedSportsAPI', `Filtered to ${filteredProps.length} props for sportsbook: ${selectedSportsbook}`);
+        } else {
+          logAPI('UnifiedSportsAPI', `No sportsbook-specific data found, showing all ${enhancedProps.length} props (aggregated from all sportsbooks)`);
+          filteredProps = enhancedProps;
+        }
       }
 
       logSuccess('UnifiedSportsAPI', `Returning ${filteredProps.length} enhanced player props for ${sport} from SportsGameOdds`);

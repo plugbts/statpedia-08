@@ -483,11 +483,11 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
                   </div>
                   <div className="flex items-center space-x-2">
                     <Calendar className="h-4 w-4" />
-                    <span>{new Date(prop.gameDate).toLocaleDateString()}</span>
+                    <span>{new Date(prop.gameDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Clock className="h-4 w-4" />
-                    <span>{prop.gameTime}</span>
+                    <span>{new Date(prop.gameTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</span>
                   </div>
                 </div>
               </div>

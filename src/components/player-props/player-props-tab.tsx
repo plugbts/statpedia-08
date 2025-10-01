@@ -8,12 +8,37 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
 import { SubscriptionOverlay } from '@/components/ui/subscription-overlay';
 import { PlayerPropCard3D } from './3d-player-prop-card';
 import { PlayerPropsColumnView } from './player-props-column-view';
 import { EnhancedAnalysisOverlay } from '../predictions/enhanced-analysis-overlay';
 import { PlayerPropCardAd } from '@/components/ads/ad-placements';
 import { logAPI, logState, logFilter, logSuccess, logError, logWarning, logInfo, logDebug } from '@/utils/console-logger';
+
+// Utility function for compact time formatting
+const formatCompactTime = (gameTime: string, gameDate: string) => {
+  try {
+    const date = new Date(gameDate);
+    const time = new Date(gameTime);
+    
+    // Format date as M/D (e.g., "12/25")
+    const dateStr = `${date.getMonth() + 1}/${date.getDate()}`;
+    
+    // Format time as H:MM AM/PM (e.g., "2:30 PM")
+    const timeStr = time.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+    
+    return `${dateStr} ${timeStr}`;
+  } catch (error) {
+    // Fallback to original format if parsing fails
+    return `${gameDate} ${gameTime}`;
+  }
+};
+
 import { unifiedSportsAPI } from '@/services/unified-sports-api';
 import { consistentPropsService, ConsistentPlayerProp } from '@/services/consistent-props-service';
 import { useNavigate } from 'react-router-dom';
@@ -144,6 +169,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const [viewMode, setViewMode] = useState<'column' | 'cards'>('column');
   const [selectedSportsbook, setSelectedSportsbook] = useState<string>('all');
   const [availableSportsbooks, setAvailableSportsbooks] = useState<{ key: string; title: string; lastUpdate: string }[]>([]);
+  
+  // Odds range filter state
+  const [minOdds, setMinOdds] = useState(-175);
+  const [maxOdds, setMaxOdds] = useState(500);
+  const [useOddsFilter, setUseOddsFilter] = useState(true);
 
   // Filter presets
   const filterPresets = {
@@ -169,6 +199,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         setSortBy(filters.sortBy || 'confidence');
         setSortOrder(filters.sortOrder || 'desc');
         setSelectedSportsbook(filters.selectedSportsbook || 'all');
+        setMinOdds(filters.minOdds || -175);
+        setMaxOdds(filters.maxOdds || 500);
+        setUseOddsFilter(filters.useOddsFilter !== undefined ? filters.useOddsFilter : true);
         logInfo('PlayerPropsTab', 'Loaded saved filter preferences');
       } catch (error) {
         logError('PlayerPropsTab', 'Failed to load saved filters:', error);
@@ -187,7 +220,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       propTypeFilter,
       sortBy,
       sortOrder,
-      selectedSportsbook
+      selectedSportsbook,
+      minOdds,
+      maxOdds,
+      useOddsFilter
     };
     localStorage.setItem(`player-props-filters-${sportFilter}`, JSON.stringify(filters));
     logInfo('PlayerPropsTab', 'Saved filter preferences');
@@ -205,6 +241,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     setSortOrder('desc');
     setSelectedSportsbook('all');
     setSearchQuery('');
+    setMinOdds(-175);
+    setMaxOdds(500);
+    setUseOddsFilter(true);
     localStorage.removeItem(`player-props-filters-${sportFilter}`);
     toast({
       title: "Filters Reset",
@@ -232,7 +271,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       saveFilterPreferences();
     }, 1000); // Debounce saves
     return () => clearTimeout(timeoutId);
-  }, [minConfidence, minEV, showOnlyPositiveEV, minLine, maxLine, propTypeFilter, sortBy, sortOrder, selectedSportsbook]);
+  }, [minConfidence, minEV, showOnlyPositiveEV, minLine, maxLine, propTypeFilter, sortBy, sortOrder, selectedSportsbook, minOdds, maxOdds, useOddsFilter]);
 
   // Update sport filter when selectedSport changes
   useEffect(() => {
@@ -339,12 +378,8 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
           // Start periodic odds updates for this sport
           consistentPropsService.startOddsUpdates(sport);
           
-          // Show success message
-          toast({
-            title: "Player Props Loaded",
-            description: `Found ${props.length} consistent player props for ${sport.toUpperCase()} with real-time FanDuel odds`,
-            variant: "default",
-          });
+          // Log success to console (visible in dev console)
+          logSuccess('PlayerPropsTab', `Player Props Loaded: Found ${props.length} consistent player props for ${sport.toUpperCase()} with real-time FanDuel odds`);
         } else {
           logWarning('PlayerPropsTab', 'API returned no valid props', props);
           setRealProps([]);
@@ -453,7 +488,14 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       const matchesPositiveEV = !showOnlyPositiveEV || (prop.expectedValue || 0) >= 0;
       const matchesLine = prop.line >= minLine && prop.line <= maxLine;
       
-      const passes = matchesSearch && matchesPropType && matchesConfidence && matchesEV && matchesPositiveEV && matchesLine;
+      // Odds range filter (default: -175 to +500)
+      const overOdds = prop.overOdds || 0;
+      const underOdds = prop.underOdds || 0;
+      const matchesOddsRange = !useOddsFilter || 
+        ((overOdds >= minOdds && overOdds <= maxOdds) || 
+         (underOdds >= minOdds && underOdds <= maxOdds));
+      
+      const passes = matchesSearch && matchesPropType && matchesConfidence && matchesEV && matchesPositiveEV && matchesLine && matchesOddsRange;
       
       if (!passes && realProps.length < 10) {
         logFilter('PlayerPropsTab', `Prop ${prop.playerName} filtered out: search=${matchesSearch}, type=${matchesPropType}, confidence=${matchesConfidence}, ev=${matchesEV}, positiveEV=${matchesPositiveEV}, line=${matchesLine}`);
@@ -726,7 +768,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                   setSelectedSportsbook(value);
                 }}>
                   <SelectTrigger className="w-full bg-background/50 border-primary/20 hover:border-primary/40">
-                    <SelectValue placeholder="All Sportsbooks" />
+                    <SelectValue placeholder="Select Sportsbook" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Sportsbooks</SelectItem>
@@ -867,6 +909,51 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                       />
                     </div>
 
+                    {/* Odds Range Filter */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <label className="text-sm font-medium">Odds Range</label>
+                          <Switch
+                            checked={useOddsFilter}
+                            onCheckedChange={setUseOddsFilter}
+                            className="data-[state=checked]:bg-primary"
+                          />
+                        </div>
+                        {useOddsFilter && (
+                          <Badge variant="outline" className="text-primary border-primary/30">
+                            {minOdds} to {maxOdds}
+                          </Badge>
+                        )}
+                      </div>
+                      {useOddsFilter && (
+                        <div className="space-y-3">
+                          <div>
+                            <label className="text-xs text-muted-foreground mb-1 block">Min Odds</label>
+                            <Slider
+                              value={[minOdds]}
+                              onValueChange={([value]) => setMinOdds(value)}
+                              max={maxOdds - 25}
+                              min={-500}
+                              step={25}
+                              className="w-full"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground mb-1 block">Max Odds</label>
+                            <Slider
+                              value={[maxOdds]}
+                              onValueChange={([value]) => setMaxOdds(value)}
+                              max={1000}
+                              min={minOdds + 25}
+                              step={25}
+                              className="w-full"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     {/* Line Range Filter */}
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
@@ -921,6 +1008,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                         <div>Confidence: ≥ {minConfidence}%</div>
                         <div>Expected Value: ≥ {minEV}%</div>
                         <div>Line Range: {minLine} - {maxLine}</div>
+                        {useOddsFilter && <div>Odds Range: {minOdds} to {maxOdds}</div>}
                         <div>Positive EV Only: {showOnlyPositiveEV ? 'Yes' : 'No'}</div>
                         <div>Prop Type: {propTypeFilter === 'all' ? 'All Types' : propTypeFilter}</div>
                       </div>

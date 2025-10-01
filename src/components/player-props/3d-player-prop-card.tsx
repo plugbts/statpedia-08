@@ -423,8 +423,8 @@ export function PlayerPropCard3D({
 
           {/* Game Info */}
           <div className="flex items-center justify-between text-xs text-slate-500 mb-4 font-semibold">
-            <span className="tracking-wide">{new Date(prop.gameDate).toLocaleDateString()}</span>
-            <span className="tracking-wide">{prop.gameTime}</span>
+            <span className="tracking-wide">{new Date(prop.gameDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+            <span className="tracking-wide">{new Date(prop.gameTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</span>
           </div>
 
           {/* Action Button */}

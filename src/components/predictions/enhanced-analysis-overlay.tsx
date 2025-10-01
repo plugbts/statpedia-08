@@ -984,7 +984,7 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-7xl max-h-[90vh] bg-gradient-to-br from-black via-gray-900 to-black border-slate-700 overflow-y-auto">
+      <DialogContent className="max-w-7xl max-h-[90vh] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border-slate-600 overflow-y-auto">
         {/* Enhanced Header with Gradient */}
         <DialogHeader className="relative pb-6">
           <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-emerald-600/20 rounded-t-lg" />

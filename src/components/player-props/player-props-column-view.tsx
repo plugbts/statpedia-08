@@ -23,7 +23,6 @@ import {
   SortDesc
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { AnalysisOverlay3D } from './3d-analysis-overlay';
 
 interface PlayerProp {
   id: string;
@@ -71,8 +70,6 @@ export function PlayerPropsColumnView({
   const [sortBy, setSortBy] = useState('confidence');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filterBy, setFilterBy] = useState('all');
-  const [selectedProp, setSelectedProp] = useState<PlayerProp | null>(null);
-  const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
 
   // Format number helper with .5 and .0 intervals for lines
   const formatNumber = (value: number, decimals: number = 1): string => {
@@ -160,8 +157,7 @@ export function PlayerPropsColumnView({
     });
 
   const handlePropClick = (prop: PlayerProp) => {
-    setSelectedProp(prop);
-    setIsAnalysisOpen(true);
+    // Parent component handles the overlay
     if (onAnalysisClick) {
       onAnalysisClick(prop);
     }
@@ -310,7 +306,7 @@ export function PlayerPropsColumnView({
                     {prop.propType}
                   </div>
                   <div className="text-xs text-slate-400">
-                    {new Date(prop.gameDate).toLocaleDateString()} {prop.gameTime}
+                    {new Date(prop.gameDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} {new Date(prop.gameTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
                   </div>
                 </div>
 
@@ -401,17 +397,7 @@ export function PlayerPropsColumnView({
         </div>
       )}
 
-      {/* Analysis Overlay */}
-      {selectedProp && (
-        <AnalysisOverlay3D
-          prop={selectedProp}
-          isOpen={isAnalysisOpen}
-          onClose={() => {
-            setIsAnalysisOpen(false);
-            setSelectedProp(null);
-          }}
-        />
-      )}
+      {/* Analysis Overlay - Removed: Parent component now handles the EnhancedAnalysisOverlay */}
     </div>
   );
 }
