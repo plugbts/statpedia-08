@@ -145,8 +145,15 @@ class UnifiedSportsAPI {
         };
       });
 
-      logSuccess('UnifiedSportsAPI', `Enhanced ${enhancedProps.length} player props with dual API data (current/future games only)`);
-      return enhancedProps;
+      // Sort by game date ascending (closest games first, then future games)
+      const sortedProps = enhancedProps.sort((a, b) => {
+        const dateA = new Date(a.gameDate).getTime();
+        const dateB = new Date(b.gameDate).getTime();
+        return dateA - dateB; // Ascending order (closest games first)
+      });
+
+      logSuccess('UnifiedSportsAPI', `Enhanced and sorted ${sortedProps.length} player props with dual API data (current/future games only)`);
+      return sortedProps;
 
     } catch (error) {
       logError('UnifiedSportsAPI', `Failed to get player props for ${sport}:`, error);
@@ -221,17 +228,70 @@ class UnifiedSportsAPI {
     logInfo('UnifiedSportsAPI', 'Cache cleared for both APIs');
   }
 
-  // Filter props to include recent games and future games (like top sportsbook analytics sites)
+  // Get past games for analytics tab
+  async getPastPlayerProps(sport: string, season?: number, week?: number, selectedSportsbook?: string): Promise<PlayerProp[]> {
+    try {
+      // Get base player props from SportsDataIO
+      const sportsDataIOProps = await sportsDataIOAPI.getPlayerProps(sport, season, week);
+      logAPI('UnifiedSportsAPI', `Retrieved ${sportsDataIOProps.length} props from SportsDataIO`);
+
+      // Filter for past games only
+      const filteredProps = this.filterPastGames(sportsDataIOProps);
+      logAPI('UnifiedSportsAPI', `Filtered to ${filteredProps.length} past game props for analytics`);
+
+      // Convert to PlayerProp format and sort by date (most recent first)
+      const playerProps: PlayerProp[] = filteredProps
+        .map(prop => ({
+          id: prop.id,
+          playerId: prop.playerId,
+          playerName: prop.playerName,
+          team: prop.team,
+          teamAbbr: prop.teamAbbr,
+          opponent: prop.opponent,
+          opponentAbbr: prop.opponentAbbr,
+          gameId: prop.gameId,
+          sport: prop.sport,
+          propType: prop.propType,
+          line: prop.line,
+          overOdds: prop.overOdds,
+          underOdds: prop.underOdds,
+          gameDate: prop.gameDate,
+          gameTime: prop.gameTime,
+          headshotUrl: prop.headshotUrl,
+          confidence: prop.confidence,
+          expectedValue: prop.expectedValue,
+          recentForm: prop.recentForm,
+          last5Games: prop.last5Games,
+          seasonStats: prop.seasonStats,
+          aiPrediction: prop.aiPrediction,
+        }))
+        .sort((a, b) => {
+          // Sort by game date descending (most recent past games first)
+          const dateA = new Date(a.gameDate).getTime();
+          const dateB = new Date(b.gameDate).getTime();
+          return dateB - dateA;
+        });
+
+      // Filter by sportsbook if specified
+      const finalProps = selectedSportsbook && selectedSportsbook !== 'all' 
+        ? playerProps.filter(prop => prop.sport === selectedSportsbook.toUpperCase())
+        : playerProps;
+
+      logSuccess('UnifiedSportsAPI', `Returned ${finalProps.length} past player props for analytics`);
+      return finalProps;
+    } catch (error) {
+      logError('UnifiedSportsAPI', `Failed to get past player props for ${sport}:`, error);
+      return [];
+    }
+  }
+
+  // Filter props to include only current and future games (no past games)
   private filterCurrentAndFutureGames(props: SportsDataIOPlayerProp[]): SportsDataIOPlayerProp[] {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
-    // Include games from 3 days ago to 7 days in the future (more realistic range)
-    const startDate = new Date(today);
-    startDate.setDate(startDate.getDate() - 3); // 3 days ago
-    
-    const endDate = new Date(today);
-    endDate.setDate(endDate.getDate() + 7); // 7 days in the future
+    // Only include games from today onwards (current and future games only)
+    // No past games - they will be moved to analytics tab
     
     return props.filter(prop => {
       if (!prop.gameDate) return false;
@@ -240,8 +300,31 @@ class UnifiedSportsAPI {
         const gameDate = new Date(prop.gameDate);
         const gameDay = new Date(gameDate.getFullYear(), gameDate.getMonth(), gameDate.getDate());
         
-        // Include games within the realistic range (3 days ago to 7 days future)
-        return gameDay >= startDate && gameDay <= endDate;
+        // Only include games from today onwards (no past games)
+        return gameDay >= today;
+      } catch (error) {
+        logWarning('UnifiedSportsAPI', `Invalid game date format: ${prop.gameDate}`, error);
+        return false;
+      }
+    });
+  }
+
+  // Filter props to include only past games for analytics
+  private filterPastGames(props: SportsDataIOPlayerProp[]): SportsDataIOPlayerProp[] {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    // Only include games from before today (past games for analytics)
+    
+    return props.filter(prop => {
+      if (!prop.gameDate) return false;
+      
+      try {
+        const gameDate = new Date(prop.gameDate);
+        const gameDay = new Date(gameDate.getFullYear(), gameDate.getMonth(), gameDate.getDate());
+        
+        // Only include games from before today (past games)
+        return gameDay < today;
       } catch (error) {
         logWarning('UnifiedSportsAPI', `Invalid game date format: ${prop.gameDate}`, error);
         return false;
