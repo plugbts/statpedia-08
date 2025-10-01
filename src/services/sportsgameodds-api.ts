@@ -372,6 +372,18 @@ class SportsGameOddsAPI {
         return [];
       }
 
+      // Log the first event structure for debugging
+      if (eventsData.length > 0) {
+        const firstEvent = eventsData[0];
+        logAPI('SportsGameOddsAPI', `First event structure:`, {
+          eventID: firstEvent.eventID,
+          hasOdds: !!firstEvent.odds,
+          oddsCount: firstEvent.odds ? Object.keys(firstEvent.odds).length : 0,
+          oddsKeys: firstEvent.odds ? Object.keys(firstEvent.odds).slice(0, 5) : [],
+          teams: firstEvent.teams
+        });
+      }
+
       // Extract player props from the markets in each event
       const playerProps: SportsGameOddsPlayerProp[] = [];
       
@@ -439,6 +451,8 @@ class SportsGameOddsAPI {
           hasByBookmaker: !!odd.byBookmaker,
           bookmakerCount: odd.byBookmaker ? Object.keys(odd.byBookmaker).length : 0,
           bookmakers: odd.byBookmaker ? Object.keys(odd.byBookmaker) : [],
+          oddKeys: Object.keys(odd),
+          isPlayerPropCheck: this.isPlayerPropMarket(odd, oddId),
           fullOddStructure: odd
         });
         
@@ -467,6 +481,9 @@ class SportsGameOddsAPI {
       const legacyProp = this.convertOddToPlayerProp(odd, oddId, sport, homeTeam, awayTeam, gameId, gameTime, event);
       if (legacyProp) {
         playerProps.push(legacyProp);
+        logAPI('SportsGameOddsAPI', `Successfully created legacy prop for ${oddId}`);
+      } else {
+        logAPI('SportsGameOddsAPI', `Failed to create legacy prop for ${oddId}`);
       }
       return playerProps;
     }
@@ -911,6 +928,9 @@ class SportsGameOddsAPI {
     // PlayerIDs typically contain underscores and player names like "JAMES_COOK_1_NFL"
     const isPlayerID = /^[A-Z_]+_[A-Z_]+_\d+_[A-Z]+$/.test(statEntityID);
     
+    // Also check for simpler player ID patterns
+    const isSimplePlayerID = statEntityID && statEntityID !== '0' && statEntityID !== 'null' && statEntityID !== 'undefined' && statEntityID.length > 3;
+    
     // Check if it's a player-specific stat
     const playerStats = [
       'passing_yards', 'rushing_yards', 'receiving_yards', 'receptions',
@@ -927,11 +947,12 @@ class SportsGameOddsAPI {
     const isPlayerStat = playerStats.includes(statID.toLowerCase());
     
     // Check if it's an over/under bet type (common for player props)
-    const isOverUnder = betTypeID === 'ou';
+    const isOverUnder = betTypeID === 'ou' || betTypeID === 'over_under';
     
-    logAPI('SportsGameOddsAPI', `Checking oddID: ${oddId} - isPlayerID: ${isPlayerID}, isPlayerStat: ${isPlayerStat}, isOverUnder: ${isOverUnder}`);
+    logAPI('SportsGameOddsAPI', `Checking oddID: ${oddId} - isPlayerID: ${isPlayerID}, isSimplePlayerID: ${isSimplePlayerID}, isPlayerStat: ${isPlayerStat}, isOverUnder: ${isOverUnder}, statEntityID: ${statEntityID}`);
     
-    return isPlayerID && isPlayerStat && isOverUnder;
+    // Use either strict player ID pattern or simple player ID check
+    return (isPlayerID || isSimplePlayerID) && isPlayerStat && isOverUnder;
   }
 
   // Process player props data from SportsGameOdds API response
