@@ -179,6 +179,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         setUserIdentity(null);
         setUserSubscription('free');
         setUserRole('user');
+        setHasCompletedUsernameSetup(false);
         setIsLoading(false);
         return;
       }
@@ -281,6 +282,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           setUserIdentity(null);
           setUserSubscription('free');
           setUserRole('user');
+          setHasCompletedUsernameSetup(false);
         }
       }
     );
@@ -347,6 +349,12 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         // Check if user has completed username setup
         const hasUsername = !!(identity.username && identity.username.trim() !== '');
         const isSetupComplete = hasUsername || checkUsernameSetupCompletion(user.id);
+        console.log('Username setup check:', { 
+          hasUsername, 
+          isSetupComplete, 
+          username: identity.username,
+          userId: user.id 
+        });
         setHasCompletedUsernameSetup(isSetupComplete);
       }
       
@@ -452,6 +460,14 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     
     return parts.length > 0 ? parts.join(' ') : userIdentity.display_name || 'User';
   };
+
+  // Initialize username completion status on mount
+  useEffect(() => {
+    if (user) {
+      const isComplete = checkUsernameSetupCompletion(user.id);
+      setHasCompletedUsernameSetup(isComplete);
+    }
+  }, [user, checkUsernameSetupCompletion]);
 
   // Listen for user context refresh events
   useEffect(() => {

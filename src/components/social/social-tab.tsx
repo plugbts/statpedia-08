@@ -293,7 +293,14 @@ export const SocialTab: React.FC<SocialTabProps> = ({ onReturnToDashboard }) => 
         }
 
         // Check if user has a username set
-        if (!profile.username || profile.username.trim() === '') {
+        const hasUsername = !!(profile.username && profile.username.trim() !== '');
+        console.log('Username check:', { 
+          hasUsername, 
+          hasCompletedUsernameSetup, 
+          profileUsername: profile.username 
+        });
+        
+        if (!hasUsername) {
           // Only show username prompt if user hasn't completed setup
           if (!hasCompletedUsernameSetup) {
             console.log('No username found, showing prompt');
@@ -301,6 +308,10 @@ export const SocialTab: React.FC<SocialTabProps> = ({ onReturnToDashboard }) => 
           }
           setIsLoading(false);
           return;
+        } else {
+          // User has username, ensure prompt is hidden
+          console.log('User has username, hiding prompt');
+          setShowUsernamePrompt(false);
         }
       } catch (error: any) {
         console.log('Profile service error (expected if tables missing):', error);
