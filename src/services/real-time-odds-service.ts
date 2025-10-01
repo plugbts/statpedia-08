@@ -48,7 +48,7 @@ class RealTimeOddsService {
   private cache: Map<string, { data: OddsSnapshot; timestamp: number }> = new Map();
   private readonly CACHE_DURATION = 30 * 1000; // 30 seconds
   private readonly SYNC_INTERVAL = 60 * 1000; // 1 minute
-  private syncTimer: NodeJS.Timeout | null = null;
+  private syncTimer: number | null = null;
   private isRunning = false;
 
   // Sportsbook API configurations

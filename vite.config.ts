@@ -9,7 +9,26 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
   },
-  plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+  plugins: [
+    react(), 
+    mode === "development" && componentTagger(),
+    // Add polyfill plugin for Node.js globals
+    {
+      name: 'node-polyfill',
+      configResolved(config) {
+        // Ensure process is available globally
+        if (typeof globalThis.process === 'undefined') {
+          globalThis.process = {
+            env: { NODE_ENV: 'development' },
+            version: 'v16.0.0',
+            versions: { node: '16.0.0' },
+            platform: 'browser',
+            browser: true
+          };
+        }
+      }
+    }
+  ].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -35,8 +54,16 @@ export default defineConfig(({ mode }) => ({
     'import.meta.env.VITE_BETMGM_API_KEY': JSON.stringify(""),
     'import.meta.env.VITE_CAESARS_API_KEY': JSON.stringify(""),
     'import.meta.env.VITE_POINTSBET_API_KEY': JSON.stringify(""),
-    // Polyfill for process to prevent ReferenceError
+    // Comprehensive polyfill for process to prevent ReferenceError
     'process.env.NODE_ENV': JSON.stringify('development'),
-    'process': JSON.stringify({ env: { NODE_ENV: 'development' } }),
+    'process.env': JSON.stringify({ NODE_ENV: 'development' }),
+    'process': JSON.stringify({ 
+      env: { NODE_ENV: 'development' },
+      version: 'v16.0.0',
+      versions: { node: '16.0.0' },
+      platform: 'browser',
+      browser: true
+    }),
+    'global': 'globalThis',
   },
 }));
