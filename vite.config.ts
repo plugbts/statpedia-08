@@ -35,5 +35,8 @@ export default defineConfig(({ mode }) => ({
     'import.meta.env.VITE_BETMGM_API_KEY': JSON.stringify(""),
     'import.meta.env.VITE_CAESARS_API_KEY': JSON.stringify(""),
     'import.meta.env.VITE_POINTSBET_API_KEY': JSON.stringify(""),
+    // Polyfill for process to prevent ReferenceError
+    'process.env.NODE_ENV': JSON.stringify('development'),
+    'process': JSON.stringify({ env: { NODE_ENV: 'development' } }),
   },
 }));
