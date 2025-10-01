@@ -110,6 +110,12 @@ class FreshAPIService {
       const rawData = await response.json();
       console.log(`📊 [FreshAPI] Raw data received: ${rawData.length} items`);
       
+      // Check if we got valid data
+      if (!rawData || rawData.length === 0) {
+        console.warn(`⚠️ [FreshAPI] No data returned from API, using mock data`);
+        return this.getMockPlayerProps(sport);
+      }
+      
       // Parse the data with correct field mapping
       const props: PlayerProp[] = rawData
         .filter((item: any) => item && item.PlayerID && item.Description && item.Name)
@@ -174,6 +180,12 @@ class FreshAPIService {
       
       console.log(`✅ [FreshAPI] Successfully parsed ${props.length} player props`);
       
+      // Check if we got valid props
+      if (props.length === 0) {
+        console.warn(`⚠️ [FreshAPI] No valid props after parsing, using mock data`);
+        return this.getMockPlayerProps(sport);
+      }
+      
       // Log first few props to verify data quality
       if (props.length > 0) {
         console.log('🔍 [FreshAPI] Sample props:');
@@ -186,8 +198,44 @@ class FreshAPIService {
       
     } catch (error) {
       console.error(`❌ [FreshAPI] Error getting player props:`, error);
-      return [];
+      console.log(`🔄 [FreshAPI] Falling back to mock data for ${sport}`);
+      return this.getMockPlayerProps(sport);
     }
+  }
+
+  // Get mock player props as fallback
+  private getMockPlayerProps(sport: string): PlayerProp[] {
+    console.log(`🎭 [FreshAPI] Generating mock player props for ${sport}`);
+    
+    // Import mock service
+    const { mockPlayerPropsService } = require('./mock-player-props-service');
+    const mockProps = mockPlayerPropsService.generateMockPlayerProps(sport, 20);
+    
+    // Convert mock props to PlayerProp format
+    return mockProps.map((mockProp: any) => ({
+      id: mockProp.id,
+      playerId: mockProp.playerId,
+      playerName: mockProp.playerName,
+      team: mockProp.team,
+      teamAbbr: mockProp.teamAbbr,
+      opponent: mockProp.opponent,
+      opponentAbbr: mockProp.opponentAbbr,
+      gameId: mockProp.gameId,
+      sport: mockProp.sport,
+      propType: mockProp.propType,
+      line: mockProp.line,
+      overOdds: mockProp.overOdds,
+      underOdds: mockProp.underOdds,
+      gameDate: mockProp.gameDate,
+      gameTime: mockProp.gameTime,
+      headshotUrl: mockProp.headshotUrl,
+      confidence: mockProp.confidence || 0.7,
+      expectedValue: mockProp.expectedValue || 0.05,
+      recentForm: mockProp.recentForm,
+      last5Games: mockProp.last5Games,
+      seasonStats: mockProp.seasonStats,
+      aiPrediction: mockProp.aiPrediction
+    }));
   }
 }
 

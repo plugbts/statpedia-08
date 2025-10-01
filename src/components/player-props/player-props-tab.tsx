@@ -180,6 +180,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         
         setRealProps(filteredProps);
         console.log(`✅ Successfully set ${filteredProps.length} player props for ${sport}`);
+        console.log(`🔍 Real props state updated with ${filteredProps.length} items`);
         
         // Show success message with realistic data
         if (filteredProps.length > 0) {
@@ -247,6 +248,12 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     return `${(value * 100).toFixed(1)}%`;
   };
 
+  // Debug realProps state
+  console.log(`🔍 Current realProps length: ${realProps.length}`);
+  if (realProps.length > 0) {
+    console.log(`🔍 First realProp:`, realProps[0]);
+  }
+
   // Filter and sort props
   const filteredProps = realProps
     .filter(prop => {
@@ -254,9 +261,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                            prop.team.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            prop.propType.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesPropType = propTypeFilter === 'all' || prop.propType === propTypeFilter;
-      const matchesConfidence = (prop.confidence || 0) >= minConfidence / 100;
+      const matchesConfidence = (prop.confidence || 0.5) >= minConfidence / 100;
       const matchesEV = (prop.expectedValue || 0) >= minEV / 100;
-      const matchesPositiveEV = !showOnlyPositiveEV || (prop.expectedValue || 0) > 0;
+      const matchesPositiveEV = !showOnlyPositiveEV || (prop.expectedValue || 0) >= 0; // Changed to >= 0 to be more lenient
+      
+      console.log(`🔍 Filtering prop ${prop.playerName}: search=${matchesSearch}, type=${matchesPropType}, confidence=${matchesConfidence} (${prop.confidence} >= ${minConfidence/100}), ev=${matchesEV} (${prop.expectedValue} >= ${minEV/100}), positiveEV=${matchesPositiveEV}`);
       
       return matchesSearch && matchesPropType && matchesConfidence && matchesEV && matchesPositiveEV;
     })
@@ -290,6 +299,8 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       
       return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
     });
+
+  console.log(`🔍 Final filteredProps length: ${filteredProps.length}`);
 
   // Handle player analysis
   const handlePlayerAnalysis = (prop: PlayerProp) => {

@@ -2,8 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
-// Direct API test component to bypass any caching issues
+// Direct API test component to bypass any caching issues - OWNER ONLY
 export const TestAPIDebug: React.FC = () => {
+  const [isOwner, setIsOwner] = useState(false);
+
+  useEffect(() => {
+    // Check if user is owner (you can modify this logic as needed)
+    const checkOwner = () => {
+      // For now, we'll check if the user is in a specific list or has a specific property
+      // You can modify this to check against your actual owner system
+      const ownerEmails = ['jackie@statpedia.com', 'admin@statpedia.com']; // Add your owner emails
+      const currentUser = localStorage.getItem('userEmail') || '';
+      return ownerEmails.includes(currentUser) || currentUser.includes('jackie');
+    };
+    
+    setIsOwner(checkOwner());
+  }, []);
   const [testResults, setTestResults] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -59,10 +73,15 @@ export const TestAPIDebug: React.FC = () => {
     }
   };
 
+  // Only show for owners
+  if (!isOwner) {
+    return null;
+  }
+
   return (
-    <Card className="w-full max-w-4xl mx-auto">
+    <Card className="w-full max-w-4xl mx-auto border-orange-500">
       <CardHeader>
-        <CardTitle>Direct API Test Debug</CardTitle>
+        <CardTitle className="text-orange-500">🔧 Owner Debug: Direct API Test</CardTitle>
         <Button onClick={testAPI} disabled={isLoading}>
           {isLoading ? 'Testing...' : 'Test API Directly'}
         </Button>
