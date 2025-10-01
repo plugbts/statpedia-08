@@ -443,7 +443,8 @@ class SportsGameOddsAPI {
           underOdds: odd.underOdds,
           bookOverUnder: odd.bookOverUnder,
           line: odd.line,
-          consensusCalculated: odd.fairOddsAvailable ? 'Yes - Using consensus odds' : 'No - Using book odds'
+          consensusCalculated: odd.fairOddsAvailable ? 'Yes - Using consensus odds' : 'No - Using book odds',
+          oddStructure: 'Full odd object:', odd
         });
         
         // Check if this is a player prop market (has playerID as statEntityID)
@@ -552,16 +553,19 @@ class SportsGameOddsAPI {
       if (odd.fairOddsAvailable && odd.fairOdds) {
         // Use the consensus fair odds from the API
         // The fairOdds represents the most balanced odds after removing juice
-        overOdds = odd.fairOdds;
-        underOdds = odd.fairOdds;
+        const normalizedFairOdds = this.normalizeOddsToAmerican(odd.fairOdds);
+        overOdds = normalizedFairOdds;
+        underOdds = normalizedFairOdds;
         
-        logAPI('SportsGameOddsAPI', `Using consensus fair odds: ${odd.fairOdds} for ${playerName} ${propType}`);
+        logAPI('SportsGameOddsAPI', `Using consensus fair odds: ${odd.fairOdds} -> American: ${normalizedFairOdds} for ${playerName} ${propType}`);
       } else {
         // Fallback to book odds if consensus not available
-        overOdds = odd.overOdds || -110;
-        underOdds = odd.underOdds || -110;
+        const normalizedOverOdds = this.normalizeOddsToAmerican(odd.overOdds || -110);
+        const normalizedUnderOdds = this.normalizeOddsToAmerican(odd.underOdds || -110);
+        overOdds = normalizedOverOdds;
+        underOdds = normalizedUnderOdds;
         
-        logAPI('SportsGameOddsAPI', `Using book odds (consensus not available): Over ${overOdds}, Under ${underOdds} for ${playerName} ${propType}`);
+        logAPI('SportsGameOddsAPI', `Using book odds (consensus not available): Over ${odd.overOdds} -> ${normalizedOverOdds}, Under ${odd.underOdds} -> ${normalizedUnderOdds} for ${playerName} ${propType}`);
       }
 
       logAPI('SportsGameOddsAPI', `Converting player prop: ${playerName} - ${propType} - Line: ${line} - Over: ${overOdds} - Under: ${underOdds}`);
@@ -614,8 +618,8 @@ class SportsGameOddsAPI {
         sport: sport.toUpperCase(),
         propType: player.propType || player.market || 'Points',
         line: player.line || player.overUnder || 0,
-        overOdds: player.overOdds || player.over || -110,
-        underOdds: player.underOdds || player.under || -110,
+        overOdds: this.normalizeOddsToAmerican(player.overOdds || player.over || -110),
+        underOdds: this.normalizeOddsToAmerican(player.underOdds || player.under || -110),
         sportsbook: 'SportsGameOdds',
         sportsbookKey: 'sgo',
         lastUpdate: new Date().toISOString(),
@@ -815,8 +819,8 @@ class SportsGameOddsAPI {
           sport: sport.toUpperCase(),
           propType: market.propType || market.market || market.betType || 'Points',
           line: market.line || market.overUnder || market.spread || 0,
-          overOdds: market.overOdds || market.over || -110,
-          underOdds: market.underOdds || market.under || -110,
+          overOdds: this.normalizeOddsToAmerican(market.overOdds || market.over || -110),
+          underOdds: this.normalizeOddsToAmerican(market.underOdds || market.under || -110),
           sportsbook: market.sportsbook || market.bookmaker || 'SportsGameOdds',
           sportsbookKey: market.sportsbookKey || market.bookmakerId || 'sgo',
           lastUpdate: market.lastUpdate || market.updatedAt || new Date().toISOString(),
@@ -950,6 +954,48 @@ class SportsGameOddsAPI {
     }
     
     return 'sgo';
+  }
+
+  // Convert decimal odds to American odds format
+  private convertDecimalToAmerican(decimalOdds: number): number {
+    if (decimalOdds >= 2.0) {
+      // Positive American odds
+      return Math.round((decimalOdds - 1) * 100);
+    } else {
+      // Negative American odds
+      return Math.round(-100 / (decimalOdds - 1));
+    }
+  }
+
+  // Convert American odds to decimal odds format
+  private convertAmericanToDecimal(americanOdds: number): number {
+    if (americanOdds > 0) {
+      return (americanOdds / 100) + 1;
+    } else {
+      return (100 / Math.abs(americanOdds)) + 1;
+    }
+  }
+
+  // Detect and convert odds to proper American format
+  private normalizeOddsToAmerican(odds: number): number {
+    // If odds are already in American format (between -1000 and 1000 typically)
+    if (odds >= -1000 && odds <= 1000 && odds !== 0) {
+      return odds;
+    }
+    
+    // If odds are in decimal format (typically > 1.0)
+    if (odds > 1.0) {
+      return this.convertDecimalToAmerican(odds);
+    }
+    
+    // If odds are in fractional format (like 1/2, 2/1) - convert to decimal first
+    if (odds < 1.0 && odds > 0) {
+      const decimalOdds = 1 / odds;
+      return this.convertDecimalToAmerican(decimalOdds);
+    }
+    
+    // Default fallback
+    return -110;
   }
 
   // Note: Sample data creation method removed to focus on real SportsGameOdds API data only
