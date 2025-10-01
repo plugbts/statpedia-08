@@ -493,16 +493,29 @@ export const DevConsole: React.FC = () => {
                                   <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700">
                                     {sportsGameOddsAPI.getUsageStats().callsToday} calls today
                                   </Badge>
-                                  {sportsGameOddsAPI.getUsageStats().isNearLimit && (
-                                    <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700">
-                                      Near Limit
-                                    </Badge>
-                                  )}
-                                  {sportsGameOddsAPI.getUsageStats().isAtLimit && (
-                                    <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700">
-                                      At Limit
-                                    </Badge>
-                                  )}
+                                  {(() => {
+                                    const rateLimitStatus = sportsGameOddsAPI.getRateLimitStatus();
+                                    if (rateLimitStatus.status === 'LIMIT_EXCEEDED') {
+                                      return (
+                                        <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700">
+                                          Rate Limited
+                                        </Badge>
+                                      );
+                                    } else if (rateLimitStatus.status === 'NEAR_LIMIT') {
+                                      return (
+                                        <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700">
+                                          Near Limit
+                                        </Badge>
+                                      );
+                                    } else if (rateLimitStatus.status === 'HIGH_USAGE') {
+                                      return (
+                                        <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-700">
+                                          High Usage
+                                        </Badge>
+                                      );
+                                    }
+                                    return null;
+                                  })()}
                                 </div>
                               </div>
                               <div className="space-y-2">

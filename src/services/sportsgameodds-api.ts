@@ -4,15 +4,15 @@ import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/conso
 const SPORTSGAMEODDS_API_KEY = '740556c91b9aa5616c0521cc2f09ed74';
 const SPORTSGAMEODDS_BASE_URL = 'https://api.sportsgameodds.com';
 
-// Cache configuration - increased durations to reduce API calls
+// Cache configuration - extremely long durations to minimize API calls
 const CACHE_DURATION = {
-  ODDS: 30 * 60 * 1000, // 30 minutes for odds (increased from 5 minutes)
-  MARKETS: 30 * 60 * 1000, // 30 minutes for markets (increased from 5 minutes)
-  GAMES: 60 * 60 * 1000, // 1 hour for games (increased from 15 minutes)
-  SPORTS: 24 * 60 * 60 * 1000, // 24 hours for sports (rarely change)
-  BOOKMAKERS: 24 * 60 * 60 * 1000, // 24 hours for bookmakers (rarely change)
-  PLAYERS: 12 * 60 * 60 * 1000, // 12 hours for players (rarely change)
-  TEAMS: 24 * 60 * 60 * 1000 // 24 hours for teams (rarely change)
+  ODDS: 4 * 60 * 60 * 1000, // 4 hours for odds (very long cache)
+  MARKETS: 4 * 60 * 60 * 1000, // 4 hours for markets (very long cache)
+  GAMES: 12 * 60 * 60 * 1000, // 12 hours for games (very long cache)
+  SPORTS: 7 * 24 * 60 * 60 * 1000, // 7 days for sports (rarely change)
+  BOOKMAKERS: 7 * 24 * 60 * 60 * 1000, // 7 days for bookmakers (rarely change)
+  PLAYERS: 3 * 24 * 60 * 60 * 1000, // 3 days for players (rarely change)
+  TEAMS: 7 * 24 * 60 * 60 * 1000 // 7 days for teams (rarely change)
 };
 
 // SportsGameOdds API Interfaces
@@ -97,7 +97,7 @@ class SportsGameOddsAPI {
     cacheHits: 0,
     cacheMisses: 0
   };
-  private readonly MAX_DAILY_CALLS = 100; // Very conservative limit for trial plan to avoid rate limits
+  private readonly MAX_DAILY_CALLS = 20; // Extremely conservative limit for trial plan to avoid rate limits
 
   constructor() {
     logInfo('SportsGameOddsAPI', 'SportsGameOdds API initialized with usage tracking');
@@ -163,7 +163,31 @@ class SportsGameOddsAPI {
   // Check if we should avoid making API calls due to high usage
   shouldAvoidAPICall(): boolean {
     const usagePercentage = (this.usageStats.callsToday / this.MAX_DAILY_CALLS) * 100;
-    return usagePercentage >= 95; // Avoid calls when at 95% of limit
+    return usagePercentage >= 80; // Avoid calls when at 80% of limit (more conservative)
+  }
+
+  // Get time until next API call is allowed (exponential backoff)
+  getTimeUntilNextCall(): number {
+    const usagePercentage = (this.usageStats.callsToday / this.MAX_DAILY_CALLS) * 100;
+    
+    if (usagePercentage >= 100) {
+      // If at limit, wait until tomorrow
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(0, 0, 0, 0);
+      return tomorrow.getTime() - Date.now();
+    } else if (usagePercentage >= 80) {
+      // If near limit, wait 1 hour
+      return 60 * 60 * 1000;
+    } else if (usagePercentage >= 60) {
+      // If getting close, wait 30 minutes
+      return 30 * 60 * 1000;
+    } else if (usagePercentage >= 40) {
+      // If moderate usage, wait 10 minutes
+      return 10 * 60 * 1000;
+    }
+    
+    return 0; // No wait needed
   }
 
   // Get detailed endpoint usage statistics
@@ -193,16 +217,56 @@ class SportsGameOddsAPI {
     const usagePercentage = this.usageStats.callsToday / this.MAX_DAILY_CALLS;
     
     if (usagePercentage >= 0.8) {
-      recommendations.push('Consider reducing API call frequency');
-      recommendations.push('Increase cache duration for static data');
+      recommendations.push('⚠️ HIGH USAGE: Consider reducing API call frequency');
+      recommendations.push('⚠️ Increase cache duration for static data');
+      recommendations.push('⚠️ Consider using cached data instead of live API calls');
     }
     
     if (usagePercentage >= 0.9) {
-      recommendations.push('Switch to cached data only mode');
-      recommendations.push('Consider upgrading API plan');
+      recommendations.push('🚨 Switch to cached data only mode');
+      recommendations.push('🚨 Consider upgrading API plan');
+    }
+    
+    if (usagePercentage >= 1.0) {
+      recommendations.push('🚨 RATE LIMIT HIT: Wait until tomorrow to make more calls');
     }
     
     return recommendations;
+  }
+
+  // Get rate limit status for display
+  getRateLimitStatus(): { status: string; message: string; canMakeCalls: boolean; waitTime?: number } {
+    const usagePercentage = (this.usageStats.callsToday / this.MAX_DAILY_CALLS) * 100;
+    const waitTime = this.getTimeUntilNextCall();
+    
+    if (usagePercentage >= 100) {
+      return {
+        status: 'LIMIT_EXCEEDED',
+        message: `Daily limit exceeded (${this.usageStats.callsToday}/${this.MAX_DAILY_CALLS} calls)`,
+        canMakeCalls: false,
+        waitTime: waitTime
+      };
+    } else if (usagePercentage >= 80) {
+      return {
+        status: 'NEAR_LIMIT',
+        message: `Near daily limit (${this.usageStats.callsToday}/${this.MAX_DAILY_CALLS} calls)`,
+        canMakeCalls: false,
+        waitTime: waitTime
+      };
+    } else if (usagePercentage >= 60) {
+      return {
+        status: 'HIGH_USAGE',
+        message: `High usage (${this.usageStats.callsToday}/${this.MAX_DAILY_CALLS} calls)`,
+        canMakeCalls: true,
+        waitTime: waitTime
+      };
+    } else {
+      return {
+        status: 'NORMAL',
+        message: `Normal usage (${this.usageStats.callsToday}/${this.MAX_DAILY_CALLS} calls)`,
+        canMakeCalls: true
+      };
+    }
   }
 
   // Make authenticated request to SportsGameOdds API
@@ -224,8 +288,10 @@ class SportsGameOddsAPI {
 
     // Check if we should avoid API calls due to high usage
     if (this.shouldAvoidAPICall()) {
-      logWarning('SportsGameOddsAPI', `Avoiding API call due to high usage: ${this.usageStats.callsToday}/${this.MAX_DAILY_CALLS} calls today`);
-      throw new Error('API call avoided due to high usage - consider using cached data');
+      const waitTime = this.getTimeUntilNextCall();
+      const waitHours = Math.round(waitTime / (60 * 60 * 1000) * 10) / 10;
+      logWarning('SportsGameOddsAPI', `Avoiding API call due to high usage: ${this.usageStats.callsToday}/${this.MAX_DAILY_CALLS} calls today. Next call allowed in ${waitHours} hours`);
+      throw new Error(`API call avoided due to high usage - next call allowed in ${waitHours} hours`);
     }
 
     // Track API usage
@@ -368,7 +434,7 @@ class SportsGameOddsAPI {
       
       do {
         try {
-          const endpoint = `/v2/events?leagueID=${leagueId}&marketOddsAvailable=true&limit=50${nextCursor ? `&cursor=${nextCursor}` : ''}`;
+          const endpoint = `/v2/events?leagueID=${leagueId}&marketOddsAvailable=true&limit=10${nextCursor ? `&cursor=${nextCursor}` : ''}`;
           response = await this.makeRequest<any>(endpoint, CACHE_DURATION.ODDS);
           
           // Based on docs: response.data contains the events array
@@ -379,27 +445,28 @@ class SportsGameOddsAPI {
           
           nextCursor = response.nextCursor || null;
           
-        } catch (error: any) {
-          if (error.message && error.message.includes('Rate limit')) {
-            logWarning('SportsGameOddsAPI', `Rate limit exceeded for ${sport}. Using cached data if available.`);
-            // Try to get cached data instead
-            const cacheKey = `/v2/events?leagueID=${leagueId}&marketOddsAvailable=true&limit=50`;
-            if (this.cache.has(cacheKey)) {
-              const cached = this.cache.get(cacheKey)!;
-              if (cached.data.data && Array.isArray(cached.data.data)) {
-                allEvents = cached.data.data;
-                logAPI('SportsGameOddsAPI', `Using cached data for ${sport} due to rate limit`);
-              }
-            } else {
-              logError('SportsGameOddsAPI', `No cached data available for ${sport} and rate limit exceeded`);
-              return [];
+      } catch (error: any) {
+        if (error.message && error.message.includes('Rate limit')) {
+          logWarning('SportsGameOddsAPI', `Rate limit exceeded for ${sport}. Using cached data if available.`);
+          // Try to get cached data instead
+          const cacheKey = `/v2/events?leagueID=${leagueId}&marketOddsAvailable=true&limit=10`;
+          if (this.cache.has(cacheKey)) {
+            const cached = this.cache.get(cacheKey)!;
+            if (cached.data.data && Array.isArray(cached.data.data)) {
+              allEvents = cached.data.data;
+              logAPI('SportsGameOddsAPI', `Using cached data for ${sport} due to rate limit`);
             }
-            break;
           } else {
-            throw error;
+            logError('SportsGameOddsAPI', `No cached data available for ${sport} and rate limit exceeded`);
+            // Return empty array instead of fallback data to avoid confusion
+            return [];
           }
+          break;
+        } else {
+          throw error;
         }
-      } while (nextCursor && allEvents.length < 100); // Limit to reasonable number of events
+      }
+      } while (nextCursor && allEvents.length < 20); // Limit to very small number of events to avoid rate limits
       
       logAPI('SportsGameOddsAPI', `Total events fetched: ${allEvents.length} for ${sport}`);
       
