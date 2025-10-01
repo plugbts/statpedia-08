@@ -1,267 +1,187 @@
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
 import { sportsRadarAPI, SportsRadarPlayerProp } from './sportsradar-api';
 
-// Real-time sportsbook synchronization service
-export interface SportsbookOdds {
-  sportsbook: string;
-  sportsbookKey: string;
-  line: number;
-  overOdds: number;
-  underOdds: number;
-  lastUpdate: string;
-  confidence: 'high' | 'medium' | 'low';
+export interface SyncResult {
+  success: boolean;
+  propsCount: number;
+  lastSync: Date;
+  errors: string[];
+  sportsbooks: string[];
 }
 
-export interface RealTimePlayerProp {
-  id: string;
-  playerName: string;
-  propType: string;
-  gameId: string;
-  gameTime: string;
-  homeTeam: string;
-  awayTeam: string;
-  sportsbookOdds: SportsbookOdds[];
-  consensusLine: number;
-  consensusOverOdds: number;
-  consensusUnderOdds: number;
-  lastSync: string;
-  syncStatus: 'synced' | 'partial' | 'outdated';
-}
-
-export interface SyncStats {
-  totalProps: number;
-  syncedProps: number;
-  partialProps: number;
-  outdatedProps: number;
-  lastSyncTime: string;
-  sportsbooksActive: string[];
-  averageSyncDelay: number;
+export interface SyncStatus {
+  isOnline: boolean;
+  lastSync: Date;
+  propsCount: number;
+  sportsbooks: string[];
+  confidence: number;
 }
 
 class RealTimeSportsbookSync {
-  private syncInterval: number | null = null;
+  private syncInterval: NodeJS.Timeout | null = null;
   private isRunning = false;
-  private cachedProps = new Map<string, RealTimePlayerProp>();
-  private syncStats: SyncStats = {
-    totalProps: 0,
-    syncedProps: 0,
-    partialProps: 0,
-    outdatedProps: 0,
-    lastSyncTime: '',
-    sportsbooksActive: [],
-    averageSyncDelay: 0
-  };
-
-  // Sportsbooks to sync with (in priority order)
-  private readonly SPORTSBOOKS = [
-    'fanduel',
-    'draftkings', 
-    'betmgm',
-    'caesars',
-    'pointsbet',
-    'espnbet',
-    'hardrock'
-  ];
-
-  // Player prop markets to sync
-  private readonly PLAYER_PROP_MARKETS = {
-    'americanfootball_nfl': [
-      'player_pass_tds', 'player_pass_yds', 'player_pass_completions',
-      'player_rush_yds', 'player_rush_attempts', 'player_receiving_yds',
-      'player_receiving_receptions', 'player_pass_interceptions'
-    ],
-    'basketball_nba': [
-      'player_points', 'player_rebounds', 'player_assists', 'player_steals',
-      'player_blocks', 'player_threes', 'player_turnovers'
-    ],
-    'baseball_mlb': [
-      'player_hits', 'player_home_runs', 'player_rbis', 'player_strikeouts',
-      'player_runs', 'player_total_bases', 'player_walks'
-    ],
-    'icehockey_nhl': [
-      'player_points', 'player_goals', 'player_assists', 'player_shots'
-    ]
-  };
+  private lastSyncResult: SyncResult | null = null;
+  private readonly SYNC_INTERVAL = 60000; // 1 minute
 
   constructor() {
-    logInfo('RealTimeSportsbookSync', 'Service initialized - Version 1.0.0');
-    logInfo('RealTimeSportsbookSync', `Tracking ${this.SPORTSBOOKS.length} sportsbooks: ${this.SPORTSBOOKS.join(', ')}`);
+    logInfo('RealTimeSportsbookSync', 'Service initialized - Version 3.0.0');
+    logInfo('RealTimeSportsbookSync', 'Using SportsRadar API for real-time sportsbook synchronization');
   }
 
-  // Start real-time synchronization
-  async startSync(sport: string, intervalMs: number = 30000): Promise<void> {
+  // Perform real-time sync with SportsRadar
+  async performSync(sport: string): Promise<SyncResult> {
+    logAPI('RealTimeSportsbookSync', `Starting real-time sync for ${sport}`);
+    
+    const startTime = Date.now();
+    const errors: string[] = [];
+    let propsCount = 0;
+    const sportsbooks: string[] = [];
+
+    try {
+      // Get player props from SportsRadar
+      const playerProps = await sportsRadarAPI.getPlayerProps(sport);
+      propsCount = playerProps.length;
+      
+      logAPI('RealTimeSportsbookSync', `Retrieved ${propsCount} player props from SportsRadar`);
+      
+      // Extract unique sportsbooks from props
+      const uniqueSportsbooks = [...new Set(playerProps.map(prop => prop.sportsbook))];
+      sportsbooks.push(...uniqueSportsbooks);
+      
+      logSuccess('RealTimeSportsbookSync', `Sync completed for ${sport}: ${propsCount} props from ${sportsbooks.length} sportsbooks`);
+      
+      const result: SyncResult = {
+        success: true,
+        propsCount,
+        lastSync: new Date(),
+        errors,
+        sportsbooks
+      };
+      
+      this.lastSyncResult = result;
+      return result;
+      
+    } catch (error) {
+      const errorMessage = `Failed to sync ${sport}: ${error}`;
+      logError('RealTimeSportsbookSync', errorMessage);
+      errors.push(errorMessage);
+      
+      const result: SyncResult = {
+        success: false,
+        propsCount: 0,
+        lastSync: new Date(),
+        errors,
+        sportsbooks: []
+      };
+      
+      this.lastSyncResult = result;
+      return result;
+    }
+  }
+
+  // Start automatic sync for a sport
+  startSync(sport: string): void {
     if (this.isRunning) {
-      logWarning('RealTimeSportsbookSync', 'Sync already running');
+      logWarning('RealTimeSportsbookSync', 'Sync is already running');
       return;
     }
 
+    logInfo('RealTimeSportsbookSync', `Starting automatic sync for ${sport} every ${this.SYNC_INTERVAL}ms`);
+    
     this.isRunning = true;
-    logInfo('RealTimeSportsbookSync', `Starting real-time sync for ${sport} every ${intervalMs}ms`);
-
-    // Initial sync
-    await this.performSync(sport);
-
-    // Set up interval
+    
+    // Perform initial sync
+    this.performSync(sport);
+    
+    // Set up interval for ongoing sync
     this.syncInterval = setInterval(async () => {
       try {
         await this.performSync(sport);
       } catch (error) {
-        logError('RealTimeSportsbookSync', 'Sync interval error:', error);
+        logError('RealTimeSportsbookSync', 'Error during automatic sync:', error);
       }
-    }, intervalMs);
+    }, this.SYNC_INTERVAL);
   }
 
-  // Stop synchronization
+  // Stop automatic sync
   stopSync(): void {
     if (this.syncInterval) {
       clearInterval(this.syncInterval);
       this.syncInterval = null;
     }
+    
     this.isRunning = false;
-    logInfo('RealTimeSportsbookSync', 'Real-time sync stopped');
+    logInfo('RealTimeSportsbookSync', 'Automatic sync stopped');
   }
 
-  // Perform a full synchronization
-  private async performSync(sport: string): Promise<void> {
-    const startTime = Date.now();
-    logAPI('RealTimeSportsbookSync', `🔄 Starting sync for ${sport} using SportsRadar`);
-
-    try {
-      const sportKey = this.mapSportToKey(sport);
-      
-      logAPI('RealTimeSportsbookSync', `Fetching player props from SportsRadar for ${sportKey}...`);
-      
-      // Get player props directly from SportsRadar
-      const sportsRadarProps = await sportsRadarAPI.getPlayerProps(sport);
-      
-      logAPI('RealTimeSportsbookSync', `Received ${sportsRadarProps.length} player props from SportsRadar`);
-      
-      if (sportsRadarProps.length > 0) {
-        logAPI('RealTimeSportsbookSync', `Sample SportsRadar data: ${JSON.stringify(sportsRadarProps[0], null, 2)}`);
-      }
-
-      // Convert SportsRadar props to our format
-      const allProps: RealTimePlayerProp[] = sportsRadarProps.map(srProp => ({
-        id: srProp.id,
-        playerName: srProp.playerName,
-        propType: srProp.propType,
-        gameId: srProp.gameId,
-        gameTime: srProp.gameTime,
-        homeTeam: srProp.homeTeam,
-        awayTeam: srProp.awayTeam,
-        sportsbookOdds: [{
-          sportsbook: srProp.sportsbook,
-          sportsbookKey: srProp.sportsbookKey,
-          line: srProp.line,
-          overOdds: srProp.overOdds,
-          underOdds: srProp.underOdds,
-          lastUpdate: srProp.lastUpdate,
-          confidence: srProp.confidence
-        }],
-        consensusLine: srProp.line,
-        consensusOverOdds: srProp.overOdds,
-        consensusUnderOdds: srProp.underOdds,
-        lastSync: new Date().toISOString(),
-        syncStatus: 'synced' as const
-      }));
-
-      // Update cache and stats
-      this.updateCache(allProps);
-      this.updateSyncStats(allProps, Date.now() - startTime);
-
-      logSuccess('RealTimeSportsbookSync', `✅ Sync complete: ${allProps.length} props synced in ${Date.now() - startTime}ms`);
-      
-      if (allProps.length === 0) {
-        logWarning('RealTimeSportsbookSync', `No props found for ${sport}. This could be due to: 1) No games scheduled, 2) API quota limits, 3) Market not available`);
-      }
-    } catch (error) {
-      logError('RealTimeSportsbookSync', 'Sync failed:', error);
-      throw error;
-    }
-  }
-
-  // Note: Market processing methods removed as we now use SportsRadar directly
-
-  // Map sport name to API key
-  private mapSportToKey(sport: string): string {
-    const sportMap: { [key: string]: string } = {
-      'nfl': 'americanfootball_nfl',
-      'nba': 'basketball_nba',
-      'mlb': 'baseball_mlb',
-      'nhl': 'icehockey_nhl'
+  // Get current sync status
+  getSyncStatus(): SyncStatus {
+    const now = new Date();
+    const lastSync = this.lastSyncResult?.lastSync || new Date(0);
+    const timeSinceLastSync = now.getTime() - lastSync.getTime();
+    
+    return {
+      isOnline: this.lastSyncResult?.success || false,
+      lastSync,
+      propsCount: this.lastSyncResult?.propsCount || 0,
+      sportsbooks: this.lastSyncResult?.sportsbooks || [],
+      confidence: this.calculateConfidence(timeSinceLastSync)
     };
-    return sportMap[sport.toLowerCase()] || sport.toLowerCase();
   }
 
-  // Note: Market mapping removed as SportsRadar handles this
-
-  // Update cache with new props
-  private updateCache(props: RealTimePlayerProp[]): void {
-    props.forEach(prop => {
-      this.cachedProps.set(prop.id, prop);
-    });
-
-    // Clean up old props (older than 24 hours)
-    const cutoffTime = new Date().getTime() - (24 * 60 * 60 * 1000);
-    for (const [id, prop] of this.cachedProps.entries()) {
-      const propTime = new Date(prop.gameTime).getTime();
-      if (propTime < cutoffTime) {
-        this.cachedProps.delete(id);
-      }
+  // Calculate confidence based on sync recency
+  private calculateConfidence(timeSinceLastSync: number): number {
+    const fiveMinutes = 5 * 60 * 1000;
+    const oneHour = 60 * 60 * 1000;
+    
+    if (timeSinceLastSync < fiveMinutes) {
+      return 1.0; // High confidence
+    } else if (timeSinceLastSync < oneHour) {
+      return 0.7; // Medium confidence
+    } else {
+      return 0.3; // Low confidence
     }
   }
 
-  // Update sync statistics
-  private updateSyncStats(props: RealTimePlayerProp[], syncTime: number): void {
-    this.syncStats.totalProps = props.length;
-    this.syncStats.syncedProps = props.filter(p => p.syncStatus === 'synced').length;
-    this.syncStats.partialProps = props.filter(p => p.syncStatus === 'partial').length;
-    this.syncStats.outdatedProps = props.filter(p => p.syncStatus === 'outdated').length;
-    this.syncStats.lastSyncTime = new Date().toISOString();
-    this.syncStats.averageSyncDelay = syncTime;
-
-    // Update active sportsbooks
-    const activeSportsbooks = new Set<string>();
-    props.forEach(prop => {
-      prop.sportsbookOdds.forEach(odds => {
-        activeSportsbooks.add(odds.sportsbookKey);
-      });
-    });
-    this.syncStats.sportsbooksActive = Array.from(activeSportsbooks);
+  // Get available sportsbooks
+  getAvailableSportsbooks(): string[] {
+    return [
+      'FanDuel',
+      'DraftKings', 
+      'BetMGM',
+      'Caesars',
+      'PointsBet',
+      'Bet365',
+      'Unibet',
+      'SportsRadar' // Aggregated data source
+    ];
   }
 
-  // Get all cached props
-  getCachedProps(): RealTimePlayerProp[] {
-    return Array.from(this.cachedProps.values());
-  }
-
-  // Get props for a specific player
-  getPlayerProps(playerName: string): RealTimePlayerProp[] {
-    return Array.from(this.cachedProps.values())
-      .filter(prop => prop.playerName.toLowerCase().includes(playerName.toLowerCase()));
-  }
-
-  // Get props for a specific game
-  getGameProps(gameId: string): RealTimePlayerProp[] {
-    return Array.from(this.cachedProps.values())
-      .filter(prop => prop.gameId === gameId);
+  // Check if a sportsbook is available
+  isSportsbookAvailable(sportsbook: string): boolean {
+    const availableSportsbooks = this.getAvailableSportsbooks();
+    return availableSportsbooks.some(sb => 
+      sb.toLowerCase().includes(sportsbook.toLowerCase())
+    );
   }
 
   // Get sync statistics
-  getSyncStats(): SyncStats {
-    return { ...this.syncStats };
-  }
-
-  // Check if sync is running
-  isSyncRunning(): boolean {
-    return this.isRunning;
-  }
-
-  // Force a manual sync
-  async forceSync(sport: string): Promise<void> {
-    logInfo('RealTimeSportsbookSync', `🔄 Manual sync triggered for ${sport}`);
-    await this.performSync(sport);
+  getSyncStats(): {
+    isRunning: boolean;
+    lastSync: Date | null;
+    totalProps: number;
+    sportsbooks: string[];
+    uptime: number;
+  } {
+    return {
+      isRunning: this.isRunning,
+      lastSync: this.lastSyncResult?.lastSync || null,
+      totalProps: this.lastSyncResult?.propsCount || 0,
+      sportsbooks: this.lastSyncResult?.sportsbooks || [],
+      uptime: this.isRunning ? Date.now() - (this.lastSyncResult?.lastSync.getTime() || Date.now()) : 0
+    };
   }
 }
 
+// Export singleton instance
 export const realTimeSportsbookSync = new RealTimeSportsbookSync();

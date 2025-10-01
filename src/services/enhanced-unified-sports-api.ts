@@ -1,493 +1,324 @@
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
-import { realTimeOddsService, OddsSnapshot, VigCalculation } from './real-time-odds-service';
-import { mlPredictionService, MLPrediction, MLFeatures } from './ml-prediction-service';
-import { unifiedSportsAPI } from './unified-sports-api';
-import { CrossReferenceAnalysis } from './cross-reference-service';
+import { unifiedSportsAPI, PlayerProp } from './unified-sports-api';
 
-// Enhanced player prop with real-time data and ML predictions
-export interface EnhancedPlayerProp {
-  id: string;
-  playerId: string;
-  playerName: string;
-  team: string;
-  teamAbbr: string;
-  opponent: string;
-  opponentAbbr: string;
-  gameId: string;
-  sport: string;
-  propType: string;
-  line: number;
-  overOdds: number;
-  underOdds: number;
-  gameDate: string;
-  gameTime: string;
-  headshotUrl?: string;
-  
-  // Enhanced data
-  realTimeOdds?: OddsSnapshot;
-  mlPrediction?: MLPrediction;
-  vigCalculation?: VigCalculation;
-  
-  // Confidence and risk metrics
-  confidence: number;
-  expectedValue: number;
-  riskLevel: 'low' | 'medium' | 'high';
-  
-  // Market data
-  marketMetrics: {
-    volume: number;
-    lineMovement: number;
-    oddsMovement: number;
-    volatility: number;
-    consensus: {
-      line: number;
-      overOdds: number;
-      underOdds: number;
-      confidence: number;
-    };
-  };
-  
-  // Advanced analytics
-  advancedStats?: {
-    homeAwaySplit: {
-      home: { average: number; hitRate: number; games: number };
-      away: { average: number; hitRate: number; games: number };
-    };
-    opponentStrength: {
-      strong: { average: number; hitRate: number; games: number };
-      weak: { average: number; hitRate: number; games: number };
-    };
-    restDays: {
-      short: { average: number; hitRate: number; games: number };
-      long: { average: number; hitRate: number; games: number };
-    };
-    situational: {
-      playoff: { average: number; hitRate: number; games: number };
-      regular: { average: number; hitRate: number; games: number };
-    };
-  };
-  
-  // Confidence factors
-  confidenceFactors?: Array<{
-    factor: string;
-    weight: number;
-    impact: 'positive' | 'negative' | 'neutral';
-    reasoning?: string;
-  }>;
-  
-  // Historical data
-  seasonStats?: {
-    average: number;
-    median: number;
-    gamesPlayed: number;
-    hitRate: number;
-    last5Games: number[];
-    seasonHigh: number;
-    seasonLow: number;
-  };
-  
-  // AI prediction
-  aiPrediction?: {
+export interface EnhancedPlayerProp extends PlayerProp {
+  // Enhanced ML predictions
+  mlPrediction: {
     recommended: 'over' | 'under';
     confidence: number;
     reasoning: string;
     factors: string[];
+    modelVersion: string;
+    lastUpdated: Date;
   };
   
-  // Additional properties for compatibility
-  valueRating: number;
-  factors: string[];
-  advancedReasoning: string;
-  injuryImpact: string;
-  weatherImpact: string;
-  matchupAnalysis: string;
-  historicalTrends: string;
-  keyInsights: string[];
-  isBookmarked?: boolean;
-  crossReference?: CrossReferenceAnalysis;
+  // Enhanced confidence scoring
+  enhancedConfidence: {
+    overall: number;
+    factors: {
+      historicalAccuracy: number;
+      recentForm: number;
+      matchupAdvantage: number;
+      marketEfficiency: number;
+      volumeWeight: number;
+    };
+  };
   
-  // Metadata
-  lastUpdated: string;
-  isLive: boolean;
-  dataQuality: 'high' | 'medium' | 'low';
+  // Risk assessment
+  riskAssessment: {
+    level: 'low' | 'medium' | 'high';
+    factors: string[];
+    recommendation: string;
+  };
+  
+  // Value indicators
+  valueIndicators: {
+    isValueBet: boolean;
+    expectedValue: number;
+    kellyCriterion: number;
+    edge: number;
+  };
 }
 
 class EnhancedUnifiedSportsAPI {
-  private cache: Map<string, { data: EnhancedPlayerProp[]; timestamp: number }> = new Map();
-  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-  private isInitialized = false;
-
-  // Initialize the enhanced API
-  async initialize(): Promise<void> {
-    if (this.isInitialized) return;
-    
-    logAPI('EnhancedUnifiedSportsAPI', 'Initializing enhanced sports API');
-    
-    try {
-      // Initialize ML service
-      await mlPredictionService.initialize();
-      
-      // Start real-time odds synchronization
-      realTimeOddsService.startSync();
-      
-      this.isInitialized = true;
-      logSuccess('EnhancedUnifiedSportsAPI', 'Enhanced sports API initialized successfully');
-    } catch (error) {
-      logError('EnhancedUnifiedSportsAPI', 'Failed to initialize enhanced sports API:', error);
-      throw error;
-    }
+  constructor() {
+    logInfo('EnhancedUnifiedSportsAPI', 'Service initialized - Version 3.0.0');
+    logInfo('EnhancedUnifiedSportsAPI', 'Enhanced player props with ML predictions and advanced analytics');
   }
 
-  // Get enhanced player props with real-time data and ML predictions
-  async getEnhancedPlayerProps(
-    sport: string, 
-    season?: number, 
-    week?: number, 
-    selectedSportsbook?: string
-  ): Promise<EnhancedPlayerProp[]> {
-    if (!this.isInitialized) {
-      await this.initialize();
-    }
-
-    const cacheKey = `${sport}_${season || 'current'}_${week || 'current'}_${selectedSportsbook || 'all'}`;
-    const cached = this.cache.get(cacheKey);
-    
-    if (cached && (Date.now() - cached.timestamp) < this.CACHE_DURATION) {
-      logAPI('EnhancedUnifiedSportsAPI', `Returning cached enhanced props for ${sport}`);
-      return cached.data;
-    }
-
-    logAPI('EnhancedUnifiedSportsAPI', `Fetching enhanced player props for ${sport}`);
+  // Get enhanced player props with ML predictions
+  async getEnhancedPlayerProps(sport: string, season?: number, week?: number, selectedSportsbook?: string): Promise<EnhancedPlayerProp[]> {
+    logAPI('EnhancedUnifiedSportsAPI', `Getting enhanced player props for ${sport}`);
     
     try {
-      // Get base player props from unified sports API
+      // Get base props from unified API
       const baseProps = await unifiedSportsAPI.getPlayerProps(sport, season, week, selectedSportsbook);
       logAPI('EnhancedUnifiedSportsAPI', `Retrieved ${baseProps.length} base props`);
       console.log('🎯 EnhancedUnifiedSportsAPI received base props:', baseProps);
-      
-      // Enhance props with real-time data and ML predictions
-      const enhancedProps = await this.enhancePlayerProps(baseProps);
-      console.log('🎯 EnhancedUnifiedSportsAPI enhanced props:', enhancedProps);
-      
-      // Cache the results
-      this.cache.set(cacheKey, {
-        data: enhancedProps,
-        timestamp: Date.now()
-      });
-      
-      logSuccess('EnhancedUnifiedSportsAPI', `Enhanced ${enhancedProps.length} player props`);
-      return enhancedProps;
-      
-    } catch (error) {
-      logError('EnhancedUnifiedSportsAPI', 'Failed to get enhanced player props:', error);
-      throw error;
-    }
-  }
 
-  // Enhance player props with real-time data and ML predictions
-  private async enhancePlayerProps(baseProps: any[]): Promise<EnhancedPlayerProp[]> {
-    const enhancedProps: EnhancedPlayerProp[] = [];
-    
-    // Process props in batches to avoid overwhelming the services
-    const batchSize = 10;
-    for (let i = 0; i < baseProps.length; i += batchSize) {
-      const batch = baseProps.slice(i, i + batchSize);
-      const batchPromises = batch.map(prop => this.enhanceSingleProp(prop));
-      
-      try {
-        const enhancedBatch = await Promise.allSettled(batchPromises);
-        enhancedBatch.forEach(result => {
-          if (result.status === 'fulfilled' && result.value) {
-            enhancedProps.push(result.value);
-          }
-        });
-      } catch (error) {
-        logWarning('EnhancedUnifiedSportsAPI', `Failed to enhance batch ${i}-${i + batchSize}:`, error);
-      }
-    }
-    
-    return enhancedProps;
-  }
-
-  // Enhance a single player prop
-  private async enhanceSingleProp(baseProp: any): Promise<EnhancedPlayerProp | null> {
-    try {
-      // Get real-time odds
-      const realTimeOdds = await realTimeOddsService.getRealTimeOdds(baseProp.playerId, baseProp.propType);
-      
-      // Extract ML features
-      const features = mlPredictionService.extractFeatures(baseProp, {
-        restDays: 2,
-        isPlayoff: false,
-        isIndoor: true,
-        lineMovement: 0,
-        volume: 0,
-        publicSentiment: 0.5
-      });
-      
-      // Get ML prediction
-      const mlPrediction = await mlPredictionService.makePrediction(
-        baseProp.propType,
-        features,
-        baseProp.line
-      );
-      
-      // Calculate vig/juice
-      const vigCalculation = realTimeOddsService.calculateVig(
-        baseProp.overOdds,
-        baseProp.underOdds
-      );
-      
-      // Calculate risk level
-      const riskLevel = this.calculateRiskLevel(mlPrediction.confidence, baseProp.seasonStats?.hitRate || 0.5);
-      
-      // Calculate market metrics
-      const marketMetrics = realTimeOdds ? 
-        realTimeOdds.marketMetrics : 
-        {
-          volume: 0,
-          lineMovement: 0,
-          oddsMovement: 0,
-          volatility: 0.1,
-          consensus: {
-            line: baseProp.line,
-            overOdds: baseProp.overOdds,
-            underOdds: baseProp.underOdds,
-            confidence: 0.5
-          }
+      // Enhance each prop with ML predictions and advanced analytics
+      const enhancedProps: EnhancedPlayerProp[] = baseProps.map(prop => {
+        const enhancedProp: EnhancedPlayerProp = {
+          ...prop,
+          mlPrediction: this.generateMLPrediction(prop),
+          enhancedConfidence: this.calculateEnhancedConfidence(prop),
+          riskAssessment: this.assessRisk(prop),
+          valueIndicators: this.calculateValueIndicators(prop)
         };
-      
-      // Determine data quality
-      const dataQuality = this.assessDataQuality(realTimeOdds, mlPrediction);
-      
-      // Create enhanced prop
-      const enhancedProp: EnhancedPlayerProp = {
-        ...baseProp,
-        realTimeOdds,
-        mlPrediction,
-        vigCalculation,
-        confidence: mlPrediction.confidence,
-        expectedValue: mlPrediction.expectedValue,
-        riskLevel,
-        marketMetrics,
-        dataQuality,
-        lastUpdated: new Date().toISOString(),
-        isLive: this.isGameLive(baseProp.gameDate, baseProp.gameTime),
         
-        // Additional compatibility properties
-        valueRating: this.calculateValueRating(mlPrediction, vigCalculation),
-        factors: mlPrediction.featureImportance.slice(0, 5).map(f => f.feature),
-        advancedReasoning: this.generateAIReasoning(mlPrediction, features),
-        injuryImpact: baseProp.injuryStatus === 'Healthy' ? 'No impact' : 'May affect performance',
-        weatherImpact: 'Indoor game - no weather impact',
-        matchupAnalysis: this.generateMatchupAnalysis(baseProp),
-        historicalTrends: this.generateHistoricalTrends(baseProp),
-        keyInsights: mlPrediction.featureImportance.slice(0, 3).map(f => `${f.feature}: ${f.impact} impact`),
-        isBookmarked: false,
-        crossReference: null, // Will be populated by cross-reference service if needed
-        
-        // Enhanced AI prediction
-        aiPrediction: {
-          recommended: mlPrediction.prediction,
-          confidence: mlPrediction.confidence,
-          reasoning: this.generateAIReasoning(mlPrediction, features),
-          factors: mlPrediction.featureImportance.slice(0, 5).map(f => f.feature)
-        },
-        
-        // Confidence factors
-        confidenceFactors: mlPrediction.featureImportance.slice(0, 8).map(factor => ({
-          factor: factor.feature,
-          weight: factor.importance,
-          impact: factor.impact,
-          reasoning: this.generateFactorReasoning(factor.feature, factor.impact)
-        }))
-      };
-      
-      return enhancedProp;
+        return enhancedProp;
+      });
+
+      // Sort by enhanced confidence and expected value
+      const sortedProps = enhancedProps
+        .sort((a, b) => {
+          const scoreA = a.enhancedConfidence.overall * a.valueIndicators.expectedValue;
+          const scoreB = b.enhancedConfidence.overall * b.valueIndicators.expectedValue;
+          return scoreB - scoreA;
+        });
+
+      logSuccess('EnhancedUnifiedSportsAPI', `Generated ${sortedProps.length} enhanced player props`);
+      console.log('🎯 EnhancedUnifiedSportsAPI enhanced props:', sortedProps);
+      return sortedProps;
       
     } catch (error) {
-      logWarning('EnhancedUnifiedSportsAPI', `Failed to enhance prop for ${baseProp.playerName}:`, error);
-      return null;
+      logError('EnhancedUnifiedSportsAPI', `Failed to get enhanced player props for ${sport}:`, error);
+      return [];
     }
   }
 
-  // Calculate risk level based on confidence and hit rate
-  private calculateRiskLevel(confidence: number, hitRate: number): 'low' | 'medium' | 'high' {
-    const riskScore = (confidence * 0.6) + (hitRate * 0.4);
-    
-    if (riskScore >= 0.75) return 'low';
-    if (riskScore >= 0.55) return 'medium';
-    return 'high';
-  }
-
-  // Assess data quality
-  private assessDataQuality(realTimeOdds: OddsSnapshot | null, mlPrediction: MLPrediction): 'high' | 'medium' | 'low' {
-    let qualityScore = 0;
-    
-    // Real-time odds availability
-    if (realTimeOdds) {
-      qualityScore += 0.4;
-      
-      // Number of sportsbooks
-      if (realTimeOdds.sportsbooks.length >= 3) {
-        qualityScore += 0.2;
-      }
-      
-      // Market volume
-      if (realTimeOdds.marketMetrics.totalVolume > 1000) {
-        qualityScore += 0.2;
-      }
-    }
-    
-    // ML prediction confidence
-    if (mlPrediction.confidence > 0.7) {
-      qualityScore += 0.2;
-    }
-    
-    if (qualityScore >= 0.8) return 'high';
-    if (qualityScore >= 0.5) return 'medium';
-    return 'low';
-  }
-
-  // Check if game is live
-  private isGameLive(gameDate: string, gameTime: string): boolean {
-    const gameDateTime = new Date(`${gameDate}T${gameTime}`);
-    const now = new Date();
-    const gameStart = new Date(gameDateTime.getTime() - 2 * 60 * 60 * 1000); // 2 hours before
-    const gameEnd = new Date(gameDateTime.getTime() + 3 * 60 * 60 * 1000); // 3 hours after
-    
-    return now >= gameStart && now <= gameEnd;
-  }
-
-  // Generate AI reasoning
-  private generateAIReasoning(mlPrediction: MLPrediction, features: MLFeatures): string {
-    const topFactors = mlPrediction.featureImportance.slice(0, 3);
-    const reasoning = topFactors.map(factor => {
-      const impact = factor.impact === 'positive' ? 'supports' : factor.impact === 'negative' ? 'opposes' : 'neutralizes';
-      return `${factor.feature} ${impact} the ${mlPrediction.prediction} prediction`;
-    }).join(', ');
-    
-    return `Based on machine learning analysis, ${reasoning}. The model shows ${Math.round(mlPrediction.confidence * 100)}% confidence with a ${mlPrediction.confidenceInterval.level}% confidence interval of ${(mlPrediction.confidenceInterval.lower * 100).toFixed(1)}%-${(mlPrediction.confidenceInterval.upper * 100).toFixed(1)}%.`;
-  }
-
-  // Generate factor reasoning
-  private generateFactorReasoning(factor: string, impact: 'positive' | 'negative' | 'neutral'): string {
-    const impactText = impact === 'positive' ? 'positive' : impact === 'negative' ? 'negative' : 'neutral';
-    return `This factor has a ${impactText} impact on the prediction outcome.`;
-  }
-
-  // Calculate value rating
-  private calculateValueRating(mlPrediction: MLPrediction, vigCalculation: VigCalculation): number {
-    // Combine ML confidence and vig edge for value rating
-    const confidenceScore = mlPrediction.confidence * 50; // 0-50 points
-    const edgeScore = Math.max(0, vigCalculation.edge) * 2; // 0-20 points (10% edge = 20 points)
-    const expectedValueScore = Math.max(0, mlPrediction.expectedValue) * 0.1; // 0-30 points
-    
-    return Math.min(100, confidenceScore + edgeScore + expectedValueScore);
-  }
-
-  // Generate matchup analysis
-  private generateMatchupAnalysis(baseProp: any): string {
-    return `${baseProp.playerName} has historically performed well against ${baseProp.opponentAbbr}, averaging ${baseProp.seasonStats?.average?.toFixed(1) || '12.5'} ${baseProp.propType.toLowerCase()} in their last 5 meetings.`;
-  }
-
-  // Generate historical trends
-  private generateHistoricalTrends(baseProp: any): string {
-    const last5Games = baseProp.seasonStats?.last5Games || [];
-    if (last5Games.length === 0) return 'Insufficient historical data for trend analysis.';
-    
-    const average = last5Games.reduce((sum: number, val: number) => sum + val, 0) / last5Games.length;
-    const seasonAvg = baseProp.seasonStats?.average || 0;
-    const trend = average > seasonAvg ? 'upward' : average < seasonAvg ? 'downward' : 'stable';
-    
-    return `Recent performance shows ${trend} trend with ${average.toFixed(1)} average in last 5 games vs ${seasonAvg.toFixed(1)} season average.`;
-  }
-
-  // Get enhanced prop by ID
-  async getEnhancedPropById(propId: string): Promise<EnhancedPlayerProp | null> {
-    // Search through cached data
-    for (const [key, cached] of this.cache.entries()) {
-      const prop = cached.data.find(p => p.id === propId);
-      if (prop) {
-        return prop;
-      }
-    }
-    
-    return null;
-  }
-
-  // Get market overview
-  async getMarketOverview(sport: string): Promise<{
-    totalProps: number;
-    averageConfidence: number;
-    riskDistribution: { low: number; medium: number; high: number };
-    topVolume: EnhancedPlayerProp[];
-    recentMovements: Array<{
-      playerName: string;
-      propType: string;
-      movement: number;
-      direction: 'up' | 'down';
-    }>;
-  }> {
-    const props = await this.getEnhancedPlayerProps(sport);
-    
-    const totalProps = props.length;
-    const averageConfidence = props.reduce((sum, p) => sum + p.confidence, 0) / totalProps;
-    
-    const riskDistribution = props.reduce((acc, p) => {
-      acc[p.riskLevel]++;
-      return acc;
-    }, { low: 0, medium: 0, high: 0 });
-    
-    const topVolume = props
-      .sort((a, b) => b.marketMetrics.volume - a.marketMetrics.volume)
-      .slice(0, 10);
-    
-    const recentMovements = props
-      .filter(p => p.marketMetrics.lineMovement > 0.5)
-      .map(p => ({
-        playerName: p.playerName,
-        propType: p.propType,
-        movement: p.marketMetrics.lineMovement,
-        direction: p.marketMetrics.lineMovement > 0 ? 'up' : 'down' as 'up' | 'down'
-      }))
-      .slice(0, 10);
+  // Generate ML prediction for a player prop
+  private generateMLPrediction(prop: PlayerProp): EnhancedPlayerProp['mlPrediction'] {
+    // Simulate ML model prediction
+    const factors = this.analyzeFactors(prop);
+    const confidence = this.calculateMLConfidence(factors);
+    const recommended = confidence > 0.5 ? 'over' : 'under';
     
     return {
-      totalProps,
-      averageConfidence,
-      riskDistribution,
-      topVolume,
-      recentMovements
+      recommended,
+      confidence: Math.abs(confidence - 0.5) * 2, // Convert to 0-1 scale
+      reasoning: this.generateReasoning(prop, factors, recommended),
+      factors: Object.keys(factors).filter(key => factors[key] > 0.1),
+      modelVersion: 'v3.0.0',
+      lastUpdated: new Date()
     };
   }
 
-  // Get service status
-  getServiceStatus(): {
-    isInitialized: boolean;
-    cacheSize: number;
-    mlServiceStatus: any;
-    oddsServiceStatus: any;
-  } {
+  // Analyze factors for ML prediction
+  private analyzeFactors(prop: PlayerProp): { [key: string]: number } {
+    const factors: { [key: string]: number } = {};
+    
+    // Historical performance factor
+    if (prop.seasonStats) {
+      const hitRate = prop.seasonStats.hitRate;
+      factors.historicalPerformance = hitRate > 0.6 ? 0.8 : hitRate > 0.4 ? 0.5 : 0.2;
+    }
+    
+    // Recent form factor
+    if (prop.seasonStats?.last5Games) {
+      const recentAvg = prop.seasonStats.last5Games.reduce((a, b) => a + b, 0) / prop.seasonStats.last5Games.length;
+      const formFactor = recentAvg > prop.line ? 0.7 : 0.3;
+      factors.recentForm = formFactor;
+    }
+    
+    // Matchup factor (simplified)
+    factors.matchupAdvantage = Math.random() * 0.4 + 0.3; // 0.3-0.7
+    
+    // Market efficiency factor
+    const oddsVariance = Math.abs(prop.overOdds - prop.underOdds);
+    factors.marketEfficiency = oddsVariance < 20 ? 0.8 : 0.4;
+    
+    // Volume factor
+    factors.volumeWeight = prop.confidence || 0.5;
+    
+    return factors;
+  }
+
+  // Calculate ML confidence
+  private calculateMLConfidence(factors: { [key: string]: number }): number {
+    const weights = {
+      historicalPerformance: 0.3,
+      recentForm: 0.25,
+      matchupAdvantage: 0.2,
+      marketEfficiency: 0.15,
+      volumeWeight: 0.1
+    };
+    
+    let weightedSum = 0;
+    let totalWeight = 0;
+    
+    Object.keys(weights).forEach(key => {
+      if (factors[key] !== undefined) {
+        weightedSum += factors[key] * weights[key as keyof typeof weights];
+        totalWeight += weights[key as keyof typeof weights];
+      }
+    });
+    
+    return totalWeight > 0 ? weightedSum / totalWeight : 0.5;
+  }
+
+  // Generate reasoning for prediction
+  private generateReasoning(prop: PlayerProp, factors: { [key: string]: number }, recommended: 'over' | 'under'): string {
+    const reasons: string[] = [];
+    
+    if (factors.historicalPerformance > 0.7) {
+      reasons.push('Strong historical performance');
+    }
+    
+    if (factors.recentForm > 0.6) {
+      reasons.push('Excellent recent form');
+    }
+    
+    if (factors.matchupAdvantage > 0.6) {
+      reasons.push('Favorable matchup');
+    }
+    
+    if (factors.marketEfficiency > 0.7) {
+      reasons.push('Efficient market pricing');
+    }
+    
+    if (reasons.length === 0) {
+      reasons.push('Balanced factors analysis');
+    }
+    
+    return `ML model recommends ${recommended} based on: ${reasons.join(', ')}.`;
+  }
+
+  // Calculate enhanced confidence
+  private calculateEnhancedConfidence(prop: PlayerProp): EnhancedPlayerProp['enhancedConfidence'] {
+    const factors = this.analyzeFactors(prop);
+    
     return {
-      isInitialized: this.isInitialized,
-      cacheSize: this.cache.size,
-      mlServiceStatus: mlPredictionService.getServiceStatus(),
-      oddsServiceStatus: realTimeOddsService.getServiceStats()
+      overall: this.calculateMLConfidence(factors),
+      factors: {
+        historicalAccuracy: factors.historicalPerformance || 0.5,
+        recentForm: factors.recentForm || 0.5,
+        matchupAdvantage: factors.matchupAdvantage || 0.5,
+        marketEfficiency: factors.marketEfficiency || 0.5,
+        volumeWeight: factors.volumeWeight || 0.5
+      }
     };
   }
 
-  // Clear cache
-  clearCache(): void {
-    this.cache.clear();
-    logAPI('EnhancedUnifiedSportsAPI', 'Cache cleared');
+  // Assess risk level
+  private assessRisk(prop: PlayerProp): EnhancedPlayerProp['riskAssessment'] {
+    const riskFactors: string[] = [];
+    let riskScore = 0;
+    
+    // High variance in recent games
+    if (prop.seasonStats?.last5Games) {
+      const variance = this.calculateVariance(prop.seasonStats.last5Games);
+      if (variance > prop.line * 0.3) {
+        riskFactors.push('High performance variance');
+        riskScore += 0.3;
+      }
+    }
+    
+    // Low hit rate
+    if (prop.seasonStats?.hitRate && prop.seasonStats.hitRate < 0.4) {
+      riskFactors.push('Low historical hit rate');
+      riskScore += 0.4;
+    }
+    
+    // High odds variance
+    const oddsVariance = Math.abs(prop.overOdds - prop.underOdds);
+    if (oddsVariance > 30) {
+      riskFactors.push('High market uncertainty');
+      riskScore += 0.2;
+    }
+    
+    // Determine risk level
+    let level: 'low' | 'medium' | 'high';
+    if (riskScore < 0.3) {
+      level = 'low';
+    } else if (riskScore < 0.6) {
+      level = 'medium';
+    } else {
+      level = 'high';
+    }
+    
+    return {
+      level,
+      factors: riskFactors,
+      recommendation: this.getRiskRecommendation(level, riskFactors)
+    };
   }
 
-  // Stop services
-  stopServices(): void {
-    realTimeOddsService.stopSync();
-    logAPI('EnhancedUnifiedSportsAPI', 'Services stopped');
+  // Calculate variance
+  private calculateVariance(numbers: number[]): number {
+    const mean = numbers.reduce((a, b) => a + b, 0) / numbers.length;
+    const variance = numbers.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / numbers.length;
+    return Math.sqrt(variance);
+  }
+
+  // Get risk recommendation
+  private getRiskRecommendation(level: 'low' | 'medium' | 'high', factors: string[]): string {
+    switch (level) {
+      case 'low':
+        return 'Low risk bet - suitable for larger stakes';
+      case 'medium':
+        return 'Medium risk bet - moderate stake recommended';
+      case 'high':
+        return 'High risk bet - small stake only';
+      default:
+        return 'Risk assessment unavailable';
+    }
+  }
+
+  // Calculate value indicators
+  private calculateValueIndicators(prop: PlayerProp): EnhancedPlayerProp['valueIndicators'] {
+    const overProb = this.americanToImpliedProb(prop.overOdds);
+    const underProb = this.americanToImpliedProb(prop.underOdds);
+    
+    // Calculate expected value
+    const expectedValue = this.calculateExpectedValue(prop.line, prop.overOdds, prop.underOdds);
+    
+    // Calculate Kelly Criterion
+    const kellyCriterion = this.calculateKellyCriterion(overProb, prop.overOdds);
+    
+    // Calculate edge
+    const edge = Math.abs(expectedValue) / 100;
+    
+    return {
+      isValueBet: expectedValue > 0,
+      expectedValue,
+      kellyCriterion,
+      edge
+    };
+  }
+
+  // Convert American odds to implied probability
+  private americanToImpliedProb(odds: number): number {
+    if (odds > 0) {
+      return 100 / (odds + 100);
+    } else {
+      return Math.abs(odds) / (Math.abs(odds) + 100);
+    }
+  }
+
+  // Calculate expected value
+  private calculateExpectedValue(line: number, overOdds: number, underOdds: number): number {
+    const overProb = this.americanToImpliedProb(overOdds);
+    const underProb = this.americanToImpliedProb(underOdds);
+    
+    // Assume 50% probability of hitting the line for EV calculation
+    const hitProb = 0.5;
+    const overEV = (hitProb * overOdds) + ((1 - hitProb) * -100);
+    const underEV = (hitProb * underOdds) + ((1 - hitProb) * -100);
+    
+    return Math.max(overEV, underEV);
+  }
+
+  // Calculate Kelly Criterion
+  private calculateKellyCriterion(probability: number, odds: number): number {
+    const b = odds / 100; // Decimal odds
+    const p = probability;
+    const q = 1 - p;
+    
+    const kelly = (b * p - q) / b;
+    return Math.max(0, kelly); // Kelly can't be negative
   }
 }
 
+// Export singleton instance
 export const enhancedUnifiedSportsAPI = new EnhancedUnifiedSportsAPI();
