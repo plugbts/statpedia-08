@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -43,8 +44,10 @@ import { seasonService } from '@/services/season-service';
 import { unifiedSportsAPI } from '@/services/unified-sports-api';
 import { simulationService, PredictionAnalysis } from '@/services/simulation-service';
 import { crossReferenceService, CrossReferenceAnalysis } from '@/services/cross-reference-service';
+import { enhancedUnifiedSportsAPI, EnhancedPlayerProp } from '@/services/enhanced-unified-sports-api';
 import { PropFinderAnalysisOverlay } from './propfinder-analysis-overlay';
 import { EnhancedAnalysisOverlay } from './enhanced-analysis-overlay';
+import { ConfidenceIntervalChart } from './confidence-interval-chart';
 
 interface PredictionsTabProps {
   selectedSport: string;
@@ -111,11 +114,12 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
   userSubscription = 'free',
   onPredictionsCountChange
 }) => {
-  const [predictions, setPredictions] = useState<AdvancedPrediction[]>([]);
+  const [predictions, setPredictions] = useState<EnhancedPlayerProp[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [sortBy, setSortBy] = useState<'confidence' | 'value' | 'time' | 'sport'>('confidence');
+  const [showConfidenceInterval, setShowConfidenceInterval] = useState(false);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filterRisk, setFilterRisk] = useState<'all' | 'low' | 'medium' | 'high'>('all');
   const [showLiveOnly, setShowLiveOnly] = useState(false);
@@ -179,40 +183,19 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
     try {
       console.log(`🔮 Loading advanced predictions for ${selectedSport}...`);
       
-      // Get player props from Unified Sports API (SportsDataIO + TheOddsAPI)
-      const allPlayerProps = await unifiedSportsAPI.getPlayerProps(selectedSport);
-      console.log(`📊 Retrieved ${allPlayerProps.length} player props for analysis`);
+      // Get enhanced player props with real-time odds and ML predictions
+      const enhancedProps = await enhancedUnifiedSportsAPI.getEnhancedPlayerProps(selectedSport);
+      console.log(`📊 Retrieved ${enhancedProps.length} enhanced player props for analysis`);
       
       // Sort props by confidence (highest first) and limit to top 200
-      const sortedProps = allPlayerProps
+      const sortedProps = enhancedProps
         .sort((a, b) => (b.confidence || 0) - (a.confidence || 0))
         .slice(0, 200);
       
       console.log(`🎯 Selected top ${sortedProps.length} props by confidence for predictions`);
       
-      // Generate advanced predictions from top confidence props
-      const advancedPredictions: AdvancedPrediction[] = sortedProps.map((prop) => {
-        // Generate advanced analysis based on prop data
-        const advancedAnalysis = generateAdvancedAnalysis(prop, selectedSport);
-        
-        return {
-          ...prop,
-          confidence: advancedAnalysis.confidence,
-          expectedValue: advancedAnalysis.expectedValue,
-          valueRating: advancedAnalysis.valueRating,
-          riskLevel: advancedAnalysis.riskLevel,
-          factors: advancedAnalysis.factors,
-          lastUpdated: new Date(),
-          isLive: false, // Will be determined by game status
-          isBookmarked: bookmarkedPredictions.has(prop.id),
-          advancedReasoning: advancedAnalysis.advancedReasoning,
-          injuryImpact: advancedAnalysis.injuryImpact,
-          weatherImpact: advancedAnalysis.weatherImpact,
-          matchupAnalysis: advancedAnalysis.matchupAnalysis,
-          historicalTrends: advancedAnalysis.historicalTrends,
-          keyInsights: advancedAnalysis.keyInsights
-        };
-      });
+      // Use enhanced props directly (they already have ML predictions)
+      const advancedPredictions: EnhancedPlayerProp[] = sortedProps;
 
       // Sort by confidence and value
       const sortedPredictions = advancedPredictions.sort((a, b) => {
@@ -688,6 +671,21 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
                 )}
               </button>
 
+              {/* Confidence Interval Button */}
+              {prediction.mlPrediction && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedPrediction(prediction);
+                    setShowConfidenceInterval(true);
+                  }}
+                  className="absolute top-3 right-12 z-10 p-1 rounded-full hover:bg-muted/50 transition-colors"
+                  title="View Confidence Interval"
+                >
+                  <Target className="w-4 h-4 text-blue-400" />
+                </button>
+              )}
+
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between mb-2">
                   <Badge variant="outline" className="text-xs">
@@ -857,6 +855,32 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
         isOpen={showPredictionModal}
         onClose={() => setShowPredictionModal(false)}
       />
+
+      {/* Confidence Interval Dialog */}
+      {selectedPrediction?.mlPrediction && (
+        <Dialog open={showConfidenceInterval} onOpenChange={setShowConfidenceInterval}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold">
+                Confidence Interval Analysis
+              </DialogTitle>
+              <DialogDescription>
+                {selectedPrediction.playerName} • {selectedPrediction.propType} {selectedPrediction.line}
+              </DialogDescription>
+            </DialogHeader>
+            <ConfidenceIntervalChart 
+              data={{
+                prediction: selectedPrediction.mlPrediction.prediction,
+                probability: selectedPrediction.mlPrediction.probability,
+                confidenceInterval: selectedPrediction.mlPrediction.confidenceInterval,
+                confidence: selectedPrediction.mlPrediction.confidence,
+                expectedValue: selectedPrediction.mlPrediction.expectedValue,
+                featureImportance: selectedPrediction.mlPrediction.featureImportance
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };
