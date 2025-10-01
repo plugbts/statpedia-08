@@ -21,7 +21,8 @@ import {
   AlertCircle,
   CheckCircle,
   Info,
-  Bug
+  Bug,
+  Activity
 } from 'lucide-react';
 
 export const DevConsole: React.FC = () => {
