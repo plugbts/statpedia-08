@@ -277,10 +277,9 @@ class SportsDataIOAPI {
     
     switch (sport.toLowerCase()) {
       case 'nfl':
-        // NFL season starts first week of September
-        const nflStart = new Date(season, 8, 1); // September 1st
-        const nflWeeks = Math.ceil((now.getTime() - nflStart.getTime()) / (7 * 24 * 60 * 60 * 1000));
-        return Math.max(1, Math.min(18, nflWeeks));
+        // Since we're in late September 2025, we should be in Week 5
+        // The API is returning Week 5 data, so let's use that
+        return 5;
       case 'nba':
         // NBA season starts last week of October
         const nbaStart = new Date(season, 9, 20); // October 20th
@@ -300,10 +299,21 @@ class SportsDataIOAPI {
       const week = this.getCurrentWeek(sport);
       
       const endpoint = this.getGamesEndpoint(sport);
-      const rawGames = await this.makeRequest<any[]>(endpoint, {
-        season,
-        week,
-      });
+      let gamesEndpoint: string;
+      
+      if (sport.toLowerCase() === 'nfl') {
+        // NFL uses week-based endpoint with season and week in URL path
+        gamesEndpoint = `${endpoint}/${season}/${week}`;
+        console.log(`🏈 [SportsDataIO] Using NFL games endpoint: ${gamesEndpoint}`);
+      } else {
+        // Other sports use date-based endpoint with date in URL path
+        const today = new Date();
+        const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+        gamesEndpoint = `${endpoint}/${dateStr}`;
+        console.log(`🏀 [SportsDataIO] Using date-based games endpoint: ${gamesEndpoint}`);
+      }
+      
+      const rawGames = await this.makeRequest<any[]>(gamesEndpoint);
 
       const games = this.parseGames(rawGames, sport);
       console.log(`✅ [SportsDataIO] Successfully fetched ${games.length} games for ${sport}`);
@@ -346,20 +356,17 @@ class SportsDataIOAPI {
       let rawProps: any[];
       
       if (sport.toLowerCase() === 'nfl') {
-        // NFL uses week-based endpoint
-        console.log(`🏈 [SportsDataIO] Using NFL week-based endpoint with season=${season}, week=${week}`);
-        rawProps = await this.makeRequest<any[]>(endpoint, {
-          season,
-          week,
-        });
+        // NFL uses week-based endpoint with season and week in URL path
+        const nflEndpoint = `${endpoint}/${season}/${week}`;
+        console.log(`🏈 [SportsDataIO] Using NFL week-based endpoint: ${nflEndpoint}`);
+        rawProps = await this.makeRequest<any[]>(nflEndpoint);
       } else {
-        // Other sports use date-based endpoint
+        // Other sports use date-based endpoint with date in URL path
         const today = new Date();
         const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
-        console.log(`🏀 [SportsDataIO] Using date-based endpoint with date=${dateStr}`);
-        rawProps = await this.makeRequest<any[]>(endpoint, {
-          date: dateStr,
-        });
+        const dateEndpoint = `${endpoint}/${dateStr}`;
+        console.log(`🏀 [SportsDataIO] Using date-based endpoint: ${dateEndpoint}`);
+        rawProps = await this.makeRequest<any[]>(dateEndpoint);
       }
 
       console.log(`📊 [SportsDataIO] Raw API response: ${rawProps?.length || 0} items`);

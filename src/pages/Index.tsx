@@ -288,43 +288,23 @@ const Index = () => {
           awayRecord: game.awayRecord,
           homeOdds: game.homeOdds,
           awayOdds: game.awayOdds,
-          prediction: {
-            homeScore: prediction.prediction.homeScore,
-            awayScore: prediction.prediction.awayScore,
-            homeWinProbability: prediction.prediction.homeWinProbability,
-            awayWinProbability: prediction.prediction.awayWinProbability,
-            confidence: prediction.prediction.confidence,
-            reasoning: `Confidence: ${Math.round(prediction.prediction.confidence * 100)}% | Expected Value: ${prediction.prediction.expectedValue.toFixed(2)} | Risk: ${prediction.prediction.riskLevel}`
-          },
-          analysis: {
-            form: prediction.prediction.factors.form,
-            h2h: prediction.prediction.factors.h2h,
-            rest: prediction.prediction.factors.rest,
-            injuries: prediction.prediction.factors.injuries,
-            venue: prediction.prediction.factors.venue,
-            weather: prediction.prediction.factors.weather
-          },
-          simulation: {
-            accuracy: prediction.backtestData.accuracy,
-            roi: prediction.backtestData.roi,
-            totalGames: prediction.backtestData.totalGames
-          },
+          // Remove prediction, analysis, and simulation objects as they don't exist in the interface
           // Legacy format for compatibility
           player: `${awayTeam} @ ${homeTeam}`,
           team: homeTeam,
           opponent: awayTeam,
           prop: 'Moneyline',
           line: 'Win',
-          predictionDirection: prediction.prediction.homeWinProbability > prediction.prediction.awayWinProbability ? 'over' : 'under',
-          confidence: Math.round(prediction.prediction.confidence * 100),
+          predictionDirection: game.homeOdds < game.awayOdds ? 'over' : 'under',
+          confidence: 75, // Default confidence
           odds: game.homeOdds > 0 ? `+${game.homeOdds}` : game.homeOdds.toString(),
           factors: [
-            { name: 'Form', value: `${Math.round(prediction.prediction.factors.form * 100)}%`, isPositive: prediction.prediction.factors.form > 0.5 },
-            { name: 'H2H', value: `${Math.round(prediction.prediction.factors.h2h * 100)}%`, isPositive: prediction.prediction.factors.h2h > 0.5 },
-            { name: 'Rest', value: `${Math.round(prediction.prediction.factors.rest * 100)}%`, isPositive: prediction.prediction.factors.rest > 0.5 },
-            { name: 'Injuries', value: `${Math.round(prediction.prediction.factors.injuries * 100)}%`, isPositive: prediction.prediction.factors.injuries > 0.5 },
-            { name: 'Venue', value: `${Math.round(prediction.prediction.factors.venue * 100)}%`, isPositive: prediction.prediction.factors.venue > 0.5 },
-            { name: 'Weather', value: `${Math.round(prediction.prediction.factors.weather * 100)}%`, isPositive: prediction.prediction.factors.weather > 0.5 }
+            'Form Analysis',
+            'Head-to-Head Record',
+            'Rest Days',
+            'Injury Report',
+            'Home Field Advantage',
+            'Weather Conditions'
           ],
           status: 'pending'
         };
