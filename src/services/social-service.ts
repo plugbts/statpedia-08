@@ -137,23 +137,44 @@ class SocialService {
     // Check if username is already taken
     const { data: existingUser } = await supabase
       .from('user_profiles')
-      .select('id')
+      .select('id, user_id')
       .eq('username', newUsername)
       .neq('user_id', userId)
       .single();
 
     if (existingUser) {
-      throw new Error('Username is already taken');
+      throw new Error('Username is already taken by another user');
     }
 
     // Validate username format
-    if (!/^[a-zA-Z0-9_]{3,20}$/.test(newUsername)) {
-      throw new Error('Username must be 3-20 characters long and contain only letters, numbers, and underscores');
+    if (!/^[a-zA-Z0-9_.]{3,20}$/.test(newUsername)) {
+      throw new Error('Username must be 3-20 characters long and contain only letters, numbers, underscores, and periods');
+    }
+
+    // Check for reserved usernames
+    const reservedUsernames = ['admin', 'administrator', 'moderator', 'support', 'help', 'api', 'www', 'mail', 'root', 'user', 'guest', 'test', 'demo'];
+    if (reservedUsernames.includes(newUsername.toLowerCase())) {
+      throw new Error('This username is reserved and cannot be used');
+    }
+
+    // Get current profile to log username change
+    const { data: currentProfile } = await supabase
+      .from('user_profiles')
+      .select('username, created_at')
+      .eq('user_id', userId)
+      .single();
+
+    if (currentProfile && currentProfile.username && currentProfile.username.trim() !== '') {
+      // Username is already set, this is a change request
+      console.log(`User ${userId} is changing username from ${currentProfile.username} to ${newUsername}`);
     }
 
     const { data, error } = await supabase
       .from('user_profiles')
-      .update({ username: newUsername })
+      .update({ 
+        username: newUsername,
+        updated_at: new Date().toISOString()
+      })
       .eq('user_id', userId)
       .select()
       .single();
@@ -226,6 +247,17 @@ class SocialService {
   // Create or update user profile with username
   async createOrUpdateUserProfile(userId: string, username: string, email?: string): Promise<UserProfile> {
     try {
+      // Validate username format
+      if (!/^[a-zA-Z0-9_.]{3,20}$/.test(username)) {
+        throw new Error('Username must be 3-20 characters long and contain only letters, numbers, underscores, and periods');
+      }
+
+      // Check for reserved usernames
+      const reservedUsernames = ['admin', 'administrator', 'moderator', 'support', 'help', 'api', 'www', 'mail', 'root', 'user', 'guest', 'test', 'demo'];
+      if (reservedUsernames.includes(username.toLowerCase())) {
+        throw new Error('This username is reserved and cannot be used');
+      }
+
       // Check if username is already taken
       const { data: existingUser } = await supabase
         .from('user_profiles')
@@ -246,7 +278,7 @@ class SocialService {
         .single();
 
       if (existingProfile) {
-        // Update existing profile with username
+        // Update existing profile with username (allows username changes)
         const { data, error } = await supabase
           .from('user_profiles')
           .update({ 

@@ -63,7 +63,9 @@ export const SocialTab: React.FC<SocialTabProps> = ({ onReturnToDashboard }) => 
     getUserUsername, 
     getUserInitials,
     updateUserIdentity,
-    refreshUserIdentity 
+    refreshUserIdentity,
+    hasCompletedUsernameSetup,
+    markUsernameSetupComplete
   } = useUser();
   
   const [activeTab, setActiveTab] = useState('feed');
@@ -229,6 +231,9 @@ export const SocialTab: React.FC<SocialTabProps> = ({ onReturnToDashboard }) => 
       setUserProfile(profile);
       setShowUsernamePrompt(false);
       
+      // Mark username setup as complete
+      markUsernameSetupComplete();
+      
       // Refresh user identity in context to update username across the app
       await refreshUserIdentity();
       
@@ -278,24 +283,31 @@ export const SocialTab: React.FC<SocialTabProps> = ({ onReturnToDashboard }) => 
       try {
         profile = await socialService.getUserProfile(user.id);
         if (!profile) {
-          // Show username prompt if no profile exists
-          console.log('No profile found, showing username prompt');
-          setShowUsernamePrompt(true);
+          // Only show username prompt if user hasn't completed setup
+          if (!hasCompletedUsernameSetup) {
+            console.log('No profile found, showing username prompt');
+            setShowUsernamePrompt(true);
+          }
           setIsLoading(false);
           return;
         }
 
         // Check if user has a username set
         if (!profile.username || profile.username.trim() === '') {
-          console.log('No username found, showing prompt');
-          setShowUsernamePrompt(true);
+          // Only show username prompt if user hasn't completed setup
+          if (!hasCompletedUsernameSetup) {
+            console.log('No username found, showing prompt');
+            setShowUsernamePrompt(true);
+          }
           setIsLoading(false);
           return;
         }
       } catch (error: any) {
         console.log('Profile service error (expected if tables missing):', error);
-        // Show username prompt if there's an error
-        setShowUsernamePrompt(true);
+        // Only show username prompt if user hasn't completed setup
+        if (!hasCompletedUsernameSetup) {
+          setShowUsernamePrompt(true);
+        }
         setIsLoading(false);
         return;
       }
@@ -483,6 +495,12 @@ export const SocialTab: React.FC<SocialTabProps> = ({ onReturnToDashboard }) => 
       if (updatedProfile) {
         setUserProfile(updatedProfile);
       }
+
+      // Refresh user identity in context to update username across the app
+      await refreshUserIdentity();
+      
+      // Trigger user context refresh event for other components
+      window.dispatchEvent(new CustomEvent('userContextRefresh'));
 
       setIsEditingProfile(false);
       toast({

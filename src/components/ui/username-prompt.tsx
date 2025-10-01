@@ -8,6 +8,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { User, Check, X, Sparkles, Loader2, Home, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { socialService } from '@/services/social-service';
+import { supabase } from '@/integrations/supabase/client';
 
 interface UsernamePromptProps {
   isVisible: boolean;
@@ -120,6 +121,14 @@ export const UsernamePrompt: React.FC<UsernamePromptProps> = ({
     try {
       // Call the callback to set the username
       await onUsernameSet(username.trim());
+      
+      // Mark username setup as complete in localStorage
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const completionKey = `username_setup_complete_${user.id}`;
+        localStorage.setItem(completionKey, 'true');
+      }
+      
       toast({
         title: "Welcome to Social!",
         description: `Your username @${username.trim()} has been set up successfully.`,

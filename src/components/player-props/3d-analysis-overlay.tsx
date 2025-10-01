@@ -76,7 +76,7 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
   // Interactive graph state
   const [selectedPropType, setSelectedPropType] = useState(prop?.propType || 'All');
   const [selectedTimePeriod, setSelectedTimePeriod] = useState('last5');
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(true); // Auto-play by default
   const [animationSpeed, setAnimationSpeed] = useState(1);
   const [graphData, setGraphData] = useState<any[]>([]);
   const [currentDataIndex, setCurrentDataIndex] = useState(0);
@@ -499,10 +499,10 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
             </TabsContent>
 
             <TabsContent value="history" className="mt-6 space-y-6 max-h-[60vh] overflow-y-auto pr-2">
-              {/* Interactive 3D Graph */}
+              {/* Interactive Professional Graph */}
               <div className="bg-slate-900/60 rounded-xl p-6 border border-slate-700/60">
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-bold text-slate-100">Performance History</h3>
+                  <h3 className="text-xl font-bold text-slate-100">Performance Analytics</h3>
                   <div className="flex items-center space-x-4">
                     {/* Prop Type Selector */}
                     <Select value={selectedPropType} onValueChange={setSelectedPropType}>
@@ -534,16 +534,8 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
                       </SelectContent>
                     </Select>
 
-                    {/* Animation Controls */}
+                    {/* Animation controls */}
                     <div className="flex items-center space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsPlaying(!isPlaying)}
-                        className="bg-slate-800/60 border-slate-600/60 text-slate-200 hover:bg-slate-700/60"
-                      >
-                        {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
@@ -552,16 +544,44 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
                       >
                         <RotateCcw className="h-4 w-4" />
                       </Button>
+                      <div className="text-xs text-slate-500 font-medium">
+                        Auto-playing
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* 3D Graph Container */}
+                {/* Professional Grid Chart */}
                 <div className="relative h-96 bg-gradient-to-br from-slate-950/50 to-slate-900/50 rounded-lg border border-slate-700/50 overflow-hidden">
-                  {/* 3D Graph Bars */}
-                  <div className="absolute inset-0 flex items-end justify-center space-x-2 p-6">
+                  {/* Y-axis labels */}
+                  <div className="absolute left-0 top-0 bottom-0 w-12 flex flex-col justify-between py-6">
+                    {[100, 75, 50, 25, 0].map((percent, index) => {
+                      const maxValue = Math.max(...graphData.map(d => d.value));
+                      const value = (maxValue * percent) / 100;
+                      return (
+                        <div key={percent} className="text-xs text-slate-500 font-mono text-right pr-2">
+                          {formatNumber(value, 0)}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Grid lines with numbers */}
+                  <div className="absolute left-12 right-0 top-0 bottom-0">
+                    {[0, 25, 50, 75, 100].map((percent) => (
+                      <div key={percent} className="absolute left-0 right-0 h-px bg-slate-700/40">
+                        <div className="absolute -right-8 -top-2 text-xs text-slate-600 font-mono">
+                          {percent}%
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Data bars */}
+                  <div className="absolute left-12 right-6 top-0 bottom-0 flex items-end justify-between px-4 py-6">
                     {graphData.map((dataPoint, index) => {
-                      const height = (dataPoint.value / Math.max(...graphData.map(d => d.value))) * 100;
+                      const maxValue = Math.max(...graphData.map(d => d.value));
+                      const height = (dataPoint.value / maxValue) * 100;
                       const isActive = animatedBars[index] || index <= currentDataIndex;
                       const isCurrent = index === currentDataIndex;
                       const isAnimated = animatedBars[index];
@@ -569,53 +589,52 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
                       return (
                         <div
                           key={dataPoint.id}
-                          className="relative flex flex-col items-center group"
+                          className="relative flex flex-col items-center group flex-1 mx-1"
                           style={{
-                            transform: `perspective(1000px) rotateX(${isActive ? 0 : 45}deg) translateZ(${isActive ? 0 : -20}px)`,
-                            transition: 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)',
-                            opacity: isActive ? 1 : 0.3
+                            transform: `translateY(${isActive ? 0 : 20}px)`,
+                            transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+                            opacity: isActive ? 1 : 0.4
                           }}
                         >
-                          {/* 3D Bar */}
+                          {/* Professional Bar */}
                           <div
                             className={cn(
-                              "relative w-8 rounded-t-lg transition-all duration-1000 ease-out",
-                              "shadow-lg hover:shadow-xl",
-                              isCurrent && "ring-2 ring-blue-400/50 shadow-blue-400/20",
-                              dataPoint.hit ? "bg-gradient-to-t from-green-600 to-green-400" : "bg-gradient-to-t from-red-600 to-red-400",
+                              "relative w-full rounded-t transition-all duration-800 ease-out cursor-pointer",
+                              "shadow-lg hover:shadow-xl group-hover:scale-105",
+                              isCurrent && "ring-1 ring-blue-400/60 shadow-blue-400/20",
+                              dataPoint.hit ? "bg-gradient-to-t from-emerald-600/90 to-emerald-500/90" : "bg-gradient-to-t from-red-600/90 to-red-500/90",
                               isAnimated && "animate-pulse"
                             )}
                             style={{
-                              height: `${height}%`,
-                              minHeight: '20px',
-                              transform: isCurrent ? 'scale(1.1) translateY(-5px)' : 'scale(1)',
+                              height: `${Math.max(height, 8)}%`,
+                              minHeight: '16px',
+                              transform: isCurrent ? 'scale(1.05) translateY(-2px)' : 'scale(1)',
                               boxShadow: isAnimated 
                                 ? dataPoint.hit 
-                                  ? '0 0 25px rgba(34, 197, 94, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
-                                  : '0 0 25px rgba(239, 68, 68, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
+                                  ? '0 0 20px rgba(16, 185, 129, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
+                                  : '0 0 20px rgba(239, 68, 68, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
                                 : isCurrent 
-                                  ? '0 0 20px rgba(59, 130, 246, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
+                                  ? '0 0 15px rgba(59, 130, 246, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15)'
                                   : 'inset 0 1px 0 rgba(255, 255, 255, 0.1)',
-                              animation: isAnimated ? (dataPoint.hit ? 'glow 2s ease-in-out infinite' : 'glow-red 2s ease-in-out infinite') : 'none'
                             }}
                           >
                             {/* Bar Value */}
-                            <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 text-xs font-bold text-slate-200 whitespace-nowrap">
+                            <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-slate-100 whitespace-nowrap">
                               {formatNumber(dataPoint.value, 1)}
                             </div>
                             
                             {/* Performance Indicator */}
-                            <div className="absolute -top-12 left-1/2 transform -translate-x-1/2">
+                            <div className="absolute -top-10 left-1/2 transform -translate-x-1/2">
                               <div className={cn(
-                                "w-2 h-2 rounded-full",
-                                dataPoint.hit ? "bg-green-400" : "bg-red-400",
+                                "w-1.5 h-1.5 rounded-full border border-white/20",
+                                dataPoint.hit ? "bg-emerald-400" : "bg-red-400",
                                 isCurrent && "animate-pulse"
                               )} />
                             </div>
                           </div>
 
                           {/* Game Info */}
-                          <div className="mt-2 text-center">
+                          <div className="mt-3 text-center">
                             <div className="text-xs text-slate-400 font-medium">
                               {dataPoint.game}
                             </div>
@@ -628,47 +647,32 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
                     })}
                   </div>
 
-                  {/* Animated Reference Line */}
+                  {/* Professional Reference Line */}
                   <div 
-                    className="absolute left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-400/70 to-transparent wave-animation"
+                    className="absolute left-12 right-6 h-0.5 bg-gradient-to-r from-transparent via-amber-400/80 to-transparent"
                     style={{ 
-                      bottom: `${100 - (prop.line / Math.max(...graphData.map(d => d.value))) * 100}%`
+                      bottom: `${6 + (prop.line / Math.max(...graphData.map(d => d.value))) * (100 - 12)}%`
                     }}
                   >
-                    <div className="absolute -left-8 -top-2 text-xs text-slate-400 font-medium float-animation">
+                    <div className="absolute -right-16 -top-3 text-xs text-amber-400 font-semibold bg-slate-900/80 px-2 py-1 rounded border border-amber-400/20">
                       Line: {formatNumber(prop.line, 1)}
                     </div>
-                    {/* Animated dots along the line */}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-2 h-2 bg-slate-400/80 rounded-full animate-ping" style={{ animationDelay: '0s' }} />
-                      <div className="w-1 h-1 bg-slate-400/60 rounded-full animate-ping absolute left-1/4" style={{ animationDelay: '0.5s' }} />
-                      <div className="w-1 h-1 bg-slate-400/60 rounded-full animate-ping absolute right-1/4" style={{ animationDelay: '1s' }} />
-                    </div>
+                    {/* Subtle pulse effect */}
+                    <div className="absolute inset-0 bg-amber-400/20 rounded-full animate-pulse" />
                   </div>
 
-                  {/* 3D Grid Lines */}
-                  <div className="absolute inset-0 pointer-events-none">
-                    {[0, 25, 50, 75, 100].map((percent) => (
-                      <div
-                        key={percent}
-                        className="absolute left-0 right-0 h-px bg-slate-700/30"
-                        style={{ bottom: `${percent}%` }}
-                      />
-                    ))}
-                  </div>
-
-                  {/* Animated Particles */}
+                  {/* Professional Particles */}
                   {isPlaying && (
                     <div className="absolute inset-0 pointer-events-none">
-                      {Array.from({ length: 20 }).map((_, i) => (
+                      {Array.from({ length: 12 }).map((_, i) => (
                         <div
                           key={i}
-                          className="absolute w-1 h-1 bg-blue-400/60 rounded-full animate-ping"
+                          className="absolute w-0.5 h-0.5 bg-blue-400/40 rounded-full animate-ping"
                           style={{
                             left: `${Math.random() * 100}%`,
                             top: `${Math.random() * 100}%`,
-                            animationDelay: `${Math.random() * 2}s`,
-                            animationDuration: `${1 + Math.random() * 2}s`
+                            animationDelay: `${Math.random() * 3}s`,
+                            animationDuration: `${2 + Math.random() * 2}s`
                           }}
                         />
                       ))}
@@ -676,31 +680,35 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
                   )}
                 </div>
 
-                {/* Stats Summary */}
+                {/* Professional Stats Summary */}
                 <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="text-center p-4 bg-slate-800/60 rounded-lg border border-slate-700/60">
-                    <div className="text-2xl font-bold text-green-400">
+                  <div className="text-center p-4 bg-slate-800/60 rounded-lg border border-slate-700/60 hover:border-emerald-500/30 transition-colors">
+                    <div className="text-2xl font-bold text-emerald-400">
                       {graphData.filter(d => d.hit).length}
                     </div>
-                    <div className="text-sm text-slate-400">Hits</div>
+                    <div className="text-sm text-slate-400 font-medium">Hits</div>
+                    <div className="text-xs text-slate-500 mt-1">Over Line</div>
                   </div>
-                  <div className="text-center p-4 bg-slate-800/60 rounded-lg border border-slate-700/60">
+                  <div className="text-center p-4 bg-slate-800/60 rounded-lg border border-slate-700/60 hover:border-red-500/30 transition-colors">
                     <div className="text-2xl font-bold text-red-400">
                       {graphData.filter(d => !d.hit).length}
                     </div>
-                    <div className="text-sm text-slate-400">Misses</div>
+                    <div className="text-sm text-slate-400 font-medium">Misses</div>
+                    <div className="text-xs text-slate-500 mt-1">Under Line</div>
                   </div>
-                  <div className="text-center p-4 bg-slate-800/60 rounded-lg border border-slate-700/60">
+                  <div className="text-center p-4 bg-slate-800/60 rounded-lg border border-slate-700/60 hover:border-blue-500/30 transition-colors">
                     <div className="text-2xl font-bold text-blue-400">
                       {formatPercentage(graphData.filter(d => d.hit).length / graphData.length)}
                     </div>
-                    <div className="text-sm text-slate-400">Hit Rate</div>
+                    <div className="text-sm text-slate-400 font-medium">Hit Rate</div>
+                    <div className="text-xs text-slate-500 mt-1">Success Rate</div>
                   </div>
-                  <div className="text-center p-4 bg-slate-800/60 rounded-lg border border-slate-700/60">
+                  <div className="text-center p-4 bg-slate-800/60 rounded-lg border border-slate-700/60 hover:border-purple-500/30 transition-colors">
                     <div className="text-2xl font-bold text-purple-400">
                       {formatNumber(graphData.reduce((sum, d) => sum + d.value, 0) / graphData.length, 1)}
                     </div>
-                    <div className="text-sm text-slate-400">Average</div>
+                    <div className="text-sm text-slate-400 font-medium">Average</div>
+                    <div className="text-xs text-slate-500 mt-1">Per Game</div>
                   </div>
                 </div>
               </div>

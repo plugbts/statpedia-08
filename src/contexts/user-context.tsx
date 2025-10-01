@@ -48,10 +48,12 @@ interface UserContextType {
   // User state
   isLoading: boolean;
   isAuthenticated: boolean;
+  hasCompletedUsernameSetup: boolean;
   
   // User actions
   refreshUserIdentity: () => Promise<void>;
   updateUserIdentity: (updates: Partial<UserIdentity>) => Promise<boolean>;
+  markUsernameSetupComplete: () => void;
   
   // Security methods
   validateUserAccess: (requiredRole: string) => boolean;
@@ -76,6 +78,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [userSubscription, setUserSubscription] = useState('free');
   const [userRole, setUserRole] = useState('user');
+  const [hasCompletedUsernameSetup, setHasCompletedUsernameSetup] = useState(false);
   
   // Security state
   const securityStateRef = useRef<SecurityState>({
@@ -299,6 +302,36 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Check username setup completion status
+  const checkUsernameSetupCompletion = useCallback((userId: string): boolean => {
+    try {
+      const completionKey = `username_setup_complete_${userId}`;
+      const isComplete = localStorage.getItem(completionKey) === 'true';
+      return isComplete;
+    } catch (error) {
+      console.error('Error checking username setup completion:', error);
+      return false;
+    }
+  }, []);
+
+  // Mark username setup as complete
+  const markUsernameSetupComplete = useCallback(() => {
+    if (!user) return;
+    
+    try {
+      const completionKey = `username_setup_complete_${user.id}`;
+      localStorage.setItem(completionKey, 'true');
+      setHasCompletedUsernameSetup(true);
+      
+      logSecurityEvent('USERNAME_SETUP_COMPLETED', {
+        userId: user.id,
+        username: userIdentity?.username || 'unknown'
+      });
+    } catch (error) {
+      console.error('Error marking username setup as complete:', error);
+    }
+  }, [user, userIdentity?.username, logSecurityEvent]);
+
   // User actions - Define before useEffect that uses them
   const refreshUserIdentity = async (): Promise<void> => {
     if (!user) return;
@@ -310,12 +343,18 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       if (identity) {
         setUserSubscription(identity.subscription_tier || 'free');
         setUserRole(identity.role || 'user');
+        
+        // Check if user has completed username setup
+        const hasUsername = !!(identity.username && identity.username.trim() !== '');
+        const isSetupComplete = hasUsername || checkUsernameSetupCompletion(user.id);
+        setHasCompletedUsernameSetup(isSetupComplete);
       }
       
       logSecurityEvent('USER_IDENTITY_REFRESHED', {
         userId: user.id,
         hasUsername: !!identity?.username,
-        username: identity?.username || 'none'
+        username: identity?.username || 'none',
+        hasCompletedSetup: hasCompletedUsernameSetup
       });
     } catch (error) {
       console.error('Error refreshing user identity:', error);
@@ -438,8 +477,10 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     formatUserIdentity,
     isLoading,
     isAuthenticated: !!user,
+    hasCompletedUsernameSetup,
     refreshUserIdentity,
     updateUserIdentity,
+    markUsernameSetupComplete,
     validateUserAccess,
     getMaskedEmail,
     isOwnerEmail,
