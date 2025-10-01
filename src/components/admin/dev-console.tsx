@@ -614,11 +614,20 @@ export const DevConsole: React.FC = () => {
                                 onClick={async () => {
                                   logger.info('DevConsole', 'Testing player props fetch for NFL...');
                                   try {
+                                    // Clear cache first to test fresh fetch
+                                    sportsGameOddsAPI.clearPlayerPropsCache();
+                                    logger.info('DevConsole', 'Cache cleared, fetching fresh data...');
+                                    
                                     const props = await sportsGameOddsAPI.getPlayerProps('nfl');
                                     logger.success('DevConsole', `Fetched ${props.length} NFL player props`);
                                     console.log('NFL Player Props:', props);
+                                    
+                                    // Log cache status after fetch
+                                    logger.info('DevConsole', `Cache Status: ${sportsGameOddsAPI.getPlayerPropsCacheStatus()}`);
+                                    logger.info('DevConsole', `Cached Sports: ${sportsGameOddsAPI.getCachedSports().join(', ')}`);
                                   } catch (error) {
                                     logger.error('DevConsole', 'Failed to fetch NFL player props:', error);
+                                    console.error('Full error:', error);
                                   }
                                 }}
                                 className="flex-1 text-xs"
@@ -637,6 +646,25 @@ export const DevConsole: React.FC = () => {
                                 Clear Cache
                               </Button>
                             </div>
+                            
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={async () => {
+                                logger.info('DevConsole', 'Testing unified sports API chain...');
+                                try {
+                                  const props = await unifiedSportsAPI.getPlayerProps('nfl');
+                                  logger.success('DevConsole', `Unified API returned ${props.length} props`);
+                                  console.log('Unified API Props:', props);
+                                } catch (error) {
+                                  logger.error('DevConsole', 'Unified API failed:', error);
+                                  console.error('Unified API Error:', error);
+                                }
+                              }}
+                              className="w-full text-xs mb-2"
+                            >
+                              Test Unified API Chain
+                            </Button>
                             
                             <Button
                               variant="outline"
