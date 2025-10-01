@@ -41,6 +41,7 @@ import {
   Zap
 } from 'lucide-react';
 import { sportsDataIOAPI } from '@/services/sportsdataio-api';
+import { freshAPIService } from '@/services/fresh-api-service';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -141,9 +142,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     setRealProps([]);
     
     try {
-      console.log(`📡 Calling sportsDataIOAPI.getPlayerProps(${sport})...`);
-      const props = await sportsDataIOAPI.getPlayerProps(sport);
-      console.log(`📊 API returned ${props?.length || 0} props:`, props);
+      console.log(`📡 Calling freshAPIService.getPlayerProps(${sport})...`);
+      const props = await freshAPIService.getPlayerProps(sport);
+      console.log(`📊 Fresh API returned ${props?.length || 0} props:`, props);
       
       // DEBUG: Log first few props to check data quality
       if (props && props.length > 0) {
