@@ -245,9 +245,9 @@ export function PlayerPropsColumnView({
 
       {/* Props List */}
       <div className="space-y-2">
-        {filteredAndSortedProps.map((prop) => (
+        {filteredAndSortedProps.map((prop, index) => (
           <Card
-            key={prop.id}
+            key={prop.id || `prop-${prop.playerId}-${prop.propType}-${index}`}
             className="bg-slate-900/60 border-slate-700/60 hover:bg-slate-800/60 transition-colors duration-200 cursor-pointer group"
             onClick={() => handlePropClick(prop)}
           >
