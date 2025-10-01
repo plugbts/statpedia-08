@@ -4,11 +4,11 @@ import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/conso
 const SPORTSGAMEODDS_API_KEY = '740556c91b9aa5616c0521cc2f09ed74';
 const SPORTSGAMEODDS_BASE_URL = 'https://api.sportsgameodds.com';
 
-// Cache configuration
+// Cache configuration - increased durations to reduce API calls
 const CACHE_DURATION = {
-  ODDS: 5 * 60 * 1000, // 5 minutes for odds
-  MARKETS: 5 * 60 * 1000, // 5 minutes for markets
-  GAMES: 15 * 60 * 1000, // 15 minutes for games
+  ODDS: 30 * 60 * 1000, // 30 minutes for odds (increased from 5 minutes)
+  MARKETS: 30 * 60 * 1000, // 30 minutes for markets (increased from 5 minutes)
+  GAMES: 60 * 60 * 1000, // 1 hour for games (increased from 15 minutes)
   SPORTS: 24 * 60 * 60 * 1000, // 24 hours for sports (rarely change)
   BOOKMAKERS: 24 * 60 * 60 * 1000, // 24 hours for bookmakers (rarely change)
   PLAYERS: 12 * 60 * 60 * 1000, // 12 hours for players (rarely change)
@@ -97,10 +97,12 @@ class SportsGameOddsAPI {
     cacheHits: 0,
     cacheMisses: 0
   };
-  private readonly MAX_DAILY_CALLS = 1000; // Conservative limit for trial plan
+  private readonly MAX_DAILY_CALLS = 100; // Very conservative limit for trial plan to avoid rate limits
 
   constructor() {
     logInfo('SportsGameOddsAPI', 'SportsGameOdds API initialized with usage tracking');
+    // Reset usage stats on initialization to clear any previous testing data
+    this.resetUsageStats();
   }
 
   // Track API usage for monitoring
@@ -246,12 +248,26 @@ class SportsGameOddsAPI {
 
       if (!response.ok) {
         const errorText = await response.text();
+        
+        // Handle rate limit specifically
+        if (response.status === 429) {
+          logWarning('SportsGameOddsAPI', `Rate limit exceeded for ${endpoint}. Status: ${response.status}`);
+          logWarning('SportsGameOddsAPI', `Response: ${errorText}`);
+          throw new Error('Rate limit exceeded - please try again later');
+        }
+        
         logError('SportsGameOddsAPI', `HTTP ${response.status}: ${response.statusText}`);
         logError('SportsGameOddsAPI', `Response: ${errorText}`);
         throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
       }
 
       const data = await response.json();
+      
+      // Check for rate limit in response body
+      if (data.success === false && data.error && data.error.includes('Rate limit')) {
+        logWarning('SportsGameOddsAPI', `Rate limit exceeded in response for ${endpoint}: ${data.error}`);
+        throw new Error('Rate limit exceeded - please try again later');
+      }
       
       // Cache the response
       this.cache.set(cacheKey, { data, timestamp: now });
@@ -346,10 +362,29 @@ class SportsGameOddsAPI {
 
       // Get events/games for the sport with optimized query parameters
       // Only fetch events with odds available and limit to recent games
-      const response = await this.makeRequest<any>(
-        `/v2/events?leagueID=${leagueId}&oddsAvailable=true&limit=10`, 
-        CACHE_DURATION.ODDS
-      );
+      let response;
+      try {
+        response = await this.makeRequest<any>(
+          `/v2/events?leagueID=${leagueId}&oddsAvailable=true&limit=10`, 
+          CACHE_DURATION.ODDS
+        );
+      } catch (error: any) {
+        if (error.message && error.message.includes('Rate limit')) {
+          logWarning('SportsGameOddsAPI', `Rate limit exceeded for ${sport}. Using cached data if available.`);
+          // Try to get cached data instead
+          const cacheKey = `/v2/events?leagueID=${leagueId}&oddsAvailable=true&limit=10`;
+          if (this.cache.has(cacheKey)) {
+            const cached = this.cache.get(cacheKey)!;
+            response = cached.data;
+            logAPI('SportsGameOddsAPI', `Using cached data for ${sport} due to rate limit`);
+          } else {
+            logError('SportsGameOddsAPI', `No cached data available for ${sport} and rate limit exceeded`);
+            return [];
+          }
+        } else {
+          throw error;
+        }
+      }
       
       logAPI('SportsGameOddsAPI', `API Response structure:`, {
         hasData: !!response.data,
