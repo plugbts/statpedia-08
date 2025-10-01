@@ -67,11 +67,16 @@ class SyncService {
       // Test Supabase connection
       const { data, error } = await supabase.from('profiles').select('count').limit(1);
       if (error) {
-        throw error;
+        console.warn('Supabase realtime not available:', error.message);
+        // Disable Supabase realtime if it fails
+        this.config.enableSupabaseRealtime = false;
+        return;
       }
       console.log('Supabase realtime initialized');
     } catch (error) {
-      console.error('Failed to initialize Supabase realtime:', error);
+      console.warn('Failed to initialize Supabase realtime, disabling:', error);
+      // Disable Supabase realtime if it fails
+      this.config.enableSupabaseRealtime = false;
     }
   }
 

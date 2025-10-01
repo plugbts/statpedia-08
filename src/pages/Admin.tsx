@@ -82,7 +82,7 @@ export default function Admin() {
         </div>
 
         <Tabs defaultValue="users" className="w-full">
-          <TabsList className="grid w-full grid-cols-11">
+          <TabsList className={`grid w-full ${userRole === 'owner' ? 'grid-cols-11' : 'grid-cols-10'}`}>
             <TabsTrigger value="users">
               <Users className="h-4 w-4 mr-2" />
               Users
@@ -123,10 +123,12 @@ export default function Admin() {
               <Lock className="h-4 w-4 mr-2" />
               Security
             </TabsTrigger>
-            <TabsTrigger value="sync">
-              <Activity className="h-4 w-4 mr-2" />
-              Sync
-            </TabsTrigger>
+            {userRole === 'owner' && (
+              <TabsTrigger value="sync">
+                <Activity className="h-4 w-4 mr-2" />
+                Sync
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="users" className="space-y-4">
@@ -169,9 +171,11 @@ export default function Admin() {
             <SecurityDashboard />
           </TabsContent>
 
-          <TabsContent value="sync" className="space-y-4">
-            <SyncStatus showDetails={true} />
-          </TabsContent>
+          {userRole === 'owner' && (
+            <TabsContent value="sync" className="space-y-4">
+              <SyncStatus showDetails={true} />
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </div>

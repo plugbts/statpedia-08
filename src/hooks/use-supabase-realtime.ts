@@ -42,6 +42,7 @@ export function useSupabaseRealtime<T extends TableName>(
   const handleError = useCallback((error: any) => {
     console.error(`Real-time error on ${table}:`, error);
     setError(error.toString());
+    setIsConnected(false);
     onError?.(error);
   }, [table, onError]);
 
@@ -97,12 +98,20 @@ export function useSupabaseRealtime<T extends TableName>(
 
         // Subscribe to the channel
         newChannel.subscribe((status) => {
+          console.log(`Supabase realtime status for ${table}:`, status);
           if (status === 'SUBSCRIBED') {
             setChannel(newChannel);
             setIsConnected(true);
             setError(null);
           } else if (status === 'CHANNEL_ERROR') {
+            console.error(`Channel error for ${table}:`, status);
             handleError(new Error(`Failed to subscribe: ${status}`));
+          } else if (status === 'TIMED_OUT') {
+            console.warn(`Channel timeout for ${table}:`, status);
+            handleError(new Error(`Channel timeout: ${status}`));
+          } else if (status === 'CLOSED') {
+            console.warn(`Channel closed for ${table}:`, status);
+            setIsConnected(false);
           }
         });
       } catch (err) {
