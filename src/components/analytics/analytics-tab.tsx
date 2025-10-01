@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar, TrendingUp, Target, Clock, Trophy, BarChart3, Filter, RefreshCw } from 'lucide-react';
 import { unifiedSportsAPI } from '@/services/unified-sports-api';
 import { PlayerProp } from '@/types/sports';
-import { logAPI, logState, logSuccess, logError, logWarning } from '@/utils/logger';
+import { logAPI, logState, logSuccess, logError, logWarning } from '@/utils/console-logger';
 
 interface AnalyticsTabProps {
   userRole: string;
