@@ -63,8 +63,13 @@ class FreshAPIService {
           endpoint = `${this.BASE_URL}/nfl/odds/json/PlayerPropsByWeek/2024/18?key=${this.API_KEY}`;
           break;
         case 'mlb':
-          // MLB uses current games endpoint - try today's date
+          // MLB player props might not be available during off-season
+          // Try multiple recent dates to find available data
           const today = new Date().toISOString().split('T')[0];
+          const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+          const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString().split('T')[0];
+          
+          // Try different dates for MLB
           endpoint = `${this.BASE_URL}/mlb/odds/json/PlayerPropsByGame/${today}?key=${this.API_KEY}`;
           break;
         case 'nba':
@@ -80,6 +85,14 @@ class FreshAPIService {
       
       const response = await fetch(endpoint);
       if (!response.ok) {
+        console.warn(`⚠️ [FreshAPI] Primary endpoint failed: ${response.status} ${response.statusText}`);
+        
+        // For MLB, try different dates if the primary endpoint fails
+        if (sport.toLowerCase() === 'mlb') {
+          console.log(`🔄 [FreshAPI] Trying alternative dates for MLB...`);
+          return this.tryMLBAlternativeDates();
+        }
+        
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
@@ -120,6 +133,52 @@ class FreshAPIService {
       console.log(`🔄 [FreshAPI] Falling back to mock data for ${sport}`);
       return this.getMockPlayerProps(sport);
     }
+  }
+
+  private async tryMLBAlternativeDates(): Promise<PlayerProp[]> {
+    console.log(`🔄 [FreshAPI] Trying alternative MLB dates...`);
+    
+    const datesToTry = [
+      new Date().toISOString().split('T')[0], // Today
+      new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Yesterday
+      new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString().split('T')[0], // 2 days ago
+      new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString().split('T')[0], // 3 days ago
+      '2024-10-15', // Specific date from our test
+      '2024-10-14',
+      '2024-10-13',
+    ];
+    
+    for (const date of datesToTry) {
+      try {
+        const endpoint = `${this.BASE_URL}/mlb/odds/json/PlayerPropsByGame/${date}?key=${this.API_KEY}`;
+        console.log(`📡 [FreshAPI] Trying MLB endpoint: ${endpoint}`);
+        
+        const response = await fetch(endpoint);
+        if (response.ok) {
+          const rawData = await response.json();
+          console.log(`📊 [FreshAPI] MLB data found for ${date}: ${rawData?.length || 0} items`);
+          
+          if (rawData && rawData.length > 0) {
+            // Parse the data
+            const props: PlayerProp[] = rawData
+              .filter((item: any) => item && item.PlayerID && item.Description && item.Name)
+              .map((item: any) => this.parsePlayerProp(item, 'mlb'));
+            
+            if (props.length > 0) {
+              console.log(`✅ [FreshAPI] Successfully found ${props.length} MLB props for ${date}`);
+              return props;
+            }
+          }
+        } else {
+          console.log(`⚠️ [FreshAPI] MLB endpoint failed for ${date}: ${response.status}`);
+        }
+      } catch (error) {
+        console.log(`❌ [FreshAPI] Error trying MLB date ${date}:`, error.message);
+      }
+    }
+    
+    console.log(`⚠️ [FreshAPI] No MLB data found for any date, using mock data`);
+    return this.getMockPlayerProps('mlb');
   }
 
   private parsePlayerProp(item: any, sport: string): PlayerProp {
