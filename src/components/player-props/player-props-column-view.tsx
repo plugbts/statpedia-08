@@ -292,8 +292,8 @@ export function PlayerPropsColumnView({
             <CardContent className="p-4">
               <div className="grid grid-cols-12 gap-4 items-center">
                 {/* Player Info */}
-                <div className="col-span-2 flex items-center space-x-3">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-slate-200 font-bold text-sm overflow-hidden">
+                <div className="col-span-2 flex items-center justify-center space-x-3">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-slate-200 font-bold text-sm overflow-hidden flex-shrink-0">
                     {prop.headshotUrl ? (
                       <img 
                         src={prop.headshotUrl} 
@@ -313,8 +313,8 @@ export function PlayerPropsColumnView({
                       prop.playerName.split(' ').map(n => n[0]).join('')
                     )}
                   </div>
-                  <div>
-                    <div className="font-semibold text-slate-100 text-sm">
+                  <div className="text-center min-w-0 flex-1">
+                    <div className="font-semibold text-slate-100 text-sm truncate">
                       {prop.playerName}
                     </div>
                     <div className="text-xs text-slate-400">
@@ -325,10 +325,10 @@ export function PlayerPropsColumnView({
 
                 {/* Prop Type */}
                 <div className="col-span-2">
-                  <div className="text-sm font-medium text-slate-200 animate-pulse-glow whitespace-nowrap overflow-hidden">
+                  <div className="text-sm font-medium text-slate-200 animate-pulse-glow text-center truncate">
                     {prop.propType}
                   </div>
-                  <div className="text-xs text-slate-400">
+                  <div className="text-xs text-slate-400 text-center">
                     {new Date(prop.gameDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} {new Date(prop.gameTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
                   </div>
                 </div>

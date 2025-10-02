@@ -126,11 +126,18 @@ export class BackendSportsGameOddsAPI {
     try {
       logAPI('BackendSportsGameOddsAPI', 'Starting background polling');
       
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('Authentication required');
+      }
+      
       const response = await fetch(`${this.baseUrl}/background-poller?action=start`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+          'Authorization': `Bearer ${session.access_token}`,
         }
       });
 
@@ -154,11 +161,18 @@ export class BackendSportsGameOddsAPI {
     try {
       logAPI('BackendSportsGameOddsAPI', 'Stopping background polling');
       
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('Authentication required');
+      }
+      
       const response = await fetch(`${this.baseUrl}/background-poller?action=stop`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+          'Authorization': `Bearer ${session.access_token}`,
         }
       });
 
@@ -180,11 +194,18 @@ export class BackendSportsGameOddsAPI {
 
   async getPollingStatus(): Promise<any> {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('Authentication required');
+      }
+      
       const response = await fetch(`${this.baseUrl}/background-poller?action=status`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+          'Authorization': `Bearer ${session.access_token}`,
         }
       });
 
@@ -201,11 +222,18 @@ export class BackendSportsGameOddsAPI {
     try {
       logAPI('BackendSportsGameOddsAPI', 'Triggering manual poll');
       
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('Authentication required');
+      }
+      
       const response = await fetch(`${this.baseUrl}/background-poller?action=poll-now`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+          'Authorization': `Bearer ${session.access_token}`,
         }
       });
 
@@ -259,6 +287,68 @@ export class BackendSportsGameOddsAPI {
 
     } catch (error) {
       logError('BackendSportsGameOddsAPI', 'Failed to get API analytics:', error);
+      throw error;
+    }
+  }
+
+  async getRealtimeStats(): Promise<any> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`${this.baseUrl}/api-analytics?action=realtime`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+          'Authorization': `Bearer ${session.access_token}`,
+        }
+      });
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to get realtime stats');
+      }
+
+      return data.data;
+
+    } catch (error) {
+      logError('BackendSportsGameOddsAPI', 'Failed to get realtime stats:', error);
+      throw error;
+    }
+  }
+
+  async getSystemHealth(): Promise<any> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`${this.baseUrl}/api-analytics?action=health`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+          'Authorization': `Bearer ${session.access_token}`,
+        }
+      });
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to get system health');
+      }
+
+      return data.data;
+
+    } catch (error) {
+      logError('BackendSportsGameOddsAPI', 'Failed to get system health:', error);
       throw error;
     }
   }

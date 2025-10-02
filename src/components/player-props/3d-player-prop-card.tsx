@@ -547,6 +547,7 @@ export function PlayerPropCard3D({
               View Analysis
               <ChevronRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform duration-300" />
             </Button>
+          </div>
           </CardContent>
         </SeasonalCardBackground>
 
