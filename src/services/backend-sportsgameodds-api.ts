@@ -31,16 +31,14 @@ export class BackendSportsGameOddsAPI {
         'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || '',
       };
 
-      // Add auth header if user is logged in
+      // Always add Authorization header - either user token or anon key
       if (session?.access_token) {
         headers['Authorization'] = `Bearer ${session.access_token}`;
         logAPI('BackendSportsGameOddsAPI', 'Using authenticated request with user token');
       } else {
-        logWarning('BackendSportsGameOddsAPI', 'No valid session found, making anonymous request');
-        // For anonymous requests, we still need to ensure we have the apikey
-        if (!headers['apikey']) {
-          throw new Error('No authentication available - missing both user session and API key');
-        }
+        // Use anon key as Authorization header for anonymous requests
+        headers['Authorization'] = `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`;
+        logAPI('BackendSportsGameOddsAPI', 'Using anonymous request with anon key as Authorization header');
       }
 
       const response = await fetch(url.toString(), {

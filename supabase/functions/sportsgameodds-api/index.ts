@@ -6,10 +6,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Initialize Supabase client
+// Initialize Supabase client with service role for database access
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+});
+
+console.log('🔧 Supabase client initialized with service role for database access');
 
 interface APIConfig {
   sportsgameodds_api_key: string;
@@ -37,31 +44,46 @@ class SportGameOddsAPIService {
   async loadConfig(): Promise<APIConfig> {
     if (this.config) return this.config;
 
-    const { data, error } = await supabase
-      .from('api_config')
-      .select('key, value')
-      .in('key', [
-        'sportsgameodds_api_key',
-        'cache_ttl_seconds', 
-        'polling_interval_seconds',
-        'rate_limit_per_minute',
-        'max_props_per_request',
-        'enabled_sports'
-      ]);
+    console.log('🔧 Loading API configuration from database...');
+    
+    try {
+      const { data, error } = await supabase
+        .from('api_config')
+        .select('key, value')
+        .in('key', [
+          'sportsgameodds_api_key',
+          'cache_ttl_seconds', 
+          'polling_interval_seconds',
+          'rate_limit_per_minute',
+          'max_props_per_request',
+          'enabled_sports'
+        ]);
 
-    if (error) {
-      console.error('Failed to load API config:', error);
-      throw new Error('Configuration not available');
-    }
+      if (error) {
+        console.error('❌ Database error loading API config:', error);
+        console.error('Error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        throw new Error(`Database configuration error: ${error.message}`);
+      }
+      
+      if (!data || data.length === 0) {
+        console.error('❌ No API configuration found in database');
+        throw new Error('No API configuration found. Please set up the api_config table.');
+      }
+      
+      console.log(`✅ Loaded ${data.length} configuration items from database`);
+      
+      const configMap = data.reduce((acc: any, item) => {
+        acc[item.key] = item.value;
+        return acc;
+      }, {});
 
-    const configMap = data.reduce((acc: any, item) => {
-      acc[item.key] = item.value;
-      return acc;
-    }, {});
-
-
-    // Helper function to parse JSONB values
-    const parseConfigValue = (value: any): string => {
+      // Helper function to parse JSONB values
+      const parseConfigValue = (value: any): string => {
       if (!value) return '';
       
       // If it's already a string, clean it
@@ -78,18 +100,23 @@ class SportGameOddsAPIService {
         console.warn('Failed to parse config value:', value, e);
         return String(value).replace(/^"|"$/g, '');
       }
-    };
+      };
 
-    this.config = {
-      sportsgameodds_api_key: parseConfigValue(configMap.sportsgameodds_api_key),
-      cache_ttl_seconds: parseInt(configMap.cache_ttl_seconds) || 10, // Reduced to 10 seconds for live data
-      polling_interval_seconds: parseInt(configMap.polling_interval_seconds) || 30,
-      rate_limit_per_minute: parseInt(configMap.rate_limit_per_minute) || 60,
-      max_props_per_request: parseInt(configMap.max_props_per_request) || 500,
-      enabled_sports: Array.isArray(configMap.enabled_sports) ? configMap.enabled_sports : ['nfl', 'nba', 'mlb', 'nhl']
-    };
+      this.config = {
+        sportsgameodds_api_key: parseConfigValue(configMap.sportsgameodds_api_key),
+        cache_ttl_seconds: parseInt(configMap.cache_ttl_seconds) || 10, // Reduced to 10 seconds for live data
+        polling_interval_seconds: parseInt(configMap.polling_interval_seconds) || 30,
+        rate_limit_per_minute: parseInt(configMap.rate_limit_per_minute) || 60,
+        max_props_per_request: parseInt(configMap.max_props_per_request) || 500,
+        enabled_sports: Array.isArray(configMap.enabled_sports) ? configMap.enabled_sports : ['nfl', 'nba', 'mlb', 'nhl']
+      };
 
-    return this.config;
+      return this.config;
+      
+    } catch (dbError) {
+      console.error('❌ Failed to access database for configuration:', dbError);
+      throw new Error(`Configuration database access failed: ${dbError.message}`);
+    }
   }
 
   async checkRateLimit(userId: string | null, endpoint: string): Promise<RateLimitResult> {
@@ -1171,8 +1198,15 @@ class SportGameOddsAPIService {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { 
+      headers: {
+        ...corsHeaders,
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Max-Age': '86400',
+      }
+    });
   }
 
   const startTime = Date.now();
@@ -1180,27 +1214,38 @@ serve(async (req) => {
   let cacheHit = false;
 
   try {
+    console.log(`🚀 SportGameOdds API called: ${req.method} ${req.url}`);
+    console.log(`📋 Headers:`, Object.fromEntries(req.headers.entries()));
+    
     const url = new URL(req.url);
     const endpoint = url.searchParams.get('endpoint') || 'player-props';
     const sport = url.searchParams.get('sport') || 'nfl';
     
-    // Get user info from JWT token using Supabase auth
+    console.log(`📊 Request params: endpoint=${endpoint}, sport=${sport}`);
+    
+    // Get user info from JWT token using Supabase auth (optional for anonymous access)
     const authHeader = req.headers.get('authorization');
     let userId: string | null = null;
+    
+    console.log(`🔐 Auth header present: ${!!authHeader}`);
     
     if (authHeader?.startsWith('Bearer ')) {
       try {
         const token = authHeader.substring(7);
+        console.log(`🎫 Validating JWT token...`);
         const { data: { user }, error } = await supabase.auth.getUser(token);
         
         if (error) {
-          console.warn('Auth token validation failed:', error);
+          console.warn('Auth token validation failed:', error.message);
         } else if (user) {
           userId = user.id;
+          console.log(`✅ Authenticated user: ${userId}`);
         }
       } catch (e) {
-        console.warn('Failed to validate auth token:', e);
+        console.warn('Failed to validate auth token:', e.message);
       }
+    } else {
+      console.log(`👤 Anonymous request - no auth header provided`);
     }
 
     const service = new SportGameOddsAPIService();
