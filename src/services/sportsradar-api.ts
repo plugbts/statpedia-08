@@ -208,6 +208,22 @@ class SportsRadarAPI {
     return sportMap[sport.toLowerCase()] || 'NFL';
   }
 
+  // Map sport names to SportsRadar sport IDs
+  private getSportId(sport: string): string {
+    const sportMap: { [key: string]: string } = {
+      'nfl': 'sr:sport:1',
+      'nba': 'sr:sport:2',
+      'mlb': 'sr:sport:3',
+      'nhl': 'sr:sport:4',
+      'ncaafb': 'sr:sport:5',
+      'ncaamb': 'sr:sport:6',
+      'wnba': 'sr:sport:7',
+      'college-football': 'sr:sport:5',
+      'college-basketball': 'sr:sport:6'
+    };
+    return sportMap[sport.toLowerCase()] || 'sr:sport:1';
+  }
+
   // Get current date in YYYY-MM-DD format
   private getCurrentDate(): string {
     return new Date().toISOString().split('T')[0];
@@ -218,44 +234,69 @@ class SportsRadarAPI {
     const sport = sportKey.toLowerCase();
     const currentYear = new Date().getFullYear();
     
+    // Based on SportsRadar Postman collection structure
     switch (sport) {
       case 'nhl':
         return [
-          `/${sport}/trial/v7/en/games/${currentYear}/REG/schedule.json`,
-          `/${sport}/trial/v7/en/games/schedule.json`,
-          `/${sport}/trial/v7/en/league/hierarchy.json`,
-          `/${sport}/trial/v7/en/teams.json`
+          `/sportradar/v7/en/sports/sr:sport:4/seasons/${currentYear}/schedule.json`,
+          `/sportradar/v7/en/sports/sr:sport:4/schedule.json`,
+          `/sportradar/v7/en/sports/sr:sport:4/league/hierarchy.json`,
+          `/sportradar/v7/en/sports/sr:sport:4/teams.json`
         ];
       
       case 'nba':
         return [
-          `/${sport}/trial/v7/en/games/${currentYear}/REG/schedule.json`,
-          `/${sport}/trial/v7/en/games/schedule.json`,
-          `/${sport}/trial/v7/en/league/hierarchy.json`,
-          `/${sport}/trial/v7/en/teams.json`
+          `/sportradar/v7/en/sports/sr:sport:2/seasons/${currentYear}/schedule.json`,
+          `/sportradar/v7/en/sports/sr:sport:2/schedule.json`,
+          `/sportradar/v7/en/sports/sr:sport:2/league/hierarchy.json`,
+          `/sportradar/v7/en/sports/sr:sport:2/teams.json`
         ];
       
       case 'nfl':
         return [
-          `/${sport}/official/trial/v7/en/games/current_season/schedule.json`,
-          `/${sport}/official/trial/v7/en/games/schedule.json`,
-          `/${sport}/official/trial/v7/en/league/hierarchy.json`,
-          `/${sport}/official/trial/v7/en/teams.json`
+          `/sportradar/v7/en/sports/sr:sport:1/seasons/${currentYear}/schedule.json`,
+          `/sportradar/v7/en/sports/sr:sport:1/schedule.json`,
+          `/sportradar/v7/en/sports/sr:sport:1/league/hierarchy.json`,
+          `/sportradar/v7/en/sports/sr:sport:1/teams.json`
         ];
       
       case 'mlb':
         return [
-          `/${sport}/trial/v7/en/games/${currentYear}/REG/schedule.json`,
-          `/${sport}/trial/v7/en/games/schedule.json`,
-          `/${sport}/trial/v7/en/league/hierarchy.json`,
-          `/${sport}/trial/v7/en/teams.json`
+          `/sportradar/v7/en/sports/sr:sport:3/seasons/${currentYear}/schedule.json`,
+          `/sportradar/v7/en/sports/sr:sport:3/schedule.json`,
+          `/sportradar/v7/en/sports/sr:sport:3/league/hierarchy.json`,
+          `/sportradar/v7/en/sports/sr:sport:3/teams.json`
+        ];
+      
+      case 'ncaafb':
+        return [
+          `/sportradar/v7/en/sports/sr:sport:5/seasons/${currentYear}/schedule.json`,
+          `/sportradar/v7/en/sports/sr:sport:5/schedule.json`,
+          `/sportradar/v7/en/sports/sr:sport:5/league/hierarchy.json`,
+          `/sportradar/v7/en/sports/sr:sport:5/teams.json`
+        ];
+      
+      case 'ncaamb':
+        return [
+          `/sportradar/v7/en/sports/sr:sport:6/seasons/${currentYear}/schedule.json`,
+          `/sportradar/v7/en/sports/sr:sport:6/schedule.json`,
+          `/sportradar/v7/en/sports/sr:sport:6/league/hierarchy.json`,
+          `/sportradar/v7/en/sports/sr:sport:6/teams.json`
+        ];
+      
+      case 'wnba':
+        return [
+          `/sportradar/v7/en/sports/sr:sport:7/seasons/${currentYear}/schedule.json`,
+          `/sportradar/v7/en/sports/sr:sport:7/schedule.json`,
+          `/sportradar/v7/en/sports/sr:sport:7/league/hierarchy.json`,
+          `/sportradar/v7/en/sports/sr:sport:7/teams.json`
         ];
       
       default:
         return [
-          `/${sport}/trial/v7/en/games/schedule.json`,
-          `/${sport}/trial/v7/en/league/hierarchy.json`,
-          `/${sport}/trial/v7/en/teams.json`
+          `/sportradar/v7/en/sports/sr:sport:1/schedule.json`,
+          `/sportradar/v7/en/sports/sr:sport:1/league/hierarchy.json`,
+          `/sportradar/v7/en/sports/sr:sport:1/teams.json`
         ];
     }
   }
@@ -676,20 +717,29 @@ class SportsRadarAPI {
   async getGames(sport: string): Promise<SportsRadarGame[]> {
     try {
       const sportKey = this.mapSportToKey(sport);
-      const currentDate = this.getCurrentDate();
+      const sportId = this.getSportId(sport);
+      const currentYear = new Date().getFullYear();
       
-      const endpoint = `/oddscomparison/${sportKey}/regular/${currentDate}`;
-      const data = await this.makeRequest<any[]>(endpoint, sportKey, CACHE_DURATION.SPORTS);
+      // Use correct SportsRadar API endpoint structure
+      const endpoint = `/sportradar/v7/en/sports/${sportId}/seasons/${currentYear}/schedule.json`;
+      const data = await this.makeRequest<any>(endpoint, sportKey, CACHE_DURATION.SPORTS);
       
-      const games: SportsRadarGame[] = data.map((item: any) => ({
+      // Handle SportsRadar API response structure
+      const scheduleData = data.schedule || data.games || data;
+      if (!Array.isArray(scheduleData)) {
+        logWarning('SportsRadarAPI', 'Invalid schedule data structure');
+        return [];
+      }
+
+      const games: SportsRadarGame[] = scheduleData.map((item: any) => ({
         id: item.id,
         sport: sportKey,
-        homeTeam: item.home_team,
-        awayTeam: item.away_team,
-        commenceTime: item.commence_time,
+        homeTeam: item.home?.name || item.home_team?.name || 'Unknown',
+        awayTeam: item.away?.name || item.away_team?.name || 'Unknown',
+        commenceTime: item.scheduled || item.commence_time || new Date().toISOString(),
         status: item.status || 'scheduled',
-        homeScore: item.home_score,
-        awayScore: item.away_score
+        homeScore: item.home_score || item.home?.score,
+        awayScore: item.away_score || item.away?.score
       }));
       
       logSuccess('SportsRadarAPI', `Retrieved ${games.length} games for ${sport}`);
@@ -704,17 +754,25 @@ class SportsRadarAPI {
   async getOddsComparisons(sport: string): Promise<SportsRadarOddsComparison[]> {
     try {
       const sportKey = this.mapSportToKey(sport);
-      const currentDate = this.getCurrentDate();
+      const sportId = this.getSportId(sport);
       
-      const endpoint = `/oddscomparison/${sportKey}/regular/${currentDate}`;
-      const data = await this.makeRequest<any[]>(endpoint, sportKey, CACHE_DURATION.ODDS);
+      // Use correct SportsRadar Odds API endpoint
+      const endpoint = `/odds/v1/en/sports/${sportId}/odds.json`;
+      const data = await this.makeRequest<any>(endpoint, sportKey, CACHE_DURATION.ODDS);
       
-      const comparisons: SportsRadarOddsComparison[] = data.map((item: any) => ({
+      // Handle SportsRadar Odds API response structure
+      const oddsData = data.odds || data.games || data;
+      if (!Array.isArray(oddsData)) {
+        logWarning('SportsRadarAPI', 'Invalid odds data structure');
+        return [];
+      }
+
+      const comparisons: SportsRadarOddsComparison[] = oddsData.map((item: any) => ({
         id: item.id,
         sport: sportKey,
-        homeTeam: item.home_team,
-        awayTeam: item.away_team,
-        commenceTime: item.commence_time,
+        homeTeam: item.home?.name || item.home_team?.name || 'Unknown',
+        awayTeam: item.away?.name || item.away_team?.name || 'Unknown',
+        commenceTime: item.scheduled || item.commence_time || new Date().toISOString(),
         markets: item.markets || [],
         lastUpdate: item.last_update || new Date().toISOString()
       }));
@@ -731,17 +789,25 @@ class SportsRadarAPI {
   async getFutureOddsComparisons(sport: string): Promise<SportsRadarOddsComparison[]> {
     try {
       const sportKey = this.mapSportToKey(sport);
-      const currentDate = this.getCurrentDate();
+      const sportId = this.getSportId(sport);
       
-      const endpoint = `/oddscomparison/${sportKey}/future/${currentDate}`;
-      const data = await this.makeRequest<any[]>(endpoint, sportKey, CACHE_DURATION.ODDS);
+      // Use correct SportsRadar Future Odds API endpoint
+      const endpoint = `/odds/v1/en/sports/${sportId}/future/odds.json`;
+      const data = await this.makeRequest<any>(endpoint, sportKey, CACHE_DURATION.ODDS);
       
-      const comparisons: SportsRadarOddsComparison[] = data.map((item: any) => ({
+      // Handle SportsRadar Future Odds API response structure
+      const futureOddsData = data.future_odds || data.odds || data.games || data;
+      if (!Array.isArray(futureOddsData)) {
+        logWarning('SportsRadarAPI', 'Invalid future odds data structure');
+        return [];
+      }
+
+      const comparisons: SportsRadarOddsComparison[] = futureOddsData.map((item: any) => ({
         id: item.id,
         sport: sportKey,
-        homeTeam: item.home_team,
-        awayTeam: item.away_team,
-        commenceTime: item.commence_time,
+        homeTeam: item.home?.name || item.home_team?.name || 'Unknown',
+        awayTeam: item.away?.name || item.away_team?.name || 'Unknown',
+        commenceTime: item.scheduled || item.commence_time || new Date().toISOString(),
         markets: item.markets || [],
         lastUpdate: item.last_update || new Date().toISOString()
       }));
