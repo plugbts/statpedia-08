@@ -253,16 +253,18 @@ export function PlayerPropCard3D({
           "bg-gradient-to-br from-slate-950 via-gray-900 to-slate-950",
           "border border-slate-800/80 shadow-2xl",
           "hover:shadow-3xl hover:shadow-slate-500/20",
-          "transform-gpu",
-          isHovered && "scale-105 rotate-1",
+          "transform-gpu w-full max-w-2xl", // Made wider
+          isHovered && "scale-102", // Reduced scale for subtlety
           isSelected && "ring-2 ring-slate-400 ring-opacity-60",
           showSelection && "hover:ring-2 hover:ring-slate-300 hover:ring-opacity-40"
         )}
         style={{
           transform: isHovered 
-            ? 'perspective(1000px) rotateX(5deg) rotateY(5deg) translateZ(20px)' 
+            ? 'perspective(1000px) rotateX(2deg) rotateY(2deg) translateZ(10px)' // Reduced 3D effect
             : 'perspective(1000px) rotateX(0deg) rotateY(0deg) translateZ(0px)',
-          transformStyle: 'preserve-3d'
+          transformStyle: 'preserve-3d',
+          minHeight: '280px', // Fixed compact height
+          maxHeight: '320px'  // Maximum height constraint
         }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
@@ -276,170 +278,144 @@ export function PlayerPropCard3D({
           <div className="absolute inset-0 bg-gradient-to-r from-slate-600/5 via-gray-600/4 to-slate-600/5 opacity-0 group-hover:opacity-100 blur-xl transition-all duration-500" />
           
           {/* Card Content */}
-          <CardContent className="relative z-10 p-6">
-          {/* Header with Player Info */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-3">
-              <div className={`w-10 h-10 rounded-full ${teamColorsService.getTeamGradient(prop.teamAbbr, prop.sport)} flex items-center justify-center text-white font-bold text-sm shadow-lg border-2 ${teamColorsService.getTeamBorder(prop.teamAbbr, prop.sport)} overflow-hidden`}>
-                {prop.headshotUrl ? (
-                  <img 
-                    src={prop.headshotUrl} 
-                    alt={prop.playerName}
-                    className="w-full h-full object-cover rounded-full"
-                    onError={(e) => {
-                      // Fallback to team abbreviation if image fails to load
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      const parent = target.parentElement;
-                      if (parent) {
-                        parent.innerHTML = prop.teamAbbr.toUpperCase();
-                      }
-                    }}
-                  />
-                ) : (
-                  prop.teamAbbr.toUpperCase()
-                )}
+          <CardContent className="relative z-10 p-4 h-full flex flex-col">
+            {/* Compact Header */}
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center space-x-3 flex-1">
+                <div className={`w-8 h-8 rounded-full ${teamColorsService.getTeamGradient(prop.teamAbbr, prop.sport)} flex items-center justify-center text-white font-bold text-xs shadow-lg border-2 ${teamColorsService.getTeamBorder(prop.teamAbbr, prop.sport)} overflow-hidden flex-shrink-0`}>
+                  {prop.headshotUrl ? (
+                    <img 
+                      src={prop.headshotUrl} 
+                      alt={prop.playerName}
+                      className="w-full h-full object-cover rounded-full"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent) {
+                          parent.innerHTML = prop.teamAbbr.toUpperCase();
+                        }
+                      }}
+                    />
+                  ) : (
+                    prop.teamAbbr.toUpperCase()
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-slate-100 text-base leading-tight tracking-tight truncate">
+                    {prop.playerName}
+                  </h3>
+                  <div className="flex items-center space-x-2 text-xs text-slate-400">
+                    <span className="font-semibold text-slate-200">{prop.teamAbbr}</span>
+                    <span className="text-slate-500">vs</span>
+                    <span className="font-semibold text-slate-200">{prop.opponentAbbr}</span>
+                  </div>
+                </div>
               </div>
-              <div>
-                <h3 className="font-bold text-slate-100 text-lg leading-tight tracking-tight">
-                  {prop.playerName}
-                </h3>
-                <div className="flex items-center space-x-2 text-sm text-slate-400">
-                  <span className="font-semibold text-slate-200">{prop.teamAbbr}</span>
-                  <span className="text-slate-500 font-medium">vs</span>
-                  <span className="font-semibold text-slate-200">{prop.opponentAbbr}</span>
+              
+              {/* Compact Statpedia Rating */}
+              <div className="flex items-center space-x-2 flex-shrink-0">
+                <Badge 
+                  className={cn(
+                    "px-2 py-1 text-xs font-bold border",
+                    getRatingColor(statpediaRating)
+                  )}
+                >
+                  {getRatingIcon(statpediaRating)}
+                  <span className="ml-1">{statpediaRating.overall}</span>
+                </Badge>
+                <div className="text-xs font-semibold text-slate-300">
+                  {statpediaRating.grade}
                 </div>
               </div>
             </div>
-            
-            {/* Statpedia Rating */}
-            <div className="flex flex-col items-end space-y-1">
-              <Badge 
-                className={cn(
-                  "px-3 py-1 text-xs font-bold shadow-lg border",
-                  getRatingColor(statpediaRating)
-                )}
-              >
-                {getRatingIcon(statpediaRating)}
-                <span className="ml-1">{statpediaRating.overall}/100</span>
-              </Badge>
-              <div className="text-xs font-semibold text-slate-300">
-                Statpedia {statpediaRating.grade}
-              </div>
-            </div>
-          </div>
 
-          {/* Prop Details */}
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex-1 mr-3">
-                <span className="text-slate-400 text-sm font-semibold tracking-wide uppercase block leading-tight">
-                  {prop.propType.length > 15 ? (
-                    <span className="break-words">
-                      {prop.propType.split(' ').map((word, index) => (
-                        <span key={index} className="inline-block mr-1">
-                          {word}
-                        </span>
-                      ))}
+            {/* Main Content Area - Horizontal Layout */}
+            <div className="flex-1 flex space-x-4 min-h-0">
+              {/* Left Section - Prop & Odds */}
+              <div className="flex-1 min-w-0">
+                {/* Prop Details */}
+                <div className="mb-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex-1 mr-3">
+                      <span className="text-slate-400 text-sm font-semibold tracking-wide uppercase block leading-tight">
+                        {prop.propType.length > 20 ? (
+                          <span className="break-words text-xs">
+                            {prop.propType}
+                          </span>
+                        ) : (
+                          prop.propType
+                        )}
+                      </span>
+                    </div>
+                    <span className="text-slate-100 text-xl font-bold tracking-tight flex-shrink-0">
+                      {formatNumber(prop.line)}
                     </span>
-                  ) : (
-                    prop.propType
-                  )}
-                </span>
-              </div>
-              <span className="text-slate-100 text-2xl font-bold tracking-tight flex-shrink-0">
-                {formatNumber(prop.line)}
-              </span>
-            </div>
-            
-            {/* AI Prediction */}
-            {prop.aiPrediction && (
-              <div className="flex items-center space-x-2 mb-3">
-                <div className={cn(
-                  "flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-semibold",
-                  prop.aiPrediction.recommended === 'over' 
-                    ? "bg-green-600/20 text-green-300 border border-green-500/40"
-                    : "bg-red-600/20 text-red-300 border border-red-500/40"
-                )}>
-                  {prop.aiPrediction.recommended === 'over' ? (
-                    <TrendingUp className="h-3 w-3" />
-                  ) : (
-                    <TrendingDown className="h-3 w-3" />
-                  )}
-                  <span className="uppercase font-bold">
-                    {prop.aiPrediction.recommended}
-                  </span>
+                  </div>
+                  
+                  {/* AI Prediction & Form - Compact */}
+                  <div className="flex items-center space-x-2 mb-2">
+                    {prop.aiPrediction && (
+                      <div className={cn(
+                        "flex items-center space-x-1 px-2 py-1 rounded text-xs font-semibold",
+                        prop.aiPrediction.recommended === 'over' 
+                          ? "bg-green-600/20 text-green-300"
+                          : "bg-red-600/20 text-red-300"
+                      )}>
+                        {prop.aiPrediction.recommended === 'over' ? (
+                          <TrendingUp className="h-3 w-3" />
+                        ) : (
+                          <TrendingDown className="h-3 w-3" />
+                        )}
+                        <span className="uppercase">{prop.aiPrediction.recommended}</span>
+                      </div>
+                    )}
+                    
+                    {prop.recentForm && (
+                      <div className="flex items-center space-x-1 px-2 py-1 rounded text-xs font-semibold bg-slate-800/60 text-slate-200">
+                        {getFormIcon(prop.recentForm)}
+                        <span className="uppercase">{prop.recentForm}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                
-                {/* Recent Form */}
-                {prop.recentForm && (
-                  <div className={cn(
-                    "flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-semibold",
-                    "bg-slate-800/60 text-slate-200 border border-slate-600/60"
-                  )}>
-                    {getFormIcon(prop.recentForm)}
-                    <span className="uppercase">{prop.recentForm}</span>
+
+                {/* Odds Display - Compact */}
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div className="text-center">
+                    <div className="text-xs text-slate-500 uppercase font-semibold">Over</div>
+                    <div className="text-lg font-bold text-green-300">
+                      {formatOdds(prop.overOdds)}
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xs text-slate-500 uppercase font-semibold">Under</div>
+                    <div className="text-lg font-bold text-red-300">
+                      {formatOdds(prop.underOdds)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sportsbooks - Compact */}
+                {prop.availableSportsbooks && prop.availableSportsbooks.length > 0 && (
+                  <div className="mb-2">
+                    <div className="text-xs text-slate-500 uppercase font-semibold mb-1">
+                      {prop.availableSportsbooks.length} Book{prop.availableSportsbooks.length !== 1 ? 's' : ''}
+                    </div>
+                    <SportsbookIconsList 
+                      sportsbooks={prop.availableSportsbooks} 
+                      maxVisible={4}
+                      onClick={() => setShowSportsbookOverlay(true)}
+                      className="justify-start"
+                    />
                   </div>
                 )}
               </div>
-            )}
-          </div>
 
-          {/* Odds and Stats */}
-          <div className="space-y-3 mb-4">
-            {/* Primary Odds Display */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Over</div>
-                <div className="text-xl font-bold text-green-300 tracking-tight">
-                  {formatOdds(prop.overOdds)}
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Under</div>
-                <div className="text-xl font-bold text-red-300 tracking-tight">
-                  {formatOdds(prop.underOdds)}
-                </div>
-              </div>
-            </div>
-
-            {/* Available Sportsbooks Icons */}
-            {prop.availableSportsbooks && prop.availableSportsbooks.length > 0 && (
-              <div className="space-y-2">
-                <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">
-                  Available on {prop.availableSportsbooks.length} Sportsbook{prop.availableSportsbooks.length !== 1 ? 's' : ''}
-                </div>
-                <SportsbookIconsList 
-                  sportsbooks={prop.availableSportsbooks} 
-                  maxVisible={3}
-                  onClick={() => setShowSportsbookOverlay(true)}
-                  className="justify-start"
-                />
-              </div>
-            )}
-
-            {/* Multiple Sportsbook Odds */}
-            {prop.allSportsbookOdds && prop.allSportsbookOdds.length > 1 && (
-              <div className="space-y-2">
-                <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">All Sportsbooks</div>
-                <div className="space-y-1 max-h-24 overflow-y-auto">
-                  {prop.allSportsbookOdds.map((odds, index) => (
-                    <div key={index} className="flex items-center justify-between text-xs bg-slate-800/30 rounded px-2 py-1">
-                      <span className="text-slate-300 font-medium">{odds.sportsbook}</span>
-                      <div className="flex items-center space-x-3">
-                        <span className="text-green-300 font-semibold">{formatOdds(odds.overOdds)}</span>
-                        <span className="text-slate-400">|</span>
-                        <span className="text-red-300 font-semibold">{formatOdds(odds.underOdds)}</span>
-                        {odds.line !== prop.line && (
-                          <span className="text-slate-500">({odds.line})</span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+              {/* Right Section - Scrollable Details */}
+              <div className="w-48 flex-shrink-0">
+                <div className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800">
+                  <div className="space-y-3 pr-2">
 
           {/* Sportsbook Source */}
           {prop.sportsbookSource && (
@@ -473,66 +449,89 @@ export function PlayerPropCard3D({
             </div>
           )}
 
-          {/* Statpedia Rating Breakdown */}
-          <div className="mb-4">
-            <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-3">Rating Breakdown</div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400">AI Prediction:</span>
-                <span className="text-slate-200 font-semibold">{Math.round(statpediaRating.factors.aiPredictionScore)}/25</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400">Odds Value:</span>
-                <span className="text-slate-200 font-semibold">{Math.round(statpediaRating.factors.oddsValueScore)}/25</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400">Data Quality:</span>
-                <span className="text-slate-200 font-semibold">{Math.round(statpediaRating.factors.confidenceScore)}/20</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400">Recent Form:</span>
-                <span className="text-slate-200 font-semibold">{Math.round(statpediaRating.factors.recentFormScore)}/15</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400">Market Consensus:</span>
-                <span className="text-slate-200 font-semibold">{Math.round(statpediaRating.factors.marketConsensusScore)}/15</span>
-              </div>
-            </div>
-            
-            {/* Rating Confidence */}
-            <div className="flex items-center justify-between pt-2 mt-2 border-t border-slate-700/50">
-              <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Confidence:</span>
-              <Badge 
-                className={cn(
-                  "text-xs px-2 py-1 border",
-                  statpediaRating.confidence === 'High' ? 'bg-green-500/20 text-green-400 border-green-500/40' :
-                  statpediaRating.confidence === 'Medium' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40' :
-                  'bg-red-500/20 text-red-400 border-red-500/40'
-                )}
-              >
-                {statpediaRating.confidence}
-              </Badge>
-            </div>
-          </div>
+                    {/* Rating Breakdown */}
+                    <div>
+                      <div className="text-xs text-slate-500 uppercase font-semibold mb-2">Rating Breakdown</div>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-400">AI Prediction:</span>
+                          <span className="text-slate-200 font-semibold">{Math.round(statpediaRating.factors.aiPredictionScore)}/25</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-400">Odds Value:</span>
+                          <span className="text-slate-200 font-semibold">{Math.round(statpediaRating.factors.oddsValueScore)}/25</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-400">Data Quality:</span>
+                          <span className="text-slate-200 font-semibold">{Math.round(statpediaRating.factors.confidenceScore)}/20</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-400">Recent Form:</span>
+                          <span className="text-slate-200 font-semibold">{Math.round(statpediaRating.factors.recentFormScore)}/15</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-400">Market Consensus:</span>
+                          <span className="text-slate-200 font-semibold">{Math.round(statpediaRating.factors.marketConsensusScore)}/15</span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex justify-between pt-2 mt-2 border-t border-slate-700/50">
+                        <span className="text-xs text-slate-500 uppercase font-semibold">Confidence:</span>
+                        <Badge 
+                          className={cn(
+                            "text-xs px-1 py-0.5",
+                            statpediaRating.confidence === 'High' ? 'bg-green-500/20 text-green-400' :
+                            statpediaRating.confidence === 'Medium' ? 'bg-yellow-500/20 text-yellow-400' :
+                            'bg-red-500/20 text-red-400'
+                          )}
+                        >
+                          {statpediaRating.confidence}
+                        </Badge>
+                      </div>
+                    </div>
 
-          {/* Expected Value */}
-          {prop.expectedValue !== undefined && (
-            <div className="mb-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Expected Value</span>
-                <Badge className={`text-xs font-bold border ${getEVBadgeClasses(prop.expectedValue * 100).combined}`}>
-                  <Zap className="h-3 w-3 mr-1" />
-                  {convertEVToText(prop.expectedValue * 100).text}
-                </Badge>
+                    {/* Expected Value */}
+                    {prop.expectedValue !== undefined && (
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-slate-500 uppercase font-semibold">Expected Value</span>
+                          <Badge className={`text-xs font-bold ${getEVBadgeClasses(prop.expectedValue * 100).combined}`}>
+                            <Zap className="h-3 w-3 mr-1" />
+                            {convertEVToText(prop.expectedValue * 100).text}
+                          </Badge>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* All Sportsbook Odds */}
+                    {prop.allSportsbookOdds && prop.allSportsbookOdds.length > 1 && (
+                      <div>
+                        <div className="text-xs text-slate-500 uppercase font-semibold mb-2">All Sportsbooks</div>
+                        <div className="space-y-1">
+                          {prop.allSportsbookOdds.slice(0, 6).map((odds, index) => (
+                            <div key={index} className="flex items-center justify-between text-xs bg-slate-800/30 rounded px-2 py-1">
+                              <span className="text-slate-300 font-medium text-xs">{odds.sportsbook}</span>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-green-300 font-semibold">{formatOdds(odds.overOdds)}</span>
+                                <span className="text-slate-400">|</span>
+                                <span className="text-red-300 font-semibold">{formatOdds(odds.underOdds)}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Game Info */}
+                    <div className="text-center pt-2 border-t border-slate-700/50">
+                      <div className="text-xs text-slate-500 font-semibold">
+                        {new Date(prop.gameDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • {new Date(prop.gameTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-          )}
-
-          {/* Game Info */}
-          <div className="flex items-center justify-between text-xs text-slate-500 mb-4 font-semibold">
-            <span className="tracking-wide">{new Date(prop.gameDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-            <span className="tracking-wide">{new Date(prop.gameTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</span>
-          </div>
 
           {/* Action Button */}
           <Button
