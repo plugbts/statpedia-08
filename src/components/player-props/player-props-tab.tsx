@@ -57,8 +57,6 @@ const formatCompactTime = (gameTime: string, gameDate: string) => {
   }
 };
 
-import { unifiedSportsAPI } from '@/services/unified-sports-api';
-import { consistentPropsService, ConsistentPlayerProp } from '@/services/consistent-props-service';
 import { backendSportsGameOddsAPI } from '@/services/backend-sportsgameodds-api';
 import { useNavigate } from 'react-router-dom';
 import { 

@@ -103,10 +103,11 @@ class UnifiedSportsAPI {
     logAPI('UnifiedSportsAPI', `Getting player props for ${sport}${season ? ` ${season}` : ''}${week ? ` week ${week}` : ''} from SportsGameOdds API`);
     
     try {
-      // Get player props from SportsGameOdds API (for markets/odds/props)
-      const sportsGameOddsProps = await sportsGameOddsAPI.getPlayerProps(sport);
+      // Get player props from Backend API (server-side SportGameOdds)
+      const { backendSportsGameOddsAPI } = await import('./backend-sportsgameodds-api');
+      const sportsGameOddsProps = await backendSportsGameOddsAPI.getPlayerProps(sport);
       
-      logAPI('UnifiedSportsAPI', `SportsGameOdds: ${sportsGameOddsProps.length} props`);
+      logAPI('UnifiedSportsAPI', `Backend SportsGameOdds: ${sportsGameOddsProps.length} props`);
       console.log('🎯 UnifiedSportsAPI received props from SportsGameOdds:', sportsGameOddsProps.length);
 
       // Convert SportsGameOdds props to unified format
@@ -215,9 +216,10 @@ class UnifiedSportsAPI {
   // Get past games for analytics tab
   async getPastPlayerProps(sport: string, season?: number, week?: number, selectedSportsbook?: string): Promise<PlayerProp[]> {
     try {
-      // Get player props from SportsGameOdds API (for markets/odds/props)
-      const sportsGameOddsProps = await sportsGameOddsAPI.getPlayerProps(sport);
-      logAPI('UnifiedSportsAPI', `Retrieved ${sportsGameOddsProps.length} props from SportsGameOdds`);
+      // Get player props from Backend API (server-side SportGameOdds)
+      const { backendSportsGameOddsAPI } = await import('./backend-sportsgameodds-api');
+      const sportsGameOddsProps = await backendSportsGameOddsAPI.getPlayerProps(sport);
+      logAPI('UnifiedSportsAPI', `Retrieved ${sportsGameOddsProps.length} props from Backend SportsGameOdds`);
 
       // Convert and filter for past games only
       const unifiedProps = this.convertSportsGameOddsProps(sportsGameOddsProps);
