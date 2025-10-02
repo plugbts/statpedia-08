@@ -20,6 +20,7 @@ import { teamColorsService } from '@/services/team-colors-service';
 import { convertEVToText, getEVBadgeClasses } from '@/utils/ev-text-converter';
 import { SportsbookIconsList } from '@/components/ui/sportsbook-icons';
 import { SportsbookOverlay } from '@/components/ui/sportsbook-overlay';
+import { statpediaRatingService, StatpediaRating } from '@/services/statpedia-rating-service';
 
 interface SportsbookOdds {
   sportsbook: string;
@@ -95,6 +96,11 @@ export function PlayerPropCard3D({
   const [isAnimating, setIsAnimating] = useState(false);
   const [sparklePositions, setSparklePositions] = useState<Array<{ id: number; x: number; y: number; delay: number }>>([]);
   const [showSportsbookOverlay, setShowSportsbookOverlay] = useState(false);
+
+  // Calculate Statpedia Rating
+  const statpediaRating: StatpediaRating = React.useMemo(() => {
+    return statpediaRatingService.calculateRating(prop);
+  }, [prop]);
 
   // Debug logging for received prop data
   React.useEffect(() => {
@@ -198,6 +204,21 @@ export function PlayerPropCard3D({
     }
   };
 
+  const getRatingColor = (rating: StatpediaRating) => {
+    switch (rating.color) {
+      case 'green': return 'text-green-400 bg-green-500/20 border-green-500/40';
+      case 'yellow': return 'text-yellow-400 bg-yellow-500/20 border-yellow-500/40';
+      case 'red': return 'text-red-400 bg-red-500/20 border-red-500/40';
+      default: return 'text-gray-400 bg-gray-500/20 border-gray-500/40';
+    }
+  };
+
+  const getRatingIcon = (rating: StatpediaRating) => {
+    if (rating.overall >= 80) return <Star className="h-3 w-3" />;
+    if (rating.overall >= 65) return <Target className="h-3 w-3" />;
+    return <BarChart3 className="h-3 w-3" />;
+  };
+
   const handleCardClick = () => {
     if (showSelection && onSelect) {
       onSelect(prop.id);
@@ -291,19 +312,21 @@ export function PlayerPropCard3D({
               </div>
             </div>
             
-            {/* Confidence Badge */}
-            {prop.confidence && (
+            {/* Statpedia Rating */}
+            <div className="flex flex-col items-end space-y-1">
               <Badge 
                 className={cn(
-                  "px-3 py-1 text-xs font-bold shadow-lg",
-                  getConfidenceColor(prop.confidence),
-                  "bg-slate-800/80 border border-slate-600"
+                  "px-3 py-1 text-xs font-bold shadow-lg border",
+                  getRatingColor(statpediaRating)
                 )}
               >
-                <Star className="h-3 w-3 mr-1" />
-                {Math.round(prop.confidence * 100)}%
+                {getRatingIcon(statpediaRating)}
+                <span className="ml-1">{statpediaRating.overall}/100</span>
               </Badge>
-            )}
+              <div className="text-xs font-semibold text-slate-300">
+                Statpedia {statpediaRating.grade}
+              </div>
+            </div>
           </div>
 
           {/* Prop Details */}
@@ -435,6 +458,48 @@ export function PlayerPropCard3D({
               </div>
             </div>
           )}
+
+          {/* Statpedia Rating Breakdown */}
+          <div className="mb-4">
+            <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-3">Rating Breakdown</div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-400">AI Prediction:</span>
+                <span className="text-slate-200 font-semibold">{Math.round(statpediaRating.factors.aiPredictionScore)}/25</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-400">Odds Value:</span>
+                <span className="text-slate-200 font-semibold">{Math.round(statpediaRating.factors.oddsValueScore)}/25</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-400">Data Quality:</span>
+                <span className="text-slate-200 font-semibold">{Math.round(statpediaRating.factors.confidenceScore)}/20</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-400">Recent Form:</span>
+                <span className="text-slate-200 font-semibold">{Math.round(statpediaRating.factors.recentFormScore)}/15</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-400">Market Consensus:</span>
+                <span className="text-slate-200 font-semibold">{Math.round(statpediaRating.factors.marketConsensusScore)}/15</span>
+              </div>
+            </div>
+            
+            {/* Rating Confidence */}
+            <div className="flex items-center justify-between pt-2 mt-2 border-t border-slate-700/50">
+              <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Confidence:</span>
+              <Badge 
+                className={cn(
+                  "text-xs px-2 py-1 border",
+                  statpediaRating.confidence === 'High' ? 'bg-green-500/20 text-green-400 border-green-500/40' :
+                  statpediaRating.confidence === 'Medium' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40' :
+                  'bg-red-500/20 text-red-400 border-red-500/40'
+                )}
+              >
+                {statpediaRating.confidence}
+              </Badge>
+            </div>
+          </div>
 
           {/* Expected Value */}
           {prop.expectedValue !== undefined && (
