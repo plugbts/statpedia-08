@@ -48,6 +48,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { AskStatpedia } from './ask-statpedia';
 import { consistentPropsService } from '@/services/consistent-props-service';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -1139,7 +1140,7 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
 
         {/* Enhanced Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
-          <TabsList className="grid w-full grid-cols-6 bg-slate-800/50 border border-slate-700 rounded-lg p-1">
+          <TabsList className="grid w-full grid-cols-7 bg-slate-800/50 border border-slate-700 rounded-lg p-1">
             <TabsTrigger value="overview" className="data-[state=active]:bg-slate-700 data-[state=active]:text-white">
               <Eye className="w-4 h-4 mr-2" />
               Overview
@@ -1163,6 +1164,10 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
             <TabsTrigger value="features" className="data-[state=active]:bg-slate-700 data-[state=active]:text-white">
               <Settings className="w-4 h-4 mr-2" />
               Features
+            </TabsTrigger>
+            <TabsTrigger value="ask-statpedia" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/25">
+              <BrainCircuit className="w-4 h-4 mr-2" />
+              Ask Statpedia
             </TabsTrigger>
           </TabsList>
 
@@ -1864,6 +1869,25 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                   )}
                 </CardContent>
               </Card>
+            </div>
+          </TabsContent>
+
+          {/* Ask Statpedia Tab */}
+          <TabsContent value="ask-statpedia" className="mt-6">
+            <div className="h-full">
+              <AskStatpedia 
+                playerProp={currentData}
+                gameContext={{
+                  homeTeam: currentData.opponentAbbr,
+                  awayTeam: currentData.teamAbbr,
+                  date: currentData.gameDate,
+                  playerName: currentData.playerName,
+                  propType: currentData.propType,
+                  line: currentData.line,
+                  overOdds: currentData.overOdds,
+                  underOdds: currentData.underOdds
+                }}
+              />
             </div>
           </TabsContent>
         </Tabs>
