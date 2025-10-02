@@ -59,12 +59,33 @@ class SportGameOddsAPIService {
       return acc;
     }, {});
 
+
+    // Helper function to parse JSONB values
+    const parseConfigValue = (value: any): string => {
+      if (!value) return '';
+      
+      // If it's already a string, clean it
+      if (typeof value === 'string') {
+        return value.replace(/^"|"$/g, ''); // Remove leading/trailing quotes
+      }
+      
+      // If it's a JSON object/array, stringify and parse
+      try {
+        const stringified = typeof value === 'object' ? JSON.stringify(value) : value;
+        const parsed = JSON.parse(stringified);
+        return typeof parsed === 'string' ? parsed : stringified;
+      } catch (e) {
+        console.warn('Failed to parse config value:', value, e);
+        return String(value).replace(/^"|"$/g, '');
+      }
+    };
+
     this.config = {
-      sportsgameodds_api_key: configMap.sportsgameodds_api_key?.replace(/"/g, '') || '',
+      sportsgameodds_api_key: parseConfigValue(configMap.sportsgameodds_api_key),
       cache_ttl_seconds: parseInt(configMap.cache_ttl_seconds) || 30,
       polling_interval_seconds: parseInt(configMap.polling_interval_seconds) || 30,
       rate_limit_per_minute: parseInt(configMap.rate_limit_per_minute) || 60,
-      max_props_per_request: parseInt(configMap.max_props_per_request) || 3,
+      max_props_per_request: parseInt(configMap.max_props_per_request) || 100,
       enabled_sports: Array.isArray(configMap.enabled_sports) ? configMap.enabled_sports : ['nfl', 'nba', 'mlb', 'nhl']
     };
 
@@ -223,7 +244,7 @@ class SportGameOddsAPIService {
     const startTime = Date.now();
     const response = await fetch(url, {
       headers: {
-        'Authorization': `Bearer ${config.sportsgameodds_api_key}`,
+        'X-API-Key': config.sportsgameodds_api_key,
         'Content-Type': 'application/json',
         'User-Agent': 'Statpedia-Server/1.0'
       }
@@ -326,23 +347,11 @@ class SportGameOddsAPIService {
           };
 
           playerProps.push(prop);
-
-          if (playerProps.length >= maxProps) {
-            break;
-          }
         }
-
-        if (playerProps.length >= maxProps) {
-          break;
-        }
-      }
-
-      if (playerProps.length >= maxProps) {
-        break;
       }
     }
 
-    return playerProps.slice(0, maxProps);
+    return playerProps;
   }
 }
 
@@ -512,8 +521,7 @@ serve(async (req) => {
         meta: {
           ...apiResponse.meta,
           rateLimitRemaining: rateLimitResult.remaining,
-          rateLimitReset: rateLimitResult.resetTime.toISOString(),
-          propsLimited: endpoint === 'player-props' ? config.max_props_per_request : null
+          rateLimitReset: rateLimitResult.resetTime.toISOString()
         }
       }),
       { 
