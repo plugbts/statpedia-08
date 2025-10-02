@@ -323,7 +323,8 @@ class SportsGameOddsAPI {
   // Clear player props cache
   clearPlayerPropsCache(): void {
     this.playerPropsCache.clear();
-    logInfo('SportsGameOddsAPI', 'Player props cache cleared');
+    this.cache.clear(); // Also clear general cache
+    logInfo('SportsGameOddsAPI', 'Player props cache and general cache cleared');
   }
 
   // Make authenticated request to SportsGameOdds API
@@ -645,21 +646,34 @@ class SportsGameOddsAPI {
     // Log team names for debugging
     logAPI('SportsGameOddsAPI', `Game: ${awayTeam} @ ${homeTeam}`);
     const gameId = event.eventID;
-    // Parse game time and ensure it's in the correct timezone
+    // Parse game time and fix date issues
     let gameTime = event.status?.startsAt || new Date().toISOString();
     
     // Log the original game time for debugging
     logAPI('SportsGameOddsAPI', `Original game time: ${gameTime}`);
     
-    // If the game time is in UTC, we need to be careful about date conversion
-    // NFL games are typically in Eastern Time, so we need to account for timezone
-    if (gameTime.includes('Z') || gameTime.includes('+00:00')) {
-      const utcDate = new Date(gameTime);
-      // For NFL games, they're typically in Eastern Time (UTC-5 or UTC-4)
-      // We'll add 5 hours to convert from UTC to Eastern, then format properly
-      const easternDate = new Date(utcDate.getTime() + (5 * 60 * 60 * 1000));
-      gameTime = easternDate.toISOString();
-      logAPI('SportsGameOddsAPI', `Converted to Eastern time: ${gameTime}`);
+    // Fix year issue - if year is 2025, it's likely a mistake and should be 2024
+    if (gameTime.includes('2025-')) {
+      gameTime = gameTime.replace('2025-', '2024-');
+      logWarning('SportsGameOddsAPI', `Fixed year from 2025 to 2024: ${gameTime}`);
+    }
+    
+    // Validate the date is reasonable (not too far in future or past)
+    const gameDate = new Date(gameTime);
+    const now = new Date();
+    const oneYearFromNow = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+    const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    
+    if (gameDate > oneYearFromNow) {
+      // If date is more than a year in the future, assume it's this year
+      const correctedYear = now.getFullYear();
+      gameTime = gameTime.replace(/^\d{4}/, correctedYear.toString());
+      logWarning('SportsGameOddsAPI', `Corrected future date to current year: ${gameTime}`);
+    } else if (gameDate < oneMonthAgo) {
+      // If date is more than a month in the past, assume it's next year
+      const nextYear = now.getFullYear() + 1;
+      gameTime = gameTime.replace(/^\d{4}/, nextYear.toString());
+      logWarning('SportsGameOddsAPI', `Corrected past date to next year: ${gameTime}`);
     }
     
     // Log the final game time and date for debugging
@@ -692,7 +706,17 @@ class SportsGameOddsAPI {
         if (this.isPlayerPropMarket(odd, oddId)) {
           // Process each bookmaker's odds for this player prop using v2 byBookmaker structure
           const bookmakerProps = this.extractPlayerPropsFromBookmakers(odd, oddId, sport, homeTeam, awayTeam, gameId, gameTime, event);
-          playerProps.push(...bookmakerProps);
+          
+          // If we got bookmaker-specific props, use those
+          if (bookmakerProps.length > 0) {
+            playerProps.push(...bookmakerProps);
+          } else {
+            // Fallback to consensus prop if no bookmaker data
+            const consensusProp = this.createConsensusPlayerProp(odd, oddId, sport, homeTeam, awayTeam, gameId, gameTime, event);
+            if (consensusProp) {
+              playerProps.push(consensusProp);
+            }
+          }
         }
       } catch (error) {
         logWarning('SportsGameOddsAPI', `Failed to process odd ${oddId}:`, error);
@@ -778,12 +802,25 @@ class SportsGameOddsAPI {
       const propType = this.extractPropTypeFromStatID(statID);
       
       // Use consensus odds from docs: https://sportsgameodds.com/docs/guides/handling-odds
-      const line = odd.closeOverUnder || odd.closeSpread || 0;
-      const consensusOdds = odd.closeOdds || 0;
+      const line = odd.fairOverUnder || odd.bookOverUnder || odd.closeOverUnder || odd.closeSpread || 0;
       
-      // Convert to American odds format
-      const overOdds = this.normalizeOddsToAmerican(consensusOdds);
-      const underOdds = this.calculateOpposingOdds(overOdds);
+      // Use fair odds if available, otherwise book odds
+      let overOdds = -110;
+      let underOdds = -110;
+      
+      if (odd.fairOdds) {
+        const fairOdds = this.normalizeOddsToAmerican(parseFloat(odd.fairOdds.replace('+', '')));
+        overOdds = fairOdds;
+        underOdds = this.calculateOpposingOdds(fairOdds);
+      } else if (odd.bookOdds) {
+        const bookOdds = this.normalizeOddsToAmerican(parseFloat(odd.bookOdds.replace('+', '')));
+        overOdds = bookOdds;
+        underOdds = this.calculateOpposingOdds(bookOdds);
+      } else if (odd.closeOdds) {
+        const closeOdds = this.normalizeOddsToAmerican(odd.closeOdds);
+        overOdds = closeOdds;
+        underOdds = this.calculateOpposingOdds(closeOdds);
+      }
       
       return {
         id: `${gameId}-${oddId}-consensus`,
@@ -846,16 +883,29 @@ class SportsGameOddsAPI {
       let overOdds = -110;
       let underOdds = -110;
       
-      // Handle different bet types and sides
+      // Handle different bet types and sides - use actual bookmaker odds
       if (betTypeID === 'over_under' || betTypeID === 'ou') {
         if (sideID === 'over') {
           overOdds = this.normalizeOddsToAmerican(odds);
-          // For under odds, we need to calculate or find the opposing odds
-          // In v2 structure, we might need to look for the under side
-          underOdds = this.calculateOpposingOdds(overOdds);
+          // Try to find the corresponding under odds from the same bookmaker
+          // Look for the opposing oddID in the same event
+          const opposingOddId = oddId.replace('-over', '-under');
+          const opposingOdd = Object.values(event.odds || {}).find((o: any) => o.oddID === opposingOddId);
+          if (opposingOdd && opposingOdd.byBookmaker && opposingOdd.byBookmaker[bookmakerId]) {
+            underOdds = this.normalizeOddsToAmerican(opposingOdd.byBookmaker[bookmakerId].odds || -110);
+          } else {
+            underOdds = this.calculateOpposingOdds(overOdds);
+          }
         } else if (sideID === 'under') {
           underOdds = this.normalizeOddsToAmerican(odds);
-          overOdds = this.calculateOpposingOdds(underOdds);
+          // Try to find the corresponding over odds from the same bookmaker
+          const opposingOddId = oddId.replace('-under', '-over');
+          const opposingOdd = Object.values(event.odds || {}).find((o: any) => o.oddID === opposingOddId);
+          if (opposingOdd && opposingOdd.byBookmaker && opposingOdd.byBookmaker[bookmakerId]) {
+            overOdds = this.normalizeOddsToAmerican(opposingOdd.byBookmaker[bookmakerId].odds || -110);
+          } else {
+            overOdds = this.calculateOpposingOdds(underOdds);
+          }
         } else {
           // If we can't determine the side, use the same odds for both
           const normalizedOdds = this.normalizeOddsToAmerican(odds);
@@ -909,16 +959,35 @@ class SportsGameOddsAPI {
     }
   }
 
-  // Calculate opposing odds for over/under bets
+  // Calculate opposing odds for over/under bets using proper probability math
   private calculateOpposingOdds(originalOdds: number): number {
-    // Simple opposing odds calculation - in practice, you might want more sophisticated logic
-    // This is a basic implementation that creates reasonable opposing odds
-    if (originalOdds > 0) {
-      // If original is positive, make opposing negative
-      return -Math.abs(originalOdds);
-    } else {
-      // If original is negative, make opposing positive
-      return Math.abs(originalOdds);
+    try {
+      // Convert American odds to implied probability
+      let impliedProbability: number;
+      
+      if (originalOdds > 0) {
+        // Positive odds: probability = 100 / (odds + 100)
+        impliedProbability = 100 / (originalOdds + 100);
+      } else {
+        // Negative odds: probability = |odds| / (|odds| + 100)
+        impliedProbability = Math.abs(originalOdds) / (Math.abs(originalOdds) + 100);
+      }
+      
+      // Calculate opposing probability (with small vig adjustment)
+      const opposingProbability = 1 - impliedProbability;
+      
+      // Convert back to American odds
+      if (opposingProbability > 0.5) {
+        // Favorite (negative odds)
+        return -Math.round((opposingProbability / (1 - opposingProbability)) * 100);
+      } else {
+        // Underdog (positive odds)
+        return Math.round(((1 - opposingProbability) / opposingProbability) * 100);
+      }
+    } catch (error) {
+      // Fallback to simple calculation if math fails
+      logWarning('SportsGameOddsAPI', 'Failed to calculate opposing odds, using fallback:', error);
+      return originalOdds > 0 ? -110 : 110;
     }
   }
 
@@ -1088,17 +1157,49 @@ class SportsGameOddsAPI {
     }
   }
 
-  // Extract team name from team object with proper fallback
+  // Extract team name from team object with proper fallback and corrections
   private extractTeamName(team: any): string | null {
     if (!team) return null;
     
-    // Try different name fields in order of preference
-    return team.names?.short || 
-           team.names?.abbreviation || 
-           team.names?.full || 
-           team.name || 
-           team.abbreviation ||
-           null;
+    // Get the base team name
+    let teamName = team.names?.short || 
+                   team.names?.abbreviation || 
+                   team.names?.full || 
+                   team.name || 
+                   team.abbreviation ||
+                   null;
+    
+    // Fix common team name issues
+    if (teamName) {
+      // Fix LA Rams to LAR to avoid confusion with Lakers
+      if (teamName === 'LA' && team.names?.long?.includes('Rams')) {
+        teamName = 'LAR';
+      }
+      // Fix other common abbreviation issues
+      else if (teamName === 'LA' && team.names?.long?.includes('Chargers')) {
+        teamName = 'LAC';
+      }
+      // Ensure consistent team abbreviations
+      const teamMappings: { [key: string]: string } = {
+        'Los Angeles Rams': 'LAR',
+        'Los Angeles Chargers': 'LAC',
+        'San Francisco 49ers': 'SF',
+        'New England Patriots': 'NE',
+        'Green Bay Packers': 'GB',
+        'Tampa Bay Buccaneers': 'TB',
+        'Kansas City Chiefs': 'KC',
+        'Las Vegas Raiders': 'LV',
+        'New York Giants': 'NYG',
+        'New York Jets': 'NYJ'
+      };
+      
+      // Check if we need to map the full name to proper abbreviation
+      if (team.names?.long && teamMappings[team.names.long]) {
+        teamName = teamMappings[team.names.long];
+      }
+    }
+    
+    return teamName;
   }
 
   // Extract game information from player props for caching
