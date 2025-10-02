@@ -1,0 +1,157 @@
+{
+  "workspace": {
+    "name": "Statpedia",
+    "url": "https://lifesplugg-9889449.postman.co/workspace/Statpedia~4f4e954c-f368-4c54-b419-e3b4206b3f36"
+  },
+  "source_workspace": {
+    "name": "SportsRadar Media APIs",
+    "url": "https://www.postman.com/sportradar-media-apis/sportradar-media-apis/overview"
+  },
+  "collections_to_fork": {
+    "critical_priority": [
+      {
+        "name": "SportsRadar Odds Comparison Player Props v2",
+        "description": "Player props, odds, betting markets - CRITICAL for our backend",
+        "url": "https://www.postman.com/sportradar-media-apis/sportradar-media-apis/collection/8eu5kcm/sportradar-odds-comparison-player-props-v2",
+        "use_case": "Player props system, odds calculation, betting markets",
+        "priority": "CRITICAL",
+        "expected_status": "May require special permissions (403/502)",
+        "forked": false
+      }
+    ],
+    "high_priority": [
+      {
+        "name": "NFL Official API",
+        "description": "NFL schedules, teams, players, games, statistics",
+        "url": "https://www.postman.com/sportradar-media-apis/sportradar-media-apis/collection/nfl-official-api",
+        "use_case": "NFL player props, game data, team/player information",
+        "priority": "HIGH",
+        "expected_status": "Working (200) - schedules, teams, hierarchy",
+        "forked": false
+      },
+      {
+        "name": "NBA Official API",
+        "description": "NBA schedules, teams, players, games, statistics",
+        "url": "https://www.postman.com/sportradar-media-apis/sportradar-media-apis/collection/nba-official-api",
+        "use_case": "NBA player props, game data, team/player information",
+        "priority": "HIGH",
+        "expected_status": "Working (200) - schedules, teams, hierarchy",
+        "forked": false
+      },
+      {
+        "name": "MLB Official API",
+        "description": "MLB schedules, teams, players, games, statistics",
+        "url": "https://www.postman.com/sportradar-media-apis/sportradar-media-apis/collection/mlb-official-api",
+        "use_case": "MLB player props, game data, team/player information",
+        "priority": "HIGH",
+        "expected_status": "Working (200) - schedules, teams, hierarchy",
+        "forked": false
+      },
+      {
+        "name": "NHL Official API",
+        "description": "NHL schedules, teams, players, games, statistics",
+        "url": "https://www.postman.com/sportradar-media-apis/sportradar-media-apis/collection/nhl-official-api",
+        "use_case": "NHL player props, game data, team/player information",
+        "priority": "HIGH",
+        "expected_status": "Working (200) - schedules, teams, hierarchy",
+        "forked": false
+      }
+    ],
+    "medium_priority": [
+      {
+        "name": "SportsRadar Odds Comparison API",
+        "description": "General odds comparison across sportsbooks",
+        "url": "https://www.postman.com/sportradar-media-apis/sportradar-media-apis/collection/odds-comparison-api",
+        "use_case": "Odds comparison, sportsbook data, betting lines",
+        "priority": "MEDIUM",
+        "expected_status": "May require special permissions (403/502)",
+        "forked": false
+      },
+      {
+        "name": "NCAAFB (College Football) API",
+        "description": "College football schedules, teams, players, games",
+        "url": "https://www.postman.com/sportradar-media-apis/sportradar-media-apis/collection/ncaafb-api",
+        "use_case": "College football player props and data",
+        "priority": "MEDIUM",
+        "expected_status": "Working (200) - schedules, teams",
+        "forked": false
+      },
+      {
+        "name": "NCAAMB (College Basketball) API",
+        "description": "College basketball schedules, teams, players, games",
+        "url": "https://www.postman.com/sportradar-media-apis/sportradar-media-apis/collection/ncaamb-api",
+        "use_case": "College basketball player props and data",
+        "priority": "MEDIUM",
+        "expected_status": "Working (200) - schedules, teams",
+        "forked": false
+      }
+    ],
+    "low_priority": [
+      {
+        "name": "Soccer/Football API",
+        "description": "Soccer schedules, teams, players, matches",
+        "url": "https://www.postman.com/sportradar-media-apis/sportradar-media-apis/collection/soccer-api",
+        "use_case": "Soccer/football data for future expansion",
+        "priority": "LOW",
+        "expected_status": "Working (200) - schedules, teams",
+        "forked": false
+      },
+      {
+        "name": "Tennis API",
+        "description": "Tennis tournaments, players, matches",
+        "url": "https://www.postman.com/sportradar-media-apis/sportradar-media-apis/collection/tennis-api",
+        "use_case": "Tennis data for future expansion",
+        "priority": "LOW",
+        "expected_status": "Working (200) - schedules, tournaments",
+        "forked": false
+      },
+      {
+        "name": "Golf API",
+        "description": "Golf tournaments, players, leaderboards",
+        "url": "https://www.postman.com/sportradar-media-apis/sportradar-media-apis/collection/golf-api",
+        "use_case": "Golf data for future expansion",
+        "priority": "LOW",
+        "expected_status": "Working (200) - tournaments, leaderboards",
+        "forked": false
+      }
+    ]
+  },
+  "environment_variables": {
+    "sportsradar_api_key": "onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D",
+    "base_url": "https://api.sportradar.com",
+    "current_year": "2025",
+    "current_season": "REG",
+    "current_date": "2025-01-05",
+    "dev_server_url": "http://localhost:8084"
+  },
+  "forking_instructions": {
+    "step_1": "Open SportsRadar Media APIs workspace",
+    "step_2": "For each collection, click Fork button",
+    "step_3": "Select Statpedia workspace as destination",
+    "step_4": "Check 'Watch original collection' for updates",
+    "step_5": "Test forked collection with your API key",
+    "step_6": "Document working vs non-working endpoints"
+  },
+  "testing_checklist": {
+    "after_forking": [
+      "Test key endpoints with your API key",
+      "Document response status codes",
+      "Note which endpoints require different permissions",
+      "Set up environment variables",
+      "Configure authentication headers",
+      "Run collection tests to verify functionality"
+    ]
+  },
+  "integration_plan": {
+    "immediate": [
+      "Use working NFL/NBA/MLB/NHL schedule endpoints",
+      "Integrate team and player hierarchy data",
+      "Build player props system with working endpoints"
+    ],
+    "future": [
+      "Attempt to get permissions for odds/betting APIs",
+      "Expand to college sports (NCAAFB/NCAAMB)",
+      "Add additional sports (Soccer, Tennis, Golf)"
+    ]
+  }
+}
