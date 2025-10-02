@@ -267,8 +267,15 @@ class SportGameOddsAPIService {
     
     console.log(`SportGameOdds Rate Limit - Limit: ${rateLimit}, Remaining: ${rateLimitRemaining}, Reset: ${rateLimitReset}`);
 
+    console.log('SportGameOdds API response structure:', {
+      hasData: !!data.data,
+      dataType: Array.isArray(data.data) ? 'array' : typeof data.data,
+      dataLength: Array.isArray(data.data) ? data.data.length : 'not array',
+      sampleKeys: data.data?.[0] ? Object.keys(data.data[0]).slice(0, 5) : 'no first event'
+    });
+
     return {
-      data,
+      data: data.data || data, // Handle both wrapped and unwrapped responses
       meta: {
         responseTime,
         rateLimit: {
@@ -283,75 +290,127 @@ class SportGameOddsAPIService {
   async processPlayerProps(rawData: any, maxProps: number): Promise<any[]> {
     // Process the raw SportGameOdds API data into our format
     if (!rawData.data || !Array.isArray(rawData.data)) {
+      console.log('No data array found in rawData');
       return [];
     }
 
+    console.log(`Processing ${rawData.data.length} events from SportGameOdds API`);
     const playerProps: any[] = [];
 
     for (const event of rawData.data) {
-      if (!event.odds || !Array.isArray(event.odds)) continue;
+      if (!event.odds || typeof event.odds !== 'object') {
+        console.log(`Event ${event.eventID} has no odds object`);
+        continue;
+      }
 
       const gameId = event.eventID;
       const homeTeam = event.homeTeam?.name || 'Unknown';
       const awayTeam = event.awayTeam?.name || 'Unknown';
       const gameTime = event.status?.startsAt || new Date().toISOString();
 
-      // Process odds for player props
-      for (const odd of event.odds) {
-        if (!odd.byBookmaker) continue;
+      console.log(`Processing event: ${homeTeam} vs ${awayTeam} (${gameId})`);
+      console.log(`Found ${Object.keys(event.odds).length} odds entries`);
 
+      // Process odds object (not array) - each key is an oddID
+      for (const [oddID, oddData] of Object.entries(event.odds)) {
+        const odd = oddData as any;
+        if (!odd.byBookmaker || typeof odd.byBookmaker !== 'object') {
+          continue;
+        }
+
+        // Extract player information from oddID
+        const oddIdParts = oddID.split('-');
+        if (oddIdParts.length < 3) continue;
+
+        // Parse oddID format: "statType-PLAYER_NAME_ID-period-betType-side"
+        const statType = oddIdParts[0];
+        const playerIdPart = oddIdParts[1];
+        const period = oddIdParts[2];
+        const betType = oddIdParts[3];
+        const side = oddIdParts[4];
+
+        // Skip if not an over/under bet
+        if (betType !== 'ou' || !['over', 'under'].includes(side)) continue;
+
+        // Extract player name from player ID (remove _1_NFL suffix)
+        const playerName = playerIdPart.replace(/_1_NFL$/, '').replace(/_/g, ' ');
+        const propType = statType.replace(/_/g, ' ');
+
+        // Get the line value from the odd data
+        const line = parseFloat(odd.bookOverUnder || odd.fairOverUnder || 0);
+        
+        if (!playerName || !propType || isNaN(line)) continue;
+
+        // Process each sportsbook for this prop
         for (const [bookmakerId, bookmakerData] of Object.entries(odd.byBookmaker)) {
           if (!bookmakerData || typeof bookmakerData !== 'object') continue;
 
           const bookmaker = bookmakerData as any;
-          if (!bookmaker.over || !bookmaker.under) continue;
+          if (!bookmaker.odds || !bookmaker.overUnder) continue;
 
-          // Extract player information from oddID
-          const oddIdParts = odd.oddID?.split('-') || [];
-          if (oddIdParts.length < 5) continue;
-
-          const playerName = oddIdParts.slice(2, -2).join(' ');
-          const propType = oddIdParts[oddIdParts.length - 2];
-          const line = parseFloat(oddIdParts[oddIdParts.length - 1]);
-
-          if (isNaN(line) || !playerName || !propType) continue;
-
+          // Create separate props for over and under
+          const baseId = `${gameId}-${playerName}-${propType}-${line}`;
+          
           const prop = {
-            id: `${gameId}-${playerName}-${propType}-${line}-${bookmakerId}`,
+            id: `${baseId}-${bookmakerId}-${side}`,
             playerId: playerName.replace(/\s+/g, '_').toLowerCase(),
-            playerName,
-            team: homeTeam, // This would need better logic to determine player's team
-            sport: event.league || 'unknown',
-            propType,
-            line,
-            overOdds: bookmaker.over.odds || 0,
-            underOdds: bookmaker.under.odds || 0,
+            playerName: this.formatPlayerName(playerName),
+            team: this.determinePlayerTeam(playerIdPart, homeTeam, awayTeam),
+            sport: 'nfl',
+            propType: this.formatPropType(propType),
+            line: parseFloat(bookmaker.overUnder),
+            overOdds: side === 'over' ? bookmaker.odds : null,
+            underOdds: side === 'under' ? bookmaker.odds : null,
             sportsbook: bookmakerId,
             sportsbookKey: bookmakerId,
-            lastUpdate: new Date().toISOString(),
+            lastUpdate: bookmaker.lastUpdatedAt || new Date().toISOString(),
             gameId,
             gameTime,
             homeTeam,
             awayTeam,
             confidence: 1.0,
-            market: propType,
+            market: this.formatPropType(propType),
             outcome: 'over_under',
             betType: 'player_prop',
-            side: 'both',
-            period: 'full_game',
+            side: side,
+            period: period === 'game' ? 'full_game' : period,
             statEntity: playerName,
             isExactAPIData: true,
-            rawOverOdds: bookmaker.over,
-            rawUnderOdds: bookmaker.under,
-            availableSportsbooks: [bookmakerId]
+            rawBookmakerData: bookmaker,
+            availableSportsbooks: [bookmakerId],
+            available: bookmaker.available !== false
           };
 
           playerProps.push(prop);
+          
+          if (playerProps.length >= maxProps) {
+            console.log(`Reached max props limit of ${maxProps}`);
+            return playerProps;
+          }
         }
       }
     }
 
+    console.log(`Processed ${playerProps.length} player props total`);
     return playerProps;
+  }
+
+  private formatPlayerName(name: string): string {
+    return name.split(' ').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    ).join(' ');
+  }
+
+  private formatPropType(propType: string): string {
+    return propType.split(' ').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    ).join(' ');
+  }
+
+  private determinePlayerTeam(playerIdPart: string, homeTeam: string, awayTeam: string): string {
+    // This is a simplified approach - in reality you'd need a player-to-team mapping
+    // For now, just return one of the teams
+    return homeTeam;
   }
 }
 
@@ -488,6 +547,15 @@ serve(async (req) => {
     // Fetch from SportGameOdds API
     console.log(`Cache miss for ${cacheKey}, fetching from API`);
     const apiResponse = await service.fetchFromSportGameOdds(endpoint, sport);
+    
+    // Debug logging
+    console.log('Raw API response structure:', {
+      hasData: !!apiResponse.data,
+      dataType: Array.isArray(apiResponse.data) ? 'array' : typeof apiResponse.data,
+      dataLength: Array.isArray(apiResponse.data) ? apiResponse.data.length : 'not array',
+      firstEventKeys: apiResponse.data?.[0] ? Object.keys(apiResponse.data[0]) : 'no first event',
+      firstEventOddsType: apiResponse.data?.[0]?.odds ? typeof apiResponse.data[0].odds : 'no odds'
+    });
     
     let processedData;
     if (endpoint === 'player-props') {
