@@ -1,7 +1,7 @@
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
 
 // SportsGameOdds API Configuration
-const SPORTSGAMEODDS_API_KEY = '740556c91b9aa5616c0521cc2f09ed74';
+const SPORTSGAMEODDS_API_KEY = 'd5dc1f00bc42133550bc1605dd8f457f';
 const SPORTSGAMEODDS_BASE_URL = 'https://api.sportsgameodds.com';
 
 // Cache configuration - EXTREMELY long durations to minimize API calls due to rate limits
@@ -129,6 +129,11 @@ class SportsGameOddsAPI {
     logInfo('SportsGameOddsAPI', 'SportsGameOdds API initialized with usage tracking');
     // Reset usage stats on initialization to clear any previous testing data
     this.resetUsageStats();
+    // Clear all caches and reset backoff for new API key
+    this.cache.clear();
+    this.playerPropsCache.clear();
+    this.resetBackoff();
+    logInfo('SportsGameOddsAPI', 'Cleared all caches and reset backoff for new API key');
   }
 
   // Track API usage for monitoring

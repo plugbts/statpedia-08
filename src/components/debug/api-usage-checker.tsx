@@ -268,7 +268,7 @@ export const APIUsageChecker: React.FC = () => {
 
               {/* API Key Info */}
               <div className="text-xs text-muted-foreground">
-                <div>API Key: 740556c91b9aa5616c0521cc2f09ed74 (Trial)</div>
+                <div>API Key: d5dc1f00bc42133550bc1605dd8f457f</div>
                 <div>Last Reset: {usageStats.lastResetDate}</div>
                 <div>Total Calls: {usageStats.totalCalls}</div>
               </div>
