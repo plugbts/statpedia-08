@@ -18,6 +18,7 @@ import { SecurityDashboard } from "@/components/admin/security-dashboard";
 import { SyncStatus } from "@/components/sync/sync-status";
 import { DevConsole } from "@/components/admin/dev-console";
 import { CrossReferenceAnalysis } from "@/components/admin/cross-reference-analysis";
+import { APIUsageChecker } from "@/components/debug/api-usage-checker";
 import { useUser } from "@/contexts/user-context";
 
 export default function Admin() {
@@ -143,6 +144,12 @@ export default function Admin() {
                   <span className="hidden sm:inline">Sync</span>
                 </TabsTrigger>
               )}
+              {userRole === 'owner' && (
+                <TabsTrigger value="api-usage" className="flex items-center gap-1 px-2 py-1 text-xs">
+                  <TrendingUp className="h-3 w-3" />
+                  <span className="hidden sm:inline">API Usage</span>
+                </TabsTrigger>
+              )}
             </div>
           </TabsList>
 
@@ -199,6 +206,12 @@ export default function Admin() {
           {userRole === 'owner' && (
             <TabsContent value="sync" className="space-y-2 mt-2">
               <SyncStatus showDetails={true} />
+            </TabsContent>
+          )}
+
+          {userRole === 'owner' && (
+            <TabsContent value="api-usage" className="space-y-2 mt-2">
+              <APIUsageChecker />
             </TabsContent>
           )}
         </Tabs>

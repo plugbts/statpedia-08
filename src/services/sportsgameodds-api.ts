@@ -4,14 +4,14 @@ import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/conso
 const SPORTSGAMEODDS_API_KEY = '740556c91b9aa5616c0521cc2f09ed74';
 const SPORTSGAMEODDS_BASE_URL = 'https://api.sportsgameodds.com';
 
-// Cache configuration - extremely long durations to minimize API calls
+// Cache configuration - EXTREMELY long durations to minimize API calls due to rate limits
 const CACHE_DURATION = {
-  ODDS: 4 * 60 * 60 * 1000, // 4 hours for odds (very long cache)
-  MARKETS: 4 * 60 * 60 * 1000, // 4 hours for markets (very long cache)
-  GAMES: 12 * 60 * 60 * 1000, // 12 hours for games (very long cache)
+  ODDS: 8 * 60 * 60 * 1000, // 8 hours for odds (extended due to rate limits)
+  MARKETS: 8 * 60 * 60 * 1000, // 8 hours for markets (extended due to rate limits)
+  GAMES: 24 * 60 * 60 * 1000, // 24 hours for games (extended due to rate limits)
   SPORTS: 7 * 24 * 60 * 60 * 1000, // 7 days for sports (rarely change)
   BOOKMAKERS: 7 * 24 * 60 * 60 * 1000, // 7 days for bookmakers (rarely change)
-  PLAYERS: 3 * 24 * 60 * 60 * 1000, // 3 days for players (rarely change)
+  PLAYERS: 7 * 24 * 60 * 60 * 1000, // 7 days for players (extended due to rate limits)
   TEAMS: 7 * 24 * 60 * 60 * 1000 // 7 days for teams (rarely change)
 };
 
@@ -107,16 +107,22 @@ class SportsGameOddsAPI {
   };
   private readonly MAX_DAILY_CALLS = 1000; // Removed daily restrictions - allow more API calls
   
-  // Cache duration in milliseconds
+  // Rate limiting and backoff
+  private rateLimitedUntil: number = 0;
+  private backoffMultiplier: number = 1;
+  private readonly BASE_BACKOFF_MS = 60000; // 1 minute base backoff
+  private readonly MAX_BACKOFF_MS = 15 * 60 * 1000; // 15 minutes max backoff
+  
+  // Cache duration in milliseconds - EXTENDED due to rate limits
   private CACHE_DURATION = {
-    ODDS: 5 * 60 * 1000, // 5 minutes
-    MARKETS: 10 * 60 * 1000, // 10 minutes
-    GAMES: 30 * 60 * 1000, // 30 minutes
-    SPORTS: 24 * 60 * 60 * 1000, // 24 hours
-    BOOKMAKERS: 24 * 60 * 60 * 1000, // 24 hours
-    PLAYERS: 24 * 60 * 60 * 1000, // 24 hours
-    TEAMS: 24 * 60 * 60 * 1000, // 24 hours
-    PLAYER_PROPS: 2 * 60 * 60 * 1000 // 2 hours - longer cache for player props
+    ODDS: 4 * 60 * 60 * 1000, // 4 hours (extended due to rate limits)
+    MARKETS: 4 * 60 * 60 * 1000, // 4 hours (extended due to rate limits)
+    GAMES: 12 * 60 * 60 * 1000, // 12 hours (extended due to rate limits)
+    SPORTS: 7 * 24 * 60 * 60 * 1000, // 7 days
+    BOOKMAKERS: 7 * 24 * 60 * 60 * 1000, // 7 days
+    PLAYERS: 7 * 24 * 60 * 60 * 1000, // 7 days (extended due to rate limits)
+    TEAMS: 7 * 24 * 60 * 60 * 1000, // 7 days
+    PLAYER_PROPS: 8 * 60 * 60 * 1000 // 8 hours - much longer cache due to rate limits
   };
 
   constructor() {
@@ -180,16 +186,40 @@ class SportsGameOddsAPI {
     logInfo('SportsGameOddsAPI', 'Usage statistics reset');
   }
 
-  // Check if we should avoid making API calls due to high usage
+  // Check if we should avoid making API calls due to rate limits
   shouldAvoidAPICall(): boolean {
-    // Removed daily usage restrictions - only check for actual API rate limits
+    const now = Date.now();
+    if (now < this.rateLimitedUntil) {
+      const waitTime = Math.ceil((this.rateLimitedUntil - now) / 1000);
+      logWarning('SportsGameOddsAPI', `Rate limited for ${waitTime} more seconds`);
+      return true;
+    }
     return false;
   }
 
   // Get time until next API call is allowed (exponential backoff)
   getTimeUntilNextCall(): number {
-    // Removed daily usage restrictions - no artificial wait times
-    return 0; // No wait needed
+    const now = Date.now();
+    if (now < this.rateLimitedUntil) {
+      return this.rateLimitedUntil - now;
+    }
+    return 0;
+  }
+
+  // Handle rate limit response with exponential backoff
+  private handleRateLimit(): void {
+    const now = Date.now();
+    const backoffTime = Math.min(this.BASE_BACKOFF_MS * this.backoffMultiplier, this.MAX_BACKOFF_MS);
+    this.rateLimitedUntil = now + backoffTime;
+    this.backoffMultiplier = Math.min(this.backoffMultiplier * 2, 16); // Cap at 16x
+    
+    logWarning('SportsGameOddsAPI', `Rate limited! Backing off for ${Math.ceil(backoffTime / 1000)} seconds (multiplier: ${this.backoffMultiplier})`);
+  }
+
+  // Reset backoff when successful
+  private resetBackoff(): void {
+    this.backoffMultiplier = 1;
+    this.rateLimitedUntil = 0;
   }
 
   // Get detailed endpoint usage statistics
@@ -231,7 +261,18 @@ class SportsGameOddsAPI {
 
   // Get rate limit status for display
   getRateLimitStatus(): { status: string; message: string; canMakeCalls: boolean; waitTime?: number } {
-    // Removed daily usage restrictions - only show actual rate limit status
+    const now = Date.now();
+    const waitTime = this.getTimeUntilNextCall();
+    
+    if (waitTime > 0) {
+      return {
+        status: 'RATE_LIMITED',
+        message: `Rate limited for ${Math.ceil(waitTime / 1000)} seconds`,
+        canMakeCalls: false,
+        waitTime: waitTime
+      };
+    }
+    
     return {
       status: 'NORMAL',
       message: `API calls available (${this.usageStats.callsToday} calls made today)`,
@@ -285,7 +326,7 @@ class SportsGameOddsAPI {
     const cacheKey = endpoint;
     const now = Date.now();
     
-    // Check cache first
+    // Check cache first - prioritize cache to avoid rate limits
     if (this.cache.has(cacheKey)) {
       const cached = this.cache.get(cacheKey)!;
       if (now - cached.timestamp < cacheDuration) {
@@ -295,10 +336,20 @@ class SportsGameOddsAPI {
       }
     }
     
+    // Check if we're currently rate limited
+    if (this.shouldAvoidAPICall()) {
+      // Return cached data even if expired when rate limited
+      if (this.cache.has(cacheKey)) {
+        const cached = this.cache.get(cacheKey)!;
+        this.usageStats.cacheHits++;
+        logWarning('SportsGameOddsAPI', `Using expired cached data due to rate limit for ${endpoint}`);
+        return cached.data;
+      }
+      // If no cache available, throw rate limit error
+      throw new Error('Rate limit exceeded and no cached data available');
+    }
+    
     this.usageStats.cacheMisses++;
-
-    // Removed daily usage restrictions - only check for actual API rate limits
-    // API calls will now proceed unless actual 429 rate limit is returned
 
     // Track API usage
     this.trackAPIUsage(endpoint);
@@ -321,10 +372,19 @@ class SportsGameOddsAPI {
       if (!response.ok) {
         const errorText = await response.text();
         
-        // Handle rate limit specifically
+        // Handle rate limit specifically with exponential backoff
         if (response.status === 429) {
+          this.handleRateLimit();
           logWarning('SportsGameOddsAPI', `Rate limit exceeded for ${endpoint}. Status: ${response.status}`);
           logWarning('SportsGameOddsAPI', `Response: ${errorText}`);
+          
+          // Try to return cached data if available
+          if (this.cache.has(cacheKey)) {
+            const cached = this.cache.get(cacheKey)!;
+            logWarning('SportsGameOddsAPI', `Returning cached data due to rate limit for ${endpoint}`);
+            return cached.data;
+          }
+          
           throw new Error('Rate limit exceeded - please try again later');
         }
         
@@ -337,11 +397,21 @@ class SportsGameOddsAPI {
       
       // Check for rate limit in response body
       if (data.success === false && data.error && data.error.includes('Rate limit')) {
+        this.handleRateLimit();
         logWarning('SportsGameOddsAPI', `Rate limit exceeded in response for ${endpoint}: ${data.error}`);
+        
+        // Try to return cached data if available
+        if (this.cache.has(cacheKey)) {
+          const cached = this.cache.get(cacheKey)!;
+          logWarning('SportsGameOddsAPI', `Returning cached data due to rate limit for ${endpoint}`);
+          return cached.data;
+        }
+        
         throw new Error('Rate limit exceeded - please try again later');
       }
       
-      // Cache the response
+      // Success! Reset backoff and cache the response
+      this.resetBackoff();
       this.cache.set(cacheKey, { data, timestamp: now });
       
       logSuccess('SportsGameOddsAPI', `Successfully fetched data from ${endpoint}`);
