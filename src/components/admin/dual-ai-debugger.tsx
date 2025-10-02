@@ -20,7 +20,14 @@ interface DebugSession {
 }
 
 export function DualAIDebugger() {
-  const [apiKey, setApiKey] = useState(localStorage.getItem('openai_api_key') || '');
+  const [apiKey, setApiKey] = useState(() => {
+    // Safe localStorage access with fallback
+    try {
+      return typeof window !== 'undefined' ? localStorage.getItem('openai_api_key') || '' : '';
+    } catch {
+      return '';
+    }
+  });
   const [debugContext, setDebugContext] = useState<DebugContext>({
     issue: '',
     codeSnippet: '',

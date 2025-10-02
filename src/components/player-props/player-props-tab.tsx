@@ -164,6 +164,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const navigate = useNavigate();
   const { toast } = useToast();
   
+  // Check if user is subscribed - do this early to avoid hooks issues
+  const isSubscribed = userSubscription === 'pro' || userSubscription === 'premium' || userRole === 'admin' || userRole === 'owner';
+  
   // State management
   const [searchQuery, setSearchQuery] = useState('');
   const [sportFilter, setSportFilter] = useState(selectedSport || 'nfl');
@@ -697,9 +700,6 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
 
   // Get unique prop types for filter
   const propTypes = Array.from(new Set(realProps.map(prop => prop.propType))).sort();
-
-  // Check if user is subscribed
-  const isSubscribed = userSubscription === 'pro' || userSubscription === 'premium' || userRole === 'admin' || userRole === 'owner';
 
   if (!isSubscribed) {
     return (
