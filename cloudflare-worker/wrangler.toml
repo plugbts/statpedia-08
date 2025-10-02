@@ -3,27 +3,47 @@ main = "src/index.ts"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Enable workers.dev for subdomain registration
+workers_dev = true
+
+# Global configuration (will be inherited by all environments)
+
 [env.production]
 name = "statpedia-player-props"
+
+# Production environment variables
+[env.production.vars]
+SPORTSGAMEODDS_API_KEY = "d5dc1f00bc42133550bc1605dd8f457f"
+CACHE_TTL_SECONDS = "300"
+MAX_EVENTS_PER_REQUEST = "100"
+MAX_PROPS_PER_REQUEST = "500"
+
+# Production R2 bucket
+[[env.production.r2_buckets]]
+binding = "PLAYER_PROPS_CACHE"
+bucket_name = "statpedia-player-props-cache"
+
+# Production KV namespace
+[[env.production.kv_namespaces]]
+binding = "API_ANALYTICS"
+id = "8506dfcc9c964d20946e1b7ef872db7b"
 
 [env.staging]
 name = "statpedia-player-props-staging"
 
-# R2 bucket for caching player props data
-[[r2_buckets]]
+# Staging environment variables
+[env.staging.vars]
+SPORTSGAMEODDS_API_KEY = "d5dc1f00bc42133550bc1605dd8f457f"
+CACHE_TTL_SECONDS = "300"
+MAX_EVENTS_PER_REQUEST = "100"
+MAX_PROPS_PER_REQUEST = "500"
+
+# Staging R2 bucket
+[[env.staging.r2_buckets]]
 binding = "PLAYER_PROPS_CACHE"
 bucket_name = "statpedia-player-props-cache"
-preview_bucket_name = "statpedia-player-props-cache-preview"
 
-# Environment variables
-[vars]
-SPORTSGAMEODDS_API_KEY = "d5dc1f00bc42133550bc1605dd8f457f"
-CACHE_TTL_SECONDS = "300"  # 5 minutes cache
-MAX_EVENTS_PER_REQUEST = "100"  # Much higher than Supabase's 15
-MAX_PROPS_PER_REQUEST = "500"   # Much higher than Supabase's 50
-
-# KV namespace for rate limiting and analytics
-[[kv_namespaces]]
+# Staging KV namespace
+[[env.staging.kv_namespaces]]
 binding = "API_ANALYTICS"
-id = "your-kv-namespace-id"
-preview_id = "your-preview-kv-namespace-id"
+id = "8506dfcc9c964d20946e1b7ef872db7b"

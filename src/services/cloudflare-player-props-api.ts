@@ -40,8 +40,9 @@ class CloudflarePlayerPropsAPI {
   private baseUrl: string;
 
   constructor() {
-    // Replace with your actual Cloudflare Worker URL
-    this.baseUrl = 'https://statpedia-player-props.your-subdomain.workers.dev';
+    // Use a workers.dev subdomain (we'll register one)
+    // This will be accessible from your Lovable frontend
+    this.baseUrl = 'https://statpedia-player-props.statpedia.workers.dev';
   }
 
   /**
