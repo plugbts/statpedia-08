@@ -7,7 +7,7 @@
 
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
 import { realSportsbookAPI, RealPlayerProp } from './real-sportsbook-api';
-import { theRundownAPI, TheRundownPlayerProp } from './therundown-api';
+import { theRundownAPIOfficial, TheRundownPlayerProp } from './therundown-api-official';
 import { smartPropOptimizer } from './smart-prop-optimizer';
 
 // Unified player prop interface
@@ -79,10 +79,10 @@ class DualSportsAPI {
       logError('DualSportsAPI', `SportsRadar FAILED for ${sport}:`, error);
     }
 
-    // Try TheRundown as backup/supplement
+    // Try TheRundown as backup/supplement (currently having API access issues)
     try {
       logAPI('DualSportsAPI', `Attempting TheRundown for ${sport}...`);
-      results.theRundown.props = await theRundownAPI.getPlayerProps(sport);
+      results.theRundown.props = await theRundownAPIOfficial.getPlayerProps(sport);
       results.theRundown.success = results.theRundown.props.length > 0;
       
       if (results.theRundown.success) {
@@ -92,7 +92,8 @@ class DualSportsAPI {
       }
     } catch (error) {
       results.theRundown.error = error;
-      logError('DualSportsAPI', `TheRundown FAILED for ${sport}:`, error);
+      logWarning('DualSportsAPI', `TheRundown API access issues (404/429 errors) - focusing on SportsRadar`);
+      logAPI('DualSportsAPI', `TheRundown error details: ${error.message}`);
     }
 
     // Combine and process results
@@ -359,7 +360,7 @@ class DualSportsAPI {
 
     // Test TheRundown
     try {
-      const trProps = await theRundownAPI.getPlayerProps(sport);
+      const trProps = await theRundownAPIOfficial.getPlayerProps(sport);
       testResults.theRundown.success = trProps.length > 0;
       testResults.theRundown.props = trProps.length;
     } catch (error) {
@@ -382,7 +383,7 @@ class DualSportsAPI {
   clearCache(): void {
     this.cache.clear();
     realSportsbookAPI.clearCache();
-    theRundownAPI.clearCache();
+    theRundownAPIOfficial.clearCache();
     logInfo('DualSportsAPI', 'All caches cleared');
   }
 
@@ -394,7 +395,7 @@ class DualSportsAPI {
         keys: Array.from(this.cache.keys())
       },
       sportsRadarCache: realSportsbookAPI.getCacheStats(),
-      theRundownCache: theRundownAPI.getCacheStats()
+      theRundownCache: theRundownAPIOfficial.getCacheStats()
     };
   }
 }

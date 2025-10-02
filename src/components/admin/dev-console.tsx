@@ -14,7 +14,7 @@ import { unifiedSportsAPI } from '@/services/unified-sports-api';
 import { sportsRadarBackend } from '@/services/sportsradar-backend';
 import { smartPropOptimizer } from '@/services/smart-prop-optimizer';
 import { realSportsbookAPI } from '@/services/real-sportsbook-api';
-import { theRundownAPI } from '@/services/therundown-api';
+import { theRundownAPIOfficial } from '@/services/therundown-api-official';
 import { dualSportsAPI } from '@/services/dual-sports-api';
 import { 
   Terminal, 
@@ -211,27 +211,45 @@ export const DevConsole: React.FC = () => {
   };
 
   const testTheRundownAPI = async () => {
-    logger.info('DevConsole', '🏃 Testing TheRundown.io API...');
+    logger.info('DevConsole', '🏃 Testing TheRundown.io API (Official Implementation)...');
+    
+    // First test connectivity
+    try {
+      const connectivity = await theRundownAPIOfficial.testConnectivity();
+      if (connectivity.success) {
+        logger.success('DevConsole', `✅ TheRundown Connected: ${connectivity.message}`);
+      } else {
+        logger.error('DevConsole', `❌ TheRundown Connection Failed: ${connectivity.message}`);
+        return;
+      }
+    } catch (error) {
+      logger.error('DevConsole', `🚨 TheRundown Connectivity Test Failed: ${error}`);
+      return;
+    }
     
     const sports = ['nfl', 'nba', 'mlb', 'nhl'];
     for (const sport of sports) {
       try {
         logger.info('DevConsole', `Testing ${sport.toUpperCase()}...`);
         
-        // Test events
-        const events = await theRundownAPI.getEvents(sport);
-        logger.info('DevConsole', `${sport.toUpperCase()} Events: ${events.length}`);
+        // Test V1 events
+        const events = await theRundownAPIOfficial.getEvents(sport);
+        logger.info('DevConsole', `${sport.toUpperCase()} V1 Events: ${events.length}`);
+        
+        // Test V2 events
+        const v2Events = await theRundownAPIOfficial.getV2Events(sport);
+        logger.info('DevConsole', `${sport.toUpperCase()} V2 Events: ${v2Events.length}`);
         
         // Test player props
-        const props = await theRundownAPI.getPlayerProps(sport);
-        logger.success('DevConsole', `${sport.toUpperCase()} Props: ${props.length}`);
+        const props = await theRundownAPIOfficial.getPlayerProps(sport);
+        logger.success('DevConsole', `${sport.toUpperCase()} Player Props: ${props.length}`);
         
       } catch (error) {
         logger.error('DevConsole', `${sport.toUpperCase()} failed: ${error}`);
       }
     }
 
-    const cacheStats = theRundownAPI.getCacheStats();
+    const cacheStats = theRundownAPIOfficial.getCacheStats();
     logger.info('DevConsole', `TheRundown Cache: ${cacheStats.size} entries`);
   };
 
