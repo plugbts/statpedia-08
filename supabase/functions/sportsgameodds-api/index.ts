@@ -82,7 +82,7 @@ class SportGameOddsAPIService {
 
     this.config = {
       sportsgameodds_api_key: parseConfigValue(configMap.sportsgameodds_api_key),
-      cache_ttl_seconds: parseInt(configMap.cache_ttl_seconds) || 30,
+      cache_ttl_seconds: parseInt(configMap.cache_ttl_seconds) || 10, // Reduced to 10 seconds for live data
       polling_interval_seconds: parseInt(configMap.polling_interval_seconds) || 30,
       rate_limit_per_minute: parseInt(configMap.rate_limit_per_minute) || 60,
       max_props_per_request: parseInt(configMap.max_props_per_request) || 500,
@@ -411,8 +411,8 @@ class SportGameOddsAPIService {
               gameDate: gameTime.split('T')[0], // Extract date part
               homeTeam,
               awayTeam,
-              confidence: 0.75, // Default confidence
-              expectedValue: 0, // Will be calculated later
+              confidence: null, // Will be calculated from real data if available
+              expectedValue: null, // Will be calculated from real odds
               market: this.formatPropType(propType),
               outcome: 'over_under',
               betType: 'player_prop',
@@ -422,13 +422,8 @@ class SportGameOddsAPIService {
               availableSportsbooks: [],
               allSportsbookOdds: [],
               available: true,
-              recentForm: 'average', // Default form
-              aiPrediction: {
-                recommended: Math.random() > 0.5 ? 'over' : 'under',
-                confidence: 0.65 + Math.random() * 0.25,
-                reasoning: `Based on recent performance and matchup analysis`,
-                factors: ['Recent form', 'Opponent strength', 'Historical performance']
-              },
+              recentForm: null, // No fake data - will be null if not available from API
+              aiPrediction: null, // No fake AI predictions - will be null if not available from API
               lastUpdate: bookmaker.lastUpdatedAt || new Date().toISOString()
             };
             playerPropsMap.set(propKey, prop);
@@ -483,13 +478,20 @@ class SportGameOddsAPIService {
     let playerProps = Array.from(playerPropsMap.values())
       .filter(prop => prop.overOdds !== null && prop.underOdds !== null); // Only include props with both odds
 
+    // Calculate real expected value and confidence for each prop
+    playerProps = playerProps.map(prop => ({
+      ...prop,
+      expectedValue: this.calculateExpectedValue(prop.overOdds, prop.underOdds),
+      confidence: this.calculateConfidenceFromOdds(prop.overOdds, prop.underOdds, prop.availableSportsbooks.length)
+    }));
+
     // Deduplicate and mix players for better variety
     playerProps = this.deduplicateAndMixPlayers(playerProps);
     
     // Apply limit after deduplication
     playerProps = playerProps.slice(0, maxProps);
 
-    console.log(`Processed ${playerProps.length} complete player props (with both over/under odds) after deduplication`);
+    console.log(`Processed ${playerProps.length} complete player props with real odds and calculated metrics`);
     return playerProps;
   }
 
@@ -566,6 +568,60 @@ class SportGameOddsAPIService {
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
     return shuffled;
+  }
+
+  private calculateExpectedValue(overOdds: number, underOdds: number): number {
+    // Convert American odds to implied probability
+    const overImplied = this.americanOddsToImpliedProbability(overOdds);
+    const underImplied = this.americanOddsToImpliedProbability(underOdds);
+    
+    // Calculate market margin (vig)
+    const totalImplied = overImplied + underImplied;
+    const margin = totalImplied - 1;
+    
+    // Remove vig to get true probabilities
+    const trueOverProb = overImplied / totalImplied;
+    const trueUnderProb = underImplied / totalImplied;
+    
+    // Calculate expected value (assuming fair odds would be 50/50)
+    // This is a simplified EV calculation - in reality you'd need more data
+    const fairProb = 0.5;
+    const overEV = (fairProb * this.americanOddsToDecimal(overOdds)) - 1;
+    const underEV = ((1 - fairProb) * this.americanOddsToDecimal(underOdds)) - 1;
+    
+    // Return the better of the two EVs
+    return Math.max(overEV, underEV);
+  }
+
+  private calculateConfidenceFromOdds(overOdds: number, underOdds: number, sportsbookCount: number): number {
+    // Base confidence from number of sportsbooks (more books = higher confidence)
+    let confidence = Math.min(0.9, 0.4 + (sportsbookCount * 0.1));
+    
+    // Adjust based on odds spread (closer odds = higher confidence in line accuracy)
+    const overImplied = this.americanOddsToImpliedProbability(overOdds);
+    const underImplied = this.americanOddsToImpliedProbability(underOdds);
+    const spread = Math.abs(overImplied - underImplied);
+    
+    // If odds are very close to 50/50, increase confidence
+    if (spread < 0.1) confidence += 0.1;
+    
+    return Math.min(1.0, confidence);
+  }
+
+  private americanOddsToImpliedProbability(odds: number): number {
+    if (odds > 0) {
+      return 100 / (odds + 100);
+    } else {
+      return Math.abs(odds) / (Math.abs(odds) + 100);
+    }
+  }
+
+  private americanOddsToDecimal(odds: number): number {
+    if (odds > 0) {
+      return (odds / 100) + 1;
+    } else {
+      return (100 / Math.abs(odds)) + 1;
+    }
   }
 
   private extractTeamAbbr(teamName: string): string {
@@ -723,11 +779,18 @@ serve(async (req) => {
       );
     }
 
-    // Check cache first
-    const cacheKey = `${endpoint}-${sport}`;
-    let cachedData = await service.getFromCache(cacheKey);
+    // Check for force refresh parameter
+    const forceRefresh = url.searchParams.get('force_refresh') === 'true';
     
-    if (cachedData) {
+    // Check cache first (unless force refresh is requested)
+    const cacheKey = `${endpoint}-${sport}`;
+    let cachedData = null;
+    
+    if (!forceRefresh) {
+      cachedData = await service.getFromCache(cacheKey);
+    }
+    
+    if (cachedData && !forceRefresh) {
       cacheHit = true;
       console.log(`Cache hit for ${cacheKey}`);
       
@@ -766,7 +829,7 @@ serve(async (req) => {
     }
 
     // Fetch from SportGameOdds API
-    console.log(`Cache miss for ${cacheKey}, fetching from API`);
+    console.log(`${forceRefresh ? 'Force refresh' : 'Cache miss'} for ${cacheKey}, fetching fresh data from API`);
     const apiResponse = await service.fetchFromSportGameOdds(endpoint, sport);
     
     // Debug logging

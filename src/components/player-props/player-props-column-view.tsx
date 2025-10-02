@@ -314,21 +314,21 @@ export function PlayerPropsColumnView({
                     )}
                   </div>
                   <div className="text-center min-w-0 flex-1">
-                    <div className="font-semibold text-slate-100 text-sm truncate">
+                    <div className="font-semibold text-slate-100 text-sm">
                       {prop.playerName}
                     </div>
-                    <div className="text-xs text-slate-400">
+                    <div className="text-xs text-slate-400 mt-1">
                       {prop.teamAbbr} vs {prop.opponentAbbr}
                     </div>
                   </div>
                 </div>
 
                 {/* Prop Type */}
-                <div className="col-span-2">
-                  <div className="text-sm font-medium text-slate-200 animate-pulse-glow text-center truncate">
+                <div className="col-span-2 text-center">
+                  <div className="text-sm font-medium text-slate-200 animate-pulse-glow">
                     {prop.propType}
                   </div>
-                  <div className="text-xs text-slate-400 text-center">
+                  <div className="text-xs text-slate-400 mt-1">
                     {new Date(prop.gameDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} {new Date(prop.gameTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
                   </div>
                 </div>
