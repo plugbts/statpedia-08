@@ -396,7 +396,7 @@ export function PlayerPropsColumnView({
 
                 {/* Statpedia Rating */}
                 <div className="col-span-1 text-center">
-                  {React.useMemo(() => {
+                  {(() => {
                     const rating = statpediaRatingService.calculateRating(prop);
                     return (
                       <div className="flex flex-col items-center space-y-1">
@@ -414,7 +414,7 @@ export function PlayerPropsColumnView({
                         </div>
                       </div>
                     );
-                  }, [prop])}
+                  })()}
                 </div>
 
                 {/* Action Button */}
