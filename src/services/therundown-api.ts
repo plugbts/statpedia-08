@@ -11,9 +11,16 @@ import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/conso
 
 // TheRundown API Configuration
 const THERUNDOWN_CONFIG = {
-  // API Key - you'll need to get this from TheRundown.io
-  API_KEY: 'your_therundown_api_key_here', // Replace with actual key
-  BASE_URL: 'https://therundown-v1.p.rapidapi.com',
+  // API Key from RapidAPI
+  API_KEY: 'ef9ac9bff0mshbbf0d0fa5c5de6bp1cb40ajsn49acdbd702a0',
+  BASE_URL: 'https://therundown-v2.p.rapidapi.com',
+  
+  // Alternative base URLs to try
+  ALTERNATIVE_URLS: [
+    'https://therundown-v2.p.rapidapi.com',
+    'https://therundown-v1.p.rapidapi.com',
+    'https://api.the-rundown.com/v2'
+  ],
   
   // Alternative endpoints (TheRundown.io has multiple access methods)
   ENDPOINTS: {
@@ -145,7 +152,7 @@ class TheRundownAPI {
         headers: {
           'Accept': 'application/json',
           'X-RapidAPI-Key': THERUNDOWN_CONFIG.API_KEY,
-          'X-RapidAPI-Host': 'therundown-v1.p.rapidapi.com',
+          'X-RapidAPI-Host': 'therundown-v2.p.rapidapi.com',
           'User-Agent': 'Statpedia/2.0-TheRundown'
         },
         signal: AbortSignal.timeout(15000)

@@ -28,7 +28,7 @@
     },
     {
       "key": "therundown_base_url",
-      "value": "https://therundown-v1.p.rapidapi.com",
+      "value": "https://therundown-v2.p.rapidapi.com",
       "type": "string"
     },
     {
@@ -38,7 +38,7 @@
     },
     {
       "key": "therundown_api_key",
-      "value": "your_therundown_api_key_here",
+      "value": "ef9ac9bff0mshbbf0d0fa5c5de6bp1cb40ajsn49acdbd702a0",
       "type": "string"
     },
     {
@@ -160,7 +160,7 @@
               },
               {
                 "key": "X-RapidAPI-Host",
-                "value": "therundown-v1.p.rapidapi.com"
+                "value": "therundown-v2.p.rapidapi.com"
               }
             ],
             "url": {
@@ -200,7 +200,7 @@
               },
               {
                 "key": "X-RapidAPI-Host",
-                "value": "therundown-v1.p.rapidapi.com"
+                "value": "therundown-v2.p.rapidapi.com"
               }
             ],
             "url": {
@@ -240,7 +240,7 @@
               },
               {
                 "key": "X-RapidAPI-Host",
-                "value": "therundown-v1.p.rapidapi.com"
+                "value": "therundown-v2.p.rapidapi.com"
               }
             ],
             "url": {
@@ -279,7 +279,7 @@
               },
               {
                 "key": "X-RapidAPI-Host",
-                "value": "therundown-v1.p.rapidapi.com"
+                "value": "therundown-v2.p.rapidapi.com"
               }
             ],
             "url": {
@@ -322,7 +322,7 @@
               },
               {
                 "key": "X-RapidAPI-Host",
-                "value": "therundown-v1.p.rapidapi.com"
+                "value": "therundown-v2.p.rapidapi.com"
               }
             ],
             "url": {
@@ -347,7 +347,7 @@
               },
               {
                 "key": "X-RapidAPI-Host",
-                "value": "therundown-v1.p.rapidapi.com"
+                "value": "therundown-v2.p.rapidapi.com"
               }
             ],
             "url": {
