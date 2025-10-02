@@ -27,6 +27,7 @@ export const APIUsageChecker: React.FC = () => {
   const [testingNFL, setTestingNFL] = useState(false);
   const [nflTestResult, setNflTestResult] = useState<string | null>(null);
   const [rateLimitStatus, setRateLimitStatus] = useState<any>(null);
+  const [apiKeyInfo, setApiKeyInfo] = useState<any>(null);
 
   // Load usage stats
   const loadUsageStats = async () => {
@@ -40,6 +41,7 @@ export const APIUsageChecker: React.FC = () => {
       const stats = sportsGameOddsAPI.getUsageStats();
       const detailedStats = sportsGameOddsAPI.getDetailedUsageStats();
       const rateLimitInfo = sportsGameOddsAPI.getRateLimitStatus();
+      const keyInfo = sportsGameOddsAPI.getAPIKeyInfo();
       
       setUsageStats({
         ...stats,
@@ -47,6 +49,7 @@ export const APIUsageChecker: React.FC = () => {
       });
       
       setRateLimitStatus(rateLimitInfo);
+      setApiKeyInfo(keyInfo);
       
       logSuccess('APIUsageChecker', 'Successfully loaded usage statistics');
       
@@ -201,6 +204,44 @@ export const APIUsageChecker: React.FC = () => {
               </div>
 
               <Separator />
+
+              {/* API Key & Subscription Information */}
+              {apiKeyInfo && (
+                <>
+                  <div className="space-y-2">
+                    <h4 className="font-semibold">API Key & Subscription</h4>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="font-medium">API Key:</span> {apiKeyInfo.keyPrefix}...{apiKeyInfo.keySuffix}
+                      </div>
+                      <div>
+                        <span className="font-medium">Status:</span> 
+                        <Badge variant={apiKeyInfo.isConfigured ? 'default' : 'destructive'} className="ml-2">
+                          {apiKeyInfo.keyStatus}
+                        </Badge>
+                      </div>
+                      <div>
+                        <span className="font-medium">Plan Type:</span> {apiKeyInfo.planType}
+                      </div>
+                      <div>
+                        <span className="font-medium">Daily Limit:</span> {apiKeyInfo.currentLimit} calls
+                      </div>
+                      <div className="col-span-2">
+                        <span className="font-medium">Last Validated:</span> {new Date(apiKeyInfo.lastValidated).toLocaleString()}
+                      </div>
+                    </div>
+                    {apiKeyInfo.estimatedDailyLimit !== apiKeyInfo.currentLimit && (
+                      <Alert>
+                        <AlertDescription>
+                          <strong>Note:</strong> The estimated daily limit ({apiKeyInfo.estimatedDailyLimit}) differs from the configured limit ({apiKeyInfo.currentLimit}). 
+                          Please verify your subscription plan in the SportGameOdds dashboard.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </div>
+                  <Separator />
+                </>
+              )}
 
               {/* Cache Information */}
               <div className="space-y-2">

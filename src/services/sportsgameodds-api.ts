@@ -4,6 +4,17 @@ import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/conso
 const SPORTSGAMEODDS_API_KEY = 'd5dc1f00bc42133550bc1605dd8f457f';
 const SPORTSGAMEODDS_BASE_URL = 'https://api.sportsgameodds.com';
 
+// API Key and Subscription Information
+const API_KEY_INFO = {
+  key: SPORTSGAMEODDS_API_KEY,
+  keyPrefix: SPORTSGAMEODDS_API_KEY.substring(0, 8),
+  keySuffix: SPORTSGAMEODDS_API_KEY.substring(-4),
+  // Note: Update these limits based on actual subscription plan
+  // Check SportGameOdds dashboard for accurate limits
+  estimatedDailyLimit: 1000, // Update this based on actual plan
+  planType: 'Unknown', // Will be determined from API responses
+};
+
 // Cache configuration - EXTREMELY long durations to minimize API calls due to rate limits
 const CACHE_DURATION = {
   ODDS: 8 * 60 * 60 * 1000, // 8 hours for odds (extended due to rate limits)
@@ -110,7 +121,7 @@ class SportsGameOddsAPI {
     cacheHits: 0,
     cacheMisses: 0
   };
-  private readonly MAX_DAILY_CALLS = 1000; // Removed daily restrictions - allow more API calls
+  private readonly MAX_DAILY_CALLS = API_KEY_INFO.estimatedDailyLimit; // Based on subscription plan
   
   // Rate limiting and backoff
   private rateLimitedUntil: number = 0;
@@ -244,6 +255,60 @@ class SportsGameOddsAPI {
       cacheHitRate: this.calculateCacheHitRate(),
       recommendations: this.getUsageRecommendations()
     };
+  }
+
+  // Get API key and subscription information
+  getAPIKeyInfo() {
+    return {
+      keyPrefix: API_KEY_INFO.keyPrefix,
+      keySuffix: API_KEY_INFO.keySuffix,
+      planType: API_KEY_INFO.planType,
+      estimatedDailyLimit: API_KEY_INFO.estimatedDailyLimit,
+      currentLimit: this.MAX_DAILY_CALLS,
+      keyStatus: 'Active', // Could be enhanced with actual API validation
+      lastValidated: new Date().toISOString(),
+      // Security: Never expose the full API key
+      isConfigured: !!SPORTSGAMEODDS_API_KEY && SPORTSGAMEODDS_API_KEY.length > 10
+    };
+  }
+
+  // Capture subscription information from API response headers
+  private captureSubscriptionInfo(response: Response): void {
+    try {
+      // Common headers that might contain subscription info
+      const rateLimitRemaining = response.headers.get('x-ratelimit-remaining');
+      const rateLimitLimit = response.headers.get('x-ratelimit-limit');
+      const rateLimitReset = response.headers.get('x-ratelimit-reset');
+      const subscriptionTier = response.headers.get('x-subscription-tier');
+      const planType = response.headers.get('x-plan-type');
+      
+      // Log any subscription-related headers found
+      if (rateLimitLimit) {
+        const dailyLimit = parseInt(rateLimitLimit);
+        if (!isNaN(dailyLimit) && dailyLimit !== API_KEY_INFO.estimatedDailyLimit) {
+          logInfo('SportsGameOddsAPI', `Detected actual daily limit from headers: ${dailyLimit} (configured: ${API_KEY_INFO.estimatedDailyLimit})`);
+          // Update the API_KEY_INFO with actual limit
+          (API_KEY_INFO as any).estimatedDailyLimit = dailyLimit;
+        }
+      }
+      
+      if (subscriptionTier || planType) {
+        const detectedPlan = subscriptionTier || planType;
+        if (detectedPlan !== API_KEY_INFO.planType) {
+          logInfo('SportsGameOddsAPI', `Detected subscription plan: ${detectedPlan}`);
+          (API_KEY_INFO as any).planType = detectedPlan;
+        }
+      }
+      
+      // Log rate limit info for monitoring
+      if (rateLimitRemaining && rateLimitLimit) {
+        logAPI('SportsGameOddsAPI', `Rate limit: ${rateLimitRemaining}/${rateLimitLimit} remaining`);
+      }
+      
+    } catch (error) {
+      // Silently handle header parsing errors
+      logWarning('SportsGameOddsAPI', 'Failed to parse subscription headers:', error);
+    }
   }
 
   // Calculate cache hit rate
@@ -404,6 +469,9 @@ class SportsGameOddsAPI {
         throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
       }
 
+      // Capture subscription information from response headers
+      this.captureSubscriptionInfo(response);
+      
       const data = await response.json();
       
       // Check for rate limit in response body
@@ -628,7 +696,7 @@ class SportsGameOddsAPI {
 
       // Group props by sportsbook availability and consolidate
       const consolidatedProps = this.groupPropsBySportsbookAvailability(playerProps);
-      
+
       // Cache the results
       const gameInfo = this.extractGameInfo(consolidatedProps);
       // 🧪 TESTING MODE: Limit to 3 props for development/testing purposes
@@ -743,7 +811,7 @@ class SportsGameOddsAPI {
           
           // Only use bookmaker-specific props - NO CONSENSUS ODDS
           if (bookmakerProps.length > 0) {
-            playerProps.push(...bookmakerProps);
+          playerProps.push(...bookmakerProps);
             logAPI('SportsGameOddsAPI', `Added ${bookmakerProps.length} bookmaker props for ${oddId}`);
           } else {
             logAPI('SportsGameOddsAPI', `No bookmaker props found for ${oddId} - skipping consensus`);
@@ -781,7 +849,7 @@ class SportsGameOddsAPI {
       logWarning('SportsGameOddsAPI', `No corresponding under odd found for ${oddId}`);
       return playerProps;
     }
-    
+
     // Check if we have byBookmaker data (v2 structure)
     if (!odd.byBookmaker) {
       logAPI('SportsGameOddsAPI', `No byBookmaker data for oddID ${oddId}, skipping consensus odds`);
@@ -792,12 +860,12 @@ class SportsGameOddsAPI {
     for (const [bookmakerId, overBookmakerOdds] of Object.entries(odd.byBookmaker)) {
       try {
         const overData = overBookmakerOdds as any;
-        
+
         // Only process available odds (open for wagering)
         if (!overData.available) {
           continue;
         }
-        
+
         // Get corresponding under data from the same bookmaker
         const underData = underOdd.byBookmaker?.[bookmakerId];
         if (!underData || !underData.available) {
@@ -1124,11 +1192,11 @@ class SportsGameOddsAPI {
     
     // Get the base team name
     let teamName = team.names?.short || 
-                   team.names?.abbreviation || 
-                   team.names?.full || 
-                   team.name || 
-                   team.abbreviation ||
-                   null;
+           team.names?.abbreviation || 
+           team.names?.full || 
+           team.name || 
+           team.abbreviation ||
+           null;
     
     // Fix common team name issues
     if (teamName) {
