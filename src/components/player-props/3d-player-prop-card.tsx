@@ -126,21 +126,26 @@ export function PlayerPropCard3D({
     }
   }, [isHovered]);
 
-  const formatNumber = (value: number, decimals: number = 1): string => {
+  const formatNumber = (value: number | string | null, decimals: number = 1): string => {
+    if (value === null || value === undefined) return 'N/A';
+    
+    const numericValue = typeof value === 'string' ? parseFloat(value) : value;
+    if (isNaN(numericValue)) return 'N/A';
+    
     // For lines, round to nearest .5 or .0 interval
-    if (value < 1000) { // Assuming lines are typically under 1000
-      const rounded = Math.round(value * 2) / 2;
+    if (numericValue < 1000) { // Assuming lines are typically under 1000
+      const rounded = Math.round(numericValue * 2) / 2;
       return rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
     }
     
     // For larger numbers, use compact formatting
-    if (value >= 1000000) {
-      return (value / 1000000).toFixed(decimals) + 'M';
+    if (numericValue >= 1000000) {
+      return (numericValue / 1000000).toFixed(decimals) + 'M';
     }
-    if (value >= 1000) {
-      return (value / 1000).toFixed(decimals) + 'K';
+    if (numericValue >= 1000) {
+      return (numericValue / 1000).toFixed(decimals) + 'K';
     }
-    return value.toFixed(decimals);
+    return numericValue.toFixed(decimals);
   };
 
   // Format American odds with .5 and .0 intervals only
@@ -156,8 +161,13 @@ export function PlayerPropCard3D({
     }
   };
 
-  const formatOdds = (odds: number): string => {
-    return formatAmericanOdds(odds);
+  const formatOdds = (odds: number | string | null): string => {
+    if (odds === null || odds === undefined) return 'N/A';
+    
+    const numericOdds = typeof odds === 'string' ? parseInt(odds) : odds;
+    if (isNaN(numericOdds)) return 'N/A';
+    
+    return formatAmericanOdds(numericOdds);
   };
 
   const getConfidenceColor = (confidence: number): string => {
@@ -301,7 +311,7 @@ export function PlayerPropCard3D({
             <div className="flex items-center justify-between mb-2">
               <span className="text-slate-400 text-sm font-semibold tracking-wide uppercase">{prop.propType}</span>
               <span className="text-slate-100 text-2xl font-bold tracking-tight">
-                {prop.line}
+                {formatNumber(prop.line)}
               </span>
             </div>
             
