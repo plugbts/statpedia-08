@@ -142,7 +142,7 @@ class SportsRadarBackend {
       logAPI('SportsRadarBackend', `Fetching player props for ${sport} (max: ${maxProps})`);
       
       // Fetch from SportsRadar API
-      const playerProps = await sportsRadarEnhancedAPI.getPlayerProps(sport, maxProps);
+      const playerProps = await sportsRadarAPI.getPlayerProps(sport);
       
       // Cache the results
       this.cache.set(cacheKey, {
@@ -249,7 +249,7 @@ class SportsRadarBackend {
     try {
       logAPI('SportsRadarBackend', `Fetching games for ${sport}`);
       
-      const games = await sportsRadarEnhancedAPI.getGames(sport);
+      const games = await sportsRadarAPI.getGames(sport);
       
       // Cache the results
       this.cache.set(cacheKey, {
@@ -371,7 +371,7 @@ class SportsRadarBackend {
       hourlyRequests,
       totalRequests: this.requestHistory.length,
       cacheHitRate: Math.round(cacheHitRate * 100) / 100,
-      apiStats: sportsRadarEnhancedAPI.getUsageStats()
+      apiStats: { totalCalls: this.dailyRequestCount, dailyLimit: BACKEND_CONFIG.RATE_LIMITS.MAX_DAILY_REQUESTS }
     };
   }
 

@@ -13,7 +13,7 @@ import { unifiedSportsAPI } from '@/services/unified-sports-api';
 import { sportsGameOddsAPI } from '@/services/sportsgameodds-api';
 import { sportsRadarBackend } from '@/services/sportsradar-backend';
 import { smartPropOptimizer } from '@/services/smart-prop-optimizer';
-import { realSportsbookAPI } from '@/services/real-sportsbook-api';
+import { sportsRadarAPI } from '@/services/sportsradar-api';
 // REMOVED: Trio system components - replaced with dual system
 // import { trioSportsAPI } from '@/services/trio-sports-api';
 // import { oddsBlazeAPI } from '@/services/oddsblaze-api';
@@ -89,12 +89,12 @@ export const DevConsole: React.FC = () => {
       setTestProgress(40);
       logger.info('DevConsole', '⚽ Testing Real Sportsbook API...');
       try {
-        const nflProps = await realSportsbookAPI.getRealPlayerProps('nfl');
+        const nflProps = await sportsRadarBackend.getPlayerProps('nfl');
         results.realAPI = {
           success: nflProps.length > 0,
           score: nflProps.length > 0 ? 30 : 0,
           propsCount: nflProps.length,
-          cacheStats: realSportsbookAPI.getCacheStats()
+          cacheStats: sportsRadarBackend.getCacheStats()
         };
         logger.success('DevConsole', `Real API: ${nflProps.length} NFL props fetched`);
       } catch (error) {
@@ -184,12 +184,12 @@ export const DevConsole: React.FC = () => {
     // First, run the specific NFL test
     try {
       logger.info('DevConsole', '🧪 Running NFL-specific test...');
-      const nflTest = await realSportsbookAPI.testNFLPropsGeneration();
+      const nflTest = await sportsRadarBackend.getPlayerProps('nfl');
       
-      if (nflTest.success) {
-        logger.success('DevConsole', `🎉 NFL Test SUCCESS: ${nflTest.props} props generated`);
+      if (nflTest.length > 0) {
+        logger.success('DevConsole', `🎉 NFL Test SUCCESS: ${nflTest.length} props generated`);
       } else {
-        logger.error('DevConsole', `❌ NFL Test FAILED: ${nflTest.error || 'No props generated'}`);
+        logger.error('DevConsole', `❌ NFL Test FAILED: No props generated`);
       }
     } catch (error) {
       logger.error('DevConsole', `🚨 NFL Test Error: ${error}`);
@@ -199,7 +199,7 @@ export const DevConsole: React.FC = () => {
     const sports = ['nfl', 'nba', 'mlb', 'nhl'];
     for (const sport of sports) {
       try {
-        const props = await realSportsbookAPI.getRealPlayerProps(sport);
+        const props = await sportsRadarBackend.getPlayerProps(sport);
         const smartCount = smartPropOptimizer.getDynamicPropCount(sport);
         logger.success('DevConsole', `${sport.toUpperCase()}: ${props.length} props (target: ${smartCount})`);
       } catch (error) {
@@ -207,8 +207,8 @@ export const DevConsole: React.FC = () => {
       }
     }
 
-    const cacheStats = realSportsbookAPI.getCacheStats();
-    logger.info('DevConsole', `Cache: ${cacheStats.size} entries, ${cacheStats.keys.length} keys`);
+    const cacheStats = sportsRadarBackend.getCacheStats();
+    logger.info('DevConsole', `Cache: ${cacheStats.totalItems} entries, ${cacheStats.totalHits} hits`);
   };
 
   const testSportsGameOddsAPI = async () => {
@@ -252,7 +252,7 @@ export const DevConsole: React.FC = () => {
     // Test SportsRadar
     logger.info('DevConsole', 'Testing SportsRadar backend...');
     try {
-      const srProps = await realSportsbookAPI.getRealPlayerProps('nfl');
+      const srProps = await sportsRadarBackend.getPlayerProps('nfl');
       logger.success('DevConsole', `SportsRadar: ${srProps.length} props`);
     } catch (error) {
       logger.error('DevConsole', `SportsRadar failed: ${error}`);
@@ -713,8 +713,8 @@ export const DevConsole: React.FC = () => {
                       variant="outline"
                       onClick={() => {
                         logger.info('DevConsole', '🧹 Clearing all caches...');
-                        realSportsbookAPI.clearCache();
                         sportsRadarBackend.clearCache();
+                        sportsGameOddsAPI.clearPlayerPropsCache();
                         logger.success('DevConsole', 'All caches cleared successfully');
                       }}
                       className="h-auto p-3 flex flex-col items-center gap-2 hover:bg-red-50 hover:border-red-200 dark:hover:bg-red-900/20 dark:hover:border-red-800 transition-all duration-200"
@@ -1063,7 +1063,7 @@ export const DevConsole: React.FC = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            sportsGameOddsAPI.clearCache();
+                            sportsGameOddsAPI.clearPlayerPropsCache();
                             logger.info('DevConsole', 'SportsGameOdds cache cleared');
                           }}
                           className="w-full text-xs"
