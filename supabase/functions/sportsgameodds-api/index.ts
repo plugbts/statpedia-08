@@ -312,10 +312,10 @@ class SportGameOddsAPIService {
       const homeTeamAbbr = this.extractTeamAbbr(homeTeam);
       const awayTeamAbbr = this.extractTeamAbbr(awayTeam);
       
-      console.log(`Game teams: ${homeTeam} (${homeTeamAbbr}) vs ${awayTeam} (${awayTeamAbbr})`);
-
-      console.log(`Processing event: ${homeTeam} vs ${awayTeam} (${gameId})`);
-      console.log(`Found ${Object.keys(event.odds).length} odds entries`);
+      // Only log if we have issues with team names
+      if (homeTeam === 'Unknown' || awayTeam === 'Unknown') {
+        console.log(`Warning: Unknown team names for event ${gameId}: ${homeTeam} vs ${awayTeam}`);
+      }
 
       // Process odds object (not array) - each key is an oddID
       for (const [oddID, oddData] of Object.entries(event.odds)) {
@@ -324,16 +324,11 @@ class SportGameOddsAPIService {
           continue;
         }
 
-        // Debug: Log the oddID to understand the format
-        console.log(`Processing oddID: ${oddID}`);
-        
         // Extract player information from oddID
         const oddIdParts = oddID.split('-');
-        console.log(`OddID parts:`, oddIdParts);
         
-        if (oddIdParts.length < 3) {
-          console.log(`Skipping oddID with insufficient parts: ${oddID}`);
-          continue;
+        if (oddIdParts.length < 5) {
+          continue; // Need at least 5 parts for proper parsing
         }
 
         // Parse oddID format: "statType-PLAYER_NAME_ID-period-betType-side"
@@ -343,27 +338,23 @@ class SportGameOddsAPIService {
         const betType = oddIdParts[3];
         const side = oddIdParts[4];
 
-        console.log(`Parsed: statType=${statType}, playerIdPart=${playerIdPart}, period=${period}, betType=${betType}, side=${side}`);
-
         // Skip if not an over/under bet
         if (betType !== 'ou' || !['over', 'under'].includes(side)) {
-          console.log(`Skipping non-OU bet: betType=${betType}, side=${side}`);
           continue;
         }
 
         // Extract player name from player ID (remove _1_NFL suffix)
         let playerName = playerIdPart.replace(/_1_NFL$/, '').replace(/_/g, ' ');
         
-        // Handle special cases for team totals
-        if (playerName.toLowerCase() === 'all' || playerName.toLowerCase() === 'team') {
-          // This is likely a team total, not a player prop - skip it
-          console.log(`Skipping team total: ${playerName}`);
+        // Handle special cases for team totals - skip them as they're not player props
+        if (playerName.toLowerCase() === 'all' || 
+            playerName.toLowerCase() === 'team' ||
+            playerName.toLowerCase() === 'home' ||
+            playerName.toLowerCase() === 'away') {
           continue;
         }
         
         const propType = statType.replace(/_/g, ' ');
-        
-        console.log(`Final parsed: playerName=${playerName}, propType=${propType}`);
 
         // Get the line value from the odd data
         const line = parseFloat(odd.bookOverUnder || odd.fairOverUnder || 0);
