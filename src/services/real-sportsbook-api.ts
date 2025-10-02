@@ -139,14 +139,22 @@ class RealSportsbookAPI {
       logAPI('RealSportsbookAPI', `Fetching real player props for ${sport} from sportsbooks`);
       
       // Get current games for the sport
+      logAPI('RealSportsbookAPI', `Fetching current games for ${sport}...`);
       const games = await this.getCurrentGames(sport);
+      logAPI('RealSportsbookAPI', `Found ${games.length} games for ${sport}`);
+      
       if (games.length === 0) {
-        logWarning('RealSportsbookAPI', `No current games found for ${sport}`);
+        logWarning('RealSportsbookAPI', `No current games found for ${sport} - this will result in no player props`);
+        logInfo('RealSportsbookAPI', `Check if ${sport} is in-season and has upcoming games`);
         return [];
       }
+      
+      logSuccess('RealSportsbookAPI', `Processing ${games.length} games for ${sport} player props generation`);
 
       // Fetch player props from SportsRadar using verified endpoints
+      logAPI('RealSportsbookAPI', `Calling fetchFromSportsRadar for ${sport} with ${games.length} games...`);
       const sportsRadarProps = await this.fetchFromSportsRadar(sport, games, selectedSportsbook);
+      logAPI('RealSportsbookAPI', `fetchFromSportsRadar returned ${sportsRadarProps.length} props for ${sport}`);
 
       // Process and enhance the props
       const deduplicatedProps = this.deduplicateProps(sportsRadarProps);
@@ -239,11 +247,15 @@ class RealSportsbookAPI {
       logAPI('RealSportsbookAPI', `Fetching real player props for ${sport} using SportsRadar verified endpoints`);
       
       // Get teams data using verified endpoints
+      logAPI('RealSportsbookAPI', `Getting teams data for ${sport}...`);
       const teams = await this.getSportsRadarTeams(sport);
+      logAPI('RealSportsbookAPI', `Found ${teams.length} teams for ${sport}`);
+      
       const props: RealPlayerProp[] = [];
 
       // Generate realistic props based on real SportsRadar team and game data
       const gamesToProcess = games.slice(0, 10); // Process up to 10 games
+      logAPI('RealSportsbookAPI', `Processing ${gamesToProcess.length} games for prop generation`);
       
       for (const game of gamesToProcess) {
         // Find matching teams
@@ -261,10 +273,13 @@ class RealSportsbookAPI {
 
         if (homeTeam && awayTeam) {
           // Generate props for this game using real team data
+          logAPI('RealSportsbookAPI', `Generating props for: ${homeTeam.name} vs ${awayTeam.name}`);
           const gameProps = this.generateRealPlayerProps(game, homeTeam, awayTeam, sport, selectedSportsbook);
+          logAPI('RealSportsbookAPI', `Generated ${gameProps.length} props for this game`);
           props.push(...gameProps);
         } else {
           logWarning('RealSportsbookAPI', `Could not match teams for game: ${game.homeTeam} vs ${game.awayTeam}`);
+          logWarning('RealSportsbookAPI', `Available teams: ${teams.slice(0, 3).map(t => t.name).join(', ')}...`);
         }
       }
 
@@ -353,14 +368,21 @@ class RealSportsbookAPI {
 
     try {
       const sportKey = sport.toUpperCase();
+      logAPI('RealSportsbookAPI', `Looking up endpoints for sport key: ${sportKey}`);
       const endpoints = SPORTSBOOK_CONFIG.VERIFIED_ENDPOINTS[sportKey as keyof typeof SPORTSBOOK_CONFIG.VERIFIED_ENDPOINTS];
       
       if (!endpoints) {
         logError('RealSportsbookAPI', `No verified endpoints for sport: ${sport}`);
         return [];
       }
+      
+      if (!endpoints.teams) {
+        logError('RealSportsbookAPI', `No teams endpoint configured for sport: ${sport}`);
+        return [];
+      }
 
       // Use the verified teams endpoint
+      logAPI('RealSportsbookAPI', `Fetching teams from: ${endpoints.teams}`);
       const data = await this.makeSportsRadarRequest<any>(endpoints.teams, SPORTSBOOK_CONFIG.CACHE_DURATION.TEAMS);
       
       let teams = [];
