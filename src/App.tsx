@@ -1,46 +1,23 @@
-import React, { useState, useEffect } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { User } from "@supabase/supabase-js";
-
-// UI Components
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-
-// Pages
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { useSync } from "@/hooks/use-sync";
+import { useEmailCron } from "@/hooks/use-email-cron";
 import Index from "./pages/Index";
 import Admin from "./pages/Admin";
 import PredictionDetail from "./pages/PredictionDetail";
 import { Settings } from "./pages/Settings";
 import NotFound from "./pages/NotFound";
-
-// Components
 import { SubscriptionPlans } from "./components/auth/subscription-plans";
 import { SupportCenter } from "./components/support/support-center";
-
-// Contexts & Hooks
 import { UserProvider } from "@/contexts/user-context";
-import { useSync } from "@/hooks/use-sync";
-import { useEmailCron } from "@/hooks/use-email-cron";
-
-// Integrations
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { User } from "@supabase/supabase-js";
 
 const queryClient = new QueryClient();
-
-// Utility function to determine user role
-const getUserRole = (email?: string): string => {
-  if (email === 'plug@statpedia.com') {
-    return 'owner';
-  } else if (email?.includes('admin')) {
-    return 'admin';
-  } else if (email?.includes('mod')) {
-    return 'mod';
-  } else {
-    return 'user';
-  }
-};
 
 // Settings Wrapper Component
 const SettingsWrapper = () => {
@@ -66,7 +43,17 @@ const SettingsWrapper = () => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         setUser(session.user);
-        setUserRole(getUserRole(session.user.email));
+        // Determine user role based on email or metadata
+        const email = session.user.email;
+        if (email === 'plug@statpedia.com') {
+          setUserRole('owner');
+        } else if (email?.includes('admin')) {
+          setUserRole('admin');
+        } else if (email?.includes('mod')) {
+          setUserRole('mod');
+        } else {
+          setUserRole('user');
+        }
       }
       setIsLoading(false);
     });
@@ -75,7 +62,17 @@ const SettingsWrapper = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setUser(session.user);
-        setUserRole(getUserRole(session.user.email));
+        // Determine user role
+        const email = session.user.email;
+        if (email === 'plug@statpedia.com') {
+          setUserRole('owner');
+        } else if (email?.includes('admin')) {
+          setUserRole('admin');
+        } else if (email?.includes('mod')) {
+          setUserRole('mod');
+        } else {
+          setUserRole('user');
+        }
       } else {
         setUser(null);
         setUserRole('user');
@@ -108,7 +105,17 @@ const SupportCenterWrapper = () => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         setUser(session.user);
-        setUserRole(getUserRole(session.user.email));
+        // Determine user role based on email or metadata
+        const email = session.user.email;
+        if (email === 'plug@statpedia.com') {
+          setUserRole('owner');
+        } else if (email?.includes('admin')) {
+          setUserRole('admin');
+        } else if (email?.includes('mod')) {
+          setUserRole('mod');
+        } else {
+          setUserRole('user');
+        }
       }
       setIsLoading(false);
     });
@@ -117,7 +124,17 @@ const SupportCenterWrapper = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setUser(session.user);
-        setUserRole(getUserRole(session.user.email));
+        // Determine user role
+        const email = session.user.email;
+        if (email === 'plug@statpedia.com') {
+          setUserRole('owner');
+        } else if (email?.includes('admin')) {
+          setUserRole('admin');
+        } else if (email?.includes('mod')) {
+          setUserRole('mod');
+        } else {
+          setUserRole('user');
+        }
       } else {
         setUser(null);
         setUserRole('user');

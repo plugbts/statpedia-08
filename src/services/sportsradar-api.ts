@@ -113,7 +113,7 @@ class SportsRadarAPI {
         headers: {
           'Accept': 'application/json',
           'User-Agent': 'Statpedia/1.0',
-          'x-api-key': apiKey
+          'X-API-Key': apiKey
         }
       });
 
@@ -169,7 +169,7 @@ class SportsRadarAPI {
         headers: {
           'Accept': 'application/json',
           'User-Agent': 'Statpedia/1.0',
-          'x-api-key': apiKey
+          'X-API-Key': apiKey
         }
       });
 
@@ -208,263 +208,80 @@ class SportsRadarAPI {
     return sportMap[sport.toLowerCase()] || 'NFL';
   }
 
-  // Map sport names to SportsRadar sport IDs
-  private getSportId(sport: string): string {
-    const sportMap: { [key: string]: string } = {
-      'nfl': 'sr:sport:1',
-      'nba': 'sr:sport:2',
-      'mlb': 'sr:sport:3',
-      'nhl': 'sr:sport:4',
-      'ncaafb': 'sr:sport:5',
-      'ncaamb': 'sr:sport:6',
-      'wnba': 'sr:sport:7',
-      'college-football': 'sr:sport:5',
-      'college-basketball': 'sr:sport:6'
-    };
-    return sportMap[sport.toLowerCase()] || 'sr:sport:1';
-  }
-
   // Get current date in YYYY-MM-DD format
   private getCurrentDate(): string {
     return new Date().toISOString().split('T')[0];
   }
 
-  // Get correct endpoints for each sport based on SportsRadar Postman collection
+  // Get correct endpoints for each sport based on SportsRadar API documentation
   private getEndpointsForSport(sportKey: string, currentDate: string): string[] {
     const sport = sportKey.toLowerCase();
     const currentYear = new Date().getFullYear();
     
-    // Based on SportsRadar Postman collection structure
     switch (sport) {
       case 'nhl':
         return [
-          `/nhl/trial/v7/en/games/${currentYear}/REG/schedule.json`,
-          `/nhl/trial/v7/en/games/schedule.json`,
-          `/nhl/trial/v7/en/league/hierarchy.json`
+          `/${sport}/trial/v7/en/games/${currentYear}/REG/schedule.json`,
+          `/${sport}/trial/v7/en/games/schedule.json`,
+          `/${sport}/trial/v7/en/league/hierarchy.json`,
+          `/${sport}/trial/v7/en/teams.json`
         ];
       
       case 'nba':
         return [
-          `/nba/trial/v7/en/games/${currentYear}/REG/schedule.json`,
-          `/nba/trial/v7/en/games/schedule.json`,
-          `/nba/trial/v7/en/league/hierarchy.json`
+          `/${sport}/trial/v7/en/games/${currentYear}/REG/schedule.json`,
+          `/${sport}/trial/v7/en/games/schedule.json`,
+          `/${sport}/trial/v7/en/league/hierarchy.json`,
+          `/${sport}/trial/v7/en/teams.json`
         ];
       
       case 'nfl':
         return [
-          `/nfl/official/trial/v7/en/games/${currentYear}/REG/schedule.json`,
-          `/nfl/official/trial/v7/en/games/schedule.json`,
-          `/nfl/official/trial/v7/en/league/hierarchy.json`
+          `/${sport}/official/trial/v7/en/games/current_season/schedule.json`,
+          `/${sport}/official/trial/v7/en/games/schedule.json`,
+          `/${sport}/official/trial/v7/en/league/hierarchy.json`,
+          `/${sport}/official/trial/v7/en/teams.json`
         ];
       
       case 'mlb':
         return [
-          `/mlb/trial/v7/en/games/${currentYear}/REG/schedule.json`,
-          `/mlb/trial/v7/en/games/schedule.json`,
-          `/mlb/trial/v7/en/league/hierarchy.json`
-        ];
-      
-      case 'ncaafb':
-        return [
-          `/college-football/trial/v7/en/games/${currentYear}/REG/schedule.json`,
-          `/college-football/trial/v7/en/games/schedule.json`,
-          `/college-football/trial/v7/en/league/hierarchy.json`
-        ];
-      
-      case 'ncaamb':
-        return [
-          `/college-basketball/trial/v7/en/games/${currentYear}/REG/schedule.json`,
-          `/college-basketball/trial/v7/en/games/schedule.json`,
-          `/college-basketball/trial/v7/en/league/hierarchy.json`
-        ];
-      
-      case 'wnba':
-        return [
-          `/wnba/trial/v7/en/games/${currentYear}/REG/schedule.json`,
-          `/wnba/trial/v7/en/games/schedule.json`,
-          `/wnba/trial/v7/en/league/hierarchy.json`
+          `/${sport}/trial/v7/en/games/${currentYear}/REG/schedule.json`,
+          `/${sport}/trial/v7/en/games/schedule.json`,
+          `/${sport}/trial/v7/en/league/hierarchy.json`,
+          `/${sport}/trial/v7/en/teams.json`
         ];
       
       default:
         return [
-          `/nfl/official/trial/v7/en/games/schedule.json`,
-          `/nfl/official/trial/v7/en/league/hierarchy.json`
+          `/${sport}/trial/v7/en/games/schedule.json`,
+          `/${sport}/trial/v7/en/league/hierarchy.json`,
+          `/${sport}/trial/v7/en/teams.json`
         ];
     }
   }
 
-  // Get player props using SportsRadar API
+  // Get player props using SportsRadar Player Props API
   async getPlayerProps(sport: string): Promise<SportsRadarPlayerProp[]> {
     try {
       const sportKey = this.mapSportToKey(sport);
       
-      logAPI('SportsRadarAPI', `Fetching player props for ${sportKey} using working schedule endpoints`);
+      logAPI('SportsRadarAPI', `Fetching player props for ${sportKey} using Player Props API`);
       
-      // Use the working schedule endpoint to get games data
-      const endpoint = this.getEndpointsForSport(sportKey, this.getCurrentDate())[0];
-      const data = await this.makeRequest<any>(endpoint, sportKey, CACHE_DURATION.PROPS);
+      // Go directly to the Player Props API - this is the only way to get actual player props
+      const playerPropsData = await this.getPlayerPropsFromOddsAPI(sportKey);
       
-      // Extract player props from schedule data
-      const playerProps = this.extractPlayerPropsFromScheduleData(data, sportKey);
-      
-      if (playerProps.length > 0) {
-        logSuccess('SportsRadarAPI', `Retrieved ${playerProps.length} player props for ${sport}`);
-        return playerProps;
+      if (playerPropsData.length > 0) {
+        logSuccess('SportsRadarAPI', `Found ${playerPropsData.length} props from Player Props API`);
+        console.log('🎯 SportsRadar API returning props:', playerPropsData);
+        return playerPropsData;
+      } else {
+        logWarning('SportsRadarAPI', `No player props found from Player Props API for ${sport}`);
+        return [];
       }
-      
-      // If no player props found, return sample data
-      logWarning('SportsRadarAPI', `No player props found for ${sport}, returning sample data`);
-      return this.generateSamplePlayerProps(sport);
-      
     } catch (error) {
       logError('SportsRadarAPI', `Failed to get player props for ${sport}:`, error);
-      return this.generateSamplePlayerProps(sport);
-    }
-  }
-
-  // Extract player props from schedule data
-  private extractPlayerPropsFromScheduleData(data: any, sportKey: string): SportsRadarPlayerProp[] {
-    const playerProps: SportsRadarPlayerProp[] = [];
-    
-    try {
-      // Handle different response structures
-      let games = [];
-      
-      if (data.weeks && Array.isArray(data.weeks)) {
-        // NFL structure: data.weeks[].games[]
-        games = data.weeks.flatMap((week: any) => week.games || []);
-      } else if (data.games && Array.isArray(data.games)) {
-        // NBA/MLB structure: data.games[]
-        games = data.games;
-      } else if (Array.isArray(data)) {
-        // Direct array structure
-        games = data;
-      }
-      
-      // Generate player props based on games data
-      games.forEach((game: any, gameIndex: number) => {
-        const homeTeam = game.home?.name || game.home_team?.name || 'Home Team';
-        const awayTeam = game.away?.name || game.away_team?.name || 'Away Team';
-        const gameId = game.id || `game-${gameIndex}`;
-        const gameTime = game.scheduled || game.commence_time || new Date().toISOString();
-        
-        // Generate sample player props for each team
-        const teamProps = this.generateTeamPlayerProps(homeTeam, awayTeam, gameId, gameTime, sportKey);
-        playerProps.push(...teamProps);
-      });
-      
-      logAPI('SportsRadarAPI', `Extracted ${playerProps.length} player props from schedule data`);
-      return playerProps;
-      
-    } catch (error) {
-      logError('SportsRadarAPI', 'Failed to extract player props from schedule data:', error);
       return [];
     }
-  }
-
-  // Generate team player props based on game data
-  private generateTeamPlayerProps(homeTeam: string, awayTeam: string, gameId: string, gameTime: string, sportKey: string): SportsRadarPlayerProp[] {
-    const props: SportsRadarPlayerProp[] = [];
-    const currentDate = new Date().toISOString();
-    
-    // Define prop types based on sport
-    const propTypes = this.getPropTypesForSport(sportKey);
-    
-    // Generate props for home team
-    propTypes.forEach((propType, index) => {
-      props.push({
-        id: `prop-${gameId}-home-${index}`,
-        playerId: `player-${gameId}-home-${index}`,
-        playerName: `${homeTeam} Player ${index + 1}`,
-        propType: propType,
-        line: this.getRandomLine(propType),
-        overOdds: this.getRandomOdds(),
-        underOdds: this.getRandomOdds(),
-        sportsbook: 'SportsRadar',
-        sportsbookKey: 'sportsradar',
-        lastUpdate: currentDate,
-        gameId: gameId,
-        gameTime: gameTime,
-        homeTeam: homeTeam,
-        awayTeam: awayTeam,
-        confidence: 0.6 + (Math.random() * 0.3),
-        market: propType.toLowerCase().replace(/\s+/g, '_'),
-        outcome: `${homeTeam} Player ${index + 1} ${propType}`
-      });
-    });
-    
-    // Generate props for away team
-    propTypes.forEach((propType, index) => {
-      props.push({
-        id: `prop-${gameId}-away-${index}`,
-        playerId: `player-${gameId}-away-${index}`,
-        playerName: `${awayTeam} Player ${index + 1}`,
-        propType: propType,
-        line: this.getRandomLine(propType),
-        overOdds: this.getRandomOdds(),
-        underOdds: this.getRandomOdds(),
-        sportsbook: 'SportsRadar',
-        sportsbookKey: 'sportsradar',
-        lastUpdate: currentDate,
-        gameId: gameId,
-        gameTime: gameTime,
-        homeTeam: homeTeam,
-        awayTeam: awayTeam,
-        confidence: 0.6 + (Math.random() * 0.3),
-        market: propType.toLowerCase().replace(/\s+/g, '_'),
-        outcome: `${awayTeam} Player ${index + 1} ${propType}`
-      });
-    });
-    
-    return props;
-  }
-
-  // Get prop types for specific sport
-  private getPropTypesForSport(sportKey: string): string[] {
-    const propTypesMap: { [key: string]: string[] } = {
-      'NFL': ['Passing Yards', 'Rushing Yards', 'Receptions', 'Passing TDs', 'Rushing TDs'],
-      'NBA': ['Points', 'Rebounds', 'Assists', '3-Pointers Made', 'Steals'],
-      'MLB': ['Hits', 'Runs', 'RBIs', 'Stolen Bases', 'Home Runs'],
-      'NHL': ['Goals', 'Assists', 'Points', 'Saves', 'Shots'],
-      'NCAFB': ['Passing Yards', 'Rushing Yards', 'Receptions', 'Passing TDs', 'Rushing TDs'],
-      'NCAAMB': ['Points', 'Rebounds', 'Assists', '3-Pointers Made', 'Steals'],
-      'WNBA': ['Points', 'Rebounds', 'Assists', '3-Pointers Made', 'Steals']
-    };
-    
-    return propTypesMap[sportKey] || propTypesMap['NFL'];
-  }
-
-  // Get random line based on prop type
-  private getRandomLine(propType: string): number {
-    const lineMap: { [key: string]: number[] } = {
-      'Passing Yards': [200, 250, 300, 350, 400],
-      'Rushing Yards': [50, 75, 100, 125, 150],
-      'Receptions': [3, 4, 5, 6, 7, 8],
-      'Passing TDs': [1, 2, 3, 4],
-      'Rushing TDs': [0.5, 1, 1.5, 2],
-      'Points': [15, 20, 25, 30, 35],
-      'Rebounds': [5, 8, 10, 12, 15],
-      'Assists': [3, 5, 7, 9, 11],
-      '3-Pointers Made': [1, 2, 3, 4, 5],
-      'Steals': [1, 2, 3, 4],
-      'Hits': [0.5, 1, 1.5, 2],
-      'Runs': [0.5, 1, 1.5, 2],
-      'RBIs': [0.5, 1, 1.5, 2],
-      'Stolen Bases': [0.5, 1, 1.5, 2],
-      'Home Runs': [0.5, 1, 1.5, 2],
-      'Goals': [0.5, 1, 1.5, 2],
-      'Saves': [20, 25, 30, 35, 40],
-      'Shots': [2, 3, 4, 5, 6]
-    };
-    
-    const lines = lineMap[propType] || [10, 15, 20, 25];
-    return lines[Math.floor(Math.random() * lines.length)];
-  }
-
-  // Get random odds
-  private getRandomOdds(): number {
-    const odds = [-110, -105, -100, -115, -120, -125, -130, -135, -140, -145, -150];
-    return odds[Math.floor(Math.random() * odds.length)];
   }
 
   // Get player props from SportsRadar Player Props API
@@ -859,38 +676,20 @@ class SportsRadarAPI {
   async getGames(sport: string): Promise<SportsRadarGame[]> {
     try {
       const sportKey = this.mapSportToKey(sport);
-      const currentYear = new Date().getFullYear();
+      const currentDate = this.getCurrentDate();
       
-      // Use correct SportsRadar API endpoint structure
-      const endpoint = this.getEndpointsForSport(sportKey, this.getCurrentDate())[0];
-      const data = await this.makeRequest<any>(endpoint, sportKey, CACHE_DURATION.SPORTS);
+      const endpoint = `/oddscomparison/${sportKey}/regular/${currentDate}`;
+      const data = await this.makeRequest<any[]>(endpoint, sportKey, CACHE_DURATION.SPORTS);
       
-      // Handle SportsRadar API response structure based on Postman collection
-      let scheduleData = [];
-      
-      if (data.weeks && Array.isArray(data.weeks)) {
-        // NFL structure: data.weeks[].games[]
-        scheduleData = data.weeks.flatMap((week: any) => week.games || []);
-      } else if (data.games && Array.isArray(data.games)) {
-        // NBA/MLB structure: data.games[]
-        scheduleData = data.games;
-      } else if (Array.isArray(data)) {
-        // Direct array structure
-        scheduleData = data;
-      } else {
-        logWarning('SportsRadarAPI', 'Invalid schedule data structure');
-        return [];
-      }
-
-      const games: SportsRadarGame[] = scheduleData.map((item: any) => ({
+      const games: SportsRadarGame[] = data.map((item: any) => ({
         id: item.id,
         sport: sportKey,
-        homeTeam: item.home?.name || item.home_team?.name || 'Unknown',
-        awayTeam: item.away?.name || item.away_team?.name || 'Unknown',
-        commenceTime: item.scheduled || item.commence_time || new Date().toISOString(),
+        homeTeam: item.home_team,
+        awayTeam: item.away_team,
+        commenceTime: item.commence_time,
         status: item.status || 'scheduled',
-        homeScore: item.home_score || item.home?.score,
-        awayScore: item.away_score || item.away?.score
+        homeScore: item.home_score,
+        awayScore: item.away_score
       }));
       
       logSuccess('SportsRadarAPI', `Retrieved ${games.length} games for ${sport}`);
@@ -905,24 +704,17 @@ class SportsRadarAPI {
   async getOddsComparisons(sport: string): Promise<SportsRadarOddsComparison[]> {
     try {
       const sportKey = this.mapSportToKey(sport);
+      const currentDate = this.getCurrentDate();
       
-      // Use SportsRadar schedule endpoint (odds data may be embedded)
-      const endpoint = this.getEndpointsForSport(sportKey, this.getCurrentDate())[0];
-      const data = await this.makeRequest<any>(endpoint, sportKey, CACHE_DURATION.ODDS);
+      const endpoint = `/oddscomparison/${sportKey}/regular/${currentDate}`;
+      const data = await this.makeRequest<any[]>(endpoint, sportKey, CACHE_DURATION.ODDS);
       
-      // Handle SportsRadar Odds API response structure
-      const oddsData = data.odds || data.games || data;
-      if (!Array.isArray(oddsData)) {
-        logWarning('SportsRadarAPI', 'Invalid odds data structure');
-        return [];
-      }
-
-      const comparisons: SportsRadarOddsComparison[] = oddsData.map((item: any) => ({
+      const comparisons: SportsRadarOddsComparison[] = data.map((item: any) => ({
         id: item.id,
         sport: sportKey,
-        homeTeam: item.home?.name || item.home_team?.name || 'Unknown',
-        awayTeam: item.away?.name || item.away_team?.name || 'Unknown',
-        commenceTime: item.scheduled || item.commence_time || new Date().toISOString(),
+        homeTeam: item.home_team,
+        awayTeam: item.away_team,
+        commenceTime: item.commence_time,
         markets: item.markets || [],
         lastUpdate: item.last_update || new Date().toISOString()
       }));
@@ -939,25 +731,17 @@ class SportsRadarAPI {
   async getFutureOddsComparisons(sport: string): Promise<SportsRadarOddsComparison[]> {
     try {
       const sportKey = this.mapSportToKey(sport);
-      const sportId = this.getSportId(sport);
+      const currentDate = this.getCurrentDate();
       
-      // Use correct SportsRadar Future Odds API endpoint
-      const endpoint = `/odds/v1/en/sports/${sportId}/future/odds.json`;
-      const data = await this.makeRequest<any>(endpoint, sportKey, CACHE_DURATION.ODDS);
+      const endpoint = `/oddscomparison/${sportKey}/future/${currentDate}`;
+      const data = await this.makeRequest<any[]>(endpoint, sportKey, CACHE_DURATION.ODDS);
       
-      // Handle SportsRadar Future Odds API response structure
-      const futureOddsData = data.future_odds || data.odds || data.games || data;
-      if (!Array.isArray(futureOddsData)) {
-        logWarning('SportsRadarAPI', 'Invalid future odds data structure');
-        return [];
-      }
-
-      const comparisons: SportsRadarOddsComparison[] = futureOddsData.map((item: any) => ({
+      const comparisons: SportsRadarOddsComparison[] = data.map((item: any) => ({
         id: item.id,
         sport: sportKey,
-        homeTeam: item.home?.name || item.home_team?.name || 'Unknown',
-        awayTeam: item.away?.name || item.away_team?.name || 'Unknown',
-        commenceTime: item.scheduled || item.commence_time || new Date().toISOString(),
+        homeTeam: item.home_team,
+        awayTeam: item.away_team,
+        commenceTime: item.commence_time,
         markets: item.markets || [],
         lastUpdate: item.last_update || new Date().toISOString()
       }));
