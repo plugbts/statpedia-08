@@ -107,7 +107,7 @@ class SportGameOddsAPIService {
         cache_ttl_seconds: parseInt(configMap.cache_ttl_seconds) || 10, // Reduced to 10 seconds for live data
         polling_interval_seconds: parseInt(configMap.polling_interval_seconds) || 30,
         rate_limit_per_minute: parseInt(configMap.rate_limit_per_minute) || 60,
-        max_props_per_request: parseInt(configMap.max_props_per_request) || 500,
+        max_props_per_request: parseInt(configMap.max_props_per_request) || 50, // Reduced from 500 to 50 to prevent memory issues
         enabled_sports: Array.isArray(configMap.enabled_sports) ? configMap.enabled_sports : ['nfl', 'nba', 'mlb', 'nhl']
       };
 
@@ -1249,7 +1249,42 @@ serve(async (req) => {
     }
 
     const service = new SportGameOddsAPIService();
-    const config = await service.loadConfig();
+    
+    let config;
+    try {
+      config = await service.loadConfig();
+      console.log('✅ Configuration loaded successfully from database');
+    } catch (configError) {
+      console.error('❌ Failed to load configuration from database:', configError);
+      
+      // Fallback to environment variables if database access fails
+      console.log('🔄 Attempting fallback to environment variables...');
+      
+      const fallbackApiKey = Deno.env.get('SPORTSGAMEODDS_API_KEY');
+      if (!fallbackApiKey) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'SportGameOdds API key not configured in database or environment variables',
+            debug: `Database error: ${configError.message}. Please set SPORTSGAMEODDS_API_KEY environment variable or configure api_config table.`
+          }),
+          { 
+            status: 500, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+      
+      console.log('✅ Using fallback API key from environment variables');
+      config = {
+        sportsgameodds_api_key: fallbackApiKey,
+        cache_ttl_seconds: 10,
+        polling_interval_seconds: 30,
+        rate_limit_per_minute: 60,
+        max_props_per_request: 50, // Reduced to prevent memory issues
+        enabled_sports: ['nfl', 'nba', 'mlb', 'nhl']
+      };
+    }
     
     // Check if API key is configured
     if (!config.sportsgameodds_api_key) {
@@ -1257,7 +1292,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'SportGameOdds API key not configured. Please set the API key in the database.' 
+          error: 'SportGameOdds API key not configured. Please set the API key in the database or environment variables.' 
         }),
         { 
           status: 500,
@@ -1352,9 +1387,15 @@ serve(async (req) => {
       );
     }
 
-    // Fetch from SportGameOdds API
+    // Fetch from SportGameOdds API with timeout
     console.log(`${forceRefresh ? 'Force refresh' : 'Cache miss'} for ${cacheKey}, fetching fresh data from API`);
-    const apiResponse = await service.fetchFromSportGameOdds(endpoint, sport);
+    
+    const fetchPromise = service.fetchFromSportGameOdds(endpoint, sport);
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('SportGameOdds API timeout after 25 seconds')), 25000)
+    );
+    
+    const apiResponse = await Promise.race([fetchPromise, timeoutPromise]) as any;
     
     // Debug logging
     console.log('Raw API response structure:', {
@@ -1367,7 +1408,9 @@ serve(async (req) => {
     
     let processedData;
     if (endpoint === 'player-props') {
+      console.log(`📊 Processing player props with limit of ${config.max_props_per_request}...`);
       processedData = await service.processPlayerProps(apiResponse, config.max_props_per_request);
+      console.log(`✅ Processed ${processedData.length} player props`);
     } else {
       processedData = apiResponse.data;
     }
