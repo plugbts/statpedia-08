@@ -51,6 +51,7 @@ import {
   BarChart3, 
   RefreshCw, 
   AlertCircle,
+  AlertTriangle,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
@@ -1061,19 +1062,29 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
           </Card>
         )}
 
+        {/* Testing Mode Notice */}
+        {!isLoadingData && filteredProps.length > 0 && (
+          <div className="mb-4 p-3 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+            <div className="flex items-center gap-2 text-blue-300">
+              <AlertTriangle className="w-4 h-4" />
+              <span className="text-sm font-medium">Testing Mode: Showing only 3 props for enhanced analysis testing</span>
+            </div>
+          </div>
+        )}
+
         {/* Player Props Content */}
         {!isLoadingData && filteredProps.length > 0 && (
           <>
             {viewMode === 'column' ? (
               <PlayerPropsColumnView
-                props={filteredProps as any}
+                props={filteredProps.slice(0, 3) as any}
                 selectedSport={sportFilter}
                 onAnalysisClick={handleEnhancedAnalysis as any}
                 isLoading={isLoadingData}
               />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredProps.map((prop, index) => (
+                {filteredProps.slice(0, 3).map((prop, index) => (
                   <PlayerPropCard3D
                     key={prop.id || `prop-${prop.playerId}-${prop.propType}-${index}`}
                     prop={prop as any}
