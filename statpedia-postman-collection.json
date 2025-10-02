@@ -1,0 +1,591 @@
+{
+  "info": {
+    "name": "Statpedia Sports APIs",
+    "description": "Comprehensive collection of all APIs used in Statpedia project including SportsRadar, SportsGameOdds, and custom endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      {
+        "key": "key",
+        "value": "x-api-key",
+        "type": "string"
+      },
+      {
+        "key": "value",
+        "value": "{{sportsradar_api_key}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://api.sportradar.com",
+      "type": "string"
+    },
+    {
+      "key": "sportsgameodds_base_url",
+      "value": "https://api.sportsgameodds.com",
+      "type": "string"
+    },
+    {
+      "key": "sportsradar_api_key",
+      "value": "onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D",
+      "type": "string"
+    },
+    {
+      "key": "sportsgameodds_api_key",
+      "value": "your_sportsgameodds_key_here",
+      "type": "string"
+    },
+    {
+      "key": "current_year",
+      "value": "2025",
+      "type": "string"
+    },
+    {
+      "key": "current_date",
+      "value": "2025-01-05",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "SportsRadar Core APIs",
+      "description": "Core SportsRadar APIs for games, schedules, and basic data",
+      "item": [
+        {
+          "name": "NFL APIs",
+          "item": [
+            {
+              "name": "NFL Schedule 2025",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-api-key",
+                    "value": "{{sportsradar_api_key}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/nfl/official/trial/v7/en/games/{{current_year}}/REG/schedule.json",
+                  "host": ["{{base_url}}"],
+                  "path": ["nfl", "official", "trial", "v7", "en", "games", "{{current_year}}", "REG", "schedule.json"]
+                }
+              }
+            },
+            {
+              "name": "NFL Teams",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-api-key",
+                    "value": "{{sportsradar_api_key}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/nfl/official/trial/v7/en/teams.json",
+                  "host": ["{{base_url}}"],
+                  "path": ["nfl", "official", "trial", "v7", "en", "teams.json"]
+                }
+              }
+            },
+            {
+              "name": "NFL League Hierarchy",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-api-key",
+                    "value": "{{sportsradar_api_key}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/nfl/official/trial/v7/en/league/hierarchy.json",
+                  "host": ["{{base_url}}"],
+                  "path": ["nfl", "official", "trial", "v7", "en", "league", "hierarchy.json"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "NBA APIs",
+          "item": [
+            {
+              "name": "NBA Schedule 2025",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-api-key",
+                    "value": "{{sportsradar_api_key}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/nba/trial/v7/en/games/{{current_year}}/REG/schedule.json",
+                  "host": ["{{base_url}}"],
+                  "path": ["nba", "trial", "v7", "en", "games", "{{current_year}}", "REG", "schedule.json"]
+                }
+              }
+            },
+            {
+              "name": "NBA Teams",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-api-key",
+                    "value": "{{sportsradar_api_key}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/nba/trial/v7/en/teams.json",
+                  "host": ["{{base_url}}"],
+                  "path": ["nba", "trial", "v7", "en", "teams.json"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "MLB APIs",
+          "item": [
+            {
+              "name": "MLB Schedule 2025",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-api-key",
+                    "value": "{{sportsradar_api_key}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/mlb/trial/v7/en/games/{{current_year}}/REG/schedule.json",
+                  "host": ["{{base_url}}"],
+                  "path": ["mlb", "trial", "v7", "en", "games", "{{current_year}}", "REG", "schedule.json"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "NHL APIs",
+          "item": [
+            {
+              "name": "NHL Schedule 2025",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-api-key",
+                    "value": "{{sportsradar_api_key}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/nhl/trial/v7/en/games/{{current_year}}/REG/schedule.json",
+                  "host": ["{{base_url}}"],
+                  "path": ["nhl", "trial", "v7", "en", "games", "{{current_year}}", "REG", "schedule.json"]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "SportsRadar Odds & Player Props",
+      "description": "SportsRadar Odds Comparison and Player Props APIs",
+      "item": [
+        {
+          "name": "Odds Comparison APIs",
+          "item": [
+            {
+              "name": "Books (Bookmakers)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-api-key",
+                    "value": "{{sportsradar_api_key}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/oddscomparison/v1/en/books.json",
+                  "host": ["{{base_url}}"],
+                  "path": ["oddscomparison", "v1", "en", "books.json"]
+                }
+              }
+            },
+            {
+              "name": "Daily Schedules",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-api-key",
+                    "value": "{{sportsradar_api_key}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/oddscomparison/v1/en/schedules/{{current_date}}.json",
+                  "host": ["{{base_url}}"],
+                  "path": ["oddscomparison", "v1", "en", "schedules", "{{current_date}}.json"]
+                }
+              }
+            },
+            {
+              "name": "Competitions",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-api-key",
+                    "value": "{{sportsradar_api_key}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/oddscomparison/v1/en/competitions.json",
+                  "host": ["{{base_url}}"],
+                  "path": ["oddscomparison", "v1", "en", "competitions.json"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Player Props APIs",
+          "item": [
+            {
+              "name": "NFL Player Props",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-api-key",
+                    "value": "{{sportsradar_api_key}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/oddscomparison/v1/en/sports/1/player_props.json",
+                  "host": ["{{base_url}}"],
+                  "path": ["oddscomparison", "v1", "en", "sports", "1", "player_props.json"]
+                }
+              }
+            },
+            {
+              "name": "NBA Player Props",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-api-key",
+                    "value": "{{sportsradar_api_key}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/oddscomparison/v1/en/sports/2/player_props.json",
+                  "host": ["{{base_url}}"],
+                  "path": ["oddscomparison", "v1", "en", "sports", "2", "player_props.json"]
+                }
+              }
+            },
+            {
+              "name": "MLB Player Props",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-api-key",
+                    "value": "{{sportsradar_api_key}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/oddscomparison/v1/en/sports/3/player_props.json",
+                  "host": ["{{base_url}}"],
+                  "path": ["oddscomparison", "v1", "en", "sports", "3", "player_props.json"]
+                }
+              }
+            },
+            {
+              "name": "NFL Player Props by Date",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-api-key",
+                    "value": "{{sportsradar_api_key}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/oddscomparison/v1/en/sports/1/player_props/{{current_date}}.json",
+                  "host": ["{{base_url}}"],
+                  "path": ["oddscomparison", "v1", "en", "sports", "1", "player_props", "{{current_date}}.json"]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "SportsGameOdds APIs",
+      "description": "SportsGameOdds API endpoints for player props and odds",
+      "item": [
+        {
+          "name": "Events & Markets",
+          "item": [
+            {
+              "name": "NFL Events",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-api-key",
+                    "value": "{{sportsgameodds_api_key}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{sportsgameodds_base_url}}/v2/events?sportID=1&leagueID=1&date={{current_date}}",
+                  "host": ["{{sportsgameodds_base_url}}"],
+                  "path": ["v2", "events"],
+                  "query": [
+                    {
+                      "key": "sportID",
+                      "value": "1"
+                    },
+                    {
+                      "key": "leagueID",
+                      "value": "1"
+                    },
+                    {
+                      "key": "date",
+                      "value": "{{current_date}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "NBA Events",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-api-key",
+                    "value": "{{sportsgameodds_api_key}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{sportsgameodds_base_url}}/v2/events?sportID=2&leagueID=2&date={{current_date}}",
+                  "host": ["{{sportsgameodds_base_url}}"],
+                  "path": ["v2", "events"],
+                  "query": [
+                    {
+                      "key": "sportID",
+                      "value": "2"
+                    },
+                    {
+                      "key": "leagueID",
+                      "value": "2"
+                    },
+                    {
+                      "key": "date",
+                      "value": "{{current_date}}"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Statpedia Custom APIs",
+      "description": "Custom Statpedia backend APIs and endpoints",
+      "item": [
+        {
+          "name": "Player Props Backend",
+          "item": [
+            {
+              "name": "Get Player Props (NFL)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:8083/api/player-props?sport=nfl",
+                  "host": ["localhost"],
+                  "port": "8083",
+                  "path": ["api", "player-props"],
+                  "query": [
+                    {
+                      "key": "sport",
+                      "value": "nfl"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Player Props (NBA)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:8083/api/player-props?sport=nba",
+                  "host": ["localhost"],
+                  "port": "8083",
+                  "path": ["api", "player-props"],
+                  "query": [
+                    {
+                      "key": "sport",
+                      "value": "nba"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "SportsRadar Backend",
+          "item": [
+            {
+              "name": "Test SportsRadar Backend",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:8083/api/sportsradar/test",
+                  "host": ["localhost"],
+                  "port": "8083",
+                  "path": ["api", "sportsradar", "test"]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
