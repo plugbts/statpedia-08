@@ -291,6 +291,15 @@ export const DevConsole: React.FC = () => {
     logger.info('DevConsole', '🔄 Testing Trio Sports API System...');
     logger.info('DevConsole', '🏟️  SportsRadar + 💰 OddsBlaze + 🎯 SportsGameOdds');
     
+    // First check SportsGameOdds rate limit status
+    const rateLimitStatus = sportsGameOddsAPI.getRateLimitStatus();
+    logger.info('DevConsole', `🎯 SportsGameOdds Rate Limit: ${rateLimitStatus.status}`);
+    logger.info('DevConsole', `   ${rateLimitStatus.message}`);
+    
+    if (rateLimitStatus.status === 'RATE_LIMITED') {
+      logger.warning('DevConsole', '⚠️  SportsGameOdds is rate limited - trio system will use cached data');
+    }
+    
     const sports = ['nfl', 'nba', 'mlb', 'nhl'];
     for (const sport of sports) {
       try {
@@ -311,7 +320,11 @@ export const DevConsole: React.FC = () => {
         
         logger.info('DevConsole', `  🎯 SportsGameOdds: ${testResult.sportsGameOdds.success ? '✅' : '❌'} (${testResult.sportsGameOdds.props} props)`);
         if (testResult.sportsGameOdds.error) {
-          logger.error('DevConsole', `    Error: ${testResult.sportsGameOdds.error}`);
+          if (testResult.sportsGameOdds.error.includes('Rate limit')) {
+            logger.warning('DevConsole', `    Rate Limited: Using cached data`);
+          } else {
+            logger.error('DevConsole', `    Error: ${testResult.sportsGameOdds.error}`);
+          }
         }
         
         // Log combined results

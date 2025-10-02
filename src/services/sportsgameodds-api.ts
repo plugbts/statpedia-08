@@ -115,7 +115,8 @@ class SportsGameOddsAPI {
     lastResetDate: new Date().toDateString(),
     callsByEndpoint: new Map<string, number>(),
     cacheHits: 0,
-    cacheMisses: 0
+    cacheMisses: 0,
+    lastRateLimitTime: 0 // Track when we last hit rate limit
   };
   private readonly MAX_DAILY_CALLS = 1000; // Removed daily restrictions - allow more API calls
   
@@ -243,7 +244,24 @@ class SportsGameOddsAPI {
 
   // Get rate limit status for display
   getRateLimitStatus(): { status: string; message: string; canMakeCalls: boolean; waitTime?: number } {
-    // Removed daily usage restrictions - only show actual rate limit status
+    const now = Date.now();
+    const lastRateLimitTime = this.usageStats.lastRateLimitTime || 0;
+    const timeSinceRateLimit = now - lastRateLimitTime;
+    const rateLimitCooldown = 15 * 60 * 1000; // 15 minutes cooldown
+    
+    // Check if we're in rate limit cooldown
+    if (lastRateLimitTime > 0 && timeSinceRateLimit < rateLimitCooldown) {
+      const waitTime = rateLimitCooldown - timeSinceRateLimit;
+      const waitMinutes = Math.ceil(waitTime / (60 * 1000));
+      
+      return {
+        status: 'RATE_LIMITED',
+        message: `Rate limited. Wait ${waitMinutes} minutes before retrying.`,
+        canMakeCalls: false,
+        waitTime: waitTime
+      };
+    }
+    
     return {
       status: 'NORMAL',
       message: `API calls available (${this.usageStats.callsToday} calls made today)`,
@@ -292,6 +310,25 @@ class SportsGameOddsAPI {
     logInfo('SportsGameOddsAPI', 'Player props cache cleared');
   }
 
+  // Clear all caches
+  clearCache(): void {
+    this.cache.clear();
+    this.playerPropsCache.clear();
+    logInfo('SportsGameOddsAPI', 'All caches cleared');
+  }
+
+  // Manually set rate limit time (for when we know API is rate limited)
+  setRateLimitTime(timestamp?: number): void {
+    this.usageStats.lastRateLimitTime = timestamp || Date.now();
+    logWarning('SportsGameOddsAPI', 'Rate limit time set - API calls will be blocked for 15 minutes');
+  }
+
+  // Clear rate limit (for testing or when cooldown period has passed)
+  clearRateLimit(): void {
+    this.usageStats.lastRateLimitTime = 0;
+    logInfo('SportsGameOddsAPI', 'Rate limit cleared - API calls are now allowed');
+  }
+
   // Make authenticated request to SportsGameOdds API
   private async makeRequest<T>(endpoint: string, cacheDuration: number = CACHE_DURATION.ODDS): Promise<T> {
     const cacheKey = endpoint;
@@ -335,8 +372,10 @@ class SportsGameOddsAPI {
         
         // Handle rate limit specifically
         if (response.status === 429) {
+          this.usageStats.lastRateLimitTime = Date.now(); // Record rate limit time
           logWarning('SportsGameOddsAPI', `Rate limit exceeded for ${endpoint}. Status: ${response.status}`);
           logWarning('SportsGameOddsAPI', `Response: ${errorText}`);
+          logWarning('SportsGameOddsAPI', `Rate limit cooldown: 15 minutes`);
           throw new Error('Rate limit exceeded - please try again later');
         }
         
@@ -349,7 +388,9 @@ class SportsGameOddsAPI {
       
       // Check for rate limit in response body
       if (data.success === false && data.error && data.error.includes('Rate limit')) {
+        this.usageStats.lastRateLimitTime = Date.now(); // Record rate limit time
         logWarning('SportsGameOddsAPI', `Rate limit exceeded in response for ${endpoint}: ${data.error}`);
+        logWarning('SportsGameOddsAPI', `Rate limit cooldown: 15 minutes`);
         throw new Error('Rate limit exceeded - please try again later');
       }
       
