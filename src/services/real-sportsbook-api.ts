@@ -814,6 +814,40 @@ class RealSportsbookAPI {
     logInfo('RealSportsbookAPI', 'Cache cleared');
   }
 
+  // Simple test method to verify API is working
+  async testNFLPropsGeneration(): Promise<{ success: boolean; props: number; error?: string }> {
+    try {
+      logInfo('RealSportsbookAPI', '🧪 Testing NFL props generation...');
+      
+      // Clear cache to force fresh data
+      this.clearCache();
+      
+      // Test NFL props generation
+      const props = await this.getRealPlayerProps('nfl');
+      
+      logInfo('RealSportsbookAPI', `🧪 Test result: ${props.length} NFL props generated`);
+      
+      return {
+        success: props.length > 0,
+        props: props.length,
+        sampleProp: props.length > 0 ? {
+          player: props[0].playerName,
+          propType: props[0].propType,
+          line: props[0].line,
+          sportsbook: props[0].sportsbook
+        } : undefined
+      };
+      
+    } catch (error) {
+      logError('RealSportsbookAPI', '🧪 Test failed:', error);
+      return {
+        success: false,
+        props: 0,
+        error: error.message
+      };
+    }
+  }
+
   getCacheStats(): { size: number; keys: string[]; lastFetch: { [key: string]: string } } {
     const lastFetch: { [key: string]: string } = {};
     this.lastFetchTime.forEach((time, key) => {

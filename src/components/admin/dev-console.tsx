@@ -177,6 +177,22 @@ export const DevConsole: React.FC = () => {
   const testRealSportsbookAPI = async () => {
     logger.info('DevConsole', '⚽ Testing Real Sportsbook API...');
     
+    // First, run the specific NFL test
+    try {
+      logger.info('DevConsole', '🧪 Running NFL-specific test...');
+      const nflTest = await realSportsbookAPI.testNFLPropsGeneration();
+      
+      if (nflTest.success) {
+        logger.success('DevConsole', `🎉 NFL Test SUCCESS: ${nflTest.props} props generated`);
+        logger.info('DevConsole', `Sample prop: ${nflTest.sampleProp?.player} - ${nflTest.sampleProp?.propType}`);
+      } else {
+        logger.error('DevConsole', `❌ NFL Test FAILED: ${nflTest.error || 'No props generated'}`);
+      }
+    } catch (error) {
+      logger.error('DevConsole', `🚨 NFL Test Error: ${error}`);
+    }
+    
+    // Then test all sports
     const sports = ['nfl', 'nba', 'mlb', 'nhl'];
     for (const sport of sports) {
       try {
@@ -843,7 +859,7 @@ export const DevConsole: React.FC = () => {
                   </CardHeader>
                   <CardContent className="p-6">
                     <div className="space-y-4">
-                      <>
+                          <>
 
                             {/* SportsRadar Backend */}
                             <div className="p-3 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/10 rounded-lg border border-blue-200 dark:border-blue-800">
@@ -884,7 +900,7 @@ export const DevConsole: React.FC = () => {
                             >
                               Test SportsRadar Backend
                             </Button>
-                            
+
                             <Button
                               variant="outline"
                               size="sm"
@@ -896,7 +912,7 @@ export const DevConsole: React.FC = () => {
                             >
                               Clear Cache
                             </Button>
-                      </>
+                          </>
                     </div>
                   </CardContent>
                 </Card>
