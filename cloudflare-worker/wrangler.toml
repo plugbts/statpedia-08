@@ -17,6 +17,8 @@ SPORTSGAMEODDS_API_KEY = "d5dc1f00bc42133550bc1605dd8f457f"
 CACHE_TTL_SECONDS = "300"
 MAX_EVENTS_PER_REQUEST = "100"
 MAX_PROPS_PER_REQUEST = "500"
+SUPABASE_URL = "https://rfdrifnsfobqlzorcesn.supabase.co"
+SUPABASE_SERVICE_KEY = "your_supabase_service_key_here"
 
 # Production R2 bucket
 [[env.production.r2_buckets]]
@@ -37,6 +39,8 @@ SPORTSGAMEODDS_API_KEY = "d5dc1f00bc42133550bc1605dd8f457f"
 CACHE_TTL_SECONDS = "300"
 MAX_EVENTS_PER_REQUEST = "100"
 MAX_PROPS_PER_REQUEST = "500"
+SUPABASE_URL = "https://rfdrifnsfobqlzorcesn.supabase.co"
+SUPABASE_SERVICE_KEY = "your_supabase_service_key_here"
 
 # Staging R2 bucket
 [[env.staging.r2_buckets]]

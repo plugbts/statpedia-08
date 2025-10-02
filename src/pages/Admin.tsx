@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Shield, Users, Ban, Gift, Activity, Mail, AlertTriangle, MessageSquare, Target, DollarSign, Lock, ArrowLeft, Terminal, TrendingUp } from "lucide-react";
+import { Shield, Users, Ban, Gift, Activity, Mail, AlertTriangle, MessageSquare, Target, DollarSign, Lock, ArrowLeft, Terminal, TrendingUp, Cloud } from "lucide-react";
 import { UserManagement } from "@/components/admin/user-management";
 import { DiscordManagement } from "@/components/admin/discord-management";
 import { PromoCodesAdmin } from "@/components/admin/promo-codes-admin";
@@ -21,6 +21,7 @@ import { CrossReferenceAnalysis } from "@/components/admin/cross-reference-analy
 import { ServerAPIDashboard } from "@/components/admin/server-api-dashboard";
 import { DualAIDebugger } from "@/components/admin/dual-ai-debugger";
 import { APIUsageChecker } from "@/components/debug/api-usage-checker";
+import { CloudflareR2UsagePanel } from "@/components/admin/cloudflare-r2-usage-panel";
 import { useUser } from "@/contexts/user-context";
 
 export default function Admin() {
@@ -164,6 +165,12 @@ export default function Admin() {
                   <span className="hidden sm:inline">Dual AI</span>
                 </TabsTrigger>
               )}
+              {userRole === 'owner' && (
+                <TabsTrigger value="r2-usage" className="flex items-center gap-1 px-2 py-1 text-xs">
+                  <Cloud className="h-3 w-3" />
+                  <span className="hidden sm:inline">R2 Usage</span>
+                </TabsTrigger>
+              )}
             </div>
           </TabsList>
 
@@ -238,6 +245,12 @@ export default function Admin() {
             {userRole === 'owner' && (
               <TabsContent value="dual-ai" className="space-y-2 mt-2">
                 <DualAIDebugger />
+              </TabsContent>
+            )}
+
+            {userRole === 'owner' && (
+              <TabsContent value="r2-usage" className="space-y-2 mt-2">
+                <CloudflareR2UsagePanel />
               </TabsContent>
             )}
         </Tabs>
