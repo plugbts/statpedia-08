@@ -48,6 +48,9 @@ export interface ConsistentPlayerProp {
   lastUpdated: Date;
   isLive: boolean;
   marketId: string; // Unique market identifier for consistency
+  // NEW: Exact sportsbook data tracking
+  availableSportsbooks?: string[]; // List of sportsbooks offering this prop
+  isExactAPIData?: boolean; // Whether this uses exact API data
 }
 
 export interface SportsbookOdds {
@@ -72,7 +75,7 @@ export interface ConfidenceFactor {
 class ConsistentPropsService {
   private propCache = new Map<string, ConsistentPlayerProp[]>();
   private lastUpdateTime = new Map<string, number>();
-  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+  private readonly CACHE_DURATION = 30 * 1000; // 30 seconds for testing exact sportsbook data
   private readonly MAX_PROPS_TO_SHOW = 200;
   private readonly PROP_UPDATE_INTERVAL = 2 * 60 * 1000; // 2 minutes
 
@@ -517,10 +520,11 @@ class ConsistentPropsService {
     try {
       logAPI('ConsistentPropsService', `Loading consistent props for ${sport}`);
       
-      // Get base props from unified API
-      const baseProps = await unifiedSportsAPI.getPlayerProps(sport, undefined, undefined, selectedSportsbook);
-      logAPI('ConsistentPropsService', `Retrieved ${baseProps.length} base props`);
-      console.log('🎯 ConsistentPropsService received base props:', baseProps);
+      // Get base props from SportGameOdds API (exact sportsbook data)
+      const { sportsGameOddsAPI } = await import('./sportsgameodds-api');
+      const baseProps = await sportsGameOddsAPI.getPlayerProps(sport);
+      logAPI('ConsistentPropsService', `Retrieved ${baseProps.length} exact sportsbook props from SportGameOdds API`);
+      console.log('🎯 ConsistentPropsService received exact sportsbook props:', baseProps);
       
       // Convert to consistent props with enhanced data
       const consistentProps: ConsistentPlayerProp[] = [];
@@ -530,18 +534,26 @@ class ConsistentPropsService {
         const confidenceFactors = this.generateConfidenceFactors(prop);
         const confidence = this.calculateConfidence(confidenceFactors);
         
-        // Get real-time FanDuel odds
-        const fanduelOdds = await this.getFanDuelOddsForProp(prop);
+        // Use exact sportsbook data from SportGameOdds API
+        const sportsbookOdds = {
+          sportsbook: prop.sportsbook || 'Unknown',
+          line: prop.line,
+          overOdds: prop.overOdds,
+          underOdds: prop.underOdds,
+          lastUpdate: prop.lastUpdate || new Date().toISOString()
+        };
         
-        // Create enhanced prop
+        // Create enhanced prop with exact sportsbook data
         const consistentProp: ConsistentPlayerProp = {
           ...prop,
           confidence,
           confidenceFactors,
           marketId: `${prop.playerId}-${prop.propType}-${prop.gameId}-${sport}`,
-          allSportsbookOdds: fanduelOdds ? [fanduelOdds] : [],
+          allSportsbookOdds: [sportsbookOdds], // Use exact sportsbook odds
+          availableSportsbooks: prop.availableSportsbooks || [prop.sportsbookKey || 'unknown'],
           lastUpdated: new Date(),
-          isLive: true
+          isLive: true,
+          isExactAPIData: prop.isExactAPIData || true
         };
         
         consistentProps.push(consistentProp);

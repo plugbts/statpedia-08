@@ -365,6 +365,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       setRealProps([]);
       
       try {
+        // Clear cache to ensure fresh sportsbook data
+        consistentPropsService.clearCache();
+        logAPI('PlayerPropsTab', 'Cleared cache to force fresh sportsbook data');
+        
         const sportsbookFilter = selectedSportsbook === 'all' ? undefined : selectedSportsbook;
         logAPI('PlayerPropsTab', `Calling consistentPropsService.getConsistentPlayerProps(${sport})${sportsbookFilter ? ` with sportsbook: ${sportsbookFilter}` : ''}`);
         logDebug('PlayerPropsTab', `consistentPropsService: ${typeof consistentPropsService}`);
