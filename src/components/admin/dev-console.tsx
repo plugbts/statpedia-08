@@ -9,13 +9,16 @@ import { logger, LogEntry, LogLevel } from '@/utils/console-logger';
 // Removed unused debug components
 import { unifiedSportsAPI } from '@/services/unified-sports-api';
 
-// PAUSED: SportsGameOdds API temporarily disabled - preserving code for future reactivation
-// import { sportsGameOddsAPI } from '@/services/sportsgameodds-api';
+// REACTIVATED: SportsGameOdds API - part of trio system for player props
+import { sportsGameOddsAPI } from '@/services/sportsgameodds-api';
 import { sportsRadarBackend } from '@/services/sportsradar-backend';
 import { smartPropOptimizer } from '@/services/smart-prop-optimizer';
 import { realSportsbookAPI } from '@/services/real-sportsbook-api';
-import { theRundownAPIOfficial } from '@/services/therundown-api-official';
-import { dualSportsAPI } from '@/services/dual-sports-api';
+import { trioSportsAPI } from '@/services/trio-sports-api';
+import { oddsBlazeAPI } from '@/services/oddsblaze-api';
+// PAUSED: TheRundown and Dual system - replaced with trio system
+// import { theRundownAPIOfficial } from '@/services/therundown-api-official';
+// import { dualSportsAPI } from '@/services/dual-sports-api';
 import { 
   Terminal, 
   Trash2, 
@@ -293,6 +296,94 @@ export const DevConsole: React.FC = () => {
     logger.info('DevConsole', `  Dual: ${cacheStats.dualCache.size} entries`);
     logger.info('DevConsole', `  SportsRadar: ${cacheStats.sportsRadarCache.size} entries`);
     logger.info('DevConsole', `  TheRundown: ${cacheStats.theRundownCache.size} entries`);
+  };
+
+  // NEW: Trio System Testing Functions
+  const testOddsBlazeAPI = async () => {
+    logger.info('DevConsole', '💰 Testing OddsBlaze API...');
+    
+    // First test connectivity
+    try {
+      const connectivity = await oddsBlazeAPI.testConnectivity();
+      if (connectivity.success) {
+        logger.success('DevConsole', `✅ OddsBlaze Connected: ${connectivity.message}`);
+      } else {
+        logger.error('DevConsole', `❌ OddsBlaze Connection Failed: ${connectivity.message}`);
+        return;
+      }
+    } catch (error) {
+      logger.error('DevConsole', `❌ OddsBlaze Connectivity Test Failed: ${error}`);
+      return;
+    }
+
+    // Test each sport
+    const sports = ['nfl', 'nba', 'mlb', 'nhl'];
+    for (const sport of sports) {
+      try {
+        logger.info('DevConsole', `Testing ${sport.toUpperCase()}...`);
+        
+        // Test comprehensive odds
+        const odds = await oddsBlazeAPI.getComprehensiveOdds(sport);
+        logger.info('DevConsole', `${sport.toUpperCase()} Odds: ${odds.length}`);
+        
+        // Test consensus odds
+        const consensus = await oddsBlazeAPI.getConsensusOdds(sport);
+        logger.info('DevConsole', `${sport.toUpperCase()} Consensus: ${consensus.length}`);
+        
+        // Test schedule
+        const schedule = await oddsBlazeAPI.getSchedule(sport);
+        logger.success('DevConsole', `${sport.toUpperCase()} Schedule: ${schedule.length}`);
+        
+      } catch (error) {
+        logger.error('DevConsole', `${sport.toUpperCase()} failed: ${error}`);
+      }
+    }
+
+    const cacheStats = oddsBlazeAPI.getCacheStats();
+    logger.info('DevConsole', `OddsBlaze Cache: ${cacheStats.size} entries`);
+  };
+
+  const testTrioSportsAPI = async () => {
+    logger.info('DevConsole', '🔄 Testing Trio Sports API System...');
+    logger.info('DevConsole', '🏟️  SportsRadar + 💰 OddsBlaze + 🎯 SportsGameOdds');
+    
+    const sports = ['nfl', 'nba', 'mlb', 'nhl'];
+    for (const sport of sports) {
+      try {
+        logger.info('DevConsole', `Testing trio system for ${sport.toUpperCase()}...`);
+        
+        const testResult = await trioSportsAPI.testTrioSystem(sport);
+        
+        // Log individual API results
+        logger.info('DevConsole', `  🏟️  SportsRadar: ${testResult.sportsRadar.success ? '✅' : '❌'} (${testResult.sportsRadar.props} props)`);
+        if (testResult.sportsRadar.error) {
+          logger.error('DevConsole', `    Error: ${testResult.sportsRadar.error}`);
+        }
+        
+        logger.info('DevConsole', `  💰 OddsBlaze: ${testResult.oddsBlaze.success ? '✅' : '❌'} (${testResult.oddsBlaze.odds} odds)`);
+        if (testResult.oddsBlaze.error) {
+          logger.error('DevConsole', `    Error: ${testResult.oddsBlaze.error}`);
+        }
+        
+        logger.info('DevConsole', `  🎯 SportsGameOdds: ${testResult.sportsGameOdds.success ? '✅' : '❌'} (${testResult.sportsGameOdds.props} props)`);
+        if (testResult.sportsGameOdds.error) {
+          logger.error('DevConsole', `    Error: ${testResult.sportsGameOdds.error}`);
+        }
+        
+        // Log combined results
+        logger.success('DevConsole', `  🎯 TRIO RESULT: ${testResult.combined.success ? '✅' : '❌'} (${testResult.combined.props} total props)`);
+        
+      } catch (error) {
+        logger.error('DevConsole', `${sport.toUpperCase()} trio test failed: ${error}`);
+      }
+    }
+
+    const cacheStats = trioSportsAPI.getCacheStats();
+    logger.info('DevConsole', `Trio System Cache Stats:`);
+    logger.info('DevConsole', `  Trio: ${cacheStats.trioCache.size} entries`);
+    logger.info('DevConsole', `  SportsRadar: ${cacheStats.sportsRadarCache.size} entries`);
+    logger.info('DevConsole', `  OddsBlaze: ${cacheStats.oddsBlazeCache.size} entries`);
+    logger.info('DevConsole', `  SportsGameOdds: ${cacheStats.sportsGameOddsCache.size} entries`);
   };
 
   const generatePerformanceReport = () => {
@@ -723,6 +814,27 @@ export const DevConsole: React.FC = () => {
                       <Zap className="h-4 w-4 text-purple-600" />
                       <span className="font-medium text-sm">Dual System</span>
                       <span className="text-xs text-muted-foreground">Test combined APIs</span>
+                    </Button>
+
+                    {/* NEW: Trio System Buttons */}
+                    <Button
+                      variant="outline"
+                      onClick={testOddsBlazeAPI}
+                      className="h-auto p-3 flex flex-col items-center gap-2 hover:bg-orange-50 hover:border-orange-200 dark:hover:bg-orange-900/20 dark:hover:border-orange-800 transition-all duration-200"
+                    >
+                      <TrendingUp className="h-4 w-4 text-orange-600" />
+                      <span className="font-medium text-sm">OddsBlaze</span>
+                      <span className="text-xs text-muted-foreground">Test OddsBlaze API</span>
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      onClick={testTrioSportsAPI}
+                      className="h-auto p-3 flex flex-col items-center gap-2 hover:bg-emerald-50 hover:border-emerald-200 dark:hover:bg-emerald-900/20 dark:hover:border-emerald-800 transition-all duration-200"
+                    >
+                      <Target className="h-4 w-4 text-emerald-600" />
+                      <span className="font-medium text-sm">Trio System</span>
+                      <span className="text-xs text-muted-foreground">Test all three APIs</span>
                     </Button>
 
                     <Button

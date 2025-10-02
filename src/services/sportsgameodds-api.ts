@@ -1,13 +1,13 @@
 /**
  * SportsGameOdds API Service
  * 
- * STATUS: PAUSED - This service is temporarily disabled but all code is preserved
- * for future reactivation. The API integration is complete and functional.
+ * STATUS: ACTIVE - Part of the trio system for comprehensive sports data
+ * Role: Player props, player markets, prop betting data
  * 
- * To reactivate:
- * 1. Uncomment imports in unified-sports-api.ts
- * 2. Uncomment imports in dev-console.tsx
- * 3. Remove PAUSED comments and restore normal functionality
+ * Trio System:
+ * - SportsRadar: Games, schedules, teams, core sports data
+ * - OddsAPI: Odds, lines, live betting markets
+ * - SportsGameOdds: Player props, player markets, prop betting
  */
 
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';

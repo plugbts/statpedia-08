@@ -1,10 +1,10 @@
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
 import { sportsRadarAPI, SportsRadarGame } from './sportsradar-api';
 import { sportsRadarBackend } from './sportsradar-backend';
-import { dualSportsAPI, DualPlayerProp } from './dual-sports-api';
+import { trioSportsAPI, TrioPlayerProp } from './trio-sports-api';
 
-// PAUSED: SportsGameOdds API temporarily disabled - preserving code for future reactivation
-// import { sportsGameOddsAPI, SportsGameOddsPlayerProp, SportsGameOddsGame } from './sportsgameodds-api';
+// REACTIVATED: SportsGameOdds API - part of trio system for player props
+import { sportsGameOddsAPI, SportsGameOddsPlayerProp, SportsGameOddsGame } from './sportsgameodds-api';
 
 // Unified interfaces
 export interface SportsbookOdds {
@@ -99,25 +99,25 @@ export interface Outcome {
 class UnifiedSportsAPI {
   constructor() {
     logInfo('UnifiedSportsAPI', 'Service initialized - Version 7.0.0');
-    logInfo('UnifiedSportsAPI', 'Using Dual Sports API System: SportsRadar + TheRundown.io');
-    logInfo('UnifiedSportsAPI', 'Enhanced redundancy and comprehensive betting data coverage');
+    logInfo('UnifiedSportsAPI', 'Using Trio Sports API System: SportsRadar + OddsBlaze + SportsGameOdds');
+    logInfo('UnifiedSportsAPI', 'Distributed load across specialized APIs for maximum reliability');
   }
 
-  // Get player props using dual API system (SportsRadar + TheRundown)
+  // Get player props using trio API system (SportsRadar + OddsBlaze + SportsGameOdds)
   async getPlayerProps(sport: string, season?: number, week?: number, selectedSportsbook?: string): Promise<PlayerProp[]> {
-    logAPI('UnifiedSportsAPI', `Getting player props for ${sport}${season ? ` ${season}` : ''}${week ? ` week ${week}` : ''} - Using Dual API System`);
+    logAPI('UnifiedSportsAPI', `Getting player props for ${sport}${season ? ` ${season}` : ''}${week ? ` week ${week}` : ''} - Using Trio API System`);
     
     try {
-      // Use Dual Sports API for comprehensive coverage
-      const dualProps = await dualSportsAPI.getPlayerProps(sport, selectedSportsbook);
+      // Use Trio Sports API for comprehensive coverage
+      const trioProps = await trioSportsAPI.getPlayerProps(sport, selectedSportsbook);
       
-      if (dualProps.length === 0) {
-        logWarning('UnifiedSportsAPI', `No player props found for ${sport} from dual system`);
+      if (trioProps.length === 0) {
+        logWarning('UnifiedSportsAPI', `No player props found for ${sport} from trio system`);
         return [];
       }
 
-      // Convert dual props to unified format
-      const unifiedProps: PlayerProp[] = dualProps.map(prop => ({
+      // Convert trio props to unified format
+      const unifiedProps: PlayerProp[] = trioProps.map(prop => ({
         id: prop.id,
         playerId: prop.playerId,
         playerName: prop.playerName,
