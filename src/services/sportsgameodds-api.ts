@@ -1,12 +1,11 @@
 /**
  * SportsGameOdds API Service
  * 
- * STATUS: ACTIVE - Part of the trio system for comprehensive sports data
+ * STATUS: ACTIVE - Part of the dual system for comprehensive sports data
  * Role: Player props, player markets, prop betting data
  * 
- * Trio System:
+ * Dual System:
  * - SportsRadar: Games, schedules, teams, core sports data
- * - OddsAPI: Odds, lines, live betting markets
  * - SportsGameOdds: Player props, player markets, prop betting
  */
 
@@ -188,7 +187,8 @@ class SportsGameOddsAPI {
       lastResetDate: new Date().toDateString(),
       callsByEndpoint: new Map<string, number>(),
       cacheHits: 0,
-      cacheMisses: 0
+      cacheMisses: 0,
+      lastRateLimitTime: 0
     };
     logInfo('SportsGameOddsAPI', 'Usage statistics reset');
   }

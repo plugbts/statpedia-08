@@ -1,9 +1,10 @@
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
 import { sportsRadarAPI, SportsRadarGame } from './sportsradar-api';
 import { sportsRadarBackend } from './sportsradar-backend';
-import { trioSportsAPI, TrioPlayerProp } from './trio-sports-api';
+// REMOVED: Trio system - replaced with dual system
+// import { trioSportsAPI, TrioPlayerProp } from './trio-sports-api';
 
-// REACTIVATED: SportsGameOdds API - part of trio system for player props
+// ACTIVE: SportsGameOdds API - for player props and markets
 import { sportsGameOddsAPI, SportsGameOddsPlayerProp, SportsGameOddsGame } from './sportsgameodds-api';
 
 // Unified interfaces
@@ -98,59 +99,118 @@ export interface Outcome {
 
 class UnifiedSportsAPI {
   constructor() {
-    logInfo('UnifiedSportsAPI', 'Service initialized - Version 7.0.0');
-    logInfo('UnifiedSportsAPI', 'Using Trio Sports API System: SportsRadar + OddsBlaze + SportsGameOdds');
-    logInfo('UnifiedSportsAPI', 'Distributed load across specialized APIs for maximum reliability');
+    logInfo('UnifiedSportsAPI', 'Service initialized - Version 8.0.0');
+    logInfo('UnifiedSportsAPI', 'Using Dual Sports API System: SportsRadar + SportsGameOdds');
+    logInfo('UnifiedSportsAPI', 'SportsRadar: Games, schedules, teams | SportsGameOdds: Player props, markets');
   }
 
-  // Get player props using trio API system (SportsRadar + OddsBlaze + SportsGameOdds)
+  // Get player props using dual API system (SportsRadar + SportsGameOdds)
   async getPlayerProps(sport: string, season?: number, week?: number, selectedSportsbook?: string): Promise<PlayerProp[]> {
-    logAPI('UnifiedSportsAPI', `Getting player props for ${sport}${season ? ` ${season}` : ''}${week ? ` week ${week}` : ''} - Using Trio API System`);
+    logAPI('UnifiedSportsAPI', `Getting player props for ${sport}${season ? ` ${season}` : ''}${week ? ` week ${week}` : ''} - Using Dual API System`);
     
     try {
-      // Use Trio Sports API for comprehensive coverage
-      const trioProps = await trioSportsAPI.getPlayerProps(sport, selectedSportsbook);
-      
-      if (trioProps.length === 0) {
-        logWarning('UnifiedSportsAPI', `No player props found for ${sport} from trio system`);
-        return [];
+      const allProps: PlayerProp[] = [];
+
+      // Get props from SportsRadar (core sports data)
+      try {
+        const sportsRadarProps = await sportsRadarBackend.getPlayerProps(sport);
+        logAPI('UnifiedSportsAPI', `SportsRadar returned ${sportsRadarProps.length} props`);
+        
+        // Convert SportsRadar props to unified format
+        const convertedSRProps: PlayerProp[] = sportsRadarProps.map(prop => ({
+          id: `sr-${prop.id}`,
+          playerId: prop.playerId,
+          playerName: prop.playerName,
+          team: prop.homeTeam, // Use homeTeam as default team
+          teamAbbr: this.getTeamAbbreviation(prop.homeTeam),
+          opponent: prop.awayTeam,
+          opponentAbbr: this.getTeamAbbreviation(prop.awayTeam),
+          gameId: prop.gameId,
+          sport: 'NFL', // Default sport, can be enhanced
+          propType: prop.propType,
+          line: prop.line,
+          overOdds: prop.overOdds,
+          underOdds: prop.underOdds,
+          allSportsbookOdds: [{ 
+            sportsbook: prop.sportsbook, 
+            line: prop.line,
+            overOdds: prop.overOdds, 
+            underOdds: prop.underOdds,
+            lastUpdate: prop.lastUpdate
+          }],
+          gameDate: this.formatGameDate(prop.gameTime),
+          gameTime: prop.gameTime,
+          headshotUrl: '', // Not available in SportsRadar interface
+          confidence: prop.confidence,
+          expectedValue: this.calculateExpectedValue(prop.line, prop.overOdds, prop.underOdds),
+          recentForm: '', // Not available in SportsRadar interface
+          last5Games: [], // Not available in SportsRadar interface
+          seasonStats: this.generateSeasonStats(prop.propType, prop.line),
+          aiPrediction: this.generateAIPrediction(prop.propType, prop.line, prop.overOdds, prop.underOdds),
+          lastUpdated: new Date(prop.lastUpdate),
+          isLive: false, // Not available in SportsRadar interface
+          marketId: prop.market
+        }));
+        
+        allProps.push(...convertedSRProps);
+      } catch (error) {
+        logWarning('UnifiedSportsAPI', `SportsRadar failed for ${sport}: ${error}`);
       }
 
-      // Convert trio props to unified format
-      const unifiedProps: PlayerProp[] = trioProps.map(prop => ({
-        id: prop.id,
-        playerId: prop.playerId,
-        playerName: prop.playerName,
-        team: prop.team,
-        teamAbbr: prop.teamAbbr,
-        opponent: prop.opponent,
-        opponentAbbr: prop.opponentAbbr,
-        gameId: prop.gameId,
-        sport: prop.sport,
-        propType: prop.propType,
-        line: prop.line,
-        overOdds: prop.overOdds,
-        underOdds: prop.underOdds,
-        allSportsbookOdds: [{ sportsbook: prop.sportsbook, overOdds: prop.overOdds, underOdds: prop.underOdds }],
-        gameDate: prop.gameDate,
-        gameTime: prop.gameTime,
-        headshotUrl: '', // Can be enhanced later
-        confidence: prop.confidence,
-        expectedValue: prop.expectedValue,
-        recentForm: '', // Can be enhanced later
-        last5Games: [], // Can be enhanced later
-        seasonStats: {}, // Can be enhanced later
-        aiPrediction: '', // Can be enhanced later
-        lastUpdated: prop.lastUpdated,
-        isLive: false,
-        marketId: prop.marketId
-      }));
+      // Get props from SportsGameOdds (player markets and props)
+      try {
+        const sgoProps = await sportsGameOddsAPI.getPlayerProps(sport);
+        logAPI('UnifiedSportsAPI', `SportsGameOdds returned ${sgoProps.length} props`);
+        
+        // Convert SportsGameOdds props to unified format
+        const convertedSGOProps: PlayerProp[] = sgoProps.map(prop => ({
+          id: `sgo-${prop.id}`,
+          playerId: prop.playerId,
+          playerName: prop.playerName,
+          team: prop.team,
+          teamAbbr: this.getTeamAbbreviation(prop.team),
+          opponent: prop.homeTeam === prop.team ? prop.awayTeam : prop.homeTeam,
+          opponentAbbr: this.getTeamAbbreviation(prop.homeTeam === prop.team ? prop.awayTeam : prop.homeTeam),
+          gameId: prop.gameId,
+          sport: prop.sport,
+          propType: prop.propType,
+          line: prop.line,
+          overOdds: prop.overOdds,
+          underOdds: prop.underOdds,
+          allSportsbookOdds: [{ 
+            sportsbook: prop.sportsbook, 
+            line: prop.line,
+            overOdds: prop.overOdds, 
+            underOdds: prop.underOdds,
+            lastUpdate: prop.lastUpdate
+          }],
+          gameDate: this.formatGameDate(prop.gameTime),
+          gameTime: prop.gameTime,
+          headshotUrl: '',
+          confidence: prop.confidence,
+          expectedValue: this.calculateExpectedValue(prop.line, prop.overOdds, prop.underOdds),
+          recentForm: '',
+          last5Games: [],
+          seasonStats: this.generateSeasonStats(prop.propType, prop.line),
+          aiPrediction: this.generateAIPrediction(prop.propType, prop.line, prop.overOdds, prop.underOdds),
+          lastUpdated: new Date(prop.lastUpdate),
+          isLive: false,
+          marketId: prop.market || `${prop.playerId}-${prop.propType}-${prop.gameId}`
+        }));
+        
+        allProps.push(...convertedSGOProps);
+      } catch (error) {
+        logWarning('UnifiedSportsAPI', `SportsGameOdds failed for ${sport}: ${error}`);
+      }
 
-      logSuccess('UnifiedSportsAPI', `Retrieved ${unifiedProps.length} player props for ${sport} from dual system`);
-      logInfo('UnifiedSportsAPI', `Sources: ${new Set(dualProps.map(p => p.source)).size} different APIs`);
-      logInfo('UnifiedSportsAPI', `Breakdown: ${dualProps.filter(p => p.source === 'sportsradar').length} SportsRadar, ${dualProps.filter(p => p.source === 'therundown').length} TheRundown`);
+      // Deduplicate props (prioritize SportsGameOdds for betting data)
+      const deduplicatedProps = this.deduplicatePlayerProps(allProps);
       
-      return unifiedProps;
+      logSuccess('UnifiedSportsAPI', `Retrieved ${deduplicatedProps.length} player props for ${sport} from dual system`);
+      logInfo('UnifiedSportsAPI', `Sources: SportsRadar + SportsGameOdds`);
+      logInfo('UnifiedSportsAPI', `Breakdown: ${allProps.filter(p => p.id.startsWith('sr-')).length} SportsRadar, ${allProps.filter(p => p.id.startsWith('sgo-')).length} SportsGameOdds`);
+      
+      return deduplicatedProps;
 
     } catch (error) {
       logError('UnifiedSportsAPI', `Failed to get player props for ${sport}:`, error);

@@ -9,17 +9,14 @@ import { logger, LogEntry, LogLevel } from '@/utils/console-logger';
 // Removed unused debug components
 import { unifiedSportsAPI } from '@/services/unified-sports-api';
 
-// REACTIVATED: SportsGameOdds API - part of trio system for player props
+// ACTIVE: SportsGameOdds API - for player props and markets
 import { sportsGameOddsAPI } from '@/services/sportsgameodds-api';
 import { sportsRadarBackend } from '@/services/sportsradar-backend';
 import { smartPropOptimizer } from '@/services/smart-prop-optimizer';
 import { realSportsbookAPI } from '@/services/real-sportsbook-api';
-import { trioSportsAPI } from '@/services/trio-sports-api';
-import { oddsBlazeAPI } from '@/services/oddsblaze-api';
-// PAUSED: TheRundown and Dual system - replaced with trio system
-// Note: These are referenced in old functions but services are deleted
-// import { theRundownAPIOfficial } from '@/services/therundown-api-official';
-// import { dualSportsAPI } from '@/services/dual-sports-api';
+// REMOVED: Trio system components - replaced with dual system
+// import { trioSportsAPI } from '@/services/trio-sports-api';
+// import { oddsBlazeAPI } from '@/services/oddsblaze-api';
 import { 
   Terminal, 
   Trash2, 
@@ -214,134 +211,73 @@ export const DevConsole: React.FC = () => {
     logger.info('DevConsole', `Cache: ${cacheStats.size} entries, ${cacheStats.keys.length} keys`);
   };
 
-  const testTheRundownAPI = async () => {
-    logger.warning('DevConsole', '🏃 TheRundown API has been REPLACED by OddsBlaze in the trio system');
-    logger.info('DevConsole', '💰 Use "Test OddsBlaze" or "Test Trio System" instead');
-    logger.info('DevConsole', '🔄 Trio System: SportsRadar + OddsBlaze + SportsGameOdds');
-  };
-
-  const testDualSportsAPI = async () => {
-    logger.warning('DevConsole', '🔄 Dual Sports API has been REPLACED by Trio System');
-    logger.info('DevConsole', '🎯 Use "Test Trio System" for comprehensive testing');
-    logger.info('DevConsole', '🏟️  SportsRadar + 💰 OddsBlaze + 🎯 SportsGameOdds');
-  };
-
-  // NEW: Trio System Testing Functions
-  const testOddsBlazeAPI = async () => {
-    logger.info('DevConsole', '💰 Testing OddsBlaze API...');
+  const testSportsGameOddsAPI = async () => {
+    logger.info('DevConsole', '🎯 Testing SportsGameOdds API...');
     
-    // First check API key status
-    const keyStatus = oddsBlazeAPI.checkAPIKeyStatus();
-    logger.info('DevConsole', `🔑 API Key Status: ${keyStatus.message}`);
+    // Check usage stats first
+    const usageStats = sportsGameOddsAPI.getUsageStats();
+    logger.info('DevConsole', `📊 SportsGameOdds Usage: ${usageStats.callsToday}/${usageStats.maxDailyCalls} calls today (${usageStats.usagePercentage}%)`);
     
-    if (keyStatus.isExpired) {
-      logger.error('DevConsole', '🚨 CRITICAL: OddsBlaze API key has EXPIRED!');
-      logger.error('DevConsole', '🔄 Please get a new key from www.oddsblaze.com');
-      return;
-    } else if (keyStatus.isExpiringSoon) {
-      logger.warning('DevConsole', `⚠️  WARNING: API key expires soon! ${keyStatus.timeRemaining}`);
-    }
+    // Check rate limit status
+    const rateLimitStatus = sportsGameOddsAPI.getRateLimitStatus();
+    logger.info('DevConsole', `🚦 Rate Limit Status: ${rateLimitStatus.status}`);
+    logger.info('DevConsole', `   ${rateLimitStatus.message}`);
     
-    // Test connectivity
-    try {
-      const connectivity = await oddsBlazeAPI.testConnectivity();
-      if (connectivity.success) {
-        logger.success('DevConsole', `✅ OddsBlaze Connected: ${connectivity.leagues} leagues available`);
-        logger.info('DevConsole', `⏰ Key expires: ${keyStatus.timeRemaining}`);
-      } else {
-        logger.error('DevConsole', `❌ OddsBlaze Connection Failed: ${connectivity.message}`);
-        if (connectivity.keyStatus) {
-          logger.error('DevConsole', `🔑 Key Status: ${connectivity.keyStatus.message}`);
-        }
-        return;
-      }
-    } catch (error) {
-      logger.error('DevConsole', `❌ OddsBlaze Connectivity Test Failed: ${error}`);
+    if (!rateLimitStatus.canMakeCalls) {
+      logger.warning('DevConsole', '⚠️  SportsGameOdds is rate limited - cannot make API calls');
       return;
     }
-
+    
     // Test each sport
     const sports = ['nfl', 'nba', 'mlb', 'nhl'];
     for (const sport of sports) {
       try {
         logger.info('DevConsole', `Testing ${sport.toUpperCase()}...`);
-        
-        // Test comprehensive odds
-        const odds = await oddsBlazeAPI.getComprehensiveOdds(sport);
-        logger.info('DevConsole', `${sport.toUpperCase()} Odds: ${odds.length}`);
-        
-        // Test consensus odds
-        const consensus = await oddsBlazeAPI.getConsensusOdds(sport);
-        logger.info('DevConsole', `${sport.toUpperCase()} Consensus: ${consensus.length}`);
-        
-        // Test schedule
-        const schedule = await oddsBlazeAPI.getSchedule(sport);
-        logger.success('DevConsole', `${sport.toUpperCase()} Schedule: ${schedule.length}`);
-        
+        const props = await sportsGameOddsAPI.getPlayerProps(sport);
+        logger.success('DevConsole', `${sport.toUpperCase()}: ${props.length} player props`);
       } catch (error) {
         logger.error('DevConsole', `${sport.toUpperCase()} failed: ${error}`);
       }
     }
 
-    const cacheStats = oddsBlazeAPI.getCacheStats();
-    logger.info('DevConsole', `OddsBlaze Cache: ${cacheStats.size} entries`);
+    // Display updated usage stats
+    const finalStats = sportsGameOddsAPI.getUsageStats();
+    logger.info('DevConsole', `📊 Final Usage: ${finalStats.callsToday}/${finalStats.maxDailyCalls} calls today`);
   };
 
-  const testTrioSportsAPI = async () => {
-    logger.info('DevConsole', '🔄 Testing Trio Sports API System...');
-    logger.info('DevConsole', '🏟️  SportsRadar + 💰 OddsBlaze + 🎯 SportsGameOdds');
+  const testDualSportsAPI = async () => {
+    logger.info('DevConsole', '🔄 Testing Dual Sports API System...');
+    logger.info('DevConsole', '🏟️  SportsRadar + 🎯 SportsGameOdds');
     
-    // First check SportsGameOdds rate limit status
-    const rateLimitStatus = sportsGameOddsAPI.getRateLimitStatus();
-    logger.info('DevConsole', `🎯 SportsGameOdds Rate Limit: ${rateLimitStatus.status}`);
-    logger.info('DevConsole', `   ${rateLimitStatus.message}`);
-    
-    if (rateLimitStatus.status === 'RATE_LIMITED') {
-      logger.warning('DevConsole', '⚠️  SportsGameOdds is rate limited - trio system will use cached data');
+    // Test SportsRadar
+    logger.info('DevConsole', 'Testing SportsRadar backend...');
+    try {
+      const srProps = await realSportsbookAPI.getRealPlayerProps('nfl');
+      logger.success('DevConsole', `SportsRadar: ${srProps.length} props`);
+    } catch (error) {
+      logger.error('DevConsole', `SportsRadar failed: ${error}`);
     }
     
-    const sports = ['nfl', 'nba', 'mlb', 'nhl'];
-    for (const sport of sports) {
-      try {
-        logger.info('DevConsole', `Testing trio system for ${sport.toUpperCase()}...`);
-        
-        const testResult = await trioSportsAPI.testTrioSystem(sport);
-        
-        // Log individual API results
-        logger.info('DevConsole', `  🏟️  SportsRadar: ${testResult.sportsRadar.success ? '✅' : '❌'} (${testResult.sportsRadar.props} props)`);
-        if (testResult.sportsRadar.error) {
-          logger.error('DevConsole', `    Error: ${testResult.sportsRadar.error}`);
-        }
-        
-        logger.info('DevConsole', `  💰 OddsBlaze: ${testResult.oddsBlaze.success ? '✅' : '❌'} (${testResult.oddsBlaze.odds} odds)`);
-        if (testResult.oddsBlaze.error) {
-          logger.error('DevConsole', `    Error: ${testResult.oddsBlaze.error}`);
-        }
-        
-        logger.info('DevConsole', `  🎯 SportsGameOdds: ${testResult.sportsGameOdds.success ? '✅' : '❌'} (${testResult.sportsGameOdds.props} props)`);
-        if (testResult.sportsGameOdds.error) {
-          if (testResult.sportsGameOdds.error.includes('Rate limit')) {
-            logger.warning('DevConsole', `    Rate Limited: Using cached data`);
-          } else {
-            logger.error('DevConsole', `    Error: ${testResult.sportsGameOdds.error}`);
-          }
-        }
-        
-        // Log combined results
-        logger.success('DevConsole', `  🎯 TRIO RESULT: ${testResult.combined.success ? '✅' : '❌'} (${testResult.combined.props} total props)`);
-        
-      } catch (error) {
-        logger.error('DevConsole', `${sport.toUpperCase()} trio test failed: ${error}`);
-      }
+    // Test SportsGameOdds
+    logger.info('DevConsole', 'Testing SportsGameOdds API...');
+    try {
+      const sgoProps = await sportsGameOddsAPI.getPlayerProps('nfl');
+      logger.success('DevConsole', `SportsGameOdds: ${sgoProps.length} props`);
+    } catch (error) {
+      logger.error('DevConsole', `SportsGameOdds failed: ${error}`);
     }
-
-    const cacheStats = trioSportsAPI.getCacheStats();
-    logger.info('DevConsole', `Trio System Cache Stats:`);
-    logger.info('DevConsole', `  Trio: ${cacheStats.trioCache.size} entries`);
-    logger.info('DevConsole', `  SportsRadar: ${cacheStats.sportsRadarCache.size} entries`);
-    logger.info('DevConsole', `  OddsBlaze: ${cacheStats.oddsBlazeCache.size} entries`);
-    logger.info('DevConsole', `  SportsGameOdds: ${cacheStats.sportsGameOddsCache.size} entries`);
+    
+    // Test unified system
+    logger.info('DevConsole', 'Testing unified API integration...');
+    try {
+      const unifiedProps = await unifiedSportsAPI.getPlayerProps('nfl');
+      logger.success('DevConsole', `Unified API: ${unifiedProps.length} total props`);
+    } catch (error) {
+      logger.error('DevConsole', `Unified API failed: ${error}`);
+    }
   };
+
+  // REMOVED: Trio System Testing Functions - replaced with dual system
 
   const generatePerformanceReport = () => {
     logger.info('DevConsole', '📊 Generating Performance Report...');
@@ -755,12 +691,12 @@ export const DevConsole: React.FC = () => {
 
                     <Button
                       variant="outline"
-                      onClick={testTheRundownAPI}
+                      onClick={testSportsGameOddsAPI}
                       className="h-auto p-3 flex flex-col items-center gap-2 hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-900/20 dark:hover:border-blue-800 transition-all duration-200"
                     >
                       <Activity className="h-4 w-4 text-blue-600" />
-                      <span className="font-medium text-sm">TheRundown</span>
-                      <span className="text-xs text-muted-foreground">Test TheRundown.io API</span>
+                      <span className="font-medium text-sm">SportsGameOdds</span>
+                      <span className="text-xs text-muted-foreground">Test SportsGameOdds API</span>
                     </Button>
 
                     <Button
@@ -770,28 +706,7 @@ export const DevConsole: React.FC = () => {
                     >
                       <Zap className="h-4 w-4 text-purple-600" />
                       <span className="font-medium text-sm">Dual System</span>
-                      <span className="text-xs text-muted-foreground">Test combined APIs</span>
-                    </Button>
-
-                    {/* NEW: Trio System Buttons */}
-                    <Button
-                      variant="outline"
-                      onClick={testOddsBlazeAPI}
-                      className="h-auto p-3 flex flex-col items-center gap-2 hover:bg-orange-50 hover:border-orange-200 dark:hover:bg-orange-900/20 dark:hover:border-orange-800 transition-all duration-200"
-                    >
-                      <TrendingUp className="h-4 w-4 text-orange-600" />
-                      <span className="font-medium text-sm">OddsBlaze</span>
-                      <span className="text-xs text-muted-foreground">Test OddsBlaze API</span>
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      onClick={testTrioSportsAPI}
-                      className="h-auto p-3 flex flex-col items-center gap-2 hover:bg-emerald-50 hover:border-emerald-200 dark:hover:bg-emerald-900/20 dark:hover:border-emerald-800 transition-all duration-200"
-                    >
-                      <Target className="h-4 w-4 text-emerald-600" />
-                      <span className="font-medium text-sm">Trio System</span>
-                      <span className="text-xs text-muted-foreground">Test all three APIs</span>
+                      <span className="text-xs text-muted-foreground">Test SportsRadar + SportsGameOdds</span>
                     </Button>
 
                     <Button
@@ -1087,37 +1002,41 @@ export const DevConsole: React.FC = () => {
                         Clear Cache
                       </Button>
 
-                      {/* OddsBlaze API Status */}
-                      <div className="p-3 bg-gradient-to-r from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/10 rounded-lg border border-orange-200 dark:border-orange-800 mt-4">
+                      {/* SportsGameOdds API Status */}
+                      <div className="p-3 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/10 rounded-lg border border-blue-200 dark:border-blue-800 mt-4">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="font-semibold text-orange-800 dark:text-orange-200">OddsBlaze API</span>
-                          <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700">
+                          <span className="font-semibold text-blue-800 dark:text-blue-200">SportsGameOdds API</span>
+                          <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700">
                             ACTIVE
                           </Badge>
                         </div>
                         <div className="space-y-2">
-                          <div className="text-xs text-orange-700 dark:text-orange-300">
+                          <div className="text-xs text-blue-700 dark:text-blue-300">
                             <div className="flex justify-between">
-                              <span>Key Status:</span>
+                              <span>Usage Today:</span>
                               <span className="font-mono">
                                 {(() => {
-                                  const status = oddsBlazeAPI.checkAPIKeyStatus();
-                                  return status.isExpired ? '🚨 EXPIRED' : 
-                                         status.isExpiringSoon ? '⚠️  EXPIRING' : 
-                                         '✅ VALID';
+                                  const stats = sportsGameOddsAPI.getUsageStats();
+                                  return `${stats.callsToday}/${stats.maxDailyCalls}`;
                                 })()}
                               </span>
                             </div>
                             <div className="flex justify-between">
-                              <span>Time Remaining:</span>
+                              <span>Usage %:</span>
                               <span className="font-mono">
-                                {oddsBlazeAPI.checkAPIKeyStatus().timeRemaining}
+                                {(() => {
+                                  const stats = sportsGameOddsAPI.getUsageStats();
+                                  return `${stats.usagePercentage}%`;
+                                })()}
                               </span>
                             </div>
                             <div className="flex justify-between">
-                              <span>Expires:</span>
+                              <span>Rate Status:</span>
                               <span className="font-mono text-xs">
-                                Oct 3, 06:55 UTC
+                                {(() => {
+                                  const status = sportsGameOddsAPI.getRateLimitStatus();
+                                  return status.status === 'NORMAL' ? '✅ OK' : '🚨 LIMITED';
+                                })()}
                               </span>
                             </div>
                           </div>
@@ -1127,27 +1046,25 @@ export const DevConsole: React.FC = () => {
                           variant="outline"
                           size="sm"
                           onClick={async () => {
-                            logger.info('DevConsole', 'Checking OddsBlaze API key status...');
-                            const status = oddsBlazeAPI.checkAPIKeyStatus();
-                            logger.info('DevConsole', status.message);
+                            logger.info('DevConsole', 'Checking SportsGameOdds usage stats...');
+                            const stats = sportsGameOddsAPI.getUsageStats();
+                            logger.info('DevConsole', `Usage: ${stats.callsToday}/${stats.maxDailyCalls} calls (${stats.usagePercentage}%)`);
                             
-                            if (status.isExpired) {
-                              logger.error('DevConsole', '🚨 URGENT: Get new key from www.oddsblaze.com');
-                            } else if (status.isExpiringSoon) {
-                              logger.warning('DevConsole', '⚠️  Consider getting new key soon');
-                            }
+                            const rateLimitStatus = sportsGameOddsAPI.getRateLimitStatus();
+                            logger.info('DevConsole', `Rate Status: ${rateLimitStatus.status}`);
+                            logger.info('DevConsole', rateLimitStatus.message);
                           }}
                           className="w-full text-xs mb-2"
                         >
-                          Check Key Status
+                          Check Usage Stats
                         </Button>
 
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            oddsBlazeAPI.clearCache();
-                            logger.info('DevConsole', 'OddsBlaze cache cleared');
+                            sportsGameOddsAPI.clearCache();
+                            logger.info('DevConsole', 'SportsGameOdds cache cleared');
                           }}
                           className="w-full text-xs"
                         >

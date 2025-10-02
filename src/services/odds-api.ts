@@ -9,7 +9,7 @@
  * 
  * To reactivate:
  * 1. Update API key in ODDS_API_CONFIG
- * 2. Uncomment imports in trio-sports-api.ts
+ * 2. Update imports in unified-sports-api.ts if needed
  * 3. Replace OddsBlaze calls with this service
  */
 
@@ -134,7 +134,7 @@ class OddsAPIService {
 
   constructor() {
     logInfo('OddsAPI', 'Initialized The Odds API service');
-    logInfo('OddsAPI', 'Trio system role: Odds, lines, live betting markets');
+    logInfo('OddsAPI', 'Dual system role: Odds, lines, live betting markets (if needed)');
   }
 
   // Make authenticated request to The Odds API
