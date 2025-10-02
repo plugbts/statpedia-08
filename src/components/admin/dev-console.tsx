@@ -17,6 +17,7 @@ import { realSportsbookAPI } from '@/services/real-sportsbook-api';
 import { trioSportsAPI } from '@/services/trio-sports-api';
 import { oddsBlazeAPI } from '@/services/oddsblaze-api';
 // PAUSED: TheRundown and Dual system - replaced with trio system
+// Note: These are referenced in old functions but services are deleted
 // import { theRundownAPIOfficial } from '@/services/therundown-api-official';
 // import { dualSportsAPI } from '@/services/dual-sports-api';
 import { 
@@ -40,7 +41,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   Clock,
-  Database
+  Database,
+  TrendingUp
 } from 'lucide-react';
 
 export const DevConsole: React.FC = () => {
@@ -189,7 +191,6 @@ export const DevConsole: React.FC = () => {
       
       if (nflTest.success) {
         logger.success('DevConsole', `🎉 NFL Test SUCCESS: ${nflTest.props} props generated`);
-        logger.info('DevConsole', `Sample prop: ${nflTest.sampleProp?.player} - ${nflTest.sampleProp?.propType}`);
       } else {
         logger.error('DevConsole', `❌ NFL Test FAILED: ${nflTest.error || 'No props generated'}`);
       }
@@ -214,88 +215,15 @@ export const DevConsole: React.FC = () => {
   };
 
   const testTheRundownAPI = async () => {
-    logger.info('DevConsole', '🏃 Testing TheRundown.io API (Official Implementation)...');
-    
-    // First test connectivity
-    try {
-      const connectivity = await theRundownAPIOfficial.testConnectivity();
-      if (connectivity.success) {
-        logger.success('DevConsole', `✅ TheRundown Connected: ${connectivity.message}`);
-      } else {
-        logger.error('DevConsole', `❌ TheRundown Connection Failed: ${connectivity.message}`);
-        return;
-      }
-    } catch (error) {
-      logger.error('DevConsole', `🚨 TheRundown Connectivity Test Failed: ${error}`);
-      return;
-    }
-    
-    const sports = ['nfl', 'nba', 'mlb', 'nhl'];
-    for (const sport of sports) {
-      try {
-        logger.info('DevConsole', `Testing ${sport.toUpperCase()}...`);
-        
-        // Test V1 events
-        const events = await theRundownAPIOfficial.getEvents(sport);
-        logger.info('DevConsole', `${sport.toUpperCase()} V1 Events: ${events.length}`);
-        
-        // Test V2 events
-        const v2Events = await theRundownAPIOfficial.getV2Events(sport);
-        logger.info('DevConsole', `${sport.toUpperCase()} V2 Events: ${v2Events.length}`);
-        
-        // Test player props
-        const props = await theRundownAPIOfficial.getPlayerProps(sport);
-        logger.success('DevConsole', `${sport.toUpperCase()} Player Props: ${props.length}`);
-        
-      } catch (error) {
-        logger.error('DevConsole', `${sport.toUpperCase()} failed: ${error}`);
-      }
-    }
-
-    const cacheStats = theRundownAPIOfficial.getCacheStats();
-    logger.info('DevConsole', `TheRundown Cache: ${cacheStats.size} entries`);
+    logger.warning('DevConsole', '🏃 TheRundown API has been REPLACED by OddsBlaze in the trio system');
+    logger.info('DevConsole', '💰 Use "Test OddsBlaze" or "Test Trio System" instead');
+    logger.info('DevConsole', '🔄 Trio System: SportsRadar + OddsBlaze + SportsGameOdds');
   };
 
   const testDualSportsAPI = async () => {
-    logger.info('DevConsole', '🔄 Testing Dual Sports API System...');
-    
-    const sports = ['nfl', 'nba', 'mlb', 'nhl'];
-    for (const sport of sports) {
-      try {
-        logger.info('DevConsole', `Testing dual system for ${sport.toUpperCase()}...`);
-        
-        const testResult = await dualSportsAPI.testBothAPIs(sport);
-        
-        // Log individual API results
-        if (testResult.sportsRadar.success) {
-          logger.success('DevConsole', `✅ SportsRadar: ${testResult.sportsRadar.props} props`);
-        } else {
-          logger.error('DevConsole', `❌ SportsRadar: ${testResult.sportsRadar.error || 'Failed'}`);
-        }
-        
-        if (testResult.theRundown.success) {
-          logger.success('DevConsole', `✅ TheRundown: ${testResult.theRundown.props} props`);
-        } else {
-          logger.error('DevConsole', `❌ TheRundown: ${testResult.theRundown.error || 'Failed'}`);
-        }
-        
-        // Log combined result
-        if (testResult.combined.success) {
-          logger.success('DevConsole', `🎯 COMBINED: ${testResult.combined.props} props`);
-        } else {
-          logger.error('DevConsole', `❌ COMBINED: Failed`);
-        }
-        
-      } catch (error) {
-        logger.error('DevConsole', `${sport.toUpperCase()} dual test failed: ${error}`);
-      }
-    }
-
-    const cacheStats = dualSportsAPI.getCacheStats();
-    logger.info('DevConsole', `Dual System Cache Stats:`);
-    logger.info('DevConsole', `  Dual: ${cacheStats.dualCache.size} entries`);
-    logger.info('DevConsole', `  SportsRadar: ${cacheStats.sportsRadarCache.size} entries`);
-    logger.info('DevConsole', `  TheRundown: ${cacheStats.theRundownCache.size} entries`);
+    logger.warning('DevConsole', '🔄 Dual Sports API has been REPLACED by Trio System');
+    logger.info('DevConsole', '🎯 Use "Test Trio System" for comprehensive testing');
+    logger.info('DevConsole', '🏟️  SportsRadar + 💰 OddsBlaze + 🎯 SportsGameOdds');
   };
 
   // NEW: Trio System Testing Functions
@@ -1094,127 +1022,125 @@ export const DevConsole: React.FC = () => {
                   </CardHeader>
                   <CardContent className="p-6">
                     <div className="space-y-4">
-                          <>
+                      {/* SportsRadar Backend */}
+                      <div className="p-3 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/10 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-semibold text-blue-800 dark:text-blue-200">SportsRadar Backend</span>
+                          <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700">
+                            ACTIVE
+                          </Badge>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="text-xs text-blue-600 dark:text-blue-400">
+                            Enhanced SportsRadar API with intelligent caching
+                          </div>
+                          <div className="text-xs text-blue-600 dark:text-blue-400">
+                            Rate limiting and optimized data fetching
+                          </div>
+                          <div className="text-xs text-blue-600 dark:text-blue-400">
+                            Based on official SportsRadar Postman collection
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          logger.info('DevConsole', 'Testing SportsRadar Backend...');
+                          try {
+                            const props = await sportsRadarBackend.getPlayerProps('nfl');
+                            logger.success('DevConsole', `SportsRadar Backend returned ${props.length} props`);
+                            console.log('SportsRadar Backend Props:', props);
+                          } catch (error) {
+                            logger.error('DevConsole', 'SportsRadar Backend failed:', error);
+                            console.error('SportsRadar Backend Error:', error);
+                          }
+                        }}
+                        className="w-full text-xs mb-2"
+                      >
+                        Test SportsRadar Backend
+                      </Button>
 
-                            {/* SportsRadar Backend */}
-                            <div className="p-3 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/10 rounded-lg border border-blue-200 dark:border-blue-800">
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="font-semibold text-blue-800 dark:text-blue-200">SportsRadar Backend</span>
-                                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700">
-                                  ACTIVE
-                                </Badge>
-                              </div>
-                              <div className="space-y-2">
-                                <div className="text-xs text-blue-600 dark:text-blue-400">
-                                  Enhanced SportsRadar API with intelligent caching
-                                </div>
-                                <div className="text-xs text-blue-600 dark:text-blue-400">
-                                  Rate limiting and optimized data fetching
-                                </div>
-                                <div className="text-xs text-blue-600 dark:text-blue-400">
-                                  Based on official SportsRadar Postman collection
-                                </div>
-                              </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          sportsRadarBackend.clearCache();
+                          logger.info('DevConsole', 'SportsRadar Backend cache cleared');
+                        }}
+                        className="w-full text-xs"
+                      >
+                        Clear Cache
+                      </Button>
+
+                      {/* OddsBlaze API Status */}
+                      <div className="p-3 bg-gradient-to-r from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/10 rounded-lg border border-orange-200 dark:border-orange-800 mt-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-semibold text-orange-800 dark:text-orange-200">OddsBlaze API</span>
+                          <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700">
+                            ACTIVE
+                          </Badge>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="text-xs text-orange-700 dark:text-orange-300">
+                            <div className="flex justify-between">
+                              <span>Key Status:</span>
+                              <span className="font-mono">
+                                {(() => {
+                                  const status = oddsBlazeAPI.checkAPIKeyStatus();
+                                  return status.isExpired ? '🚨 EXPIRED' : 
+                                         status.isExpiringSoon ? '⚠️  EXPIRING' : 
+                                         '✅ VALID';
+                                })()}
+                              </span>
                             </div>
+                            <div className="flex justify-between">
+                              <span>Time Remaining:</span>
+                              <span className="font-mono">
+                                {oddsBlazeAPI.checkAPIKeyStatus().timeRemaining}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Expires:</span>
+                              <span className="font-mono text-xs">
+                                Oct 3, 06:55 UTC
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            logger.info('DevConsole', 'Checking OddsBlaze API key status...');
+                            const status = oddsBlazeAPI.checkAPIKeyStatus();
+                            logger.info('DevConsole', status.message);
                             
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={async () => {
-                                logger.info('DevConsole', 'Testing SportsRadar Backend...');
-                                try {
-                                  const props = await sportsRadarBackend.getPlayerProps('nfl');
-                                  logger.success('DevConsole', `SportsRadar Backend returned ${props.length} props`);
-                                  console.log('SportsRadar Backend Props:', props);
-                                } catch (error) {
-                                  logger.error('DevConsole', 'SportsRadar Backend failed:', error);
-                                  console.error('SportsRadar Backend Error:', error);
-                                }
-                              }}
-                              className="w-full text-xs mb-2"
-                            >
-                              Test SportsRadar Backend
-                            </Button>
+                            if (status.isExpired) {
+                              logger.error('DevConsole', '🚨 URGENT: Get new key from www.oddsblaze.com');
+                            } else if (status.isExpiringSoon) {
+                              logger.warning('DevConsole', '⚠️  Consider getting new key soon');
+                            }
+                          }}
+                          className="w-full text-xs mb-2"
+                        >
+                          Check Key Status
+                        </Button>
 
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                sportsRadarBackend.clearCache();
-                                logger.info('DevConsole', 'SportsRadar Backend cache cleared');
-                              }}
-                              className="w-full text-xs"
-                            >
-                              Clear Cache
-                            </Button>
-
-                            {/* OddsBlaze API Status */}
-                            <div className="p-3 bg-gradient-to-r from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/10 rounded-lg border border-orange-200 dark:border-orange-800 mt-4">
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="font-semibold text-orange-800 dark:text-orange-200">OddsBlaze API</span>
-                                <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700">
-                                  ACTIVE
-                                </Badge>
-                              </div>
-                              <div className="space-y-2">
-                                <div className="text-xs text-orange-700 dark:text-orange-300">
-                                  <div className="flex justify-between">
-                                    <span>Key Status:</span>
-                                    <span className="font-mono">
-                                      {(() => {
-                                        const status = oddsBlazeAPI.checkAPIKeyStatus();
-                                        return status.isExpired ? '🚨 EXPIRED' : 
-                                               status.isExpiringSoon ? '⚠️  EXPIRING' : 
-                                               '✅ VALID';
-                                      })()}
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span>Time Remaining:</span>
-                                    <span className="font-mono">
-                                      {oddsBlazeAPI.checkAPIKeyStatus().timeRemaining}
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span>Expires:</span>
-                                    <span className="font-mono text-xs">
-                                      Oct 3, 06:55 UTC
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                            
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={async () => {
-                                logger.info('DevConsole', 'Checking OddsBlaze API key status...');
-                                const status = oddsBlazeAPI.checkAPIKeyStatus();
-                                logger.info('DevConsole', status.message);
-                                
-                                if (status.isExpired) {
-                                  logger.error('DevConsole', '🚨 URGENT: Get new key from www.oddsblaze.com');
-                                } else if (status.isExpiringSoon) {
-                                  logger.warning('DevConsole', '⚠️  Consider getting new key soon');
-                                }
-                              }}
-                              className="w-full text-xs mb-2"
-                            >
-                              Check Key Status
-                            </Button>
-
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                oddsBlazeAPI.clearCache();
-                                logger.info('DevConsole', 'OddsBlaze cache cleared');
-                              }}
-                              className="w-full text-xs"
-                            >
-                              Clear Cache
-                            </Button>
-                          </>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            oddsBlazeAPI.clearCache();
+                            logger.info('DevConsole', 'OddsBlaze cache cleared');
+                          }}
+                          className="w-full text-xs"
+                        >
+                          Clear Cache
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
