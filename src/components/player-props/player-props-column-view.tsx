@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils';
 import { convertEVToText, getEVBadgeClasses } from '@/utils/ev-text-converter';
 import { SportsbookIconsList } from '@/components/ui/sportsbook-icons';
 import { SportsbookOverlay } from '@/components/ui/sportsbook-overlay';
+import { statpediaRatingService, StatpediaRating } from '@/services/statpedia-rating-service';
 
 interface PlayerProp {
   id: string;
@@ -182,6 +183,21 @@ export function PlayerPropsColumnView({
     return 'text-red-400';
   };
 
+  const getRatingColor = (rating: StatpediaRating) => {
+    switch (rating.color) {
+      case 'green': return 'text-green-400 bg-green-500/20 border-green-500/40';
+      case 'yellow': return 'text-yellow-400 bg-yellow-500/20 border-yellow-500/40';
+      case 'red': return 'text-red-400 bg-red-500/20 border-red-500/40';
+      default: return 'text-gray-400 bg-gray-500/20 border-gray-500/40';
+    }
+  };
+
+  const getRatingIcon = (rating: StatpediaRating) => {
+    if (rating.overall >= 80) return <Star className="h-3 w-3" />;
+    if (rating.overall >= 65) return <Target className="h-3 w-3" />;
+    return <BarChart3 className="h-3 w-3" />;
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -261,7 +277,7 @@ export function PlayerPropsColumnView({
         <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">Under</div>
         <div className="col-span-2 text-sm font-semibold text-slate-300 text-center">Sportsbooks</div>
         <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">EV</div>
-        <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">Prediction</div>
+        <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">Rating</div>
         <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">Action</div>
       </div>
 
@@ -310,7 +326,17 @@ export function PlayerPropsColumnView({
                 {/* Prop Type */}
                 <div className="col-span-2">
                   <div className="text-sm font-medium text-slate-200">
-                    {prop.propType}
+                    {prop.propType.length > 15 ? (
+                      <span className="break-words leading-tight">
+                        {prop.propType.split(' ').map((word, index) => (
+                          <span key={index} className="inline-block mr-1">
+                            {word}
+                          </span>
+                        ))}
+                      </span>
+                    ) : (
+                      prop.propType
+                    )}
                   </div>
                   <div className="text-xs text-slate-400">
                     {new Date(prop.gameDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} {new Date(prop.gameTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
@@ -378,22 +404,27 @@ export function PlayerPropsColumnView({
                   )}
                 </div>
 
-                {/* AI Prediction */}
+                {/* Statpedia Rating */}
                 <div className="col-span-1 text-center">
-                  {prop.aiPrediction ? (
-                    <Badge 
-                      className={cn(
-                        "text-xs font-semibold",
-                        prop.aiPrediction.recommended === 'over' 
-                          ? "bg-green-600/20 text-green-300 border-green-500/40"
-                          : "bg-red-600/20 text-red-300 border-red-500/40"
-                      )}
-                    >
-                      {prop.aiPrediction.recommended.toUpperCase()}
-                    </Badge>
-                  ) : (
-                    <span className="text-xs text-slate-500">N/A</span>
-                  )}
+                  {React.useMemo(() => {
+                    const rating = statpediaRatingService.calculateRating(prop);
+                    return (
+                      <div className="flex flex-col items-center space-y-1">
+                        <Badge 
+                          className={cn(
+                            "text-xs font-bold border px-2 py-1",
+                            getRatingColor(rating)
+                          )}
+                        >
+                          {getRatingIcon(rating)}
+                          <span className="ml-1">{rating.overall}</span>
+                        </Badge>
+                        <div className="text-xs text-slate-400 font-semibold">
+                          {rating.grade}
+                        </div>
+                      </div>
+                    );
+                  }, [prop])}
                 </div>
 
                 {/* Action Button */}
