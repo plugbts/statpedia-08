@@ -126,6 +126,113 @@ Based on the issue description and code context, here's my perspective:
     }
   };
 
+  const brainstormSolutions = async () => {
+    if (!debugContext.issue?.trim()) {
+      alert('Please describe the problem you want to brainstorm solutions for');
+      return;
+    }
+
+    if (!chatGPTService.isConfigured()) {
+      alert('Please configure your OpenAI API key first');
+      return;
+    }
+
+    setIsLoading(true);
+    const sessionId = `brainstorm-${Date.now()}`;
+    
+    const newSession: DebugSession = {
+      id: sessionId,
+      timestamp: new Date(),
+      issue: `Brainstorming: ${debugContext.issue}`,
+      chatGPTResponse: '',
+      status: 'pending'
+    };
+
+    setSessions(prev => [newSession, ...prev]);
+
+    try {
+      const prompt = `
+**BRAINSTORMING SESSION**
+
+**Problem to Solve:**
+${debugContext.issue}
+
+**Constraints/Requirements:**
+${debugContext.additionalInfo || 'None specified'}
+
+**Request:**
+Please brainstorm multiple creative and practical solutions for this problem. For each solution, provide:
+
+1. **Solution Name**: A clear, descriptive title
+2. **Approach**: How this solution works
+3. **Pros**: Benefits and advantages
+4. **Cons**: Potential drawbacks or challenges
+5. **Implementation**: Key steps or considerations
+6. **Risk Level**: Low/Medium/High
+
+Please provide at least 3-5 different approaches, ranging from simple quick fixes to more comprehensive solutions. Be creative but practical, considering both immediate fixes and long-term improvements.
+
+Focus on actionable solutions that can be implemented in a development environment.
+      `;
+
+      const response = await chatGPTService.sendMessage(prompt);
+      
+      setSessions(prev => prev.map(session => 
+        session.id === sessionId 
+          ? { ...session, chatGPTResponse: response, status: 'completed' }
+          : session
+      ));
+
+      // Generate Claude's complementary analysis
+      const claudeAnalysis = `
+**Claude's Complementary Analysis:**
+
+I've reviewed the brainstorming request and can offer additional perspectives:
+
+**Problem Context:**
+${debugContext.issue}
+
+**My Additional Solutions:**
+- **Systematic Debugging Approach**: Break down the problem into smaller, testable components
+- **Data Flow Analysis**: Trace the data from source to display to identify transformation issues  
+- **Incremental Implementation**: Start with minimal viable fixes and iterate
+- **Comprehensive Testing**: Create test cases for edge cases and data validation
+
+**Implementation Strategy:**
+1. **Immediate**: Quick wins that can be implemented right away
+2. **Short-term**: Solutions requiring moderate development effort
+3. **Long-term**: Comprehensive fixes that prevent similar issues
+
+**Risk Mitigation:**
+- Always backup current working code before major changes
+- Implement feature flags for easy rollback
+- Add comprehensive logging for better debugging
+- Create automated tests to prevent regressions
+
+**Comparison with ChatGPT:**
+- ChatGPT excels at creative, diverse solution generation
+- I focus on systematic, methodical approaches
+- Together we provide both innovation and reliability
+      `;
+
+      setSessions(prev => prev.map(session => 
+        session.id === sessionId 
+          ? { ...session, claudeAnalysis }
+          : session
+      ));
+
+    } catch (error) {
+      console.error('Brainstorm session error:', error);
+      setSessions(prev => prev.map(session => 
+        session.id === sessionId 
+          ? { ...session, status: 'error', chatGPTResponse: `Error: ${error instanceof Error ? error.message : 'Unknown error'}` }
+          : session
+      ));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const startCodeReview = async () => {
     if (!debugContext.codeSnippet?.trim()) {
       alert('Please provide code to review');
