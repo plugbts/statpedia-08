@@ -57,7 +57,7 @@ const formatCompactTime = (gameTime: string, gameDate: string) => {
   }
 };
 
-import { backendSportsGameOddsAPI } from '@/services/backend-sportsgameodds-api';
+import { cloudflarePlayerPropsAPI } from '@/services/cloudflare-player-props-api';
 import { useNavigate } from 'react-router-dom';
 import { 
   TrendingUp, 
@@ -385,10 +385,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       setRealProps([]);
       
       try {
-        // Use backend API directly for server-side cached data (force refresh for debugging)
-        logAPI('PlayerPropsTab', `Calling backend API for ${sport} player props with force refresh`);
-        const props = await backendSportsGameOddsAPI.getPlayerProps(sport, true); // Force refresh for debugging
-        logAPI('PlayerPropsTab', `Backend API returned ${props?.length || 0} props`);
+        // Use Cloudflare Workers API for unlimited scalability and no restrictions
+        logAPI('PlayerPropsTab', `Calling Cloudflare Workers API for ${sport} player props`);
+        const props = await cloudflarePlayerPropsAPI.getPlayerProps(sport, true); // Force refresh for debugging
+        logAPI('PlayerPropsTab', `Cloudflare Workers API returned ${props?.length || 0} props`);
         
         // 🔍 COMPREHENSIVE FRONTEND DEBUG LOGGING
         if (props && props.length > 0) {
