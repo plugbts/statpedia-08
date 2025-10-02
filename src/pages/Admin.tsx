@@ -18,8 +18,9 @@ import { SecurityDashboard } from "@/components/admin/security-dashboard";
 import { SyncStatus } from "@/components/sync/sync-status";
 import { DevConsole } from "@/components/admin/dev-console";
 import { CrossReferenceAnalysis } from "@/components/admin/cross-reference-analysis";
-import { APIUsageChecker } from "@/components/debug/api-usage-checker";
 import { ServerAPIDashboard } from "@/components/admin/server-api-dashboard";
+import { DualAIDebugger } from "@/components/admin/dual-ai-debugger";
+import { APIUsageChecker } from "@/components/debug/api-usage-checker";
 import { useUser } from "@/contexts/user-context";
 
 export default function Admin() {
@@ -157,6 +158,12 @@ export default function Admin() {
                   <span className="hidden sm:inline">Server API</span>
                 </TabsTrigger>
               )}
+              {userRole === 'owner' && (
+                <TabsTrigger value="dual-ai" className="flex items-center gap-1 px-2 py-1 text-xs">
+                  <MessageSquare className="h-3 w-3" />
+                  <span className="hidden sm:inline">Dual AI</span>
+                </TabsTrigger>
+              )}
             </div>
           </TabsList>
 
@@ -225,6 +232,12 @@ export default function Admin() {
             {userRole === 'owner' && (
               <TabsContent value="server-api" className="space-y-2 mt-2">
                 <ServerAPIDashboard />
+              </TabsContent>
+            )}
+
+            {userRole === 'owner' && (
+              <TabsContent value="dual-ai" className="space-y-2 mt-2">
+                <DualAIDebugger />
               </TabsContent>
             )}
         </Tabs>
