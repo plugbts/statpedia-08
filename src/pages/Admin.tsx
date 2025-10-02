@@ -150,6 +150,12 @@ export default function Admin() {
                   <span className="hidden sm:inline">API Usage</span>
                 </TabsTrigger>
               )}
+              {userRole === 'owner' && (
+                <TabsTrigger value="server-api" className="flex items-center gap-1 px-2 py-1 text-xs">
+                  <Activity className="h-3 w-3" />
+                  <span className="hidden sm:inline">Server API</span>
+                </TabsTrigger>
+              )}
             </div>
           </TabsList>
 
@@ -212,6 +218,18 @@ export default function Admin() {
           {userRole === 'owner' && (
             <TabsContent value="api-usage" className="space-y-2 mt-2">
               <APIUsageChecker />
+            </TabsContent>
+          )}
+
+          {userRole === 'owner' && (
+            <TabsContent value="server-api" className="space-y-2 mt-2">
+              <div className="p-4">
+                <h3 className="text-lg font-semibold mb-4">Server-Side API Management</h3>
+                <p className="text-muted-foreground">
+                  Server-side API management dashboard will be available after deploying the Supabase functions.
+                  This will provide centralized API usage tracking, caching, and rate limiting.
+                </p>
+              </div>
             </TabsContent>
           )}
         </Tabs>

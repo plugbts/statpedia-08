@@ -236,13 +236,13 @@ class ConsistentPropsService {
   // Fetch real alternative line odds from SportGameOdds API
   private async fetchRealAlternativeLineOdds(prop: ConsistentPlayerProp, newLine: number): Promise<SportsbookOdds | null> {
     try {
-      // Import SportGameOdds API service
-      const { sportsGameOddsAPI } = await import('./sportsgameodds-api');
+      // Import backend API service (server-side SportGameOdds integration)
+      const { backendSportsGameOddsAPI } = await import('./backend-sportsgameodds-api');
       
       logAPI('ConsistentPropsService', `Fetching alternative line ${newLine} for ${prop.playerName} ${prop.propType}`);
       
       // Get all player props for this sport to find alternative lines
-      const allProps = await sportsGameOddsAPI.getPlayerProps(prop.sport);
+      const allProps = await backendSportsGameOddsAPI.getPlayerProps(prop.sport);
       
       // Find props for the same player and prop type with the specific line
       const matchingProps = allProps.filter(p => 
@@ -280,12 +280,12 @@ class ConsistentPropsService {
   // Interpolate odds from nearby available lines when exact line isn't available
   private async interpolateFromNearbyLines(prop: ConsistentPlayerProp, newLine: number): Promise<SportsbookOdds | null> {
     try {
-      const { sportsGameOddsAPI } = await import('./sportsgameodds-api');
+      const { backendSportsGameOddsAPI } = await import('./backend-sportsgameodds-api');
       
       logAPI('ConsistentPropsService', `Interpolating odds for line ${newLine} from nearby lines`);
       
       // Get all available lines for this player/prop combination
-      const allProps = await sportsGameOddsAPI.getPlayerProps(prop.sport);
+      const allProps = await backendSportsGameOddsAPI.getPlayerProps(prop.sport);
       
       const samePlayerProps = allProps.filter(p => 
         p.playerName === prop.playerName &&
@@ -523,11 +523,11 @@ class ConsistentPropsService {
     try {
       logAPI('ConsistentPropsService', `Loading consistent props for ${sport}`);
       
-      // Get base props from SportGameOdds API (exact sportsbook data)
-      const { sportsGameOddsAPI } = await import('./sportsgameodds-api');
-      const baseProps = await sportsGameOddsAPI.getPlayerProps(sport);
-      logAPI('ConsistentPropsService', `Retrieved ${baseProps.length} exact sportsbook props from SportGameOdds API`);
-      console.log('🎯 ConsistentPropsService received exact sportsbook props:', baseProps);
+      // Get base props from backend API (server-side SportGameOdds integration)
+      const { backendSportsGameOddsAPI } = await import('./backend-sportsgameodds-api');
+      const baseProps = await backendSportsGameOddsAPI.getPlayerProps(sport);
+      logAPI('ConsistentPropsService', `Retrieved ${baseProps.length} exact sportsbook props from backend API`);
+      console.log('🎯 ConsistentPropsService received exact sportsbook props from backend:', baseProps);
       
       // Convert to consistent props with enhanced data
       const consistentProps: ConsistentPlayerProp[] = [];
