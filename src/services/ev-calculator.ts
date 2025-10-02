@@ -177,12 +177,13 @@ class EVCalculatorService {
     let adjustment = 0;
     
     factors.forEach(factor => {
-      const factorAdjustment = (factor.value - 0.5) * factor.weight * 0.2; // Max 20% adjustment per factor
+      const factorAdjustment = (factor.value - 0.5) * factor.weight * 0.05; // Max 5% adjustment per factor (reduced from 20%)
       adjustment += factorAdjustment;
     });
 
     const adjustedProbability = baseProbability + adjustment;
-    return Math.max(0.1, Math.min(0.9, adjustedProbability)); // Clamp between 10% and 90%
+    // Much more conservative probability range - closer to implied probability
+    return Math.max(0.25, Math.min(0.75, adjustedProbability)); // Clamp between 25% and 75%
   }
 
   // Calculate star rating based on EV and factors
