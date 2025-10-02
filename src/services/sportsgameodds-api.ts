@@ -133,7 +133,7 @@ class SportsGameOddsAPI {
     this.cache.clear();
     this.playerPropsCache.clear();
     this.resetBackoff();
-    logInfo('SportsGameOddsAPI', 'Cleared all caches and reset backoff for new API key');
+    logInfo('SportsGameOddsAPI', 'Cleared all caches and reset backoff for odds fixes');
   }
 
   // Track API usage for monitoring
@@ -707,15 +707,12 @@ class SportsGameOddsAPI {
           // Process each bookmaker's odds for this player prop using v2 byBookmaker structure
           const bookmakerProps = this.extractPlayerPropsFromBookmakers(odd, oddId, sport, homeTeam, awayTeam, gameId, gameTime, event);
           
-          // If we got bookmaker-specific props, use those
+          // Only use bookmaker-specific props - NO CONSENSUS ODDS
           if (bookmakerProps.length > 0) {
             playerProps.push(...bookmakerProps);
+            logAPI('SportsGameOddsAPI', `Added ${bookmakerProps.length} bookmaker props for ${oddId}`);
           } else {
-            // Fallback to consensus prop if no bookmaker data
-            const consensusProp = this.createConsensusPlayerProp(odd, oddId, sport, homeTeam, awayTeam, gameId, gameTime, event);
-            if (consensusProp) {
-              playerProps.push(consensusProp);
-            }
+            logAPI('SportsGameOddsAPI', `No bookmaker props found for ${oddId} - skipping consensus`);
           }
         }
       } catch (error) {
@@ -731,43 +728,60 @@ class SportsGameOddsAPI {
   private extractPlayerPropsFromBookmakers(odd: any, oddId: string, sport: string, homeTeam: string, awayTeam: string, gameId: string, gameTime: string, event: any): SportsGameOddsPlayerProp[] {
     const playerProps: SportsGameOddsPlayerProp[] = [];
     
-    // Check if we have byBookmaker data (v2 structure)
-    if (!odd.byBookmaker) {
-      logAPI('SportsGameOddsAPI', `No byBookmaker data for oddID ${oddId}, using consensus odds from docs`);
-      // Based on docs: https://sportsgameodds.com/docs/guides/handling-odds
-      // Use closeOverUnder, closeSpread, closeOdds for consensus odds
-      const consensusProp = this.createConsensusPlayerProp(odd, oddId, sport, homeTeam, awayTeam, gameId, gameTime, event);
-      if (consensusProp) {
-        playerProps.push(consensusProp);
-        logAPI('SportsGameOddsAPI', `Successfully created consensus prop for ${oddId}`);
-      } else {
-        logAPI('SportsGameOddsAPI', `Failed to create consensus prop for ${oddId}`);
-      }
+    // Only process over/under props that have both over and under sides
+    const oddIdParts = oddId.split('-');
+    if (oddIdParts.length < 5) return playerProps;
+    
+    const [statID, playerID, periodID, betTypeID, sideID] = oddIdParts;
+    
+    // Only process 'over' side - we'll find the corresponding 'under' side
+    if (sideID !== 'over') {
+      return playerProps; // Skip 'under' side, we'll process it with the 'over' side
+    }
+    
+    // Find the corresponding under odd
+    const underOddId = oddId.replace('-over', '-under');
+    const underOdd = event.odds[underOddId];
+    
+    if (!underOdd) {
+      logWarning('SportsGameOddsAPI', `No corresponding under odd found for ${oddId}`);
       return playerProps;
     }
+    
+    // Check if we have byBookmaker data (v2 structure)
+    if (!odd.byBookmaker) {
+      logAPI('SportsGameOddsAPI', `No byBookmaker data for oddID ${oddId}, skipping consensus odds`);
+      return playerProps; // Skip consensus odds completely
+    }
 
-    // Process each bookmaker's odds
-    for (const [bookmakerId, bookmakerOdds] of Object.entries(odd.byBookmaker)) {
+    // Process each bookmaker's odds - combine over and under into single prop
+    for (const [bookmakerId, overBookmakerOdds] of Object.entries(odd.byBookmaker)) {
       try {
-        const bookmakerData = bookmakerOdds as any;
+        const overData = overBookmakerOdds as any;
         
-        logAPI('SportsGameOddsAPI', `Processing bookmaker ${bookmakerId} for oddID ${oddId}:`, {
-          available: bookmakerData.available,
-          odds: bookmakerData.odds,
-          line: bookmakerData.line,
-          overUnder: bookmakerData.overUnder,
-          spread: bookmakerData.spread,
-          hasAltLines: !!bookmakerData.altLines,
-          altLinesCount: bookmakerData.altLines ? bookmakerData.altLines.length : 0
-        });
-
         // Only process available odds (open for wagering)
-        if (!bookmakerData.available) {
-          logAPI('SportsGameOddsAPI', `Skipping ${bookmakerId} - odds not available for wagering`);
+        if (!overData.available) {
           continue;
         }
+        
+        // Get corresponding under data from the same bookmaker
+        const underData = underOdd.byBookmaker?.[bookmakerId];
+        if (!underData || !underData.available) {
+          continue; // Skip if under data not available for this bookmaker
+        }
+        
+        logAPI('SportsGameOddsAPI', `Processing ${bookmakerId} for ${playerID}:`, {
+          overOdds: overData.odds,
+          underOdds: underData.odds,
+          overLine: overData.overUnder || overData.line,
+          underLine: underData.overUnder || underData.line
+        });
 
-        const playerProp = this.convertBookmakerOddsToPlayerProp(bookmakerData, bookmakerId, oddId, sport, homeTeam, awayTeam, gameId, gameTime, event, odd);
+        const playerProp = this.createBookmakerPlayerProp(
+          overData, underData, bookmakerId, oddId, sport, 
+          homeTeam, awayTeam, gameId, gameTime, event, odd
+        );
+        
         if (playerProp) {
           playerProps.push(playerProp);
         }
@@ -853,7 +867,109 @@ class SportsGameOddsAPI {
     }
   }
 
-  // Convert bookmaker-specific odds to player prop using v2 byBookmaker structure
+  // Create a player prop from bookmaker over and under data
+  private createBookmakerPlayerProp(
+    overData: any, 
+    underData: any, 
+    bookmakerId: string, 
+    oddId: string, 
+    sport: string, 
+    homeTeam: string, 
+    awayTeam: string, 
+    gameId: string, 
+    gameTime: string, 
+    event: any, 
+    odd: any
+  ): SportsGameOddsPlayerProp | null {
+    try {
+      // Parse oddID to extract player information
+      const oddIdParts = oddId.split('-');
+      if (oddIdParts.length < 5) {
+        logWarning('SportsGameOddsAPI', `Invalid oddID format: ${oddId}`);
+        return null;
+      }
+
+      const [statID, playerID, periodID, betTypeID, sideID] = oddIdParts;
+      
+      // Extract player name and team from playerID or event data
+      const playerName = this.extractPlayerNameFromPlayerID(playerID);
+      const team = this.extractTeamFromPlayerID(playerID, homeTeam, awayTeam, event);
+      
+      // Extract prop type from statID
+      const propType = this.extractPropTypeFromStatID(statID);
+      
+      // Use the line from over data (should be same for both over/under)
+      const line = overData.overUnder || overData.spread || overData.line || 0;
+      
+      // Extract actual odds from bookmaker data - NO CONSENSUS, PURE SPORTSBOOK ODDS
+      const rawOverOdds = overData.odds;
+      const rawUnderOdds = underData.odds;
+      
+      // Parse odds - handle both string and number formats
+      let overOdds = -110;
+      let underOdds = -110;
+      
+      if (rawOverOdds) {
+        if (typeof rawOverOdds === 'string') {
+          // Handle string odds like "+100", "-110", etc.
+          const cleanOverOdds = rawOverOdds.replace(/[^-+0-9]/g, '');
+          overOdds = parseInt(cleanOverOdds) || -110;
+        } else {
+          overOdds = this.normalizeOddsToAmerican(rawOverOdds);
+        }
+      }
+      
+      if (rawUnderOdds) {
+        if (typeof rawUnderOdds === 'string') {
+          // Handle string odds like "+100", "-110", etc.
+          const cleanUnderOdds = rawUnderOdds.replace(/[^-+0-9]/g, '');
+          underOdds = parseInt(cleanUnderOdds) || -110;
+        } else {
+          underOdds = this.normalizeOddsToAmerican(rawUnderOdds);
+        }
+      }
+
+      logAPI('SportsGameOddsAPI', `Creating ${bookmakerId} prop: ${playerName} ${propType} - Line: ${line} - Over: ${overOdds} - Under: ${underOdds}`);
+
+      // Validate the data before returning
+      if (isNaN(line) || isNaN(overOdds) || isNaN(underOdds)) {
+        logWarning('SportsGameOddsAPI', `Invalid numeric data for ${playerName}: line=${line}, overOdds=${overOdds}, underOdds=${underOdds}`);
+        return null;
+      }
+
+      return {
+        id: `${bookmakerId}-${gameId}-${oddId}`,
+        playerId: playerID,
+        playerName: playerName,
+        team: team,
+        sport: sport.toUpperCase(),
+        propType: propType,
+        line: line,
+        overOdds: overOdds,
+        underOdds: underOdds,
+        sportsbook: this.mapBookmakerIdToName(bookmakerId),
+        sportsbookKey: bookmakerId,
+        lastUpdate: new Date().toISOString(),
+        gameId: gameId,
+        gameTime: gameTime,
+        homeTeam: homeTeam,
+        awayTeam: awayTeam,
+        confidence: 0.9, // Higher confidence for bookmaker-specific odds
+        market: propType,
+        outcome: 'pending',
+        betType: betTypeID,
+        side: 'both', // Indicates this prop has both over and under
+        period: periodID,
+        statEntity: statID
+      };
+
+    } catch (error) {
+      logError('SportsGameOddsAPI', `Failed to create bookmaker player prop:`, error);
+      return null;
+    }
+  }
+
+  // Convert bookmaker-specific odds to player prop using v2 byBookmaker structure (DEPRECATED)
   private convertBookmakerOddsToPlayerProp(bookmakerData: any, bookmakerId: string, oddId: string, sport: string, homeTeam: string, awayTeam: string, gameId: string, gameTime: string, event: any, odd: any): SportsGameOddsPlayerProp | null {
     try {
       // Parse oddID to extract player information
