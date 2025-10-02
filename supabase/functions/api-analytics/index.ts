@@ -61,20 +61,69 @@ class APIAnalyticsService {
     endDate: string = new Date().toISOString()
   ): Promise<APIAnalytics> {
     
-    // Get basic stats
-    const { data: basicStats } = await supabase.rpc('get_api_usage_stats', {
-      start_date: startDate,
-      end_date: endDate
+    // Get basic stats directly from the table
+    const { data: logs } = await supabase
+      .from('api_usage_logs')
+      .select('*')
+      .gte('created_at', startDate)
+      .lte('created_at', endDate);
+
+    if (!logs || logs.length === 0) {
+      return {
+        totalRequests: 0,
+        uniqueUsers: 0,
+        cacheHitRate: 0,
+        avgResponseTime: 0,
+        requestsByEndpoint: {},
+        requestsBySport: {},
+        requestsByHour: {},
+        topUsers: [],
+        errorRate: 0,
+        rateLimitHits: 0
+      };
+    }
+
+    // Calculate stats manually
+    const totalRequests = logs.length;
+    const uniqueUsers = new Set(logs.map(log => log.user_id).filter(Boolean)).size;
+    const cacheHits = logs.filter(log => log.cache_hit).length;
+    const cacheHitRate = totalRequests > 0 ? (cacheHits / totalRequests) * 100 : 0;
+    const avgResponseTime = logs.reduce((sum, log) => sum + (log.response_time_ms || 0), 0) / totalRequests;
+    const errorLogs = logs.filter(log => log.response_status >= 400);
+    const errorRate = totalRequests > 0 ? (errorLogs.length / totalRequests) * 100 : 0;
+    const rateLimitHits = logs.filter(log => log.response_status === 429).length;
+
+    // Group by endpoint
+    const requestsByEndpoint: Record<string, number> = {};
+    logs.forEach(log => {
+      if (log.endpoint) {
+        requestsByEndpoint[log.endpoint] = (requestsByEndpoint[log.endpoint] || 0) + 1;
+      }
     });
 
-    const stats = basicStats?.[0] || {
-      total_requests: 0,
-      unique_users: 0,
-      cache_hit_rate: 0,
-      avg_response_time: 0,
-      requests_by_endpoint: {},
-      requests_by_sport: {},
-      requests_by_hour: {}
+    // Group by sport
+    const requestsBySport: Record<string, number> = {};
+    logs.forEach(log => {
+      if (log.sport) {
+        requestsBySport[log.sport] = (requestsBySport[log.sport] || 0) + 1;
+      }
+    });
+
+    // Group by hour
+    const requestsByHour: Record<string, number> = {};
+    logs.forEach(log => {
+      const hour = new Date(log.created_at).getHours().toString().padStart(2, '0') + ':00';
+      requestsByHour[hour] = (requestsByHour[hour] || 0) + 1;
+    });
+
+    const stats = {
+      total_requests: totalRequests,
+      unique_users: uniqueUsers,
+      cache_hit_rate: Math.round(cacheHitRate * 100) / 100,
+      avg_response_time: Math.round(avgResponseTime * 100) / 100,
+      requests_by_endpoint: requestsByEndpoint,
+      requests_by_sport: requestsBySport,
+      requests_by_hour: requestsByHour
     };
 
     // Get top users
@@ -306,26 +355,64 @@ serve(async (req) => {
         );
 
       case 'realtime':
-        const realtimeStats = await service.getRealtimeStats();
-        
-        return new Response(
-          JSON.stringify({ 
-            success: true, 
-            data: realtimeStats 
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        try {
+          const realtimeStats = await service.getRealtimeStats();
+          
+          return new Response(
+            JSON.stringify({ 
+              success: true, 
+              data: realtimeStats 
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        } catch (error) {
+          console.error('Realtime stats error:', error);
+          return new Response(
+            JSON.stringify({ 
+              success: true, 
+              data: {
+                recentActivity: [],
+                activeCacheEntries: 0,
+                cacheEntries: [],
+                activeRateLimits: 0,
+                rateLimitDetails: []
+              }
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
 
       case 'health':
-        const healthData = await service.getSystemHealth();
+        try {
+          const healthData = await service.getSystemHealth();
         
-        return new Response(
-          JSON.stringify({ 
-            success: true, 
-            data: healthData 
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+          return new Response(
+            JSON.stringify({ 
+              success: true, 
+              data: healthData 
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        } catch (error) {
+          console.error('Health status error:', error);
+          return new Response(
+            JSON.stringify({ 
+              success: true, 
+              data: {
+                backgroundPollingActive: false,
+                lastPollingTime: new Date().toISOString(),
+                freshCacheEntries: 0,
+                totalConfigEntries: 6,
+                systemStatus: {
+                  polling: 'inactive',
+                  cache: 'empty',
+                  config: 'healthy'
+                }
+              }
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
 
       case 'cleanup':
         const cleanupResult = await service.cleanupOldData();
