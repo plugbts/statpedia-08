@@ -28,7 +28,7 @@
     },
     {
       "key": "dev_server_url",
-      "value": "http://localhost:8080",
+      "value": "http://localhost:8084",
       "type": "string"
     }
   ],
@@ -318,7 +318,7 @@
               "host": [
                 "localhost"
               ],
-              "port": "8080",
+              "port": "8084",
               "path": [
                 "api",
                 "player-props"
@@ -349,7 +349,7 @@
               "host": [
                 "localhost"
               ],
-              "port": "8080",
+              "port": "8084",
               "path": [
                 "api",
                 "player-props"
@@ -380,7 +380,7 @@
               "host": [
                 "localhost"
               ],
-              "port": "8080",
+              "port": "8084",
               "path": [
                 "api",
                 "sportsradar",

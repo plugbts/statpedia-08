@@ -44,7 +44,7 @@ function generatePostmanCollection() {
       },
       {
         key: "dev_server_url",
-        value: "http://localhost:8080",
+        value: "http://localhost:8084",
         type: "string"
       }
     ],
@@ -248,7 +248,7 @@ function generatePostmanCollection() {
                 raw: "{{dev_server_url}}/api/player-props?sport=nfl",
                 protocol: "http",
                 host: ["localhost"],
-                port: "8080",
+                port: "8084",
                 path: ["api", "player-props"],
                 query: [
                   {
@@ -274,7 +274,7 @@ function generatePostmanCollection() {
                 raw: "{{dev_server_url}}/api/player-props?sport=nba",
                 protocol: "http",
                 host: ["localhost"],
-                port: "8080",
+                port: "8084",
                 path: ["api", "player-props"],
                 query: [
                   {
@@ -300,7 +300,7 @@ function generatePostmanCollection() {
                 raw: "{{dev_server_url}}/api/sportsradar/test",
                 protocol: "http",
                 host: ["localhost"],
-                port: "8080",
+                port: "8084",
                 path: ["api", "sportsradar", "test"]
               }
             }
