@@ -142,6 +142,7 @@ class StatpediaAIService {
 
   async askQuestion(question: string, context?: any): Promise<AIResponse> {
     console.log(`🤖 Statpedia AI analyzing question: "${question}"`);
+    console.log(`📊 Context received:`, context);
     
     const normalizedQuestion = question.toLowerCase();
     const questionType = this.classifyQuestion(normalizedQuestion);
@@ -198,11 +199,11 @@ class StatpediaAIService {
   }
 
   private async analyzePlayerPerformance(question: string, context?: any): Promise<AIResponse> {
-    const playerName = this.extractPlayerName(question);
+    const playerName = this.extractPlayerName(question, context);
     const player = this.playerDatabase.get(playerName);
     
     if (!player) {
-      return this.createNotFoundResponse(playerName);
+      return this.createNotFoundResponse(playerName, context);
     }
 
     const reasoning = [
@@ -297,12 +298,12 @@ class StatpediaAIService {
   }
 
   private async recommendPropBets(question: string, context?: any): Promise<AIResponse> {
-    const playerName = this.extractPlayerName(question);
+    const playerName = this.extractPlayerName(question, context);
     const propType = this.extractPropType(question);
     const player = this.playerDatabase.get(playerName);
 
     if (!player) {
-      return this.createNotFoundResponse(playerName);
+      return this.createNotFoundResponse(playerName, context);
     }
 
     const recommendation = this.generatePropRecommendation(player, propType, context);
@@ -356,10 +357,97 @@ class StatpediaAIService {
     }
   }
 
-  private extractPlayerName(question: string): string {
-    // Simple name extraction - in production, use NLP
-    const names = ['lebron james', 'luka doncic', 'stephen curry', 'kevin durant', 'giannis antetokounmpo'];
-    return names.find(name => question.toLowerCase().includes(name)) || '';
+  private extractPlayerName(question: string, context?: any): string {
+    console.log(`🔍 Extracting player name from: "${question}"`);
+    console.log(`📊 Context for extraction:`, context);
+    
+    // First, check if we have context with current player information
+    if (context?.playerProp?.playerName) {
+      console.log(`✅ Using context player: ${context.playerProp.playerName}`);
+      return context.playerProp.playerName.toLowerCase();
+    }
+    
+    if (context?.currentPlayer) {
+      console.log(`✅ Using current player: ${context.currentPlayer}`);
+      return context.currentPlayer.toLowerCase();
+    }
+
+    // Expanded list of common NBA/NFL players for better recognition
+    const playerNames = [
+      // NBA Stars
+      'lebron james', 'luka doncic', 'stephen curry', 'kevin durant', 'giannis antetokounmpo',
+      'jayson tatum', 'joel embiid', 'nikola jokic', 'jimmy butler', 'kawhi leonard',
+      'paul george', 'damian lillard', 'russell westbrook', 'chris paul', 'james harden',
+      'kyrie irving', 'anthony davis', 'klay thompson', 'draymond green', 'pascal siakam',
+      'demar derozan', 'zach lavine', 'trae young', 'ja morant', 'donovan mitchell',
+      'rudy gobert', 'karl-anthony towns', 'anthony edwards', 'lamelo ball', 'zion williamson',
+      'brandon ingram', 'cj mccollum', 'fred vanvleet', 'tyler herro', 'bam adebayo',
+      
+      // NFL Stars
+      'tom brady', 'patrick mahomes', 'josh allen', 'aaron rodgers', 'lamar jackson',
+      'russell wilson', 'kyler murray', 'dak prescott', 'joe burrow', 'justin herbert',
+      'tua tagovailoa', 'mac jones', 'trevor lawrence', 'zach wilson', 'trey lance',
+      'cooper kupp', 'davante adams', 'tyreek hill', 'stefon diggs', 'deandre hopkins',
+      'calvin ridley', 'mike evans', 'chris godwin', 'keenan allen', 'diontae johnson',
+      'derrick henry', 'jonathan taylor', 'austin ekeler', 'alvin kamara', 'dalvin cook',
+      'christian mccaffrey', 'ezekiel elliott', 'saquon barkley', 'nick chubb', 'joe mixon',
+      'travis kelce', 'george kittle', 'mark andrews', 'darren waller', 'kyle pitts'
+    ];
+    
+    // Check for exact matches first
+    const exactMatch = playerNames.find(name => {
+      const normalized = question.toLowerCase();
+      return normalized.includes(name);
+    });
+    
+    if (exactMatch) {
+      console.log(`✅ Found exact match: ${exactMatch}`);
+      return exactMatch;
+    }
+    
+    // Check for partial matches (first name, last name, or nickname)
+    const partialMatches = playerNames.filter(name => {
+      const nameParts = name.split(' ');
+      const questionLower = question.toLowerCase();
+      
+      // Check if question contains any part of the player's name
+      return nameParts.some(part => 
+        part.length > 2 && questionLower.includes(part)
+      );
+    });
+    
+    if (partialMatches.length > 0) {
+      console.log(`✅ Found partial match: ${partialMatches[0]}`);
+      return partialMatches[0];
+    }
+    
+    // Try to extract names using common patterns
+    const namePatterns = [
+      /(?:how (?:does|is)|what about|tell me about|analyze)\s+([a-z]+\s+[a-z]+)/i,
+      /([a-z]+\s+[a-z]+)(?:'s|\s+(?:performance|stats|playing|doing))/i,
+      /(?:player|about)\s+([a-z]+\s+[a-z]+)/i
+    ];
+    
+    for (const pattern of namePatterns) {
+      const match = question.match(pattern);
+      if (match && match[1]) {
+        const extractedName = match[1].toLowerCase().trim();
+        console.log(`🎯 Pattern extracted: ${extractedName}`);
+        
+        // Check if extracted name matches any known player
+        const knownPlayer = playerNames.find(name => 
+          name.includes(extractedName) || extractedName.includes(name)
+        );
+        
+        if (knownPlayer) {
+          console.log(`✅ Matched to known player: ${knownPlayer}`);
+          return knownPlayer;
+        }
+      }
+    }
+    
+    console.log(`❌ No player name found in question`);
+    return '';
   }
 
   private extractPlayerNames(question: string): string[] {
@@ -381,21 +469,77 @@ class StatpediaAIService {
     return 'points';
   }
 
-  private createNotFoundResponse(playerName: string): AIResponse {
+  private createNotFoundResponse(playerName: string, context?: any): AIResponse {
+    // If we have context with current player info, provide a more helpful response
+    if (context?.playerProp?.playerName) {
+      const contextPlayer = context.playerProp.playerName;
+      const propType = context.playerProp.propType || 'performance';
+      const team = context.playerProp.teamAbbr || context.playerProp.team || '';
+      const opponent = context.playerProp.opponentAbbr || context.playerProp.opponent || '';
+      
+      return {
+        answer: `I can see you're looking at ${contextPlayer}'s ${propType} prop${team ? ` for ${team}` : ''}${opponent ? ` vs ${opponent}` : ''}. While I don't have comprehensive historical data for ${contextPlayer} in my database yet, I can help you analyze the current prop based on the available information. What specific aspect would you like me to focus on - the line value, odds analysis, or matchup factors?`,
+        confidence: 60,
+        reasoning: [
+          `Current player context: ${contextPlayer}`,
+          `Prop type: ${propType}`,
+          `Can provide analysis based on current prop data`
+        ],
+        relatedStats: [],
+        sources: ['Current Prop Data', 'Statpedia Analysis'],
+        followUpQuestions: [
+          `Should I bet the over or under on ${contextPlayer}'s ${propType}?`,
+          `How does this line compare to typical values?`,
+          `What factors should I consider for this matchup?`
+        ]
+      };
+    }
+    
+    // Default response when no context is available
+    const displayName = playerName || 'that player';
     return {
-      answer: `I don't have enough data on ${playerName} to provide a detailed analysis. Could you try asking about a current NBA player?`,
+      answer: `I don't have enough data on ${displayName} to provide a detailed analysis. Could you try asking about a current NBA or NFL player? I have information on players like LeBron James, Luka Dončić, Stephen Curry, Patrick Mahomes, and many others.`,
       confidence: 20,
-      reasoning: [`Player "${playerName}" not found in database`],
+      reasoning: [`Player "${displayName}" not found in database`],
       relatedStats: [],
       sources: [],
       followUpQuestions: [
-        'Which NBA players would you like to know about?',
-        'Are you looking for current season stats?'
+        'Which NBA or NFL players would you like to know about?',
+        'Are you looking for current season stats?',
+        'Would you like me to analyze the current prop you\'re viewing?'
       ]
     };
   }
 
   private async generateGenericResponse(question: string, context?: any): Promise<AIResponse> {
+    // If we have context about a current player prop, provide contextual help
+    if (context?.playerProp?.playerName) {
+      const player = context.playerProp.playerName;
+      const propType = context.playerProp.propType || 'prop';
+      const line = context.playerProp.line;
+      const team = context.playerProp.teamAbbr || context.playerProp.team;
+      const opponent = context.playerProp.opponentAbbr || context.playerProp.opponent;
+      
+      return {
+        answer: `I can help you analyze ${player}'s ${propType} prop! I see the line is ${line}${team && opponent ? ` for ${team} vs ${opponent}` : ''}. I can provide insights on player performance, matchup analysis, betting recommendations, and injury impacts. What specific aspect would you like me to focus on?`,
+        confidence: 75,
+        reasoning: [
+          `Current context: ${player} ${propType} prop`,
+          `Line: ${line}`,
+          `Can provide contextual analysis`
+        ],
+        relatedStats: [],
+        sources: ['Current Prop Data', 'Statpedia AI Assistant'],
+        followUpQuestions: [
+          `Should I bet the over or under on ${player}'s ${propType}?`,
+          `How does ${player} perform in similar matchups?`,
+          `What's the value in this ${propType} line?`,
+          `Are there any injury concerns for this game?`
+        ]
+      };
+    }
+    
+    // Default generic response
     return {
       answer: "I can help you with detailed sports analysis! Try asking me about player performance, team matchups, injury impacts, or prop bet recommendations. For example: 'How well does LeBron play when AD is out?' or 'Should I bet the over on Luka's points tonight?'",
       confidence: 60,
