@@ -1,0 +1,72 @@
+{
+  "id": "statpedia-dev-environment",
+  "name": "Statpedia Development",
+  "values": [
+    {
+      "key": "base_url",
+      "value": "https://api.sportradar.com",
+      "enabled": true,
+      "type": "default"
+    },
+    {
+      "key": "sportsradar_api_key",
+      "value": "onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D",
+      "enabled": true,
+      "type": "secret"
+    },
+    {
+      "key": "current_year",
+      "value": "2025",
+      "enabled": true,
+      "type": "default"
+    },
+    {
+      "key": "current_season",
+      "value": "REG",
+      "enabled": true,
+      "type": "default"
+    },
+    {
+      "key": "current_date",
+      "value": "2025-01-05",
+      "enabled": true,
+      "type": "default"
+    },
+    {
+      "key": "dev_server_url",
+      "value": "http://localhost:8084",
+      "enabled": true,
+      "type": "default"
+    },
+    {
+      "key": "nfl_sport_id",
+      "value": "1",
+      "enabled": true,
+      "type": "default"
+    },
+    {
+      "key": "nba_sport_id",
+      "value": "2",
+      "enabled": true,
+      "type": "default"
+    },
+    {
+      "key": "mlb_sport_id",
+      "value": "3",
+      "enabled": true,
+      "type": "default"
+    },
+    {
+      "key": "nhl_sport_id",
+      "value": "4",
+      "enabled": true,
+      "type": "default"
+    },
+    {
+      "key": "timeout",
+      "value": "10000",
+      "enabled": true,
+      "type": "default"
+    }
+  ]
+}
