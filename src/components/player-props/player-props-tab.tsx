@@ -387,17 +387,66 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         const props = await backendSportsGameOddsAPI.getPlayerProps(sport, true); // Force refresh for debugging
         logAPI('PlayerPropsTab', `Backend API returned ${props?.length || 0} props`);
         
-        // DEBUG: Log first few props to check data quality
+        // 🔍 COMPREHENSIVE FRONTEND DEBUG LOGGING
         if (props && props.length > 0) {
-          logDebug('PlayerPropsTab', 'First 3 props:', props.slice(0, 3));
+          console.log(`\n🎯 FRONTEND PLAYER PROPS ANALYSIS:`);
+          console.log(`📊 Total Props Received: ${props.length}`);
+          console.log(`📝 First 3 Props (Full Objects):`, props.slice(0, 3));
           
-          // Log specific line and odds data for debugging
-          props.slice(0, 3).forEach((prop, index) => {
-            logAPI('PlayerPropsTab', `Prop ${index + 1}: ${prop.playerName} - ${prop.propType}`);
-            logAPI('PlayerPropsTab', `  Line: ${prop.line} (type: ${typeof prop.line})`);
-            logAPI('PlayerPropsTab', `  Over Odds: ${prop.overOdds} (type: ${typeof prop.overOdds})`);
-            logAPI('PlayerPropsTab', `  Under Odds: ${prop.underOdds} (type: ${typeof prop.underOdds})`);
+          // Analyze the first prop in detail
+          const firstProp = props[0];
+          console.log(`\n🔍 DETAILED FIRST PROP ANALYSIS:`);
+          console.log(`📋 All Keys:`, Object.keys(firstProp));
+          console.log(`🏠 Team Data:`, {
+            team: firstProp.team,
+            opponent: firstProp.opponent,
+            teamAbbr: firstProp.teamAbbr,
+            opponentAbbr: firstProp.opponentAbbr,
+            gameId: firstProp.gameId,
+            gameDate: firstProp.gameDate
           });
+          console.log(`💰 Odds Data:`, {
+            overOdds: firstProp.overOdds,
+            underOdds: firstProp.underOdds,
+            line: firstProp.line,
+            availableSportsbooks: firstProp.availableSportsbooks,
+            allSportsbookOddsCount: firstProp.allSportsbookOdds?.length || 0
+          });
+          console.log(`👤 Player Data:`, {
+            playerName: firstProp.playerName,
+            playerId: firstProp.playerId,
+            propType: firstProp.propType,
+            sport: firstProp.sport
+          });
+          
+          // Check for UNK issues
+          const unkProps = props.filter(prop => 
+            prop.team === 'UNK' || 
+            prop.opponent === 'UNK' || 
+            prop.teamAbbr === 'UNK' || 
+            prop.opponentAbbr === 'UNK'
+          );
+          console.log(`⚠️ UNK Issues Found: ${unkProps.length} props have UNK values`);
+          if (unkProps.length > 0) {
+            console.log(`🚨 UNK Props Sample:`, unkProps.slice(0, 3));
+          }
+          
+          // Check for identical odds issues
+          const identicalOddsProps = props.filter(prop => 
+            prop.overOdds === prop.underOdds && prop.overOdds !== null
+          );
+          console.log(`⚠️ Identical Odds Issues: ${identicalOddsProps.length} props have identical over/under odds`);
+          if (identicalOddsProps.length > 0) {
+            console.log(`🚨 Identical Odds Sample:`, identicalOddsProps.slice(0, 3));
+          }
+          
+          // Check for missing game data
+          const missingGameData = props.filter(prop => 
+            !prop.gameId || !prop.gameDate || prop.gameDate === 'Invalid Date'
+          );
+          console.log(`⚠️ Missing Game Data: ${missingGameData.length} props have missing game info`);
+          
+          logDebug('PlayerPropsTab', `Comprehensive analysis complete. Check console for full details.`);
         } else {
           logError('PlayerPropsTab', 'NO PROPS RETURNED FROM API');
         }

@@ -369,14 +369,41 @@ class SportGameOddsAPIService {
         }
       });
       
-      // Debug team extraction - log all team data
-      console.log(`Event ${gameId} team extraction:`, {
-        homeTeamRaw: event.homeTeam,
-        awayTeamRaw: event.awayTeam,
-        homeTeamFinal: homeTeam,
-        awayTeamFinal: awayTeam,
-        homeTeamAbbr: homeTeamAbbr,
-        awayTeamAbbr: awayTeamAbbr
+      // 🔍 COMPREHENSIVE DEBUG LOGGING FOR DIAGNOSIS
+      console.log(`\n🎯 EVENT ${gameId} FULL ANALYSIS:`);
+      console.log(`📊 Raw Event Structure:`, JSON.stringify(event, null, 2));
+      console.log(`🏠 Home Team Analysis:`, {
+        raw: event.homeTeam,
+        extracted: homeTeam,
+        abbr: homeTeamAbbr,
+        hasName: !!event.homeTeam?.name,
+        hasDisplayName: !!event.homeTeam?.displayName,
+        hasAbbreviation: !!event.homeTeam?.abbreviation,
+        hasShortName: !!event.homeTeam?.shortName,
+        hasCity: !!event.homeTeam?.city
+      });
+      console.log(`🚗 Away Team Analysis:`, {
+        raw: event.awayTeam,
+        extracted: awayTeam,
+        abbr: awayTeamAbbr,
+        hasName: !!event.awayTeam?.name,
+        hasDisplayName: !!event.awayTeam?.displayName,
+        hasAbbreviation: !!event.awayTeam?.abbreviation,
+        hasShortName: !!event.awayTeam?.shortName,
+        hasCity: !!event.awayTeam?.city
+      });
+      console.log(`⏰ Game Time Analysis:`, {
+        raw: event.status,
+        gameTime: gameTime,
+        hasStartsAt: !!event.status?.startsAt,
+        hasStatus: !!event.status,
+        eventKeys: Object.keys(event)
+      });
+      console.log(`🎮 Game ID Analysis:`, {
+        gameId: gameId,
+        eventID: event.eventID,
+        hasEventID: !!event.eventID,
+        eventIDType: typeof event.eventID
       });
       
       // Only log if we have issues with team names
@@ -442,14 +469,19 @@ class SportGameOddsAPIService {
           // Get or create the prop
           let prop = playerPropsMap.get(propKey);
           if (!prop) {
+            const determinedTeam = this.determinePlayerTeam(playerIdPart, homeTeam, awayTeam);
+            const determinedTeamAbbr = this.determinePlayerTeam(playerIdPart, homeTeamAbbr, awayTeamAbbr);
+            const opponent = this.determineOpponent(playerIdPart, homeTeam, awayTeam);
+            const opponentAbbr = this.determineOpponent(playerIdPart, homeTeamAbbr, awayTeamAbbr);
+            
             prop = {
               id: propKey,
               playerId: playerName.replace(/\s+/g, '_').toLowerCase(),
               playerName: this.formatPlayerName(playerName),
-              team: this.determinePlayerTeam(playerIdPart, homeTeam, awayTeam),
-              teamAbbr: this.determinePlayerTeam(playerIdPart, homeTeamAbbr, awayTeamAbbr),
-              opponent: this.determineOpponent(playerIdPart, homeTeam, awayTeam),
-              opponentAbbr: this.determineOpponent(playerIdPart, homeTeamAbbr, awayTeamAbbr),
+              team: determinedTeam,
+              teamAbbr: determinedTeamAbbr,
+              opponent: opponent,
+              opponentAbbr: opponentAbbr,
               sport: 'nfl',
               propType: this.formatPropType(propType),
               line: parseFloat(bookmaker.overUnder),
@@ -475,6 +507,39 @@ class SportGameOddsAPIService {
               aiPrediction: null, // No fake AI predictions - will be null if not available from API
               lastUpdate: bookmaker.lastUpdatedAt || new Date().toISOString()
             };
+            // 🔍 COMPREHENSIVE PROP CREATION DEBUG
+            console.log(`\n🎲 CREATING PROP: ${playerName} - ${propType}:`);
+            console.log(`📝 Prop Key: ${propKey}`);
+            console.log(`📊 Full Prop Object:`, {
+              id: prop.id,
+              gameId: prop.gameId,
+              playerName: prop.playerName,
+              team: prop.team,
+              opponent: prop.opponent,
+              teamAbbr: prop.teamAbbr,
+              opponentAbbr: prop.opponentAbbr,
+              propType: prop.propType,
+              line: prop.line,
+              gameDate: prop.gameDate
+            });
+            console.log(`🏟️ Team Assignment Analysis:`, {
+              playerIdPart,
+              homeTeam,
+              awayTeam,
+              homeTeamAbbr,
+              awayTeamAbbr,
+              determinedTeam,
+              determinedTeamAbbr,
+              opponent,
+              opponentAbbr
+            });
+            console.log(`⚠️ UNK Check:`, {
+              hasUNKTeam: determinedTeam === 'UNK',
+              hasUNKOpponent: opponent === 'UNK',
+              hasUNKTeamAbbr: determinedTeamAbbr === 'UNK',
+              hasUNKOpponentAbbr: opponentAbbr === 'UNK'
+            });
+            
             playerPropsMap.set(propKey, prop);
           }
 
