@@ -86,11 +86,11 @@ export interface R2UsageVsPlan {
   storage_gb: number;
   storage_limit_gb: number;
   storage_usage_percent: number;
-  class_a_operations: number;
-  class_a_limit: number;
+  class_a_operations: number;  // INTEGER in database
+  class_a_limit: number;       // INTEGER in database
   class_a_usage_percent: number;
-  class_b_operations: number;
-  class_b_limit: number;
+  class_b_operations: number;  // INTEGER in database
+  class_b_limit: number;       // INTEGER in database
   class_b_usage_percent: number;
   egress_gb: number;
   egress_limit_gb: number;
