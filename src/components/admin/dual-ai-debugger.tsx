@@ -280,53 +280,6 @@ ${debugContext.issue}
     }
   };
 
-  const brainstormSolutions = async () => {
-    if (!debugContext.issue.trim()) {
-      alert('Please describe the problem you want to brainstorm solutions for');
-      return;
-    }
-
-    if (!chatGPTService.isConfigured()) {
-      alert('Please configure your OpenAI API key first');
-      return;
-    }
-
-    setIsLoading(true);
-    const sessionId = `brainstorm-${Date.now()}`;
-    
-    const newSession: DebugSession = {
-      id: sessionId,
-      timestamp: new Date(),
-      issue: `Brainstorming: ${debugContext.issue}`,
-      chatGPTResponse: '',
-      status: 'pending'
-    };
-
-    setSessions(prev => [newSession, ...prev]);
-
-    try {
-      const chatGPTResponse = await chatGPTService.brainstormSolutionsWithChatGPT(
-        debugContext.issue,
-        debugContext.additionalInfo
-      );
-      
-      setSessions(prev => prev.map(session => 
-        session.id === sessionId 
-          ? { ...session, chatGPTResponse, status: 'completed' }
-          : session
-      ));
-    } catch (error) {
-      console.error('Brainstorming error:', error);
-      setSessions(prev => prev.map(session => 
-        session.id === sessionId 
-          ? { ...session, status: 'error', chatGPTResponse: `Error: ${error instanceof Error ? error.message : 'Unknown error'}` }
-          : session
-      ));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <div className="space-y-6">
       <Card>
