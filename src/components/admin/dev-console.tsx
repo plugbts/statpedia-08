@@ -6,17 +6,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { logger, LogEntry, LogLevel } from '@/utils/console-logger';
-// Removed unused debug components
+import { TestAPIDebug } from '@/components/test-api-debug';
+import { DebugAPITest } from '@/components/debug-api-test';
 import { unifiedSportsAPI } from '@/services/unified-sports-api';
-
-// ACTIVE: SportsGameOdds API - for player props and markets
 import { sportsGameOddsAPI } from '@/services/sportsgameodds-api';
-import { sportsRadarBackend } from '@/services/sportsradar-backend';
-import { smartPropOptimizer } from '@/services/smart-prop-optimizer';
-import { realSportsbookAPI } from '@/services/real-sportsbook-api';
-// REMOVED: Trio system components - replaced with dual system
-// import { trioSportsAPI } from '@/services/trio-sports-api';
-// import { oddsBlazeAPI } from '@/services/oddsblaze-api';
 import { 
   Terminal, 
   Trash2, 
@@ -30,16 +23,7 @@ import {
   CheckCircle,
   Info,
   Bug,
-  Activity,
-  TestTube,
-  Zap,
-  Target,
-  BarChart3,
-  CheckCircle2,
-  AlertTriangle,
-  Clock,
-  Database,
-  TrendingUp
+  Activity
 } from 'lucide-react';
 
 export const DevConsole: React.FC = () => {
@@ -49,257 +33,6 @@ export const DevConsole: React.FC = () => {
   const [autoScroll, setAutoScroll] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  
-  // Testing suite state
-  const [testResults, setTestResults] = useState<any>(null);
-  const [isRunningTests, setIsRunningTests] = useState(false);
-  const [testProgress, setTestProgress] = useState(0);
-
-  // Comprehensive Testing Suite Functions
-  const runComprehensiveTests = async () => {
-    setIsRunningTests(true);
-    setTestProgress(0);
-    logger.info('DevConsole', '🚀 Starting Comprehensive Integration Test Suite');
-    
-    const results: any = {
-      smartOptimizer: { success: false, score: 0 },
-      realAPI: { success: false, score: 0 },
-      unifiedAPI: { success: false, score: 0 },
-      devConsole: { success: false, score: 0 },
-      performance: { success: false, score: 0 },
-      totalScore: 0,
-      percentage: 0
-    };
-
-    try {
-      // Test 1: Smart Prop Optimizer
-      setTestProgress(20);
-      logger.info('DevConsole', '🧠 Testing Smart Prop Optimizer...');
-      const smartMetrics = smartPropOptimizer.getAllSportRecommendations();
-      const totalProps = Object.values(smartMetrics).reduce((sum: number, m: any) => sum + m.recommendedCount, 0);
-      results.smartOptimizer = {
-        success: totalProps > 0 && totalProps < 400,
-        score: totalProps > 0 ? 25 : 0,
-        totalProps,
-        metrics: smartMetrics
-      };
-      logger.success('DevConsole', `Smart Optimizer: ${totalProps} total props optimized`);
-
-      // Test 2: Real Sportsbook API
-      setTestProgress(40);
-      logger.info('DevConsole', '⚽ Testing Real Sportsbook API...');
-      try {
-        const nflProps = await realSportsbookAPI.getRealPlayerProps('nfl');
-        results.realAPI = {
-          success: nflProps.length > 0,
-          score: nflProps.length > 0 ? 30 : 0,
-          propsCount: nflProps.length,
-          cacheStats: realSportsbookAPI.getCacheStats()
-        };
-        logger.success('DevConsole', `Real API: ${nflProps.length} NFL props fetched`);
-      } catch (error) {
-        logger.error('DevConsole', `Real API test failed: ${error}`);
-        results.realAPI = { success: false, score: 15, error: error.message };
-      }
-
-      // Test 3: Unified API Integration
-      setTestProgress(60);
-      logger.info('DevConsole', '🔄 Testing Unified API Integration...');
-      try {
-        const unifiedProps = await unifiedSportsAPI.getPlayerProps('nfl');
-        results.unifiedAPI = {
-          success: unifiedProps.length > 0,
-          score: unifiedProps.length > 0 ? 20 : 0,
-          propsCount: unifiedProps.length
-        };
-        logger.success('DevConsole', `Unified API: ${unifiedProps.length} props integrated`);
-      } catch (error) {
-        logger.error('DevConsole', `Unified API test failed: ${error}`);
-        results.unifiedAPI = { success: false, score: 10, error: error.message };
-      }
-
-      // Test 4: Dev Console Integration
-      setTestProgress(80);
-      logger.info('DevConsole', '🖥️ Testing Dev Console Integration...');
-      results.devConsole = {
-        success: true,
-        score: 15,
-        logsCount: logs.length,
-        features: ['Smart Optimizer', 'Real API', 'Testing Suite']
-      };
-      logger.success('DevConsole', 'Dev Console: All features operational');
-
-      // Test 5: Performance Analysis
-      setTestProgress(100);
-      logger.info('DevConsole', '📊 Analyzing Performance Metrics...');
-      const usage = smartPropOptimizer.getTotalAPIUsageEstimate();
-      results.performance = {
-        success: usage.hourlyEstimate < 50,
-        score: usage.hourlyEstimate < 50 ? 10 : 5,
-        hourlyEstimate: usage.hourlyEstimate,
-        dailyEstimate: usage.dailyEstimate,
-        efficiency: usage.hourlyEstimate < 30 ? 'EXCELLENT' : usage.hourlyEstimate < 50 ? 'GOOD' : 'FAIR'
-      };
-
-      // Calculate total score
-      results.totalScore = results.smartOptimizer.score + results.realAPI.score + 
-                          results.unifiedAPI.score + results.devConsole.score + results.performance.score;
-      results.percentage = Math.round((results.totalScore / 100) * 100);
-
-      logger.success('DevConsole', `🎯 Integration Test Complete: ${results.percentage}% (${results.totalScore}/100)`);
-      
-      if (results.percentage >= 90) {
-        logger.success('DevConsole', '🎉 EXCELLENT - System ready for production!');
-      } else if (results.percentage >= 75) {
-        logger.info('DevConsole', '✅ GOOD - Minor optimizations possible');
-      } else {
-        logger.warning('DevConsole', '⚠️ FAIR - Some components need attention');
-      }
-
-    } catch (error) {
-      logger.error('DevConsole', `Test suite failed: ${error}`);
-    }
-
-    setTestResults(results);
-    setIsRunningTests(false);
-    setTestProgress(0);
-  };
-
-  const testSmartOptimization = () => {
-    logger.info('DevConsole', '🧠 Testing Smart Prop Optimization...');
-    const recommendations = smartPropOptimizer.getAllSportRecommendations();
-    
-    Object.entries(recommendations).forEach(([sport, metrics]: [string, any]) => {
-      logger.info('DevConsole', `${sport}: ${metrics.recommendedCount} props (UX: ${Math.round(metrics.userSatisfactionScore)}/100, Efficiency: ${Math.round(metrics.efficiencyScore)}/100)`);
-    });
-
-    const usage = smartPropOptimizer.getTotalAPIUsageEstimate();
-    logger.success('DevConsole', `Total API Usage: ${usage.hourlyEstimate} calls/hour, ${usage.dailyEstimate} calls/day`);
-    logger.info('DevConsole', `Recommendations: ${usage.recommendations.join(', ')}`);
-  };
-
-  const testRealSportsbookAPI = async () => {
-    logger.info('DevConsole', '⚽ Testing Real Sportsbook API...');
-    
-    // First, run the specific NFL test
-    try {
-      logger.info('DevConsole', '🧪 Running NFL-specific test...');
-      const nflTest = await realSportsbookAPI.testNFLPropsGeneration();
-      
-      if (nflTest.success) {
-        logger.success('DevConsole', `🎉 NFL Test SUCCESS: ${nflTest.props} props generated`);
-      } else {
-        logger.error('DevConsole', `❌ NFL Test FAILED: ${nflTest.error || 'No props generated'}`);
-      }
-    } catch (error) {
-      logger.error('DevConsole', `🚨 NFL Test Error: ${error}`);
-    }
-    
-    // Then test all sports
-    const sports = ['nfl', 'nba', 'mlb', 'nhl'];
-    for (const sport of sports) {
-      try {
-        const props = await realSportsbookAPI.getRealPlayerProps(sport);
-        const smartCount = smartPropOptimizer.getDynamicPropCount(sport);
-        logger.success('DevConsole', `${sport.toUpperCase()}: ${props.length} props (target: ${smartCount})`);
-      } catch (error) {
-        logger.error('DevConsole', `${sport.toUpperCase()} failed: ${error}`);
-      }
-    }
-
-    const cacheStats = realSportsbookAPI.getCacheStats();
-    logger.info('DevConsole', `Cache: ${cacheStats.size} entries, ${cacheStats.keys.length} keys`);
-  };
-
-  const testSportsGameOddsAPI = async () => {
-    logger.info('DevConsole', '🎯 Testing SportsGameOdds API...');
-    
-    // Check usage stats first
-    const usageStats = sportsGameOddsAPI.getUsageStats();
-    logger.info('DevConsole', `📊 SportsGameOdds Usage: ${usageStats.callsToday}/${usageStats.maxDailyCalls} calls today (${usageStats.usagePercentage}%)`);
-    
-    // Check rate limit status
-    const rateLimitStatus = sportsGameOddsAPI.getRateLimitStatus();
-    logger.info('DevConsole', `🚦 Rate Limit Status: ${rateLimitStatus.status}`);
-    logger.info('DevConsole', `   ${rateLimitStatus.message}`);
-    
-    if (!rateLimitStatus.canMakeCalls) {
-      logger.warning('DevConsole', '⚠️  SportsGameOdds is rate limited - cannot make API calls');
-      return;
-    }
-    
-    // Test each sport
-    const sports = ['nfl', 'nba', 'mlb', 'nhl'];
-    for (const sport of sports) {
-      try {
-        logger.info('DevConsole', `Testing ${sport.toUpperCase()}...`);
-        const props = await sportsGameOddsAPI.getPlayerProps(sport);
-        logger.success('DevConsole', `${sport.toUpperCase()}: ${props.length} player props`);
-      } catch (error) {
-        logger.error('DevConsole', `${sport.toUpperCase()} failed: ${error}`);
-      }
-    }
-
-    // Display updated usage stats
-    const finalStats = sportsGameOddsAPI.getUsageStats();
-    logger.info('DevConsole', `📊 Final Usage: ${finalStats.callsToday}/${finalStats.maxDailyCalls} calls today`);
-  };
-
-  const testDualSportsAPI = async () => {
-    logger.info('DevConsole', '🔄 Testing Dual Sports API System...');
-    logger.info('DevConsole', '🏟️  SportsRadar + 🎯 SportsGameOdds');
-    
-    // Test SportsRadar
-    logger.info('DevConsole', 'Testing SportsRadar backend...');
-    try {
-      const srProps = await realSportsbookAPI.getRealPlayerProps('nfl');
-      logger.success('DevConsole', `SportsRadar: ${srProps.length} props`);
-    } catch (error) {
-      logger.error('DevConsole', `SportsRadar failed: ${error}`);
-    }
-    
-    // Test SportsGameOdds
-    logger.info('DevConsole', 'Testing SportsGameOdds API...');
-    try {
-      const sgoProps = await sportsGameOddsAPI.getPlayerProps('nfl');
-      logger.success('DevConsole', `SportsGameOdds: ${sgoProps.length} props`);
-    } catch (error) {
-      logger.error('DevConsole', `SportsGameOdds failed: ${error}`);
-    }
-    
-    // Test unified system
-    logger.info('DevConsole', 'Testing unified API integration...');
-    try {
-      const unifiedProps = await unifiedSportsAPI.getPlayerProps('nfl');
-      logger.success('DevConsole', `Unified API: ${unifiedProps.length} total props`);
-    } catch (error) {
-      logger.error('DevConsole', `Unified API failed: ${error}`);
-    }
-  };
-
-  // REMOVED: Trio System Testing Functions - replaced with dual system
-
-  const generatePerformanceReport = () => {
-    logger.info('DevConsole', '📊 Generating Performance Report...');
-    
-    const smartMetrics = smartPropOptimizer.getAllSportRecommendations();
-    const totalProps = Object.values(smartMetrics).reduce((sum: number, m: any) => sum + m.recommendedCount, 0);
-    const usage = smartPropOptimizer.getTotalAPIUsageEstimate();
-    
-    logger.info('DevConsole', '='.repeat(50));
-    logger.info('DevConsole', '📋 PERFORMANCE REPORT');
-    logger.info('DevConsole', '='.repeat(50));
-    logger.success('DevConsole', `Total Optimized Props: ${totalProps} (was 800)`);
-    logger.success('DevConsole', `API Calls: ${usage.hourlyEstimate}/hour (was 80)`);
-    logger.success('DevConsole', `Daily Usage: ${usage.dailyEstimate} calls (was 1,920)`);
-    logger.success('DevConsole', `Efficiency Gain: ${Math.round(((80 - usage.hourlyEstimate) / 80) * 100)}% reduction`);
-    
-    Object.entries(smartMetrics).forEach(([sport, metrics]: [string, any]) => {
-      logger.info('DevConsole', `${sport}: ${metrics.recommendedCount} props (${metrics.timeFactors.join(', ')})`);
-    });
-    
-    logger.info('DevConsole', '='.repeat(50));
-  };
 
   // Debug: Dev Console component initialized
 
@@ -482,9 +215,9 @@ export const DevConsole: React.FC = () => {
                 <Terminal className="h-4 w-4 mr-2" />
                 Console Logs
               </TabsTrigger>
-              <TabsTrigger value="testing" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700 dark:data-[state=active]:bg-blue-900/20 dark:data-[state=active]:text-blue-300 transition-all duration-200">
-                <TestTube className="h-4 w-4 mr-2" />
-                Testing Suite
+              <TabsTrigger value="api-test" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700 dark:data-[state=active]:bg-blue-900/20 dark:data-[state=active]:text-blue-300 transition-all duration-200">
+                <Bug className="h-4 w-4 mr-2" />
+                API Tests
               </TabsTrigger>
               <TabsTrigger value="debug" className="data-[state=active]:bg-orange-100 data-[state=active]:text-orange-700 dark:data-[state=active]:bg-orange-900/20 dark:data-[state=active]:text-orange-300 transition-all duration-200">
                 <Filter className="h-4 w-4 mr-2" />
@@ -620,210 +353,10 @@ export const DevConsole: React.FC = () => {
               </Card>
             </TabsContent>
             
-            <TabsContent value="testing" className="space-y-4">
-              <Card className="border border-border/50 shadow-lg">
-                <CardHeader className="bg-gradient-to-r from-blue-600/10 to-blue-600/5 border-b border-blue-200/20 dark:border-blue-800/20">
-                  <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
-                    <TestTube className="h-4 w-4 text-blue-600" />
-                    Comprehensive Testing Suite
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-6 space-y-6">
-                  {/* Main Testing Controls */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Button
-                      variant="outline"
-                      onClick={runComprehensiveTests}
-                      disabled={isRunningTests}
-                      className="h-auto p-4 flex flex-col items-center gap-2 hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-900/20 dark:hover:border-blue-800 transition-all duration-200"
-                    >
-                      <Zap className="h-5 w-5 text-blue-600" />
-                      <span className="font-medium">
-                        {isRunningTests ? 'Running Tests...' : 'Run Full Integration Test'}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        Complete system validation (100 point score)
-                      </span>
-                      {isRunningTests && (
-                        <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                          <div 
-                            className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
-                            style={{ width: `${testProgress}%` }}
-                          ></div>
-                        </div>
-                      )}
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      onClick={generatePerformanceReport}
-                      className="h-auto p-4 flex flex-col items-center gap-2 hover:bg-green-50 hover:border-green-200 dark:hover:bg-green-900/20 dark:hover:border-green-800 transition-all duration-200"
-                    >
-                      <BarChart3 className="h-5 w-5 text-green-600" />
-                      <span className="font-medium">Performance Report</span>
-                      <span className="text-xs text-muted-foreground">
-                        Detailed efficiency analysis
-                      </span>
-                    </Button>
-                  </div>
-
-                  {/* Individual Test Controls */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <Button
-                      variant="outline"
-                      onClick={testSmartOptimization}
-                      className="h-auto p-3 flex flex-col items-center gap-2 hover:bg-purple-50 hover:border-purple-200 dark:hover:bg-purple-900/20 dark:hover:border-purple-800 transition-all duration-200"
-                    >
-                      <Target className="h-4 w-4 text-purple-600" />
-                      <span className="font-medium text-sm">Smart Optimizer</span>
-                      <span className="text-xs text-muted-foreground">Test prop optimization</span>
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      onClick={testRealSportsbookAPI}
-                      className="h-auto p-3 flex flex-col items-center gap-2 hover:bg-orange-50 hover:border-orange-200 dark:hover:bg-orange-900/20 dark:hover:border-orange-800 transition-all duration-200"
-                    >
-                      <Database className="h-4 w-4 text-orange-600" />
-                      <span className="font-medium text-sm">SportsRadar</span>
-                      <span className="text-xs text-muted-foreground">Test SportsRadar API</span>
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      onClick={testSportsGameOddsAPI}
-                      className="h-auto p-3 flex flex-col items-center gap-2 hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-900/20 dark:hover:border-blue-800 transition-all duration-200"
-                    >
-                      <Activity className="h-4 w-4 text-blue-600" />
-                      <span className="font-medium text-sm">SportsGameOdds</span>
-                      <span className="text-xs text-muted-foreground">Test SportsGameOdds API</span>
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      onClick={testDualSportsAPI}
-                      className="h-auto p-3 flex flex-col items-center gap-2 hover:bg-purple-50 hover:border-purple-200 dark:hover:bg-purple-900/20 dark:hover:border-purple-800 transition-all duration-200"
-                    >
-                      <Zap className="h-4 w-4 text-purple-600" />
-                      <span className="font-medium text-sm">Dual System</span>
-                      <span className="text-xs text-muted-foreground">Test SportsRadar + SportsGameOdds</span>
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        logger.info('DevConsole', '🧹 Clearing all caches...');
-                        realSportsbookAPI.clearCache();
-                        sportsRadarBackend.clearCache();
-                        logger.success('DevConsole', 'All caches cleared successfully');
-                      }}
-                      className="h-auto p-3 flex flex-col items-center gap-2 hover:bg-red-50 hover:border-red-200 dark:hover:bg-red-900/20 dark:hover:border-red-800 transition-all duration-200"
-                    >
-                      <Trash2 className="h-4 w-4 text-red-600" />
-                      <span className="font-medium text-sm">Clear Caches</span>
-                      <span className="text-xs text-muted-foreground">Reset all cached data</span>
-                    </Button>
-                  </div>
-
-                  {/* Test Results Display */}
-                  {testResults && (
-                    <div className="mt-6 p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-900/20 dark:to-gray-800/10 rounded-lg border border-gray-200 dark:border-gray-800">
-                      <div className="flex items-center gap-2 mb-4">
-                        <CheckCircle2 className="h-5 w-5 text-green-600" />
-                        <span className="font-semibold">Latest Test Results</span>
-                        <Badge 
-                          variant="outline" 
-                          className={`ml-auto ${
-                            testResults.percentage >= 90 ? 'bg-green-100 text-green-800 border-green-300' :
-                            testResults.percentage >= 75 ? 'bg-blue-100 text-blue-800 border-blue-300' :
-                            'bg-orange-100 text-orange-800 border-orange-300'
-                          }`}
-                        >
-                          {testResults.percentage}% ({testResults.totalScore}/100)
-                        </Badge>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
-                        <div className="text-center">
-                          <div className={`font-semibold ${testResults.smartOptimizer.success ? 'text-green-600' : 'text-red-600'}`}>
-                            {testResults.smartOptimizer.score}/25
-                          </div>
-                          <div className="text-xs text-muted-foreground">Smart Optimizer</div>
-                        </div>
-                        <div className="text-center">
-                          <div className={`font-semibold ${testResults.realAPI.success ? 'text-green-600' : 'text-red-600'}`}>
-                            {testResults.realAPI.score}/30
-                          </div>
-                          <div className="text-xs text-muted-foreground">Real API</div>
-                        </div>
-                        <div className="text-center">
-                          <div className={`font-semibold ${testResults.unifiedAPI.success ? 'text-green-600' : 'text-red-600'}`}>
-                            {testResults.unifiedAPI.score}/20
-                          </div>
-                          <div className="text-xs text-muted-foreground">Unified API</div>
-                        </div>
-                        <div className="text-center">
-                          <div className={`font-semibold ${testResults.devConsole.success ? 'text-green-600' : 'text-red-600'}`}>
-                            {testResults.devConsole.score}/15
-                          </div>
-                          <div className="text-xs text-muted-foreground">Dev Console</div>
-                        </div>
-                        <div className="text-center">
-                          <div className={`font-semibold ${testResults.performance.success ? 'text-green-600' : 'text-red-600'}`}>
-                            {testResults.performance.score}/10
-                          </div>
-                          <div className="text-xs text-muted-foreground">Performance</div>
-                        </div>
-                      </div>
-
-                      {testResults.performance && (
-                        <div className="mt-4 pt-4 border-t border-gray-300 dark:border-gray-700">
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                            <div className="text-center">
-                              <div className="font-semibold text-blue-600">
-                                {testResults.smartOptimizer.totalProps || 'N/A'}
-                              </div>
-                              <div className="text-xs text-muted-foreground">Total Props (was 800)</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="font-semibold text-green-600">
-                                {testResults.performance.hourlyEstimate || 'N/A'}/hr
-                              </div>
-                              <div className="text-xs text-muted-foreground">API Calls (was 80)</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="font-semibold text-purple-600">
-                                {testResults.performance.efficiency || 'N/A'}
-                              </div>
-                              <div className="text-xs text-muted-foreground">Efficiency Rating</div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Quick Stats */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="text-center p-3 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/10 rounded-lg border border-blue-200 dark:border-blue-800">
-                      <div className="font-bold text-lg text-blue-600">264</div>
-                      <div className="text-xs text-blue-600 dark:text-blue-400">Optimized Props</div>
-                    </div>
-                    <div className="text-center p-3 bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/10 rounded-lg border border-green-200 dark:border-green-800">
-                      <div className="font-bold text-lg text-green-600">28/hr</div>
-                      <div className="text-xs text-green-600 dark:text-green-400">API Calls</div>
-                    </div>
-                    <div className="text-center p-3 bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/10 rounded-lg border border-purple-200 dark:border-purple-800">
-                      <div className="font-bold text-lg text-purple-600">89%</div>
-                      <div className="text-xs text-purple-600 dark:text-purple-400">UX Score</div>
-                    </div>
-                    <div className="text-center p-3 bg-gradient-to-r from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/10 rounded-lg border border-orange-200 dark:border-orange-800">
-                      <div className="font-bold text-lg text-orange-600">65%</div>
-                      <div className="text-xs text-orange-600 dark:text-orange-400">Efficiency Gain</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+            <TabsContent value="api-test" className="space-y-4">
+              <TestAPIDebug />
+              <Separator />
+              <DebugAPITest />
             </TabsContent>
             
             <TabsContent value="debug" className="space-y-4">
@@ -950,127 +483,201 @@ export const DevConsole: React.FC = () => {
                   </CardHeader>
                   <CardContent className="p-6">
                     <div className="space-y-4">
-                      {/* SportsRadar Backend */}
-                      <div className="p-3 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/10 rounded-lg border border-blue-200 dark:border-blue-800">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-semibold text-blue-800 dark:text-blue-200">SportsRadar Backend</span>
-                          <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700">
-                            ACTIVE
-                          </Badge>
-                        </div>
-                        <div className="space-y-2">
-                          <div className="text-xs text-blue-600 dark:text-blue-400">
-                            Enhanced SportsRadar API with intelligent caching
-                          </div>
-                          <div className="text-xs text-blue-600 dark:text-blue-400">
-                            Rate limiting and optimized data fetching
-                          </div>
-                          <div className="text-xs text-blue-600 dark:text-blue-400">
-                            Based on official SportsRadar Postman collection
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          logger.info('DevConsole', 'Testing SportsRadar Backend...');
-                          try {
-                            const props = await sportsRadarBackend.getPlayerProps('nfl');
-                            logger.success('DevConsole', `SportsRadar Backend returned ${props.length} props`);
-                            console.log('SportsRadar Backend Props:', props);
-                          } catch (error) {
-                            logger.error('DevConsole', 'SportsRadar Backend failed:', error);
-                            console.error('SportsRadar Backend Error:', error);
-                          }
-                        }}
-                        className="w-full text-xs mb-2"
-                      >
-                        Test SportsRadar Backend
-                      </Button>
+                      <>
 
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          sportsRadarBackend.clearCache();
-                          logger.info('DevConsole', 'SportsRadar Backend cache cleared');
-                        }}
-                        className="w-full text-xs"
-                      >
-                        Clear Cache
-                      </Button>
+                            {/* SportsGameOdds API */}
+                            <div className="p-3 bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/10 rounded-lg border border-purple-200 dark:border-purple-800">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="font-semibold text-purple-800 dark:text-purple-200">SportsGameOdds API</span>
+                                <div className="flex gap-2">
+                                  <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700">
+                                    {sportsGameOddsAPI.getUsageStats().callsToday} calls today
+                                  </Badge>
+                                  {(() => {
+                                    const rateLimitStatus = sportsGameOddsAPI.getRateLimitStatus();
+                                    if (rateLimitStatus.status === 'LIMIT_EXCEEDED') {
+                                      return (
+                                        <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700">
+                                          Rate Limited
+                                        </Badge>
+                                      );
+                                    } else if (rateLimitStatus.status === 'NEAR_LIMIT') {
+                                      return (
+                                        <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700">
+                                          Near Limit
+                                        </Badge>
+                                      );
+                                    } else if (rateLimitStatus.status === 'HIGH_USAGE') {
+                                      return (
+                                        <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-700">
+                                          High Usage
+                                        </Badge>
+                                      );
+                                    }
+                                    return null;
+                                  })()}
+                                </div>
+                              </div>
+                              <div className="space-y-2">
+                                <div className="flex justify-between text-xs">
+                                  <span className="text-purple-700 dark:text-purple-300">Usage:</span>
+                                  <span className="font-semibold">
+                                    {sportsGameOddsAPI.getUsageStats().callsToday} / {sportsGameOddsAPI.getUsageStats().maxDailyCalls}
+                                  </span>
+                                </div>
+                                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                  <div 
+                                    className={`h-2 rounded-full transition-all duration-300 ${
+                                      sportsGameOddsAPI.getUsageStats().isAtLimit 
+                                        ? 'bg-red-500' 
+                                        : sportsGameOddsAPI.getUsageStats().isNearLimit 
+                                        ? 'bg-orange-500' 
+                                        : 'bg-purple-500'
+                                    }`}
+                                    style={{ width: `${Math.min(sportsGameOddsAPI.getUsageStats().usagePercentage, 100)}%` }}
+                                  ></div>
+                                </div>
+                                <div className="text-xs text-purple-600 dark:text-purple-400">
+                                  {sportsGameOddsAPI.getUsageStats().usagePercentage}% of daily limit
+                                </div>
+                                <div className="text-xs text-purple-600 dark:text-purple-400">
+                                  Total calls: {sportsGameOddsAPI.getUsageStats().totalCalls}
+                                </div>
+                                <div className="text-xs text-purple-600 dark:text-purple-400">
+                                  Cache hit rate: {Math.round(sportsGameOddsAPI.getDetailedUsageStats().cacheHitRate * 100)}%
+                                </div>
+                              </div>
+                            </div>
 
-                      {/* SportsGameOdds API Status */}
-                      <div className="p-3 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/10 rounded-lg border border-blue-200 dark:border-blue-800 mt-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-semibold text-blue-800 dark:text-blue-200">SportsGameOdds API</span>
-                          <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700">
-                            ACTIVE
-                          </Badge>
-                        </div>
-                        <div className="space-y-2">
-                          <div className="text-xs text-blue-700 dark:text-blue-300">
-                            <div className="flex justify-between">
-                              <span>Usage Today:</span>
-                              <span className="font-mono">
-                                {(() => {
-                                  const stats = sportsGameOddsAPI.getUsageStats();
-                                  return `${stats.callsToday}/${stats.maxDailyCalls}`;
-                                })()}
-                              </span>
+                            {/* Detailed SportsGameOdds Usage */}
+                            {sportsGameOddsAPI.getUsageStats().callsToday > 0 && (
+                              <div className="p-3 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-900/20 dark:to-gray-800/10 rounded-lg border border-gray-200 dark:border-gray-800">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="font-semibold text-gray-800 dark:text-gray-200">Top Endpoints</span>
+                                  <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-900/30 dark:text-gray-300 dark:border-gray-700">
+                                    {sportsGameOddsAPI.getDetailedUsageStats().topEndpoints.length} tracked
+                                  </Badge>
+                                </div>
+                                <div className="space-y-1">
+                                  {sportsGameOddsAPI.getDetailedUsageStats().topEndpoints.map((endpoint, index) => (
+                                    <div key={index} className="flex justify-between text-xs">
+                                      <span className="text-gray-700 dark:text-gray-300 truncate max-w-[200px]">
+                                        {endpoint.endpoint}
+                                      </span>
+                                      <span className="font-semibold text-gray-800 dark:text-gray-200">
+                                        {endpoint.count} calls
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                                {sportsGameOddsAPI.getDetailedUsageStats().recommendations.length > 0 && (
+                                  <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                    <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Recommendations:</div>
+                                    <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                                      {sportsGameOddsAPI.getDetailedUsageStats().recommendations.map((rec, index) => (
+                                        <li key={index} className="flex items-start gap-1">
+                                          <span className="text-orange-500">•</span>
+                                          <span>{rec}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Player Props Cache Status */}
+                            <div className="p-3 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/10 rounded-lg border border-blue-200 dark:border-blue-800">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="font-semibold text-blue-800 dark:text-blue-200">Player Props Cache</span>
+                                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700">
+                                  Debug
+                                </Badge>
+                              </div>
+                              <div className="space-y-2">
+                                <div className="text-xs text-blue-700 dark:text-blue-300">
+                                  Cache Status: {sportsGameOddsAPI.getPlayerPropsCacheStatus()}
+                                </div>
+                                <div className="text-xs text-blue-700 dark:text-blue-300">
+                                  Cached Sports: {sportsGameOddsAPI.getCachedSports().join(', ') || 'None'}
+                                </div>
+                                <div className="text-xs text-blue-700 dark:text-blue-300">
+                                  Last Cache Update: {sportsGameOddsAPI.getLastCacheUpdate()}
+                                </div>
+                              </div>
                             </div>
-                            <div className="flex justify-between">
-                              <span>Usage %:</span>
-                              <span className="font-mono">
-                                {(() => {
-                                  const stats = sportsGameOddsAPI.getUsageStats();
-                                  return `${stats.usagePercentage}%`;
-                                })()}
-                              </span>
+
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                  logger.info('DevConsole', 'Testing player props fetch for NFL...');
+                                  try {
+                                    // Clear cache first to test fresh fetch
+                                    sportsGameOddsAPI.clearPlayerPropsCache();
+                                    logger.info('DevConsole', 'Cache cleared, fetching fresh data...');
+                                    
+                                    const props = await sportsGameOddsAPI.getPlayerProps('nfl');
+                                    logger.success('DevConsole', `Fetched ${props.length} NFL player props`);
+                                    console.log('NFL Player Props:', props);
+                                    
+                                    // Log cache status after fetch
+                                    logger.info('DevConsole', `Cache Status: ${sportsGameOddsAPI.getPlayerPropsCacheStatus()}`);
+                                    logger.info('DevConsole', `Cached Sports: ${sportsGameOddsAPI.getCachedSports().join(', ')}`);
+                                  } catch (error) {
+                                    logger.error('DevConsole', 'Failed to fetch NFL player props:', error);
+                                    console.error('Full error:', error);
+                                  }
+                                }}
+                                className="flex-1 text-xs"
+                              >
+                                Test NFL Props
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  sportsGameOddsAPI.clearPlayerPropsCache();
+                                  logger.info('DevConsole', 'Player props cache cleared');
+                                }}
+                                className="flex-1 text-xs"
+                              >
+                                Clear Cache
+                              </Button>
                             </div>
-                            <div className="flex justify-between">
-                              <span>Rate Status:</span>
-                              <span className="font-mono text-xs">
-                                {(() => {
-                                  const status = sportsGameOddsAPI.getRateLimitStatus();
-                                  return status.status === 'NORMAL' ? '✅ OK' : '🚨 LIMITED';
-                                })()}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={async () => {
-                            logger.info('DevConsole', 'Checking SportsGameOdds usage stats...');
-                            const stats = sportsGameOddsAPI.getUsageStats();
-                            logger.info('DevConsole', `Usage: ${stats.callsToday}/${stats.maxDailyCalls} calls (${stats.usagePercentage}%)`);
                             
-                            const rateLimitStatus = sportsGameOddsAPI.getRateLimitStatus();
-                            logger.info('DevConsole', `Rate Status: ${rateLimitStatus.status}`);
-                            logger.info('DevConsole', rateLimitStatus.message);
-                          }}
-                          className="w-full text-xs mb-2"
-                        >
-                          Check Usage Stats
-                        </Button>
-
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            sportsGameOddsAPI.clearCache();
-                            logger.info('DevConsole', 'SportsGameOdds cache cleared');
-                          }}
-                          className="w-full text-xs"
-                        >
-                          Clear Cache
-                        </Button>
-                      </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={async () => {
+                                logger.info('DevConsole', 'Testing unified sports API chain...');
+                                try {
+                                  const props = await unifiedSportsAPI.getPlayerProps('nfl');
+                                  logger.success('DevConsole', `Unified API returned ${props.length} props`);
+                                  console.log('Unified API Props:', props);
+                                } catch (error) {
+                                  logger.error('DevConsole', 'Unified API failed:', error);
+                                  console.error('Unified API Error:', error);
+                                }
+                              }}
+                              className="w-full text-xs mb-2"
+                            >
+                              Test Unified API Chain
+                            </Button>
+                            
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                sportsGameOddsAPI.resetUsageStats();
+                                logger.info('DevConsole', 'SportsGameOdds API usage statistics reset');
+                              }}
+                              className="w-full text-xs"
+                            >
+                              Reset Usage Stats
+                            </Button>
+                      </>
                     </div>
                   </CardContent>
                 </Card>
