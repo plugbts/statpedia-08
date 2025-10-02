@@ -1,6 +1,7 @@
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
 import { sportsRadarAPI, SportsRadarGame } from './sportsradar-api';
 import { sportsRadarBackend } from './sportsradar-backend';
+import { realSportsbookAPI, RealPlayerProp } from './real-sportsbook-api';
 
 // PAUSED: SportsGameOdds API temporarily disabled - preserving code for future reactivation
 // import { sportsGameOddsAPI, SportsGameOddsPlayerProp, SportsGameOddsGame } from './sportsgameodds-api';
@@ -97,75 +98,61 @@ export interface Outcome {
 
 class UnifiedSportsAPI {
   constructor() {
-    logInfo('UnifiedSportsAPI', 'Service initialized - Version 5.0.0');
-    logInfo('UnifiedSportsAPI', 'Using SportsRadar Backend with intelligent caching and rate limiting');
+    logInfo('UnifiedSportsAPI', 'Service initialized - Version 6.0.0');
+    logInfo('UnifiedSportsAPI', 'Using Real Sportsbook API with SportsRadar verified endpoints');
+    logInfo('UnifiedSportsAPI', 'Intelligent caching enabled for consistent player props data');
   }
 
-  // Get player props using SportsRadar Backend
+  // Get real player props using cached sportsbook data
   async getPlayerProps(sport: string, season?: number, week?: number, selectedSportsbook?: string): Promise<PlayerProp[]> {
-    logAPI('UnifiedSportsAPI', `Getting player props for ${sport}${season ? ` ${season}` : ''}${week ? ` week ${week}` : ''} - Using SportsRadar Backend`);
+    logAPI('UnifiedSportsAPI', `Getting real player props for ${sport}${season ? ` ${season}` : ''}${week ? ` week ${week}` : ''} - Using Real Sportsbook API`);
     
     try {
-      // Use SportsRadar Backend for player props
-      const filters = selectedSportsbook && selectedSportsbook !== 'all' ? {
-        sportsbooks: [selectedSportsbook]
-      } : undefined;
+      // Use Real Sportsbook API for cached, consistent player props
+      const realProps = await realSportsbookAPI.getRealPlayerProps(sport, selectedSportsbook);
       
-      const sportsRadarProps = await sportsRadarBackend.getPlayerProps(sport, filters);
-      
-      if (sportsRadarProps.length === 0) {
-        logWarning('UnifiedSportsAPI', `No player props found for ${sport}`);
+      if (realProps.length === 0) {
+        logWarning('UnifiedSportsAPI', `No real player props found for ${sport}`);
         return [];
       }
 
-      // Convert SportsRadar props to unified format
-      const unifiedProps: PlayerProp[] = sportsRadarProps.map(prop => ({
-          id: prop.id,
-          playerId: prop.playerId,
-          playerName: prop.playerName,
-          team: prop.team,
-          teamAbbr: prop.teamAbbr,
-          opponent: prop.opponent,
-          opponentAbbr: prop.opponentAbbr,
-          gameId: prop.gameId,
-          sport: prop.sport,
-          propType: prop.propType,
-          line: prop.line,
-          overOdds: prop.overOdds,
-          underOdds: prop.underOdds,
-        allSportsbookOdds: [{
-          sportsbook: prop.sportsbook,
-          line: prop.line,
-          overOdds: prop.overOdds,
-          underOdds: prop.underOdds,
-          lastUpdate: prop.lastUpdate
-        }],
-          gameDate: prop.gameDate,
-          gameTime: prop.gameTime,
-          headshotUrl: prop.headshotUrl,
-          confidence: prop.confidence,
-          expectedValue: prop.expectedValue,
-        recentForm: prop.seasonStats?.last5Games?.join(', ') || '',
-        last5Games: prop.seasonStats?.last5Games || [],
-          seasonStats: prop.seasonStats,
-        aiPrediction: prop.aiPrediction ? {
-          recommended: prop.aiPrediction.recommended,
-          confidence: prop.aiPrediction.confidence,
-          reasoning: prop.aiPrediction.reasoning,
-          factors: prop.aiPrediction.factors,
-          modelVersion: prop.aiPrediction.modelVersion,
-          lastUpdated: prop.aiPrediction.lastUpdated
-        } : undefined,
+      // Convert real sportsbook props to unified format
+      const unifiedProps: PlayerProp[] = realProps.map(prop => ({
+        id: prop.id,
+        playerId: prop.playerId,
+        playerName: prop.playerName,
+        team: prop.team,
+        teamAbbr: prop.teamAbbr,
+        opponent: prop.opponent,
+        opponentAbbr: prop.opponentAbbr,
+        gameId: prop.gameId,
+        sport: prop.sport,
+        propType: prop.propType,
+        line: prop.line,
+        overOdds: prop.overOdds,
+        underOdds: prop.underOdds,
+        allSportsbookOdds: prop.allSportsbookOdds,
+        gameDate: prop.gameDate,
+        gameTime: prop.gameTime,
+        headshotUrl: prop.headshotUrl,
+        confidence: prop.confidence,
+        expectedValue: prop.expectedValue,
+        recentForm: '', // Can be enhanced later
+        last5Games: [], // Can be enhanced later
+        seasonStats: prop.seasonStats,
+        aiPrediction: prop.aiPrediction,
         lastUpdated: new Date(prop.lastUpdate),
         isLive: false,
         marketId: `${prop.playerId}-${prop.propType}-${prop.gameId}-${prop.sport}`
       }));
 
-      logSuccess('UnifiedSportsAPI', `Retrieved ${unifiedProps.length} player props for ${sport}`);
+      logSuccess('UnifiedSportsAPI', `Retrieved ${unifiedProps.length} real cached player props for ${sport}`);
+      logInfo('UnifiedSportsAPI', `Props from ${new Set(realProps.map(p => p.sportsbook)).size} different sportsbooks`);
+      
       return unifiedProps;
 
     } catch (error) {
-      logError('UnifiedSportsAPI', `Failed to get player props for ${sport}:`, error);
+      logError('UnifiedSportsAPI', `Failed to get real player props for ${sport}:`, error);
       return [];
     }
   }
