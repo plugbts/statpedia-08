@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { logger, LogEntry, LogLevel } from '@/utils/console-logger';
+import { useUser } from '@/contexts/user-context';
 // Removed unused debug components
 import { unifiedSportsAPI } from '@/services/unified-sports-api';
 
@@ -39,16 +40,22 @@ import {
   AlertTriangle,
   Clock,
   Database,
-  TrendingUp
+  TrendingUp,
+  RotateCcw,
+  Shield
 } from 'lucide-react';
 
 export const DevConsole: React.FC = () => {
+  const { user, isOwnerEmail, isAuthenticated } = useUser();
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [filterLevel, setFilterLevel] = useState<LogLevel | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [autoScroll, setAutoScroll] = useState(true);
-  const [isOwner, setIsOwner] = useState(false);
+  const [isForceUpdating, setIsForceUpdating] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  
+  // Check if user is owner
+  const isOwner = isAuthenticated && user?.email && isOwnerEmail(user.email);
   
   // Testing suite state
   const [testResults, setTestResults] = useState<any>(null);
@@ -301,22 +308,80 @@ export const DevConsole: React.FC = () => {
     logger.info('DevConsole', '='.repeat(50));
   };
 
+  // Force update function - clears all caches and forces fresh API calls
+  const forceUpdateAllData = async () => {
+    if (!isOwner) {
+      logger.error('DevConsole', '🚫 Access Denied: Only owners can force updates');
+      return;
+    }
+
+    setIsForceUpdating(true);
+    logger.info('DevConsole', '🔄 FORCE UPDATE: Starting complete data refresh...');
+    
+    try {
+      // Clear all caches
+      logger.info('DevConsole', '🗑️  Clearing all API caches...');
+      
+      // Clear SportGameOdds cache
+      sportsGameOddsAPI.clearPlayerPropsCache();
+      logger.success('DevConsole', '✅ SportGameOdds cache cleared');
+      
+      // Clear SportsRadar cache
+      sportsRadarBackend.clearCache?.();
+      logger.success('DevConsole', '✅ SportsRadar cache cleared');
+      
+      // Clear Unified API cache (if method exists)
+      if (typeof (unifiedSportsAPI as any).clearCache === 'function') {
+        (unifiedSportsAPI as any).clearCache();
+        logger.success('DevConsole', '✅ Unified API cache cleared');
+      } else {
+        logger.info('DevConsole', '⚠️  Unified API cache clear not available');
+      }
+      
+      // Force fresh data fetch for all sports
+      logger.info('DevConsole', '📡 Forcing fresh API calls for all sports...');
+      const sports = ['nfl', 'nba', 'mlb', 'nhl'];
+      
+      for (const sport of sports) {
+        try {
+          logger.info('DevConsole', `🔄 Fetching fresh ${sport.toUpperCase()} data...`);
+          
+          // Force SportGameOdds API call
+          const sgoProps = await sportsGameOddsAPI.getPlayerProps(sport);
+          logger.success('DevConsole', `✅ ${sport.toUpperCase()}: ${sgoProps.length} props from SportGameOdds`);
+          
+          // Force SportsRadar API call
+          const srProps = await sportsRadarBackend.getPlayerProps(sport);
+          logger.success('DevConsole', `✅ ${sport.toUpperCase()}: ${srProps.length} props from SportsRadar`);
+          
+          // Force Unified API call
+          const unifiedProps = await unifiedSportsAPI.getPlayerProps(sport);
+          logger.success('DevConsole', `✅ ${sport.toUpperCase()}: ${unifiedProps.length} unified props`);
+          
+        } catch (error) {
+          logger.error('DevConsole', `❌ ${sport.toUpperCase()} force update failed: ${error}`);
+        }
+      }
+      
+      // Display updated stats
+      const sgoStats = sportsGameOddsAPI.getUsageStats();
+      const srStats = sportsRadarBackend.getCacheStats();
+      
+      logger.success('DevConsole', '🎉 FORCE UPDATE COMPLETE!');
+      logger.info('DevConsole', `📊 SportGameOdds: ${sgoStats.callsToday}/${sgoStats.maxDailyCalls} calls used`);
+      logger.info('DevConsole', `📊 SportsRadar: ${srStats.totalItems} cache entries, ${srStats.totalHits} hits`);
+      logger.info('DevConsole', '💡 All data is now fresh from APIs - no cached data');
+      
+    } catch (error) {
+      logger.error('DevConsole', `🚨 Force update failed: ${error}`);
+    } finally {
+      setIsForceUpdating(false);
+    }
+  };
+
   // Debug: Dev Console component initialized
 
   useEffect(() => {
-    // Check if user is owner
-    const checkOwner = () => {
-      const ownerEmails = ['jackie@statpedia.com', 'admin@statpedia.com'];
-      const currentUser = localStorage.getItem('userEmail') || '';
-      const ownerStatus = ownerEmails.includes(currentUser) || currentUser.includes('jackie');
-      // Debug: Owner check completed
-      setIsOwner(ownerStatus);
-    };
-
-    checkOwner();
-    
-    // TEMPORARY: Force owner status for debugging
-    setIsOwner(true);
 
     // Set up proper logging system - use only the logger, don't intercept console
     // Add initial logs to show Dev Console is active
@@ -666,6 +731,35 @@ export const DevConsole: React.FC = () => {
                       </span>
                     </Button>
                   </div>
+
+                  {/* Owner-Only Force Update Control */}
+                  {isOwner && (
+                    <div className="border-t border-border/30 pt-6">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Shield className="h-4 w-4 text-red-600" />
+                        <span className="text-sm font-semibold text-red-600">Owner Controls</span>
+                      </div>
+                      <Button
+                        variant="destructive"
+                        onClick={forceUpdateAllData}
+                        disabled={isForceUpdating}
+                        className="w-full h-auto p-4 flex flex-col items-center gap-2 bg-red-600 hover:bg-red-700 border-red-600 hover:border-red-700 transition-all duration-200"
+                      >
+                        <RotateCcw className={`h-5 w-5 text-white ${isForceUpdating ? 'animate-spin' : ''}`} />
+                        <span className="font-medium text-white">
+                          {isForceUpdating ? 'Force Updating...' : 'Force Update All Data'}
+                        </span>
+                        <span className="text-xs text-red-100">
+                          Clears all caches and forces fresh API calls for all sports
+                        </span>
+                        {isForceUpdating && (
+                          <div className="w-full bg-red-800 rounded-full h-2 mt-2">
+                            <div className="bg-white h-2 rounded-full animate-pulse w-1/2"></div>
+                          </div>
+                        )}
+                      </Button>
+                    </div>
+                  )}
 
                   {/* Individual Test Controls */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
