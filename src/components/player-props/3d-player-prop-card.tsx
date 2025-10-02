@@ -332,8 +332,22 @@ export function PlayerPropCard3D({
           {/* Prop Details */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-slate-400 text-sm font-semibold tracking-wide uppercase">{prop.propType}</span>
-              <span className="text-slate-100 text-2xl font-bold tracking-tight">
+              <div className="flex-1 mr-3">
+                <span className="text-slate-400 text-sm font-semibold tracking-wide uppercase block leading-tight">
+                  {prop.propType.length > 15 ? (
+                    <span className="break-words">
+                      {prop.propType.split(' ').map((word, index) => (
+                        <span key={index} className="inline-block mr-1">
+                          {word}
+                        </span>
+                      ))}
+                    </span>
+                  ) : (
+                    prop.propType
+                  )}
+                </span>
+              </div>
+              <span className="text-slate-100 text-2xl font-bold tracking-tight flex-shrink-0">
                 {formatNumber(prop.line)}
               </span>
             </div>

@@ -304,17 +304,36 @@ class SportGameOddsAPIService {
       }
 
       const gameId = event.eventID;
-      const homeTeam = event.homeTeam?.name || event.homeTeam?.displayName || 'Unknown';
-      const awayTeam = event.awayTeam?.name || event.awayTeam?.displayName || 'Unknown';
+      const homeTeam = event.homeTeam?.name || event.homeTeam?.displayName || event.homeTeam?.abbreviation || 'Unknown';
+      const awayTeam = event.awayTeam?.name || event.awayTeam?.displayName || event.awayTeam?.abbreviation || 'Unknown';
       const gameTime = event.status?.startsAt || new Date().toISOString();
       
       // Format team abbreviations properly
       const homeTeamAbbr = this.extractTeamAbbr(homeTeam);
       const awayTeamAbbr = this.extractTeamAbbr(awayTeam);
       
+      // Debug team extraction
+      console.log(`Event ${gameId} teams:`, {
+        homeTeam: {
+          name: event.homeTeam?.name,
+          displayName: event.homeTeam?.displayName,
+          abbreviation: event.homeTeam?.abbreviation,
+          final: homeTeam,
+          abbr: homeTeamAbbr
+        },
+        awayTeam: {
+          name: event.awayTeam?.name,
+          displayName: event.awayTeam?.displayName,
+          abbreviation: event.awayTeam?.abbreviation,
+          final: awayTeam,
+          abbr: awayTeamAbbr
+        }
+      });
+      
       // Only log if we have issues with team names
       if (homeTeam === 'Unknown' || awayTeam === 'Unknown') {
         console.log(`Warning: Unknown team names for event ${gameId}: ${homeTeam} vs ${awayTeam}`);
+        console.log(`Full event structure:`, JSON.stringify(event, null, 2));
       }
 
       // Process odds object (not array) - each key is an oddID
@@ -368,8 +387,8 @@ class SportGameOddsAPIService {
           const bookmaker = bookmakerData as any;
           if (!bookmaker.odds || !bookmaker.overUnder) continue;
 
-          // Create a unique key for grouping over/under pairs
-          const propKey = `${gameId}-${playerName}-${propType}-${bookmaker.overUnder}-${bookmakerId}`;
+          // Create a unique key for grouping props by player/propType/line (NOT by sportsbook)
+          const propKey = `${gameId}-${playerName}-${propType}-${bookmaker.overUnder}`;
           
           // Get or create the prop
           let prop = playerPropsMap.get(propKey);
@@ -387,9 +406,6 @@ class SportGameOddsAPIService {
               line: parseFloat(bookmaker.overUnder),
               overOdds: null,
               underOdds: null,
-              sportsbook: bookmakerId,
-              sportsbookKey: bookmakerId,
-              lastUpdate: bookmaker.lastUpdatedAt || new Date().toISOString(),
               gameId,
               gameTime,
               gameDate: gameTime.split('T')[0], // Extract date part
@@ -403,25 +419,56 @@ class SportGameOddsAPIService {
               period: period === 'game' ? 'full_game' : period,
               statEntity: playerName,
               isExactAPIData: true,
-              rawBookmakerData: bookmaker,
-              availableSportsbooks: [bookmakerId],
-              available: bookmaker.available !== false,
+              availableSportsbooks: [],
+              allSportsbookOdds: [],
+              available: true,
               recentForm: 'average', // Default form
               aiPrediction: {
                 recommended: Math.random() > 0.5 ? 'over' : 'under',
                 confidence: 0.65 + Math.random() * 0.25,
                 reasoning: `Based on recent performance and matchup analysis`,
                 factors: ['Recent form', 'Opponent strength', 'Historical performance']
-              }
+              },
+              lastUpdate: bookmaker.lastUpdatedAt || new Date().toISOString()
             };
             playerPropsMap.set(propKey, prop);
           }
 
-          // Set the appropriate odds based on side
+          // Add this sportsbook to the available sportsbooks list
+          if (!prop.availableSportsbooks.includes(bookmakerId)) {
+            prop.availableSportsbooks.push(bookmakerId);
+          }
+
+          // Set the appropriate odds based on side and use best odds available
           if (side === 'over') {
-            prop.overOdds = this.parseAmericanOdds(bookmaker.odds);
+            const newOverOdds = this.parseAmericanOdds(bookmaker.odds);
+            if (prop.overOdds === null || this.isBetterOdds(newOverOdds, prop.overOdds, 'over')) {
+              prop.overOdds = newOverOdds;
+            }
           } else if (side === 'under') {
-            prop.underOdds = this.parseAmericanOdds(bookmaker.odds);
+            const newUnderOdds = this.parseAmericanOdds(bookmaker.odds);
+            if (prop.underOdds === null || this.isBetterOdds(newUnderOdds, prop.underOdds, 'under')) {
+              prop.underOdds = newUnderOdds;
+            }
+          }
+
+          // Add to allSportsbookOdds for detailed breakdown
+          const existingBookmaker = prop.allSportsbookOdds.find(sb => sb.sportsbook === bookmakerId);
+          if (!existingBookmaker) {
+            prop.allSportsbookOdds.push({
+              sportsbook: bookmakerId,
+              line: parseFloat(bookmaker.overUnder),
+              overOdds: side === 'over' ? this.parseAmericanOdds(bookmaker.odds) : null,
+              underOdds: side === 'under' ? this.parseAmericanOdds(bookmaker.odds) : null,
+              lastUpdate: bookmaker.lastUpdatedAt || new Date().toISOString()
+            });
+          } else {
+            // Update existing bookmaker odds
+            if (side === 'over') {
+              existingBookmaker.overOdds = this.parseAmericanOdds(bookmaker.odds);
+            } else if (side === 'under') {
+              existingBookmaker.underOdds = this.parseAmericanOdds(bookmaker.odds);
+            }
           }
           
           // Update last update time to the most recent
@@ -513,6 +560,22 @@ class SportGameOddsAPIService {
     const numericOdds = parseInt(cleanOdds);
     
     return isNaN(numericOdds) ? 0 : numericOdds;
+  }
+
+  private isBetterOdds(newOdds: number, currentOdds: number, side: 'over' | 'under'): boolean {
+    // For over bets, higher positive odds or lower negative odds are better
+    // For under bets, higher positive odds or lower negative odds are better
+    // In both cases, we want the odds that give better payout
+    
+    if (newOdds > 0 && currentOdds > 0) {
+      return newOdds > currentOdds; // Higher positive is better
+    } else if (newOdds < 0 && currentOdds < 0) {
+      return newOdds > currentOdds; // Less negative is better (closer to 0)
+    } else if (newOdds > 0 && currentOdds < 0) {
+      return true; // Positive odds are always better than negative
+    } else {
+      return false; // Negative odds are worse than positive
+    }
   }
 }
 
