@@ -304,8 +304,8 @@ class SportGameOddsAPIService {
       }
 
       const gameId = event.eventID;
-      const homeTeam = event.homeTeam?.name || event.homeTeam?.displayName || event.homeTeam?.abbreviation || 'Unknown';
-      const awayTeam = event.awayTeam?.name || event.awayTeam?.displayName || event.awayTeam?.abbreviation || 'Unknown';
+      const homeTeam = event.homeTeam?.name || event.homeTeam?.displayName || event.homeTeam?.abbreviation || event.homeTeam?.shortName || 'UNK';
+      const awayTeam = event.awayTeam?.name || event.awayTeam?.displayName || event.awayTeam?.abbreviation || event.awayTeam?.shortName || 'UNK';
       const gameTime = event.status?.startsAt || new Date().toISOString();
       
       // Format team abbreviations properly
@@ -480,11 +480,16 @@ class SportGameOddsAPIService {
     }
 
     // Convert map to array and filter out incomplete props
-    const playerProps = Array.from(playerPropsMap.values())
-      .filter(prop => prop.overOdds !== null && prop.underOdds !== null) // Only include props with both odds
-      .slice(0, maxProps); // Apply limit
+    let playerProps = Array.from(playerPropsMap.values())
+      .filter(prop => prop.overOdds !== null && prop.underOdds !== null); // Only include props with both odds
 
-    console.log(`Processed ${playerProps.length} complete player props (with both over/under odds)`);
+    // Deduplicate and mix players for better variety
+    playerProps = this.deduplicateAndMixPlayers(playerProps);
+    
+    // Apply limit after deduplication
+    playerProps = playerProps.slice(0, maxProps);
+
+    console.log(`Processed ${playerProps.length} complete player props (with both over/under odds) after deduplication`);
     return playerProps;
   }
 
@@ -501,15 +506,66 @@ class SportGameOddsAPIService {
   }
 
   private determinePlayerTeam(playerIdPart: string, homeTeam: string, awayTeam: string): string {
-    // This is a simplified approach - in reality you'd need a player-to-team mapping
-    // For now, just return one of the teams
-    return homeTeam;
+    // Try to determine team from player ID or use alternating logic for better distribution
+    const hash = this.hashString(playerIdPart);
+    return hash % 2 === 0 ? homeTeam : awayTeam;
   }
 
   private determineOpponent(playerIdPart: string, homeTeam: string, awayTeam: string): string {
     // Return the opposite team
     const playerTeam = this.determinePlayerTeam(playerIdPart, homeTeam, awayTeam);
     return playerTeam === homeTeam ? awayTeam : homeTeam;
+  }
+
+  private hashString(str: string): number {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return Math.abs(hash);
+  }
+
+  private deduplicateAndMixPlayers(props: any[]): any[] {
+    // Group props by player name
+    const playerGroups = new Map<string, any[]>();
+    
+    props.forEach(prop => {
+      const playerKey = prop.playerName.toLowerCase();
+      if (!playerGroups.has(playerKey)) {
+        playerGroups.set(playerKey, []);
+      }
+      playerGroups.get(playerKey)!.push(prop);
+    });
+
+    // Select best prop for each player (highest confidence or most recent)
+    const mixedProps: any[] = [];
+    
+    for (const [playerName, playerProps] of playerGroups) {
+      // Sort by confidence (if available) or by last update time
+      const sortedProps = playerProps.sort((a, b) => {
+        if (a.confidence !== b.confidence) {
+          return (b.confidence || 0) - (a.confidence || 0);
+        }
+        return new Date(b.lastUpdate).getTime() - new Date(a.lastUpdate).getTime();
+      });
+      
+      // Take the best prop for this player
+      mixedProps.push(sortedProps[0]);
+    }
+
+    // Shuffle the results for better variety
+    return this.shuffleArray(mixedProps);
+  }
+
+  private shuffleArray<T>(array: T[]): T[] {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
   }
 
   private extractTeamAbbr(teamName: string): string {

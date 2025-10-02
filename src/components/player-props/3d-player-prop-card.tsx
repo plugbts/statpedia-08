@@ -331,74 +331,74 @@ export function PlayerPropCard3D({
             </div>
 
             {/* Main Content Area - Horizontal Layout */}
-            <div className="flex-1 flex space-x-4 min-h-0">
-              {/* Left Section - Prop & Odds - Made wider */}
-              <div className="flex-1 min-w-0 max-w-xs">
-                {/* Prop Details */}
-                <div className="mb-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex-1 mr-3">
-                      <span className="text-slate-400 text-sm font-semibold tracking-wide uppercase block leading-tight animate-pulse-glow whitespace-nowrap overflow-hidden">
+            <div className="flex-1 flex space-x-3 min-h-0 overflow-hidden">
+              {/* Left Section - Prop & Odds */}
+              <div className="flex-1 min-w-0 space-y-2">
+                {/* Prop Details - Compact */}
+                <div className="space-y-2">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 mr-2 min-w-0">
+                      <span className="text-slate-400 text-xs font-semibold tracking-wide uppercase block leading-tight animate-pulse-glow truncate">
                         {prop.propType}
                       </span>
                     </div>
-                    <span className="text-slate-100 text-xl font-bold tracking-tight flex-shrink-0">
+                    <span className="text-slate-100 text-lg font-bold tracking-tight flex-shrink-0">
                       {formatNumber(prop.line)}
                     </span>
                   </div>
                   
-                  {/* AI Prediction & Form - Compact */}
-                  <div className="flex items-center space-x-2 mb-2">
+                  {/* AI Prediction & Form - Inline */}
+                  <div className="flex items-center space-x-1 flex-wrap gap-1">
                     {prop.aiPrediction && (
                       <div className={cn(
-                        "flex items-center space-x-1 px-2 py-1 rounded text-xs font-semibold",
+                        "flex items-center space-x-1 px-1.5 py-0.5 rounded text-xs font-semibold",
                         prop.aiPrediction.recommended === 'over' 
                           ? "bg-green-600/20 text-green-300"
                           : "bg-red-600/20 text-red-300"
                       )}>
                         {prop.aiPrediction.recommended === 'over' ? (
-                          <TrendingUp className="h-3 w-3" />
+                          <TrendingUp className="h-2.5 w-2.5" />
                         ) : (
-                          <TrendingDown className="h-3 w-3" />
+                          <TrendingDown className="h-2.5 w-2.5" />
                         )}
-                        <span className="uppercase">{prop.aiPrediction.recommended}</span>
+                        <span className="uppercase text-xs">{prop.aiPrediction.recommended}</span>
                       </div>
                     )}
                     
                     {prop.recentForm && (
-                      <div className="flex items-center space-x-1 px-2 py-1 rounded text-xs font-semibold bg-slate-800/60 text-slate-200">
+                      <div className="flex items-center space-x-1 px-1.5 py-0.5 rounded text-xs font-semibold bg-slate-800/60 text-slate-200">
                         {getFormIcon(prop.recentForm)}
-                        <span className="uppercase">{prop.recentForm}</span>
+                        <span className="uppercase text-xs">{prop.recentForm}</span>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Odds Display - Compact */}
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  <div className="text-center">
+                {/* Odds Display - Ultra Compact */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="text-center bg-slate-800/30 rounded p-1.5">
                     <div className="text-xs text-slate-500 uppercase font-semibold">Over</div>
-                    <div className="text-lg font-bold text-green-300">
+                    <div className="text-sm font-bold text-green-300">
                       {formatOdds(prop.overOdds)}
                     </div>
                   </div>
-                  <div className="text-center">
+                  <div className="text-center bg-slate-800/30 rounded p-1.5">
                     <div className="text-xs text-slate-500 uppercase font-semibold">Under</div>
-                    <div className="text-lg font-bold text-red-300">
+                    <div className="text-sm font-bold text-red-300">
                       {formatOdds(prop.underOdds)}
                     </div>
                   </div>
                 </div>
 
-                {/* Sportsbooks - Compact */}
+                {/* Sportsbooks - Ultra Compact */}
                 {prop.availableSportsbooks && prop.availableSportsbooks.length > 0 && (
-                  <div className="mb-2">
+                  <div>
                     <div className="text-xs text-slate-500 uppercase font-semibold mb-1">
                       {prop.availableSportsbooks.length} Book{prop.availableSportsbooks.length !== 1 ? 's' : ''}
                     </div>
                     <SportsbookIconsList 
                       sportsbooks={prop.availableSportsbooks} 
-                      maxVisible={4}
+                      maxVisible={3}
                       onClick={() => setShowSportsbookOverlay(true)}
                       className="justify-start"
                     />
@@ -527,26 +527,26 @@ export function PlayerPropCard3D({
               </div>
             </div>
 
-          {/* Action Button */}
-          <Button
-            className={cn(
-              "w-full bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700",
-              "text-slate-100 font-semibold py-3 px-4 rounded-lg",
-              "transition-all duration-300 ease-out",
-              "hover:shadow-lg hover:shadow-slate-500/25",
-              "transform hover:scale-105",
-              "border border-slate-600/50",
-              "tracking-wide"
-            )}
-            onClick={(e) => {
-              e.stopPropagation();
-              onAnalysisClick(prop);
-            }}
-          >
-            <BarChart3 className="h-4 w-4 mr-2" />
-            View Analysis
-            <ChevronRight className="h-4 w-4 ml-2" />
-          </Button>
+          {/* View Analysis Button - Always Visible */}
+          <div className="mt-2 pt-2 border-t border-slate-700/50">
+            <Button
+              className={cn(
+                "w-full bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700",
+                "text-slate-100 font-semibold py-2 px-3 rounded-lg text-sm",
+                "transition-all duration-300 ease-out",
+                "hover:shadow-lg hover:shadow-slate-500/25",
+                "border border-slate-600/50",
+                "group"
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                onAnalysisClick(prop);
+              }}
+            >
+              <BarChart3 className="h-4 w-4 mr-2" />
+              View Analysis
+              <ChevronRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform duration-300" />
+            </Button>
           </CardContent>
         </SeasonalCardBackground>
 
