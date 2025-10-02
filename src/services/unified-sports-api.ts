@@ -1,6 +1,7 @@
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
 import { sportsRadarAPI, SportsRadarGame } from './sportsradar-api';
-import { sportsGameOddsAPI, SportsGameOddsPlayerProp, SportsGameOddsGame } from './sportsgameodds-api';
+// PAUSED: SportsGameOdds API temporarily disabled
+// import { sportsGameOddsAPI, SportsGameOddsPlayerProp, SportsGameOddsGame } from './sportsgameodds-api';
 
 // Unified interfaces
 export interface SportsbookOdds {
@@ -98,73 +99,14 @@ class UnifiedSportsAPI {
     logInfo('UnifiedSportsAPI', 'Using SportsRadar API for games/stats and SportsGameOdds API for markets/odds/props');
   }
 
-  // Get player props using SportsGameOdds API (markets/odds/props only)
+  // PAUSED: Get player props - SportsGameOdds API temporarily disabled
   async getPlayerProps(sport: string, season?: number, week?: number, selectedSportsbook?: string): Promise<PlayerProp[]> {
-    logAPI('UnifiedSportsAPI', `Getting player props for ${sport}${season ? ` ${season}` : ''}${week ? ` week ${week}` : ''} from SportsGameOdds API`);
+    logAPI('UnifiedSportsAPI', `Getting player props for ${sport}${season ? ` ${season}` : ''}${week ? ` week ${week}` : ''} - SportsGameOdds API PAUSED`);
     
     try {
-      // Get player props from SportsGameOdds API (for markets/odds/props)
-      const sportsGameOddsProps = await sportsGameOddsAPI.getPlayerProps(sport);
-      
-      logAPI('UnifiedSportsAPI', `SportsGameOdds: ${sportsGameOddsProps.length} props`);
-      console.log('🎯 UnifiedSportsAPI received props from SportsGameOdds:', sportsGameOddsProps.length);
-
-      // Convert SportsGameOdds props to unified format
-      const enhancedProps: PlayerProp[] = sportsGameOddsProps.map(sgoProp => ({
-        id: `sgo-${sgoProp.id}`,
-        playerId: sgoProp.playerId,
-        playerName: sgoProp.playerName,
-        team: sgoProp.team,
-        teamAbbr: this.getTeamAbbreviation(sgoProp.team),
-        opponent: sgoProp.homeTeam === sgoProp.team ? sgoProp.awayTeam : sgoProp.homeTeam,
-        opponentAbbr: this.getTeamAbbreviation(sgoProp.homeTeam === sgoProp.team ? sgoProp.awayTeam : sgoProp.homeTeam),
-        gameId: sgoProp.gameId,
-        sport: sport.toUpperCase(),
-        propType: sgoProp.propType,
-        line: sgoProp.line,
-        overOdds: sgoProp.overOdds,
-        underOdds: sgoProp.underOdds,
-        allSportsbookOdds: [{
-          sportsbook: sgoProp.sportsbook,
-          line: sgoProp.line,
-          overOdds: sgoProp.overOdds,
-          underOdds: sgoProp.underOdds,
-          lastUpdate: sgoProp.lastUpdate
-        }],
-        gameDate: this.formatGameDate(sgoProp.gameTime),
-        gameTime: sgoProp.gameTime,
-        confidence: sgoProp.confidence,
-        expectedValue: this.calculateExpectedValue(sgoProp.line, sgoProp.overOdds, sgoProp.underOdds),
-        lastUpdated: new Date(sgoProp.lastUpdate),
-        isLive: true,
-        marketId: `${sgoProp.playerId}-${sgoProp.propType}-${sgoProp.gameId}-${sport}`,
-        seasonStats: this.generateSeasonStats(sgoProp.propType, sgoProp.line),
-        aiPrediction: this.generateAIPrediction(sgoProp.propType, sgoProp.line, sgoProp.overOdds, sgoProp.underOdds)
-      }));
-
-      // Filter by sportsbook if specified
-      let filteredProps = enhancedProps;
-      if (selectedSportsbook && selectedSportsbook !== 'all') {
-        // Check if any props have sportsbook-specific odds
-        const propsWithSportsbookData = enhancedProps.filter(prop => 
-          prop.allSportsbookOdds?.some(odds => 
-            odds.sportsbook && odds.sportsbook.toLowerCase().includes(selectedSportsbook.toLowerCase())
-          )
-        );
-        
-        // If we have sportsbook-specific data, use it; otherwise show all props
-        // (since the API might aggregate data from all sportsbooks without specific attribution)
-        if (propsWithSportsbookData.length > 0) {
-          filteredProps = propsWithSportsbookData;
-          logAPI('UnifiedSportsAPI', `Filtered to ${filteredProps.length} props for sportsbook: ${selectedSportsbook}`);
-        } else {
-          logAPI('UnifiedSportsAPI', `No sportsbook-specific data found, showing all ${enhancedProps.length} props (aggregated from all sportsbooks)`);
-          filteredProps = enhancedProps;
-        }
-      }
-
-      logSuccess('UnifiedSportsAPI', `Returning ${filteredProps.length} enhanced player props for ${sport} from SportsGameOdds`);
-      return filteredProps;
+      // PAUSED: SportsGameOdds API temporarily disabled
+      logWarning('UnifiedSportsAPI', 'SportsGameOdds API is temporarily paused - returning empty array');
+      return [];
 
     } catch (error) {
       logError('UnifiedSportsAPI', `Failed to get player props for ${sport}:`, error);
@@ -212,24 +154,13 @@ class UnifiedSportsAPI {
     }
   }
 
-  // Get past games for analytics tab
+  // PAUSED: Get past games for analytics tab - SportsGameOdds API temporarily disabled
   async getPastPlayerProps(sport: string, season?: number, week?: number, selectedSportsbook?: string): Promise<PlayerProp[]> {
     try {
-      // Get player props from SportsGameOdds API (for markets/odds/props)
-      const sportsGameOddsProps = await sportsGameOddsAPI.getPlayerProps(sport);
-      logAPI('UnifiedSportsAPI', `Retrieved ${sportsGameOddsProps.length} props from SportsGameOdds`);
+      // PAUSED: SportsGameOdds API temporarily disabled
+      logWarning('UnifiedSportsAPI', 'SportsGameOdds API is temporarily paused - returning empty array for past props');
+      return [];
 
-      // Convert and filter for past games only
-      const unifiedProps = this.convertSportsGameOddsProps(sportsGameOddsProps);
-      const filteredProps = this.filterPastGamesUnified(unifiedProps);
-      logAPI('UnifiedSportsAPI', `Filtered to ${filteredProps.length} past game props for analytics`);
-
-      // Sort by date (most recent first) - props are already in unified format
-      const playerProps = filteredProps
-        .sort((a, b) => new Date(b.gameTime).getTime() - new Date(a.gameTime).getTime());
-
-      logSuccess('UnifiedSportsAPI', `Returning ${playerProps.length} past player props for ${sport}`);
-      return playerProps;
     } catch (error) {
       logError('UnifiedSportsAPI', `Failed to get past player props for ${sport}:`, error);
       return [];

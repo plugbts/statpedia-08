@@ -9,7 +9,8 @@ import { logger, LogEntry, LogLevel } from '@/utils/console-logger';
 import { TestAPIDebug } from '@/components/test-api-debug';
 import { DebugAPITest } from '@/components/debug-api-test';
 import { unifiedSportsAPI } from '@/services/unified-sports-api';
-import { sportsGameOddsAPI } from '@/services/sportsgameodds-api';
+// PAUSED: SportsGameOdds API temporarily disabled
+// import { sportsGameOddsAPI } from '@/services/sportsgameodds-api';
 import { 
   Terminal, 
   Trash2, 
@@ -486,165 +487,25 @@ export const DevConsole: React.FC = () => {
                       <>
 
                             {/* SportsGameOdds API */}
-                            <div className="p-3 bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/10 rounded-lg border border-purple-200 dark:border-purple-800">
+                            {/* PAUSED: SportsGameOdds API temporarily disabled */}
+                            <div className="p-3 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-900/20 dark:to-gray-800/10 rounded-lg border border-gray-200 dark:border-gray-800">
                               <div className="flex items-center justify-between mb-2">
-                                <span className="font-semibold text-purple-800 dark:text-purple-200">SportsGameOdds API</span>
-                                <div className="flex gap-2">
-                                  <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700">
-                                    {sportsGameOddsAPI.getUsageStats().callsToday} calls today
-                                  </Badge>
-                                  {(() => {
-                                    const rateLimitStatus = sportsGameOddsAPI.getRateLimitStatus();
-                                    if (rateLimitStatus.status === 'LIMIT_EXCEEDED') {
-                                      return (
-                                        <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700">
-                                          Rate Limited
-                                        </Badge>
-                                      );
-                                    } else if (rateLimitStatus.status === 'NEAR_LIMIT') {
-                                      return (
-                                        <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700">
-                                          Near Limit
-                                        </Badge>
-                                      );
-                                    } else if (rateLimitStatus.status === 'HIGH_USAGE') {
-                                      return (
-                                        <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-700">
-                                          High Usage
-                                        </Badge>
-                                      );
-                                    }
-                                    return null;
-                                  })()}
-                                </div>
-                              </div>
-                              <div className="space-y-2">
-                                <div className="flex justify-between text-xs">
-                                  <span className="text-purple-700 dark:text-purple-300">Usage:</span>
-                                  <span className="font-semibold">
-                                    {sportsGameOddsAPI.getUsageStats().callsToday} / {sportsGameOddsAPI.getUsageStats().maxDailyCalls}
-                                  </span>
-                                </div>
-                                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                                  <div 
-                                    className={`h-2 rounded-full transition-all duration-300 ${
-                                      sportsGameOddsAPI.getUsageStats().isAtLimit 
-                                        ? 'bg-red-500' 
-                                        : sportsGameOddsAPI.getUsageStats().isNearLimit 
-                                        ? 'bg-orange-500' 
-                                        : 'bg-purple-500'
-                                    }`}
-                                    style={{ width: `${Math.min(sportsGameOddsAPI.getUsageStats().usagePercentage, 100)}%` }}
-                                  ></div>
-                                </div>
-                                <div className="text-xs text-purple-600 dark:text-purple-400">
-                                  {sportsGameOddsAPI.getUsageStats().usagePercentage}% of daily limit
-                                </div>
-                                <div className="text-xs text-purple-600 dark:text-purple-400">
-                                  Total calls: {sportsGameOddsAPI.getUsageStats().totalCalls}
-                                </div>
-                                <div className="text-xs text-purple-600 dark:text-purple-400">
-                                  Cache hit rate: {Math.round(sportsGameOddsAPI.getDetailedUsageStats().cacheHitRate * 100)}%
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Detailed SportsGameOdds Usage */}
-                            {sportsGameOddsAPI.getUsageStats().callsToday > 0 && (
-                              <div className="p-3 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-900/20 dark:to-gray-800/10 rounded-lg border border-gray-200 dark:border-gray-800">
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="font-semibold text-gray-800 dark:text-gray-200">Top Endpoints</span>
-                                  <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-900/30 dark:text-gray-300 dark:border-gray-700">
-                                    {sportsGameOddsAPI.getDetailedUsageStats().topEndpoints.length} tracked
-                                  </Badge>
-                                </div>
-                                <div className="space-y-1">
-                                  {sportsGameOddsAPI.getDetailedUsageStats().topEndpoints.map((endpoint, index) => (
-                                    <div key={index} className="flex justify-between text-xs">
-                                      <span className="text-gray-700 dark:text-gray-300 truncate max-w-[200px]">
-                                        {endpoint.endpoint}
-                                      </span>
-                                      <span className="font-semibold text-gray-800 dark:text-gray-200">
-                                        {endpoint.count} calls
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                                {sportsGameOddsAPI.getDetailedUsageStats().recommendations.length > 0 && (
-                                  <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                                    <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Recommendations:</div>
-                                    <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
-                                      {sportsGameOddsAPI.getDetailedUsageStats().recommendations.map((rec, index) => (
-                                        <li key={index} className="flex items-start gap-1">
-                                          <span className="text-orange-500">•</span>
-                                          <span>{rec}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Player Props Cache Status */}
-                            <div className="p-3 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/10 rounded-lg border border-blue-200 dark:border-blue-800">
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="font-semibold text-blue-800 dark:text-blue-200">Player Props Cache</span>
-                                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700">
-                                  Debug
+                                <span className="font-semibold text-gray-800 dark:text-gray-200">SportsGameOdds API</span>
+                                <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-900/30 dark:text-gray-300 dark:border-gray-700">
+                                  PAUSED
                                 </Badge>
                               </div>
                               <div className="space-y-2">
-                                <div className="text-xs text-blue-700 dark:text-blue-300">
-                                  Cache Status: {sportsGameOddsAPI.getPlayerPropsCacheStatus()}
+                                <div className="text-xs text-gray-600 dark:text-gray-400">
+                                  SportsGameOdds API is temporarily paused
                                 </div>
-                                <div className="text-xs text-blue-700 dark:text-blue-300">
-                                  Cached Sports: {sportsGameOddsAPI.getCachedSports().join(', ') || 'None'}
+                                <div className="text-xs text-gray-600 dark:text-gray-400">
+                                  All player props functionality disabled
                                 </div>
-                                <div className="text-xs text-blue-700 dark:text-blue-300">
-                                  Last Cache Update: {sportsGameOddsAPI.getLastCacheUpdate()}
+                                <div className="text-xs text-gray-600 dark:text-gray-400">
+                                  Code preserved for future reactivation
                                 </div>
                               </div>
-                            </div>
-
-                            <div className="flex gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={async () => {
-                                  logger.info('DevConsole', 'Testing player props fetch for NFL...');
-                                  try {
-                                    // Clear cache first to test fresh fetch
-                                    sportsGameOddsAPI.clearPlayerPropsCache();
-                                    logger.info('DevConsole', 'Cache cleared, fetching fresh data...');
-                                    
-                                    const props = await sportsGameOddsAPI.getPlayerProps('nfl');
-                                    logger.success('DevConsole', `Fetched ${props.length} NFL player props`);
-                                    console.log('NFL Player Props:', props);
-                                    
-                                    // Log cache status after fetch
-                                    logger.info('DevConsole', `Cache Status: ${sportsGameOddsAPI.getPlayerPropsCacheStatus()}`);
-                                    logger.info('DevConsole', `Cached Sports: ${sportsGameOddsAPI.getCachedSports().join(', ')}`);
-                                  } catch (error) {
-                                    logger.error('DevConsole', 'Failed to fetch NFL player props:', error);
-                                    console.error('Full error:', error);
-                                  }
-                                }}
-                                className="flex-1 text-xs"
-                              >
-                                Test NFL Props
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  sportsGameOddsAPI.clearPlayerPropsCache();
-                                  logger.info('DevConsole', 'Player props cache cleared');
-                                }}
-                                className="flex-1 text-xs"
-                              >
-                                Clear Cache
-                              </Button>
                             </div>
                             
                             <Button
@@ -662,20 +523,22 @@ export const DevConsole: React.FC = () => {
                                 }
                               }}
                               className="w-full text-xs mb-2"
+                              disabled
                             >
-                              Test Unified API Chain
+                              Test Unified API Chain (PAUSED)
                             </Button>
                             
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => {
-                                sportsGameOddsAPI.resetUsageStats();
+                                // sportsGameOddsAPI.resetUsageStats();
                                 logger.info('DevConsole', 'SportsGameOdds API usage statistics reset');
                               }}
                               className="w-full text-xs"
+                              disabled
                             >
-                              Reset Usage Stats
+                              Reset Usage Stats (PAUSED)
                             </Button>
                       </>
                     </div>
