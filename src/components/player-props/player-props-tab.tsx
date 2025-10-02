@@ -1092,14 +1092,14 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
           <>
             {viewMode === 'column' ? (
               <PlayerPropsColumnView
-                props={filteredProps.slice(0, 3) as any}
+                props={filteredProps as any}
                 selectedSport={sportFilter}
                 onAnalysisClick={handleEnhancedAnalysis as any}
                 isLoading={isLoadingData}
               />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredProps.slice(0, 3).map((prop, index) => (
+                {filteredProps.map((prop, index) => (
                   <PlayerPropCard3D
                     key={prop.id || `prop-${prop.playerId}-${prop.propType}-${index}`}
                     prop={prop as any}

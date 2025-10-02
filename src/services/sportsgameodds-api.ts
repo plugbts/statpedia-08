@@ -613,8 +613,8 @@ class SportsGameOddsAPI {
         logAPI('SportsGameOddsAPI', `Cache duration: ${Math.round(this.CACHE_DURATION.PLAYER_PROPS / 1000)}s`);
         
         if (!isExpired) {
-          // 🧪 TESTING MODE: Limit cached props to 3 as well
-          const cachedTestingProps = cached.props.slice(0, 3);
+          // Return all cached props
+          const cachedTestingProps = cached.props;
           console.log('🧪 TESTING MODE - SportGameOdds API (CACHED EXACT SPORTSBOOK DATA)');
           console.log('================================================================');
           console.log(`📦 Cached consolidated props available: ${cached.props.length}`);
@@ -749,9 +749,9 @@ class SportsGameOddsAPI {
 
       // Cache the results
       const gameInfo = this.extractGameInfo(consolidatedProps);
-      // 🧪 TESTING MODE: Limit to 3 props for development/testing purposes
+      // Return all props - no testing limit
       const originalCount = consolidatedProps.length;
-      const testingProps = consolidatedProps.slice(0, 3);
+      const testingProps = consolidatedProps;
       
       console.log('🧪 TESTING MODE - SportGameOdds API (EXACT SPORTSBOOK DATA)');
       console.log('==========================================================');
