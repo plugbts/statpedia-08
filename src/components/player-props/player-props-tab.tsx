@@ -365,6 +365,19 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       
       try {
         const sportsbookFilter = selectedSportsbook === 'all' ? undefined : selectedSportsbook;
+        
+        // First, test the unified API directly to see if it's working
+        logAPI('PlayerPropsTab', `Testing unifiedSportsAPI.getPlayerProps(${sport}) directly...`);
+        const directProps = await unifiedSportsAPI.getPlayerProps(sport, undefined, undefined, sportsbookFilter);
+        logAPI('PlayerPropsTab', `Direct unified API returned ${directProps?.length || 0} props`);
+        
+        if (directProps && directProps.length > 0) {
+          logSuccess('PlayerPropsTab', 'Direct unified API is working! Sample props:', directProps.slice(0, 2));
+        } else {
+          logError('PlayerPropsTab', 'Direct unified API returned no props!');
+        }
+        
+        // Now call the consistent props service
         logAPI('PlayerPropsTab', `Calling consistentPropsService.getConsistentPlayerProps(${sport})${sportsbookFilter ? ` with sportsbook: ${sportsbookFilter}` : ''}`);
         logDebug('PlayerPropsTab', `consistentPropsService: ${typeof consistentPropsService}`);
         const props = await consistentPropsService.getConsistentPlayerProps(sport, sportsbookFilter);
@@ -395,12 +408,33 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
           
           // Log success to console (visible in dev console)
           logSuccess('PlayerPropsTab', `Player Props Loaded: Found ${props.length} consistent player props for ${sport.toUpperCase()} with real-time FanDuel odds`);
+        } else if (directProps && Array.isArray(directProps) && directProps.length > 0) {
+          // Fallback to direct unified API props if consistent service fails
+          logWarning('PlayerPropsTab', 'Consistent props service returned no data, using direct unified API props');
+          logSuccess('PlayerPropsTab', `Setting ${directProps.length} direct unified API props for ${sport}`);
+          
+          // Convert direct props to the expected format
+          const convertedProps = directProps.map(prop => ({
+            ...prop,
+            confidence: prop.confidence || 0.75,
+            confidenceFactors: [],
+            expectedValue: prop.expectedValue || 0,
+            allSportsbookOdds: [],
+            lastUpdated: new Date(),
+            isLive: true,
+            marketId: `${prop.playerId}-${prop.propType}-${prop.gameId}-${sport}`
+          }));
+          
+          setRealProps(convertedProps);
+          logSuccess('PlayerPropsTab', `Player Props Loaded: Found ${directProps.length} direct unified API props for ${sport.toUpperCase()}`);
         } else {
-          logWarning('PlayerPropsTab', 'API returned no valid props', props);
+          logWarning('PlayerPropsTab', 'Both consistent props service and direct unified API returned no valid props');
+          logError('PlayerPropsTab', 'Consistent props:', props);
+          logError('PlayerPropsTab', 'Direct props:', directProps);
           setRealProps([]);
           toast({
             title: "No Data",
-            description: `No player props available for ${sport.toUpperCase()}`,
+            description: `No player props available for ${sport.toUpperCase()}. Check dev console for details.`,
             variant: "destructive",
           });
         }
