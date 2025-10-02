@@ -71,14 +71,20 @@ export class BackendSportsGameOddsAPI {
     }
   }
 
-  async getPlayerProps(sport: string): Promise<any[]> {
+  async getPlayerProps(sport: string, forceRefresh: boolean = false): Promise<any[]> {
     try {
-      logAPI('BackendSportsGameOddsAPI', `Fetching player props for ${sport}`);
+      logAPI('BackendSportsGameOddsAPI', `Fetching player props for ${sport}${forceRefresh ? ' (force refresh)' : ''}`);
       
-      const response = await this.makeRequest('', {
+      const params: any = {
         endpoint: 'player-props',
         sport: sport.toLowerCase()
-      });
+      };
+      
+      if (forceRefresh) {
+        params.force_refresh = 'true';
+      }
+      
+      const response = await this.makeRequest('', params);
 
       const props = response.data || [];
       

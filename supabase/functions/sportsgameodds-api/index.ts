@@ -330,9 +330,19 @@ class SportGameOddsAPIService {
         }
       });
       
+      // Debug team extraction - log all team data
+      console.log(`Event ${gameId} team extraction:`, {
+        homeTeamRaw: event.homeTeam,
+        awayTeamRaw: event.awayTeam,
+        homeTeamFinal: homeTeam,
+        awayTeamFinal: awayTeam,
+        homeTeamAbbr: homeTeamAbbr,
+        awayTeamAbbr: awayTeamAbbr
+      });
+      
       // Only log if we have issues with team names
-      if (homeTeam === 'Unknown' || awayTeam === 'Unknown') {
-        console.log(`Warning: Unknown team names for event ${gameId}: ${homeTeam} vs ${awayTeam}`);
+      if (homeTeam === 'UNK' || awayTeam === 'UNK') {
+        console.log(`Warning: UNK team names for event ${gameId}: ${homeTeam} vs ${awayTeam}`);
         console.log(`Full event structure:`, JSON.stringify(event, null, 2));
       }
 
@@ -437,11 +447,29 @@ class SportGameOddsAPIService {
           // Set the appropriate odds based on side and use best odds available
           if (side === 'over') {
             const newOverOdds = this.parseAmericanOdds(bookmaker.odds);
+            
+            // Debug odds parsing
+            console.log(`Over odds parsing for ${prop.playerName} ${prop.propType}:`, {
+              bookmakerId,
+              rawOdds: bookmaker.odds,
+              parsedOdds: newOverOdds,
+              currentOverOdds: prop.overOdds
+            });
+            
             if (prop.overOdds === null || this.isBetterOdds(newOverOdds, prop.overOdds, 'over')) {
               prop.overOdds = newOverOdds;
             }
           } else if (side === 'under') {
             const newUnderOdds = this.parseAmericanOdds(bookmaker.odds);
+            
+            // Debug odds parsing
+            console.log(`Under odds parsing for ${prop.playerName} ${prop.propType}:`, {
+              bookmakerId,
+              rawOdds: bookmaker.odds,
+              parsedOdds: newUnderOdds,
+              currentUnderOdds: prop.underOdds
+            });
+            
             if (prop.underOdds === null || this.isBetterOdds(newUnderOdds, prop.underOdds, 'under')) {
               prop.underOdds = newUnderOdds;
             }
@@ -502,7 +530,41 @@ class SportGameOddsAPIService {
   }
 
   private formatPropType(propType: string): string {
-    return propType.split(' ').map(word => 
+    // Handle camelCase and compound words
+    let formatted = propType;
+    
+    // Insert spaces before capital letters in camelCase (e.g., "longestTackle" -> "longest Tackle")
+    formatted = formatted.replace(/([a-z])([A-Z])/g, '$1 $2');
+    
+    // Insert spaces before numbers (e.g., "rushing1stDowns" -> "rushing 1st Downs")
+    formatted = formatted.replace(/([a-z])([0-9])/g, '$1 $2');
+    
+    // Handle common compound words that should be separated
+    const compoundWords = {
+      'defensivetackle': 'defensive tackle',
+      'longesttackle': 'longest tackle',
+      'rushingyards': 'rushing yards',
+      'receivingyards': 'receiving yards',
+      'passingyards': 'passing yards',
+      'touchdownpasses': 'touchdown passes',
+      'fieldgoals': 'field goals',
+      'firstdowns': 'first downs',
+      'totalyards': 'total yards',
+      'redzoneattempts': 'red zone attempts',
+      'interceptions': 'interceptions',
+      'completions': 'completions',
+      'attempts': 'attempts'
+    };
+    
+    const lowerFormatted = formatted.toLowerCase();
+    for (const [compound, spaced] of Object.entries(compoundWords)) {
+      if (lowerFormatted.includes(compound)) {
+        formatted = formatted.replace(new RegExp(compound, 'gi'), spaced);
+      }
+    }
+    
+    // Capitalize each word
+    return formatted.split(' ').map(word => 
       word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
     ).join(' ');
   }
@@ -622,6 +684,27 @@ class SportGameOddsAPIService {
     } else {
       return (100 / Math.abs(odds)) + 1;
     }
+  }
+
+  private parseAmericanOdds(oddsValue: any): number {
+    // Handle different odds formats that might come from the API
+    if (typeof oddsValue === 'number') {
+      return oddsValue;
+    }
+    
+    if (typeof oddsValue === 'string') {
+      // Remove any non-numeric characters except + and -
+      const cleaned = oddsValue.replace(/[^\d+-]/g, '');
+      const parsed = parseInt(cleaned);
+      
+      if (!isNaN(parsed)) {
+        return parsed;
+      }
+    }
+    
+    // If we can't parse the odds, return a default value that indicates an issue
+    console.warn('Failed to parse odds:', oddsValue);
+    return 100; // Default positive odds
   }
 
   private extractTeamAbbr(teamName: string): string {

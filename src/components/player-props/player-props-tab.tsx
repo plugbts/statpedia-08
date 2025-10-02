@@ -382,9 +382,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       setRealProps([]);
       
       try {
-        // Use backend API directly for server-side cached data
-        logAPI('PlayerPropsTab', `Calling backend API for ${sport} player props`);
-        const props = await backendSportsGameOddsAPI.getPlayerProps(sport);
+        // Use backend API directly for server-side cached data (force refresh for debugging)
+        logAPI('PlayerPropsTab', `Calling backend API for ${sport} player props with force refresh`);
+        const props = await backendSportsGameOddsAPI.getPlayerProps(sport, true); // Force refresh for debugging
         logAPI('PlayerPropsTab', `Backend API returned ${props?.length || 0} props`);
         
         // DEBUG: Log first few props to check data quality
