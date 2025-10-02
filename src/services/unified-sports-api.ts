@@ -1,6 +1,7 @@
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
 import { sportsRadarAPI, SportsRadarGame } from './sportsradar-api';
-// PAUSED: SportsGameOdds API temporarily disabled
+
+// PAUSED: SportsGameOdds API temporarily disabled - preserving code for future reactivation
 // import { sportsGameOddsAPI, SportsGameOddsPlayerProp, SportsGameOddsGame } from './sportsgameodds-api';
 
 // Unified interfaces
@@ -96,7 +97,7 @@ export interface Outcome {
 class UnifiedSportsAPI {
   constructor() {
     logInfo('UnifiedSportsAPI', 'Service initialized - Version 4.0.0');
-    logInfo('UnifiedSportsAPI', 'Using SportsRadar API for games/stats and SportsGameOdds API for markets/odds/props');
+    logInfo('UnifiedSportsAPI', 'SportsGameOdds API temporarily paused - using SportsRadar API only');
   }
 
   // PAUSED: Get player props - SportsGameOdds API temporarily disabled
@@ -199,6 +200,8 @@ class UnifiedSportsAPI {
     return abbreviations[teamName] || teamName.substring(0, 3).toUpperCase();
   }
 
+  // PAUSED: Method temporarily disabled due to SportsGameOdds API pause
+  /*
   private convertSportsGameOddsProps(props: SportsGameOddsPlayerProp[]): PlayerProp[] {
     // Convert SportsGameOdds props to unified PlayerProp format
     return props.map(sgProp => ({
@@ -233,6 +236,7 @@ class UnifiedSportsAPI {
       aiPrediction: this.generateAIPrediction(sgProp.propType, sgProp.line, sgProp.overOdds, sgProp.underOdds)
     }));
   }
+  */
 
   private filterPastGamesUnified(props: PlayerProp[]): PlayerProp[] {
     const now = new Date();

@@ -1,3 +1,15 @@
+/**
+ * SportsGameOdds API Service
+ * 
+ * STATUS: PAUSED - This service is temporarily disabled but all code is preserved
+ * for future reactivation. The API integration is complete and functional.
+ * 
+ * To reactivate:
+ * 1. Uncomment imports in unified-sports-api.ts
+ * 2. Uncomment imports in dev-console.tsx
+ * 3. Remove PAUSED comments and restore normal functionality
+ */
+
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
 
 // SportsGameOdds API Configuration

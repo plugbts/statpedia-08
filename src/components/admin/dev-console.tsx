@@ -6,10 +6,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { logger, LogEntry, LogLevel } from '@/utils/console-logger';
-import { TestAPIDebug } from '@/components/test-api-debug';
-import { DebugAPITest } from '@/components/debug-api-test';
+// Removed unused debug components
 import { unifiedSportsAPI } from '@/services/unified-sports-api';
-// PAUSED: SportsGameOdds API temporarily disabled
+
+// PAUSED: SportsGameOdds API temporarily disabled - preserving code for future reactivation
 // import { sportsGameOddsAPI } from '@/services/sportsgameodds-api';
 import { 
   Terminal, 
@@ -355,9 +355,7 @@ export const DevConsole: React.FC = () => {
             </TabsContent>
             
             <TabsContent value="api-test" className="space-y-4">
-              <TestAPIDebug />
-              <Separator />
-              <DebugAPITest />
+              {/* Debug components removed */}
             </TabsContent>
             
             <TabsContent value="debug" className="space-y-4">

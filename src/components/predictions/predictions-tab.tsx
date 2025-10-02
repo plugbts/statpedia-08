@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+
+// UI Components
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,38 +9,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+
+// Icons
 import { 
-  TrendingUp, 
-  TrendingDown, 
-  BarChart3, 
-  Brain, 
-  Zap,
-  Calendar,
-  Users,
-  Activity,
-  AlertCircle,
-  Play,
-  RotateCcw,
-  DollarSign,
-  Shield,
-  Clock,
-  MapPin,
-  RefreshCw,
-  CheckCircle,
-  XCircle,
-  Star,
-  Eye,
-  Filter,
-  SortAsc,
-  SortDesc,
-  Download,
-  Share2,
-  Bookmark,
-  BookmarkCheck,
-  X
+  TrendingUp, TrendingDown, BarChart3, Brain, Zap, Calendar, Users, Activity,
+  AlertCircle, Play, RotateCcw, DollarSign, Shield, Clock, MapPin, RefreshCw,
+  CheckCircle, XCircle, Star, Eye, Filter, SortAsc, SortDesc, Download,
+  Share2, Bookmark, BookmarkCheck, X
 } from 'lucide-react';
+
+// Hooks & Utils
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+
+// Services
 import { seasonService } from '@/services/season-service';
 import { unifiedSportsAPI } from '@/services/unified-sports-api';
 import { simulationService, PredictionAnalysis } from '@/services/simulation-service';
