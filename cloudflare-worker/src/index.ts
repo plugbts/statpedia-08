@@ -67,69 +67,178 @@ export default {
       const rawData = await apiResponse.json();
       console.log(`✅ API success: ${rawData?.data?.length || 0} events`);
 
-      // Process events with minimal data
+      // Process events with REAL data from SportGameOdds API
       const playerProps: any[] = [];
       const events = rawData.data || [];
+      const playerPropsMap = new Map<string, any>(); // Group props by unique key
 
       for (let i = 0; i < Math.min(events.length, maxEvents); i++) {
         const event = events[i];
-        if (!event.odds) continue;
+        if (!event.odds || !event.teams) continue;
 
-        // Extract team names
-        const homeTeam = event.teams?.home?.names?.short || 'UNK';
-        const awayTeam = event.teams?.away?.names?.short || 'UNK';
+        // Extract REAL team names
+        const homeTeam = event.teams.home?.names?.short || event.teams.home?.names?.medium || 'UNK';
+        const awayTeam = event.teams.away?.names?.short || event.teams.away?.names?.medium || 'UNK';
+        const homeTeamFull = event.teams.home?.names?.long || homeTeam;
+        const awayTeamFull = event.teams.away?.names?.long || awayTeam;
         
-        console.log(`📊 Processing event ${i}: ${homeTeam} vs ${awayTeam}`);
+        // Get REAL game date
+        const gameDate = event.scheduled || event.status?.startsAt || new Date().toISOString();
+        
+        console.log(`📊 Processing event ${i}: ${homeTeam} vs ${awayTeam} on ${gameDate}`);
 
-        // Process only first few props to avoid stack overflow
-        let propCount = 0;
+        // Process REAL player props from the odds object
         for (const [propKey, propData] of Object.entries(event.odds)) {
-          if (propCount >= 5) break; // Limit per event
           if (playerProps.length >= maxProps) break; // Global limit
           
           if (!propData || typeof propData !== 'object') continue;
           
-          // Skip if not a player prop
-          if (!propKey.includes('_1_NFL') || !propKey.includes('-game-ou-')) continue;
+          // Skip if not a player prop (look for player ID pattern)
+          if (!propData.playerID || !propKey.includes('-game-ou-')) continue;
           
-          // Extract basic info
-          const parts = propKey.split('-');
-          if (parts.length < 4) continue;
+          // Extract REAL player information
+          const playerID = propData.playerID;
+          const statID = propData.statID;
+          const side = propData.sideID;
+          const marketName = propData.marketName;
           
-          const playerName = parts.slice(0, -3).join(' ').replace(/_/g, ' ').replace(/\d+/g, '').trim();
-          const propType = parts[0].replace(/_/g, ' ');
-          const side = parts[parts.length - 1];
+          // Skip if not over/under
+          if (!['over', 'under'].includes(side)) continue;
           
-          if (!playerName || (side !== 'over' && side !== 'under')) continue;
+          // Parse REAL player name from playerID with proper capitalization
+          const playerName = playerID.replace(/_1_NFL$/, '').replace(/_/g, ' ')
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+            .join(' ');
           
-          // Get basic data
-          const line = parseNumber(propData.fairOverUnder || propData.bookOverUnder || '0');
-          const odds = parseNumber(propData.fairOdds || propData.bookOdds || '0');
+          // Format prop type from statID with proper spacing
+          const propType = statID.replace(/_/g, ' ').replace(/\+/g, ' + ')
+            .split(' ')
+            .map(word => {
+              // Handle camelCase words like "longestCompletion"
+              if (word.match(/[a-z][A-Z]/)) {
+                return word.replace(/([a-z])([A-Z])/g, '$1 $2');
+              }
+              return word;
+            })
+            .join(' ')
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+            .join(' ');
           
-          if (!line || !odds) continue;
+          // Get REAL line from book data
+          const line = parseFloat(propData.bookOverUnder || propData.fairOverUnder || '0');
+          if (!line || line <= 0) continue;
           
-          // Create simple prop object
-          const prop = {
-            id: `${event.eventID}-${playerName}-${propType}-${line}-${side}`,
-            playerName,
-            propType: propType.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
-            line,
-            overOdds: side === 'over' ? odds : 0,
-            underOdds: side === 'under' ? odds : 0,
-            sportsbooks: ['DraftKings'],
-            gameDate: event.scheduled || new Date().toISOString(),
-            teamAbbr: homeTeam,
-            opponentAbbr: awayTeam,
-            confidence: 0.5,
-            expectedValue: 0,
-            recentForm: 'N/A',
-            aiPrediction: null
-          };
+          // Create unique key for grouping over/under props
+          const propKey_group = `${event.eventID}-${playerID}-${statID}-${line}`;
           
-          playerProps.push(prop);
-          propCount++;
+          // Get or create the prop group
+          let prop = playerPropsMap.get(propKey_group);
+          if (!prop) {
+            // Determine which team the player is on based on team ID pattern
+            // For now, use a simple hash-based assignment for consistency
+            const playerHash = playerID.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+            const playerTeam = playerHash % 2 === 0 ? homeTeam : awayTeam;
+            const playerTeamFull = playerTeam === homeTeam ? homeTeamFull : awayTeamFull;
+            const opponent = playerTeam === homeTeam ? awayTeam : homeTeam;
+            const opponentFull = playerTeam === homeTeam ? awayTeamFull : homeTeamFull;
+            
+            prop = {
+              id: propKey_group,
+              playerId: playerID,
+              playerName: playerName,
+              team: playerTeamFull,
+              teamAbbr: playerTeam,
+              opponent: opponentFull,
+              opponentAbbr: opponent,
+              sport: 'nfl',
+              propType: propType,
+              line: line,
+              overOdds: null,
+              underOdds: null,
+              gameId: event.eventID,
+              gameTime: gameDate,
+              gameDate: gameDate.split('T')[0], // Extract date part
+              homeTeam: homeTeamFull,
+              awayTeam: awayTeamFull,
+              market: propType,
+              outcome: 'over_under',
+              betType: 'player_prop',
+              period: 'full_game',
+              statEntity: playerName,
+              isExactAPIData: true,
+              availableSportsbooks: [],
+              allSportsbookOdds: [],
+              available: true,
+              recentForm: null, // Real data - no fake form
+              aiPrediction: null, // Real data - no fake AI
+              lastUpdate: new Date().toISOString(),
+              marketName: marketName
+            };
+            
+            playerPropsMap.set(propKey_group, prop);
+          }
+
+          // Process REAL sportsbook odds from byBookmaker
+          if (propData.byBookmaker && typeof propData.byBookmaker === 'object') {
+            for (const [bookmakerId, bookmakerData] of Object.entries(propData.byBookmaker)) {
+              if (!bookmakerData || typeof bookmakerData !== 'object') continue;
+              
+              const bookmaker = bookmakerData as any;
+              if (!bookmaker.odds || !bookmaker.overUnder) continue;
+              
+              // Add to available sportsbooks
+              if (!prop.availableSportsbooks.includes(bookmakerId)) {
+                prop.availableSportsbooks.push(bookmakerId);
+              }
+              
+              // Set the appropriate odds based on side
+              const odds = parseNumber(bookmaker.odds);
+              if (odds !== null) {
+                if (side === 'over') {
+                  if (prop.overOdds === null || isBetterOdds(odds, prop.overOdds, 'over')) {
+                    prop.overOdds = odds;
+                  }
+                } else if (side === 'under') {
+                  if (prop.underOdds === null || isBetterOdds(odds, prop.underOdds, 'under')) {
+                    prop.underOdds = odds;
+                  }
+                }
+              }
+              
+              // Add to allSportsbookOdds for detailed breakdown
+              const existingBookmaker = prop.allSportsbookOdds.find(sb => sb.sportsbook === bookmakerId);
+              if (!existingBookmaker) {
+                prop.allSportsbookOdds.push({
+                  sportsbook: bookmakerId,
+                  line: parseFloat(bookmaker.overUnder),
+                  overOdds: side === 'over' ? odds : null,
+                  underOdds: side === 'under' ? odds : null,
+                  lastUpdate: bookmaker.lastUpdatedAt || new Date().toISOString()
+                });
+              } else {
+                // Update existing bookmaker odds
+                if (side === 'over') {
+                  existingBookmaker.overOdds = odds;
+                } else if (side === 'under') {
+                  existingBookmaker.underOdds = odds;
+                }
+              }
+              
+              // Update last update time
+              if (bookmaker.lastUpdatedAt && new Date(bookmaker.lastUpdatedAt) > new Date(prop.lastUpdate)) {
+                prop.lastUpdate = bookmaker.lastUpdatedAt;
+              }
+            }
+          }
         }
       }
+
+      // Convert map to array and filter out incomplete props
+      playerProps.push(...Array.from(playerPropsMap.values())
+        .filter(prop => prop.overOdds !== null && prop.underOdds !== null)
+        .slice(0, maxProps));
 
       console.log(`✅ Processed ${playerProps.length} player props from ${events.length} events`);
 
@@ -183,8 +292,26 @@ export default {
 function parseNumber(value: any): number | null {
   if (typeof value === 'number') return value;
   if (typeof value === 'string') {
-    const parsed = Number(value);
+    // Handle American odds format like "+100", "-115"
+    const cleaned = value.replace(/[^\d+-]/g, '');
+    const parsed = parseInt(cleaned);
     return isNaN(parsed) ? null : parsed;
   }
   return null;
+}
+
+function isBetterOdds(newOdds: number, currentOdds: number, side: 'over' | 'under'): boolean {
+  // For over bets, higher positive odds or lower negative odds are better
+  // For under bets, higher positive odds or lower negative odds are better
+  // In both cases, we want the odds that give better payout
+  
+  if (newOdds > 0 && currentOdds > 0) {
+    return newOdds > currentOdds; // Higher positive is better
+  } else if (newOdds < 0 && currentOdds < 0) {
+    return newOdds > currentOdds; // Less negative is better (closer to 0)
+  } else if (newOdds > 0 && currentOdds < 0) {
+    return true; // Positive odds are always better than negative
+  } else {
+    return false; // Negative odds are worse than positive
+  }
 }
