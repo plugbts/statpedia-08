@@ -490,9 +490,19 @@ class SportsGameOddsAPI {
         logAPI('SportsGameOddsAPI', `Cache duration: ${Math.round(this.CACHE_DURATION.PLAYER_PROPS / 1000)}s`);
         
         if (!isExpired) {
-          logAPI('SportsGameOddsAPI', `Using cached player props for ${sport} (${cached.props.length} props)`);
+          // 🧪 TESTING MODE: Limit cached props to 3 as well
+          const cachedTestingProps = cached.props.slice(0, 3);
+          console.log('🧪 TESTING MODE - SportGameOdds API (CACHED)');
+          console.log('============================================');
+          console.log(`📦 Cached props available: ${cached.props.length}`);
+          console.log(`✂️  Limited to for testing: ${cachedTestingProps.length}`);
+          console.log(`📊 Cached props being returned:`, cachedTestingProps.map(p => `${p.playerName} ${p.propType} ${p.line}`));
+          console.log('🎯 This limitation is active for testing purposes');
+          console.log('============================================');
+          
+          logAPI('SportsGameOddsAPI', `🧪 TESTING: Using cached props for ${sport}, returning ${cachedTestingProps.length} of ${cached.props.length} for testing`);
           this.usageStats.cacheHits++;
-          return cached.props;
+          return cachedTestingProps;
         } else {
           logAPI('SportsGameOddsAPI', `Cache expired, fetching fresh data`);
         }
@@ -612,14 +622,28 @@ class SportsGameOddsAPI {
 
       // Cache the results
       const gameInfo = this.extractGameInfo(playerProps);
+      // 🧪 TESTING MODE: Limit to 3 props for development/testing purposes
+      const originalCount = playerProps.length;
+      const testingProps = playerProps.slice(0, 3);
+      
+      console.log('🧪 TESTING MODE - SportGameOdds API');
+      console.log('=====================================');
+      console.log(`🔢 Original props fetched: ${originalCount}`);
+      console.log(`✂️  Limited to for testing: ${testingProps.length}`);
+      console.log(`📊 Props being returned:`, testingProps.map(p => `${p.playerName} ${p.propType} ${p.line}`));
+      console.log('🎯 This limitation is active for testing purposes');
+      console.log('=====================================');
+      
       this.playerPropsCache.set(cacheKey, {
-        props: playerProps,
+        props: testingProps, // Cache the limited props
         timestamp: Date.now(),
         gameInfo: gameInfo
       });
       
-      logSuccess('SportsGameOddsAPI', `Retrieved ${playerProps.length} player props from SportsGameOdds markets for ${sport} and cached them`);
-      return playerProps;
+      logSuccess('SportsGameOddsAPI', `🧪 TESTING: Retrieved ${originalCount} props, returning ${testingProps.length} for testing`);
+      logAPI('SportsGameOddsAPI', `Testing props: ${testingProps.map(p => `${p.playerName} ${p.propType}`).join(', ')}`);
+      
+      return testingProps;
       
     } catch (error) {
       logError('SportsGameOddsAPI', `Failed to get player props for ${sport}:`, error);
