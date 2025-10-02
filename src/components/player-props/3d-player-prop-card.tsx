@@ -17,6 +17,7 @@ import {
 import { cn } from '@/lib/utils';
 import { SeasonalCardBackground } from '@/components/ui/seasonal-card-background';
 import { teamColorsService } from '@/services/team-colors-service';
+import { convertEVToText, getEVBadgeClasses } from '@/utils/ev-text-converter';
 
 interface SportsbookOdds {
   sportsbook: string;
@@ -410,13 +411,10 @@ export function PlayerPropCard3D({
             <div className="mb-4">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Expected Value</span>
-                <div className={cn(
-                  "flex items-center space-x-1 text-sm font-bold tracking-tight",
-                  getEVColor(prop.expectedValue)
-                )}>
-                  <Zap className="h-3 w-3" />
-                  <span>{prop.expectedValue > 0 ? '+' : ''}{formatNumber(prop.expectedValue * 100, 1)}%</span>
-                </div>
+                <Badge className={`text-xs font-bold border ${getEVBadgeClasses(prop.expectedValue * 100).combined}`}>
+                  <Zap className="h-3 w-3 mr-1" />
+                  {convertEVToText(prop.expectedValue * 100).text}
+                </Badge>
               </div>
             </div>
           )}

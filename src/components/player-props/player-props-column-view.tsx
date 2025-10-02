@@ -23,6 +23,7 @@ import {
   SortDesc
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { convertEVToText, getEVBadgeClasses } from '@/utils/ev-text-converter';
 
 interface PlayerProp {
   id: string;
@@ -343,12 +344,13 @@ export function PlayerPropsColumnView({
 
                 {/* Expected Value */}
                 <div className="col-span-1 text-center">
-                  <div className={cn(
-                    "text-sm font-semibold",
-                    getEVColor(prop.expectedValue || 0)
-                  )}>
-                    {prop.expectedValue ? (prop.expectedValue > 0 ? '+' : '') + formatPercentage(prop.expectedValue) : 'N/A'}
-                  </div>
+                  {prop.expectedValue ? (
+                    <Badge className={`text-xs font-bold border ${getEVBadgeClasses(prop.expectedValue * 100).combined}`}>
+                      {convertEVToText(prop.expectedValue * 100).text}
+                    </Badge>
+                  ) : (
+                    <span className="text-sm text-slate-500">N/A</span>
+                  )}
                 </div>
 
                 {/* AI Prediction */}

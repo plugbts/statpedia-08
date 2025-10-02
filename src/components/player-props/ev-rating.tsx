@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { evCalculatorService, type EVCalculation } from '@/services/ev-calculator';
+import { convertEVToText, getEVBadgeClasses } from '@/utils/ev-text-converter';
 
 interface EVRatingProps {
   evCalculation: EVCalculation;
@@ -59,8 +60,8 @@ export const EVRating: React.FC<EVRatingProps> = ({ evCalculation, compact = fal
           <TooltipContent>
             <div className="space-y-1">
               <div className="font-medium">AI EV Rating: {aiRating}/5 stars</div>
-              <div>EV: {evPercentage.toFixed(1)}%</div>
-              <div>ROI: {roiPercentage.toFixed(1)}%</div>
+              <div>EV: {convertEVToText(evPercentage).text} Value</div>
+              <div>ROI: {convertEVToText(roiPercentage).text} Value</div>
               <div>Confidence: {confidence.toFixed(0)}%</div>
             </div>
           </TooltipContent>
@@ -93,16 +94,16 @@ export const EVRating: React.FC<EVRatingProps> = ({ evCalculation, compact = fal
         {/* EV Metrics */}
         <div className="grid grid-cols-2 gap-3">
           <div className="text-center p-2 bg-muted/50 rounded-lg">
-            <div className="text-lg font-bold" style={{ color: evCalculatorService.getEVColor(evPercentage) }}>
-              {evPercentage > 0 ? '+' : ''}{evPercentage.toFixed(1)}%
-            </div>
-            <div className="text-xs text-muted-foreground">Expected Value</div>
+            <Badge className={`text-sm font-bold border ${getEVBadgeClasses(evPercentage).combined}`}>
+              {convertEVToText(evPercentage).text}
+            </Badge>
+            <div className="text-xs text-muted-foreground mt-1">Expected Value</div>
           </div>
           <div className="text-center p-2 bg-muted/50 rounded-lg">
-            <div className="text-lg font-bold" style={{ color: evCalculatorService.getEVColor(roiPercentage) }}>
-              {roiPercentage > 0 ? '+' : ''}{roiPercentage.toFixed(1)}%
-            </div>
-            <div className="text-xs text-muted-foreground">ROI</div>
+            <Badge className={`text-sm font-bold border ${getEVBadgeClasses(roiPercentage).combined}`}>
+              {convertEVToText(roiPercentage).text}
+            </Badge>
+            <div className="text-xs text-muted-foreground mt-1">ROI</div>
           </div>
         </div>
 
