@@ -59,6 +59,7 @@ const formatCompactTime = (gameTime: string, gameDate: string) => {
 
 import { unifiedSportsAPI } from '@/services/unified-sports-api';
 import { consistentPropsService, ConsistentPlayerProp } from '@/services/consistent-props-service';
+import { backendSportsGameOddsAPI } from '@/services/backend-sportsgameodds-api';
 import { useNavigate } from 'react-router-dom';
 import { 
   TrendingUp, 
@@ -313,10 +314,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     }
   }, [selectedSportsbook]);
 
-  // Cleanup odds updates on unmount
+  // Cleanup on unmount - backend handles updates automatically
   useEffect(() => {
     return () => {
-      consistentPropsService.stopOddsUpdates(sportFilter);
+      // Backend polling handles updates automatically, no cleanup needed
     };
   }, [sportFilter]);
 
@@ -383,15 +384,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       setRealProps([]);
       
       try {
-        // Clear cache to ensure fresh sportsbook data
-        consistentPropsService.clearCache();
-        logAPI('PlayerPropsTab', 'Cleared cache to force fresh sportsbook data');
-        
-        const sportsbookFilter = selectedSportsbook === 'all' ? undefined : selectedSportsbook;
-        logAPI('PlayerPropsTab', `Calling consistentPropsService.getConsistentPlayerProps(${sport})${sportsbookFilter ? ` with sportsbook: ${sportsbookFilter}` : ''}`);
-        logDebug('PlayerPropsTab', `consistentPropsService: ${typeof consistentPropsService}`);
-        const props = await consistentPropsService.getConsistentPlayerProps(sport, sportsbookFilter);
-        logAPI('PlayerPropsTab', `Fixed API returned ${props?.length || 0} props`);
+        // Use backend API directly for server-side cached data
+        logAPI('PlayerPropsTab', `Calling backend API for ${sport} player props`);
+        const props = await backendSportsGameOddsAPI.getPlayerProps(sport);
+        logAPI('PlayerPropsTab', `Backend API returned ${props?.length || 0} props`);
         
         // DEBUG: Log first few props to check data quality
         if (props && props.length > 0) {
@@ -409,17 +405,14 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         }
         
         if (props && Array.isArray(props) && props.length > 0) {
-          logSuccess('PlayerPropsTab', `Setting ${props.length} consistent player props for ${sport}`);
-          logDebug('PlayerPropsTab', 'Consistent props sample:', props.slice(0, 2));
+          logSuccess('PlayerPropsTab', `Setting ${props.length} server-side cached props for ${sport}`);
+          logDebug('PlayerPropsTab', 'Backend props sample:', props.slice(0, 2));
           setRealProps(props);
           
-          // Start periodic odds updates for this sport
-          consistentPropsService.startOddsUpdates(sport);
-          
           // Log success to console (visible in dev console)
-          logSuccess('PlayerPropsTab', `Player Props Loaded: Found ${props.length} consistent player props for ${sport.toUpperCase()} with real-time FanDuel odds`);
+          logSuccess('PlayerPropsTab', `Player Props Loaded: Found ${props.length} server-side cached props for ${sport.toUpperCase()} with exact sportsbook odds`);
         } else {
-          logWarning('PlayerPropsTab', 'API returned no valid props', props);
+          logWarning('PlayerPropsTab', 'Backend API returned no valid props', props);
           setRealProps([]);
           toast({
             title: "No Data",

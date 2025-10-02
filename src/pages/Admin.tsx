@@ -19,6 +19,7 @@ import { SyncStatus } from "@/components/sync/sync-status";
 import { DevConsole } from "@/components/admin/dev-console";
 import { CrossReferenceAnalysis } from "@/components/admin/cross-reference-analysis";
 import { APIUsageChecker } from "@/components/debug/api-usage-checker";
+import { ServerAPIDashboard } from "@/components/admin/server-api-dashboard";
 import { useUser } from "@/contexts/user-context";
 
 export default function Admin() {
@@ -221,17 +222,11 @@ export default function Admin() {
             </TabsContent>
           )}
 
-          {userRole === 'owner' && (
-            <TabsContent value="server-api" className="space-y-2 mt-2">
-              <div className="p-4">
-                <h3 className="text-lg font-semibold mb-4">Server-Side API Management</h3>
-                <p className="text-muted-foreground">
-                  Server-side API management dashboard will be available after deploying the Supabase functions.
-                  This will provide centralized API usage tracking, caching, and rate limiting.
-                </p>
-              </div>
-            </TabsContent>
-          )}
+            {userRole === 'owner' && (
+              <TabsContent value="server-api" className="space-y-2 mt-2">
+                <ServerAPIDashboard />
+              </TabsContent>
+            )}
         </Tabs>
       </div>
     </div>
