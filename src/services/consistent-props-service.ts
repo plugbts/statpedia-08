@@ -1,6 +1,5 @@
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
-import { unifiedSportsAPI } from './unified-sports-api';
-// Removed theOddsAPI import - now using SportsRadar API exclusively
+// Removed unified and theOddsAPI imports - now using SportGameOdds API exclusively for live sportsbook data
 
 export interface ConsistentPlayerProp {
   id: string;
@@ -13,7 +12,7 @@ export interface ConsistentPlayerProp {
   gameId: string;
   sport: string;
   propType: string;
-  // Primary odds (FanDuel default)
+  // Primary odds (exact from SportGameOdds API)
   line: number;
   overOdds: number;
   underOdds: number;
@@ -48,9 +47,9 @@ export interface ConsistentPlayerProp {
   lastUpdated: Date;
   isLive: boolean;
   marketId: string; // Unique market identifier for consistency
-  // NEW: Exact sportsbook data tracking
-  availableSportsbooks?: string[]; // List of sportsbooks offering this prop
-  isExactAPIData?: boolean; // Whether this uses exact API data
+  // NEW: Exact sportsbook data from SportGameOdds API
+  availableSportsbooks?: string[];
+  isExactAPIData?: boolean;
 }
 
 export interface SportsbookOdds {
@@ -59,8 +58,6 @@ export interface SportsbookOdds {
   overOdds: number;
   underOdds: number;
   lastUpdate: string;
-  isAvailable: boolean;
-  marketId: string;
 }
 
 export interface ConfidenceFactor {
@@ -72,12 +69,18 @@ export interface ConfidenceFactor {
   category: 'historical' | 'situational' | 'matchup' | 'trend' | 'external';
 }
 
+interface CacheEntry {
+  props: ConsistentPlayerProp[];
+  timestamp: number;
+  sport: string;
+}
+
 class ConsistentPropsService {
-  private propCache = new Map<string, ConsistentPlayerProp[]>();
+  private propCache = new Map<string, CacheEntry>();
   private lastUpdateTime = new Map<string, number>();
-  private readonly CACHE_DURATION = 30 * 1000; // 30 seconds for testing exact sportsbook data
-  private readonly MAX_PROPS_TO_SHOW = 200;
-  private readonly PROP_UPDATE_INTERVAL = 2 * 60 * 1000; // 2 minutes
+  
+  // Reduced cache duration for more live data
+  private readonly CACHE_DURATION = 2 * 60 * 1000; // 2 minutes for live sportsbook data
 
   // Factor-based confidence calculation
   private calculateConfidence(factors: ConfidenceFactor[]): number {
@@ -503,18 +506,18 @@ class ConsistentPropsService {
     }
   }
 
-  // Get consistent player props with real-time odds
+  /**
+   * Get consistent player props with live sportsbook data
+   * This method now uses ONLY SportGameOdds API for exact sportsbook data
+   */
   async getConsistentPlayerProps(sport: string, selectedSportsbook?: string): Promise<ConsistentPlayerProp[]> {
     const cacheKey = `${sport}-${selectedSportsbook || 'all'}`;
-    const now = Date.now();
     
     // Check cache first
-    if (this.propCache.has(cacheKey) && this.lastUpdateTime.has(cacheKey)) {
-      const lastUpdate = this.lastUpdateTime.get(cacheKey)!;
-      if (now - lastUpdate < this.CACHE_DURATION) {
-        logInfo('ConsistentPropsService', `Using cached props for ${sport}`);
-        return this.propCache.get(cacheKey)!;
-      }
+    const cached = this.propCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
+      logAPI('ConsistentPropsService', `Using cached props for ${sport} (${cached.props.length} props)`);
+      return cached.props;
     }
 
     try {
@@ -565,8 +568,12 @@ class ConsistentPropsService {
         .slice(0, this.MAX_PROPS_TO_SHOW);
       
       // Cache the results
-      this.propCache.set(cacheKey, sortedProps);
-      this.lastUpdateTime.set(cacheKey, now);
+      this.propCache.set(cacheKey, {
+        props: sortedProps,
+        timestamp: Date.now(),
+        sport
+      });
+      this.lastUpdateTime.set(sport, Date.now());
       
       logSuccess('ConsistentPropsService', `Generated ${sortedProps.length} consistent props for ${sport}`);
       console.log('🎯 ConsistentPropsService returning props:', sortedProps);
@@ -633,10 +640,94 @@ class ConsistentPropsService {
   }
 
   // Clear cache
+  /**
+   * Calculate basic confidence score
+   */
+  private calculateBasicConfidence(prop: any): number {
+    let confidence = 50; // Base confidence
+    
+    // Adjust based on available data quality
+    if (prop.isExactAPIData) confidence += 20;
+    if (prop.availableSportsbooks?.length > 1) confidence += 15;
+    if (prop.lastUpdate) {
+      const updateAge = Date.now() - new Date(prop.lastUpdate).getTime();
+      if (updateAge < 30 * 60 * 1000) confidence += 10; // Updated within 30 minutes
+    }
+    
+    return Math.min(95, Math.max(10, confidence));
+  }
+
+  /**
+   * Calculate basic expected value
+   */
+  private calculateBasicEV(overOdds: number, underOdds: number): number {
+    // Simple EV calculation based on odds difference
+    const overProb = this.americanOddsToImpliedProbability(overOdds);
+    const underProb = this.americanOddsToImpliedProbability(underOdds);
+    
+    // Estimate true probability (simplified)
+    const trueProbability = 0.5; // Neutral starting point
+    
+    // Calculate EV for over bet
+    const overEV = (trueProbability * (overOdds > 0 ? overOdds / 100 : 100 / Math.abs(overOdds))) - 
+                   ((1 - trueProbability) * 1);
+    
+    return Math.max(-50, Math.min(25, overEV * 100)); // Cap between -50% and +25%
+  }
+
+  /**
+   * Convert American odds to implied probability
+   */
+  private americanOddsToImpliedProbability(americanOdds: number): number {
+    if (americanOdds > 0) {
+      return 100 / (americanOdds + 100);
+    } else {
+      return Math.abs(americanOdds) / (Math.abs(americanOdds) + 100);
+    }
+  }
+
+  /**
+   * Extract team abbreviation
+   */
+  private extractTeamAbbr(teamName: string): string {
+    if (!teamName) return 'TBD';
+    
+    // Common team abbreviation mappings
+    const abbrevMap: { [key: string]: string } = {
+      'Los Angeles Rams': 'LAR',
+      'Los Angeles Chargers': 'LAC',
+      'New York Giants': 'NYG',
+      'New York Jets': 'NYJ',
+      'San Francisco 49ers': 'SF',
+      'Kansas City Chiefs': 'KC',
+      'Green Bay Packers': 'GB',
+      'New England Patriots': 'NE',
+      'Pittsburgh Steelers': 'PIT',
+      'Dallas Cowboys': 'DAL',
+      'Philadelphia Eagles': 'PHI',
+      'Baltimore Ravens': 'BAL',
+      'Buffalo Bills': 'BUF',
+      'Miami Dolphins': 'MIA',
+      'Cincinnati Bengals': 'CIN',
+      'Cleveland Browns': 'CLE',
+      'Denver Broncos': 'DEN',
+      'Las Vegas Raiders': 'LV',
+      'Indianapolis Colts': 'IND',
+      'Tennessee Titans': 'TEN',
+      'Jacksonville Jaguars': 'JAX',
+      'Houston Texans': 'HOU'
+    };
+    
+    return abbrevMap[teamName] || teamName.substring(0, 3).toUpperCase();
+  }
+
+  /**
+   * Clear cache for fresh data
+   */
   clearCache(): void {
     this.propCache.clear();
     this.lastUpdateTime.clear();
-    logInfo('ConsistentPropsService', 'Cleared prop cache');
+    logInfo('ConsistentPropsService', 'Cache cleared for fresh sportsbook data');
   }
 }
 

@@ -19,14 +19,33 @@ import { logAPI, logState, logFilter, logSuccess, logError, logWarning, logInfo,
 // Utility function for compact time formatting
 const formatCompactTime = (gameTime: string, gameDate: string) => {
   try {
-    const date = new Date(gameDate);
-    const time = new Date(gameTime);
+    // Handle both separate gameTime/gameDate and combined gameTime
+    let dateToFormat: Date;
+    
+    if (gameTime && gameTime.includes('T')) {
+      // gameTime is a full ISO string
+      dateToFormat = new Date(gameTime);
+    } else if (gameDate && gameTime) {
+      // Separate date and time - combine them properly
+      const combinedDateTime = gameDate.includes('T') ? gameDate : `${gameDate}T${gameTime}`;
+      dateToFormat = new Date(combinedDateTime);
+    } else if (gameDate) {
+      // Only date available
+      dateToFormat = new Date(gameDate);
+    } else {
+      return 'TBD';
+    }
+    
+    // Check if date is valid
+    if (isNaN(dateToFormat.getTime())) {
+      return 'TBD';
+    }
     
     // Format date as M/D (e.g., "12/25")
-    const dateStr = `${date.getMonth() + 1}/${date.getDate()}`;
+    const dateStr = `${dateToFormat.getMonth() + 1}/${dateToFormat.getDate()}`;
     
     // Format time as H:MM AM/PM (e.g., "2:30 PM")
-    const timeStr = time.toLocaleTimeString('en-US', { 
+    const timeStr = dateToFormat.toLocaleTimeString('en-US', { 
       hour: 'numeric', 
       minute: '2-digit',
       hour12: true 
@@ -34,8 +53,7 @@ const formatCompactTime = (gameTime: string, gameDate: string) => {
     
     return `${dateStr} ${timeStr}`;
   } catch (error) {
-    // Fallback to original format if parsing fails
-    return `${gameDate} ${gameTime}`;
+    return 'TBD';
   }
 };
 

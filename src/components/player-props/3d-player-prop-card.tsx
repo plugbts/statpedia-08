@@ -19,6 +19,7 @@ import { SeasonalCardBackground } from '@/components/ui/seasonal-card-background
 import { teamColorsService } from '@/services/team-colors-service';
 import { convertEVToText, getEVBadgeClasses } from '@/utils/ev-text-converter';
 import { SportsbookIconsList } from '@/components/ui/sportsbook-icons';
+import { SportsbookOverlay } from '@/components/ui/sportsbook-overlay';
 
 interface SportsbookOdds {
   sportsbook: string;
@@ -93,6 +94,7 @@ export function PlayerPropCard3D({
   const [isHovered, setIsHovered] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const [sparklePositions, setSparklePositions] = useState<Array<{ id: number; x: number; y: number; delay: number }>>([]);
+  const [showSportsbookOverlay, setShowSportsbookOverlay] = useState(false);
 
   // Debug logging for received prop data
   React.useEffect(() => {
@@ -362,7 +364,8 @@ export function PlayerPropCard3D({
                 </div>
                 <SportsbookIconsList 
                   sportsbooks={prop.availableSportsbooks} 
-                  maxVisible={6}
+                  maxVisible={3}
+                  onClick={() => setShowSportsbookOverlay(true)}
                   className="justify-start"
                 />
               </div>
@@ -468,6 +471,18 @@ export function PlayerPropCard3D({
         {/* 3D Border Effect */}
         <div className="absolute inset-0 rounded-lg border border-gradient-to-r from-slate-500/30 via-gray-500/30 to-slate-500/30 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
       </Card>
+      
+      {/* Sportsbook Overlay */}
+      <SportsbookOverlay
+        isOpen={showSportsbookOverlay}
+        onClose={() => setShowSportsbookOverlay(false)}
+        sportsbooks={prop.availableSportsbooks || []}
+        propInfo={{
+          playerName: prop.playerName,
+          propType: prop.propType,
+          line: prop.line
+        }}
+      />
     </div>
   );
 }

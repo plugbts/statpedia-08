@@ -1,60 +1,71 @@
 import React from 'react';
 
-// Sportsbook icon components using SVG or text fallbacks
+// Professional sportsbook icon components with authentic colors and compact design
 export const SportsbookIcons = {
   draftkings: () => (
-    <div className="w-6 h-6 bg-green-600 rounded flex items-center justify-center text-white text-xs font-bold">
+    <div className="w-5 h-5 bg-gradient-to-br from-green-500 to-green-700 rounded-sm flex items-center justify-center text-white text-[10px] font-extrabold shadow-sm border border-green-400/30">
       DK
     </div>
   ),
   fanduel: () => (
-    <div className="w-6 h-6 bg-blue-600 rounded flex items-center justify-center text-white text-xs font-bold">
+    <div className="w-5 h-5 bg-gradient-to-br from-blue-500 to-blue-700 rounded-sm flex items-center justify-center text-white text-[10px] font-extrabold shadow-sm border border-blue-400/30">
       FD
     </div>
   ),
   betmgm: () => (
-    <div className="w-6 h-6 bg-yellow-600 rounded flex items-center justify-center text-white text-xs font-bold">
+    <div className="w-5 h-5 bg-gradient-to-br from-yellow-500 to-yellow-700 rounded-sm flex items-center justify-center text-white text-[9px] font-extrabold shadow-sm border border-yellow-400/30">
       MGM
     </div>
   ),
   caesars: () => (
-    <div className="w-6 h-6 bg-purple-600 rounded flex items-center justify-center text-white text-xs font-bold">
+    <div className="w-5 h-5 bg-gradient-to-br from-purple-600 to-purple-800 rounded-sm flex items-center justify-center text-white text-[10px] font-extrabold shadow-sm border border-purple-400/30">
       CZR
     </div>
   ),
   pointsbet: () => (
-    <div className="w-6 h-6 bg-red-600 rounded flex items-center justify-center text-white text-xs font-bold">
+    <div className="w-5 h-5 bg-gradient-to-br from-red-500 to-red-700 rounded-sm flex items-center justify-center text-white text-[10px] font-extrabold shadow-sm border border-red-400/30">
       PB
     </div>
   ),
   barstool: () => (
-    <div className="w-6 h-6 bg-pink-600 rounded flex items-center justify-center text-white text-xs font-bold">
+    <div className="w-5 h-5 bg-gradient-to-br from-pink-500 to-pink-700 rounded-sm flex items-center justify-center text-white text-[10px] font-extrabold shadow-sm border border-pink-400/30">
       BS
     </div>
   ),
   betrivers: () => (
-    <div className="w-6 h-6 bg-indigo-600 rounded flex items-center justify-center text-white text-xs font-bold">
+    <div className="w-5 h-5 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-sm flex items-center justify-center text-white text-[10px] font-extrabold shadow-sm border border-indigo-400/30">
       BR
     </div>
   ),
   unibet: () => (
-    <div className="w-6 h-6 bg-orange-600 rounded flex items-center justify-center text-white text-xs font-bold">
+    <div className="w-5 h-5 bg-gradient-to-br from-orange-500 to-orange-700 rounded-sm flex items-center justify-center text-white text-[10px] font-extrabold shadow-sm border border-orange-400/30">
       UB
     </div>
   ),
   wynnbet: () => (
-    <div className="w-6 h-6 bg-amber-600 rounded flex items-center justify-center text-white text-xs font-bold">
+    <div className="w-5 h-5 bg-gradient-to-br from-amber-500 to-amber-700 rounded-sm flex items-center justify-center text-white text-[10px] font-extrabold shadow-sm border border-amber-400/30">
       WB
     </div>
   ),
   superbook: () => (
-    <div className="w-6 h-6 bg-teal-600 rounded flex items-center justify-center text-white text-xs font-bold">
+    <div className="w-5 h-5 bg-gradient-to-br from-teal-500 to-teal-700 rounded-sm flex items-center justify-center text-white text-[10px] font-extrabold shadow-sm border border-teal-400/30">
       SB
+    </div>
+  ),
+  // Additional popular sportsbooks
+  bet365: () => (
+    <div className="w-5 h-5 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-sm flex items-center justify-center text-black text-[9px] font-extrabold shadow-sm border border-yellow-300/30">
+      365
+    </div>
+  ),
+  bovada: () => (
+    <div className="w-5 h-5 bg-gradient-to-br from-red-600 to-red-800 rounded-sm flex items-center justify-center text-white text-[9px] font-extrabold shadow-sm border border-red-400/30">
+      BOV
     </div>
   ),
   // Generic fallback for unknown sportsbooks
   generic: (name: string) => (
-    <div className="w-6 h-6 bg-gray-600 rounded flex items-center justify-center text-white text-xs font-bold">
+    <div className="w-5 h-5 bg-gradient-to-br from-gray-500 to-gray-700 rounded-sm flex items-center justify-center text-white text-[10px] font-extrabold shadow-sm border border-gray-400/30">
       {name.substring(0, 2).toUpperCase()}
     </div>
   )
@@ -99,28 +110,48 @@ export const SportsbookIcon: React.FC<SportsbookIconProps> = ({
   );
 };
 
-// Component to render multiple sportsbook icons
+// Component to render multiple sportsbook icons with professional styling
 interface SportsbookIconsListProps {
   sportsbooks: string[];
   maxVisible?: number;
   className?: string;
+  onClick?: (sportsbooks: string[]) => void;
 }
 
 export const SportsbookIconsList: React.FC<SportsbookIconsListProps> = ({ 
   sportsbooks, 
-  maxVisible = 4, 
-  className = "" 
+  maxVisible = 3, // Show only 3 most popular by default
+  className = "",
+  onClick
 }) => {
-  const visibleBooks = sportsbooks.slice(0, maxVisible);
+  // Sort by popularity (most popular sportsbooks first)
+  const popularityOrder = ['draftkings', 'fanduel', 'betmgm', 'caesars', 'pointsbet', 'bet365', 'barstool', 'betrivers', 'unibet', 'wynnbet', 'superbook', 'bovada'];
+  
+  const sortedBooks = sportsbooks.sort((a, b) => {
+    const aIndex = popularityOrder.indexOf(a.toLowerCase());
+    const bIndex = popularityOrder.indexOf(b.toLowerCase());
+    return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
+  });
+  
+  const visibleBooks = sortedBooks.slice(0, maxVisible);
   const remainingCount = sportsbooks.length - maxVisible;
 
+  const handleClick = () => {
+    if (onClick) {
+      onClick(sportsbooks);
+    }
+  };
+
   return (
-    <div className={`flex items-center space-x-1 ${className}`}>
+    <div 
+      className={`flex items-center space-x-1 ${onClick ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''} ${className}`}
+      onClick={handleClick}
+    >
       {visibleBooks.map((book, index) => (
         <SportsbookIcon key={book} sportsbookKey={book} />
       ))}
       {remainingCount > 0 && (
-        <div className="w-6 h-6 bg-gray-500 rounded flex items-center justify-center text-white text-xs font-bold">
+        <div className="w-5 h-5 bg-gradient-to-br from-slate-500 to-slate-700 rounded-sm flex items-center justify-center text-white text-[9px] font-extrabold shadow-sm border border-slate-400/30">
           +{remainingCount}
         </div>
       )}

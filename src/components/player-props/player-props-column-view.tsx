@@ -25,6 +25,7 @@ import {
 import { cn } from '@/lib/utils';
 import { convertEVToText, getEVBadgeClasses } from '@/utils/ev-text-converter';
 import { SportsbookIconsList } from '@/components/ui/sportsbook-icons';
+import { SportsbookOverlay } from '@/components/ui/sportsbook-overlay';
 
 interface PlayerProp {
   id: string;
@@ -74,6 +75,8 @@ export function PlayerPropsColumnView({
   const [sortBy, setSortBy] = useState('confidence');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filterBy, setFilterBy] = useState('all');
+  const [showSportsbookOverlay, setShowSportsbookOverlay] = useState(false);
+  const [selectedPropSportsbooks, setSelectedPropSportsbooks] = useState<{sportsbooks: string[], propInfo: any}>({sportsbooks: [], propInfo: null});
 
   // Format number helper with .5 and .0 intervals for lines
   const formatNumber = (value: number, decimals: number = 1): string => {
@@ -341,8 +344,19 @@ export function PlayerPropsColumnView({
                     <div className="flex flex-col items-center space-y-1">
                       <SportsbookIconsList 
                         sportsbooks={prop.availableSportsbooks} 
-                        maxVisible={4}
+                        maxVisible={3}
                         className="justify-center"
+                        onClick={() => {
+                          setSelectedPropSportsbooks({
+                            sportsbooks: prop.availableSportsbooks,
+                            propInfo: {
+                              playerName: prop.playerName,
+                              propType: prop.propType,
+                              line: prop.line
+                            }
+                          });
+                          setShowSportsbookOverlay(true);
+                        }}
                       />
                       <div className="text-xs text-slate-400">
                         {prop.availableSportsbooks.length} book{prop.availableSportsbooks.length !== 1 ? 's' : ''}
@@ -411,6 +425,13 @@ export function PlayerPropsColumnView({
       )}
 
       {/* Analysis Overlay - Removed: Parent component now handles the EnhancedAnalysisOverlay */}
+      {/* Sportsbook Overlay */}
+      <SportsbookOverlay
+        isOpen={showSportsbookOverlay}
+        onClose={() => setShowSportsbookOverlay(false)}
+        sportsbooks={selectedPropSportsbooks.sportsbooks}
+        propInfo={selectedPropSportsbooks.propInfo}
+      />
     </div>
   );
 }

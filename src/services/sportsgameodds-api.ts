@@ -113,14 +113,7 @@ class SportsGameOddsAPI {
     gameInfo: { homeTeam: string; awayTeam: string; gameTime: string }[];
   }>();
   
-  private usageStats = {
-    totalCalls: 0,
-    callsToday: 0,
-    lastResetDate: new Date().toDateString(),
-    callsByEndpoint: new Map<string, number>(),
-    cacheHits: 0,
-    cacheMisses: 0
-  };
+  private usageStats = this.loadUsageStatsFromStorage();
   private readonly MAX_DAILY_CALLS = API_KEY_INFO.estimatedDailyLimit; // Based on subscription plan
   
   // Rate limiting and backoff
@@ -142,24 +135,76 @@ class SportsGameOddsAPI {
   };
 
   constructor() {
-    logInfo('SportsGameOddsAPI', 'SportsGameOdds API initialized with usage tracking');
-    // Reset usage stats on initialization to clear any previous testing data
-    this.resetUsageStats();
+    logInfo('SportsGameOddsAPI', 'SportsGameOdds API initialized with persistent usage tracking');
+    // Load existing usage stats from localStorage (persistent across sessions)
+    this.usageStats = this.loadUsageStatsFromStorage();
     // Clear all caches and reset backoff for new API key
     this.cache.clear();
     this.playerPropsCache.clear();
     this.resetBackoff();
-    logInfo('SportsGameOddsAPI', 'Cleared all caches and reset backoff for odds fixes');
+    logInfo('SportsGameOddsAPI', 'Loaded persistent usage stats and cleared caches');
+  }
+
+  // Load usage stats from localStorage (persistent across sessions)
+  private loadUsageStatsFromStorage() {
+    try {
+      const stored = localStorage.getItem('sportsgameodds_usage_stats');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const today = new Date().toDateString();
+        
+        // Reset daily counter if new day, but keep total calls
+        if (parsed.lastResetDate !== today) {
+          parsed.callsToday = 0;
+          parsed.lastResetDate = today;
+          // Reset daily endpoint counts but keep total calls
+          parsed.callsByEndpoint = new Map();
+        } else {
+          // Convert callsByEndpoint back to Map
+          parsed.callsByEndpoint = new Map(Object.entries(parsed.callsByEndpoint || {}));
+        }
+        
+        logInfo('SportsGameOddsAPI', `Loaded persistent usage stats: ${parsed.totalCalls} total calls, ${parsed.callsToday} today`);
+        return parsed;
+      }
+    } catch (error) {
+      logError('SportsGameOddsAPI', 'Failed to load usage stats from localStorage:', error);
+    }
+    
+    // Return default stats if no stored data or error
+    return {
+      totalCalls: 0,
+      callsToday: 0,
+      lastResetDate: new Date().toDateString(),
+      callsByEndpoint: new Map<string, number>(),
+      cacheHits: 0,
+      cacheMisses: 0
+    };
+  }
+
+  // Save usage stats to localStorage (persistent across sessions)
+  private saveUsageStatsToStorage(): void {
+    try {
+      const toSave = {
+        ...this.usageStats,
+        callsByEndpoint: Object.fromEntries(this.usageStats.callsByEndpoint)
+      };
+      localStorage.setItem('sportsgameodds_usage_stats', JSON.stringify(toSave));
+    } catch (error) {
+      logError('SportsGameOddsAPI', 'Failed to save usage stats to localStorage:', error);
+    }
   }
 
   // Track API usage for monitoring
   private trackAPIUsage(endpoint: string): void {
     const today = new Date().toDateString();
     
-    // Reset daily counter if new day
+    // Reset daily counter if new day, but preserve total calls
     if (this.usageStats.lastResetDate !== today) {
       this.usageStats.callsToday = 0;
       this.usageStats.lastResetDate = today;
+      // Reset daily endpoint counts
+      this.usageStats.callsByEndpoint.clear();
     }
     
     // Increment counters
@@ -169,6 +214,9 @@ class SportsGameOddsAPI {
     // Track by endpoint
     const currentCount = this.usageStats.callsByEndpoint.get(endpoint) || 0;
     this.usageStats.callsByEndpoint.set(endpoint, currentCount + 1);
+    
+    // Save to localStorage for persistence
+    this.saveUsageStatsToStorage();
     
     // Log warning if approaching limit
     const usagePercentage = (this.usageStats.callsToday / this.MAX_DAILY_CALLS) * 100;
@@ -194,7 +242,7 @@ class SportsGameOddsAPI {
     };
   }
 
-  // Reset usage statistics
+  // Reset usage statistics (WARNING: This will clear persistent data)
   resetUsageStats(): void {
     this.usageStats = {
       totalCalls: 0,
@@ -204,7 +252,9 @@ class SportsGameOddsAPI {
       cacheHits: 0,
       cacheMisses: 0
     };
-    logInfo('SportsGameOddsAPI', 'Usage statistics reset');
+    // Clear from localStorage
+    localStorage.removeItem('sportsgameodds_usage_stats');
+    logInfo('SportsGameOddsAPI', 'Usage statistics reset and cleared from localStorage');
   }
 
   // Check if we should avoid making API calls due to rate limits
