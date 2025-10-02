@@ -42,14 +42,14 @@ class APIAnalyticsService {
         return false;
       }
 
-      // Check if user is admin
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('subscription_status')
+      // Check if user is admin or owner
+      const { data: userRole } = await supabase
+        .from('user_roles')
+        .select('role')
         .eq('user_id', user.id)
         .single();
 
-      return profile?.subscription_status === 'admin';
+      return userRole?.role === 'admin' || userRole?.role === 'owner';
     } catch (e) {
       console.error('Admin verification failed:', e);
       return false;

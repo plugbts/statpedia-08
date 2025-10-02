@@ -149,17 +149,29 @@ export function UserManagement() {
         console.warn('Could not load user profiles:', userProfilesError);
       }
 
+      // Load user roles from user_roles table
+      const { data: userRoles, error: userRolesError } = await supabase
+        .from('user_roles')
+        .select('user_id, role');
+
+      if (userRolesError) {
+        console.warn('Could not load user roles:', userRolesError);
+      }
+
       // Combine data
       const usersData: UserData[] = profiles.map(profile => {
         const userProfile = userProfiles?.find(up => up.user_id === profile.user_id);
         
-        // Determine role based on email (for owner accounts)
-        let role = userProfile?.role || 'user';
-        if (profile.email && isOwnerEmail(profile.email)) {
+        // Get role from user_roles table, fallback to email-based detection
+        const userRole = userRoles?.find(ur => ur.user_id === profile.user_id);
+        let role = userRole?.role || 'user';
+        
+        // Fallback to email-based detection if no role found in user_roles table
+        if (!userRole && profile.email && isOwnerEmail(profile.email)) {
           role = 'owner';
-        } else if (profile.email?.includes('admin')) {
+        } else if (!userRole && profile.email?.includes('admin')) {
           role = 'admin';
-        } else if (profile.email?.includes('mod')) {
+        } else if (!userRole && profile.email?.includes('mod')) {
           role = 'mod';
         }
         
@@ -256,43 +268,61 @@ export function UserManagement() {
 
   const handleRoleChange = async (userId: string, newRole: string) => {
     try {
-      // First, check if user profile exists
+      // Check if user role exists in user_roles table
+      const { data: existingRole } = await supabase
+        .from('user_roles')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (existingRole) {
+        // Update existing role
+        const { error } = await supabase
+          .from('user_roles')
+          .update({ role: newRole })
+          .eq('user_id', userId);
+
+        if (error) throw error;
+      } else {
+        // Create new role entry
+        const { error } = await supabase
+          .from('user_roles')
+          .insert({
+            user_id: userId,
+            role: newRole
+          });
+
+        if (error) throw error;
+      }
+
+      // Also ensure user_profiles entry exists for social features
       const { data: existingProfile } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('user_id', userId)
         .single();
 
-      if (existingProfile) {
-        // Update existing profile
-        const { error } = await supabase
-          .from('user_profiles')
-          .update({ role: newRole })
-          .eq('user_id', userId);
-
-        if (error) throw error;
-      } else {
-        // Create new profile with role
+      if (!existingProfile) {
+        // Create new profile entry
         const user = users.find(u => u.id === userId);
-        if (!user) throw new Error('User not found');
+        if (user) {
+          const { error } = await supabase
+            .from('user_profiles')
+            .insert({
+              user_id: userId,
+              username: user.username,
+              display_name: user.display_name,
+              karma: 0,
+              roi_percentage: 0,
+              total_posts: 0,
+              total_comments: 0,
+              is_muted: false,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
 
-        const { error } = await supabase
-          .from('user_profiles')
-          .insert({
-            user_id: userId,
-            username: user.username,
-            display_name: user.display_name,
-            role: newRole,
-            karma: 0,
-            roi_percentage: 0,
-            total_posts: 0,
-            total_comments: 0,
-            is_muted: false,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
-
-        if (error) throw error;
+          if (error) console.warn('Failed to create user profile:', error);
+        }
       }
 
       // Update local state

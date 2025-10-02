@@ -360,24 +360,45 @@ serve(async (req) => {
     const endpoint = url.searchParams.get('endpoint') || 'player-props';
     const sport = url.searchParams.get('sport') || 'nfl';
     
-    // Get user info from JWT token
+    // Get user info from JWT token using Supabase auth
     const authHeader = req.headers.get('authorization');
     let userId: string | null = null;
     
     if (authHeader?.startsWith('Bearer ')) {
       try {
-        // In a real implementation, you'd verify the JWT token here
-        // For now, we'll extract user ID from the token payload (simplified)
         const token = authHeader.substring(7);
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        userId = payload.sub;
+        const { data: { user }, error } = await supabase.auth.getUser(token);
+        
+        if (error) {
+          console.warn('Auth token validation failed:', error);
+        } else if (user) {
+          userId = user.id;
+        }
       } catch (e) {
-        console.warn('Failed to parse auth token:', e);
+        console.warn('Failed to validate auth token:', e);
       }
     }
 
     const service = new SportGameOddsAPIService();
     const config = await service.loadConfig();
+    
+    // Check if API key is configured
+    if (!config.sportsgameodds_api_key) {
+      console.error('SportGameOdds API key not configured');
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'SportGameOdds API key not configured. Please set the API key in the database.' 
+        }),
+        { 
+          status: 500,
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          } 
+        }
+      );
+    }
 
     // Check rate limiting
     const rateLimitResult = await service.checkRateLimit(userId, endpoint);
