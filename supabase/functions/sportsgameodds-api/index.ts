@@ -304,8 +304,47 @@ class SportGameOddsAPIService {
       }
 
       const gameId = event.eventID;
-      const homeTeam = event.homeTeam?.name || event.homeTeam?.displayName || event.homeTeam?.abbreviation || event.homeTeam?.shortName || 'UNK';
-      const awayTeam = event.awayTeam?.name || event.awayTeam?.displayName || event.awayTeam?.abbreviation || event.awayTeam?.shortName || 'UNK';
+      // Enhanced team name extraction with more fallbacks
+      let homeTeam = 'UNK';
+      let awayTeam = 'UNK';
+      
+      // Try multiple fields for home team
+      if (event.homeTeam) {
+        homeTeam = event.homeTeam.name || 
+                   event.homeTeam.displayName || 
+                   event.homeTeam.abbreviation || 
+                   event.homeTeam.shortName || 
+                   event.homeTeam.city || 
+                   'UNK';
+      }
+      
+      // Try multiple fields for away team  
+      if (event.awayTeam) {
+        awayTeam = event.awayTeam.name || 
+                   event.awayTeam.displayName || 
+                   event.awayTeam.abbreviation || 
+                   event.awayTeam.shortName || 
+                   event.awayTeam.city || 
+                   'UNK';
+      }
+      
+      // If still UNK, try to extract from event title or participants
+      if (homeTeam === 'UNK' || awayTeam === 'UNK') {
+        const title = event.title || event.name || event.description || '';
+        const matchVs = title.match(/(.+?)\s+(?:@|vs|at|v)\s+(.+)/i);
+        if (matchVs) {
+          if (awayTeam === 'UNK') awayTeam = matchVs[1].trim();
+          if (homeTeam === 'UNK') homeTeam = matchVs[2].trim();
+        }
+        
+        // Try participants array if it exists
+        if ((homeTeam === 'UNK' || awayTeam === 'UNK') && event.participants) {
+          if (Array.isArray(event.participants) && event.participants.length >= 2) {
+            if (awayTeam === 'UNK') awayTeam = event.participants[0]?.name || event.participants[0]?.displayName || 'UNK';
+            if (homeTeam === 'UNK') homeTeam = event.participants[1]?.name || event.participants[1]?.displayName || 'UNK';
+          }
+        }
+      }
       const gameTime = event.status?.startsAt || new Date().toISOString();
       
       // Format team abbreviations properly
@@ -451,7 +490,9 @@ class SportGameOddsAPIService {
             // Debug odds parsing
             console.log(`Over odds parsing for ${prop.playerName} ${prop.propType}:`, {
               bookmakerId,
+              rawBookmaker: bookmaker,
               rawOdds: bookmaker.odds,
+              oddsType: typeof bookmaker.odds,
               parsedOdds: newOverOdds,
               currentOverOdds: prop.overOdds
             });
@@ -465,7 +506,9 @@ class SportGameOddsAPIService {
             // Debug odds parsing
             console.log(`Under odds parsing for ${prop.playerName} ${prop.propType}:`, {
               bookmakerId,
+              rawBookmaker: bookmaker,
               rawOdds: bookmaker.odds,
+              oddsType: typeof bookmaker.odds,
               parsedOdds: newUnderOdds,
               currentUnderOdds: prop.underOdds
             });
@@ -747,14 +790,50 @@ class SportGameOddsAPIService {
     return teamMap[teamName] || teamName.substring(0, 3).toUpperCase();
   }
 
-  private parseAmericanOdds(odds: string | number): number {
-    if (typeof odds === 'number') return odds;
+  private parseAmericanOdds(odds: any): number {
+    // Handle null/undefined
+    if (odds === null || odds === undefined) {
+      console.warn('Null/undefined odds value');
+      return 100; // Default positive odds
+    }
     
-    // Remove any non-numeric characters except + and -
-    const cleanOdds = odds.toString().replace(/[^\d+-]/g, '');
-    const numericOdds = parseInt(cleanOdds);
+    // If already a number, return it
+    if (typeof odds === 'number') {
+      return odds;
+    }
     
-    return isNaN(numericOdds) ? 0 : numericOdds;
+    // Handle string odds
+    if (typeof odds === 'string') {
+      // Remove any non-numeric characters except + and -
+      const cleanOdds = odds.replace(/[^\d+-]/g, '');
+      const numericOdds = parseInt(cleanOdds);
+      
+      if (!isNaN(numericOdds)) {
+        return numericOdds;
+      }
+    }
+    
+    // Handle object odds (some APIs return {american: -110, decimal: 1.91})
+    if (typeof odds === 'object' && odds !== null) {
+      if (odds.american) return this.parseAmericanOdds(odds.american);
+      if (odds.us) return this.parseAmericanOdds(odds.us);
+      if (odds.value) return this.parseAmericanOdds(odds.value);
+      if (odds.price) return this.parseAmericanOdds(odds.price);
+      
+      // If it has decimal odds, convert to American
+      if (odds.decimal) {
+        const decimal = parseFloat(odds.decimal);
+        if (decimal >= 2.0) {
+          return Math.round((decimal - 1) * 100);
+        } else if (decimal > 1.0) {
+          return Math.round(-100 / (decimal - 1));
+        }
+      }
+    }
+    
+    // If we can't parse the odds, log the issue and return a default
+    console.warn('Failed to parse odds:', odds, 'Type:', typeof odds);
+    return 100; // Default positive odds
   }
 
   private isBetterOdds(newOdds: number, currentOdds: number, side: 'over' | 'under'): boolean {
