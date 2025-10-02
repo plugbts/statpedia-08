@@ -332,20 +332,14 @@ export function PlayerPropCard3D({
 
             {/* Main Content Area - Horizontal Layout */}
             <div className="flex-1 flex space-x-4 min-h-0">
-              {/* Left Section - Prop & Odds */}
-              <div className="flex-1 min-w-0">
+              {/* Left Section - Prop & Odds - Made wider */}
+              <div className="flex-1 min-w-0 max-w-xs">
                 {/* Prop Details */}
                 <div className="mb-3">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex-1 mr-3">
-                      <span className="text-slate-400 text-sm font-semibold tracking-wide uppercase block leading-tight">
-                        {prop.propType.length > 20 ? (
-                          <span className="break-words text-xs">
-                            {prop.propType}
-                          </span>
-                        ) : (
-                          prop.propType
-                        )}
+                      <span className="text-slate-400 text-sm font-semibold tracking-wide uppercase block leading-tight animate-pulse-glow whitespace-nowrap overflow-hidden">
+                        {prop.propType}
                       </span>
                     </div>
                     <span className="text-slate-100 text-xl font-bold tracking-tight flex-shrink-0">

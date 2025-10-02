@@ -325,18 +325,8 @@ export function PlayerPropsColumnView({
 
                 {/* Prop Type */}
                 <div className="col-span-2">
-                  <div className="text-sm font-medium text-slate-200">
-                    {prop.propType.length > 15 ? (
-                      <span className="break-words leading-tight">
-                        {prop.propType.split(' ').map((word, index) => (
-                          <span key={index} className="inline-block mr-1">
-                            {word}
-                          </span>
-                        ))}
-                      </span>
-                    ) : (
-                      prop.propType
-                    )}
+                  <div className="text-sm font-medium text-slate-200 animate-pulse-glow whitespace-nowrap overflow-hidden">
+                    {prop.propType}
                   </div>
                   <div className="text-xs text-slate-400">
                     {new Date(prop.gameDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} {new Date(prop.gameTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}

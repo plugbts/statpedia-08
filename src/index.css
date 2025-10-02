@@ -609,3 +609,19 @@
 .carousel-slide-exit {
   animation: fadeInScale 0.3s ease-out;
 }
+
+/* Prop name glowing animation */
+@keyframes propGlow {
+  0%, 100% {
+    color: rgb(148 163 184); /* slate-400 */
+    text-shadow: none;
+  }
+  50% {
+    color: rgb(191 219 254); /* blue-200 */
+    text-shadow: 0 0 10px rgba(191, 219, 254, 0.5), 0 0 20px rgba(191, 219, 254, 0.3);
+  }
+}
+
+.animate-pulse-glow {
+  animation: propGlow 2s ease-in-out infinite;
+}

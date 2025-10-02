@@ -1120,31 +1120,20 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-7xl max-h-[90vh] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border-slate-600 overflow-y-auto">
-        {/* Enhanced Header with Gradient */}
-        <DialogHeader className="relative pb-6">
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-emerald-600/20 rounded-t-lg" />
-          <div className="relative z-10 flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                <BarChart3 className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
-                  Advanced Analysis
-                </DialogTitle>
-                <p className="text-slate-400 text-sm">
-                  {currentData.playerName} • {currentData.teamAbbr} vs {currentData.opponentAbbr}
-                </p>
-              </div>
+        {/* Enhanced Header - Clean */}
+        <DialogHeader className="pb-6">
+          <div className="flex items-center space-x-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+              <BarChart3 className="w-6 h-6 text-white" />
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              className="text-slate-400 hover:text-white hover:bg-slate-700/50"
-            >
-              <X className="w-5 h-5" />
-            </Button>
+            <div>
+              <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
+                Advanced Analysis
+              </DialogTitle>
+              <p className="text-slate-400 text-sm">
+                {currentData.playerName} • {currentData.teamAbbr} vs {currentData.opponentAbbr}
+              </p>
+            </div>
           </div>
         </DialogHeader>
 
