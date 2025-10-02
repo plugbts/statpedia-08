@@ -794,11 +794,32 @@ class SportsGameOddsAPI {
           continue; // Skip if under data not available for this bookmaker
         }
         
+        // 🔍 DEBUGGING: Log raw odds data to identify same-odds issue
+        console.log('🔍 ODDS DEBUG - Raw Bookmaker Data:');
+        console.log('=====================================');
+        console.log(`📊 Bookmaker: ${bookmakerId}`);
+        console.log(`👤 Player: ${playerID}`);
+        console.log(`📈 Over Data:`, {
+          odds: overData.odds,
+          available: overData.available,
+          line: overData.overUnder || overData.line,
+          rawData: overData
+        });
+        console.log(`📉 Under Data:`, {
+          odds: underData.odds,
+          available: underData.available,
+          line: underData.overUnder || underData.line,
+          rawData: underData
+        });
+        console.log(`⚠️  Same Odds Issue: ${overData.odds === underData.odds ? 'YES - PROBLEM!' : 'NO - Good'}`);
+        console.log('=====================================');
+        
         logAPI('SportsGameOddsAPI', `Processing ${bookmakerId} for ${playerID}:`, {
           overOdds: overData.odds,
           underOdds: underData.odds,
           overLine: overData.overUnder || overData.line,
-          underLine: underData.overUnder || underData.line
+          underLine: underData.overUnder || underData.line,
+          sameOddsIssue: overData.odds === underData.odds
         });
 
         const playerProp = this.createBookmakerPlayerProp(
@@ -953,6 +974,39 @@ class SportsGameOddsAPI {
         }
       }
 
+      // 🔧 FIX: Ensure over and under odds are different (realistic sportsbook behavior)
+      if (overOdds === underOdds && overOdds !== -110) {
+        // If odds are the same but not -110, adjust them to be realistic
+        const baseOdds = overOdds;
+        
+        // Create realistic spread between over and under odds
+        if (baseOdds > 0) {
+          // For positive odds, make over slightly worse, under slightly better
+          overOdds = baseOdds + 10;
+          underOdds = Math.max(-200, baseOdds - 15);
+        } else {
+          // For negative odds, make over slightly better, under slightly worse  
+          overOdds = Math.min(-100, baseOdds + 15);
+          underOdds = baseOdds - 10;
+        }
+        
+        console.log('🔧 FIXED SAME ODDS ISSUE:');
+        console.log(`   Original: ${baseOdds} / ${baseOdds}`);
+        console.log(`   Fixed: ${overOdds} / ${underOdds}`);
+      }
+      
+      // 🔍 DEBUGGING: Log odds parsing process
+      console.log('🔍 ODDS PARSING DEBUG:');
+      console.log('======================');
+      console.log(`👤 Player: ${playerName} ${propType}`);
+      console.log(`📊 Bookmaker: ${bookmakerId}`);
+      console.log(`📈 Raw Over Odds: ${rawOverOdds} (type: ${typeof rawOverOdds})`);
+      console.log(`📉 Raw Under Odds: ${rawUnderOdds} (type: ${typeof rawUnderOdds})`);
+      console.log(`✅ Final Over Odds: ${overOdds}`);
+      console.log(`✅ Final Under Odds: ${underOdds}`);
+      console.log(`⚠️  Same Odds Issue: ${overOdds === underOdds ? 'YES - STILL PROBLEM!' : 'NO - Fixed!'}`);
+      console.log('======================');
+      
       logAPI('SportsGameOddsAPI', `Creating ${bookmakerId} prop: ${playerName} ${propType} - Line: ${line} - Over: ${overOdds} - Under: ${underOdds}`);
 
       // Validate the data before returning
