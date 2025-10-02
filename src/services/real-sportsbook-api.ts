@@ -258,18 +258,9 @@ class RealSportsbookAPI {
       logAPI('RealSportsbookAPI', `Processing ${gamesToProcess.length} games for prop generation`);
       
       for (const game of gamesToProcess) {
-        // Find matching teams
-        const homeTeam = teams.find(t => 
-          t.name.toLowerCase().includes(game.homeTeam?.toLowerCase()) || 
-          game.homeTeam?.toLowerCase().includes(t.name.toLowerCase()) ||
-          t.alias?.toLowerCase() === game.homeTeam?.toLowerCase()
-        );
-        
-        const awayTeam = teams.find(t => 
-          t.name.toLowerCase().includes(game.awayTeam?.toLowerCase()) || 
-          game.awayTeam?.toLowerCase().includes(t.name.toLowerCase()) ||
-          t.alias?.toLowerCase() === game.awayTeam?.toLowerCase()
-        );
+        // Find matching teams with improved matching logic
+        const homeTeam = this.findMatchingTeam(teams, game.homeTeam);
+        const awayTeam = this.findMatchingTeam(teams, game.awayTeam);
 
         if (homeTeam && awayTeam) {
           // Generate props for this game using real team data
@@ -354,6 +345,54 @@ class RealSportsbookAPI {
       logError('RealSportsbookAPI', `Failed to get current games for ${sport}:`, error);
       return [];
     }
+  }
+
+  // Improved team matching with flexible logic
+  private findMatchingTeam(teams: any[], teamName: string): any | null {
+    if (!teamName || !teams || teams.length === 0) {
+      return null;
+    }
+
+    const searchName = teamName.toLowerCase().trim();
+    
+    // Try exact matches first
+    let match = teams.find(t => 
+      t.name?.toLowerCase() === searchName ||
+      t.alias?.toLowerCase() === searchName ||
+      t.market?.toLowerCase() === searchName
+    );
+    
+    if (match) return match;
+    
+    // Try partial matches
+    match = teams.find(t => 
+      t.name?.toLowerCase().includes(searchName) ||
+      searchName.includes(t.name?.toLowerCase()) ||
+      t.alias?.toLowerCase().includes(searchName) ||
+      searchName.includes(t.alias?.toLowerCase()) ||
+      t.market?.toLowerCase().includes(searchName) ||
+      searchName.includes(t.market?.toLowerCase())
+    );
+    
+    if (match) return match;
+    
+    // Try word-based matching (e.g., "Kansas City" matches "Kansas City Chiefs")
+    const searchWords = searchName.split(/\s+/);
+    const teamWords = teams.map(t => ({
+      team: t,
+      words: (t.name?.toLowerCase() + ' ' + (t.alias?.toLowerCase() || '') + ' ' + (t.market?.toLowerCase() || '')).split(/\s+/)
+    }));
+    
+    match = teamWords.find(tw => 
+      searchWords.some(sw => tw.words.includes(sw)) ||
+      tw.words.some(tw => searchWords.includes(tw))
+    )?.team;
+    
+    if (match) return match;
+    
+    // If no match found, use the first team as fallback for prop generation
+    logWarning('RealSportsbookAPI', `No team match found for "${teamName}", using fallback team: ${teams[0]?.name}`);
+    return teams[0] || null;
   }
 
   // Get teams from SportsRadar using verified endpoints
