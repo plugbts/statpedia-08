@@ -14,6 +14,8 @@ import { unifiedSportsAPI } from '@/services/unified-sports-api';
 import { sportsRadarBackend } from '@/services/sportsradar-backend';
 import { smartPropOptimizer } from '@/services/smart-prop-optimizer';
 import { realSportsbookAPI } from '@/services/real-sportsbook-api';
+import { theRundownAPI } from '@/services/therundown-api';
+import { dualSportsAPI } from '@/services/dual-sports-api';
 import { 
   Terminal, 
   Trash2, 
@@ -206,6 +208,73 @@ export const DevConsole: React.FC = () => {
 
     const cacheStats = realSportsbookAPI.getCacheStats();
     logger.info('DevConsole', `Cache: ${cacheStats.size} entries, ${cacheStats.keys.length} keys`);
+  };
+
+  const testTheRundownAPI = async () => {
+    logger.info('DevConsole', '🏃 Testing TheRundown.io API...');
+    
+    const sports = ['nfl', 'nba', 'mlb', 'nhl'];
+    for (const sport of sports) {
+      try {
+        logger.info('DevConsole', `Testing ${sport.toUpperCase()}...`);
+        
+        // Test events
+        const events = await theRundownAPI.getEvents(sport);
+        logger.info('DevConsole', `${sport.toUpperCase()} Events: ${events.length}`);
+        
+        // Test player props
+        const props = await theRundownAPI.getPlayerProps(sport);
+        logger.success('DevConsole', `${sport.toUpperCase()} Props: ${props.length}`);
+        
+      } catch (error) {
+        logger.error('DevConsole', `${sport.toUpperCase()} failed: ${error}`);
+      }
+    }
+
+    const cacheStats = theRundownAPI.getCacheStats();
+    logger.info('DevConsole', `TheRundown Cache: ${cacheStats.size} entries`);
+  };
+
+  const testDualSportsAPI = async () => {
+    logger.info('DevConsole', '🔄 Testing Dual Sports API System...');
+    
+    const sports = ['nfl', 'nba', 'mlb', 'nhl'];
+    for (const sport of sports) {
+      try {
+        logger.info('DevConsole', `Testing dual system for ${sport.toUpperCase()}...`);
+        
+        const testResult = await dualSportsAPI.testBothAPIs(sport);
+        
+        // Log individual API results
+        if (testResult.sportsRadar.success) {
+          logger.success('DevConsole', `✅ SportsRadar: ${testResult.sportsRadar.props} props`);
+        } else {
+          logger.error('DevConsole', `❌ SportsRadar: ${testResult.sportsRadar.error || 'Failed'}`);
+        }
+        
+        if (testResult.theRundown.success) {
+          logger.success('DevConsole', `✅ TheRundown: ${testResult.theRundown.props} props`);
+        } else {
+          logger.error('DevConsole', `❌ TheRundown: ${testResult.theRundown.error || 'Failed'}`);
+        }
+        
+        // Log combined result
+        if (testResult.combined.success) {
+          logger.success('DevConsole', `🎯 COMBINED: ${testResult.combined.props} props`);
+        } else {
+          logger.error('DevConsole', `❌ COMBINED: Failed`);
+        }
+        
+      } catch (error) {
+        logger.error('DevConsole', `${sport.toUpperCase()} dual test failed: ${error}`);
+      }
+    }
+
+    const cacheStats = dualSportsAPI.getCacheStats();
+    logger.info('DevConsole', `Dual System Cache Stats:`);
+    logger.info('DevConsole', `  Dual: ${cacheStats.dualCache.size} entries`);
+    logger.info('DevConsole', `  SportsRadar: ${cacheStats.sportsRadarCache.size} entries`);
+    logger.info('DevConsole', `  TheRundown: ${cacheStats.theRundownCache.size} entries`);
   };
 
   const generatePerformanceReport = () => {
@@ -614,8 +683,28 @@ export const DevConsole: React.FC = () => {
                       className="h-auto p-3 flex flex-col items-center gap-2 hover:bg-orange-50 hover:border-orange-200 dark:hover:bg-orange-900/20 dark:hover:border-orange-800 transition-all duration-200"
                     >
                       <Database className="h-4 w-4 text-orange-600" />
-                      <span className="font-medium text-sm">Real API</span>
-                      <span className="text-xs text-muted-foreground">Test sportsbook data</span>
+                      <span className="font-medium text-sm">SportsRadar</span>
+                      <span className="text-xs text-muted-foreground">Test SportsRadar API</span>
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      onClick={testTheRundownAPI}
+                      className="h-auto p-3 flex flex-col items-center gap-2 hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-900/20 dark:hover:border-blue-800 transition-all duration-200"
+                    >
+                      <Activity className="h-4 w-4 text-blue-600" />
+                      <span className="font-medium text-sm">TheRundown</span>
+                      <span className="text-xs text-muted-foreground">Test TheRundown.io API</span>
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      onClick={testDualSportsAPI}
+                      className="h-auto p-3 flex flex-col items-center gap-2 hover:bg-purple-50 hover:border-purple-200 dark:hover:bg-purple-900/20 dark:hover:border-purple-800 transition-all duration-200"
+                    >
+                      <Zap className="h-4 w-4 text-purple-600" />
+                      <span className="font-medium text-sm">Dual System</span>
+                      <span className="text-xs text-muted-foreground">Test combined APIs</span>
                     </Button>
 
                     <Button

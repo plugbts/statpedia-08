@@ -1,7 +1,7 @@
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
 import { sportsRadarAPI, SportsRadarGame } from './sportsradar-api';
 import { sportsRadarBackend } from './sportsradar-backend';
-import { realSportsbookAPI, RealPlayerProp } from './real-sportsbook-api';
+import { dualSportsAPI, DualPlayerProp } from './dual-sports-api';
 
 // PAUSED: SportsGameOdds API temporarily disabled - preserving code for future reactivation
 // import { sportsGameOddsAPI, SportsGameOddsPlayerProp, SportsGameOddsGame } from './sportsgameodds-api';
@@ -98,26 +98,26 @@ export interface Outcome {
 
 class UnifiedSportsAPI {
   constructor() {
-    logInfo('UnifiedSportsAPI', 'Service initialized - Version 6.0.0');
-    logInfo('UnifiedSportsAPI', 'Using Real Sportsbook API with SportsRadar verified endpoints');
-    logInfo('UnifiedSportsAPI', 'Intelligent caching enabled for consistent player props data');
+    logInfo('UnifiedSportsAPI', 'Service initialized - Version 7.0.0');
+    logInfo('UnifiedSportsAPI', 'Using Dual Sports API System: SportsRadar + TheRundown.io');
+    logInfo('UnifiedSportsAPI', 'Enhanced redundancy and comprehensive betting data coverage');
   }
 
-  // Get real player props using cached sportsbook data
+  // Get player props using dual API system (SportsRadar + TheRundown)
   async getPlayerProps(sport: string, season?: number, week?: number, selectedSportsbook?: string): Promise<PlayerProp[]> {
-    logAPI('UnifiedSportsAPI', `Getting real player props for ${sport}${season ? ` ${season}` : ''}${week ? ` week ${week}` : ''} - Using Real Sportsbook API`);
+    logAPI('UnifiedSportsAPI', `Getting player props for ${sport}${season ? ` ${season}` : ''}${week ? ` week ${week}` : ''} - Using Dual API System`);
     
     try {
-      // Use Real Sportsbook API for cached, consistent player props
-      const realProps = await realSportsbookAPI.getRealPlayerProps(sport, selectedSportsbook);
+      // Use Dual Sports API for comprehensive coverage
+      const dualProps = await dualSportsAPI.getPlayerProps(sport, selectedSportsbook);
       
-      if (realProps.length === 0) {
-        logWarning('UnifiedSportsAPI', `No real player props found for ${sport}`);
+      if (dualProps.length === 0) {
+        logWarning('UnifiedSportsAPI', `No player props found for ${sport} from dual system`);
         return [];
       }
 
-      // Convert real sportsbook props to unified format
-      const unifiedProps: PlayerProp[] = realProps.map(prop => ({
+      // Convert dual props to unified format
+      const unifiedProps: PlayerProp[] = dualProps.map(prop => ({
         id: prop.id,
         playerId: prop.playerId,
         playerName: prop.playerName,
@@ -131,28 +131,29 @@ class UnifiedSportsAPI {
         line: prop.line,
         overOdds: prop.overOdds,
         underOdds: prop.underOdds,
-        allSportsbookOdds: prop.allSportsbookOdds,
+        allSportsbookOdds: [{ sportsbook: prop.sportsbook, overOdds: prop.overOdds, underOdds: prop.underOdds }],
         gameDate: prop.gameDate,
         gameTime: prop.gameTime,
-        headshotUrl: prop.headshotUrl,
+        headshotUrl: '', // Can be enhanced later
         confidence: prop.confidence,
         expectedValue: prop.expectedValue,
         recentForm: '', // Can be enhanced later
         last5Games: [], // Can be enhanced later
-        seasonStats: prop.seasonStats,
-        aiPrediction: prop.aiPrediction,
-        lastUpdated: new Date(prop.lastUpdate),
+        seasonStats: {}, // Can be enhanced later
+        aiPrediction: '', // Can be enhanced later
+        lastUpdated: prop.lastUpdated,
         isLive: false,
-        marketId: `${prop.playerId}-${prop.propType}-${prop.gameId}-${prop.sport}`
+        marketId: prop.marketId
       }));
 
-      logSuccess('UnifiedSportsAPI', `Retrieved ${unifiedProps.length} real cached player props for ${sport}`);
-      logInfo('UnifiedSportsAPI', `Props from ${new Set(realProps.map(p => p.sportsbook)).size} different sportsbooks`);
+      logSuccess('UnifiedSportsAPI', `Retrieved ${unifiedProps.length} player props for ${sport} from dual system`);
+      logInfo('UnifiedSportsAPI', `Sources: ${new Set(dualProps.map(p => p.source)).size} different APIs`);
+      logInfo('UnifiedSportsAPI', `Breakdown: ${dualProps.filter(p => p.source === 'sportsradar').length} SportsRadar, ${dualProps.filter(p => p.source === 'therundown').length} TheRundown`);
       
       return unifiedProps;
 
     } catch (error) {
-      logError('UnifiedSportsAPI', `Failed to get real player props for ${sport}:`, error);
+      logError('UnifiedSportsAPI', `Failed to get player props for ${sport}:`, error);
       return [];
     }
   }
