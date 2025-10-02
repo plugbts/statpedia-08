@@ -11,6 +11,7 @@ import { unifiedSportsAPI } from '@/services/unified-sports-api';
 
 // PAUSED: SportsGameOdds API temporarily disabled - preserving code for future reactivation
 // import { sportsGameOddsAPI } from '@/services/sportsgameodds-api';
+import { sportsRadarBackend } from '@/services/sportsradar-backend';
 import { 
   Terminal, 
   Trash2, 
@@ -484,24 +485,23 @@ export const DevConsole: React.FC = () => {
                     <div className="space-y-4">
                       <>
 
-                            {/* SportsGameOdds API */}
-                            {/* PAUSED: SportsGameOdds API temporarily disabled */}
-                            <div className="p-3 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-900/20 dark:to-gray-800/10 rounded-lg border border-gray-200 dark:border-gray-800">
+                            {/* SportsRadar Backend */}
+                            <div className="p-3 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/10 rounded-lg border border-blue-200 dark:border-blue-800">
                               <div className="flex items-center justify-between mb-2">
-                                <span className="font-semibold text-gray-800 dark:text-gray-200">SportsGameOdds API</span>
-                                <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-900/30 dark:text-gray-300 dark:border-gray-700">
-                                  PAUSED
+                                <span className="font-semibold text-blue-800 dark:text-blue-200">SportsRadar Backend</span>
+                                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700">
+                                  ACTIVE
                                 </Badge>
                               </div>
                               <div className="space-y-2">
-                                <div className="text-xs text-gray-600 dark:text-gray-400">
-                                  SportsGameOdds API is temporarily paused
+                                <div className="text-xs text-blue-600 dark:text-blue-400">
+                                  Enhanced SportsRadar API with intelligent caching
                                 </div>
-                                <div className="text-xs text-gray-600 dark:text-gray-400">
-                                  All player props functionality disabled
+                                <div className="text-xs text-blue-600 dark:text-blue-400">
+                                  Rate limiting and optimized data fetching
                                 </div>
-                                <div className="text-xs text-gray-600 dark:text-gray-400">
-                                  Code preserved for future reactivation
+                                <div className="text-xs text-blue-600 dark:text-blue-400">
+                                  Based on official SportsRadar Postman collection
                                 </div>
                               </div>
                             </div>
@@ -510,33 +510,31 @@ export const DevConsole: React.FC = () => {
                               variant="outline"
                               size="sm"
                               onClick={async () => {
-                                logger.info('DevConsole', 'Testing unified sports API chain...');
+                                logger.info('DevConsole', 'Testing SportsRadar Backend...');
                                 try {
-                                  const props = await unifiedSportsAPI.getPlayerProps('nfl');
-                                  logger.success('DevConsole', `Unified API returned ${props.length} props`);
-                                  console.log('Unified API Props:', props);
+                                  const props = await sportsRadarBackend.getPlayerProps('nfl');
+                                  logger.success('DevConsole', `SportsRadar Backend returned ${props.length} props`);
+                                  console.log('SportsRadar Backend Props:', props);
                                 } catch (error) {
-                                  logger.error('DevConsole', 'Unified API failed:', error);
-                                  console.error('Unified API Error:', error);
+                                  logger.error('DevConsole', 'SportsRadar Backend failed:', error);
+                                  console.error('SportsRadar Backend Error:', error);
                                 }
                               }}
                               className="w-full text-xs mb-2"
-                              disabled
                             >
-                              Test Unified API Chain (PAUSED)
+                              Test SportsRadar Backend
                             </Button>
                             
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => {
-                                // sportsGameOddsAPI.resetUsageStats();
-                                logger.info('DevConsole', 'SportsGameOdds API usage statistics reset');
+                                sportsRadarBackend.clearCache();
+                                logger.info('DevConsole', 'SportsRadar Backend cache cleared');
                               }}
                               className="w-full text-xs"
-                              disabled
                             >
-                              Reset Usage Stats (PAUSED)
+                              Clear Cache
                             </Button>
                       </>
                     </div>
