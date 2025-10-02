@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { SeasonalCardBackground } from '@/components/ui/seasonal-card-background';
 import { teamColorsService } from '@/services/team-colors-service';
 import { convertEVToText, getEVBadgeClasses } from '@/utils/ev-text-converter';
+import { SportsbookIconsList } from '@/components/ui/sportsbook-icons';
 
 interface SportsbookOdds {
   sportsbook: string;
@@ -43,6 +44,8 @@ interface PlayerProp {
   underOdds: number;
   // Multiple sportsbook odds
   allSportsbookOdds?: SportsbookOdds[];
+  // NEW: Available sportsbooks for this prop
+  availableSportsbooks?: string[];
   gameDate: string;
   gameTime: string;
   headshotUrl?: string;
@@ -350,6 +353,20 @@ export function PlayerPropCard3D({
                 </div>
               </div>
             </div>
+
+            {/* Available Sportsbooks Icons */}
+            {prop.availableSportsbooks && prop.availableSportsbooks.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">
+                  Available on {prop.availableSportsbooks.length} Sportsbook{prop.availableSportsbooks.length !== 1 ? 's' : ''}
+                </div>
+                <SportsbookIconsList 
+                  sportsbooks={prop.availableSportsbooks} 
+                  maxVisible={6}
+                  className="justify-start"
+                />
+              </div>
+            )}
 
             {/* Multiple Sportsbook Odds */}
             {prop.allSportsbookOdds && prop.allSportsbookOdds.length > 1 && (

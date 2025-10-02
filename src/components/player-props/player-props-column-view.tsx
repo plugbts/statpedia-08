@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { convertEVToText, getEVBadgeClasses } from '@/utils/ev-text-converter';
+import { SportsbookIconsList } from '@/components/ui/sportsbook-icons';
 
 interface PlayerProp {
   id: string;
@@ -38,6 +39,8 @@ interface PlayerProp {
   headshotUrl?: string;
   confidence?: number;
   expectedValue?: number;
+  // NEW: Available sportsbooks for this prop
+  availableSportsbooks?: string[];
   aiPrediction?: {
     recommended: 'over' | 'under';
     confidence: number;
@@ -248,12 +251,12 @@ export function PlayerPropsColumnView({
 
       {/* Column Headers */}
       <div className="grid grid-cols-12 gap-4 px-4 py-2 bg-slate-900/60 rounded-lg border border-slate-700/60">
-        <div className="col-span-3 text-sm font-semibold text-slate-300">Player</div>
+        <div className="col-span-2 text-sm font-semibold text-slate-300">Player</div>
         <div className="col-span-2 text-sm font-semibold text-slate-300">Prop</div>
         <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">Line</div>
         <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">Over</div>
         <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">Under</div>
-        <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">Confidence</div>
+        <div className="col-span-2 text-sm font-semibold text-slate-300 text-center">Sportsbooks</div>
         <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">EV</div>
         <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">Prediction</div>
         <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">Action</div>
@@ -270,7 +273,7 @@ export function PlayerPropsColumnView({
             <CardContent className="p-4">
               <div className="grid grid-cols-12 gap-4 items-center">
                 {/* Player Info */}
-                <div className="col-span-3 flex items-center space-x-3">
+                <div className="col-span-2 flex items-center space-x-3">
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-slate-200 font-bold text-sm overflow-hidden">
                     {prop.headshotUrl ? (
                       <img 
@@ -332,14 +335,22 @@ export function PlayerPropsColumnView({
                   </div>
                 </div>
 
-                {/* Confidence */}
-                <div className="col-span-1 text-center">
-                  <div className={cn(
-                    "text-sm font-semibold",
-                    getConfidenceColor(prop.confidence || 0)
-                  )}>
-                    {prop.confidence ? formatPercentage(prop.confidence) : 'N/A'}
-                  </div>
+                {/* Available Sportsbooks */}
+                <div className="col-span-2 text-center">
+                  {prop.availableSportsbooks && prop.availableSportsbooks.length > 0 ? (
+                    <div className="flex flex-col items-center space-y-1">
+                      <SportsbookIconsList 
+                        sportsbooks={prop.availableSportsbooks} 
+                        maxVisible={4}
+                        className="justify-center"
+                      />
+                      <div className="text-xs text-slate-400">
+                        {prop.availableSportsbooks.length} book{prop.availableSportsbooks.length !== 1 ? 's' : ''}
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-slate-500">No data</span>
+                  )}
                 </div>
 
                 {/* Expected Value */}
