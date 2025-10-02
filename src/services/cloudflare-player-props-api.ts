@@ -79,7 +79,11 @@ class CloudflarePlayerPropsAPI {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(`Cloudflare Workers API error: ${response.status} - ${errorData.error || 'Unknown error'}`);
+        console.warn(`⚠️ Cloudflare Workers API failed: ${response.status} - ${errorData.error || 'Unknown error'}`);
+        
+        // Fallback to Supabase Edge Function
+        console.log('🔄 Falling back to Supabase Edge Function...');
+        return this.getPlayerPropsFromSupabase(sport, forceRefresh);
       }
 
       const data: APIResponse = await response.json();
@@ -93,13 +97,74 @@ class CloudflarePlayerPropsAPI {
       });
 
       if (!data.success) {
-        throw new Error(data.error || 'Failed to load player props');
+        console.warn(`⚠️ Cloudflare Workers API returned success: false - ${data.error || 'Unknown error'}`);
+        
+        // Fallback to Supabase Edge Function
+        console.log('🔄 Falling back to Supabase Edge Function...');
+        return this.getPlayerPropsFromSupabase(sport, forceRefresh);
       }
 
       return data.data || [];
       
     } catch (error) {
       console.error('❌ Cloudflare Workers API error:', error);
+      console.log('🔄 Falling back to Supabase Edge Function...');
+      
+      // Fallback to Supabase Edge Function
+      try {
+        return await this.getPlayerPropsFromSupabase(sport, forceRefresh);
+      } catch (fallbackError) {
+        console.error('❌ Supabase fallback also failed:', fallbackError);
+        throw fallbackError;
+      }
+    }
+  }
+
+  /**
+   * Fallback method to get player props from Supabase Edge Function
+   */
+  private async getPlayerPropsFromSupabase(sport: string = 'nfl', forceRefresh: boolean = false): Promise<PlayerProp[]> {
+    try {
+      console.log(`🔄 Fetching player props from Supabase Edge Function: ${sport}`);
+      
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      if (!supabaseUrl || !supabaseAnonKey) {
+        throw new Error('Supabase configuration not found');
+      }
+
+      const url = new URL(`${supabaseUrl}/functions/v1/sportsgameodds-api`);
+      url.searchParams.append('endpoint', 'player-props');
+      url.searchParams.append('sport', sport);
+      
+      if (forceRefresh) {
+        url.searchParams.append('force_refresh', 'true');
+      }
+
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Supabase Edge Function error: ${response.status}`);
+      }
+
+      const data: APIResponse = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to load player props from Supabase');
+      }
+
+      console.log(`✅ Player props loaded from Supabase: ${data.totalProps} props`);
+      return data.data || [];
+      
+    } catch (error) {
+      console.error('❌ Supabase Edge Function error:', error);
       throw error;
     }
   }

@@ -443,7 +443,7 @@ export const SportsGameOddsAPIUsagePanel: React.FC = () => {
                       <div key={user.user_id} className="flex justify-between items-center">
                         <div>
                           <span className="text-sm">#{index + 1}</span>
-                          <span className="ml-2">{user.email || `User ${user.user_id.substring(0, 8)}`}</span>
+                          <span className="ml-2">{user.email || `User ${user.user_id?.substring(0, 8) || 'Unknown'}`}</span>
                         </div>
                         <Badge variant="outline">{formatNumber(user.request_count)} requests</Badge>
                       </div>

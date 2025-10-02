@@ -4,7 +4,7 @@
  */
 
 interface Env {
-  PLAYER_PROPS_CACHE: R2Bucket;
+  PLAYER_PROPS_CACHE?: R2Bucket;
   SPORTSGAMEODDS_API_KEY: string;
   CACHE_TTL_SECONDS: string;
   MAX_EVENTS_PER_REQUEST: string;
@@ -38,12 +38,13 @@ export default {
       const maxEvents = 10; // Very limited
       const maxProps = 50; // Very limited
 
-      // Check cache first
-      if (!forceRefresh) {
+      // Check cache first (if R2 is available)
+      if (!forceRefresh && env.PLAYER_PROPS_CACHE) {
         const cachedData = await env.PLAYER_PROPS_CACHE.get(cacheKey);
         if (cachedData) {
           console.log(`✅ Cache hit for ${cacheKey}`);
-          return new Response(cachedData, {
+          const cachedJson = await cachedData.text();
+          return new Response(cachedJson, {
             headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Cache': 'HIT' }
           });
         }
@@ -143,12 +144,19 @@ export default {
         totalProps: playerProps.length
       };
 
-      // Store in cache (without ctx.waitUntil to avoid issues)
-      await env.PLAYER_PROPS_CACHE.put(cacheKey, JSON.stringify(response), {
-        expirationTtl: cacheTtlSeconds,
-      });
+      // Store in cache (if R2 is available)
+      const responseJson = JSON.stringify(response);
+      if (env.PLAYER_PROPS_CACHE) {
+        try {
+          await env.PLAYER_PROPS_CACHE.put(cacheKey, responseJson, {
+            expirationTtl: cacheTtlSeconds,
+          });
+        } catch (cacheError) {
+          console.warn('Cache storage failed:', cacheError);
+        }
+      }
 
-      return new Response(JSON.stringify(response), {
+      return new Response(responseJson, {
         headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Cache': 'MISS' }
       });
 
