@@ -433,31 +433,8 @@ class SportsGameOddsAPI {
         return [];
       }
 
-      // Try to get player props from the markets endpoint first
-      logAPI('SportsGameOddsAPI', `Trying markets endpoint for ${sport}`);
-      try {
-        const marketsResponse = await this.makeRequest<any>(
-          `/v2/markets?leagueID=${leagueId}&sportID=${this.mapSportToId(sport)}&oddsAvailable=true&limit=50`, 
-          CACHE_DURATION.ODDS
-        );
-        
-        logAPI('SportsGameOddsAPI', `Markets response:`, {
-          hasData: !!marketsResponse.data,
-          dataLength: marketsResponse.data?.length || 0,
-          responseKeys: Object.keys(marketsResponse),
-          fullResponse: marketsResponse
-        });
-        
-        if (marketsResponse.data && marketsResponse.data.length > 0) {
-          const marketProps = this.processPlayerPropsData(marketsResponse.data, sport, 'markets');
-          if (marketProps.length > 0) {
-            logSuccess('SportsGameOddsAPI', `Found ${marketProps.length} player props from markets endpoint`);
-            return marketProps;
-          }
-        }
-      } catch (error) {
-        logWarning('SportsGameOddsAPI', `Markets endpoint failed:`, error);
-      }
+      // Skip markets endpoint - it doesn't exist in the API
+      logAPI('SportsGameOddsAPI', `Skipping markets endpoint (doesn't exist) - using events endpoint only`);
 
       // Get events/games for the sport with proper cursor pagination
       // Based on SportsGameOdds docs: https://sportsgameodds.com/docs/guides/data-batches
@@ -541,11 +518,9 @@ class SportsGameOddsAPI {
           logAPI('SportsGameOddsAPI', `Event ${event.eventID} produced ${eventPlayerProps.length} player props`);
           playerProps.push(...eventPlayerProps);
           
-          // Also try to get player props from the markets endpoint
+          // Skip markets endpoint - it doesn't exist in the API
           if (eventPlayerProps.length === 0) {
-            logAPI('SportsGameOddsAPI', `No player props found in event odds, trying markets endpoint for event ${event.eventID}`);
-            const marketPlayerProps = await this.getPlayerDataForEvent(event.eventID, sport);
-            playerProps.push(...marketPlayerProps);
+            logAPI('SportsGameOddsAPI', `No player props found in event odds for event ${event.eventID}`);
           }
         } catch (error) {
           logWarning('SportsGameOddsAPI', `Failed to extract props from event ${event.eventID}:`, error);
@@ -872,61 +847,9 @@ class SportsGameOddsAPI {
     }
   }
 
-  // Get player-specific data for an event
-  private async getPlayerDataForEvent(eventId: string, sport: string): Promise<SportsGameOddsPlayerProp[]> {
-    const playerProps: SportsGameOddsPlayerProp[] = [];
-    
-    try {
-      // Try different player-specific endpoints
-      const endpoints = [
-        `/v2/events/${eventId}/players`,
-        `/v2/events/${eventId}/player-props`,
-        `/v2/events/${eventId}/markets`
-      ];
+  // Removed getPlayerDataForEvent method - markets endpoint doesn't exist
 
-      for (const endpoint of endpoints) {
-        try {
-          logAPI('SportsGameOddsAPI', `Trying player endpoint: ${endpoint}`);
-          const data = await this.makeRequest<any>(endpoint, CACHE_DURATION.ODDS);
-          
-          if (data && (data.players || data.playerProps || data.markets)) {
-            logAPI('SportsGameOddsAPI', `Found player data from ${endpoint}`);
-            const props = this.processPlayerData(data, sport, eventId);
-            playerProps.push(...props);
-            
-            if (props.length > 0) {
-              logSuccess('SportsGameOddsAPI', `Found ${props.length} player props from ${endpoint}`);
-              break; // Use first successful endpoint
-            }
-          }
-        } catch (error) {
-          logWarning('SportsGameOddsAPI', `Player endpoint ${endpoint} failed:`, error);
-        }
-      }
-    } catch (error) {
-      logError('SportsGameOddsAPI', `Failed to get player data for event ${eventId}:`, error);
-    }
-
-    return playerProps;
-  }
-
-  // Process player data from SportsGameOdds API
-  private processPlayerData(data: any, sport: string, eventId: string): SportsGameOddsPlayerProp[] {
-    const playerProps: SportsGameOddsPlayerProp[] = [];
-    
-    try {
-      // This method is for processing player-specific endpoints
-      // Since we're now using the markets approach, this is mainly for fallback
-      logAPI('SportsGameOddsAPI', 'Processing player data from alternative endpoints');
-      
-      // For now, return empty array since we're using markets approach
-      // This can be expanded later if needed for specific player endpoints
-    } catch (error) {
-      logError('SportsGameOddsAPI', 'Failed to process player data:', error);
-    }
-
-    return playerProps;
-  }
+  // Removed processPlayerData method - no longer needed
 
   // Convert SportsGameOdds odd to player prop using oddID format
   private convertOddToPlayerProp(odd: any, oddId: string, sport: string, homeTeam: string, awayTeam: string, gameId: string, gameTime: string, event?: any): SportsGameOddsPlayerProp | null {
@@ -1231,67 +1154,7 @@ class SportsGameOddsAPI {
     return (isPlayerID || isSimplePlayerID) && isPlayerStat && isOverUnder;
   }
 
-  // Process player props data from SportsGameOdds API response
-  private processPlayerPropsData(data: any, sport: string, endpoint: string): SportsGameOddsPlayerProp[] {
-    const playerProps: SportsGameOddsPlayerProp[] = [];
-    
-    logAPI('SportsGameOddsAPI', `Processing data from ${endpoint}`);
-    
-    try {
-      // Handle different data structures
-      let markets = [];
-      
-      if (data.markets) {
-        markets = data.markets;
-      } else if (data.odds) {
-        markets = data.odds;
-      } else if (data.games) {
-        // Extract markets from games
-        markets = data.games.flatMap((game: any) => game.markets || []);
-      } else if (data.playerProps) {
-        markets = data.playerProps;
-      }
-
-      markets.forEach((market: any, index: number) => {
-        // Skip player prop market check since we're using markets approach
-        // This method is for processing alternative data structures
-        const playerProp: SportsGameOddsPlayerProp = {
-          id: market.id || `sgo-prop-${index}`,
-          playerId: market.playerId || market.player?.id || 'unknown',
-          playerName: market.playerName || market.player?.name || 'Unknown Player',
-          team: market.team || market.player?.team || 'Unknown Team',
-          sport: sport.toUpperCase(),
-          propType: market.propType || market.market || market.betType || 'Points',
-          line: market.line || market.overUnder || market.spread || 0,
-          overOdds: this.normalizeOddsToAmerican(market.overOdds || market.over || -110),
-          underOdds: this.normalizeOddsToAmerican(market.underOdds || market.under || -110),
-          sportsbook: market.sportsbook || market.bookmaker || 'SportsGameOdds',
-          sportsbookKey: market.sportsbookKey || market.bookmakerId || 'sgo',
-          lastUpdate: market.lastUpdate || market.updatedAt || new Date().toISOString(),
-          gameId: market.gameId || market.game?.id || 'unknown',
-          gameTime: market.gameTime || market.game?.time || new Date().toISOString(),
-          homeTeam: market.homeTeam || market.game?.homeTeam || 'Unknown',
-          awayTeam: market.awayTeam || market.game?.awayTeam || 'Unknown',
-          confidence: market.confidence || 0.5,
-          market: market.market || market.betType || 'Points',
-          outcome: market.outcome || 'pending',
-          betType: market.betType || 'over_under',
-          side: market.side || 'over',
-          period: market.period || 'full_game',
-          statEntity: market.statEntity || market.stat || 'points'
-        };
-        
-        playerProps.push(playerProp);
-      });
-      
-      logSuccess('SportsGameOddsAPI', `Processed ${playerProps.length} player props from ${endpoint}`);
-      return playerProps;
-      
-    } catch (error) {
-      logError('SportsGameOddsAPI', `Failed to process data from ${endpoint}:`, error);
-      return [];
-    }
-  }
+  // Removed processPlayerPropsData method - no longer needed
 
 
   // Map sport names to SportsGameOdds sport IDs
