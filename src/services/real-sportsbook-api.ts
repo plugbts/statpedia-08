@@ -1,4 +1,5 @@
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
+import { smartPropOptimizer } from './smart-prop-optimizer';
 
 /**
  * Real Sportsbook API Service
@@ -24,8 +25,8 @@ const SPORTSBOOK_CONFIG = {
     GAMES: 30 * 60 * 1000, // 30 minutes
   },
   
-  // API limits
-  MAX_PROPS_PER_SPORT: 200, // Keep same amount as current
+  // Smart prop limits (dynamically calculated)
+  USE_SMART_PROP_OPTIMIZER: true, // Enable intelligent prop count optimization
   
   // Verified SportsRadar endpoints from Postman testing
   VERIFIED_ENDPOINTS: {
@@ -109,7 +110,18 @@ class RealSportsbookAPI {
     logInfo('RealSportsbookAPI', 'Initialized SportsRadar-based sportsbook data service');
     logInfo('RealSportsbookAPI', 'Using verified SportsRadar endpoints from Postman testing');
     logInfo('RealSportsbookAPI', `Supported sports: ${Object.keys(SPORTSBOOK_CONFIG.VERIFIED_ENDPOINTS).join(', ')}`);
-    logInfo('RealSportsbookAPI', `Max props per sport: ${SPORTSBOOK_CONFIG.MAX_PROPS_PER_SPORT}`);
+    logInfo('RealSportsbookAPI', 'Smart prop count optimization enabled for optimal UX and API efficiency');
+    
+    // Log smart prop recommendations
+    if (SPORTSBOOK_CONFIG.USE_SMART_PROP_OPTIMIZER) {
+      const recommendations = smartPropOptimizer.getAllSportRecommendations();
+      Object.entries(recommendations).forEach(([sport, metrics]) => {
+        logInfo('RealSportsbookAPI', `${sport}: ${metrics.recommendedCount} props (UX: ${Math.round(metrics.userSatisfactionScore)}/100, Efficiency: ${Math.round(metrics.efficiencyScore)}/100)`);
+      });
+      
+      const usage = smartPropOptimizer.getTotalAPIUsageEstimate();
+      logInfo('RealSportsbookAPI', `Estimated API usage: ${usage.hourlyEstimate} calls/hour, ${usage.dailyEstimate} calls/day`);
+    }
   }
 
   // Fetch real player props from multiple sportsbooks
@@ -139,9 +151,16 @@ class RealSportsbookAPI {
       // Process and enhance the props
       const deduplicatedProps = this.deduplicateProps(sportsRadarProps);
       
-      // Limit to max props and add additional data
+      // Use smart prop count optimization
+      const smartPropCount = SPORTSBOOK_CONFIG.USE_SMART_PROP_OPTIMIZER ? 
+        smartPropOptimizer.getDynamicPropCount(sport) : 
+        200; // Fallback to original count
+      
+      logInfo('RealSportsbookAPI', `Using smart prop count for ${sport}: ${smartPropCount} props`);
+      
+      // Limit to smart prop count and add additional data
       const finalProps = deduplicatedProps
-        .slice(0, SPORTSBOOK_CONFIG.MAX_PROPS_PER_SPORT)
+        .slice(0, smartPropCount)
         .map(prop => this.enhancePlayerProp(prop));
 
       // Cache the results
