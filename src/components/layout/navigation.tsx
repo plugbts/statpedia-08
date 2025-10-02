@@ -13,6 +13,7 @@ import { VerifiedCheckmark } from '@/components/ui/verified-checkmark';
 import { useBackgroundMusic } from '@/hooks/use-background-music';
 import { MusicTipBubble } from '@/components/ui/music-tip-bubble';
 import { useUser } from '@/contexts/user-context';
+import { sportsSeasonService } from '@/services/sports-season-service';
 import { UserDisplay } from '@/components/ui/user-display';
 
 interface NavigationProps {
@@ -161,15 +162,33 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
     );
   };
 
-  const sports = [
-    { id: 'nba', label: 'NBA', sport: 'nba' },
-    { id: 'nfl', label: 'NFL', sport: 'nfl' },
-    { id: 'college-basketball', label: 'CBB', sport: 'college-basketball' },
-    { id: 'college-football', label: 'CFB', sport: 'college-football' },
-    { id: 'nhl', label: 'NHL', sport: 'nhl' },
-    { id: 'wnba', label: 'WNBA', sport: 'wnba' },
-    { id: 'mlb', label: 'MLB', sport: 'mlb' },
-  ];
+  // Get sports with season information
+  const allSportsInfo = sportsSeasonService.getAllSportsInfo();
+  
+  // Map to the format expected by the dropdown, with season info
+  const sports = allSportsInfo.map(sportInfo => {
+    // Map sport names to the format used in the app
+    const sportMapping: { [key: string]: string } = {
+      'NFL': 'nfl',
+      'NBA': 'nba', 
+      'MLB': 'mlb',
+      'NHL': 'nhl',
+      'NCAAF': 'college-football',
+      'NCAAB': 'college-basketball'
+    };
+    
+    const sportKey = sportMapping[sportInfo.sport] || sportInfo.sport.toLowerCase();
+    
+    return {
+      id: sportKey,
+      label: sportInfo.displayName,
+      sport: sportKey,
+      icon: sportInfo.icon,
+      status: sportInfo.status,
+      statusMessage: sportInfo.statusMessage,
+      isSelectable: sportInfo.isSelectable
+    };
+  });
 
   return (
     <nav className="bg-card/30 backdrop-blur-md border-b border-border/50 sticky top-0 z-50 glass-morphism shadow-3d">
@@ -360,20 +379,55 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
                 <ChevronDown className="w-3 h-3" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="center" className="w-48">
+            <DropdownMenuContent align="center" className="w-64">
               {sports.map((sport) => (
                 <DropdownMenuItem
                   key={sport.id}
-                  onClick={() => onSportChange?.(sport.sport)}
+                  onClick={() => sport.isSelectable ? onSportChange?.(sport.sport) : undefined}
                   className={cn(
-                    "cursor-pointer",
-                    selectedSport === sport.sport && "bg-secondary"
+                    sport.isSelectable ? "cursor-pointer" : "cursor-not-allowed opacity-60",
+                    selectedSport === sport.sport && "bg-secondary",
+                    !sport.isSelectable && "hover:bg-transparent"
                   )}
+                  disabled={!sport.isSelectable}
                 >
-                  {sport.label}
-                  {selectedSport === sport.sport && (
-                    <div className="ml-auto w-2 h-2 rounded-full bg-primary" />
-                  )}
+                  <div className="flex items-center gap-2 w-full">
+                    <span className="text-sm">{sport.icon}</span>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className={cn(
+                          "font-medium",
+                          !sport.isSelectable && "text-muted-foreground"
+                        )}>
+                          {sport.label}
+                        </span>
+                        {sport.status === 'off-season' && (
+                          <Badge 
+                            variant="secondary" 
+                            className="text-xs px-2 py-0.5 bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800"
+                          >
+                            OFF SEASON
+                          </Badge>
+                        )}
+                        {sport.status === 'playoffs' && (
+                          <Badge 
+                            variant="secondary" 
+                            className="text-xs px-2 py-0.5 bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200 dark:border-purple-800"
+                          >
+                            PLAYOFFS
+                          </Badge>
+                        )}
+                      </div>
+                      {sport.status === 'off-season' && (
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {sport.statusMessage}
+                        </div>
+                      )}
+                    </div>
+                    {selectedSport === sport.sport && sport.isSelectable && (
+                      <div className="ml-auto w-2 h-2 rounded-full bg-primary" />
+                    )}
+                  </div>
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>

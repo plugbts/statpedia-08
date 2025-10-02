@@ -69,6 +69,7 @@ import {
 // Removed sportsDataIOAPI imports - now using SportsRadar API exclusively
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { sportsSeasonService } from '@/services/sports-season-service';
 
 interface PlayerPropsTabProps {
   userSubscription: string;
@@ -792,17 +793,66 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                   Sport
                 </label>
                 <Select value={sportFilter} onValueChange={(value) => {
-                  setSportFilter(value);
-                  loadPlayerProps(value);
+                  // Only allow selection of in-season sports
+                  if (sportsSeasonService.isSportSelectable(value)) {
+                    setSportFilter(value);
+                    loadPlayerProps(value);
+                  }
                 }}>
                   <SelectTrigger className="w-full bg-background/50 border-primary/20 hover:border-primary/40">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="nfl">🏈 NFL</SelectItem>
-                    <SelectItem value="nba">🏀 NBA</SelectItem>
-                    <SelectItem value="mlb">⚾ MLB</SelectItem>
-                    <SelectItem value="nhl">🏒 NHL</SelectItem>
+                    {sportsSeasonService.getAllSportsInfo().map((sportInfo) => {
+                      // Map sport names to the format used in the app
+                      const sportMapping: { [key: string]: string } = {
+                        'NFL': 'nfl',
+                        'NBA': 'nba', 
+                        'MLB': 'mlb',
+                        'NHL': 'nhl',
+                        'NCAAF': 'college-football',
+                        'NCAAB': 'college-basketball'
+                      };
+                      
+                      const sportKey = sportMapping[sportInfo.sport] || sportInfo.sport.toLowerCase();
+                      
+                      return (
+                        <SelectItem 
+                          key={sportKey} 
+                          value={sportKey}
+                          disabled={!sportInfo.isSelectable}
+                          className={cn(
+                            !sportInfo.isSelectable && "opacity-60 cursor-not-allowed"
+                          )}
+                        >
+                          <div className="flex items-center gap-2 w-full">
+                            <span>{sportInfo.icon}</span>
+                            <span className={cn(
+                              "font-medium",
+                              !sportInfo.isSelectable && "text-muted-foreground"
+                            )}>
+                              {sportInfo.displayName}
+                            </span>
+                            {sportInfo.status === 'off-season' && (
+                              <Badge 
+                                variant="secondary" 
+                                className="text-xs px-1.5 py-0.5 ml-auto bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400"
+                              >
+                                OFF SEASON
+                              </Badge>
+                            )}
+                            {sportInfo.status === 'playoffs' && (
+                              <Badge 
+                                variant="secondary" 
+                                className="text-xs px-1.5 py-0.5 ml-auto bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400"
+                              >
+                                PLAYOFFS
+                              </Badge>
+                            )}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
