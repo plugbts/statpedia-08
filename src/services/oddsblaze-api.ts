@@ -11,8 +11,10 @@ import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/conso
 
 // OddsBlaze API Configuration
 const ODDSBLAZE_CONFIG = {
-  // API Key - you'll need to get this from www.oddsblaze.com
-  API_KEY: 'your_oddsblaze_api_key_here', // Replace with actual key
+  // API Key - Active key from www.oddsblaze.com
+  API_KEY: '11c20a93-06bb-4ec2-9e3e-513fd55655b5', // Valid for 24 hours from Oct 2, 2025
+  API_KEY_ISSUED: new Date('2025-10-02T06:55:00.791Z'), // When the key was issued
+  API_KEY_EXPIRES: new Date('2025-10-03T06:55:00.791Z'), // 24 hours later
   BASE_URL: 'https://api.oddsblaze.com/v2',
   
   // Sport keys for OddsBlaze
@@ -487,19 +489,90 @@ class OddsBlazeAPI {
     return Object.keys(ODDSBLAZE_CONFIG.SPORT_KEYS);
   }
 
-  // Test API connectivity
-  async testConnectivity(): Promise<{ success: boolean; message: string; leagues?: number }> {
+  // Check if API key is expired or expiring soon
+  checkAPIKeyStatus(): { 
+    isValid: boolean; 
+    isExpired: boolean; 
+    isExpiringSoon: boolean; 
+    timeRemaining: string; 
+    message: string;
+  } {
+    const now = new Date();
+    const expiresAt = ODDSBLAZE_CONFIG.API_KEY_EXPIRES;
+    const issuedAt = ODDSBLAZE_CONFIG.API_KEY_ISSUED;
+    
+    const isExpired = now >= expiresAt;
+    const timeUntilExpiry = expiresAt.getTime() - now.getTime();
+    const hoursRemaining = Math.floor(timeUntilExpiry / (1000 * 60 * 60));
+    const minutesRemaining = Math.floor((timeUntilExpiry % (1000 * 60 * 60)) / (1000 * 60));
+    
+    // Consider "expiring soon" if less than 2 hours remaining
+    const isExpiringSoon = timeUntilExpiry < (2 * 60 * 60 * 1000) && !isExpired;
+    
+    let timeRemaining = '';
+    let message = '';
+    
+    if (isExpired) {
+      const expiredHours = Math.floor((now.getTime() - expiresAt.getTime()) / (1000 * 60 * 60));
+      timeRemaining = `Expired ${expiredHours}h ago`;
+      message = `🚨 OddsBlaze API key EXPIRED ${expiredHours} hours ago! Please get a new key from www.oddsblaze.com`;
+    } else if (isExpiringSoon) {
+      timeRemaining = `${hoursRemaining}h ${minutesRemaining}m remaining`;
+      message = `⚠️  OddsBlaze API key expires in ${hoursRemaining}h ${minutesRemaining}m. Consider getting a new key soon.`;
+    } else {
+      timeRemaining = `${hoursRemaining}h ${minutesRemaining}m remaining`;
+      message = `✅ OddsBlaze API key is valid. Expires in ${hoursRemaining}h ${minutesRemaining}m.`;
+    }
+    
+    return {
+      isValid: !isExpired,
+      isExpired,
+      isExpiringSoon,
+      timeRemaining,
+      message
+    };
+  }
+
+  // Test API connectivity with key validation
+  async testConnectivity(): Promise<{ 
+    success: boolean; 
+    message: string; 
+    leagues?: number;
+    keyStatus?: any;
+  }> {
+    // First check API key status
+    const keyStatus = this.checkAPIKeyStatus();
+    
+    if (keyStatus.isExpired) {
+      return {
+        success: false,
+        message: keyStatus.message,
+        keyStatus
+      };
+    }
+    
     try {
       const leagues = await this.getLeagues();
       return {
         success: true,
-        message: `Connected successfully to OddsBlaze. ${leagues.length} leagues available.`,
-        leagues: leagues.length
+        message: `Connected successfully to OddsBlaze. ${leagues.length} leagues available. ${keyStatus.message}`,
+        leagues: leagues.length,
+        keyStatus
       };
     } catch (error) {
+      // Check if error is due to expired key
+      if (error.message.includes('401') || error.message.includes('403')) {
+        return {
+          success: false,
+          message: `OddsBlaze API key may be invalid or expired: ${error.message}`,
+          keyStatus
+        };
+      }
+      
       return {
         success: false,
-        message: `OddsBlaze connection failed: ${error.message}`
+        message: `OddsBlaze connection failed: ${error.message}`,
+        keyStatus
       };
     }
   }

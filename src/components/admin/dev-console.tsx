@@ -302,13 +302,29 @@ export const DevConsole: React.FC = () => {
   const testOddsBlazeAPI = async () => {
     logger.info('DevConsole', '💰 Testing OddsBlaze API...');
     
-    // First test connectivity
+    // First check API key status
+    const keyStatus = oddsBlazeAPI.checkAPIKeyStatus();
+    logger.info('DevConsole', `🔑 API Key Status: ${keyStatus.message}`);
+    
+    if (keyStatus.isExpired) {
+      logger.error('DevConsole', '🚨 CRITICAL: OddsBlaze API key has EXPIRED!');
+      logger.error('DevConsole', '🔄 Please get a new key from www.oddsblaze.com');
+      return;
+    } else if (keyStatus.isExpiringSoon) {
+      logger.warning('DevConsole', `⚠️  WARNING: API key expires soon! ${keyStatus.timeRemaining}`);
+    }
+    
+    // Test connectivity
     try {
       const connectivity = await oddsBlazeAPI.testConnectivity();
       if (connectivity.success) {
-        logger.success('DevConsole', `✅ OddsBlaze Connected: ${connectivity.message}`);
+        logger.success('DevConsole', `✅ OddsBlaze Connected: ${connectivity.leagues} leagues available`);
+        logger.info('DevConsole', `⏰ Key expires: ${keyStatus.timeRemaining}`);
       } else {
         logger.error('DevConsole', `❌ OddsBlaze Connection Failed: ${connectivity.message}`);
+        if (connectivity.keyStatus) {
+          logger.error('DevConsole', `🔑 Key Status: ${connectivity.keyStatus.message}`);
+        }
         return;
       }
     } catch (error) {
@@ -1126,6 +1142,73 @@ export const DevConsole: React.FC = () => {
                               onClick={() => {
                                 sportsRadarBackend.clearCache();
                                 logger.info('DevConsole', 'SportsRadar Backend cache cleared');
+                              }}
+                              className="w-full text-xs"
+                            >
+                              Clear Cache
+                            </Button>
+
+                            {/* OddsBlaze API Status */}
+                            <div className="p-3 bg-gradient-to-r from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/10 rounded-lg border border-orange-200 dark:border-orange-800 mt-4">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="font-semibold text-orange-800 dark:text-orange-200">OddsBlaze API</span>
+                                <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700">
+                                  ACTIVE
+                                </Badge>
+                              </div>
+                              <div className="space-y-2">
+                                <div className="text-xs text-orange-700 dark:text-orange-300">
+                                  <div className="flex justify-between">
+                                    <span>Key Status:</span>
+                                    <span className="font-mono">
+                                      {(() => {
+                                        const status = oddsBlazeAPI.checkAPIKeyStatus();
+                                        return status.isExpired ? '🚨 EXPIRED' : 
+                                               status.isExpiringSoon ? '⚠️  EXPIRING' : 
+                                               '✅ VALID';
+                                      })()}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>Time Remaining:</span>
+                                    <span className="font-mono">
+                                      {oddsBlazeAPI.checkAPIKeyStatus().timeRemaining}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>Expires:</span>
+                                    <span className="font-mono text-xs">
+                                      Oct 3, 06:55 UTC
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={async () => {
+                                logger.info('DevConsole', 'Checking OddsBlaze API key status...');
+                                const status = oddsBlazeAPI.checkAPIKeyStatus();
+                                logger.info('DevConsole', status.message);
+                                
+                                if (status.isExpired) {
+                                  logger.error('DevConsole', '🚨 URGENT: Get new key from www.oddsblaze.com');
+                                } else if (status.isExpiringSoon) {
+                                  logger.warning('DevConsole', '⚠️  Consider getting new key soon');
+                                }
+                              }}
+                              className="w-full text-xs mb-2"
+                            >
+                              Check Key Status
+                            </Button>
+
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                oddsBlazeAPI.clearCache();
+                                logger.info('DevConsole', 'OddsBlaze cache cleared');
                               }}
                               className="w-full text-xs"
                             >
