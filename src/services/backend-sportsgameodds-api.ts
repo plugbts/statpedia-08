@@ -22,7 +22,9 @@ export class BackendSportsGameOddsAPI {
 
     try {
       // Get auth token for user attribution
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      logAPI('BackendSportsGameOddsAPI', `Session status: ${session ? 'authenticated' : 'anonymous'}${sessionError ? ` (error: ${sessionError.message})` : ''}`);
       
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -32,6 +34,13 @@ export class BackendSportsGameOddsAPI {
       // Add auth header if user is logged in
       if (session?.access_token) {
         headers['Authorization'] = `Bearer ${session.access_token}`;
+        logAPI('BackendSportsGameOddsAPI', 'Using authenticated request with user token');
+      } else {
+        logWarning('BackendSportsGameOddsAPI', 'No valid session found, making anonymous request');
+        // For anonymous requests, we still need to ensure we have the apikey
+        if (!headers['apikey']) {
+          throw new Error('No authentication available - missing both user session and API key');
+        }
       }
 
       const response = await fetch(url.toString(), {
@@ -40,7 +49,27 @@ export class BackendSportsGameOddsAPI {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const responseText = await response.text();
+        let errorData: any = {};
+        
+        try {
+          errorData = JSON.parse(responseText);
+        } catch (e) {
+          // Response is not JSON
+          logError('BackendSportsGameOddsAPI', `Non-JSON error response (${response.status}):`, responseText);
+        }
+        
+        logError('BackendSportsGameOddsAPI', `HTTP ${response.status} error:`, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries()),
+          body: errorData,
+          rawBody: responseText
+        });
+        
+        if (response.status === 401) {
+          throw new Error('Authentication failed - please log in and try again');
+        }
         
         if (response.status === 429) {
           const resetTime = response.headers.get('X-RateLimit-Reset');
@@ -48,7 +77,12 @@ export class BackendSportsGameOddsAPI {
           throw new Error(`Rate limit exceeded. Try again at ${resetTime ? new Date(resetTime).toLocaleTimeString() : 'later'}`);
         }
         
-        throw new Error(errorData.error || `HTTP ${response.status}`);
+        if (response.status === 546) {
+          logError('BackendSportsGameOddsAPI', 'HTTP 546 error detected - this is not a standard HTTP status code');
+          throw new Error(`Custom error 546: ${errorData.error || errorData.message || 'Unknown error'}`);
+        }
+        
+        throw new Error(errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
