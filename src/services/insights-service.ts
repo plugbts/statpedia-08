@@ -367,12 +367,12 @@ class InsightsService {
     
     // Group props by game to analyze game-level insights
     const gameGroups = playerProps.reduce((acc, prop: any) => {
-      const gameKey = `${prop.teamAbbr}_vs_${prop.opponentAbbr}`;
+      const gameKey = `${prop.homeTeam || prop.team}_vs_${prop.awayTeam || prop.opponent}`;
       if (!acc[gameKey]) {
         acc[gameKey] = {
-          homeTeam: prop.teamAbbr,
-          awayTeam: prop.opponentAbbr,
-          gameTime: prop.gameDate,
+          homeTeam: prop.homeTeam || prop.team,
+          awayTeam: prop.awayTeam || prop.opponent,
+          gameTime: prop.gameTime || prop.gameDate,
           props: []
         };
       }
@@ -380,61 +380,35 @@ class InsightsService {
       return acc;
     }, {} as Record<string, any>);
     
-    // Home team advantage insight based on real data
-    // For now, we'll use all props and analyze them together since we don't have home/away distinction
-    const allTeamProps = playerProps;
-    
-    if (allTeamProps.length > 0) {
-      // Since we don't have historical outcome data, we'll simulate hit rates based on odds
-      // Better odds (closer to even) suggest more likely outcomes
-      const overHits = allTeamProps.filter((prop: any) => {
-        const overOdds = prop.overOdds;
-        const underOdds = prop.underOdds;
-        // If over odds are better (less negative or positive), it's more likely to hit
-        return overOdds && underOdds && overOdds > underOdds;
-      }).length;
-      const totalProps = allTeamProps.length;
-      const hitRate = totalProps > 0 ? Math.round((overHits / totalProps) * 100) : 0;
-      
-      insights.push({
-        insight_id: `team_performance_${sport}`,
-        insight_type: 'home_win_rate',
-        title: 'Team Performance',
-        description: `${sport.toUpperCase()} teams have ${hitRate}% hit rate across ${totalProps} props`,
-        value: hitRate,
-        trend: hitRate >= 60 ? 'up' : hitRate <= 40 ? 'down' : 'neutral',
-        change_percent: Math.round(Math.random() * 20 + 5),
-        confidence: this.calculateInsightConfidence(hitRate, totalProps),
-        team_name: '',
-        opponent_name: '',
-        game_date: new Date().toISOString().split('T')[0],
-        created_at: new Date().toISOString()
-      });
-    }
-    
-    // Over/Under trends insight based on real data
-    const totalProps = playerProps.length;
-    const overHits = playerProps.filter((prop: any) => {
-      const overOdds = prop.overOdds;
-      const underOdds = prop.underOdds;
-      // If over odds are better (less negative or positive), it's more likely to hit
-      return overOdds && underOdds && overOdds > underOdds;
-    }).length;
-    const overallHitRate = totalProps > 0 ? Math.round((overHits / totalProps) * 100) : 0;
-    
-    insights.push({
-      insight_id: `over_under_trend_${sport}`,
-      insight_type: 'over_under_trend',
-      title: 'Over/Under Trends',
-      description: `Overall props hit rate is ${overallHitRate}% across ${totalProps} total props`,
-      value: overallHitRate,
-      trend: overallHitRate >= 60 ? 'up' : overallHitRate <= 40 ? 'down' : 'neutral',
-      change_percent: Math.round(Math.random() * 10 + 3),
-      confidence: this.calculateInsightConfidence(overallHitRate, totalProps),
-      team_name: '',
-      opponent_name: '',
-      game_date: new Date().toISOString().split('T')[0],
-      created_at: new Date().toISOString()
+    // Generate insights for each game
+    Object.entries(gameGroups).forEach(([gameKey, gameData]) => {
+      const typedGameData = gameData as any;
+      if (typedGameData.props.length > 0) {
+        const totalProps = typedGameData.props.length;
+        const overHits = typedGameData.props.filter((prop: any) => {
+          const overOdds = prop.overOdds;
+          const underOdds = prop.underOdds;
+          // If over odds are better (less negative or positive), it's more likely to hit
+          return overOdds && underOdds && overOdds > underOdds;
+        }).length;
+        const hitRate = totalProps > 0 ? Math.round((overHits / totalProps) * 100) : 0;
+        
+        const insight: GameInsight = {
+          insight_id: `game_${gameKey}`,
+          insight_type: 'game_analysis',
+          title: `${typedGameData.awayTeam} @ ${typedGameData.homeTeam}`,
+          description: `Game analysis with ${totalProps} props available`,
+          value: hitRate,
+          trend: hitRate >= 60 ? 'up' : hitRate <= 40 ? 'down' : 'neutral',
+          change_percent: Math.round(Math.random() * 15 + 5), // 5-20% range
+          confidence: this.calculateInsightConfidence(hitRate, totalProps),
+          team_name: typedGameData.homeTeam,
+          opponent_name: typedGameData.awayTeam,
+          game_date: typedGameData.gameTime,
+          created_at: new Date().toISOString()
+        };
+        insights.push(insight);
+      }
     });
     
     return insights;
@@ -874,12 +848,12 @@ class InsightsService {
     
     // Group props by game to analyze moneyline opportunities
     const gameGroups = playerProps.reduce((acc, prop: any) => {
-      const gameKey = `${prop.teamAbbr}_vs_${prop.opponentAbbr}`;
+      const gameKey = `${prop.homeTeam || prop.team}_vs_${prop.awayTeam || prop.opponent}`;
       if (!acc[gameKey]) {
         acc[gameKey] = {
-          homeTeam: prop.teamAbbr,
-          awayTeam: prop.opponentAbbr,
-          gameTime: prop.gameDate,
+          homeTeam: prop.homeTeam || prop.team,
+          awayTeam: prop.awayTeam || prop.opponent,
+          gameTime: prop.gameTime || prop.gameDate,
           props: []
         };
       }
@@ -1157,6 +1131,13 @@ class InsightsService {
       'Davante Adams': 'WR',
       'Tyreek Hill': 'WR',
       'Cooper Kupp': 'WR',
+      
+      // NFL Tight Ends
+      'David Njoku': 'TE',
+      'Travis Kelce': 'TE',
+      'George Kittle': 'TE',
+      'Mark Andrews': 'TE',
+      'Kyle Pitts': 'TE',
       'Stefon Diggs': 'WR',
       'DeAndre Hopkins': 'WR',
       'Julio Jones': 'WR',
@@ -1165,12 +1146,6 @@ class InsightsService {
       'Amari Cooper': 'WR',
       'DK Metcalf': 'WR',
       
-      // NFL Tight Ends
-      'Travis Kelce': 'TE',
-      'George Kittle': 'TE',
-      'Darren Waller': 'TE',
-      'Mark Andrews': 'TE',
-      'Kyle Pitts': 'TE',
       
       // NBA Players
       'LeBron James': 'SF',
@@ -1217,7 +1192,9 @@ class InsightsService {
       }
       if (propTypeLower.includes('reception') || propTypeLower.includes('receiving') || 
           propTypeLower.includes('catch') || propTypeLower.includes('target')) {
-        return 'WR';
+        // For receiving props, we can't distinguish between WR and TE without player name
+        // Let the known players database handle this, fall back to null for unknown players
+        return null;
       }
       if (propTypeLower.includes('touchdown') && !propTypeLower.includes('pass')) {
         // Could be RB, WR, or TE - need more context
