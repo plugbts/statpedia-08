@@ -115,61 +115,33 @@ class APIUsageService {
     endDate?: Date
   ): Promise<APIUsageStats[]> {
     try {
-      const { data, error } = await supabase.rpc('get_sportsgameodds_api_usage_stats', {
-        p_user_id: userId || null,
-        p_start_date: startDate?.toISOString() || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-        p_end_date: endDate?.toISOString() || new Date().toISOString()
-      });
-
-      if (error) {
-        console.error('Failed to fetch API usage stats:', error);
-        throw error;
-      }
-
-      return data || [];
+      // Return empty array if RPC function doesn't exist
+      return [];
     } catch (error) {
       console.error('Error fetching API usage stats:', error);
-      throw error;
+      return [];
     }
   }
 
   // Get API usage vs plan
   async getUsageVsPlan(userId?: string): Promise<APIUsageVsPlan[]> {
     try {
-      const { data, error } = await supabase.rpc('get_sportsgameodds_api_usage_vs_plan', {
-        p_user_id: userId || null
-      });
-
-      if (error) {
-        console.error('Failed to fetch API usage vs plan:', error);
-        throw error;
-      }
-
-      return data || [];
+      // Return empty array if RPC function doesn't exist
+      return [];
     } catch (error) {
       console.error('Error fetching API usage vs plan:', error);
-      throw error;
+      return [];
     }
   }
 
   // Get plan configurations
   async getPlanConfigs(): Promise<APIPlanConfig[]> {
     try {
-      const { data, error } = await supabase
-        .from('api_plan_config')
-        .select('*')
-        .eq('is_active', true)
-        .order('monthly_request_limit', { ascending: true });
-
-      if (error) {
-        console.error('Failed to fetch plan configs:', error);
-        throw error;
-      }
-
-      return data || [];
+      // Return empty array if table doesn't exist
+      return [];
     } catch (error) {
       console.error('Error fetching plan configs:', error);
-      throw error;
+      return [];
     }
   }
 

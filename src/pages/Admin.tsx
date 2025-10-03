@@ -18,7 +18,6 @@ const SocialAdmin = lazy(() => import("@/components/admin/social-admin").then(mo
 const PredictionsAdmin = lazy(() => import("@/components/admin/predictions-admin").then(module => ({ default: module.PredictionsAdmin })));
 const AdManager = lazy(() => import("@/components/ads/ad-manager").then(module => ({ default: module.AdManager })));
 const SecurityDashboard = lazy(() => import("@/components/admin/security-dashboard").then(module => ({ default: module.SecurityDashboard })));
-const SyncStatus = lazy(() => import("@/components/sync/sync-status").then(module => ({ default: module.SyncStatus })));
 const DevConsole = lazy(() => import("@/components/admin/dev-console").then(module => ({ default: module.DevConsole })));
 const CrossReferenceAnalysis = lazy(() => import("@/components/admin/cross-reference-analysis").then(module => ({ default: module.CrossReferenceAnalysis })));
 const ServerAPIDashboard = lazy(() => import("@/components/admin/server-api-dashboard").then(module => ({ default: module.ServerAPIDashboard })));
@@ -145,12 +144,6 @@ export default function Admin() {
                 </TabsTrigger>
               )}
               {userRole === 'owner' && (
-                <TabsTrigger value="sync" className="flex items-center gap-1 px-2 py-1 text-xs">
-                  <Activity className="h-3 w-3" />
-                  <span className="hidden sm:inline">Sync</span>
-                </TabsTrigger>
-              )}
-              {userRole === 'owner' && (
                 <TabsTrigger value="api-usage" className="flex items-center gap-1 px-2 py-1 text-xs">
                   <TrendingUp className="h-3 w-3" />
                   <span className="hidden sm:inline">API Usage</span>
@@ -257,13 +250,6 @@ export default function Admin() {
             </TabsContent>
           )}
 
-          {userRole === 'owner' && (
-            <TabsContent value="sync" className="space-y-2 mt-2">
-              <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
-                <SyncStatus showDetails={true} />
-              </Suspense>
-            </TabsContent>
-          )}
 
           {userRole === 'owner' && (
             <TabsContent value="api-usage" className="space-y-2 mt-2">
