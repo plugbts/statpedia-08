@@ -2,22 +2,31 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import { useSync } from "@/hooks/use-sync";
 import { useEmailCron } from "@/hooks/use-email-cron";
 import { UserProvider } from "@/contexts/user-context";
-import { useState, useEffect, Suspense, lazy } from "react";
+import { useState, useEffect, Suspense, lazy, ErrorBoundary } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
-// Lazy load heavy components
-const Index = lazy(() => import("./pages/Index"));
-const Admin = lazy(() => import("./pages/Admin"));
-const PredictionDetail = lazy(() => import("./pages/PredictionDetail"));
-const Settings = lazy(() => import("./pages/Settings").then(module => ({ default: module.Settings })));
-const NotFound = lazy(() => import("./pages/NotFound"));
-const SubscriptionPlans = lazy(() => import("./components/auth/subscription-plans").then(module => ({ default: module.SubscriptionPlans })));
-const SupportCenter = lazy(() => import("./components/support/support-center").then(module => ({ default: module.SupportCenter })));
+// Error handler for dynamic imports
+const handleDynamicImportError = (error: Error) => {
+  console.error('Dynamic import error:', error);
+  if (error.message.includes('Failed to fetch dynamically imported module')) {
+    console.log('Reloading page to fetch latest modules...');
+    window.location.reload();
+  }
+};
+
+// Lazy load heavy components with error handling
+const Index = lazy(() => import("./pages/Index").catch(handleDynamicImportError));
+const Admin = lazy(() => import("./pages/Admin").catch(handleDynamicImportError));
+const PredictionDetail = lazy(() => import("./pages/PredictionDetail").catch(handleDynamicImportError));
+const Settings = lazy(() => import("./pages/Settings").then(module => ({ default: module.Settings })).catch(handleDynamicImportError));
+const NotFound = lazy(() => import("./pages/NotFound").catch(handleDynamicImportError));
+const SubscriptionPlans = lazy(() => import("./components/auth/subscription-plans").then(module => ({ default: module.SubscriptionPlans })).catch(handleDynamicImportError));
+const SupportCenter = lazy(() => import("./components/support/support-center").then(module => ({ default: module.SupportCenter })).catch(handleDynamicImportError));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -286,31 +295,60 @@ const App = () => {
             <Toaster />
             <Sonner />
             <BrowserRouter>
-              <Suspense fallback={
-                <div style={{ 
-                  minHeight: '100vh', 
-                  backgroundColor: '#0a0a0a', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center' 
-                }}>
-                  <div className="animate-spin h-8 w-8 border-4 border-cyan-500 border-t-transparent rounded-full" />
-                </div>
-              }>
-                <Routes>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/admin" element={<Admin />} />
-                  <Route path="/prediction-detail" element={<PredictionDetail />} />
-                  <Route path="/settings" element={<SettingsWrapper />} />
-                  <Route path="/subscription" element={<SubscriptionPlans onSubscriptionSuccess={(plan) => {
-                    console.log('Subscription successful:', plan);
-                    // Handle successful subscription
-                  }} />} />
-                  <Route path="/support" element={<SupportCenterWrapper />} />
-                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </Suspense>
+              <ErrorBoundary
+                fallback={
+                  <div style={{ 
+                    minHeight: '100vh', 
+                    backgroundColor: '#0a0a0a', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    flexDirection: 'column',
+                    gap: '1rem'
+                  }}>
+                    <div className="text-white text-lg">Something went wrong</div>
+                    <button 
+                      onClick={() => window.location.reload()}
+                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                    >
+                      Reload Page
+                    </button>
+                  </div>
+                }
+                onError={(error) => {
+                  console.error('App Error Boundary caught:', error);
+                  if (error.message.includes('Failed to fetch dynamically imported module')) {
+                    console.log('Reloading page due to dynamic import error...');
+                    window.location.reload();
+                  }
+                }}
+              >
+                <Suspense fallback={
+                  <div style={{ 
+                    minHeight: '100vh', 
+                    backgroundColor: '#0a0a0a', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center' 
+                  }}>
+                    <div className="animate-spin h-8 w-8 border-4 border-cyan-500 border-t-transparent rounded-full" />
+                  </div>
+                }>
+                  <Routes>
+                    <Route path="/" element={<Index />} />
+                    <Route path="/admin" element={<Admin />} />
+                    <Route path="/prediction-detail" element={<PredictionDetail />} />
+                    <Route path="/settings" element={<SettingsWrapper />} />
+                    <Route path="/subscription" element={<SubscriptionPlans onSubscriptionSuccess={(plan) => {
+                      console.log('Subscription successful:', plan);
+                      // Handle successful subscription
+                    }} />} />
+                    <Route path="/support" element={<SupportCenterWrapper />} />
+                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </Suspense>
+              </ErrorBoundary>
             </BrowserRouter>
           </SyncProvider>
         </UserProvider>
