@@ -22,6 +22,7 @@ import {
 } from '@/utils/security';
 import { rateLimitingService } from '@/services/rate-limiting-service';
 import { backupService } from '@/services/backup-service';
+import { sessionService } from '@/services/session-service';
 
 interface AuthPageProps {
   onAuthSuccess: (user: any, subscription: string) => void;
@@ -369,15 +370,26 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
 
   const handleSubscriptionSuccess = async (plan: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const sessionResult = await sessionService.getCurrentSession();
+      let user = null;
       
-      if (!user) {
-        toast({
-          title: "Error",
-          description: "User session not found",
-          variant: "destructive",
-        });
-        return;
+      if (!sessionResult.isValid || !sessionResult.user) {
+        // Try to recover session
+        const recoveryResult = await sessionService.handleSessionError(sessionResult.error);
+        
+        if (!recoveryResult.isValid || !recoveryResult.user) {
+          toast({
+            title: "Session Error",
+            description: "Your session has expired. Please log in again to continue.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        // Use recovered user
+        user = recoveryResult.user;
+      } else {
+        user = sessionResult.user;
       }
 
       // Update profile with subscription
