@@ -85,11 +85,11 @@ class InsightsService {
       
       // Use the same API system as player props - Cloudflare Workers API
       const { cloudflarePlayerPropsAPI } = await import('./cloudflare-player-props-api');
-      const events = await cloudflarePlayerPropsAPI.getPlayerProps(sport, true); // Force refresh
-      console.log(`📊 [InsightsService] Retrieved ${events.length} events for ${sport} from Cloudflare Workers API`);
+      const playerProps = await cloudflarePlayerPropsAPI.getPlayerProps(sport, true); // Force refresh
+      console.log(`📊 [InsightsService] Retrieved ${playerProps.length} player props for ${sport} from Cloudflare Workers API`);
       
-      // Generate insights from real events data
-      const insights = this.generateGameInsightsFromRealPlayerProps(events, sport);
+      // Generate insights from real player props data (same structure as before)
+      const insights = this.generateGameInsightsFromRealData(playerProps, sport);
       
       this.cache.set(cacheKey, { data: insights, timestamp: now });
       
@@ -120,8 +120,8 @@ class InsightsService {
       const playerProps = await cloudflarePlayerPropsAPI.getPlayerProps(sport, true); // Force refresh
       console.log(`👤 [InsightsService] Retrieved ${playerProps.length} player props for ${sport} from Cloudflare Workers API`);
       
-      // Generate insights from real player props data
-      const insights = this.generatePlayerInsightsFromRealPlayerProps(playerProps, sport);
+      // Generate insights from real player props data (same structure as before)
+      const insights = this.generatePlayerInsightsFromRealData(playerProps, sport);
       
       this.cache.set(cacheKey, { data: insights, timestamp: now });
       
@@ -149,11 +149,11 @@ class InsightsService {
       
       // Use the same API system as player props - Cloudflare Workers API
       const { cloudflarePlayerPropsAPI } = await import('./cloudflare-player-props-api');
-      const events = await cloudflarePlayerPropsAPI.getPlayerProps(sport, true); // Force refresh
-      console.log(`💰 [InsightsService] Retrieved ${events.length} events for moneyline analysis from Cloudflare Workers API`);
+      const playerProps = await cloudflarePlayerPropsAPI.getPlayerProps(sport, true); // Force refresh
+      console.log(`💰 [InsightsService] Retrieved ${playerProps.length} player props for moneyline analysis from Cloudflare Workers API`);
       
-      // Generate insights from real events data
-      const insights = this.generateMoneylineInsightsFromRealPlayerProps(events, sport);
+      // Generate insights from real player props data (same structure as before)
+      const insights = this.generateMoneylineInsightsFromRealData(playerProps, sport);
       
       this.cache.set(cacheKey, { data: insights, timestamp: now });
       
@@ -305,49 +305,71 @@ class InsightsService {
     return insights;
   }
 
-  private generateGameInsightsFromRealData(games: any[], sport: string): GameInsight[] {
+  private generateGameInsightsFromRealData(playerProps: any[], sport: string): GameInsight[] {
     const insights: GameInsight[] = [];
     
-    if (games.length === 0) return insights;
+    if (playerProps.length === 0) return insights;
     
-    // Home team win rate insight
-    const upcomingGames = games.filter(game => game.status === 'scheduled' || game.status === 'upcoming');
-    if (upcomingGames.length > 0) {
-      const homeWinRate = Math.round(Math.random() * 20 + 60); // 60-80% range
+    // Group props by game to analyze game-level insights
+    const gameGroups = playerProps.reduce((acc, prop: any) => {
+      const gameKey = `${prop.homeTeam || prop.team}_vs_${prop.awayTeam || 'Unknown'}`;
+      if (!acc[gameKey]) {
+        acc[gameKey] = {
+          homeTeam: prop.homeTeam || prop.team,
+          awayTeam: prop.awayTeam || 'Unknown',
+          gameTime: prop.gameTime,
+          props: []
+        };
+      }
+      acc[gameKey].props.push(prop);
+      return acc;
+    }, {} as Record<string, any>);
+    
+    // Home team advantage insight based on real data
+    const homeTeamProps = playerProps.filter((prop: any) => prop.team === prop.homeTeam);
+    const awayTeamProps = playerProps.filter((prop: any) => prop.team === prop.awayTeam);
+    
+    if (homeTeamProps.length > 0 && awayTeamProps.length > 0) {
+      const homeOverHits = homeTeamProps.filter((prop: any) => prop.outcome === 'over' || prop.side === 'over').length;
+      const awayOverHits = awayTeamProps.filter((prop: any) => prop.outcome === 'over' || prop.side === 'over').length;
+      const homeHitRate = Math.round((homeOverHits / homeTeamProps.length) * 100);
+      const awayHitRate = Math.round((awayOverHits / awayTeamProps.length) * 100);
+      
       insights.push({
-        insight_id: `home_win_rate_${sport}`,
+        insight_id: `home_advantage_${sport}`,
         insight_type: 'home_win_rate',
-        title: 'Home Team Win Rate',
-        description: `${sport.toUpperCase()} home teams win ${homeWinRate}% of games`,
-        value: homeWinRate,
-        trend: 'up',
-        change_percent: Math.round(Math.random() * 5 + 1),
+        title: 'Home Team Advantage',
+        description: `${sport.toUpperCase()} home teams have ${homeHitRate}% hit rate vs ${awayHitRate}% for away teams`,
+        value: homeHitRate,
+        trend: homeHitRate > awayHitRate ? 'up' : 'down',
+        change_percent: Math.abs(homeHitRate - awayHitRate),
         confidence: Math.round(Math.random() * 20 + 75),
-        team_name: upcomingGames[0]?.homeTeam || 'Home Team',
-        opponent_name: upcomingGames[0]?.awayTeam || 'Away Team',
-        game_date: upcomingGames[0]?.gameTime ? new Date(upcomingGames[0].gameTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        team_name: 'Home Teams',
+        opponent_name: 'Away Teams',
+        game_date: new Date().toISOString().split('T')[0],
         created_at: new Date().toISOString()
       });
     }
     
-    // Over/Under trends insight
-    if (upcomingGames.length > 0) {
-      const overRate = Math.round(Math.random() * 20 + 55); // 55-75% range
-      insights.push({
-        insight_id: `over_under_trend_${sport}`,
-        insight_type: 'over_under_trend',
-        title: 'Over/Under Trends',
-        description: `Games with totals 45+ hit the over ${overRate}% in recent weeks`,
-        value: overRate,
-        trend: 'up',
-        change_percent: Math.round(Math.random() * 10 + 3),
-        confidence: Math.round(Math.random() * 15 + 80),
-        team_name: upcomingGames[0]?.homeTeam || 'Home Team',
-        opponent_name: upcomingGames[0]?.awayTeam || 'Away Team',
-        game_date: upcomingGames[0]?.gameTime ? new Date(upcomingGames[0].gameTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-        created_at: new Date().toISOString()
-      });
-    }
+    // Over/Under trends insight based on real data
+    const totalProps = playerProps.length;
+    const overHits = playerProps.filter((prop: any) => prop.outcome === 'over' || prop.side === 'over').length;
+    const overallHitRate = Math.round((overHits / totalProps) * 100);
+    
+    insights.push({
+      insight_id: `over_under_trend_${sport}`,
+      insight_type: 'over_under_trend',
+      title: 'Over/Under Trends',
+      description: `Overall props hit rate is ${overallHitRate}% across ${totalProps} total props`,
+      value: overallHitRate,
+      trend: overallHitRate >= 60 ? 'up' : overallHitRate <= 40 ? 'down' : 'neutral',
+      change_percent: Math.round(Math.random() * 10 + 3),
+      confidence: Math.round(Math.random() * 15 + 80),
+      team_name: 'League Average',
+      opponent_name: 'Historical Average',
+      game_date: new Date().toISOString().split('T')[0],
+      created_at: new Date().toISOString()
+    });
     
     return insights;
   }
@@ -528,29 +550,40 @@ class InsightsService {
     
     if (playerProps.length === 0) return insights;
     
-    // Hot streak insight
-    const hotPlayer = playerProps[0];
-    if (hotPlayer) {
-      const cleanPlayerName = this.cleanPlayerName(hotPlayer.playerName);
-      const streakValue = Math.round(Math.random() * 20 + 70); // 70-90% range
+    // Group player props by player to find hot streaks
+    const playerGroups = playerProps.reduce((acc, prop: any) => {
+      const playerName = prop.playerName;
+      if (!acc[playerName]) {
+        acc[playerName] = [];
+      }
+      acc[playerName].push(prop);
+      return acc;
+    }, {} as Record<string, any[]>);
+    
+    // Find players with the best hit rates
+    const playerStats = Object.entries(playerGroups).map(([playerName, props]) => {
+      const typedProps = props as any[];
+      const overHits = typedProps.filter((prop: any) => prop.outcome === 'over' || prop.side === 'over').length;
+      const hitRate = Math.round((overHits / typedProps.length) * 100);
+      return { playerName, props: typedProps, hitRate, overHits, totalProps: typedProps.length };
+    }).sort((a, b) => b.hitRate - a.hitRate);
+    
+    // Generate insights for top performing players
+    playerStats.slice(0, 3).forEach(({ playerName, props, hitRate, overHits, totalProps }) => {
+      const cleanPlayerName = this.cleanPlayerName(playerName);
+      const firstProp = props[0];
       
       // Analyze player props to determine actual streak data
       const playerPosition = this.getPlayerPosition(cleanPlayerName, sport);
-      const streakData = this.analyzePlayerStreak([hotPlayer], playerPosition);
+      const streakData = this.analyzePlayerStreak(props, playerPosition);
       
       const hotStreakTexts = [
-        `${cleanPlayerName} have been playing absolutely out of his mind lately!`,
-        `${cleanPlayerName} is scorching!`,
-        `${cleanPlayerName} is on a ${streakData.streakLength} game ${streakData.propType} hit streak right now!`,
-        `${cleanPlayerName} is dominating at the moment!`,
-        `${cleanPlayerName} is on fire and showing no signs of cooling down`,
-        `${cleanPlayerName} has been red hot!`,
-        `${cleanPlayerName} have been playing absolutely out of his mind lately!`,
-        `${cleanPlayerName} is scorching!`,
-        `${cleanPlayerName} is on a ${streakData.streakLength} game ${streakData.propType} hit streak right now!`,
-        `${cleanPlayerName} is dominating at the moment!`,
-        `${cleanPlayerName} is on fire and showing no signs of cooling down`,
-        `${cleanPlayerName} has been red hot!`,
+        `${cleanPlayerName} is on fire with ${hitRate}% hit rate over ${totalProps} props!`,
+        `${cleanPlayerName} is scorching with ${overHits}/${totalProps} over hits!`,
+        `${cleanPlayerName} is on a ${streakData.streakLength} game ${streakData.propType} hit streak!`,
+        `${cleanPlayerName} is dominating with ${hitRate}% success rate!`,
+        `${cleanPlayerName} is showing no signs of cooling down!`,
+        `${cleanPlayerName} has been red hot with ${overHits} over hits!`,
         `${cleanPlayerName} have been playing absolutely out of his mind lately!`,
         `${cleanPlayerName} is scorching!`,
         `${cleanPlayerName} is on a ${Math.floor(Math.random() * 8 + 3)} game receiving yards hit streak right now!`,
@@ -568,17 +601,17 @@ class InsightsService {
         insight_type: 'hot_streak',
         title: 'Hot Streak Alert',
         description: randomHotText,
-        value: streakValue,
+        value: hitRate,
         trend: 'up',
         change_percent: Math.round(Math.random() * 15 + 5),
         confidence: Math.round(Math.random() * 10 + 85),
         player_name: cleanPlayerName,
-        team_name: hotPlayer.team,
+        team_name: firstProp.team,
         player_position: this.getPlayerPosition(cleanPlayerName, sport),
-        last_game_date: hotPlayer.gameTime ? new Date(hotPlayer.gameTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        last_game_date: firstProp.gameTime ? new Date(firstProp.gameTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         created_at: new Date().toISOString()
       });
-    }
+    });
     
     // Home advantage insight
     if (playerProps.length > 1) {
@@ -715,32 +748,54 @@ class InsightsService {
     return insights;
   }
 
-  private generateMoneylineInsightsFromRealData(games: any[], sport: string): MoneylineInsight[] {
+  private generateMoneylineInsightsFromRealData(playerProps: any[], sport: string): MoneylineInsight[] {
     const insights: MoneylineInsight[] = [];
     
-    if (games.length === 0) return insights;
+    if (playerProps.length === 0) return insights;
     
-    // Underdog opportunity insight
-    const upcomingGames = games.filter(game => game.status === 'scheduled' || game.status === 'upcoming');
-    if (upcomingGames.length > 0) {
-      const underdogGame = upcomingGames[0];
-      const underdogRate = Math.round(Math.random() * 15 + 30); // 30-45% range
-      insights.push({
-        insight_id: `underdog_win_rate_${underdogGame.id}`,
-        insight_type: 'underdog_win_rate',
-        title: 'Underdog Win Rate',
-        description: 'Underdogs win with significant spreads',
-        value: underdogRate,
-        trend: 'up',
-        change_percent: Math.round(Math.random() * 8 + 2),
-        confidence: Math.round(Math.random() * 15 + 75),
-        team_name: underdogGame.homeTeam,
-        opponent_name: underdogGame.awayTeam,
-        game_date: underdogGame.gameTime ? new Date(underdogGame.gameTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-        underdog_opportunity: true,
-        created_at: new Date().toISOString()
-      });
-    }
+    // Group props by game to analyze moneyline opportunities
+    const gameGroups = playerProps.reduce((acc, prop: any) => {
+      const gameKey = `${prop.homeTeam || prop.team}_vs_${prop.awayTeam || 'Unknown'}`;
+      if (!acc[gameKey]) {
+        acc[gameKey] = {
+          homeTeam: prop.homeTeam || prop.team,
+          awayTeam: prop.awayTeam || 'Unknown',
+          gameTime: prop.gameTime,
+          props: []
+        };
+      }
+      acc[gameKey].props.push(prop);
+      return acc;
+    }, {} as Record<string, any>);
+    
+    // Analyze underdog opportunities based on real data
+    Object.entries(gameGroups).forEach(([gameKey, gameData]) => {
+      const typedGameData = gameData as any;
+      if (typedGameData.props.length > 0) {
+        const totalProps = typedGameData.props.length;
+        const overHits = typedGameData.props.filter((prop: any) => prop.outcome === 'over' || prop.side === 'over').length;
+        const hitRate = Math.round((overHits / totalProps) * 100);
+        
+        // Determine if this is an underdog opportunity based on hit rate
+        const isUnderdogOpportunity = hitRate < 45; // Low hit rate suggests underdog value
+        
+        insights.push({
+          insight_id: `moneyline_${gameKey}`,
+          insight_type: 'underdog_win_rate',
+          title: 'Moneyline Analysis',
+          description: `${typedGameData.awayTeam} @ ${typedGameData.homeTeam} - ${hitRate}% props hit rate`,
+          value: hitRate,
+          trend: hitRate >= 60 ? 'up' : hitRate <= 40 ? 'down' : 'neutral',
+          change_percent: Math.round(Math.random() * 8 + 2),
+          confidence: Math.round(Math.random() * 15 + 75),
+          team_name: typedGameData.homeTeam,
+          opponent_name: typedGameData.awayTeam,
+          game_date: typedGameData.gameTime ? new Date(typedGameData.gameTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          underdog_opportunity: isUnderdogOpportunity,
+          created_at: new Date().toISOString()
+        });
+      }
+    });
     
     return insights;
   }
