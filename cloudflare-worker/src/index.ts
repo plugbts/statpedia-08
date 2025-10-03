@@ -193,19 +193,9 @@ export default {
                 prop.availableSportsbooks.push(bookmakerId);
               }
               
-              // Set the appropriate odds based on side
+              // Parse odds
               const odds = parseNumber(bookmaker.odds);
-              if (odds !== null) {
-                if (side === 'over') {
-                  if (prop.overOdds === null || isBetterOdds(odds, prop.overOdds, 'over')) {
-                    prop.overOdds = odds;
-                  }
-                } else if (side === 'under') {
-                  if (prop.underOdds === null || isBetterOdds(odds, prop.underOdds, 'under')) {
-                    prop.underOdds = odds;
-                  }
-                }
-              }
+              if (odds === null) continue;
               
               // Add to allSportsbookOdds for detailed breakdown
               const existingBookmaker = prop.allSportsbookOdds.find(sb => sb.sportsbook === bookmakerId);
@@ -224,9 +214,13 @@ export default {
                 } else if (side === 'under') {
                   existingBookmaker.underOdds = odds;
                 }
+                // Update last update time
+                if (bookmaker.lastUpdatedAt && new Date(bookmaker.lastUpdatedAt) > new Date(existingBookmaker.lastUpdate)) {
+                  existingBookmaker.lastUpdate = bookmaker.lastUpdatedAt;
+                }
               }
               
-              // Update last update time
+              // Update last update time for the prop
               if (bookmaker.lastUpdatedAt && new Date(bookmaker.lastUpdatedAt) > new Date(prop.lastUpdate)) {
                 prop.lastUpdate = bookmaker.lastUpdatedAt;
               }
@@ -235,8 +229,42 @@ export default {
         }
       }
 
-      // Convert map to array and filter out incomplete props
-      playerProps.push(...Array.from(playerPropsMap.values())
+      // Convert map to array and set best odds from all sportsbooks
+      const allProps = Array.from(playerPropsMap.values());
+      
+      // Set the main overOdds/underOdds to the best available odds from all sportsbooks
+      allProps.forEach(prop => {
+        if (prop.allSportsbookOdds && prop.allSportsbookOdds.length > 0) {
+          // Find best over odds
+          let bestOverOdds = null;
+          let bestUnderOdds = null;
+          
+          for (const sb of prop.allSportsbookOdds) {
+            if (sb.overOdds !== null) {
+              const isBetter = bestOverOdds === null || isBetterOdds(sb.overOdds, bestOverOdds, 'over');
+              if (isBetter) {
+                const previousBest = bestOverOdds;
+                bestOverOdds = sb.overOdds;
+              }
+            }
+            if (sb.underOdds !== null) {
+              const isBetter = bestUnderOdds === null || isBetterOdds(sb.underOdds, bestUnderOdds, 'under');
+              if (isBetter) {
+                const previousBest = bestUnderOdds;
+                bestUnderOdds = sb.underOdds;
+              }
+            }
+          }
+          
+          // Set the main odds fields to the best available odds
+          prop.overOdds = bestOverOdds;
+          prop.underOdds = bestUnderOdds;
+          
+        }
+      });
+      
+      // Filter out incomplete props and apply limit
+      playerProps.push(...allProps
         .filter(prop => prop.overOdds !== null && prop.underOdds !== null)
         .slice(0, maxProps));
 
@@ -301,9 +329,11 @@ function parseNumber(value: any): number | null {
 }
 
 function isBetterOdds(newOdds: number, currentOdds: number, side: 'over' | 'under'): boolean {
-  // For over bets, higher positive odds or lower negative odds are better
-  // For under bets, higher positive odds or lower negative odds are better
-  // In both cases, we want the odds that give better payout
+  // For both over and under bets, we want the odds that give the best payout
+  // This means:
+  // - Higher positive odds are better than lower positive odds
+  // - Less negative odds (closer to 0) are better than more negative odds
+  // - Positive odds are always better than negative odds
   
   if (newOdds > 0 && currentOdds > 0) {
     return newOdds > currentOdds; // Higher positive is better
@@ -311,7 +341,9 @@ function isBetterOdds(newOdds: number, currentOdds: number, side: 'over' | 'unde
     return newOdds > currentOdds; // Less negative is better (closer to 0)
   } else if (newOdds > 0 && currentOdds < 0) {
     return true; // Positive odds are always better than negative
-  } else {
+  } else if (newOdds < 0 && currentOdds > 0) {
     return false; // Negative odds are worse than positive
+  } else {
+    return false; // Equal odds
   }
 }
