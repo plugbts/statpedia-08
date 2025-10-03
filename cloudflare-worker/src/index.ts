@@ -232,34 +232,51 @@ export default {
       // Convert map to array and set best odds from all sportsbooks
       const allProps = Array.from(playerPropsMap.values());
       
-      // Set the main overOdds/underOdds to the best available odds from all sportsbooks
+      // Set the main overOdds/underOdds to the best odds from a single sportsbook
       allProps.forEach(prop => {
         if (prop.allSportsbookOdds && prop.allSportsbookOdds.length > 0) {
-          // Find best over odds
-          let bestOverOdds = null;
-          let bestUnderOdds = null;
+          // Find the best overall sportsbook (prioritize FanDuel, then DraftKings, then best odds)
+          const preferredSportsbooks = ['fanduel', 'draftkings', 'betmgm', 'caesars'];
+          let bestSportsbook = null;
+          let bestScore = -Infinity;
           
-          for (const sb of prop.allSportsbookOdds) {
-            if (sb.overOdds !== null) {
-              const isBetter = bestOverOdds === null || isBetterOdds(sb.overOdds, bestOverOdds, 'over');
-              if (isBetter) {
-                const previousBest = bestOverOdds;
-                bestOverOdds = sb.overOdds;
-              }
-            }
-            if (sb.underOdds !== null) {
-              const isBetter = bestUnderOdds === null || isBetterOdds(sb.underOdds, bestUnderOdds, 'under');
-              if (isBetter) {
-                const previousBest = bestUnderOdds;
-                bestUnderOdds = sb.underOdds;
+          // First, try to find a preferred sportsbook with both over and under odds
+          for (const preferred of preferredSportsbooks) {
+            const sb = prop.allSportsbookOdds.find(s => s.sportsbook === preferred);
+            if (sb && sb.overOdds !== null && sb.underOdds !== null) {
+              // Calculate a score for this sportsbook (higher is better)
+              const overScore = sb.overOdds > 0 ? sb.overOdds : (100 + Math.abs(sb.overOdds));
+              const underScore = sb.underOdds > 0 ? sb.underOdds : (100 + Math.abs(sb.underOdds));
+              const totalScore = overScore + underScore;
+              
+              if (totalScore > bestScore) {
+                bestScore = totalScore;
+                bestSportsbook = sb;
               }
             }
           }
           
-          // Set the main odds fields to the best available odds
-          prop.overOdds = bestOverOdds;
-          prop.underOdds = bestUnderOdds;
+          // If no preferred sportsbook found, find the best overall sportsbook
+          if (!bestSportsbook) {
+            for (const sb of prop.allSportsbookOdds) {
+              if (sb.overOdds !== null && sb.underOdds !== null) {
+                const overScore = sb.overOdds > 0 ? sb.overOdds : (100 + Math.abs(sb.overOdds));
+                const underScore = sb.underOdds > 0 ? sb.underOdds : (100 + Math.abs(sb.underOdds));
+                const totalScore = overScore + underScore;
+                
+                if (totalScore > bestScore) {
+                  bestScore = totalScore;
+                  bestSportsbook = sb;
+                }
+              }
+            }
+          }
           
+          // Set the main odds fields to the best sportsbook's odds
+          if (bestSportsbook) {
+            prop.overOdds = bestSportsbook.overOdds;
+            prop.underOdds = bestSportsbook.underOdds;
+          }
         }
       });
       
