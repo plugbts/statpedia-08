@@ -35,7 +35,9 @@ import {
   Share2,
   Bookmark,
   BookmarkCheck,
-  X
+  X,
+  Target,
+  ArrowRight
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -47,6 +49,8 @@ import { AdvancedPredictionDisplay } from '@/components/advanced-prediction-disp
 import { advancedPredictionService, ComprehensivePrediction } from '@/services/advanced-prediction-service';
 import { EnhancedAnalysisOverlay } from './enhanced-analysis-overlay';
 import { AdvancedPredictionCard } from './advanced-prediction-card';
+import { SubscriptionOverlay } from '@/components/ui/subscription-overlay';
+import { useNavigate } from 'react-router-dom';
 
 // Interface for all market types
 interface MarketData {
@@ -171,6 +175,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
   userSubscription = 'free',
   onPredictionsCountChange
 }) => {
+  const navigate = useNavigate();
   const [predictions, setPredictions] = useState<PredictionWithUI[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -192,6 +197,12 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
   const [advancedPrediction, setAdvancedPrediction] = useState<ComprehensivePrediction | null>(null);
   const [isGeneratingAdvancedPrediction, setIsGeneratingAdvancedPrediction] = useState(false);
   const { toast } = useToast();
+
+  // Helper function to format odds
+  const formatOdds = (odds: number | null): string => {
+    if (odds === null || odds === undefined) return 'N/A';
+    return odds > 0 ? `+${odds}` : `${odds}`;
+  };
 
   const isSubscribed = userRole === 'owner' || userSubscription !== 'free';
 
@@ -958,17 +969,115 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
 
       {/* Predictions Grid */}
       {!isLoading && sortedPredictions.length > 0 && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {sortedPredictions.map((prediction) => (
-                  <AdvancedPredictionCard
-                    key={prediction.id}
-                    prediction={prediction}
-                    onBookmark={toggleBookmark}
-                    onAdvancedAnalysisClick={generateAdvancedPrediction}
-                  />
-                ))}
-              </div>
-            )}
+            <div key={prediction.id} className="relative">
+              <Card className={cn(
+                "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer",
+                !isSubscribed && "blur-sm"
+              )}>
+                
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    {prediction.marketType === 'player-prop' ? (
+                      <Users className="w-5 h-5 text-blue-500" />
+                    ) : prediction.marketType === 'moneyline' ? (
+                      <Target className="w-5 h-5 text-green-500" />
+                    ) : prediction.marketType === 'spread' ? (
+                      <BarChart3 className="w-5 h-5 text-purple-500" />
+                    ) : (
+                      <Activity className="w-5 h-5 text-orange-500" />
+                    )}
+                    <div>
+                      <h3 className="font-semibold text-foreground">
+                        {prediction.marketType === 'player-prop' ? (
+                          `${prediction.playerName} - ${prediction.propType} ${prediction.line}`
+                        ) : (
+                          `${prediction.homeTeamAbbr} vs ${prediction.awayTeamAbbr}`
+                        )}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        {prediction.marketType === 'player-prop' ? (
+                          `${prediction.teamAbbr} vs ${prediction.opponentAbbr}`
+                        ) : (
+                          `${prediction.marketType?.toUpperCase()} ${prediction.period !== 'full_game' ? `(${prediction.period.replace('_', ' ')})` : ''}`
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Badge variant="outline" className="bg-primary/10 text-primary">
+                      {Math.round((prediction.confidence || 0) * 100)}% confidence
+                    </Badge>
+                    {prediction.available && (
+                      <Badge variant="outline" className="bg-green-500/10 text-green-500">
+                        <Activity className="w-3 h-3 mr-1" />
+                        LIVE
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl font-bold text-foreground">
+                      {prediction.marketType === 'player-prop' ? (
+                        `${formatOdds(prediction.overOdds)} / ${formatOdds(prediction.underOdds)}`
+                      ) : (
+                        `${formatOdds(prediction.homeOdds)} / ${formatOdds(prediction.awayOdds)}`
+                      )}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      {(prediction.expectedValue || 0) > 0 ? (
+                        <TrendingUp className="w-4 h-4 text-green-500" />
+                      ) : (
+                        <TrendingDown className="w-4 h-4 text-red-500" />
+                      )}
+                      <span className={cn(
+                        "text-sm font-medium",
+                        (prediction.expectedValue || 0) > 0 ? "text-green-500" : "text-red-500"
+                      )}>
+                        {((prediction.expectedValue || 0) * 100).toFixed(1)}% EV
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-foreground">
+                      {prediction.gameDate ? new Date(prediction.gameDate).toLocaleDateString() : 'TBD'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {prediction.lastUpdate ? new Date(prediction.lastUpdate).toLocaleTimeString() : 'Unknown'}
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Advanced Analysis Button */}
+                <div className="mt-4">
+                  <Button
+                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-semibold py-2 px-3 rounded-lg text-sm transition-all duration-300 ease-out hover:shadow-lg hover:shadow-purple-500/25 border border-purple-500/50"
+                    onClick={() => generateAdvancedPrediction(prediction)}
+                  >
+                    <Brain className="h-4 w-4 mr-2" />
+                    Advanced AI Analysis
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </div>
+              </Card>
+              
+              {/* Subscription overlay for free users */}
+              <SubscriptionOverlay
+                isVisible={!isSubscribed}
+                icon={<Brain className="w-5 h-5 text-primary" />}
+                title="Premium Content"
+                description="Subscribe to view advanced predictions"
+                buttonText="Upgrade to Pro"
+                size="small"
+                onUpgrade={() => navigate('/subscription')}
+              />
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Legacy card rendering - keeping for reference but not used */}
       {false && sortedPredictions.map((prediction) => (
