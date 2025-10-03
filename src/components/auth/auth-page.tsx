@@ -88,6 +88,15 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const resetRateLimit = () => {
+    rateLimitingService.resetLimit('auth:login', formData.email);
+    rateLimitingService.resetLimit('auth:signup', formData.email);
+    toast({
+      title: "Rate Limit Reset",
+      description: "Rate limit has been reset. You can try logging in again.",
+    });
+  };
+
   const validateForm = () => {
     try {
       // Sanitize inputs first
@@ -204,9 +213,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
     if (!rateLimitResult.allowed) {
       toast({
         title: "Rate Limit Exceeded",
-        description: `Too many attempts. Try again in ${rateLimitResult.retryAfter} seconds.`,
+        description: `Too many login attempts. Try again in ${rateLimitResult.retryAfter} seconds. You can also try refreshing the page to reset the rate limit.`,
         variant: "destructive",
       });
+      console.log('Rate limit exceeded for:', formData.email, 'Retry after:', rateLimitResult.retryAfter, 'seconds');
       return;
     }
     
@@ -220,16 +230,23 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
         });
 
         if (error) {
+          console.error('Login error:', error);
           if (error.message.includes('Invalid login credentials')) {
             toast({
               title: "Login Failed",
-              description: "Invalid email or password",
+              description: "Invalid email or password. Please check your credentials and try again.",
+              variant: "destructive",
+            });
+          } else if (error.message.includes('Email not confirmed')) {
+            toast({
+              title: "Email Not Confirmed",
+              description: "Please check your email and click the confirmation link before logging in.",
               variant: "destructive",
             });
           } else {
             toast({
               title: "Login Failed",
-              description: error.message,
+              description: `Error: ${error.message}. Please try again or contact support if the issue persists.`,
               variant: "destructive",
             });
           }
@@ -515,6 +532,18 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
             >
               {isLoading ? 'Processing...' : (authMode === 'login' ? 'Sign In' : 'Create Account')}
             </Button>
+            
+            {/* Debug: Rate Limit Reset Button (temporary) */}
+            {authMode === 'login' && formData.email && (
+              <Button 
+                onClick={resetRateLimit}
+                variant="outline"
+                size="sm"
+                className="w-full text-xs"
+              >
+                Reset Rate Limit (Debug)
+              </Button>
+            )}
           </CardContent>
         </Card>
 
