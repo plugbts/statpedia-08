@@ -459,7 +459,7 @@ class InsightsService {
         const totalProps = typedProps.length;
         const hitRate = Math.round((overHits / totalProps) * 100);
         
-        const playerPosition = this.getPlayerPosition(finalPlayerName, sport);
+        const playerPosition = this.getPlayerPosition(finalPlayerName, sport, typedProps[0]?.propType);
         const streakData = this.analyzePlayerStreak(typedProps, playerPosition);
         
         const hotStreakTexts = [
@@ -484,7 +484,7 @@ class InsightsService {
           confidence: this.calculateConfidenceFromOdds([playerProps[0]]),
           player_name: finalPlayerName,
           team_name: firstProp.teamAbbr,
-          player_position: this.getPlayerPosition(finalPlayerName, sport),
+          player_position: this.getPlayerPosition(finalPlayerName, sport, typedProps[0]?.propType),
           last_game_date: firstProp.gameTime ? new Date(firstProp.gameTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
           created_at: new Date().toISOString()
         });
@@ -548,7 +548,7 @@ class InsightsService {
         const streakValue = Math.round(Math.random() * 20 + 60); // 60-80% range
         
         // Analyze player props to determine actual streak data
-        const playerPosition = this.getPlayerPosition(finalPlayerName, sport);
+        const playerPosition = this.getPlayerPosition(finalPlayerName, sport, props[0]?.propType);
         const streakData = this.analyzePlayerStreak(props as any[], playerPosition);
         
         const hotStreakTexts = [
@@ -587,7 +587,7 @@ class InsightsService {
             confidence: this.calculateConfidenceFromOdds(props as any[]),
             player_name: finalPlayerName,
             team_name: firstProp.teamAbbr,
-            player_position: this.getPlayerPosition(finalPlayerName, sport),
+            player_position: this.getPlayerPosition(finalPlayerName, sport, props[0]?.propType),
             last_game_date: firstProp.gameTime ? new Date(firstProp.gameTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
             created_at: new Date().toISOString()
           });
@@ -631,7 +631,7 @@ class InsightsService {
       const firstProp = props[0];
       
       // Analyze player props to determine actual streak data
-      const playerPosition = this.getPlayerPosition(cleanPlayerName, sport);
+      const playerPosition = this.getPlayerPosition(cleanPlayerName, sport, props[0]?.propType);
       const streakData = this.analyzePlayerStreak(props, playerPosition);
       
       const hotStreakTexts = [
@@ -664,7 +664,7 @@ class InsightsService {
         confidence: this.calculateConfidenceFromOdds([playerProps[0]]),
         player_name: cleanPlayerName,
         team_name: firstProp.teamAbbr,
-        player_position: this.getPlayerPosition(cleanPlayerName, sport),
+        player_position: this.getPlayerPosition(cleanPlayerName, sport, props[0]?.propType),
         last_game_date: firstProp.gameTime ? new Date(firstProp.gameTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         created_at: new Date().toISOString()
       });
@@ -686,7 +686,7 @@ class InsightsService {
         confidence: this.calculateConfidenceFromOdds(playerProps),
         player_name: cleanPlayerName,
         team_name: homePlayer.teamAbbr,
-        player_position: this.getPlayerPosition(cleanPlayerName, sport),
+        player_position: this.getPlayerPosition(cleanPlayerName, sport, homePlayer.propType),
         last_game_date: homePlayer.gameTime ? new Date(homePlayer.gameTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         created_at: new Date().toISOString()
       });
@@ -1093,8 +1093,16 @@ class InsightsService {
     return positionMap[mostCommon.prop] || positionMap['performance'] || 'performance';
   }
 
-  private getPlayerPosition(playerName: string, sport: string): string {
-    // Better position mapping based on known players and common patterns
+  private getPlayerPosition(playerName: string, sport: string, propType?: string): string {
+    // First, try to determine position from prop type if available
+    if (propType) {
+      const positionFromProp = this.getPositionFromPropType(propType, sport);
+      if (positionFromProp) {
+        return positionFromProp;
+      }
+    }
+
+    // Fallback to known players database
     const knownPlayers: { [key: string]: string } = {
       // NFL Quarterbacks
       'Carson Wentz': 'QB',
@@ -1117,6 +1125,7 @@ class InsightsService {
       'Zach Wilson': 'QB',
       'Trey Lance': 'QB',
       'Justin Fields': 'QB',
+      'Dillon Gabriel': 'QB',
       
       // NFL Running Backs
       'Derrick Henry': 'RB',
@@ -1167,27 +1176,7 @@ class InsightsService {
       return knownPlayers[playerName];
     }
     
-    // Fallback: try to infer from name patterns or use sport-specific defaults
-    const name = playerName.toLowerCase();
-    
-    // NFL specific patterns
-    if (sport.toLowerCase() === 'nfl') {
-      // Common QB name patterns
-      if (name.includes('wentz') || name.includes('brady') || name.includes('rodgers') || 
-          name.includes('mahomes') || name.includes('allen') || name.includes('jackson') ||
-          name.includes('prescott') || name.includes('wilson') || name.includes('stafford')) {
-        return 'QB';
-      }
-      // Default to most common positions
-      return Math.random() > 0.5 ? 'WR' : 'RB';
-    }
-    
-    // NBA specific patterns
-    if (sport.toLowerCase() === 'nba') {
-      return Math.random() > 0.5 ? 'PG' : 'SG';
-    }
-    
-    // Default fallback
+    // Final fallback: use sport-specific defaults (no random assignment)
     const positions: { [key: string]: string[] } = {
       nfl: ['QB', 'RB', 'WR', 'TE'],
       nba: ['PG', 'SG', 'SF', 'PF', 'C'],
@@ -1196,7 +1185,63 @@ class InsightsService {
     };
     
     const sportPositions = positions[sport.toLowerCase()] || ['Player'];
-    return sportPositions[Math.floor(Math.random() * sportPositions.length)];
+    return sportPositions[0]; // Return first position instead of random
+  }
+
+  private getPositionFromPropType(propType: string, sport: string): string | null {
+    const propTypeLower = propType.toLowerCase();
+    
+    if (sport.toLowerCase() === 'nfl') {
+      // NFL position-specific prop types
+      if (propTypeLower.includes('pass') || propTypeLower.includes('passing') || 
+          propTypeLower.includes('completion') || propTypeLower.includes('interception')) {
+        return 'QB';
+      }
+      if (propTypeLower.includes('rush') || propTypeLower.includes('rushing') || 
+          propTypeLower.includes('carry') || propTypeLower.includes('carries')) {
+        return 'RB';
+      }
+      if (propTypeLower.includes('reception') || propTypeLower.includes('receiving') || 
+          propTypeLower.includes('catch') || propTypeLower.includes('target')) {
+        return 'WR';
+      }
+      if (propTypeLower.includes('touchdown') && !propTypeLower.includes('pass')) {
+        // Could be RB, WR, or TE - need more context
+        return null;
+      }
+    }
+    
+    if (sport.toLowerCase() === 'nba') {
+      // NBA position-specific prop types
+      if (propTypeLower.includes('assist') || propTypeLower.includes('assists')) {
+        return 'PG';
+      }
+      if (propTypeLower.includes('rebound') || propTypeLower.includes('rebounds')) {
+        return 'C';
+      }
+      if (propTypeLower.includes('steal') || propTypeLower.includes('steals') || 
+          propTypeLower.includes('block') || propTypeLower.includes('blocks')) {
+        return 'PF';
+      }
+      if (propTypeLower.includes('three') || propTypeLower.includes('3pt') || 
+          propTypeLower.includes('3-point')) {
+        return 'SG';
+      }
+    }
+    
+    if (sport.toLowerCase() === 'mlb') {
+      // MLB position-specific prop types
+      if (propTypeLower.includes('strikeout') || propTypeLower.includes('strikeouts') || 
+          propTypeLower.includes('era') || propTypeLower.includes('innings')) {
+        return 'P';
+      }
+      if (propTypeLower.includes('rbi') || propTypeLower.includes('home run') || 
+          propTypeLower.includes('homerun')) {
+        return '1B'; // Most power hitters are 1B
+      }
+    }
+    
+    return null; // Could not determine position from prop type
   }
 
   // Cache management
