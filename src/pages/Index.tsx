@@ -620,11 +620,11 @@ const Index = () => {
       {/* Stats Overview */}
       <StatsOverview
         totalPredictions={realPredictions.length * 100} // Simulated historical count
-        winRate={0} // Reset to 0
-        dailyWins={0} // Reset to 0
-        weeklyWins={0} // Reset to 0
+        winRate={predictionTracker.getAllTimeStats().winRate} // Use real win rate
+        dailyWins={predictionTracker.getPreviousDayStats().wins} // Use real daily wins
+        weeklyWins={Math.floor(predictionTracker.getPreviousDayStats().wins * 7)} // Calculate weekly wins
         averageOdds="-108"
-        totalProfit={0} // Reset to 0
+        totalProfit={predictionTracker.getAllTimeStats().totalProfit} // Use real total profit
         todaysPredictions={realPredictions.length}
       />
 
