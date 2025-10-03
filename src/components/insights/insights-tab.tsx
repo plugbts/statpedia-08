@@ -482,6 +482,26 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
             {playerInsights.map(renderPlayerInsight)}
             {moneylineInsights.map(renderMoneylineInsight)}
           </div>
+          
+          {/* No Data Available Message */}
+          {gameInsights.length === 0 && playerInsights.length === 0 && moneylineInsights.length === 0 && (
+            <div className="text-center py-12">
+              <div className="flex flex-col items-center gap-4">
+                <BarChart3 className="w-12 h-12 text-muted-foreground/50" />
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">No Data Available</h3>
+                  <p className="text-muted-foreground">
+                    No insights data is currently available for {selectedSport.toUpperCase()}. 
+                    This could be due to no games being scheduled or data not being available from our data provider.
+                  </p>
+                </div>
+                <Button onClick={refreshInsights} variant="outline" size="sm">
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Try Again
+                </Button>
+              </div>
+            </div>
+          )}
         </TabsContent>
 
         {/* Game Insights */}
@@ -489,6 +509,25 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {gameInsights.map(renderGameInsight)}
           </div>
+          
+          {/* No Game Data Available */}
+          {gameInsights.length === 0 && (
+            <div className="text-center py-12">
+              <div className="flex flex-col items-center gap-4">
+                <BarChart3 className="w-12 h-12 text-muted-foreground/50" />
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">No Game Data Available</h3>
+                  <p className="text-muted-foreground">
+                    No game insights are currently available for {selectedSport.toUpperCase()}.
+                  </p>
+                </div>
+                <Button onClick={refreshInsights} variant="outline" size="sm">
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Try Again
+                </Button>
+              </div>
+            </div>
+          )}
         </TabsContent>
 
         {/* Player Insights */}
@@ -496,6 +535,25 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {playerInsights.map(renderPlayerInsight)}
           </div>
+          
+          {/* No Player Data Available */}
+          {playerInsights.length === 0 && (
+            <div className="text-center py-12">
+              <div className="flex flex-col items-center gap-4">
+                <Users className="w-12 h-12 text-muted-foreground/50" />
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">No Player Data Available</h3>
+                  <p className="text-muted-foreground">
+                    No player insights are currently available for {selectedSport.toUpperCase()}.
+                  </p>
+                </div>
+                <Button onClick={refreshInsights} variant="outline" size="sm">
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Try Again
+                </Button>
+              </div>
+            </div>
+          )}
         </TabsContent>
 
         {/* Moneyline Props */}
@@ -598,6 +656,25 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
                       Moneyline predictions will return when the season begins.
                     </p>
                   </div>
+                </div>
+              </div>
+            )}
+            
+            {/* No Moneyline Data Available */}
+            {moneylineInsights.length === 0 && (
+              <div className="text-center py-12">
+                <div className="flex flex-col items-center gap-4">
+                  <Target className="w-12 h-12 text-muted-foreground/50" />
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">No Moneyline Data Available</h3>
+                    <p className="text-muted-foreground">
+                      No moneyline insights are currently available for {selectedSport.toUpperCase()}.
+                    </p>
+                  </div>
+                  <Button onClick={refreshInsights} variant="outline" size="sm">
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Try Again
+                  </Button>
                 </div>
               </div>
             )}

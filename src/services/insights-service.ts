@@ -198,8 +198,21 @@ class InsightsService {
   private generateGameInsightsFromSportsGameOddsEvents(events: any[], sport: string): GameInsight[] {
     const insights: GameInsight[] = [];
     
+    // Map website sports to SportsGameOdds sport IDs
+    const sportMapping: Record<string, string[]> = {
+      'nfl': ['FOOTBALL'],
+      'nba': ['BASKETBALL'],
+      'nhl': ['HOCKEY'],
+      'mlb': ['BASEBALL'],
+      'college-football': ['FOOTBALL'], // CFB maps to FOOTBALL
+      'college-basketball': ['BASKETBALL'], // CBB maps to BASKETBALL
+      'wnba': ['BASKETBALL'] // WNBA maps to BASKETBALL
+    };
+    
+    const allowedSportIds = sportMapping[sport] || [];
+    
     events.forEach((event, index) => {
-      if (event.status && event.teams) {
+      if (event.status && event.teams && allowedSportIds.includes(event.sportID)) {
         const insight: GameInsight = {
           insight_id: `game_${event.eventID}`,
           insight_type: 'game_analysis',
@@ -375,8 +388,21 @@ class InsightsService {
   private generateMoneylineInsightsFromSportsGameOddsEvents(events: any[], sport: string): MoneylineInsight[] {
     const insights: MoneylineInsight[] = [];
     
+    // Map website sports to SportsGameOdds sport IDs
+    const sportMapping: Record<string, string[]> = {
+      'nfl': ['FOOTBALL'],
+      'nba': ['BASKETBALL'],
+      'nhl': ['HOCKEY'],
+      'mlb': ['BASEBALL'],
+      'college-football': ['FOOTBALL'], // CFB maps to FOOTBALL
+      'college-basketball': ['BASKETBALL'], // CBB maps to BASKETBALL
+      'wnba': ['BASKETBALL'] // WNBA maps to BASKETBALL
+    };
+    
+    const allowedSportIds = sportMapping[sport] || [];
+    
     events.forEach((event, index) => {
-      if (event.status && event.teams) {
+      if (event.status && event.teams && allowedSportIds.includes(event.sportID)) {
         const insight: MoneylineInsight = {
           insight_id: `moneyline_${event.eventID}`,
           insight_type: 'moneyline',

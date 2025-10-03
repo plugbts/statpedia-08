@@ -82,19 +82,17 @@ serve(async (req) => {
 function mapSportToId(sport: string): string {
   const sportMap: { [key: string]: string } = {
     'nfl': 'FOOTBALL',
-    'football': 'FOOTBALL',
     'nba': 'BASKETBALL',
-    'basketball': 'BASKETBALL',
-    'mlb': 'BASEBALL',
-    'baseball': 'BASEBALL',
     'nhl': 'HOCKEY',
-    'hockey': 'HOCKEY',
-    'soccer': 'SOCCER',
-    'tennis': 'TENNIS',
-    'mma': 'MMA',
-    'handball': 'HANDBALL',
-    'golf': 'GOLF',
-    'horse_racing': 'HORSE_RACING'
+    'mlb': 'BASEBALL',
+    'college-football': 'FOOTBALL', // CFB maps to FOOTBALL
+    'college-basketball': 'BASKETBALL', // CBB maps to BASKETBALL
+    'wnba': 'BASKETBALL', // WNBA maps to BASKETBALL
+    // Legacy mappings
+    'football': 'FOOTBALL',
+    'basketball': 'BASKETBALL',
+    'baseball': 'BASEBALL',
+    'hockey': 'HOCKEY'
   };
   return sportMap[sport.toLowerCase()] || 'FOOTBALL'; // Default to NFL
 }
