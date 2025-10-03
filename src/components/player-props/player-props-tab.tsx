@@ -726,11 +726,140 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
     });
 
+  // Smart mixing algorithm to improve user experience
+  const mixedProps = (() => {
+    if (filteredProps.length <= 12) {
+      // For small sets, just shuffle randomly
+      return [...filteredProps].sort(() => Math.random() - 0.5);
+    }
+
+    // Group props by player and prop type for smart mixing
+    const playerGroups = new Map<string, PlayerProp[]>();
+    const propTypeGroups = new Map<string, PlayerProp[]>();
+    
+    filteredProps.forEach(prop => {
+      // Group by player
+      if (!playerGroups.has(prop.playerName)) {
+        playerGroups.set(prop.playerName, []);
+      }
+      playerGroups.get(prop.playerName)!.push(prop);
+      
+      // Group by prop type
+      if (!propTypeGroups.has(prop.propType)) {
+        propTypeGroups.set(prop.propType, []);
+      }
+      propTypeGroups.get(prop.propType)!.push(prop);
+    });
+
+    const mixed: PlayerProp[] = [];
+    const used = new Set<string>();
+    
+    // Strategy 1: Interleave by player (ensure no 3+ consecutive same players)
+    const players = Array.from(playerGroups.keys());
+    let playerIndex = 0;
+    let samePlayerCount = 0;
+    let lastPlayer = '';
+    
+    // Strategy 2: Interleave by prop type (ensure variety in prop types)
+    const propTypes = Array.from(propTypeGroups.keys());
+    let propTypeIndex = 0;
+    
+    // Strategy 3: Prioritize high-value props (high EV, confidence)
+    const sortedByValue = [...filteredProps].sort((a, b) => {
+      const aScore = (a.expectedValue || 0) * 100 + (a.confidence || 0) * 100;
+      const bScore = (b.expectedValue || 0) * 100 + (b.confidence || 0) * 100;
+      return bScore - aScore;
+    });
+
+    // Mix strategies: 60% value-based, 20% player variety, 20% prop type variety
+    const valueProps = sortedByValue.slice(0, Math.ceil(filteredProps.length * 0.6));
+    const varietyProps = sortedByValue.slice(Math.ceil(filteredProps.length * 0.6));
+    
+    // Add value props first, ensuring variety
+    valueProps.forEach(prop => {
+      if (!used.has(prop.id)) {
+        mixed.push(prop);
+        used.add(prop.id);
+      }
+    });
+    
+    // Add variety props with smart spacing
+    varietyProps.forEach(prop => {
+      if (!used.has(prop.id)) {
+        // Find a good position to insert (avoid clustering)
+        let insertIndex = mixed.length;
+        
+        // Try to avoid clustering same player or same prop type
+        for (let i = mixed.length - 1; i >= Math.max(0, mixed.length - 5); i--) {
+          if (mixed[i].playerName === prop.playerName || mixed[i].propType === prop.propType) {
+            insertIndex = i + 1;
+            break;
+          }
+        }
+        
+        mixed.splice(insertIndex, 0, prop);
+        used.add(prop.id);
+      }
+    });
+    
+    // Final shuffle with constraints to ensure maximum variety
+    const finalMixed = [...mixed];
+    for (let i = 0; i < finalMixed.length - 2; i++) {
+      // If we have 3+ consecutive same players or prop types, swap with a different one
+      const current = finalMixed[i];
+      const next1 = finalMixed[i + 1];
+      const next2 = finalMixed[i + 2];
+      
+      if (current.playerName === next1.playerName && current.playerName === next2.playerName) {
+        // Find a different player to swap with
+        for (let j = i + 3; j < finalMixed.length; j++) {
+          if (finalMixed[j].playerName !== current.playerName) {
+            [finalMixed[i + 2], finalMixed[j]] = [finalMixed[j], finalMixed[i + 2]];
+            break;
+          }
+        }
+      }
+      
+      if (current.propType === next1.propType && current.propType === next2.propType) {
+        // Find a different prop type to swap with
+        for (let j = i + 3; j < finalMixed.length; j++) {
+          if (finalMixed[j].propType !== current.propType) {
+            [finalMixed[i + 2], finalMixed[j]] = [finalMixed[j], finalMixed[i + 2]];
+            break;
+          }
+        }
+      }
+    }
+    
+    return finalMixed;
+  })();
+
   logFilter('PlayerPropsTab', `Final filteredProps length: ${filteredProps.length}`);
+  logFilter('PlayerPropsTab', `Mixed props length: ${mixedProps.length}`);
+  
+  // Debug mixing algorithm
+  if (mixedProps.length > 0) {
+    const playerCounts = new Map<string, number>();
+    const propTypeCounts = new Map<string, number>();
+    
+    mixedProps.forEach(prop => {
+      playerCounts.set(prop.playerName, (playerCounts.get(prop.playerName) || 0) + 1);
+      propTypeCounts.set(prop.propType, (propTypeCounts.get(prop.propType) || 0) + 1);
+    });
+    
+    logDebug('PlayerPropsTab', 'Mixing Algorithm Results:', {
+      totalProps: mixedProps.length,
+      uniquePlayers: playerCounts.size,
+      uniquePropTypes: propTypeCounts.size,
+      topPlayers: Array.from(playerCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 3),
+      topPropTypes: Array.from(propTypeCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 3),
+      first10Props: mixedProps.slice(0, 10).map(p => ({ player: p.playerName, propType: p.propType }))
+    });
+  }
   logFilter('PlayerPropsTab', `Filter settings: minConfidence=${minConfidence}, minEV=${minEV}, showOnlyPositiveEV=${showOnlyPositiveEV}, propTypeFilter=${propTypeFilter}, lineRange=${minLine}-${maxLine}`);
   logFilter('PlayerPropsTab', `Search query: "${searchQuery}"`);
   
-  if (filteredProps.length === 0 && realProps.length > 0) {
+  if (mixedProps.length === 0 && realProps.length > 0) {
     logWarning('PlayerPropsTab', 'All props filtered out! Checking first few props:', realProps.slice(0, 3));
     
     // Debug why props are being filtered out
@@ -752,14 +881,14 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     });
   }
   
-  if (filteredProps.length > 0) {
-    logSuccess('PlayerPropsTab', `Successfully filtered ${filteredProps.length} props`);
-    const firstFiltered = filteredProps[0];
-    logDebug('PlayerPropsTab', 'First filtered prop:', {
-      playerName: firstFiltered.playerName,
-      line: firstFiltered.line,
-      overOdds: firstFiltered.overOdds,
-      underOdds: firstFiltered.underOdds
+  if (mixedProps.length > 0) {
+    logSuccess('PlayerPropsTab', `Successfully mixed ${mixedProps.length} props`);
+    const firstMixed = mixedProps[0];
+    logDebug('PlayerPropsTab', 'First mixed prop:', {
+      playerName: firstMixed.playerName,
+      line: firstMixed.line,
+      overOdds: firstMixed.overOdds,
+      underOdds: firstMixed.underOdds
     });
   }
 
@@ -810,7 +939,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   };
 
   // Get unique prop types for filter
-  const propTypes = Array.from(new Set(realProps.map(prop => prop.propType))).sort();
+  const propTypes = Array.from(new Set(mixedProps.map(prop => prop.propType))).sort();
 
   if (!isSubscribed) {
     return (
@@ -1222,7 +1351,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         )}
 
         {/* No Data State */}
-        {!isLoadingData && filteredProps.length === 0 && (
+        {!isLoadingData && mixedProps.length === 0 && (
           <Card>
             <CardContent className="p-12 text-center">
               <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
@@ -1240,18 +1369,18 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
 
 
         {/* Player Props Content */}
-        {!isLoadingData && filteredProps.length > 0 && (
+        {!isLoadingData && mixedProps.length > 0 && (
           <>
             {viewMode === 'column' ? (
               <PlayerPropsColumnView
-                props={filteredProps as any}
+                props={mixedProps as any}
                 selectedSport={sportFilter}
                 onAnalysisClick={handleEnhancedAnalysis as any}
                 isLoading={isLoadingData}
               />
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                {filteredProps.map((prop, index) => (
+                {mixedProps.map((prop, index) => (
                   <PlayerPropCard3D
                     key={prop.id || `prop-${prop.playerId}-${prop.propType}-${index}`}
                     prop={prop as any}
