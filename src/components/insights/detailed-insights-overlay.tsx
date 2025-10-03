@@ -73,12 +73,6 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = m
   const [isLoading, setIsLoading] = useState(false);
   const [keyInsights, setKeyInsights] = useState<string[]>([]);
 
-  useEffect(() => {
-    if (isOpen && insight) {
-      loadDetailedData();
-    }
-  }, [isOpen, insight, loadDetailedData]);
-
   const loadDetailedData = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -120,6 +114,12 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = m
       setIsLoading(false);
     }
   }, [insight, sport]);
+
+  useEffect(() => {
+    if (isOpen && insight) {
+      loadDetailedData();
+    }
+  }, [isOpen, insight, loadDetailedData]);
 
   const generateGameHistoricalData = (eventsData?: any[]): HistoricalData[] => {
     // Only use real data - no fallback generation

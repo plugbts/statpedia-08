@@ -154,26 +154,26 @@ BEGIN
   -- Check if target user has owner role
   SELECT EXISTS (
     SELECT 1 FROM public.user_roles 
-    WHERE user_id = NEW.user_id AND role = 'owner'
+    WHERE user_id = NEW.user_id AND subscription_tier = 'owner')
   ) INTO target_has_owner_role;
 
   -- Prevent anyone from granting owner role
-  IF NEW.role = 'owner' AND NOT target_has_owner_role THEN
+  IF NEW.subscription_tier = 'owner')
     RAISE EXCEPTION 'Owner role cannot be granted';
   END IF;
 
   -- Prevent modification of owner role records
-  IF TG_OP = 'UPDATE' AND OLD.role = 'owner' THEN
+  IF TG_OP = 'UPDATE' AND OLD.subscription_tier = 'owner')
     RAISE EXCEPTION 'Owner role cannot be modified';
   END IF;
 
   -- Prevent deletion of owner role
-  IF TG_OP = 'DELETE' AND OLD.role = 'owner' THEN
+  IF TG_OP = 'DELETE' AND OLD.subscription_tier = 'owner')
     RAISE EXCEPTION 'Owner role cannot be removed';
   END IF;
 
   -- Only owner can grant admin role
-  IF NEW.role = 'admin' AND NOT public.is_owner(auth.uid()) THEN
+  IF NEW.subscription_tier = 'admin' OR subscription_tier = 'owner')
     RAISE EXCEPTION 'Only the owner can grant admin role';
   END IF;
 

@@ -325,7 +325,7 @@ CREATE POLICY "Admins can view IP trial usage" ON ip_trial_usage
         EXISTS (
             SELECT 1 FROM profiles 
             WHERE id = auth.uid() 
-            AND role IN ('admin', 'owner')
+            AND subscription_tier IN ('admin', 'owner')
         )
     );
 
@@ -334,7 +334,7 @@ CREATE POLICY "Admins can view MAC trial usage" ON mac_trial_usage
         EXISTS (
             SELECT 1 FROM profiles 
             WHERE id = auth.uid() 
-            AND role IN ('admin', 'owner')
+            AND subscription_tier IN ('admin', 'owner')
         )
     );
 
@@ -343,7 +343,7 @@ CREATE POLICY "Admins can view trial abuse logs" ON trial_abuse_logs
         EXISTS (
             SELECT 1 FROM profiles 
             WHERE id = auth.uid() 
-            AND role IN ('admin', 'owner')
+            AND subscription_tier IN ('admin', 'owner')
         )
     );
 

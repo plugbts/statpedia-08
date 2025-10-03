@@ -374,9 +374,9 @@ CREATE POLICY "Users can delete their own typing indicators" ON typing_indicator
 CREATE POLICY "Users can view their own karma history" ON karma_history FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Admins can view all karma history" ON karma_history FOR SELECT USING (
     EXISTS (
-        SELECT 1 FROM user_roles 
+        SELECT 1 FROM profiles 
         WHERE user_id = auth.uid() 
-        AND (role = 'admin' OR role = 'owner')
+        AND (subscription_tier = 'admin' OR subscription_tier = 'owner')
     )
 );
 

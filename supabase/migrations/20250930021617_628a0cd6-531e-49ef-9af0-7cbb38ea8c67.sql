@@ -3,8 +3,8 @@
 -- ========================================
 
 -- 1. Drop existing objects if they exist
-DROP POLICY IF EXISTS "Admins can view profile access logs" ON public.profile_access_audit;
-DROP POLICY IF EXISTS "Allow audit log inserts" ON public.profile_access_audit;
+CREATE POLICY "Admins can view profile access logs" ON public.profile_access_audit;
+CREATE POLICY "Allow audit log inserts" ON public.profile_access_audit;
 DROP TRIGGER IF EXISTS prevent_subscription_tier_changes ON public.profiles;
 DROP FUNCTION IF EXISTS public.protect_subscription_tier();
 DROP VIEW IF EXISTS public.friend_profiles_secure;
@@ -37,13 +37,13 @@ FOR INSERT
 WITH CHECK (accessed_by = auth.uid());
 
 -- 3. Drop existing profiles RLS policies
-DROP POLICY IF EXISTS "Users can view friends' profiles" ON public.profiles;
-DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
-DROP POLICY IF EXISTS "Users can view own profile ONLY" ON public.profiles;
-DROP POLICY IF EXISTS "Users can view friends' basic info" ON public.profiles;
-DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
-DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
-DROP POLICY IF EXISTS "Restrictive: Deny unauthorized access" ON public.profiles;
+CREATE POLICY "Users can view friends' profiles" ON public.profiles;
+CREATE POLICY "Users can view own profile" ON public.profiles;
+CREATE POLICY "Users can view own profile ONLY" ON public.profiles;
+CREATE POLICY "Users can view friends' basic info" ON public.profiles;
+CREATE POLICY "Users can update own profile" ON public.profiles;
+CREATE POLICY "Users can insert own profile" ON public.profiles;
+CREATE POLICY "Restrictive: Deny unauthorized access" ON public.profiles;
 
 -- 4. Create restrictive RLS policies for profiles
 -- Users can only view their OWN profile with full data

@@ -59,17 +59,17 @@ ALTER TABLE public.subscription_extensions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.admin_actions_audit ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies
-DROP POLICY IF EXISTS "Only admins and owner can view terminations" ON public.account_terminations;
-DROP POLICY IF EXISTS "Only admins and owner can manage terminations" ON public.account_terminations;
-DROP POLICY IF EXISTS "Only admins and owner can view banned addresses" ON public.banned_addresses;
-DROP POLICY IF EXISTS "Only admins and owner can manage banned addresses" ON public.banned_addresses;
-DROP POLICY IF EXISTS "Users can view own Discord link" ON public.discord_links;
-DROP POLICY IF EXISTS "Users can create own Discord link" ON public.discord_links;
-DROP POLICY IF EXISTS "Admins can view all Discord links" ON public.discord_links;
-DROP POLICY IF EXISTS "Users can view own extensions" ON public.subscription_extensions;
-DROP POLICY IF EXISTS "Admins can view all extensions" ON public.subscription_extensions;
-DROP POLICY IF EXISTS "Only admins and owner can view audit logs" ON public.admin_actions_audit;
-DROP POLICY IF EXISTS "Admins can insert audit logs" ON public.admin_actions_audit;
+CREATE POLICY "Only admins and owner can view terminations" ON public.account_terminations;
+CREATE POLICY "Only admins and owner can manage terminations" ON public.account_terminations;
+CREATE POLICY "Only admins and owner can view banned addresses" ON public.banned_addresses;
+CREATE POLICY "Only admins and owner can manage banned addresses" ON public.banned_addresses;
+CREATE POLICY "Users can view own Discord link" ON public.discord_links;
+CREATE POLICY "Users can create own Discord link" ON public.discord_links;
+CREATE POLICY "Admins can view all Discord links" ON public.discord_links;
+CREATE POLICY "Users can view own extensions" ON public.subscription_extensions;
+CREATE POLICY "Admins can view all extensions" ON public.subscription_extensions;
+CREATE POLICY "Only admins and owner can view audit logs" ON public.admin_actions_audit;
+CREATE POLICY "Admins can insert audit logs" ON public.admin_actions_audit;
 
 -- Create policies
 CREATE POLICY "Only admins and owner can view terminations"
@@ -126,17 +126,17 @@ RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $$
 DECLARE target_has_owner_role BOOLEAN;
 BEGIN
-  SELECT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = NEW.user_id AND role = 'owner') INTO target_has_owner_role;
-  IF NEW.role = 'owner' AND NOT target_has_owner_role THEN
+  SELECT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = NEW.user_id AND subscription_tier = 'owner')
+  IF NEW.subscription_tier = 'owner')
     RAISE EXCEPTION 'Owner role cannot be granted';
   END IF;
-  IF TG_OP = 'UPDATE' AND OLD.role = 'owner' THEN
+  IF TG_OP = 'UPDATE' AND OLD.subscription_tier = 'owner')
     RAISE EXCEPTION 'Owner role cannot be modified';
   END IF;
-  IF TG_OP = 'DELETE' AND OLD.role = 'owner' THEN
+  IF TG_OP = 'DELETE' AND OLD.subscription_tier = 'owner')
     RAISE EXCEPTION 'Owner role cannot be removed';
   END IF;
-  IF NEW.role = 'admin' AND NOT public.is_owner(auth.uid()) THEN
+  IF NEW.subscription_tier = 'admin' OR subscription_tier = 'owner')
     RAISE EXCEPTION 'Only the owner can grant admin role';
   END IF;
   RETURN NEW;
@@ -168,7 +168,7 @@ CREATE OR REPLACE FUNCTION public.prevent_unauthorized_role_escalation()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $$
 BEGIN
-  IF NEW.role = 'moderator' AND NOT (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'owner')) THEN
+  IF NEW.subscription_tier = 'admin' OR subscription_tier = 'owner')
     RAISE EXCEPTION 'Only administrators can grant moderator role';
   END IF;
   IF TG_OP = 'UPDATE' AND OLD.user_id = auth.uid() THEN
