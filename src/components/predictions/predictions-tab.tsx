@@ -102,6 +102,7 @@ interface PredictionWithUI extends MarketData {
   isBookmarked?: boolean;
 }
 import { EnhancedAnalysisOverlay } from './enhanced-analysis-overlay';
+import { ProfessionalPredictionCard } from './professional-prediction-card';
 
 interface PredictionsTabProps {
   selectedSport: string;
@@ -237,9 +238,8 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
     try {
       console.log(`🔮 Loading comprehensive predictions for ${selectedSport}...`);
       
-      // Fetch data from multiple market endpoints
+      // Fetch data from multiple market endpoints - prioritize other markets over player props
       const endpoints = [
-        'player-props',
         'moneyline', 
         'spread', 
         'total',
@@ -248,7 +248,8 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
         '1q-total',
         '1h-moneyline',
         '1h-spread',
-        '1h-total'
+        '1h-total',
+        'player-props' // Player props last, will be limited
       ];
       
       const allMarkets: MarketData[] = [];
@@ -270,9 +271,15 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
           if (data.success && data.data) {
             logSuccess('PredictionsTab', `Retrieved ${data.data.length} ${endpoint} markets`);
             
+            // Limit player props to avoid overwhelming the predictions tab
+            const limitedData = endpoint === 'player-props' ? data.data.slice(0, 8) : data.data;
+            if (endpoint === 'player-props' && data.data.length > 8) {
+              logInfo('PredictionsTab', `Limited player props from ${data.data.length} to 8 to prioritize other markets`);
+            }
+            
             // Process and add EV calculations for each market
             const processedMarkets = await Promise.all(
-              data.data.map(async (market: any) => {
+              limitedData.map(async (market: any) => {
                 try {
                   // Calculate EV for player props
                   if (market.marketType === 'player-prop' || market.propType) {
@@ -352,7 +359,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
       }
       
       console.log(`📊 Retrieved ${allMarkets.length} total markets from all endpoints`);
-      
+
       // Sort by confidence and value
       const sortedMarkets = allMarkets.sort((a, b) => {
         if (sortBy === 'confidence') {
@@ -864,6 +871,17 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
       {!isLoading && sortedPredictions.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {sortedPredictions.map((prediction) => (
+            <ProfessionalPredictionCard
+              key={prediction.id}
+              prediction={prediction}
+              onBookmark={toggleBookmark}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Legacy card rendering - keeping for reference but not used */}
+      {false && sortedPredictions.map((prediction) => (
             <Card 
               key={prediction.id} 
               className="relative overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
@@ -954,32 +972,32 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
                 </div>
 
                 {/* Prediction Details */}
-                <div className="space-y-2">
+                  <div className="space-y-2">
                   {prediction.marketType === 'player-prop' ? (
                     <>
-                      <div className="text-sm">
-                        <span className="font-medium">AI Recommendation: </span>
-                        <span className={cn(
-                          "font-bold",
+                    <div className="text-sm">
+                      <span className="font-medium">AI Recommendation: </span>
+                      <span className={cn(
+                        "font-bold",
                           prediction.recommendation === 'strong_bet' || prediction.recommendation === 'good_bet'
-                            ? "text-green-600" 
+                          ? "text-green-600" 
                             : prediction.recommendation === 'avoid' || prediction.recommendation === 'strong_avoid'
                             ? "text-red-600"
                             : "text-yellow-600"
-                        )}>
+                      )}>
                           {prediction.recommendation?.replace('_', ' ').toUpperCase() || 'NEUTRAL'}
-                        </span>
-                      </div>
-                      
-                      <div className="text-sm">
-                        <span className="font-medium">Expected Value: </span>
-                        <span className={cn(
-                          "font-bold",
+                      </span>
+                    </div>
+                    
+                    <div className="text-sm">
+                      <span className="font-medium">Expected Value: </span>
+                      <span className={cn(
+                        "font-bold",
                           (prediction.expectedValue || 0) > 0 ? "text-green-600" : "text-red-600"
-                        )}>
+                      )}>
                           {(prediction.expectedValue || 0) > 0 ? '+' : ''}{((prediction.expectedValue || 0) * 100).toFixed(1)}%
-                        </span>
-                      </div>
+                      </span>
+                    </div>
                     </>
                   ) : (
                     <>
@@ -997,8 +1015,8 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
                             {prediction.homeTeamAbbr}: {prediction.homeOdds > 0 ? '+' : ''}{prediction.homeOdds} | 
                             {prediction.awayTeamAbbr}: {prediction.awayOdds > 0 ? '+' : ''}{prediction.awayOdds}
                           </span>
-                        </div>
-                      )}
+                  </div>
+                )}
                       
                       {prediction.marketType === 'spread' && (
                         <div className="text-sm">
@@ -1048,8 +1066,6 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
               </CardContent>
             </Card>
           ))}
-        </div>
-      )}
 
       {/* No Predictions */}
       {!isLoading && sortedPredictions.length === 0 && (

@@ -277,6 +277,198 @@ export default {
           
           allMarkets.push(...validProps);
           console.log(`✅ Added ${validProps.length} player props from event ${i}`);
+        } else {
+          // Process other market types (moneyline, spread, total, 1Q, 1H)
+          const marketsMap = new Map<string, any>();
+          
+          // Determine period and market type based on endpoint
+          let period = 'full_game';
+          let marketType = endpoint;
+          
+          if (endpoint.includes('1q')) {
+            period = '1st_quarter';
+            marketType = endpoint.replace('1q-', '');
+          } else if (endpoint.includes('1h')) {
+            period = '1st_half';
+            marketType = endpoint.replace('1h-', '');
+          }
+          
+          for (const [propKey, propData] of Object.entries(event.odds)) {
+            if (allMarkets.length >= maxProps) break;
+            if (!propData || typeof propData !== 'object') continue;
+            if (propData.statEntityID) continue; // Skip player props
+            
+            // Process moneyline markets
+            if (marketType === 'moneyline' && propKey.includes('moneyline')) {
+              const marketKey = `${event.id}-moneyline-${period}`;
+              if (!marketsMap.has(marketKey)) {
+                marketsMap.set(marketKey, {
+                  id: marketKey,
+                  gameId: event.id,
+                  sport: sport,
+                  marketType: 'moneyline',
+                  period: period,
+                  homeTeam: homeTeam,
+                  homeTeamFull: homeTeamFull,
+                  homeTeamAbbr: homeTeam,
+                  awayTeam: awayTeam,
+                  awayTeamFull: awayTeamFull,
+                  awayTeamAbbr: awayTeam,
+                  gameDate: gameDate.split('T')[0],
+                  gameTime: gameDate,
+                  homeOdds: null,
+                  awayOdds: null,
+                  drawOdds: null,
+                  allSportsbookOdds: [],
+                  available: true,
+                  lastUpdate: new Date().toISOString(),
+                  marketName: `${homeTeam} vs ${awayTeam} Moneyline`
+                });
+              }
+              
+              const market = marketsMap.get(marketKey)!;
+              for (const [bookmakerId, bookmakerData] of Object.entries(propData.byBookmaker || {})) {
+                if (!bookmakerData || typeof bookmakerData !== 'object') continue;
+                const bookmaker = bookmakerData as any;
+                if (!bookmaker.odds) continue;
+                
+                const odds = parseFloat(bookmaker.odds);
+                const side = propData.sideID;
+                
+                if (side === 'home') market.homeOdds = odds;
+                else if (side === 'away') market.awayOdds = odds;
+                else if (side === 'draw') market.drawOdds = odds;
+                
+                market.allSportsbookOdds.push({
+                  sportsbook: bookmakerId,
+                  odds: odds,
+                  side: side,
+                  lastUpdate: bookmaker.lastUpdatedAt || new Date().toISOString()
+                });
+              }
+            }
+            
+            // Process spread markets
+            if (marketType === 'spread' && propKey.includes('spread')) {
+              const marketKey = `${event.id}-spread-${period}`;
+              if (!marketsMap.has(marketKey)) {
+                marketsMap.set(marketKey, {
+                  id: marketKey,
+                  gameId: event.id,
+                  sport: sport,
+                  marketType: 'spread',
+                  period: period,
+                  homeTeam: homeTeam,
+                  homeTeamFull: homeTeamFull,
+                  homeTeamAbbr: homeTeam,
+                  awayTeam: awayTeam,
+                  awayTeamFull: awayTeamFull,
+                  awayTeamAbbr: awayTeam,
+                  gameDate: gameDate.split('T')[0],
+                  gameTime: gameDate,
+                  homeOdds: null,
+                  awayOdds: null,
+                  spread: null,
+                  allSportsbookOdds: [],
+                  available: true,
+                  lastUpdate: new Date().toISOString(),
+                  marketName: `${homeTeam} vs ${awayTeam} Spread`
+                });
+              }
+              
+              const market = marketsMap.get(marketKey)!;
+              for (const [bookmakerId, bookmakerData] of Object.entries(propData.byBookmaker || {})) {
+                if (!bookmakerData || typeof bookmakerData !== 'object') continue;
+                const bookmaker = bookmakerData as any;
+                if (!bookmaker.spread || !bookmaker.odds) continue;
+                
+                const odds = parseFloat(bookmaker.odds);
+                const spread = parseFloat(bookmaker.spread);
+                const side = propData.sideID;
+                
+                market.spread = spread;
+                if (side === 'home') market.homeOdds = odds;
+                else if (side === 'away') market.awayOdds = odds;
+                
+                market.allSportsbookOdds.push({
+                  sportsbook: bookmakerId,
+                  odds: odds,
+                  spread: spread,
+                  side: side,
+                  lastUpdate: bookmaker.lastUpdatedAt || new Date().toISOString()
+                });
+              }
+            }
+            
+            // Process total markets
+            if (marketType === 'total' && propKey.includes('total')) {
+              const marketKey = `${event.id}-total-${period}`;
+              if (!marketsMap.has(marketKey)) {
+                marketsMap.set(marketKey, {
+                  id: marketKey,
+                  gameId: event.id,
+                  sport: sport,
+                  marketType: 'total',
+                  period: period,
+                  homeTeam: homeTeam,
+                  homeTeamFull: homeTeamFull,
+                  homeTeamAbbr: homeTeam,
+                  awayTeam: awayTeam,
+                  awayTeamFull: awayTeamFull,
+                  awayTeamAbbr: awayTeam,
+                  gameDate: gameDate.split('T')[0],
+                  gameTime: gameDate,
+                  overOdds: null,
+                  underOdds: null,
+                  total: null,
+                  allSportsbookOdds: [],
+                  available: true,
+                  lastUpdate: new Date().toISOString(),
+                  marketName: `${homeTeam} vs ${awayTeam} Total`
+                });
+              }
+              
+              const market = marketsMap.get(marketKey)!;
+              for (const [bookmakerId, bookmakerData] of Object.entries(propData.byBookmaker || {})) {
+                if (!bookmakerData || typeof bookmakerData !== 'object') continue;
+                const bookmaker = bookmakerData as any;
+                if (!bookmaker.overUnder || !bookmaker.odds) continue;
+                
+                const odds = parseFloat(bookmaker.odds);
+                const total = parseFloat(bookmaker.overUnder);
+                const side = propData.sideID;
+                
+                market.total = total;
+                if (side === 'over') market.overOdds = odds;
+                else if (side === 'under') market.underOdds = odds;
+                
+                market.allSportsbookOdds.push({
+                  sportsbook: bookmakerId,
+                  odds: odds,
+                  total: total,
+                  side: side,
+                  lastUpdate: bookmaker.lastUpdatedAt || new Date().toISOString()
+                });
+              }
+            }
+          }
+          
+          // Add valid markets to allMarkets
+          const validMarkets = Array.from(marketsMap.values())
+            .filter(market => {
+              if (market.marketType === 'moneyline') {
+                return market.homeOdds !== null && market.awayOdds !== null;
+              } else if (market.marketType === 'spread') {
+                return market.homeOdds !== null && market.awayOdds !== null && market.spread !== null;
+              } else if (market.marketType === 'total') {
+                return market.overOdds !== null && market.underOdds !== null && market.total !== null;
+              }
+              return false;
+            })
+            .slice(0, maxProps);
+          
+          allMarkets.push(...validMarkets);
+          console.log(`✅ Added ${validMarkets.length} ${marketType} markets from event ${i}`);
         }
       }
 
