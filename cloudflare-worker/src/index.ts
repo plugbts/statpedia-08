@@ -126,106 +126,105 @@ export default {
             .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
             .join(' ');
           
-          // Get REAL line from book data
-          const line = parseFloat(propData.bookOverUnder || propData.fairOverUnder || '0');
-          if (!line || line <= 0) continue;
-          
-          // Create unique key for grouping over/under props
-          const propKey_group = `${event.eventID}-${playerID}-${statID}-${line}`;
-          
-          // Get or create the prop group
-          let prop = playerPropsMap.get(propKey_group);
-          if (!prop) {
-            // Determine which team the player is on based on team ID pattern
-            // For now, use a simple hash-based assignment for consistency
-            const playerHash = playerID.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
-            const playerTeam = playerHash % 2 === 0 ? homeTeam : awayTeam;
-            const playerTeamFull = playerTeam === homeTeam ? homeTeamFull : awayTeamFull;
-            const opponent = playerTeam === homeTeam ? awayTeam : homeTeam;
-            const opponentFull = playerTeam === homeTeam ? awayTeamFull : homeTeamFull;
+          // Process each sportsbook's line separately to avoid mixing different lines
+          for (const [bookmakerId, bookmakerData] of Object.entries(propData.byBookmaker || {})) {
+            if (!bookmakerData || typeof bookmakerData !== 'object') continue;
             
-            prop = {
-              id: propKey_group,
-              playerId: playerID,
-              playerName: playerName,
-              team: playerTeamFull,
-              teamAbbr: playerTeam,
-              opponent: opponentFull,
-              opponentAbbr: opponent,
-              sport: 'nfl',
-              propType: propType,
-              line: line,
-              overOdds: null,
-              underOdds: null,
-              gameId: event.eventID,
-              gameTime: gameDate,
-              gameDate: gameDate.split('T')[0], // Extract date part
-              homeTeam: homeTeamFull,
-              awayTeam: awayTeamFull,
-              market: propType,
-              outcome: 'over_under',
-              betType: 'player_prop',
-              period: 'full_game',
-              statEntity: playerName,
-              isExactAPIData: true,
-              availableSportsbooks: [],
-              allSportsbookOdds: [],
-              available: true,
-              recentForm: null, // Real data - no fake form
-              aiPrediction: null, // Real data - no fake AI
-              lastUpdate: new Date().toISOString(),
-              marketName: marketName
-            };
+            const bookmaker = bookmakerData as any;
+            if (!bookmaker.overUnder) continue;
             
-            playerPropsMap.set(propKey_group, prop);
-          }
-
-          // Process REAL sportsbook odds from byBookmaker
-          if (propData.byBookmaker && typeof propData.byBookmaker === 'object') {
-            for (const [bookmakerId, bookmakerData] of Object.entries(propData.byBookmaker)) {
-              if (!bookmakerData || typeof bookmakerData !== 'object') continue;
+            // Get the line from this specific sportsbook
+            const sportsbookLine = parseFloat(bookmaker.overUnder);
+            if (!sportsbookLine || sportsbookLine <= 0) continue;
+            
+            // Create unique key for this specific line
+            const propKey_group = `${event.eventID}-${playerID}-${statID}-${sportsbookLine}`;
+            
+            // Get or create the prop group for this line
+            let prop = playerPropsMap.get(propKey_group);
+            if (!prop) {
+              // Determine which team the player is on based on team ID pattern
+              // For now, use a simple hash-based assignment for consistency
+              const playerHash = playerID.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+              const playerTeam = playerHash % 2 === 0 ? homeTeam : awayTeam;
+              const playerTeamFull = playerTeam === homeTeam ? homeTeamFull : awayTeamFull;
+              const opponent = playerTeam === homeTeam ? awayTeam : homeTeam;
+              const opponentFull = playerTeam === homeTeam ? awayTeamFull : homeTeamFull;
               
-              const bookmaker = bookmakerData as any;
-              if (!bookmaker.odds || !bookmaker.overUnder) continue;
+              prop = {
+                id: propKey_group,
+                playerId: playerID,
+                playerName: playerName,
+                team: playerTeamFull,
+                teamAbbr: playerTeam,
+                opponent: opponentFull,
+                opponentAbbr: opponent,
+                sport: 'nfl',
+                propType: propType,
+                line: sportsbookLine,
+                overOdds: null,
+                underOdds: null,
+                gameId: event.eventID,
+                gameTime: gameDate,
+                gameDate: gameDate.split('T')[0], // Extract date part
+                homeTeam: homeTeamFull,
+                awayTeam: awayTeamFull,
+                market: propType,
+                outcome: 'over_under',
+                betType: 'player_prop',
+                period: 'full_game',
+                statEntity: playerName,
+                isExactAPIData: true,
+                availableSportsbooks: [],
+                allSportsbookOdds: [],
+                available: true,
+                recentForm: null, // Real data - no fake form
+                aiPrediction: null, // Real data - no fake AI
+                lastUpdate: new Date().toISOString(),
+                marketName: marketName
+              };
               
-              // Add to available sportsbooks
-              if (!prop.availableSportsbooks.includes(bookmakerId)) {
-                prop.availableSportsbooks.push(bookmakerId);
+              playerPropsMap.set(propKey_group, prop);
+            }
+            
+            // Add this sportsbook to the prop
+            if (!prop.availableSportsbooks.includes(bookmakerId)) {
+              prop.availableSportsbooks.push(bookmakerId);
+            }
+            
+            // Parse odds
+            const odds = parseNumber(bookmaker.odds);
+            if (odds === null) continue;
+            
+            // Add to allSportsbookOdds
+            const existingBookmaker = prop.allSportsbookOdds.find(sb => sb.sportsbook === bookmakerId);
+            if (!existingBookmaker) {
+              prop.allSportsbookOdds.push({
+                sportsbook: bookmakerId,
+                line: sportsbookLine,
+                overOdds: side === 'over' ? odds : null,
+                underOdds: side === 'under' ? odds : null,
+                lastUpdate: bookmaker.lastUpdatedAt || new Date().toISOString()
+              });
+            } else {
+              // Update existing bookmaker odds
+              if (side === 'over') {
+                existingBookmaker.overOdds = odds;
+              } else if (side === 'under') {
+                existingBookmaker.underOdds = odds;
               }
-              
-              // Parse odds
-              const odds = parseNumber(bookmaker.odds);
-              if (odds === null) continue;
-              
-              // Add to allSportsbookOdds for detailed breakdown
-              const existingBookmaker = prop.allSportsbookOdds.find(sb => sb.sportsbook === bookmakerId);
-              if (!existingBookmaker) {
-                prop.allSportsbookOdds.push({
-                  sportsbook: bookmakerId,
-                  line: parseFloat(bookmaker.overUnder),
-                  overOdds: side === 'over' ? odds : null,
-                  underOdds: side === 'under' ? odds : null,
-                  lastUpdate: bookmaker.lastUpdatedAt || new Date().toISOString()
-                });
-              } else {
-                // Update existing bookmaker odds
-                if (side === 'over') {
-                  existingBookmaker.overOdds = odds;
-                } else if (side === 'under') {
-                  existingBookmaker.underOdds = odds;
-                }
-                // Update last update time
-                if (bookmaker.lastUpdatedAt && new Date(bookmaker.lastUpdatedAt) > new Date(existingBookmaker.lastUpdate)) {
-                  existingBookmaker.lastUpdate = bookmaker.lastUpdatedAt;
-                }
-              }
-              
-              // Update last update time for the prop
-              if (bookmaker.lastUpdatedAt && new Date(bookmaker.lastUpdatedAt) > new Date(prop.lastUpdate)) {
-                prop.lastUpdate = bookmaker.lastUpdatedAt;
+              // Update last update time
+              if (bookmaker.lastUpdatedAt && new Date(bookmaker.lastUpdatedAt) > new Date(existingBookmaker.lastUpdate)) {
+                existingBookmaker.lastUpdate = bookmaker.lastUpdatedAt;
               }
             }
+            
+            // Update last update time for the prop
+            if (bookmaker.lastUpdatedAt && new Date(bookmaker.lastUpdatedAt) > new Date(prop.lastUpdate)) {
+              prop.lastUpdate = bookmaker.lastUpdatedAt;
+            }
           }
+
         }
       }
 
@@ -303,8 +302,8 @@ export default {
       if (env.PLAYER_PROPS_CACHE) {
         try {
           await env.PLAYER_PROPS_CACHE.put(cacheKey, responseJson, {
-            expirationTtl: cacheTtlSeconds,
-          });
+        expirationTtl: cacheTtlSeconds,
+      });
         } catch (cacheError) {
           console.warn('Cache storage failed:', cacheError);
         }
