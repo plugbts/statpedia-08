@@ -82,8 +82,34 @@ class SportsGameOddsEdgeAPI {
       if (error) throw error;
       if (!data.success) throw new Error(data.error);
 
-      console.log(`✅ [SportsGameOddsEdgeAPI] Retrieved ${data.data.data.length} events for ${sport}`);
-      return data.data.data || [];
+      const events = data.data.data || [];
+      
+      // Map sport names to SportsGameOdds sport IDs for filtering
+      const sportMapping: Record<string, string> = {
+        'nfl': 'FOOTBALL',
+        'nba': 'BASKETBALL',
+        'nhl': 'HOCKEY',
+        'mlb': 'BASEBALL',
+        'college-football': 'FOOTBALL',
+        'college-basketball': 'BASKETBALL',
+        'wnba': 'BASKETBALL'
+      };
+      
+      const expectedSportId = sportMapping[sport.toLowerCase()] || sport.toUpperCase();
+      
+      // Filter events by sport
+      const filteredEvents = events.filter((event: SportsGameOddsEvent) => {
+        // For NFL, also filter by league to exclude college football
+        if (sport.toLowerCase() === 'nfl') {
+          return event.sportID === 'FOOTBALL' && 
+                 (event.leagueID === 'NFL' || event.leagueID === 'NFL_PLAYOFFS');
+        }
+        // For other sports, just match the sport ID
+        return event.sportID === expectedSportId;
+      });
+      
+      console.log(`✅ [SportsGameOddsEdgeAPI] Retrieved ${filteredEvents.length} events for ${sport} from ${events.length} total events`);
+      return filteredEvents;
     } catch (error) {
       console.error(`❌ [SportsGameOddsEdgeAPI] Failed to fetch events for ${sport}:`, error);
       return [];
@@ -105,7 +131,33 @@ class SportsGameOddsEdgeAPI {
       const events = data.data.data || [];
       const playerProps: any[] = [];
       
-      events.forEach((event: SportsGameOddsEvent) => {
+      // Map sport names to SportsGameOdds sport IDs for filtering
+      const sportMapping: Record<string, string> = {
+        'nfl': 'FOOTBALL',
+        'nba': 'BASKETBALL',
+        'nhl': 'HOCKEY',
+        'mlb': 'BASEBALL',
+        'college-football': 'FOOTBALL',
+        'college-basketball': 'BASKETBALL',
+        'wnba': 'BASKETBALL'
+      };
+      
+      const expectedSportId = sportMapping[sport.toLowerCase()] || sport.toUpperCase();
+      
+      // Filter events by sport first
+      const filteredEvents = events.filter((event: SportsGameOddsEvent) => {
+        // For NFL, also filter by league to exclude college football
+        if (sport.toLowerCase() === 'nfl') {
+          return event.sportID === 'FOOTBALL' && 
+                 (event.leagueID === 'NFL' || event.leagueID === 'NFL_PLAYOFFS');
+        }
+        // For other sports, just match the sport ID
+        return event.sportID === expectedSportId;
+      });
+      
+      console.log(`🔍 [SportsGameOddsEdgeAPI] Filtered ${filteredEvents.length} events for ${sport} from ${events.length} total events`);
+      
+      filteredEvents.forEach((event: SportsGameOddsEvent) => {
         if (event.odds) {
           Object.values(event.odds).forEach((odd: any) => {
             if (odd.playerID && odd.statID) {

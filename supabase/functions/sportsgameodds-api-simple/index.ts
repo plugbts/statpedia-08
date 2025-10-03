@@ -24,10 +24,11 @@ serve(async (req) => {
 
     let sportsgameoddsUrl = '';
     
-    // Use the unified /v2/events endpoint for all data
-    sportsgameoddsUrl = `https://api.sportsgameodds.com/v2/events`;
+    // Use the unified /v2/events endpoint for all data with sport filtering
+    const sportId = mapSportToId(sport);
+    sportsgameoddsUrl = `https://api.sportsgameodds.com/v2/events?sportID=${sportId}`;
 
-    console.log(`📡 Calling SportsGameOdds API: ${sportsgameoddsUrl}`);
+    console.log(`📡 Calling SportsGameOdds API: ${sportsgameoddsUrl} (sport: ${sport} -> ${sportId})`);
 
     const response = await fetch(sportsgameoddsUrl, {
       method: 'GET',
