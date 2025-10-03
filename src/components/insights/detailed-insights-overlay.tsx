@@ -306,7 +306,7 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = m
     }
     
     // Group props by type and calculate real statistics
-    const propGroups = playerPropsData.reduce((acc, prop) => {
+    const propGroups = (playerPropsData as any[]).reduce((acc, prop) => {
       const propType = prop.propType || prop.market || 'Unknown';
       if (!acc[propType]) {
         acc[propType] = [];
@@ -317,13 +317,13 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = m
     
     // Convert to array and calculate real hit rates
     const propData: PropData[] = Object.entries(propGroups).slice(0, 5).map(([propType, props]) => {
-      const overHits = props.filter(prop => prop.outcome === 'over' || prop.side === 'over').length;
-      const totalProps = props.length;
+      const overHits = (props as any[]).filter(prop => prop.outcome === 'over' || prop.side === 'over').length;
+      const totalProps = (props as any[]).length;
       const hitRate = totalProps > 0 ? Math.round((overHits / totalProps) * 100) : 0;
       
       // Get average line and odds
-      const avgLine = props.reduce((sum, prop) => sum + (prop.line || 0), 0) / props.length;
-      const avgOdds = props.reduce((sum, prop) => sum + (prop.overOdds || -110), 0) / props.length;
+      const avgLine = (props as any[]).reduce((sum, prop) => sum + (prop.line || 0), 0) / (props as any[]).length;
+      const avgOdds = (props as any[]).reduce((sum, prop) => sum + (prop.overOdds || -110), 0) / (props as any[]).length;
       
       return {
         type: propType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
@@ -498,7 +498,7 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = m
         insights.push(`${playerName} faces ${isHomeGame ? awayTeam : homeTeam} ${isHomeGame ? 'at home' : 'on the road'}`);
         
         // Group props by type and analyze each
-        const propGroups = playerProps.reduce((acc, prop) => {
+        const propGroups = (playerProps as any[]).reduce((acc, prop) => {
           const propType = prop.propType || prop.market || 'Unknown';
           if (!acc[propType]) {
             acc[propType] = [];
@@ -509,18 +509,18 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = m
         
         // Analyze each prop type
         Object.entries(propGroups).slice(0, 3).forEach(([propType, props]) => {
-          const avgLine = props.reduce((sum, prop) => sum + (prop.line || 0), 0) / props.length;
-          const overHits = props.filter(prop => prop.outcome === 'over' || prop.side === 'over').length;
-          const hitRate = Math.round((overHits / props.length) * 100);
+          const avgLine = (props as any[]).reduce((sum, prop) => sum + (prop.line || 0), 0) / (props as any[]).length;
+          const overHits = (props as any[]).filter(prop => prop.outcome === 'over' || prop.side === 'over').length;
+          const hitRate = Math.round((overHits / (props as any[]).length) * 100);
           
           const formattedPropType = propType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-          insights.push(`${playerName} has a ${formattedPropType} line of ${avgLine.toFixed(1)} with ${hitRate}% hit rate over ${props.length} games`);
+          insights.push(`${playerName} has a ${formattedPropType} line of ${avgLine.toFixed(1)} with ${hitRate}% hit rate over ${(props as any[]).length} games`);
         });
         
         // Recent performance
-        const recentProps = playerProps.slice(0, 5);
-        const overHits = recentProps.filter(prop => prop.outcome === 'over' || prop.side === 'over').length;
-        const hitRate = recentProps.length > 0 ? Math.round((overHits / recentProps.length) * 100) : 0;
+        const recentProps = (playerProps as any[]).slice(0, 5);
+        const overHits = (recentProps as any[]).filter(prop => prop.outcome === 'over' || prop.side === 'over').length;
+        const hitRate = (recentProps as any[]).length > 0 ? Math.round((overHits / (recentProps as any[]).length) * 100) : 0;
         
         if (recentProps.length > 0) {
           insights.push(`${playerName} has hit the over in ${hitRate}% of recent props (${overHits}/${recentProps.length})`);
@@ -709,7 +709,7 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = m
                       {keyInsights.map((insightText, index) => (
                         <div key={index} className="p-3 bg-muted/20 rounded-lg">
                           <p className="text-sm text-muted-foreground">
-                            {insight.insight_type === 'hot_streak' && insightText.includes(insight.player_name || '') ? (
+                            {insight.insight_type === 'hot_streak' && 'player_name' in insight && insightText.includes(insight.player_name || '') ? (
                               <>
                                 {insightText.split(insight.player_name || '').map((part, i) => (
                                   <span key={i}>

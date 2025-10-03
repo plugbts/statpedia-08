@@ -107,6 +107,13 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
       try {
         console.log(`🔄 [InsightsTab] Loading insights for ${selectedSport}...`);
         
+        // Clear cache when sport changes to ensure fresh data
+        insightsService.clearCache();
+        
+        // Close any open overlay when sport changes to prevent stale data
+        setIsOverlayOpen(false);
+        setSelectedInsight(null);
+        
         // Load all insights data in parallel
         const [gameData, playerData, moneylineData, analyticsData] = await Promise.all([
           insightsService.getGameInsights(selectedSport, 7),

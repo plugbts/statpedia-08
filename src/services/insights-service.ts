@@ -292,8 +292,32 @@ class InsightsService {
     
     if (playerProps.length === 0) return insights;
     
+    // Filter player props by sport to ensure we only get data for the requested sport
+    const filteredPlayerProps = playerProps.filter((prop: any) => {
+      // Check if the prop has sport information and matches the requested sport
+      if (prop.sport && prop.sport.toLowerCase() === sport.toLowerCase()) {
+        return true;
+      }
+      
+      // Additional filtering based on team names for sports that might not have explicit sport field
+      const teamName = prop.team || prop.homeTeam || '';
+      const sportIndicators = {
+        'nfl': ['DEN', 'KC', 'BUF', 'MIA', 'NE', 'NYJ', 'BAL', 'CIN', 'CLE', 'PIT', 'HOU', 'IND', 'JAX', 'TEN', 'DAL', 'NYG', 'PHI', 'WAS', 'CHI', 'DET', 'GB', 'MIN', 'ATL', 'CAR', 'NO', 'TB', 'ARI', 'LAR', 'SF', 'SEA'],
+        'mlb': ['NYY', 'BOS', 'TB', 'TOR', 'BAL', 'CWS', 'CLE', 'DET', 'KC', 'MIN', 'HOU', 'LAA', 'OAK', 'SEA', 'TEX', 'ATL', 'MIA', 'NYM', 'PHI', 'WSH', 'CHC', 'CIN', 'MIL', 'PIT', 'STL', 'ARI', 'COL', 'LAD', 'SD', 'SF'],
+        'nba': ['ATL', 'BOS', 'BKN', 'CHA', 'CHI', 'CLE', 'DAL', 'DEN', 'DET', 'GSW', 'HOU', 'IND', 'LAC', 'LAL', 'MEM', 'MIA', 'MIL', 'MIN', 'NO', 'NYK', 'OKC', 'ORL', 'PHI', 'PHX', 'POR', 'SAC', 'SA', 'TOR', 'UTA', 'WAS'],
+        'nhl': ['ANA', 'ARI', 'BOS', 'BUF', 'CGY', 'CAR', 'CHI', 'COL', 'CBJ', 'DAL', 'DET', 'EDM', 'FLA', 'LAK', 'MIN', 'MTL', 'NSH', 'NJ', 'NYI', 'NYR', 'OTT', 'PHI', 'PIT', 'SJ', 'SEA', 'STL', 'TB', 'TOR', 'VAN', 'VGK', 'WSH', 'WPG']
+      };
+      
+      const sportTeams = sportIndicators[sport.toLowerCase() as keyof typeof sportIndicators] || [];
+      return sportTeams.some(team => teamName.includes(team));
+    });
+    
+    console.log(`🔍 [InsightsService] Filtered ${filteredPlayerProps.length} player props for ${sport} from ${playerProps.length} total props`);
+    
+    if (filteredPlayerProps.length === 0) return insights;
+    
     // Group player props by player
-    const playerGroups = playerProps.reduce((acc, prop: any) => {
+    const playerGroups = filteredPlayerProps.reduce((acc, prop: any) => {
       const playerName = prop.playerName;
       if (!acc[playerName]) {
         acc[playerName] = [];
