@@ -675,16 +675,6 @@ class ConsistentPropsService {
     return Math.max(-50, Math.min(25, overEV * 100)); // Cap between -50% and +25%
   }
 
-  /**
-   * Convert American odds to implied probability
-   */
-  private americanOddsToImpliedProbability(americanOdds: number): number {
-    if (americanOdds > 0) {
-      return 100 / (americanOdds + 100);
-    } else {
-      return Math.abs(americanOdds) / (Math.abs(americanOdds) + 100);
-    }
-  }
 
   /**
    * Extract team abbreviation

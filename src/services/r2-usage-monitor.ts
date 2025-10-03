@@ -47,41 +47,20 @@ class R2UsageMonitor {
     if (cached) return cached;
 
     try {
-      // For now, return mock data that simulates realistic R2 usage
-      // In production, this would connect to Cloudflare R2 API
-      const mockData: R2UsageStats = {
-        current_month: {
-          storage_gb: 12.5,
-          operations_count: 15420,
-          bandwidth_gb: 8.3,
-          cost_usd: 0.85,
-          last_updated: new Date().toISOString()
-        },
-        previous_month: {
-          storage_gb: 11.2,
-          operations_count: 12850,
-          bandwidth_gb: 6.8,
-          cost_usd: 0.72,
-          last_updated: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-        },
-        daily_average: {
-          storage_gb: 12.5,
-          operations_count: 514,
-          bandwidth_gb: 0.28,
-          cost_usd: 0.028,
-          last_updated: new Date().toISOString()
-        },
-        projected_monthly: {
-          storage_gb: 15.2,
-          operations_count: 18500,
-          bandwidth_gb: 10.1,
-          cost_usd: 1.12,
-          last_updated: new Date().toISOString()
-        }
-      };
+      // Fetch real R2 usage data from Supabase functions
+      const { data, error } = await supabase.functions.invoke('get-r2-usage-stats');
+      
+      if (error) {
+        console.error('Error fetching R2 usage stats:', error);
+        throw new Error(`Failed to fetch R2 usage statistics: ${error.message}`);
+      }
 
-      this.setCachedData(cacheKey, mockData);
-      return mockData;
+      if (!data) {
+        throw new Error('No R2 usage data available');
+      }
+
+      this.setCachedData(cacheKey, data);
+      return data;
     } catch (error) {
       console.error('Error fetching R2 usage stats:', error);
       throw new Error('Failed to fetch R2 usage statistics');
@@ -94,19 +73,23 @@ class R2UsageMonitor {
     if (cached) return cached;
 
     try {
-      // Mock plan configuration
-      const mockConfig: R2PlanConfig = {
-        plan_name: 'Free Tier',
-        storage_limit_gb: 10,
-        operations_limit: 10000,
-        bandwidth_limit_gb: 10,
-        cost_per_gb_storage: 0.015,
-        cost_per_operation: 0.000004,
-        cost_per_gb_bandwidth: 0.09
-      };
+      // Fetch real R2 plan configuration from database
+      const { data, error } = await supabase
+        .from('r2_plan_config')
+        .select('*')
+        .single();
 
-      this.setCachedData(cacheKey, mockConfig);
-      return mockConfig;
+      if (error) {
+        console.error('Error fetching R2 plan config:', error);
+        throw new Error(`Failed to fetch R2 plan configuration: ${error.message}`);
+      }
+
+      if (!data) {
+        throw new Error('No R2 plan configuration available');
+      }
+
+      this.setCachedData(cacheKey, data);
+      return data;
     } catch (error) {
       console.error('Error fetching R2 plan config:', error);
       throw new Error('Failed to fetch R2 plan configuration');
@@ -119,27 +102,24 @@ class R2UsageMonitor {
     if (cached) return cached;
 
     try {
-      // Generate mock historical data
-      const history = [];
-      const baseStorage = 10;
-      const baseOperations = 300;
-      const baseBandwidth = 0.2;
+      // Fetch real R2 usage history from database
+      const { data, error } = await supabase
+        .from('r2_usage_logs')
+        .select('*')
+        .gte('created_at', new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString())
+        .order('created_at', { ascending: true });
 
-      for (let i = days - 1; i >= 0; i--) {
-        const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
-        const variation = 0.1 + Math.random() * 0.3; // 10-40% variation
-        
-        history.push({
-          date: date.toISOString().split('T')[0],
-          storage_gb: Number((baseStorage * variation).toFixed(2)),
-          operations_count: Math.floor(baseOperations * variation),
-          bandwidth_gb: Number((baseBandwidth * variation).toFixed(3)),
-          cost_usd: Number((baseStorage * variation * 0.015 + baseOperations * variation * 0.000004 + baseBandwidth * variation * 0.09).toFixed(4))
-        });
+      if (error) {
+        console.error('Error fetching R2 usage history:', error);
+        throw new Error(`Failed to fetch R2 usage history: ${error.message}`);
       }
 
-      this.setCachedData(cacheKey, history);
-      return history;
+      if (!data || data.length === 0) {
+        return [];
+      }
+
+      this.setCachedData(cacheKey, data);
+      return data;
     } catch (error) {
       console.error('Error fetching R2 usage history:', error);
       throw new Error('Failed to fetch R2 usage history');
@@ -148,8 +128,15 @@ class R2UsageMonitor {
 
   async syncFromCloudflare(): Promise<boolean> {
     try {
-      // In production, this would sync with Cloudflare R2 API
-      // For now, just clear cache to force refresh
+      // Sync real data from Cloudflare R2 API via Supabase function
+      const { data, error } = await supabase.functions.invoke('sync-r2-usage-from-cloudflare');
+      
+      if (error) {
+        console.error('Error syncing from Cloudflare:', error);
+        return false;
+      }
+
+      // Clear cache to force refresh with new data
       this.cache.clear();
       return true;
     } catch (error) {
