@@ -307,8 +307,8 @@ class InsightsService {
       if ((props as any[]).length > 0) {
         const firstProp = (props as any[])[0];
         
-        // Clean up player name - remove any weird characters or numbers
-        const cleanPlayerName = playerName.replace(/[0-9]/g, '').replace(/^[a-z]+/, '').trim();
+        // Clean up player name - remove league names, numbers, and weird characters
+        const cleanPlayerName = this.cleanPlayerName(playerName);
         const finalPlayerName = cleanPlayerName || playerName; // Fallback to original if cleaning removes everything
         
         console.log(`🔍 [InsightsService] Player name: "${playerName}" -> "${finalPlayerName}"`);
@@ -344,19 +344,20 @@ class InsightsService {
     // Hot streak insight
     const hotPlayer = playerProps[0];
     if (hotPlayer) {
+      const cleanPlayerName = this.cleanPlayerName(hotPlayer.playerName);
       const streakValue = Math.round(Math.random() * 20 + 70); // 70-90% range
       insights.push({
-        insight_id: `hot_streak_${hotPlayer.playerName}`,
+        insight_id: `hot_streak_${cleanPlayerName}`,
         insight_type: 'hot_streak',
         title: 'Hot Streak Alert',
-        description: 'Player has exceeded prop line in 7 of last 8 games',
+        description: `${cleanPlayerName} has been performing exceptionally well`,
         value: streakValue,
         trend: 'up',
         change_percent: Math.round(Math.random() * 15 + 5),
         confidence: Math.round(Math.random() * 10 + 85),
-        player_name: hotPlayer.playerName,
+        player_name: cleanPlayerName,
         team_name: hotPlayer.team,
-        player_position: this.getPlayerPosition(hotPlayer.playerName, sport),
+        player_position: this.getPlayerPosition(cleanPlayerName, sport),
         last_game_date: hotPlayer.gameTime ? new Date(hotPlayer.gameTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         created_at: new Date().toISOString()
       });
@@ -365,19 +366,20 @@ class InsightsService {
     // Home advantage insight
     if (playerProps.length > 1) {
       const homePlayer = playerProps[1];
+      const cleanPlayerName = this.cleanPlayerName(homePlayer.playerName);
       const advantageValue = Math.round(Math.random() * 15 + 15); // 15-30% range
       insights.push({
-        insight_id: `home_advantage_${homePlayer.playerName}`,
+        insight_id: `home_advantage_${cleanPlayerName}`,
         insight_type: 'home_advantage',
         title: 'Home Field Advantage',
-        description: 'Player performs better at home vs away',
+        description: `${cleanPlayerName} performs better at home vs away`,
         value: advantageValue,
         trend: 'up',
         change_percent: Math.round(Math.random() * 8 + 2),
         confidence: Math.round(Math.random() * 15 + 75),
-        player_name: homePlayer.playerName,
+        player_name: cleanPlayerName,
         team_name: homePlayer.team,
-        player_position: this.getPlayerPosition(homePlayer.playerName, sport),
+        player_position: this.getPlayerPosition(cleanPlayerName, sport),
         last_game_date: homePlayer.gameTime ? new Date(homePlayer.gameTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         created_at: new Date().toISOString()
       });
@@ -484,6 +486,54 @@ class InsightsService {
       cold_players: players.slice(3, 5),
       created_at: new Date().toISOString()
     };
+  }
+
+  private cleanPlayerName(playerName: string): string {
+    if (!playerName || typeof playerName !== 'string') {
+      return '';
+    }
+
+    let cleaned = playerName.trim();
+
+    // Remove league names and abbreviations
+    const leagueNames = [
+      'NFL', 'NBA', 'NHL', 'MLB', 'CFB', 'CBB', 'WNBA',
+      'National Football League', 'National Basketball Association',
+      'National Hockey League', 'Major League Baseball',
+      'College Football', 'College Basketball'
+    ];
+
+    leagueNames.forEach(league => {
+      // Remove league name at the end
+      cleaned = cleaned.replace(new RegExp(`\\s+${league}\\s*$`, 'gi'), '');
+      // Remove league name at the beginning
+      cleaned = cleaned.replace(new RegExp(`^\\s*${league}\\s+`, 'gi'), '');
+      // Remove league name in the middle
+      cleaned = cleaned.replace(new RegExp(`\\s+${league}\\s+`, 'gi'), ' ');
+    });
+
+    // Remove numbers
+    cleaned = cleaned.replace(/[0-9]/g, '');
+
+    // Remove common prefixes that might be data artifacts
+    const prefixes = ['1nfl', '1nba', '1nhl', '1mlb', '1cfb', '1cbb', '1wnba'];
+    prefixes.forEach(prefix => {
+      cleaned = cleaned.replace(new RegExp(`^${prefix}`, 'gi'), '');
+    });
+
+    // Remove extra whitespace and special characters
+    cleaned = cleaned.replace(/\s+/g, ' ').trim();
+    cleaned = cleaned.replace(/[^\w\s-]/g, ''); // Keep only alphanumeric, spaces, and hyphens
+
+    // Remove leading/trailing hyphens and spaces
+    cleaned = cleaned.replace(/^[- ]+|[- ]+$/g, '');
+
+    // If the cleaned name is too short or empty, return original
+    if (cleaned.length < 2) {
+      return playerName;
+    }
+
+    return cleaned;
   }
 
   private getPlayerPosition(playerName: string, sport: string): string {
