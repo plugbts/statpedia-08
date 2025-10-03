@@ -163,9 +163,12 @@ const loveableConfig: LoveableConfig = {
 
 export const loveableClient = new LoveableClient(loveableConfig);
 
-// Auto-connect in development
+// Auto-connect in development with error handling
 if (import.meta.env.DEV) {
-  loveableClient.connect().catch(console.error);
+  loveableClient.connect().catch((error) => {
+    console.warn('Loveable client connection failed:', error);
+    // Don't throw - just log the error and continue
+  });
 }
 
 export default loveableClient;

@@ -1,27 +1,10 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
-import { useSync } from "@/hooks/use-sync";
-import { useEmailCron } from "@/hooks/use-email-cron";
-import { UserProvider } from "@/contexts/user-context";
+// Minimal imports for testing
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import type { User } from "@supabase/supabase-js";
 
-// Direct imports - no lazy loading
-import Index from "./pages/Index";
-import Admin from "./pages/Admin";
-import PredictionDetail from "./pages/PredictionDetail";
-import { Settings } from "./pages/Settings";
-import NotFound from "./pages/NotFound";
-import { SubscriptionPlans } from "./components/auth/subscription-plans";
-import { SupportCenter } from "./components/support/support-center";
+// const queryClient = new QueryClient();
 
-const queryClient = new QueryClient();
-
-// Settings Wrapper Component
+// Settings Wrapper Component - temporarily commented out
+/*
 const SettingsWrapper = () => {
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState('user');
@@ -84,8 +67,10 @@ const SettingsWrapper = () => {
 
   return <Settings user={user} userRole={userRole} />;
 };
+*/
 
-// Support Center Wrapper Component
+// Support Center Wrapper Component - temporarily commented out
+/*
 const SupportCenterWrapper = () => {
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState('user');
@@ -141,8 +126,10 @@ const SupportCenterWrapper = () => {
     />
   );
 };
+*/
 
-// Sync Provider Component
+// Sync Provider Component - temporarily commented out
+/*
 const SyncProvider = ({ children }: { children: React.ReactNode }) => {
   const sync = useSync({
     enableLoveableSync: true,
@@ -169,6 +156,7 @@ const SyncProvider = ({ children }: { children: React.ReactNode }) => {
 
   return <>{children}</>;
 };
+*/
 
 const App = () => {
   // Initialize theme immediately
@@ -185,6 +173,17 @@ const App = () => {
     }
   }, []);
 
+  // Temporary simplified version for debugging
+  return (
+    <div style={{ padding: '20px', color: 'white', backgroundColor: 'black', minHeight: '100vh' }}>
+      <h1>Statpedia App Loading...</h1>
+      <p>If you see this, the React app is working but there might be an issue with the main components.</p>
+      <p>Current time: {new Date().toLocaleTimeString()}</p>
+    </div>
+  );
+
+  // Original complex version - commented out for debugging
+  /*
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -208,6 +207,7 @@ const App = () => {
       </TooltipProvider>
     </QueryClientProvider>
   );
+  */
 };
 
 export default App;
