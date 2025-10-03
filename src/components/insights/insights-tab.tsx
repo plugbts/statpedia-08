@@ -590,9 +590,9 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
           )}
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {gameInsights.map(renderGameInsight)}
-            {playerInsights.map(renderPlayerInsight)}
-            {moneylineInsights.map(renderMoneylineInsight)}
+            {gameInsights.filter(insight => insight && insight.insight_id).map(renderGameInsight)}
+            {playerInsights.filter(insight => insight && insight.insight_id).map(renderPlayerInsight)}
+            {moneylineInsights.filter(insight => insight && insight.insight_id).map(renderMoneylineInsight)}
           </div>
           
           {/* No Data Available Message */}
@@ -619,7 +619,7 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
         {/* Game Insights */}
         <TabsContent value="game" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {gameInsights.map(renderGameInsight)}
+            {gameInsights.filter(insight => insight && insight.insight_id).map(renderGameInsight)}
           </div>
           
           {/* No Game Data Available */}
@@ -645,7 +645,7 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
         {/* Player Insights */}
         <TabsContent value="player" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {playerInsights.map(renderPlayerInsight)}
+            {playerInsights.filter(insight => insight && insight.insight_id).map(renderPlayerInsight)}
           </div>
           
           {/* No Player Data Available */}
@@ -686,7 +686,7 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
                   AI-powered analysis of moneyline trends and underdog opportunities
                 </p>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {moneylineInsights.map(renderMoneylineInsight)}
+                  {moneylineInsights.filter(insight => insight && insight.insight_id).map(renderMoneylineInsight)}
                 </div>
               </div>
             )}
@@ -837,8 +837,10 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
           <p className="text-2xl font-bold text-foreground">
             {Math.round(
               [...gameInsights, ...playerInsights, ...moneylineInsights]
+                .filter(insight => insight && insight.insight_id && typeof insight.confidence === 'number')
                 .reduce((acc, insight) => acc + insight.confidence, 0) / 
-              (gameInsights.length + playerInsights.length + moneylineInsights.length)
+              [...gameInsights, ...playerInsights, ...moneylineInsights]
+                .filter(insight => insight && insight.insight_id && typeof insight.confidence === 'number').length || 1
             )}%
           </p>
           <p className="text-sm text-muted-foreground">Overall accuracy</p>

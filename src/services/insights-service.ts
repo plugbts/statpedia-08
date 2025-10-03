@@ -149,7 +149,7 @@ class InsightsService {
       this.cache.set(cacheKey, { data: insights, timestamp: now });
       
       console.log(`✅ [InsightsService] Successfully generated ${insights.length} real game insights for ${sport}`);
-      return insights;
+      return insights.filter(insight => insight && insight.insight_id);
     } catch (error) {
       console.error(`❌ [InsightsService] Failed to fetch game insights for ${sport}:`, error);
       // Return empty array - no sample data
@@ -181,7 +181,7 @@ class InsightsService {
       this.cache.set(cacheKey, { data: insights, timestamp: now });
       
       console.log(`✅ [InsightsService] Successfully generated ${insights.length} real player insights for ${sport}`);
-      return insights;
+      return insights.filter(insight => insight && insight.insight_id);
     } catch (error) {
       console.error(`❌ [InsightsService] Failed to fetch player insights for ${sport}:`, error);
       // Return empty array - no sample data
@@ -213,7 +213,7 @@ class InsightsService {
       this.cache.set(cacheKey, { data: insights, timestamp: now });
       
       console.log(`✅ [InsightsService] Successfully generated ${insights.length} real moneyline insights for ${sport}`);
-      return insights;
+      return insights.filter(insight => insight && insight.insight_id);
     } catch (error) {
       console.error(`❌ [InsightsService] Failed to fetch moneyline insights for ${sport}:`, error);
       // Return empty array - no sample data
