@@ -952,7 +952,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
       {isLoading && (
         <div className="text-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-4 border-primary border-t-transparent mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Give us time get you ahead of vegas!</p>
+          <p className="text-muted-foreground">Give us time to get you ahead of vegas!</p>
         </div>
       )}
 
