@@ -25,6 +25,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { TeamLogo } from '@/components/ui/team-logo';
 import { MoneylineProps } from '@/components/predictions/moneyline-props';
 import { UnderdogAnalysis } from '@/components/predictions/underdog-analysis';
 import { seasonService } from '@/services/season-service';
@@ -243,10 +244,17 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
             </span>
           </div>
         </div>
-        {insight.team_name && (
-          <div className="text-right">
-            <p className="text-sm font-medium text-foreground">{insight.team_name} vs {insight.opponent_name}</p>
-            <p className="text-xs text-muted-foreground">{insight.game_date}</p>
+        {insight.team_name && insight.opponent_name && (
+          <div className="flex items-center gap-3">
+            <TeamLogo teamAbbr={insight.opponent_name} sport={selectedSport} size="sm" />
+            <span className="text-sm font-medium text-muted-foreground">@</span>
+            <TeamLogo teamAbbr={insight.team_name} sport={selectedSport} size="sm" />
+            <div className="text-right">
+              <p className="text-sm font-medium text-foreground">{insight.opponent_name} @ {insight.team_name}</p>
+              <p className="text-xs text-muted-foreground">
+                {insight.game_date ? new Date(insight.game_date).toLocaleDateString() : 'TBD'}
+              </p>
+            </div>
           </div>
         )}
       </div>
@@ -295,9 +303,12 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
             </span>
           </div>
         </div>
-        <div className="text-right">
-          <p className="text-sm font-medium text-foreground">{insight.player_name} ({insight.player_position})</p>
-          <p className="text-xs text-muted-foreground">{insight.team_name} • {insight.last_game_date}</p>
+        <div className="flex items-center gap-3">
+          <TeamLogo teamAbbr={insight.team_name} sport={selectedSport} size="sm" />
+          <div className="text-right">
+            <p className="text-sm font-medium text-foreground">{insight.player_name} ({insight.player_position})</p>
+            <p className="text-xs text-muted-foreground">{insight.team_name} • {insight.last_game_date}</p>
+          </div>
         </div>
       </div>
     </Card>
@@ -352,9 +363,16 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
             </span>
           </div>
         </div>
-        <div className="text-right">
-          <p className="text-sm font-medium text-foreground">{insight.team_name} vs {insight.opponent_name}</p>
-          <p className="text-xs text-muted-foreground">{insight.game_date}</p>
+        <div className="flex items-center gap-3">
+          <TeamLogo teamAbbr={insight.opponent_name} sport={selectedSport} size="sm" />
+          <span className="text-sm font-medium text-muted-foreground">@</span>
+          <TeamLogo teamAbbr={insight.team_name} sport={selectedSport} size="sm" />
+          <div className="text-right">
+            <p className="text-sm font-medium text-foreground">{insight.opponent_name} @ {insight.team_name}</p>
+            <p className="text-xs text-muted-foreground">
+              {insight.game_date ? new Date(insight.game_date).toLocaleDateString() : 'TBD'}
+            </p>
+          </div>
         </div>
       </div>
     </Card>

@@ -218,24 +218,14 @@ class InsightsService {
           insight_type: 'game_analysis',
           title: `${event.teams.away.names.short} @ ${event.teams.home.names.short}`,
           description: `Game analysis for ${event.teams.away.names.medium} vs ${event.teams.home.names.medium}`,
-          confidence: 0.9,
-          impact: 'high',
-          category: 'game',
-          sport: sport,
+          value: Math.round(Math.random() * 20 + 70), // 70-90% range
+          trend: Math.random() > 0.5 ? 'up' : 'down',
+          change_percent: Math.round(Math.random() * 15 + 5), // 5-20% range
+          confidence: Math.round(Math.random() * 15 + 80), // 80-95% range
+          team_name: event.teams.home.names.short,
+          opponent_name: event.teams.away.names.short,
           game_date: event.status.startsAt,
-          game_time: event.status.startsAt,
-          home_team: event.teams.home.names.short,
-          away_team: event.teams.away.names.short,
-          analysis: `Game between ${event.teams.away.names.medium} and ${event.teams.home.names.medium}. Status: ${event.status.displayLong}. League: ${event.leagueID}`,
-          key_factors: [
-            `Game status: ${event.status.displayLong}`,
-            `Started: ${event.status.started ? 'Yes' : 'No'}`,
-            `Live: ${event.status.live ? 'Yes' : 'No'}`,
-            `Odds available: ${event.status.oddsAvailable ? 'Yes' : 'No'}`,
-            `League: ${event.leagueID}`,
-            `Sport: ${event.sportID}`
-          ],
-          timestamp: new Date().toISOString()
+          created_at: new Date().toISOString()
         };
         insights.push(insight);
       }
@@ -298,7 +288,7 @@ class InsightsService {
     if (playerProps.length === 0) return insights;
     
     // Group player props by player
-    const playerGroups = playerProps.reduce((acc, prop) => {
+    const playerGroups = playerProps.reduce((acc, prop: any) => {
       const playerName = prop.playerName;
       if (!acc[playerName]) {
         acc[playerName] = [];
@@ -309,8 +299,8 @@ class InsightsService {
     
     // Generate insights for each player
     Object.entries(playerGroups).forEach(([playerName, props]) => {
-      if (props.length > 0) {
-        const firstProp = props[0];
+      if ((props as any[]).length > 0) {
+        const firstProp = (props as any[])[0];
         const streakValue = Math.round(Math.random() * 20 + 60); // 60-80% range
         
         insights.push({
@@ -407,27 +397,16 @@ class InsightsService {
           insight_id: `moneyline_${event.eventID}`,
           insight_type: 'moneyline',
           title: `${event.teams.away.names.short} @ ${event.teams.home.names.short}`,
-          description: `Live moneyline analysis for ${event.teams.away.names.medium} vs ${event.teams.home.names.medium}`,
-          confidence: 0.85,
-          impact: 'high',
-          category: 'moneyline',
-          sport: sport,
+          description: `Moneyline analysis for ${event.teams.away.names.medium} vs ${event.teams.home.names.medium}`,
+          value: Math.round(Math.random() * 25 + 60), // 60-85% range
+          trend: Math.random() > 0.5 ? 'up' : 'down',
+          change_percent: Math.round(Math.random() * 12 + 3), // 3-15% range
+          confidence: Math.round(Math.random() * 20 + 75), // 75-95% range
+          team_name: event.teams.home.names.short,
+          opponent_name: event.teams.away.names.short,
           game_date: event.status.startsAt,
-          game_time: event.status.startsAt,
-          home_team: event.teams.home.names.short,
-          away_team: event.teams.away.names.short,
-          home_odds: '-110', // Default odds
-          away_odds: '-110', // Default odds
-          draw_odds: null,
-          recommendation: 'neutral',
-          analysis: `Game between ${event.teams.away.names.medium} and ${event.teams.home.names.medium}. Status: ${event.status.displayLong}. League: ${event.leagueID}`,
-          key_factors: [
-            `Game status: ${event.status.displayLong}`,
-            `Started: ${event.status.started ? 'Yes' : 'No'}`,
-            `Live: ${event.status.live ? 'Yes' : 'No'}`,
-            `Odds available: ${event.status.oddsAvailable ? 'Yes' : 'No'}`
-          ],
-          timestamp: new Date().toISOString()
+          underdog_opportunity: Math.random() > 0.7, // 30% chance of underdog opportunity
+          created_at: new Date().toISOString()
         };
         insights.push(insight);
       }
@@ -648,4 +627,3 @@ class InsightsService {
 
 // Export singleton instance
 export const insightsService = new InsightsService();
-export type { GameInsight, PlayerInsight, MoneylineInsight, PredictionAnalytics };
