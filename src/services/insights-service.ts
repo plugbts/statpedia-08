@@ -212,7 +212,12 @@ class InsightsService {
     const allowedSportIds = sportMapping[sport] || [];
     
     events.forEach((event, index) => {
-      if (event.status && event.teams && allowedSportIds.includes(event.sportID)) {
+      // Only show NFL data for NFL sport, filter out college and other leagues
+      const isNFLData = sport === 'nfl' && event.sportID === 'FOOTBALL' && 
+                       (event.leagueID === 'NFL' || event.leagueID === 'NFL_PLAYOFFS');
+      const isOtherSportData = sport !== 'nfl' && allowedSportIds.includes(event.sportID);
+      
+      if (event.status && event.teams && (isNFLData || isOtherSportData)) {
         const insight: GameInsight = {
           insight_id: `game_${event.eventID}`,
           insight_type: 'game_analysis',
@@ -301,20 +306,27 @@ class InsightsService {
     Object.entries(playerGroups).forEach(([playerName, props]) => {
       if ((props as any[]).length > 0) {
         const firstProp = (props as any[])[0];
+        
+        // Clean up player name - remove any weird characters or numbers
+        const cleanPlayerName = playerName.replace(/[0-9]/g, '').replace(/^[a-z]+/, '').trim();
+        const finalPlayerName = cleanPlayerName || playerName; // Fallback to original if cleaning removes everything
+        
+        console.log(`🔍 [InsightsService] Player name: "${playerName}" -> "${finalPlayerName}"`);
+        
         const streakValue = Math.round(Math.random() * 20 + 60); // 60-80% range
         
         insights.push({
-          insight_id: `hot_streak_${playerName}`,
+          insight_id: `hot_streak_${finalPlayerName}`,
           insight_type: 'hot_streak',
           title: 'Hot Streak',
-          description: `${playerName} has been performing exceptionally well`,
+          description: `${finalPlayerName} has been performing exceptionally well`,
           value: streakValue,
           trend: 'up',
           change_percent: Math.round(Math.random() * 15 + 5),
           confidence: Math.round(Math.random() * 10 + 85),
-          player_name: playerName,
+          player_name: finalPlayerName,
           team_name: firstProp.team,
-          player_position: this.getPlayerPosition(playerName, sport),
+          player_position: this.getPlayerPosition(finalPlayerName, sport),
           last_game_date: firstProp.gameTime ? new Date(firstProp.gameTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
           created_at: new Date().toISOString()
         });
@@ -392,7 +404,12 @@ class InsightsService {
     const allowedSportIds = sportMapping[sport] || [];
     
     events.forEach((event, index) => {
-      if (event.status && event.teams && allowedSportIds.includes(event.sportID)) {
+      // Only show NFL data for NFL sport, filter out college and other leagues
+      const isNFLData = sport === 'nfl' && event.sportID === 'FOOTBALL' && 
+                       (event.leagueID === 'NFL' || event.leagueID === 'NFL_PLAYOFFS');
+      const isOtherSportData = sport !== 'nfl' && allowedSportIds.includes(event.sportID);
+      
+      if (event.status && event.teams && (isNFLData || isOtherSportData)) {
         const insight: MoneylineInsight = {
           insight_id: `moneyline_${event.eventID}`,
           insight_type: 'moneyline',

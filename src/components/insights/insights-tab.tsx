@@ -229,9 +229,10 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
             <p className="text-sm text-muted-foreground">{insight.description}</p>
           </div>
         </div>
-        <Badge variant="outline" className="bg-primary/10 text-primary">
-          {insight.confidence}% confidence
-        </Badge>
+        <div className="text-right">
+          <div className="text-xs text-muted-foreground">Confidence</div>
+          <div className="text-sm font-bold text-primary">{insight.confidence}%</div>
+        </div>
       </div>
       
       <div className="flex items-center justify-between">
@@ -288,9 +289,10 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
             <p className="text-sm text-muted-foreground">{insight.description}</p>
           </div>
         </div>
-        <Badge variant="outline" className="bg-primary/10 text-primary">
-          {insight.confidence}% confidence
-        </Badge>
+        <div className="text-right">
+          <div className="text-xs text-muted-foreground">Confidence</div>
+          <div className="text-sm font-bold text-primary">{insight.confidence}%</div>
+        </div>
       </div>
       
       <div className="flex items-center justify-between">
@@ -342,9 +344,10 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
           </div>
         </div>
         <div className="flex flex-col gap-2">
-          <Badge variant="outline" className="bg-primary/10 text-primary">
-            {insight.confidence}% confidence
-          </Badge>
+          <div className="text-right">
+            <div className="text-xs text-muted-foreground">Confidence</div>
+            <div className="text-sm font-bold text-primary">{insight.confidence}%</div>
+          </div>
           {insight.underdog_opportunity && (
             <Badge variant="outline" className="bg-green-500/10 text-green-500">
               Underdog Opportunity
@@ -439,6 +442,46 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
         <p className="text-xs text-muted-foreground">
           Last updated: {lastRefresh.toLocaleTimeString()}
         </p>
+      </div>
+
+      {/* Explanation Key */}
+      <div className="bg-muted/20 border border-border/30 rounded-lg p-4">
+        <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+          <BarChart3 className="w-4 h-4" />
+          Understanding Your Insights
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-green-500 font-medium">↑ +12%</span>
+              <span className="text-muted-foreground">Trending up 12% this week</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-red-500 font-medium">↓ -8%</span>
+              <span className="text-muted-foreground">Trending down 8% this week</span>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Flame className="w-3 h-3 text-red-500" />
+              <span className="text-muted-foreground">Hot Streak: Player performing exceptionally well</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Target className="w-3 h-3 text-blue-500" />
+              <span className="text-muted-foreground">Game Analysis: Team vs team matchup insights</span>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-yellow-500 font-medium">85%</span>
+              <span className="text-muted-foreground">Confidence: How reliable this insight is</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-blue-500 font-medium">72%</span>
+              <span className="text-muted-foreground">Value: Performance metric or probability</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Filter Tabs */}
