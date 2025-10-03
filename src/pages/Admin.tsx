@@ -1,29 +1,31 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense, lazy } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Shield, Users, Ban, Gift, Activity, Mail, AlertTriangle, MessageSquare, Target, DollarSign, Lock, ArrowLeft, Terminal, TrendingUp, Cloud, Server } from "lucide-react";
-import { UserManagement } from "@/components/admin/user-management";
-import { DiscordManagement } from "@/components/admin/discord-management";
-import { PromoCodesAdmin } from "@/components/admin/promo-codes-admin";
-import { EmailCampaignsAdmin } from "@/components/admin/email-campaigns-admin";
-import { TrialAbuseAdmin } from "@/components/admin/trial-abuse-admin";
-import { AuditLogs } from "@/components/admin/audit-logs";
-import { SocialAdmin } from "@/components/admin/social-admin";
-import { PredictionsAdmin } from "@/components/admin/predictions-admin";
-import { AdManager } from "@/components/ads/ad-manager";
-import { SecurityDashboard } from "@/components/admin/security-dashboard";
-import { SyncStatus } from "@/components/sync/sync-status";
-import { DevConsole } from "@/components/admin/dev-console";
-import { CrossReferenceAnalysis } from "@/components/admin/cross-reference-analysis";
-import { ServerAPIDashboard } from "@/components/admin/server-api-dashboard";
-import { DualAIDebugger } from "@/components/admin/dual-ai-debugger";
-import { APIUsageChecker } from "@/components/debug/api-usage-checker";
-import { CloudflareR2UsagePanel } from "@/components/admin/cloudflare-r2-usage-panel";
-import { SportsGameOddsAPIUsagePanel } from "@/components/admin/sportsgameodds-api-usage-panel";
 import { useUser } from "@/contexts/user-context";
+
+// Lazy load admin components for better performance
+const UserManagement = lazy(() => import("@/components/admin/user-management").then(module => ({ default: module.UserManagement })));
+const DiscordManagement = lazy(() => import("@/components/admin/discord-management").then(module => ({ default: module.DiscordManagement })));
+const PromoCodesAdmin = lazy(() => import("@/components/admin/promo-codes-admin").then(module => ({ default: module.PromoCodesAdmin })));
+const EmailCampaignsAdmin = lazy(() => import("@/components/admin/email-campaigns-admin").then(module => ({ default: module.EmailCampaignsAdmin })));
+const TrialAbuseAdmin = lazy(() => import("@/components/admin/trial-abuse-admin").then(module => ({ default: module.TrialAbuseAdmin })));
+const AuditLogs = lazy(() => import("@/components/admin/audit-logs").then(module => ({ default: module.AuditLogs })));
+const SocialAdmin = lazy(() => import("@/components/admin/social-admin").then(module => ({ default: module.SocialAdmin })));
+const PredictionsAdmin = lazy(() => import("@/components/admin/predictions-admin").then(module => ({ default: module.PredictionsAdmin })));
+const AdManager = lazy(() => import("@/components/ads/ad-manager").then(module => ({ default: module.AdManager })));
+const SecurityDashboard = lazy(() => import("@/components/admin/security-dashboard").then(module => ({ default: module.SecurityDashboard })));
+const SyncStatus = lazy(() => import("@/components/sync/sync-status").then(module => ({ default: module.SyncStatus })));
+const DevConsole = lazy(() => import("@/components/admin/dev-console").then(module => ({ default: module.DevConsole })));
+const CrossReferenceAnalysis = lazy(() => import("@/components/admin/cross-reference-analysis").then(module => ({ default: module.CrossReferenceAnalysis })));
+const ServerAPIDashboard = lazy(() => import("@/components/admin/server-api-dashboard").then(module => ({ default: module.ServerAPIDashboard })));
+const DualAIDebugger = lazy(() => import("@/components/admin/dual-ai-debugger").then(module => ({ default: module.DualAIDebugger })));
+const APIUsageChecker = lazy(() => import("@/components/debug/api-usage-checker").then(module => ({ default: module.APIUsageChecker })));
+const CloudflareR2UsagePanel = lazy(() => import("@/components/admin/cloudflare-r2-usage-panel").then(module => ({ default: module.CloudflareR2UsagePanel })));
+const SportsGameOddsAPIUsagePanel = lazy(() => import("@/components/admin/sportsgameodds-api-usage-panel").then(module => ({ default: module.SportsGameOddsAPIUsagePanel })));
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -173,99 +175,135 @@ export default function Admin() {
                 </TabsTrigger>
               )}
               {userRole === 'owner' && (
-                <TabsTrigger value="api-usage" className="flex items-center gap-1 px-2 py-1 text-xs">
+                <TabsTrigger value="sportsgameodds-api" className="flex items-center gap-1 px-2 py-1 text-xs">
                   <Server className="h-3 w-3" />
-                  <span className="hidden sm:inline">API Usage</span>
+                  <span className="hidden sm:inline">SportsGameOdds API</span>
                 </TabsTrigger>
               )}
             </div>
           </TabsList>
 
           <TabsContent value="users" className="space-y-2 mt-2">
-            <UserManagement />
+            <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
+              <UserManagement />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="discord" className="space-y-2 mt-2">
-            <DiscordManagement />
+            <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
+              <DiscordManagement />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="promos" className="space-y-2 mt-2">
-            <PromoCodesAdmin />
+            <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
+              <PromoCodesAdmin />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="emails" className="space-y-2 mt-2">
-            <EmailCampaignsAdmin />
+            <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
+              <EmailCampaignsAdmin />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="abuse" className="space-y-2 mt-2">
-            <TrialAbuseAdmin />
+            <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
+              <TrialAbuseAdmin />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="logs" className="space-y-2 mt-2">
-            <AuditLogs />
+            <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
+              <AuditLogs />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="social" className="space-y-2 mt-2">
-            <SocialAdmin />
+            <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
+              <SocialAdmin />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="predictions" className="space-y-2 mt-2">
-            <PredictionsAdmin />
+            <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
+              <PredictionsAdmin />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="cross-reference" className="space-y-2 mt-2">
-            <CrossReferenceAnalysis />
+            <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
+              <CrossReferenceAnalysis />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="ads" className="space-y-2 mt-2">
-            <AdManager isAdmin={true} />
+            <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
+              <AdManager isAdmin={true} />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="security" className="space-y-2 mt-2">
-            <SecurityDashboard />
+            <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
+              <SecurityDashboard />
+            </Suspense>
           </TabsContent>
 
           {userRole === 'owner' && (
             <TabsContent value="dev-console" className="space-y-2 mt-2">
-              <DevConsole />
+              <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
+                <DevConsole />
+              </Suspense>
             </TabsContent>
           )}
 
           {userRole === 'owner' && (
             <TabsContent value="sync" className="space-y-2 mt-2">
-              <SyncStatus showDetails={true} />
+              <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
+                <SyncStatus showDetails={true} />
+              </Suspense>
             </TabsContent>
           )}
 
           {userRole === 'owner' && (
             <TabsContent value="api-usage" className="space-y-2 mt-2">
-              <APIUsageChecker />
+              <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
+                <APIUsageChecker />
+              </Suspense>
             </TabsContent>
           )}
 
-            {userRole === 'owner' && (
-              <TabsContent value="server-api" className="space-y-2 mt-2">
+          {userRole === 'owner' && (
+            <TabsContent value="server-api" className="space-y-2 mt-2">
+              <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
                 <ServerAPIDashboard />
-              </TabsContent>
-            )}
+              </Suspense>
+            </TabsContent>
+          )}
 
-            {userRole === 'owner' && (
-              <TabsContent value="dual-ai" className="space-y-2 mt-2">
+          {userRole === 'owner' && (
+            <TabsContent value="dual-ai" className="space-y-2 mt-2">
+              <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
                 <DualAIDebugger />
-              </TabsContent>
-            )}
+              </Suspense>
+            </TabsContent>
+          )}
 
-            {userRole === 'owner' && (
-              <TabsContent value="r2-usage" className="space-y-2 mt-2">
+          {userRole === 'owner' && (
+            <TabsContent value="r2-usage" className="space-y-2 mt-2">
+              <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
                 <CloudflareR2UsagePanel />
-              </TabsContent>
-            )}
+              </Suspense>
+            </TabsContent>
+          )}
 
-            {userRole === 'owner' && (
-              <TabsContent value="api-usage" className="space-y-2 mt-2">
+          {userRole === 'owner' && (
+            <TabsContent value="sportsgameodds-api" className="space-y-2 mt-2">
+              <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
                 <SportsGameOddsAPIUsagePanel />
-              </TabsContent>
-            )}
+              </Suspense>
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </div>
