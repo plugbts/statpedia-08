@@ -62,16 +62,24 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
 
   const fetchProfileAndRedirect = async (user: any) => {
     try {
-      const { data: profile } = await supabase
+      const { data: profile, error } = await supabase
         .from('profiles')
         .select('subscription_tier')
         .eq('user_id', user.id)
         .maybeSingle();
 
+      if (error) {
+        console.error('Error fetching profile:', error);
+        // If profiles table doesn't exist, just use default subscription
+        onAuthSuccess(user, 'free');
+        return;
+      }
+
       const subscription = profile?.subscription_tier || 'free';
       onAuthSuccess(user, subscription);
     } catch (error) {
       console.error('Error fetching profile:', error);
+      // Fallback to free subscription if profiles table doesn't exist
       onAuthSuccess(user, 'free');
     }
   };
