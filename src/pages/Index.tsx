@@ -460,8 +460,14 @@ const Index = () => {
 
   if (userLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      <div style={{ 
+        minHeight: '100vh', 
+        backgroundColor: '#0a0a0a', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center' 
+      }}>
+        <div className="animate-spin h-8 w-8 border-4 border-cyan-500 border-t-transparent rounded-full" />
       </div>
     );
   }
@@ -919,8 +925,14 @@ const Index = () => {
   // Show loading spinner while checking authentication
   if (userLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      <div style={{ 
+        minHeight: '100vh', 
+        backgroundColor: '#0a0a0a', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center' 
+      }}>
+        <div className="animate-spin h-8 w-8 border-4 border-cyan-500 border-t-transparent rounded-full" />
       </div>
     );
   }
@@ -929,8 +941,14 @@ const Index = () => {
   if (!user) {
     return (
       <Suspense fallback={
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+        <div style={{ 
+          minHeight: '100vh', 
+          backgroundColor: '#0a0a0a', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center' 
+        }}>
+          <div className="animate-spin h-8 w-8 border-4 border-cyan-500 border-t-transparent rounded-full" />
         </div>
       }>
         <AuthPage onAuthSuccess={() => {}} />
@@ -940,7 +958,7 @@ const Index = () => {
 
   // Show dashboard for authenticated users
   return (
-    <div className="min-h-screen bg-background relative">
+    <div className="min-h-screen bg-background relative" style={{ backgroundColor: '#0a0a0a' }}>
       <MatrixBackground />
       <Navigation 
         activeTab={activeTab} 

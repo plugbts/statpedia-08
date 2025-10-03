@@ -438,7 +438,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
 
   if (authMode === 'plans') {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4" style={{ backgroundColor: '#0a0a0a' }}>
         <div className="w-full max-w-6xl">
           <SubscriptionPlans 
             onSubscriptionSuccess={handleSubscriptionSuccess} 
@@ -450,7 +450,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4" style={{ backgroundColor: '#0a0a0a' }}>
       <div className="w-full max-w-md space-y-6">
         {/* Header */}
         <div className="text-center space-y-4">
