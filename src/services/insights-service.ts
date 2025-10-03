@@ -528,6 +528,9 @@ class InsightsService {
     // Remove leading/trailing hyphens and spaces
     cleaned = cleaned.replace(/^[- ]+|[- ]+$/g, '');
 
+    // Format name to proper case (first letter of each word capitalized)
+    cleaned = cleaned.toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+
     // If the cleaned name is too short or empty, return original
     if (cleaned.length < 2) {
       return playerName;

@@ -326,7 +326,9 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
         <div className="flex items-center gap-3">
           <TeamLogo teamAbbr={insight.team_name} sport={selectedSport} size="sm" />
           <div className="text-right">
-            <p className="text-sm font-medium text-foreground">{insight.player_name} ({insight.player_position})</p>
+            <p className="text-sm font-medium text-foreground">
+              <span className="animate-pulse-glow">{insight.player_name}</span> {insight.player_position}
+            </p>
             <p className="text-xs text-muted-foreground">{insight.team_name} • {insight.last_game_date}</p>
           </div>
         </div>
