@@ -15,6 +15,7 @@ import { PlayerPropsColumnView } from './player-props-column-view';
 import { EnhancedAnalysisOverlay } from '../predictions/enhanced-analysis-overlay';
 import { PlayerPropCardAd } from '@/components/ads/ad-placements';
 import { logAPI, logState, logFilter, logSuccess, logError, logWarning, logInfo, logDebug } from '@/utils/console-logger';
+import { evCalculatorService } from '@/services/ev-calculator';
 
 // Utility function for compact time formatting
 const formatCompactTime = (gameTime: string, gameDate: string) => {
@@ -94,6 +95,42 @@ interface PlayerPropsTabProps {
   selectedSport: string;
 }
 
+// Interface that matches the actual API response
+interface APIPlayerProp {
+  id: string;
+  playerId: string;
+  playerName: string;
+  team: string;
+  teamAbbr: string;
+  opponent: string;
+  opponentAbbr: string;
+  gameId: string;
+  sport: string;
+  propType: string;
+  line: number;
+  overOdds: number;
+  underOdds: number;
+  gameDate: string;
+  gameTime: string;
+  availableSportsbooks?: string[];
+  allSportsbookOdds?: any[];
+  available?: boolean;
+  awayTeam?: string;
+  homeTeam?: string;
+  betType?: string;
+  isExactAPIData?: boolean;
+  lastUpdate?: string;
+  market?: string;
+  marketName?: string;
+  outcome?: string;
+  period?: string;
+  statEntity?: string;
+  aiPrediction?: any;
+  recentForm?: any;
+}
+
+type ConsistentPlayerProp = PlayerProp;
+
 interface PlayerProp {
   id: string;
   playerId: string;
@@ -112,6 +149,8 @@ interface PlayerProp {
   gameTime: string;
   confidence?: number;
   expectedValue?: number;
+  aiRating?: number;
+  recommendation?: 'strong_bet' | 'good_bet' | 'neutral' | 'avoid' | 'strong_avoid';
   recentForm?: string;
   last5Games?: number[];
   seasonStats?: {
@@ -142,8 +181,21 @@ interface PlayerProp {
   weatherImpact?: string;
   matchupAnalysis?: string;
   historicalTrends?: string;
-  keyInsights?: string[];
+  // Additional properties from API
+  availableSportsbooks?: string[];
   allSportsbookOdds?: any[];
+  available?: boolean;
+  awayTeam?: string;
+  homeTeam?: string;
+  betType?: string;
+  isExactAPIData?: boolean;
+  lastUpdate?: string;
+  market?: string;
+  marketName?: string;
+  outcome?: string;
+  period?: string;
+  statEntity?: string;
+  keyInsights?: string[];
   confidenceFactors?: any[];
   marketId?: string;
 }
@@ -397,7 +449,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
           console.log(`📝 First 3 Props (Full Objects):`, props.slice(0, 3));
           
           // Analyze the first prop in detail
-          const firstProp = props[0];
+          const firstProp = (props as unknown as APIPlayerProp[])[0];
           console.log(`\n🔍 DETAILED FIRST PROP ANALYSIS:`);
           console.log(`📋 All Keys:`, Object.keys(firstProp));
           console.log(`🏠 Team Data:`, {
@@ -423,7 +475,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
           });
           
           // Check for UNK issues
-          const unkProps = props.filter(prop => 
+          const unkProps = (props as unknown as APIPlayerProp[]).filter(prop => 
             prop.team === 'UNK' || 
             prop.opponent === 'UNK' || 
             prop.teamAbbr === 'UNK' || 
@@ -444,7 +496,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
           }
           
           // Check for missing game data
-          const missingGameData = props.filter(prop => 
+          const missingGameData = (props as unknown as APIPlayerProp[]).filter(prop => 
             !prop.gameId || !prop.gameDate || prop.gameDate === 'Invalid Date'
           );
           console.log(`⚠️ Missing Game Data: ${missingGameData.length} props have missing game info`);
@@ -457,7 +509,66 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         if (props && Array.isArray(props) && props.length > 0) {
           logSuccess('PlayerPropsTab', `Setting ${props.length} server-side cached props for ${sport}`);
           logDebug('PlayerPropsTab', 'Backend props sample:', props.slice(0, 2));
-          setRealProps(props);
+          
+          // Calculate EV for each prop
+          const propsWithEV = (props as unknown as APIPlayerProp[]).map(prop => {
+            try {
+              // Calculate EV for both over and under, use the better one
+              const overEV = evCalculatorService.calculateAIRating({
+                id: prop.id,
+                playerName: prop.playerName,
+                propType: prop.propType,
+                line: prop.line,
+                odds: prop.overOdds?.toString() || '0',
+                sport: prop.sport || 'nfl',
+                team: prop.team || '',
+                opponent: prop.opponent || '',
+                gameDate: prop.gameDate || new Date().toISOString(),
+                hitRate: 0.5, // Default 50% hit rate
+                recentForm: 0.5, // Default 50% recent form
+                injuryStatus: 'healthy',
+                restDays: 3
+              });
+              
+              const underEV = evCalculatorService.calculateAIRating({
+                id: prop.id,
+                playerName: prop.playerName,
+                propType: prop.propType,
+                line: prop.line,
+                odds: prop.underOdds?.toString() || '0',
+                sport: prop.sport || 'nfl',
+                team: prop.team || '',
+                opponent: prop.opponent || '',
+                gameDate: prop.gameDate || new Date().toISOString(),
+                hitRate: 0.5,
+                recentForm: 0.5,
+                injuryStatus: 'healthy',
+                restDays: 3
+              });
+              
+              // Use the better EV (higher percentage)
+              const bestEV = overEV.evPercentage > underEV.evPercentage ? overEV : underEV;
+              
+              return {
+                ...prop,
+                expectedValue: bestEV.evPercentage / 100, // Convert to decimal
+                confidence: bestEV.confidence / 100, // Convert to decimal
+                aiRating: bestEV.aiRating,
+                recommendation: bestEV.recommendation
+              };
+            } catch (error) {
+              console.warn('EV calculation failed for prop:', prop.playerName, error);
+              return {
+                ...prop,
+                expectedValue: 0,
+                confidence: 0.5,
+                aiRating: 3,
+                recommendation: 'neutral'
+              };
+            }
+          });
+          
+          setRealProps(propsWithEV as PlayerProp[]);
           
           // Log success to console (visible in dev console)
           logSuccess('PlayerPropsTab', `Player Props Loaded: Found ${props.length} server-side cached props for ${sport.toUpperCase()} with exact sportsbook odds`);
