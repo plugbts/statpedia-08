@@ -108,6 +108,21 @@ class SportsGameOddsEdgeAPI {
           return event.sportID === 'FOOTBALL' && 
                  (event.leagueID === 'NFL' || event.leagueID === 'NFL_PLAYOFFS');
         }
+        // For MLB, include regular season and playoff games
+        if (sport.toLowerCase() === 'mlb') {
+          return event.sportID === 'BASEBALL' && 
+                 (event.leagueID === 'MLB' || event.leagueID === 'MLB_PLAYOFFS' || event.leagueID === 'MLB_POSTSEASON');
+        }
+        // For NBA, include regular season and playoff games
+        if (sport.toLowerCase() === 'nba') {
+          return event.sportID === 'BASKETBALL' && 
+                 (event.leagueID === 'NBA' || event.leagueID === 'NBA_PLAYOFFS' || event.leagueID === 'NBA_POSTSEASON');
+        }
+        // For NHL, include regular season and playoff games
+        if (sport.toLowerCase() === 'nhl') {
+          return event.sportID === 'HOCKEY' && 
+                 (event.leagueID === 'NHL' || event.leagueID === 'NHL_PLAYOFFS' || event.leagueID === 'NHL_POSTSEASON');
+        }
         // For other sports, just match the sport ID
         return event.sportID === expectedSportId;
       });
@@ -158,6 +173,21 @@ class SportsGameOddsEdgeAPI {
         if (sport.toLowerCase() === 'nfl') {
           return event.sportID === 'FOOTBALL' && 
                  (event.leagueID === 'NFL' || event.leagueID === 'NFL_PLAYOFFS');
+        }
+        // For MLB, include regular season and playoff games
+        if (sport.toLowerCase() === 'mlb') {
+          return event.sportID === 'BASEBALL' && 
+                 (event.leagueID === 'MLB' || event.leagueID === 'MLB_PLAYOFFS' || event.leagueID === 'MLB_POSTSEASON');
+        }
+        // For NBA, include regular season and playoff games
+        if (sport.toLowerCase() === 'nba') {
+          return event.sportID === 'BASKETBALL' && 
+                 (event.leagueID === 'NBA' || event.leagueID === 'NBA_PLAYOFFS' || event.leagueID === 'NBA_POSTSEASON');
+        }
+        // For NHL, include regular season and playoff games
+        if (sport.toLowerCase() === 'nhl') {
+          return event.sportID === 'HOCKEY' && 
+                 (event.leagueID === 'NHL' || event.leagueID === 'NHL_PLAYOFFS' || event.leagueID === 'NHL_POSTSEASON');
         }
         // For other sports, just match the sport ID
         return event.sportID === expectedSportId;
