@@ -15,6 +15,8 @@ import { PlayerPropsColumnView } from './player-props-column-view';
 import { EnhancedAnalysisOverlay } from '../predictions/enhanced-analysis-overlay';
 import { PlayerPropCardAd } from '@/components/ads/ad-placements';
 import { logAPI, logState, logFilter, logSuccess, logError, logWarning, logInfo, logDebug } from '@/utils/console-logger';
+import { AdvancedPredictionDisplay } from '@/components/advanced-prediction-display';
+import { advancedPredictionService, ComprehensivePrediction } from '@/services/advanced-prediction-service';
 import { evCalculatorService } from '@/services/ev-calculator';
 
 // Utility function for compact time formatting
@@ -231,6 +233,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const [showMyPicks, setShowMyPicks] = useState(false);
   const [selectedPropForEnhancedAnalysis, setSelectedPropForEnhancedAnalysis] = useState<PlayerProp | null>(null);
   const [showEnhancedAnalysis, setShowEnhancedAnalysis] = useState(false);
+  const [selectedPropForAdvancedAnalysis, setSelectedPropForAdvancedAnalysis] = useState<PlayerProp | null>(null);
+  const [showAdvancedAnalysis, setShowAdvancedAnalysis] = useState(false);
+  const [advancedPrediction, setAdvancedPrediction] = useState<ComprehensivePrediction | null>(null);
+  const [isGeneratingAdvancedPrediction, setIsGeneratingAdvancedPrediction] = useState(false);
   const [sortBy, setSortBy] = useState<'confidence' | 'ev' | 'line' | 'player'>('confidence');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [minConfidence, setMinConfidence] = useState(0);
@@ -511,10 +517,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
           logDebug('PlayerPropsTab', 'Backend props sample:', props.slice(0, 2));
           
           // Calculate EV for each prop
-          const propsWithEV = (props as unknown as APIPlayerProp[]).map(prop => {
+          const propsWithEV = await Promise.all((props as unknown as APIPlayerProp[]).map(async prop => {
             try {
               // Calculate EV for both over and under, use the better one
-              const overEV = evCalculatorService.calculateAIRating({
+              const overEV = await evCalculatorService.calculateAIRating({
                 id: prop.id,
                 playerName: prop.playerName,
                 propType: prop.propType,
@@ -530,7 +536,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                 restDays: 3
               });
               
-              const underEV = evCalculatorService.calculateAIRating({
+              const underEV = await evCalculatorService.calculateAIRating({
                 id: prop.id,
                 playerName: prop.playerName,
                 propType: prop.propType,
@@ -566,7 +572,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                 recommendation: 'neutral'
               };
             }
-          });
+          }));
           
           setRealProps(propsWithEV as PlayerProp[]);
           
@@ -896,6 +902,47 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const handleEnhancedAnalysis = (prop: PlayerProp) => {
     setSelectedPropForEnhancedAnalysis(prop);
     setShowEnhancedAnalysis(true);
+  };
+
+  // Generate advanced prediction
+  const generateAdvancedPrediction = async (prop: PlayerProp) => {
+    try {
+      setIsGeneratingAdvancedPrediction(true);
+      setSelectedPropForAdvancedAnalysis(prop);
+      
+      const predictionRequest = {
+        playerId: prop.playerId || prop.id,
+        playerName: prop.playerName,
+        propType: prop.propType,
+        line: prop.line,
+        gameId: prop.gameId || `game_${Date.now()}`,
+        team: prop.team,
+        opponent: prop.opponent || 'Unknown',
+        gameDate: prop.gameDate || new Date().toISOString(),
+        odds: {
+          over: prop.overOdds || -110,
+          under: prop.underOdds || -110,
+        },
+      };
+      
+      const comprehensivePrediction = await advancedPredictionService.generateComprehensivePrediction(predictionRequest);
+      setAdvancedPrediction(comprehensivePrediction);
+      setShowAdvancedAnalysis(true);
+      
+      toast({
+        title: "Advanced Analysis Complete",
+        description: `Generated comprehensive prediction for ${prop.playerName}`,
+      });
+    } catch (error) {
+      console.error('Error generating advanced prediction:', error);
+      toast({
+        title: "Analysis Error",
+        description: "Failed to generate advanced prediction. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingAdvancedPrediction(false);
+    }
   };
 
   // Get maximum line value based on sport
@@ -1385,6 +1432,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                     key={prop.id || `prop-${prop.playerId}-${prop.propType}-${index}`}
                     prop={prop as any}
                     onAnalysisClick={handleEnhancedAnalysis}
+                    onAdvancedAnalysisClick={generateAdvancedPrediction}
                     isSelected={selectedProps.includes(prop.id)}
                     onSelect={showSelection ? (propId) => {
                       setSelectedProps(prev => 
@@ -1455,6 +1503,18 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
             setSelectedPropForEnhancedAnalysis(null);
           }}
         />
+
+        {/* Advanced Analysis Modal */}
+        {advancedPrediction && (
+          <AdvancedPredictionDisplay
+            prediction={advancedPrediction}
+            onClose={() => {
+              setShowAdvancedAnalysis(false);
+              setAdvancedPrediction(null);
+              setSelectedPropForAdvancedAnalysis(null);
+            }}
+          />
+        )}
       </div>
     </div>
   );

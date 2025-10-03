@@ -80,6 +80,7 @@ interface PlayerProp {
 interface PlayerPropCardProps {
   prop: PlayerProp;
   onAnalysisClick: (prop: PlayerProp) => void;
+  onAdvancedAnalysisClick?: (prop: PlayerProp) => void;
   isSelected?: boolean;
   onSelect?: (propId: string) => void;
   showSelection?: boolean;
@@ -88,8 +89,9 @@ interface PlayerPropCardProps {
 export function PlayerPropCard3D({ 
   prop, 
   onAnalysisClick, 
+  onAdvancedAnalysisClick,
   isSelected = false, 
-  onSelect,
+  onSelect, 
   showSelection = false 
 }: PlayerPropCardProps) {
   const [isHovered, setIsHovered] = useState(false);
@@ -541,7 +543,7 @@ export function PlayerPropCard3D({
             </div>
 
           {/* View Analysis Button - Always Visible */}
-          <div className="mt-2 pt-2 border-t border-slate-700/50">
+          <div className="mt-2 pt-2 border-t border-slate-700/50 space-y-2">
             <Button
               className={cn(
                 "w-full bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700",
@@ -560,6 +562,28 @@ export function PlayerPropCard3D({
               View Analysis
               <ChevronRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform duration-300" />
             </Button>
+            
+            {/* Advanced Analysis Button */}
+            {onAdvancedAnalysisClick && (
+              <Button
+                className={cn(
+                  "w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500",
+                  "text-white font-semibold py-2 px-3 rounded-lg text-sm",
+                  "transition-all duration-300 ease-out",
+                  "hover:shadow-lg hover:shadow-blue-500/25",
+                  "border border-blue-500/50",
+                  "group"
+                )}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAdvancedAnalysisClick(prop);
+                }}
+              >
+                <Sparkles className="h-4 w-4 mr-2" />
+                Advanced AI Analysis
+                <ChevronRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform duration-300" />
+              </Button>
+            )}
           </div>
           </CardContent>
         </SeasonalCardBackground>

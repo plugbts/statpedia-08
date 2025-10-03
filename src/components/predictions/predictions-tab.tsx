@@ -29,7 +29,6 @@ import {
   XCircle,
   Star,
   Eye,
-  Filter,
   SortAsc,
   SortDesc,
   Download,
@@ -44,6 +43,10 @@ import { seasonService } from '@/services/season-service';
 import { cloudflarePlayerPropsAPI } from '@/services/cloudflare-player-props-api';
 import { evCalculatorService } from '@/services/ev-calculator';
 import { logAPI, logState, logFilter, logSuccess, logError, logWarning, logInfo, logDebug } from '@/utils/console-logger';
+import { AdvancedPredictionDisplay } from '@/components/advanced-prediction-display';
+import { advancedPredictionService, ComprehensivePrediction } from '@/services/advanced-prediction-service';
+import { EnhancedAnalysisOverlay } from './enhanced-analysis-overlay';
+import { AdvancedPredictionCard } from './advanced-prediction-card';
 
 // Interface for all market types
 interface MarketData {
@@ -102,8 +105,6 @@ interface MarketData {
 interface PredictionWithUI extends MarketData {
   isBookmarked?: boolean;
 }
-import { EnhancedAnalysisOverlay } from './enhanced-analysis-overlay';
-import { AdvancedPredictionCard } from './advanced-prediction-card';
 
 interface PredictionsTabProps {
   selectedSport: string;
@@ -186,6 +187,10 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
   const [seasonLoading, setSeasonLoading] = useState(true);
   const [selectedPrediction, setSelectedPrediction] = useState<PredictionWithUI | null>(null);
   const [showPredictionModal, setShowPredictionModal] = useState(false);
+  const [selectedPropForAdvancedAnalysis, setSelectedPropForAdvancedAnalysis] = useState<PredictionWithUI | null>(null);
+  const [showAdvancedAnalysis, setShowAdvancedAnalysis] = useState(false);
+  const [advancedPrediction, setAdvancedPrediction] = useState<ComprehensivePrediction | null>(null);
+  const [isGeneratingAdvancedPrediction, setIsGeneratingAdvancedPrediction] = useState(false);
   const { toast } = useToast();
 
   const isSubscribed = userRole === 'owner' || userSubscription !== 'free';
@@ -287,7 +292,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
                 try {
                   // Calculate EV for player props
                   if (market.marketType === 'player-prop' || market.propType) {
-                    const overEV = evCalculatorService.calculateAIRating({
+                    const overEV = await evCalculatorService.calculateAIRating({
                       id: market.id,
                       playerName: market.playerName || 'Unknown',
                       propType: market.propType || 'Unknown',
@@ -303,7 +308,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
                       restDays: 3
                     });
                     
-                    const underEV = evCalculatorService.calculateAIRating({
+                    const underEV = await evCalculatorService.calculateAIRating({
                       id: market.id,
                       playerName: market.playerName || 'Unknown',
                       propType: market.propType || 'Unknown',
@@ -648,6 +653,47 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
     setShowPredictionModal(false);
   };
 
+  // Generate advanced prediction using our comprehensive AI system
+  const generateAdvancedPrediction = async (prediction: PredictionWithUI) => {
+    try {
+      setIsGeneratingAdvancedPrediction(true);
+      setSelectedPropForAdvancedAnalysis(prediction);
+      
+      const predictionRequest = {
+        playerId: prediction.playerId || prediction.id,
+        playerName: prediction.playerName || 'Unknown Player',
+        propType: prediction.propType || 'Unknown Prop',
+        line: prediction.line || 0,
+        gameId: prediction.gameId || `game_${Date.now()}`,
+        team: prediction.team || prediction.homeTeam || 'Unknown',
+        opponent: prediction.opponent || prediction.awayTeam || 'Unknown',
+        gameDate: prediction.gameDate || new Date().toISOString(),
+        odds: {
+          over: prediction.overOdds || -110,
+          under: prediction.underOdds || -110,
+        },
+      };
+      
+      const comprehensivePrediction = await advancedPredictionService.generateComprehensivePrediction(predictionRequest);
+      setAdvancedPrediction(comprehensivePrediction);
+      setShowAdvancedAnalysis(true);
+      
+      toast({
+        title: "Advanced AI Analysis Complete",
+        description: `Generated comprehensive prediction for ${prediction.playerName || 'this prop'}`,
+      });
+    } catch (error) {
+      console.error('Error generating advanced prediction:', error);
+      toast({
+        title: "Analysis Error",
+        description: "Failed to generate advanced prediction. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingAdvancedPrediction(false);
+    }
+  };
+
   const filteredPredictions = predictions.filter(prediction => {
     if (filterRisk !== 'all' && getRiskLevel(prediction) !== filterRisk) return false;
     if (showLiveOnly && !prediction.available) return false;
@@ -918,6 +964,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
                     key={prediction.id}
                     prediction={prediction}
                     onBookmark={toggleBookmark}
+                    onAdvancedAnalysisClick={generateAdvancedPrediction}
                   />
                 ))}
               </div>
@@ -1133,6 +1180,18 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
         isOpen={showPredictionModal}
         onClose={() => setShowPredictionModal(false)}
       />
+
+      {/* Advanced AI Analysis Modal */}
+      {advancedPrediction && (
+        <AdvancedPredictionDisplay
+          prediction={advancedPrediction}
+          onClose={() => {
+            setShowAdvancedAnalysis(false);
+            setAdvancedPrediction(null);
+            setSelectedPropForAdvancedAnalysis(null);
+          }}
+        />
+      )}
 
       {/* Confidence Interval Dialog - REMOVED to prevent double overlay */}
     </div>

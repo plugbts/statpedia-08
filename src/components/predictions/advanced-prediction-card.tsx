@@ -81,6 +81,7 @@ interface AdvancedPredictionCardProps {
     lastUpdate?: string;
   };
   onBookmark?: (id: string) => void;
+  onAdvancedAnalysisClick?: (prediction: any) => void;
 }
 
 const getRiskLevel = (prediction: AdvancedPredictionCardProps['prediction']): 'low' | 'medium' | 'high' => {
@@ -243,7 +244,8 @@ const generateDetailedAnalysis = (prediction: AdvancedPredictionCardProps['predi
 
 export const AdvancedPredictionCard: React.FC<AdvancedPredictionCardProps> = ({
   prediction,
-  onBookmark
+  onBookmark,
+  onAdvancedAnalysisClick
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -672,6 +674,31 @@ export const AdvancedPredictionCard: React.FC<AdvancedPredictionCardProps> = ({
               )}
             </AnimatePresence>
           </motion.div>
+          
+          {/* Advanced AI Analysis Button */}
+          {onAdvancedAnalysisClick && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8 }}
+            >
+              <Button
+                className={cn(
+                  "w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500",
+                  "text-white font-bold py-3 px-4 rounded-xl text-base",
+                  "transition-all duration-300 ease-out",
+                  "hover:shadow-lg hover:shadow-purple-500/25",
+                  "border border-purple-500/50",
+                  "group"
+                )}
+                onClick={() => onAdvancedAnalysisClick(prediction)}
+              >
+                <Sparkles className="h-5 w-5 mr-3" />
+                Advanced AI Analysis
+                <ArrowRight className="h-5 w-5 ml-3 group-hover:translate-x-1 transition-transform duration-300" />
+              </Button>
+            </motion.div>
+          )}
         </CardContent>
       </Card>
     </motion.div>

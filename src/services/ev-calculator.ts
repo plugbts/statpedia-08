@@ -1,5 +1,8 @@
 // Expected Value (EV) Calculator Service
 // Calculates EV%, ROI, and AI-powered ratings for player props
+// Enhanced with advanced prediction engine integration
+
+import { advancedPredictionService, ComprehensivePrediction } from './advanced-prediction-service';
 
 export interface EVCalculation {
   evPercentage: number;
@@ -8,6 +11,7 @@ export interface EVCalculation {
   confidence: number; // 0-100%
   factors: EVFactor[];
   recommendation: 'strong_bet' | 'good_bet' | 'neutral' | 'avoid' | 'strong_avoid';
+  advancedAnalysis?: ComprehensivePrediction;
 }
 
 export interface EVFactor {
@@ -65,8 +69,8 @@ class EVCalculatorService {
     return 1 / decimalOdds;
   }
 
-  // AI-powered EV rating system
-  calculateAIRating(propData: PlayerPropData): EVCalculation {
+  // AI-powered EV rating system with advanced analysis
+  async calculateAIRating(propData: PlayerPropData): Promise<EVCalculation> {
     const factors = this.analyzeFactors(propData);
     const baseProbability = this.calculateProbability(propData.odds);
     const adjustedProbability = this.adjustProbabilityWithFactors(baseProbability, factors);
@@ -77,13 +81,53 @@ class EVCalculatorService {
     const confidence = this.calculateConfidence(factors);
     const recommendation = this.getRecommendation(evPercentage, aiRating);
 
+    // Get advanced analysis if available
+    let advancedAnalysis: ComprehensivePrediction | undefined;
+    try {
+      const predictionRequest = {
+        playerId: propData.id,
+        playerName: propData.playerName,
+        propType: propData.propType,
+        line: propData.line,
+        gameId: `game_${Date.now()}`,
+        team: propData.team,
+        opponent: propData.opponent,
+        gameDate: propData.gameDate,
+        odds: {
+          over: this.convertToAmericanOdds(propData.odds),
+          under: this.convertToAmericanOdds(propData.odds),
+        },
+      };
+      
+      advancedAnalysis = await advancedPredictionService.generateComprehensivePrediction(predictionRequest);
+      
+      // Use advanced analysis to enhance EV calculation
+      if (advancedAnalysis) {
+        const enhancedEV = (evPercentage + advancedAnalysis.expectedValue) / 2;
+        const enhancedConfidence = Math.max(confidence, advancedAnalysis.confidence);
+        
+        return {
+          evPercentage: enhancedEV,
+          roiPercentage: this.calculateROI(enhancedEV),
+          aiRating: this.calculateStarRating(enhancedEV, factors),
+          confidence: enhancedConfidence,
+          factors: [...factors, ...this.convertAdvancedFactors(advancedAnalysis)],
+          recommendation: this.getRecommendation(enhancedEV, this.calculateStarRating(enhancedEV, factors)),
+          advancedAnalysis,
+        };
+      }
+    } catch (error) {
+      console.warn('Advanced analysis not available, using basic calculation:', error);
+    }
+
     return {
       evPercentage,
       roiPercentage,
       aiRating,
       confidence,
       factors,
-      recommendation
+      recommendation,
+      advancedAnalysis,
     };
   }
 
@@ -282,6 +326,65 @@ class EVCalculatorService {
       case 'strong_avoid': return 'Strong Avoid';
       default: return 'Unknown';
     }
+  }
+
+  // Convert advanced analysis factors to EV factors
+  private convertAdvancedFactors(advancedAnalysis: ComprehensivePrediction): EVFactor[] {
+    const factors: EVFactor[] = [];
+    
+    // Add advanced contextual factors
+    if (advancedAnalysis.advancedPrediction.advancedFactors.contextual.restDifferential !== 0) {
+      factors.push({
+        name: 'Rest Advantage',
+        impact: advancedAnalysis.advancedPrediction.advancedFactors.contextual.restDifferential > 0 ? 'positive' : 'negative',
+        weight: 0.15,
+        description: `${Math.abs(advancedAnalysis.advancedPrediction.advancedFactors.contextual.restDifferential)} days rest advantage`,
+        value: Math.abs(advancedAnalysis.advancedPrediction.advancedFactors.contextual.restDifferential),
+      });
+    }
+    
+    // Add weather impact
+    if (advancedAnalysis.advancedPrediction.advancedFactors.contextual.weatherConditions.windSpeed > 15) {
+      factors.push({
+        name: 'Weather Impact',
+        impact: 'negative',
+        weight: 0.1,
+        description: `${advancedAnalysis.advancedPrediction.advancedFactors.contextual.weatherConditions.windSpeed} mph winds`,
+        value: advancedAnalysis.advancedPrediction.advancedFactors.contextual.weatherConditions.windSpeed,
+      });
+    }
+    
+    // Add EPA analysis
+    const epaAdvantage = advancedAnalysis.advancedPrediction.advancedFactors.contextual.epaPerPlay.homeOffense - 
+                        advancedAnalysis.advancedPrediction.advancedFactors.contextual.epaPerPlay.awayDefense;
+    if (Math.abs(epaAdvantage) > 0.05) {
+      factors.push({
+        name: 'EPA Advantage',
+        impact: epaAdvantage > 0 ? 'positive' : 'negative',
+        weight: 0.2,
+        description: `EPA per play advantage: ${epaAdvantage.toFixed(3)}`,
+        value: Math.abs(epaAdvantage),
+      });
+    }
+    
+    // Add ML model confidence
+    if (advancedAnalysis.mlPrediction.confidence > 70) {
+      factors.push({
+        name: 'ML Model Confidence',
+        impact: 'positive',
+        weight: 0.25,
+        description: `High ML model confidence: ${advancedAnalysis.mlPrediction.confidence.toFixed(1)}%`,
+        value: advancedAnalysis.mlPrediction.confidence / 100,
+      });
+    }
+    
+    return factors;
+  }
+
+  // Convert odds string to American odds number
+  private convertToAmericanOdds(odds: string): number {
+    const num = parseInt(odds.replace(/[+-]/, ''));
+    return odds.startsWith('-') ? -num : num;
   }
 }
 
