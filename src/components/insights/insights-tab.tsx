@@ -269,9 +269,14 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
         </div>
         {insight.team_name && insight.opponent_name && (
           <div className="flex items-center gap-3">
-            <TeamLogo teamAbbr={insight.opponent_name} sport={selectedSport} size="sm" />
-            <span className="text-sm font-medium text-muted-foreground">@</span>
-            <TeamLogo teamAbbr={insight.team_name} sport={selectedSport} size="sm" />
+            {/* Only show team logos for game insights that involve actual team matchups */}
+            {insight.insight_type !== 'league_trends' && insight.insight_type !== 'season_stats' && (
+              <>
+                <TeamLogo teamAbbr={insight.opponent_name} sport={selectedSport} size="sm" />
+                <span className="text-sm font-medium text-muted-foreground">@</span>
+                <TeamLogo teamAbbr={insight.team_name} sport={selectedSport} size="sm" />
+              </>
+            )}
             <div className="text-right">
               <p className="text-sm font-medium text-foreground">{insight.opponent_name} @ {insight.team_name}</p>
               <p className="text-xs text-muted-foreground">
@@ -331,7 +336,10 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <TeamLogo teamAbbr={insight.team_name} sport={selectedSport} size="sm" />
+          {/* Only show team logo for player insights that involve actual teams */}
+          {insight.insight_type !== 'individual_performance' && insight.insight_type !== 'personal_stats' && (
+            <TeamLogo teamAbbr={insight.team_name} sport={selectedSport} size="sm" />
+          )}
           <div className="text-right">
             <p className="text-sm font-medium text-foreground">
               <span className="animate-pulse-glow">{insight.player_name}</span> {insight.player_position}
@@ -380,7 +388,7 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
           </div>
           {insight.underdog_opportunity && (
             <Badge variant="outline" className="bg-green-500/10 text-green-500">
-              Underdog Opportunity
+              {insight.team_name} shows value as underdog
             </Badge>
           )}
         </div>
@@ -397,9 +405,14 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <TeamLogo teamAbbr={insight.opponent_name} sport={selectedSport} size="sm" />
-          <span className="text-sm font-medium text-muted-foreground">@</span>
-          <TeamLogo teamAbbr={insight.team_name} sport={selectedSport} size="sm" />
+          {/* Only show team logos for moneyline insights that involve actual team matchups */}
+          {insight.insight_type !== 'league_odds' && insight.insight_type !== 'market_trends' && (
+            <>
+              <TeamLogo teamAbbr={insight.opponent_name} sport={selectedSport} size="sm" />
+              <span className="text-sm font-medium text-muted-foreground">@</span>
+              <TeamLogo teamAbbr={insight.team_name} sport={selectedSport} size="sm" />
+            </>
+          )}
           <div className="text-right">
             <p className="text-sm font-medium text-foreground">{insight.opponent_name} @ {insight.team_name}</p>
             <p className="text-xs text-muted-foreground">

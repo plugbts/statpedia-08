@@ -328,7 +328,7 @@ export const UnderdogAnalysis: React.FC<UnderdogAnalysisProps> = ({ selectedSpor
                         {formatOdds(underdog.underdog.odds)}
                       </div>
                       <div className="text-lg text-muted-foreground">
-                        vs {underdog.favorite.team} ({formatOdds(underdog.favorite.odds)})
+                        shows value as underdog vs {underdog.favorite.team} ({formatOdds(underdog.favorite.odds)})
                       </div>
                     </div>
                     <div className="flex items-center justify-center gap-6 text-sm">

@@ -279,7 +279,7 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = m
     const totalLine = event?.odds?.total?.over || 45.5;
     const moneylineOdds = event?.odds?.moneyline?.home || -150;
     
-    return [
+    const gameProps = [
       {
         type: 'Spread',
         line: spreadLine,
@@ -302,6 +302,9 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = m
         description: 'Straight win probability'
       }
     ];
+
+    
+    return gameProps;
   };
 
   const generatePlayerPropData = (playerPropsData?: any[]): PropData[] => {
@@ -338,6 +341,7 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = m
         description: `${propType.replace(/_/g, ' ')} performance over ${totalProps} games`
       };
     });
+
     
     return propData;
   };
@@ -352,8 +356,9 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = m
     const event = eventsData[0]; // Use first event as example
     const moneylineOdds = event?.odds?.moneyline?.home || -150;
     const spreadLine = event?.odds?.spread?.home || -3.5;
+    const totalLine = event?.odds?.total?.over || 45.5;
     
-    return [
+    const moneylineProps = [
       {
         type: 'Moneyline',
         line: moneylineOdds,
@@ -367,8 +372,18 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = m
         odds: -110,
         hitRate: 60,
         description: 'Point spread performance'
+      },
+      {
+        type: 'Total',
+        line: totalLine,
+        odds: -110,
+        hitRate: 55,
+        description: 'Over/Under performance'
       }
     ];
+
+    
+    return moneylineProps;
   };
 
   const generateDefenseData = (eventsData?: any[]): DefenseData[] => {
@@ -437,34 +452,46 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = m
         const favoriteTeam = isFavorite ? homeTeam : awayTeam;
         const underdogTeam = isFavorite ? awayTeam : homeTeam;
         
-        insights.push(`${favoriteTeam} is favored at ${homeOdds > 0 ? '+' : ''}${homeOdds} vs ${underdogTeam} at ${awayOdds > 0 ? '+' : ''}${awayOdds}`);
+        insights.push(`💰 ${favoriteTeam} is favored at ${homeOdds > 0 ? '+' : ''}${homeOdds} vs ${underdogTeam} at ${awayOdds > 0 ? '+' : ''}${awayOdds}`);
       }
       
       // Spread analysis
       const spread = gameEvent.odds?.spread?.home;
       if (spread) {
-        insights.push(`${homeTeam} is ${spread > 0 ? '+' : ''}${spread} point ${spread > 0 ? 'underdog' : 'favorite'} against ${awayTeam}`);
+        insights.push(`📊 ${homeTeam} is ${spread > 0 ? '+' : ''}${spread} point ${spread > 0 ? 'underdog' : 'favorite'} against ${awayTeam}`);
       }
       
       // Total analysis
       const total = gameEvent.odds?.total?.over;
       if (total) {
-        insights.push(`Game total is set at ${total} points`);
+        insights.push(`🎯 Game total is set at ${total} points - consider over/under trends`);
       }
       
       // Historical performance
       if (recentGames.length > 0) {
         const winRate = Math.round((recentGames.length * 0.6) / recentGames.length * 100);
-        insights.push(`${gameInsight.team_name} has won ${winRate}% of their last ${recentGames.length} games`);
+        insights.push(`📈 ${gameInsight.team_name} has won ${winRate}% of their last ${recentGames.length} games`);
       }
       
       // Home/Away performance
       if (isHomeTeam && homeGames.length > 0) {
         const homeWinRate = Math.round((homeGames.length * 0.65) / homeGames.length * 100);
-        insights.push(`${homeTeam} has a ${homeWinRate}% win rate at home this season`);
+        insights.push(`🏠 ${homeTeam} has a ${homeWinRate}% win rate at home this season`);
       } else if (!isHomeTeam && awayGames.length > 0) {
         const awayWinRate = Math.round((awayGames.length * 0.45) / awayGames.length * 100);
-        insights.push(`${awayTeam} has a ${awayWinRate}% win rate on the road this season`);
+        insights.push(`✈️ ${awayTeam} has a ${awayWinRate}% win rate on the road this season`);
+      }
+
+      // Add contextual insights based on insight type
+      if (gameInsight.insight_type === 'total_trends') {
+        insights.push(`🔍 Key insight: Recent games show ${gameInsight.value}% over/under hit rate`);
+        insights.push(`📊 Consider weather conditions and pace of play for total bets`);
+      } else if (gameInsight.insight_type === 'spread_performance') {
+        insights.push(`🎯 Spread betting: ${gameInsight.value}% ATS performance this season`);
+        insights.push(`💡 Key factor: ${isHomeTeam ? 'Home' : 'Away'} field advantage plays crucial role`);
+      } else if (gameInsight.insight_type === 'moneyline_home') {
+        insights.push(`🏠 Home field advantage: ${gameInsight.value}% win rate at home`);
+        insights.push(`⚡ Momentum factor: Recent form suggests strong home performance`);
       }
     }
     
@@ -500,7 +527,7 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = m
         const awayTeam = gameEvent.teams?.away?.names?.short;
         const isHomeGame = gameEvent.teams?.home?.names?.short === teamName;
         
-        insights.push(`${playerName} faces ${isHomeGame ? awayTeam : homeTeam} ${isHomeGame ? 'at home' : 'on the road'}`);
+        insights.push(`🏀 ${playerName} faces ${isHomeGame ? awayTeam : homeTeam} ${isHomeGame ? 'at home' : 'on the road'}`);
 
         // Group props by type and analyze each
         const propGroups = (playerProps as any[]).reduce((acc, prop) => {
@@ -519,7 +546,7 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = m
           const hitRate = (props as any[]).length > 0 ? Math.round((overHits / (props as any[]).length) * 100) : 0;
           
           const formattedPropType = propType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-          insights.push(`${playerName} has a ${formattedPropType} line of ${avgLine.toFixed(1)} with ${hitRate}% hit rate over ${(props as any[]).length} games`);
+          insights.push(`📊 ${formattedPropType}: ${avgLine.toFixed(1)} line with ${hitRate}% hit rate over ${(props as any[]).length} games`);
         });
         
         // Recent performance
@@ -528,14 +555,27 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = m
         const hitRate = (recentProps as any[]).length > 0 ? Math.round((overHits / (recentProps as any[]).length) * 100) : 0;
         
         if (recentProps.length > 0) {
-          insights.push(`${playerName} has hit the over in ${hitRate}% of recent props (${overHits}/${recentProps.length})`);
+          insights.push(`🔥 Recent form: ${hitRate}% over hit rate (${overHits}/${recentProps.length}) in last 5 games`);
         }
         
         // Team context
         if (isHomeGame) {
-          insights.push(`${teamName} has home field advantage in this matchup`);
+          insights.push(`🏠 ${teamName} has home field advantage in this matchup`);
         } else {
-          insights.push(`${teamName} will be playing on the road against ${homeTeam}`);
+          insights.push(`✈️ ${teamName} playing on the road against ${homeTeam}`);
+        }
+
+        // Add contextual insights based on insight type
+        const playerInsight = insight as PlayerInsight;
+        if (playerInsight.insight_type === 'hot_streak') {
+          insights.push(`🔥 HOT STREAK: ${playerName} is in exceptional form with ${playerInsight.value}% performance boost`);
+          insights.push(`⚡ Momentum factor: Recent games show upward trend in key metrics`);
+        } else if (playerInsight.insight_type === 'vs_opponent') {
+          insights.push(`🎯 Matchup advantage: ${playerName} has strong history against ${isHomeGame ? awayTeam : homeTeam}`);
+          insights.push(`📈 Head-to-head: Consider historical performance in similar matchups`);
+        } else if (playerInsight.insight_type === 'recent_form') {
+          insights.push(`📊 Form analysis: ${playerInsight.value}% improvement in recent games`);
+          insights.push(`💡 Key insight: Recent performance suggests continued strong play`);
         }
       }
     } else {
@@ -576,38 +616,47 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = m
         const favoriteTeam = isFavorite ? homeTeam : awayTeam;
         const underdogTeam = isFavorite ? awayTeam : homeTeam;
         
-        insights.push(`${favoriteTeam} is the favorite at ${homeOdds > 0 ? '+' : ''}${homeOdds}`);
-        insights.push(`${underdogTeam} is the underdog at ${awayOdds > 0 ? '+' : ''}${awayOdds}`);
+        insights.push(`💰 ${favoriteTeam} is the favorite at ${homeOdds > 0 ? '+' : ''}${homeOdds}`);
+        insights.push(`🎯 ${underdogTeam} is the underdog at ${awayOdds > 0 ? '+' : ''}${awayOdds}`);
         
         // Implied probability
         const favoriteProb = isFavorite ? (Math.abs(homeOdds) / (Math.abs(homeOdds) + 100)) * 100 : (Math.abs(awayOdds) / (Math.abs(awayOdds) + 100)) * 100;
-        insights.push(`${favoriteTeam} has an implied win probability of ${favoriteProb.toFixed(1)}%`);
+        insights.push(`📊 ${favoriteTeam} has an implied win probability of ${favoriteProb.toFixed(1)}%`);
       }
       
       // Spread context
       const spread = gameEvent.odds?.spread?.home;
       if (spread) {
-        insights.push(`Point spread: ${homeTeam} ${spread > 0 ? '+' : ''}${spread} vs ${awayTeam}`);
+        insights.push(`📈 Point spread: ${homeTeam} ${spread > 0 ? '+' : ''}${spread} vs ${awayTeam}`);
       }
       
       // Total context
       const total = gameEvent.odds?.total?.over;
       if (total) {
-        insights.push(`Game total: ${total} points`);
+        insights.push(`🎯 Game total: ${total} points - consider over/under trends`);
       }
       
       // Historical context
       const recentGames = eventsData.slice(0, 10);
       if (recentGames.length > 0) {
         const teamWinRate = Math.round((recentGames.length * 0.6) / recentGames.length * 100);
-        insights.push(`${moneylineInsight.team_name} has won ${teamWinRate}% of recent games`);
+        insights.push(`📈 ${moneylineInsight.team_name} has won ${teamWinRate}% of recent games`);
       }
       
       // Home/Away context
       if (isHomeTeam) {
-        insights.push(`${homeTeam} has home field advantage`);
+        insights.push(`🏠 ${homeTeam} has home field advantage`);
       } else {
-        insights.push(`${awayTeam} will be playing on the road`);
+        insights.push(`✈️ ${awayTeam} will be playing on the road`);
+      }
+
+      // Add contextual insights based on insight type
+      if (moneylineInsight.insight_type === 'moneyline') {
+        insights.push(`💡 Moneyline insight: ${moneylineInsight.value}% confidence in this pick`);
+        insights.push(`🔍 Key factors: Consider recent form, injuries, and matchup history`);
+      } else if (moneylineInsight.underdog_opportunity) {
+        insights.push(`🎯 UNDERDOG OPPORTUNITY: ${moneylineInsight.team_name} shows value as underdog`);
+        insights.push(`⚡ High-value bet: Odds may not reflect true probability`);
       }
     }
     
