@@ -111,6 +111,20 @@ class InsightsService {
     return validProps > 0 ? Math.round(totalConfidence / validProps) : 50;
   }
 
+  // Calculate confidence for insights based on hit rate and data quality
+  private calculateInsightConfidence(hitRate: number, dataQuality: number = 1): number {
+    // Base confidence on hit rate
+    let confidence = hitRate;
+    
+    // Adjust based on data quality (more data = higher confidence)
+    if (dataQuality >= 10) confidence += 10;
+    else if (dataQuality >= 5) confidence += 5;
+    else if (dataQuality >= 3) confidence += 2;
+    
+    // Cap confidence between 30-95%
+    return Math.max(30, Math.min(95, Math.round(confidence)));
+  }
+
   // Get game insights from real data using the same system as player props
   async getGameInsights(sport: string, daysBack: number = 7): Promise<GameInsight[]> {
     const cacheKey = `game_insights_${sport}_${daysBack}`;
@@ -275,7 +289,7 @@ class InsightsService {
           value: hitRate,
           trend: hitRate >= 60 ? 'up' : hitRate <= 40 ? 'down' : 'neutral',
           change_percent: Math.round(Math.random() * 15 + 5), // 5-20% range
-          confidence: this.calculateConfidenceFromOdds([event]),
+          confidence: this.calculateInsightConfidence(hitRate, totalProps),
           team_name: typedGameData.homeTeam,
           opponent_name: typedGameData.awayTeam,
           game_date: typedGameData.gameTime,
@@ -333,7 +347,7 @@ class InsightsService {
           value: Math.round(Math.random() * 20 + 70), // 70-90% range
           trend: Math.random() > 0.5 ? 'up' : 'down',
           change_percent: Math.round(Math.random() * 15 + 5), // 5-20% range
-          confidence: this.calculateConfidenceFromOdds([event]),
+          confidence: this.calculateInsightConfidence(75, 1),
           team_name: event.teams.home.names.short,
           opponent_name: event.teams.away.names.short,
           game_date: event.status.startsAt,
@@ -390,7 +404,7 @@ class InsightsService {
         value: hitRate,
         trend: hitRate >= 60 ? 'up' : hitRate <= 40 ? 'down' : 'neutral',
         change_percent: Math.round(Math.random() * 20 + 5),
-        confidence: this.calculateConfidenceFromOdds(allTeamProps),
+        confidence: this.calculateInsightConfidence(hitRate, totalProps),
         team_name: '',
         opponent_name: '',
         game_date: new Date().toISOString().split('T')[0],
@@ -416,7 +430,7 @@ class InsightsService {
       value: overallHitRate,
       trend: overallHitRate >= 60 ? 'up' : overallHitRate <= 40 ? 'down' : 'neutral',
       change_percent: Math.round(Math.random() * 10 + 3),
-      confidence: this.calculateConfidenceFromOdds(playerProps),
+      confidence: this.calculateInsightConfidence(overallHitRate, totalProps),
       team_name: '',
       opponent_name: '',
       game_date: new Date().toISOString().split('T')[0],
@@ -450,7 +464,7 @@ class InsightsService {
         
         // Clean up player name - remove league names, numbers, and weird characters
         const cleanPlayerName = this.cleanPlayerName(playerName);
-        const finalPlayerName = cleanPlayerName || playerName; // Fallback to original if cleaning removes everything
+        const finalPlayerName = cleanPlayerName || playerName || 'Unknown Player'; // Fallback to original if cleaning removes everything
         
         console.log(`🔍 [InsightsService] Player name: "${playerName}" -> "${finalPlayerName}"`);
         
@@ -481,7 +495,7 @@ class InsightsService {
           value: hitRate,
           trend: hitRate >= 60 ? 'up' : hitRate <= 40 ? 'down' : 'neutral',
           change_percent: Math.round(Math.random() * 15 + 5),
-          confidence: this.calculateConfidenceFromOdds([playerProps[0]]),
+          confidence: this.calculateInsightConfidence(hitRate, totalProps),
           player_name: finalPlayerName,
           team_name: firstProp.teamAbbr,
           player_position: this.getPlayerPosition(finalPlayerName, sport, typedProps[0]?.propType),
@@ -541,7 +555,7 @@ class InsightsService {
         
         // Clean up player name - remove league names, numbers, and weird characters
         const cleanPlayerName = this.cleanPlayerName(playerName);
-        const finalPlayerName = cleanPlayerName || playerName; // Fallback to original if cleaning removes everything
+        const finalPlayerName = cleanPlayerName || playerName || 'Unknown Player'; // Fallback to original if cleaning removes everything
         
         console.log(`🔍 [InsightsService] Player name: "${playerName}" -> "${finalPlayerName}"`);
         
@@ -584,7 +598,7 @@ class InsightsService {
             value: streakValue,
             trend: 'up',
             change_percent: Math.round(Math.random() * 15 + 5),
-            confidence: this.calculateConfidenceFromOdds(props as any[]),
+            confidence: this.calculateInsightConfidence(streakValue, (props as any[]).length),
             player_name: finalPlayerName,
             team_name: firstProp.teamAbbr,
             player_position: this.getPlayerPosition(finalPlayerName, sport, props[0]?.propType),
@@ -627,7 +641,7 @@ class InsightsService {
     
     // Generate insights for top performing players (show more players)
     playerStats.slice(0, 8).forEach(({ playerName, props, hitRate, overHits, totalProps }) => {
-      const cleanPlayerName = this.cleanPlayerName(playerName);
+      const cleanPlayerName = this.cleanPlayerName(playerName) || 'Unknown Player';
       const firstProp = props[0];
       
       // Analyze player props to determine actual streak data
@@ -661,7 +675,7 @@ class InsightsService {
         value: hitRate,
         trend: 'up',
         change_percent: Math.round(Math.random() * 15 + 5),
-        confidence: this.calculateConfidenceFromOdds([playerProps[0]]),
+        confidence: this.calculateInsightConfidence(hitRate, totalProps),
         player_name: cleanPlayerName,
         team_name: firstProp.teamAbbr,
         player_position: this.getPlayerPosition(cleanPlayerName, sport, props[0]?.propType),
@@ -673,7 +687,7 @@ class InsightsService {
     // Home advantage insight
     if (playerProps.length > 1) {
       const homePlayer = playerProps[1];
-      const cleanPlayerName = this.cleanPlayerName(homePlayer.playerName);
+      const cleanPlayerName = this.cleanPlayerName(homePlayer.playerName) || 'Unknown Player';
       const advantageValue = Math.round(Math.random() * 15 + 15); // 15-30% range
       insights.push({
         insight_id: `home_advantage_${cleanPlayerName}`,
@@ -683,7 +697,7 @@ class InsightsService {
         value: advantageValue,
         trend: 'up',
         change_percent: Math.round(Math.random() * 8 + 2),
-        confidence: this.calculateConfidenceFromOdds(playerProps),
+        confidence: this.calculateInsightConfidence(advantageValue, 1),
         player_name: cleanPlayerName,
         team_name: homePlayer.teamAbbr,
         player_position: this.getPlayerPosition(cleanPlayerName, sport, homePlayer.propType),
@@ -712,7 +726,7 @@ class InsightsService {
           value: topPropType[1] as number,
           trend: 'up',
           change_percent: Math.round(Math.random() * 10 + 5),
-          confidence: this.calculateConfidenceFromOdds(playerProps),
+          confidence: this.calculateInsightConfidence(topPropType[1] as number, 1),
           player_name: '',
           team_name: '',
           player_position: '',
@@ -731,7 +745,7 @@ class InsightsService {
         value: Math.round(avgLine),
         trend: avgLine > 50 ? 'up' : 'down',
         change_percent: Math.round(Math.random() * 8 + 2),
-        confidence: this.calculateConfidenceFromOdds([playerProps[0]]),
+        confidence: this.calculateInsightConfidence(50, playerProps.length),
         player_name: '',
         team_name: '',
         player_position: '',
@@ -780,7 +794,7 @@ class InsightsService {
           value: hitRate,
           trend: hitRate >= 60 ? 'up' : hitRate <= 40 ? 'down' : 'neutral',
           change_percent: Math.round(Math.random() * 12 + 3), // 3-15% range
-          confidence: this.calculateConfidenceFromOdds([event]),
+          confidence: this.calculateInsightConfidence(hitRate, totalProps),
           team_name: typedGameData.homeTeam,
           opponent_name: typedGameData.awayTeam,
           game_date: typedGameData.gameTime,
@@ -839,7 +853,7 @@ class InsightsService {
           value: Math.round(Math.random() * 25 + 60), // 60-85% range
           trend: Math.random() > 0.5 ? 'up' : 'down',
           change_percent: Math.round(Math.random() * 12 + 3), // 3-15% range
-          confidence: this.calculateConfidenceFromOdds([event]),
+          confidence: this.calculateInsightConfidence(75, 1),
           team_name: event.teams.home.names.short,
           opponent_name: event.teams.away.names.short,
           game_date: event.status.startsAt,
@@ -893,7 +907,7 @@ class InsightsService {
           value: hitRate,
           trend: hitRate >= 60 ? 'up' : hitRate <= 40 ? 'down' : 'neutral',
           change_percent: Math.round(Math.random() * 8 + 2),
-          confidence: this.calculateConfidenceFromOdds(playerProps),
+          confidence: this.calculateInsightConfidence(hitRate, totalProps),
           team_name: typedGameData.homeTeam,
           opponent_name: typedGameData.awayTeam,
           game_date: typedGameData.gameTime ? new Date(typedGameData.gameTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
@@ -968,7 +982,7 @@ class InsightsService {
 
   private cleanPlayerName(playerName: string): string {
     if (!playerName || typeof playerName !== 'string') {
-      return '';
+      return 'Unknown Player';
     }
 
     let cleaned = playerName.trim();
