@@ -4,7 +4,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { gamesService } from './games-service';
 import { cloudflarePlayerPropsAPI } from './cloudflare-player-props-api';
-import { sportsGameOddsAPI } from './sportsgameodds-api';
+import { sportsGameOddsEdgeAPI } from './sportsgameodds-edge-api';
 import { useOddsAPI } from '@/hooks/use-odds-api';
 
 export interface GameInsight {
@@ -83,12 +83,12 @@ class InsightsService {
     try {
       console.log(`📊 [InsightsService] Fetching real game insights for ${sport}...`);
       
-      // Get real games data from SportsGameOdds API
-      const games = await sportsGameOddsAPI.getGames(sport);
-      console.log(`📊 [InsightsService] Retrieved ${games.length} games for ${sport} from SportsGameOdds`);
+      // Get real games data from SportsGameOdds Edge Function
+      const events = await sportsGameOddsEdgeAPI.getEvents(sport);
+      console.log(`📊 [InsightsService] Retrieved ${events.length} events for ${sport} from SportsGameOdds Edge Function`);
       
-      // Generate insights from real games data
-      const insights = this.generateGameInsightsFromRealData(games, sport);
+      // Generate insights from real events data
+      const insights = this.generateGameInsightsFromSportsGameOddsEvents(events, sport);
       
       this.cache.set(cacheKey, { data: insights, timestamp: now });
       
@@ -114,9 +114,9 @@ class InsightsService {
     try {
       console.log(`👤 [InsightsService] Fetching real player insights for ${sport}...`);
       
-      // Get real player props data from SportsGameOdds API
-      const playerProps = await sportsGameOddsAPI.getPlayerProps(sport);
-      console.log(`👤 [InsightsService] Retrieved ${playerProps.length} player props for ${sport} from SportsGameOdds`);
+      // Get real player props data from SportsGameOdds Edge Function
+      const playerProps = await sportsGameOddsEdgeAPI.getPlayerProps(sport);
+      console.log(`👤 [InsightsService] Retrieved ${playerProps.length} player props for ${sport} from SportsGameOdds Edge Function`);
       
       // Generate insights from real player props data
       const insights = this.generatePlayerInsightsFromRealData(playerProps, sport);
@@ -145,12 +145,12 @@ class InsightsService {
     try {
       console.log(`💰 [InsightsService] Fetching real moneyline insights for ${sport}...`);
       
-      // Get real games data for moneyline analysis from SportsGameOdds API
-      const games = await sportsGameOddsAPI.getGames(sport);
-      console.log(`💰 [InsightsService] Retrieved ${games.length} games for moneyline analysis from SportsGameOdds`);
+      // Get real games data for moneyline analysis from SportsGameOdds Edge Function
+      const events = await sportsGameOddsEdgeAPI.getEvents(sport);
+      console.log(`💰 [InsightsService] Retrieved ${events.length} events for moneyline analysis from SportsGameOdds Edge Function`);
       
-      // Generate insights from real games data
-      const insights = this.generateMoneylineInsightsFromRealData(games, sport);
+      // Generate insights from real events data
+      const insights = this.generateMoneylineInsightsFromSportsGameOddsEvents(events, sport);
       
       this.cache.set(cacheKey, { data: insights, timestamp: now });
       
@@ -194,6 +194,43 @@ class InsightsService {
   }
 
   // Real data generation methods
+  // Generate game insights from SportsGameOdds events
+  private generateGameInsightsFromSportsGameOddsEvents(events: any[], sport: string): GameInsight[] {
+    const insights: GameInsight[] = [];
+    
+    events.forEach((event, index) => {
+      if (event.status && event.status.started && !event.status.ended) {
+        const insight: GameInsight = {
+          insight_id: `game_${event.eventID}`,
+          insight_type: 'game_analysis',
+          title: `${event.teams.away.names.short} @ ${event.teams.home.names.short}`,
+          description: `Live game analysis for ${event.teams.away.names.medium} vs ${event.teams.home.names.medium}`,
+          confidence: 0.9,
+          impact: 'high',
+          category: 'game',
+          sport: sport,
+          game_date: event.status.startsAt,
+          game_time: event.status.startsAt,
+          home_team: event.teams.home.names.short,
+          away_team: event.teams.away.names.short,
+          analysis: `Live game between ${event.teams.away.names.medium} and ${event.teams.home.names.medium}. Current status: ${event.status.displayLong}`,
+          key_factors: [
+            `Game status: ${event.status.displayLong}`,
+            `Started: ${event.status.started ? 'Yes' : 'No'}`,
+            `Live: ${event.status.live ? 'Yes' : 'No'}`,
+            `Odds available: ${event.status.oddsAvailable ? 'Yes' : 'No'}`,
+            `League: ${event.leagueID}`,
+            `Sport: ${event.sportID}`
+          ],
+          timestamp: new Date().toISOString()
+        };
+        insights.push(insight);
+      }
+    });
+    
+    return insights;
+  }
+
   private generateGameInsightsFromRealData(games: any[], sport: string): GameInsight[] {
     const insights: GameInsight[] = [];
     
@@ -287,6 +324,45 @@ class InsightsService {
         created_at: new Date().toISOString()
       });
     }
+    
+    return insights;
+  }
+
+  // Generate moneyline insights from SportsGameOdds events
+  private generateMoneylineInsightsFromSportsGameOddsEvents(events: any[], sport: string): MoneylineInsight[] {
+    const insights: MoneylineInsight[] = [];
+    
+    events.forEach((event, index) => {
+      if (event.status && event.status.started && !event.status.ended) {
+        const insight: MoneylineInsight = {
+          insight_id: `moneyline_${event.eventID}`,
+          insight_type: 'moneyline',
+          title: `${event.teams.away.names.short} @ ${event.teams.home.names.short}`,
+          description: `Live moneyline analysis for ${event.teams.away.names.medium} vs ${event.teams.home.names.medium}`,
+          confidence: 0.85,
+          impact: 'high',
+          category: 'moneyline',
+          sport: sport,
+          game_date: event.status.startsAt,
+          game_time: event.status.startsAt,
+          home_team: event.teams.home.names.short,
+          away_team: event.teams.away.names.short,
+          home_odds: '-110', // Default odds
+          away_odds: '-110', // Default odds
+          draw_odds: null,
+          recommendation: 'neutral',
+          analysis: `Live game between ${event.teams.away.names.medium} and ${event.teams.home.names.medium}. Current status: ${event.status.displayLong}`,
+          key_factors: [
+            `Game status: ${event.status.displayLong}`,
+            `Started: ${event.status.started ? 'Yes' : 'No'}`,
+            `Live: ${event.status.live ? 'Yes' : 'No'}`,
+            `Odds available: ${event.status.oddsAvailable ? 'Yes' : 'No'}`
+          ],
+          timestamp: new Date().toISOString()
+        };
+        insights.push(insight);
+      }
+    });
     
     return insights;
   }
