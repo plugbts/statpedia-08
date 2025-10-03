@@ -268,22 +268,22 @@ export const AdvancedPredictionCard: React.FC<AdvancedPredictionCardProps> = ({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -8, scale: 1.02 }}
+      whileHover={{ y: -4, scale: 1.01 }}
       transition={{ 
         type: "spring", 
         stiffness: 300, 
         damping: 30,
-        duration: 0.6
+        duration: 0.4
       }}
       className="group relative"
     >
       <Card 
         className={cn(
-          "relative overflow-hidden transition-all duration-500",
+          "relative overflow-hidden transition-all duration-300",
           "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900",
-          "border border-slate-700/50 shadow-2xl shadow-slate-900/50",
-          "hover:shadow-2xl hover:shadow-blue-500/25",
-          "hover:border-blue-500/40"
+          "border border-slate-700/50 shadow-lg shadow-slate-900/50",
+          "hover:shadow-xl hover:shadow-blue-500/20",
+          "hover:border-blue-500/30"
         )}
       >
         {/* Animated gradient overlay */}
@@ -301,10 +301,10 @@ export const AdvancedPredictionCard: React.FC<AdvancedPredictionCardProps> = ({
           transition={{ duration: 0.3 }}
         />
         
-        <CardContent className="p-6 relative z-10">
+        <CardContent className="p-4 relative z-10">
           {/* Header with enhanced typography */}
           <motion.div 
-            className="flex items-start justify-between mb-6"
+            className="flex items-start justify-between mb-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.1 }}
@@ -312,22 +312,22 @@ export const AdvancedPredictionCard: React.FC<AdvancedPredictionCardProps> = ({
             <div className="flex-1">
               {isPlayerProp ? (
                 <motion.div 
-                  className="flex items-center gap-4 mb-4"
-                  whileHover={{ x: 5 }}
+                  className="flex items-center gap-3 mb-3"
+                  whileHover={{ x: 3 }}
                   transition={{ type: "spring", stiffness: 400 }}
                 >
                   <motion.div 
-                    className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 via-purple-600 to-blue-700 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-blue-500/40"
+                    className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 via-purple-600 to-blue-700 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-blue-500/40"
                     whileHover={{ rotate: 360 }}
                     transition={{ duration: 0.6 }}
                   >
                     {prediction.playerName?.charAt(0) || 'P'}
                   </motion.div>
                   <div>
-                    <h3 className="font-black text-2xl text-white tracking-tight bg-gradient-to-r from-white to-slate-200 bg-clip-text">
+                    <h3 className="font-bold text-lg text-white tracking-tight bg-gradient-to-r from-white to-slate-200 bg-clip-text">
                       {prediction.playerName}
                     </h3>
-                    <p className="text-base text-slate-300 font-semibold mt-1">
+                    <p className="text-sm text-slate-300 font-medium mt-1">
                       {prediction.propType} <span className="text-blue-400 font-bold">{prediction.line}</span>
                     </p>
                   </div>
@@ -415,7 +415,7 @@ export const AdvancedPredictionCard: React.FC<AdvancedPredictionCardProps> = ({
           
           {/* Enhanced odds display with animations */}
           <motion.div 
-            className="grid grid-cols-2 gap-4 mb-6"
+            className="grid grid-cols-2 gap-3 mb-4"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
@@ -423,28 +423,28 @@ export const AdvancedPredictionCard: React.FC<AdvancedPredictionCardProps> = ({
             {isPlayerProp ? (
               <>
                 <motion.div 
-                  className="bg-gradient-to-br from-emerald-900/60 to-emerald-800/40 rounded-xl p-5 border border-emerald-500/40 shadow-lg shadow-emerald-500/20"
-                  whileHover={{ scale: 1.05, rotateY: 5 }}
+                  className="bg-gradient-to-br from-emerald-900/60 to-emerald-800/40 rounded-lg p-3 border border-emerald-500/40 shadow-md shadow-emerald-500/20"
+                  whileHover={{ scale: 1.02, rotateY: 3 }}
                   transition={{ type: "spring", stiffness: 300 }}
                 >
-                  <div className="flex items-center gap-3 mb-3">
-                    <TrendingUp className="w-5 h-5 text-emerald-400" />
-                    <span className="text-sm font-black text-emerald-300 uppercase tracking-wider">OVER</span>
+                  <div className="flex items-center gap-2 mb-2">
+                    <TrendingUp className="w-4 h-4 text-emerald-400" />
+                    <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider">OVER</span>
                   </div>
-                  <p className="text-2xl font-black text-emerald-100">
+                  <p className="text-lg font-bold text-emerald-100">
                     {formatOdds(prediction.overOdds)}
                   </p>
                 </motion.div>
                 <motion.div 
-                  className="bg-gradient-to-br from-red-900/60 to-red-800/40 rounded-xl p-5 border border-red-500/40 shadow-lg shadow-red-500/20"
-                  whileHover={{ scale: 1.05, rotateY: -5 }}
+                  className="bg-gradient-to-br from-red-900/60 to-red-800/40 rounded-lg p-3 border border-red-500/40 shadow-md shadow-red-500/20"
+                  whileHover={{ scale: 1.02, rotateY: -3 }}
                   transition={{ type: "spring", stiffness: 300 }}
                 >
-                  <div className="flex items-center gap-3 mb-3">
-                    <TrendingDown className="w-5 h-5 text-red-400" />
-                    <span className="text-sm font-black text-red-300 uppercase tracking-wider">UNDER</span>
+                  <div className="flex items-center gap-2 mb-2">
+                    <TrendingDown className="w-4 h-4 text-red-400" />
+                    <span className="text-xs font-bold text-red-300 uppercase tracking-wider">UNDER</span>
                   </div>
-                  <p className="text-2xl font-black text-red-100">
+                  <p className="text-lg font-bold text-red-100">
                     {formatOdds(prediction.underOdds)}
                   </p>
                 </motion.div>
@@ -487,42 +487,42 @@ export const AdvancedPredictionCard: React.FC<AdvancedPredictionCardProps> = ({
           
           {/* Enhanced AI Analysis Section */}
           <motion.div 
-            className="space-y-5 mb-6"
+            className="space-y-3 mb-4"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
           >
             {/* Confidence Progress */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <motion.div
                     animate={{ rotate: [0, 360] }}
                     transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
                   >
-                    <Shield className="w-5 h-5 text-blue-400" />
+                    <Shield className="w-4 h-4 text-blue-400" />
                   </motion.div>
-                  <span className="text-base font-bold text-slate-200">AI CONFIDENCE</span>
+                  <span className="text-sm font-semibold text-slate-200">AI CONFIDENCE</span>
                 </div>
-                <span className="text-lg font-black text-white bg-blue-500/20 px-3 py-1 rounded-full">
+                <span className="text-sm font-bold text-white bg-blue-500/20 px-2 py-1 rounded-full">
                   {confidence.toFixed(1)}%
                 </span>
               </div>
               <Progress 
                 value={confidence} 
-                className="h-4 bg-slate-700 border border-slate-600"
+                className="h-2 bg-slate-700 border border-slate-600"
               />
             </div>
             
             {/* Expected Value Progress */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <DollarSign className="w-5 h-5 text-emerald-400" />
-                  <span className="text-base font-bold text-slate-200">EXPECTED VALUE</span>
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-emerald-400" />
+                  <span className="text-sm font-semibold text-slate-200">EXPECTED VALUE</span>
                 </div>
                 <span className={cn(
-                  "text-lg font-black px-3 py-1 rounded-full",
+                  "text-sm font-bold px-2 py-1 rounded-full",
                   (prediction.expectedValue || 0) >= 0 
                     ? "text-emerald-400 bg-emerald-500/20" 
                     : "text-red-400 bg-red-500/20"
@@ -532,24 +532,24 @@ export const AdvancedPredictionCard: React.FC<AdvancedPredictionCardProps> = ({
               </div>
               <Progress 
                 value={expectedValue} 
-                className="h-4 bg-slate-700 border border-slate-600"
+                className="h-2 bg-slate-700 border border-slate-600"
               />
             </div>
           </motion.div>
           
           {/* Enhanced Recommendation */}
           <motion.div 
-            className="mb-6 p-5 rounded-xl bg-gradient-to-r from-slate-800/60 to-slate-700/40 border border-slate-600/50 shadow-lg"
+            className="mb-4 p-3 rounded-lg bg-gradient-to-r from-slate-800/60 to-slate-700/40 border border-slate-600/50 shadow-md"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.6 }}
           >
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 {getRecommendationIcon(prediction.recommendation)}
-                <span className="text-base font-bold text-slate-200">AI RECOMMENDATION</span>
+                <span className="text-sm font-semibold text-slate-200">AI RECOMMENDATION</span>
               </div>
-              <Badge className={cn("text-sm font-black px-4 py-2", getRiskColor(riskLevel))}>
+              <Badge className={cn("text-xs font-bold px-3 py-1", getRiskColor(riskLevel))}>
                 <span className="capitalize">
                   {prediction.recommendation ? prediction.recommendation.replace('_', ' ') : 'NEUTRAL'}
                 </span>
@@ -565,56 +565,62 @@ export const AdvancedPredictionCard: React.FC<AdvancedPredictionCardProps> = ({
           >
             <Button
               variant="ghost"
-              size="lg"
-              className="w-full text-slate-300 hover:text-white hover:bg-slate-700/50 transition-all mb-4 p-4 rounded-xl border border-slate-600/50"
+              size="sm"
+              className="w-full text-slate-300 hover:text-white hover:bg-slate-700/50 transition-all mb-3 p-3 rounded-lg border border-slate-600/50"
               onClick={() => setIsExpanded(!isExpanded)}
             >
-              <Brain className="w-5 h-5 mr-3" />
-              <span className="text-base font-bold">
-                {isExpanded ? 'HIDE ADVANCED ANALYSIS' : 'VIEW ADVANCED ANALYSIS'}
+              <Brain className="w-4 h-4 mr-2" />
+              <span className="text-sm font-semibold">
+                {isExpanded ? 'Hide Details' : 'View More Details'}
               </span>
               <motion.div
                 animate={{ rotate: isExpanded ? 180 : 0 }}
                 transition={{ duration: 0.3 }}
               >
-                <ChevronDown className="w-5 h-5 ml-3" />
+                <ChevronDown className="w-4 h-4 ml-2" />
               </motion.div>
             </Button>
             
             <AnimatePresence>
               {isExpanded && (
                 <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.4, ease: "easeInOut" }}
-                  className="space-y-5"
+                  initial={{ opacity: 0, height: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, height: "auto", scale: 1 }}
+                  exit={{ opacity: 0, height: 0, scale: 0.95 }}
+                  transition={{ duration: 0.3, ease: "easeInOut" }}
+                  className="space-y-3 relative"
+                  style={{
+                    backdropFilter: 'blur(8px)',
+                    background: 'rgba(15, 23, 42, 0.8)',
+                    borderRadius: '0.5rem',
+                    border: '1px solid rgba(71, 85, 105, 0.3)'
+                  }}
                 >
-                  <div className="border-t border-slate-700/50 pt-5">
-                    <h4 className="text-lg font-black text-white mb-4 flex items-center gap-3">
-                      <Sparkles className="w-5 h-5 text-yellow-400" />
+                  <div className="border-t border-slate-700/50 pt-3">
+                    <h4 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-yellow-400" />
                       ADVANCED AI FACTORS
                     </h4>
                     
-                    <div className="space-y-4">
+                    <div className="space-y-2">
                       {factorInsights.slice(0, 4).map((insight, index) => (
                         <motion.div 
                           key={index}
                           initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: index * 0.1 }}
-                          className="p-4 rounded-lg bg-gradient-to-r from-slate-800/60 to-slate-700/40 border border-slate-600/50"
+                          className="p-3 rounded-lg bg-gradient-to-r from-slate-800/60 to-slate-700/40 border border-slate-600/50"
                         >
-                          <div className="flex items-start gap-4">
+                          <div className="flex items-start gap-3">
                             <motion.div
                               animate={{ scale: [1, 1.1, 1] }}
                               transition={{ duration: 2, repeat: Infinity, delay: index * 0.5 }}
-                              className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0 mt-1"
+                              className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0 mt-0.5"
                             >
-                              <Eye className="w-4 h-4 text-blue-400" />
+                              <Eye className="w-3 h-3 text-blue-400" />
                             </motion.div>
                             <div className="flex-1">
-                              <p className="text-sm text-slate-200 leading-relaxed font-medium">
+                              <p className="text-xs text-slate-200 leading-relaxed font-medium">
                                 {insight}
                               </p>
                             </div>
@@ -653,20 +659,20 @@ export const AdvancedPredictionCard: React.FC<AdvancedPredictionCardProps> = ({
                   
                   {/* Footer info */}
                   <motion.div 
-                    className="flex items-center justify-between text-sm text-slate-400 pt-4 border-t border-slate-700/50"
+                    className="flex items-center justify-between text-xs text-slate-400 pt-3 border-t border-slate-700/50"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.9 }}
                   >
                     <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4" />
+                      <Clock className="w-3 h-3" />
                       <span>Updated: {new Date(prediction.lastUpdate || '').toLocaleTimeString()}</span>
                     </div>
                     
                     {prediction.available && (
                       <div className="flex items-center gap-2">
-                        <Activity className="w-4 h-4 text-emerald-400 animate-pulse" />
-                        <span className="text-emerald-400 font-medium">LIVE</span>
+                        <Activity className="w-3 h-3 text-emerald-400 animate-pulse" />
+                        <span className="text-emerald-400 font-medium text-xs">LIVE</span>
                       </div>
                     )}
                   </motion.div>
@@ -675,30 +681,31 @@ export const AdvancedPredictionCard: React.FC<AdvancedPredictionCardProps> = ({
             </AnimatePresence>
           </motion.div>
           
-          {/* Advanced AI Analysis Button */}
-          {onAdvancedAnalysisClick && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.8 }}
-            >
-              <Button
-                className={cn(
-                  "w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500",
-                  "text-white font-bold py-3 px-4 rounded-xl text-base",
-                  "transition-all duration-300 ease-out",
-                  "hover:shadow-lg hover:shadow-purple-500/25",
-                  "border border-purple-500/50",
-                  "group"
-                )}
-                onClick={() => onAdvancedAnalysisClick(prediction)}
-              >
-                <Sparkles className="h-5 w-5 mr-3" />
-                Advanced AI Analysis
-                <ArrowRight className="h-5 w-5 ml-3 group-hover:translate-x-1 transition-transform duration-300" />
-              </Button>
-            </motion.div>
-          )}
+                 {/* Advanced AI Analysis Button */}
+                 {onAdvancedAnalysisClick && (
+                   <motion.div
+                     initial={{ opacity: 0, y: 20 }}
+                     animate={{ opacity: 1, y: 0 }}
+                     transition={{ delay: 0.8 }}
+                     className="mt-4"
+                   >
+                     <Button
+                       className={cn(
+                         "w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500",
+                         "text-white font-semibold py-2 px-3 rounded-lg text-sm",
+                         "transition-all duration-300 ease-out",
+                         "hover:shadow-lg hover:shadow-purple-500/25",
+                         "border border-purple-500/50",
+                         "group"
+                       )}
+                       onClick={() => onAdvancedAnalysisClick(prediction)}
+                     >
+                       <Sparkles className="h-4 w-4 mr-2" />
+                       Advanced AI Analysis
+                       <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform duration-300" />
+                     </Button>
+                   </motion.div>
+                 )}
         </CardContent>
       </Card>
     </motion.div>
