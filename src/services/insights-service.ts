@@ -224,7 +224,7 @@ class InsightsService {
       if (typedGameData.props.length > 0) {
         const totalProps = typedGameData.props.length;
         const overHits = typedGameData.props.filter((prop: any) => prop.outcome === 'over' || prop.side === 'over').length;
-        const hitRate = Math.round((overHits / totalProps) * 100);
+        const hitRate = totalProps > 0 ? Math.round((overHits / totalProps) * 100) : 0;
         
         const insight: GameInsight = {
           insight_id: `game_${gameKey}`,
@@ -332,8 +332,8 @@ class InsightsService {
     if (homeTeamProps.length > 0 && awayTeamProps.length > 0) {
       const homeOverHits = homeTeamProps.filter((prop: any) => prop.outcome === 'over' || prop.side === 'over').length;
       const awayOverHits = awayTeamProps.filter((prop: any) => prop.outcome === 'over' || prop.side === 'over').length;
-      const homeHitRate = Math.round((homeOverHits / homeTeamProps.length) * 100);
-      const awayHitRate = Math.round((awayOverHits / awayTeamProps.length) * 100);
+      const homeHitRate = homeTeamProps.length > 0 ? Math.round((homeOverHits / homeTeamProps.length) * 100) : 0;
+      const awayHitRate = awayTeamProps.length > 0 ? Math.round((awayOverHits / awayTeamProps.length) * 100) : 0;
       
       insights.push({
         insight_id: `home_advantage_${sport}`,
@@ -354,7 +354,7 @@ class InsightsService {
     // Over/Under trends insight based on real data
     const totalProps = playerProps.length;
     const overHits = playerProps.filter((prop: any) => prop.outcome === 'over' || prop.side === 'over').length;
-    const overallHitRate = Math.round((overHits / totalProps) * 100);
+    const overallHitRate = totalProps > 0 ? Math.round((overHits / totalProps) * 100) : 0;
     
     insights.push({
       insight_id: `over_under_trend_${sport}`,
@@ -365,8 +365,8 @@ class InsightsService {
       trend: overallHitRate >= 60 ? 'up' : overallHitRate <= 40 ? 'down' : 'neutral',
       change_percent: Math.round(Math.random() * 10 + 3),
       confidence: Math.round(Math.random() * 15 + 80),
-      team_name: 'League Average',
-      opponent_name: 'Historical Average',
+      team_name: 'League',
+      opponent_name: 'Average',
       game_date: new Date().toISOString().split('T')[0],
       created_at: new Date().toISOString()
     });
@@ -564,9 +564,9 @@ class InsightsService {
     const playerStats = Object.entries(playerGroups).map(([playerName, props]) => {
       const typedProps = props as any[];
       const overHits = typedProps.filter((prop: any) => prop.outcome === 'over' || prop.side === 'over').length;
-      const hitRate = Math.round((overHits / typedProps.length) * 100);
+      const hitRate = typedProps.length > 0 ? Math.round((overHits / typedProps.length) * 100) : 0;
       return { playerName, props: typedProps, hitRate, overHits, totalProps: typedProps.length };
-    }).sort((a, b) => b.hitRate - a.hitRate);
+    }).filter(stat => stat.hitRate > 0).sort((a, b) => b.hitRate - a.hitRate);
     
     // Generate insights for top performing players
     playerStats.slice(0, 3).forEach(({ playerName, props, hitRate, overHits, totalProps }) => {
@@ -665,7 +665,7 @@ class InsightsService {
       if (typedGameData.props.length > 0) {
         const totalProps = typedGameData.props.length;
         const overHits = typedGameData.props.filter((prop: any) => prop.outcome === 'over' || prop.side === 'over').length;
-        const hitRate = Math.round((overHits / totalProps) * 100);
+        const hitRate = totalProps > 0 ? Math.round((overHits / totalProps) * 100) : 0;
         
         const insight: MoneylineInsight = {
           insight_id: `moneyline_${gameKey}`,
@@ -774,7 +774,7 @@ class InsightsService {
       if (typedGameData.props.length > 0) {
         const totalProps = typedGameData.props.length;
         const overHits = typedGameData.props.filter((prop: any) => prop.outcome === 'over' || prop.side === 'over').length;
-        const hitRate = Math.round((overHits / totalProps) * 100);
+        const hitRate = totalProps > 0 ? Math.round((overHits / totalProps) * 100) : 0;
         
         // Determine if this is an underdog opportunity based on hit rate
         const isUnderdogOpportunity = hitRate < 45; // Low hit rate suggests underdog value

@@ -194,6 +194,11 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = m
     const overallPercentage = totalHits > 0 ? Math.round((overHits / totalHits) * 100) : 0;
     const last5Percentage = last5TotalHits > 0 ? Math.round((last5OverHits / last5TotalHits) * 100) : 0;
     
+    // If no real data, return empty array instead of 0% data
+    if (totalHits === 0 && last5TotalHits === 0) {
+      return [];
+    }
+    
     return [
       {
         period: 'Last 5 Games',
@@ -496,7 +501,7 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = m
         const isHomeGame = gameEvent.teams?.home?.names?.short === teamName;
         
         insights.push(`${playerName} faces ${isHomeGame ? awayTeam : homeTeam} ${isHomeGame ? 'at home' : 'on the road'}`);
-        
+
         // Group props by type and analyze each
         const propGroups = (playerProps as any[]).reduce((acc, prop) => {
           const propType = prop.propType || prop.market || 'Unknown';
@@ -511,7 +516,7 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = m
         Object.entries(propGroups).slice(0, 3).forEach(([propType, props]) => {
           const avgLine = (props as any[]).reduce((sum, prop) => sum + (prop.line || 0), 0) / (props as any[]).length;
           const overHits = (props as any[]).filter(prop => prop.outcome === 'over' || prop.side === 'over').length;
-          const hitRate = Math.round((overHits / (props as any[]).length) * 100);
+          const hitRate = (props as any[]).length > 0 ? Math.round((overHits / (props as any[]).length) * 100) : 0;
           
           const formattedPropType = propType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
           insights.push(`${playerName} has a ${formattedPropType} line of ${avgLine.toFixed(1)} with ${hitRate}% hit rate over ${(props as any[]).length} games`);
