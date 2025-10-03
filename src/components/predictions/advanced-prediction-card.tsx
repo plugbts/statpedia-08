@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -29,9 +30,14 @@ import {
   Info,
   Flame,
   Award,
-  Lightbulb
+  Lightbulb,
+  Sparkles,
+  Eye,
+  ArrowRight,
+  Cpu
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { aiPredictionFactors } from '@/services/ai-prediction-factors';
 
 interface AdvancedPredictionCardProps {
   prediction: {
@@ -245,295 +251,429 @@ export const AdvancedPredictionCard: React.FC<AdvancedPredictionCardProps> = ({
   const riskLevel = getRiskLevel(prediction);
   const confidence = (prediction.confidence || 0) * 100;
   const expectedValue = Math.abs((prediction.expectedValue || 0) * 100);
-  const detailedAnalysis = generateDetailedAnalysis(prediction);
+  
+  // Use AI prediction factors service for advanced analysis
+  const aiFactors = aiPredictionFactors.getFactorsForMarket(
+    prediction.marketType, 
+    prediction.period
+  );
+  const weightedConfidence = aiPredictionFactors.calculateWeightedConfidence(aiFactors);
+  const factorInsights = aiPredictionFactors.generateFactorInsights(aiFactors, prediction);
   
   const isPlayerProp = prediction.marketType === 'player-prop';
   
   return (
-    <Card 
-      className={cn(
-        "group relative overflow-hidden transition-all duration-700 ease-out",
-        "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900",
-        "border border-slate-700/50 shadow-2xl shadow-slate-900/50",
-        "hover:shadow-2xl hover:shadow-blue-500/20 hover:-translate-y-2",
-        "hover:border-slate-600/80 hover:bg-gradient-to-br hover:from-slate-800 hover:via-slate-700 hover:to-slate-800",
-        isHovered && "scale-[1.02]"
-      )}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -8, scale: 1.02 }}
+      transition={{ 
+        type: "spring", 
+        stiffness: 300, 
+        damping: 30,
+        duration: 0.6
+      }}
+      className="group relative"
     >
-      {/* Animated gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-blue-500/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-2000 ease-out" />
-      
-      {/* Glowing border effect */}
-      <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-blue-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-lg blur-sm" />
-      
-      <CardContent className="p-6 relative z-10">
-        {/* Header */}
-        <div className="flex items-start justify-between mb-6">
-          <div className="flex-1">
-            <div className="flex items-center gap-4 mb-3">
+      <Card 
+        className={cn(
+          "relative overflow-hidden transition-all duration-500",
+          "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900",
+          "border border-slate-700/50 shadow-2xl shadow-slate-900/50",
+          "hover:shadow-2xl hover:shadow-blue-500/25",
+          "hover:border-blue-500/40"
+        )}
+      >
+        {/* Animated gradient overlay */}
+        <motion.div 
+          className="absolute inset-0 bg-gradient-to-r from-transparent via-blue-500/10 to-transparent"
+          initial={{ x: "-100%" }}
+          whileHover={{ x: "100%" }}
+          transition={{ duration: 1.5, ease: "easeInOut" }}
+        />
+        
+        {/* Glowing border effect */}
+        <motion.div 
+          className="absolute inset-0 bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-blue-500/20 opacity-0 rounded-lg blur-sm"
+          whileHover={{ opacity: 0.8 }}
+          transition={{ duration: 0.3 }}
+        />
+        
+        <CardContent className="p-6 relative z-10">
+          {/* Header with enhanced typography */}
+          <motion.div 
+            className="flex items-start justify-between mb-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.1 }}
+          >
+            <div className="flex-1">
               {isPlayerProp ? (
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 via-purple-600 to-blue-700 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-blue-500/30">
+                <motion.div 
+                  className="flex items-center gap-4 mb-4"
+                  whileHover={{ x: 5 }}
+                  transition={{ type: "spring", stiffness: 400 }}
+                >
+                  <motion.div 
+                    className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 via-purple-600 to-blue-700 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-blue-500/40"
+                    whileHover={{ rotate: 360 }}
+                    transition={{ duration: 0.6 }}
+                  >
                     {prediction.playerName?.charAt(0) || 'P'}
-                  </div>
+                  </motion.div>
                   <div>
-                    <h3 className="font-bold text-xl text-white tracking-tight">
+                    <h3 className="font-black text-2xl text-white tracking-tight bg-gradient-to-r from-white to-slate-200 bg-clip-text">
                       {prediction.playerName}
                     </h3>
-                    <p className="text-sm text-slate-300 font-medium">
-                      {prediction.propType} {prediction.line}
+                    <p className="text-base text-slate-300 font-semibold mt-1">
+                      {prediction.propType} <span className="text-blue-400 font-bold">{prediction.line}</span>
                     </p>
                   </div>
-                </div>
+                </motion.div>
               ) : (
-                <div className="flex items-center gap-4">
+                <motion.div 
+                  className="flex items-center gap-6 mb-4"
+                  initial={{ scale: 0.9 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 0.2 }}
+                >
                   <div className="text-center">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm shadow-lg">
+                    <motion.div 
+                      className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-blue-500/40"
+                      whileHover={{ scale: 1.1 }}
+                    >
                       {prediction.homeTeamAbbr}
-                    </div>
-                    <p className="text-xs text-slate-300 mt-1 font-medium">{prediction.homeTeamAbbr}</p>
+                    </motion.div>
+                    <p className="text-sm text-slate-200 mt-2 font-bold">{prediction.homeTeamAbbr}</p>
                   </div>
                   <div className="flex flex-col items-center">
-                    <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">VS</span>
-                    <span className="text-xs text-slate-400 mt-1">
+                    <motion.span 
+                      className="text-lg text-slate-300 font-black uppercase tracking-wider"
+                      animate={{ opacity: [0.5, 1, 0.5] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    >
+                      VS
+                    </motion.span>
+                    <Badge className="mt-2 bg-purple-500/20 text-purple-300 border-purple-500/30">
                       {prediction.period === 'full_game' ? 'Full Game' : 
-                       prediction.period === '1st_quarter' ? '1Q' : '1H'}
-                    </span>
+                       prediction.period === '1st_quarter' ? '1st Quarter' : '1st Half'}
+                    </Badge>
                   </div>
                   <div className="text-center">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-white font-bold text-sm shadow-lg">
+                    <motion.div 
+                      className="w-12 h-12 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-red-500/40"
+                      whileHover={{ scale: 1.1 }}
+                    >
                       {prediction.awayTeamAbbr}
-                    </div>
-                    <p className="text-xs text-slate-300 mt-1 font-medium">{prediction.awayTeamAbbr}</p>
+                    </motion.div>
+                    <p className="text-sm text-slate-200 mt-2 font-bold">{prediction.awayTeamAbbr}</p>
                   </div>
-                </div>
+                </motion.div>
               )}
-            </div>
-            
-            {/* Market badges */}
-            <div className="flex items-center gap-2 mb-4">
-              <Badge variant="outline" className="text-xs font-medium bg-blue-500/20 text-blue-300 border-blue-500/30">
-                {isPlayerProp ? 'Player Prop' : prediction.marketType?.toUpperCase()}
-              </Badge>
-              {!isPlayerProp && prediction.period !== 'full_game' && (
-                <Badge variant="outline" className="text-xs font-medium bg-purple-500/20 text-purple-300 border-purple-500/30">
-                  {prediction.period === '1st_quarter' ? '1st Quarter' : '1st Half'}
-                </Badge>
-              )}
-              {isPlayerProp && (
-                <Badge variant="outline" className="text-xs font-medium bg-slate-500/20 text-slate-300 border-slate-500/30">
-                  {prediction.teamAbbr} vs {prediction.opponentAbbr}
-                </Badge>
-              )}
-            </div>
-          </div>
-          
-          {/* Bookmark button */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="p-2 hover:bg-slate-700/50 transition-colors"
-            onClick={() => onBookmark?.(prediction.id)}
-          >
-            {prediction.isBookmarked ? (
-              <BookmarkCheck className="w-4 h-4 text-blue-400" />
-            ) : (
-              <Bookmark className="w-4 h-4 text-slate-400 hover:text-blue-400 transition-colors" />
-            )}
-          </Button>
-        </div>
-        
-        {/* Odds display */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          {isPlayerProp ? (
-            <>
-              <div className="bg-gradient-to-r from-emerald-900/50 to-emerald-800/30 rounded-lg p-4 border border-emerald-500/30">
-                <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp className="w-4 h-4 text-emerald-400" />
-                  <span className="text-xs font-bold text-emerald-300 uppercase tracking-wide">Over</span>
-                </div>
-                <p className="text-xl font-bold text-emerald-100">
-                  {formatOdds(prediction.overOdds)}
-                </p>
-              </div>
-              <div className="bg-gradient-to-r from-red-900/50 to-red-800/30 rounded-lg p-4 border border-red-500/30">
-                <div className="flex items-center gap-2 mb-2">
-                  <TrendingDown className="w-4 h-4 text-red-400" />
-                  <span className="text-xs font-bold text-red-300 uppercase tracking-wide">Under</span>
-                </div>
-                <p className="text-xl font-bold text-red-100">
-                  {formatOdds(prediction.underOdds)}
-                </p>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="bg-gradient-to-r from-blue-900/50 to-blue-800/30 rounded-lg p-4 border border-blue-500/30">
-                <div className="flex items-center gap-2 mb-2">
-                  <Users className="w-4 h-4 text-blue-400" />
-                  <span className="text-xs font-bold text-blue-300 uppercase tracking-wide">
-                    {prediction.homeTeamAbbr}
-                  </span>
-                </div>
-                <p className="text-xl font-bold text-blue-100">
-                  {formatOdds(prediction.homeOdds)}
-                </p>
-              </div>
-              <div className="bg-gradient-to-r from-red-900/50 to-red-800/30 rounded-lg p-4 border border-red-500/30">
-                <div className="flex items-center gap-2 mb-2">
-                  <Users className="w-4 h-4 text-red-400" />
-                  <span className="text-xs font-bold text-red-300 uppercase tracking-wide">
-                    {prediction.awayTeamAbbr}
-                  </span>
-                </div>
-                <p className="text-xl font-bold text-red-100">
-                  {formatOdds(prediction.awayOdds)}
-                </p>
-              </div>
-            </>
-          )}
-        </div>
-        
-        {/* AI Analysis Section */}
-        <div className="space-y-4 mb-6">
-          {/* Confidence and EV Progress */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Shield className="w-4 h-4 text-blue-400" />
-                <span className="text-sm font-semibold text-slate-200">AI Confidence</span>
-              </div>
-              <span className="text-sm font-bold text-white">{confidence.toFixed(1)}%</span>
-            </div>
-            <Progress 
-              value={confidence} 
-              className="h-3 bg-slate-700"
-            />
-          </div>
-          
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-emerald-400" />
-                <span className="text-sm font-semibold text-slate-200">Expected Value</span>
-              </div>
-              <span className={cn(
-                "text-sm font-bold",
-                (prediction.expectedValue || 0) >= 0 ? "text-emerald-400" : "text-red-400"
-              )}>
-                {formatPercentage(prediction.expectedValue || 0)}
-              </span>
-            </div>
-            <Progress 
-              value={expectedValue} 
-              className="h-3 bg-slate-700"
-            />
-          </div>
-        </div>
-        
-        {/* Recommendation */}
-        <div className="mb-6 p-4 rounded-lg bg-gradient-to-r from-slate-800/50 to-slate-700/30 border border-slate-600/50">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {getRecommendationIcon(prediction.recommendation)}
-              <span className="text-sm font-semibold text-slate-200">AI Recommendation</span>
-            </div>
-            <Badge className={cn("text-xs font-bold px-3 py-1", getRiskColor(riskLevel))}>
-              <span className="capitalize">{prediction.recommendation ? prediction.recommendation.replace('_', ' ') : 'Neutral'}</span>
-            </Badge>
-          </div>
-        </div>
-        
-        {/* Expandable detailed analysis */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full text-slate-300 hover:text-white hover:bg-slate-700/50 transition-all mb-4"
-          onClick={() => setIsExpanded(!isExpanded)}
-        >
-          <Brain className="w-4 h-4 mr-2" />
-          <span className="text-sm font-medium">
-            {isExpanded ? 'Hide Detailed Analysis' : 'View Detailed Analysis'}
-          </span>
-          {isExpanded ? (
-            <ChevronUp className="w-4 h-4 ml-2" />
-          ) : (
-            <ChevronDown className="w-4 h-4 ml-2" />
-          )}
-        </Button>
-        
-        {isExpanded && (
-          <div className="space-y-4 animate-in slide-in-from-top-2 duration-500">
-            <div className="border-t border-slate-700/50 pt-4">
-              <h4 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
-                <Lightbulb className="w-4 h-4 text-yellow-400" />
-                Detailed Analysis Factors
-              </h4>
               
-              <div className="space-y-3">
-                {detailedAnalysis.map((factor, index) => (
-                  <div key={index} className={cn(
-                    "p-3 rounded-lg border",
-                    factor.impact === 'high' && "bg-emerald-500/10 border-emerald-500/30",
-                    factor.impact === 'medium' && "bg-blue-500/10 border-blue-500/30",
-                    factor.impact === 'low' && "bg-amber-500/10 border-amber-500/30"
-                  )}>
-                    <div className="flex items-start gap-3">
-                      {factor.icon}
-                      <div className="flex-1">
-                        <h5 className="text-sm font-semibold text-white mb-1">
-                          {factor.title}
-                        </h5>
-                        <p className="text-xs text-slate-300 leading-relaxed">
-                          {factor.description}
-                        </p>
-                      </div>
+              {/* Enhanced market badges */}
+              <motion.div 
+                className="flex items-center gap-3"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+              >
+                <Badge className="text-sm font-bold bg-blue-500/30 text-blue-200 border-blue-400/50 px-4 py-1">
+                  <Cpu className="w-3 h-3 mr-1" />
+                  {isPlayerProp ? 'PLAYER PROP' : prediction.marketType?.toUpperCase()}
+                </Badge>
+                {isPlayerProp && (
+                  <Badge className="text-sm font-bold bg-slate-500/30 text-slate-200 border-slate-400/50 px-4 py-1">
+                    <Users className="w-3 h-3 mr-1" />
+                    {prediction.teamAbbr} vs {prediction.opponentAbbr}
+                  </Badge>
+                )}
+              </motion.div>
+            </div>
+            
+            {/* Enhanced bookmark button */}
+            <motion.div
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+            >
+              <Button
+                variant="ghost"
+                size="sm"
+                className="p-3 hover:bg-slate-700/50 transition-all rounded-full"
+                onClick={() => onBookmark?.(prediction.id)}
+              >
+                {prediction.isBookmarked ? (
+                  <BookmarkCheck className="w-5 h-5 text-blue-400" />
+                ) : (
+                  <Bookmark className="w-5 h-5 text-slate-400 hover:text-blue-400 transition-colors" />
+                )}
+              </Button>
+            </motion.div>
+          </motion.div>
+          
+          {/* Enhanced odds display with animations */}
+          <motion.div 
+            className="grid grid-cols-2 gap-4 mb-6"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+          >
+            {isPlayerProp ? (
+              <>
+                <motion.div 
+                  className="bg-gradient-to-br from-emerald-900/60 to-emerald-800/40 rounded-xl p-5 border border-emerald-500/40 shadow-lg shadow-emerald-500/20"
+                  whileHover={{ scale: 1.05, rotateY: 5 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <TrendingUp className="w-5 h-5 text-emerald-400" />
+                    <span className="text-sm font-black text-emerald-300 uppercase tracking-wider">OVER</span>
+                  </div>
+                  <p className="text-2xl font-black text-emerald-100">
+                    {formatOdds(prediction.overOdds)}
+                  </p>
+                </motion.div>
+                <motion.div 
+                  className="bg-gradient-to-br from-red-900/60 to-red-800/40 rounded-xl p-5 border border-red-500/40 shadow-lg shadow-red-500/20"
+                  whileHover={{ scale: 1.05, rotateY: -5 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <TrendingDown className="w-5 h-5 text-red-400" />
+                    <span className="text-sm font-black text-red-300 uppercase tracking-wider">UNDER</span>
+                  </div>
+                  <p className="text-2xl font-black text-red-100">
+                    {formatOdds(prediction.underOdds)}
+                  </p>
+                </motion.div>
+              </>
+            ) : (
+              <>
+                <motion.div 
+                  className="bg-gradient-to-br from-blue-900/60 to-blue-800/40 rounded-xl p-5 border border-blue-500/40 shadow-lg shadow-blue-500/20"
+                  whileHover={{ scale: 1.05 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <Users className="w-5 h-5 text-blue-400" />
+                    <span className="text-sm font-black text-blue-300 uppercase tracking-wider">
+                      {prediction.homeTeamAbbr}
+                    </span>
+                  </div>
+                  <p className="text-2xl font-black text-blue-100">
+                    {formatOdds(prediction.homeOdds)}
+                  </p>
+                </motion.div>
+                <motion.div 
+                  className="bg-gradient-to-br from-red-900/60 to-red-800/40 rounded-xl p-5 border border-red-500/40 shadow-lg shadow-red-500/20"
+                  whileHover={{ scale: 1.05 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <Users className="w-5 h-5 text-red-400" />
+                    <span className="text-sm font-black text-red-300 uppercase tracking-wider">
+                      {prediction.awayTeamAbbr}
+                    </span>
+                  </div>
+                  <p className="text-2xl font-black text-red-100">
+                    {formatOdds(prediction.awayOdds)}
+                  </p>
+                </motion.div>
+              </>
+            )}
+          </motion.div>
+          
+          {/* Enhanced AI Analysis Section */}
+          <motion.div 
+            className="space-y-5 mb-6"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+          >
+            {/* Confidence Progress */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <motion.div
+                    animate={{ rotate: [0, 360] }}
+                    transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                  >
+                    <Shield className="w-5 h-5 text-blue-400" />
+                  </motion.div>
+                  <span className="text-base font-bold text-slate-200">AI CONFIDENCE</span>
+                </div>
+                <span className="text-lg font-black text-white bg-blue-500/20 px-3 py-1 rounded-full">
+                  {confidence.toFixed(1)}%
+                </span>
+              </div>
+              <Progress 
+                value={confidence} 
+                className="h-4 bg-slate-700 border border-slate-600"
+              />
+            </div>
+            
+            {/* Expected Value Progress */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <DollarSign className="w-5 h-5 text-emerald-400" />
+                  <span className="text-base font-bold text-slate-200">EXPECTED VALUE</span>
+                </div>
+                <span className={cn(
+                  "text-lg font-black px-3 py-1 rounded-full",
+                  (prediction.expectedValue || 0) >= 0 
+                    ? "text-emerald-400 bg-emerald-500/20" 
+                    : "text-red-400 bg-red-500/20"
+                )}>
+                  {formatPercentage(prediction.expectedValue || 0)}
+                </span>
+              </div>
+              <Progress 
+                value={expectedValue} 
+                className="h-4 bg-slate-700 border border-slate-600"
+              />
+            </div>
+          </motion.div>
+          
+          {/* Enhanced Recommendation */}
+          <motion.div 
+            className="mb-6 p-5 rounded-xl bg-gradient-to-r from-slate-800/60 to-slate-700/40 border border-slate-600/50 shadow-lg"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.6 }}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {getRecommendationIcon(prediction.recommendation)}
+                <span className="text-base font-bold text-slate-200">AI RECOMMENDATION</span>
+              </div>
+              <Badge className={cn("text-sm font-black px-4 py-2", getRiskColor(riskLevel))}>
+                <span className="capitalize">
+                  {prediction.recommendation ? prediction.recommendation.replace('_', ' ') : 'NEUTRAL'}
+                </span>
+              </Badge>
+            </div>
+          </motion.div>
+          
+          {/* Enhanced expandable analysis */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.7 }}
+          >
+            <Button
+              variant="ghost"
+              size="lg"
+              className="w-full text-slate-300 hover:text-white hover:bg-slate-700/50 transition-all mb-4 p-4 rounded-xl border border-slate-600/50"
+              onClick={() => setIsExpanded(!isExpanded)}
+            >
+              <Brain className="w-5 h-5 mr-3" />
+              <span className="text-base font-bold">
+                {isExpanded ? 'HIDE ADVANCED ANALYSIS' : 'VIEW ADVANCED ANALYSIS'}
+              </span>
+              <motion.div
+                animate={{ rotate: isExpanded ? 180 : 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <ChevronDown className="w-5 h-5 ml-3" />
+              </motion.div>
+            </Button>
+            
+            <AnimatePresence>
+              {isExpanded && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.4, ease: "easeInOut" }}
+                  className="space-y-5"
+                >
+                  <div className="border-t border-slate-700/50 pt-5">
+                    <h4 className="text-lg font-black text-white mb-4 flex items-center gap-3">
+                      <Sparkles className="w-5 h-5 text-yellow-400" />
+                      ADVANCED AI FACTORS
+                    </h4>
+                    
+                    <div className="space-y-4">
+                      {factorInsights.slice(0, 4).map((insight, index) => (
+                        <motion.div 
+                          key={index}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.1 }}
+                          className="p-4 rounded-lg bg-gradient-to-r from-slate-800/60 to-slate-700/40 border border-slate-600/50"
+                        >
+                          <div className="flex items-start gap-4">
+                            <motion.div
+                              animate={{ scale: [1, 1.1, 1] }}
+                              transition={{ duration: 2, repeat: Infinity, delay: index * 0.5 }}
+                              className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0 mt-1"
+                            >
+                              <Eye className="w-4 h-4 text-blue-400" />
+                            </motion.div>
+                            <div className="flex-1">
+                              <p className="text-sm text-slate-200 leading-relaxed font-medium">
+                                {insight}
+                              </p>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-            
-            {/* Additional market info */}
-            {!isPlayerProp && (prediction.spread || prediction.total) && (
-              <div className="grid grid-cols-2 gap-3">
-                {prediction.spread && (
-                  <div className="bg-gradient-to-r from-purple-900/50 to-purple-800/30 rounded-lg p-3 border border-purple-500/30">
-                    <span className="text-xs font-bold text-purple-300 uppercase tracking-wide">Spread</span>
-                    <p className="text-lg font-bold text-purple-100">
-                      {prediction.spread > 0 ? '+' : ''}{prediction.spread}
-                    </p>
-                  </div>
-                )}
-                {prediction.total && (
-                  <div className="bg-gradient-to-r from-indigo-900/50 to-indigo-800/30 rounded-lg p-3 border border-indigo-500/30">
-                    <span className="text-xs font-bold text-indigo-300 uppercase tracking-wide">Total</span>
-                    <p className="text-lg font-bold text-indigo-100">
-                      {prediction.total}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-            
-            {/* Last updated */}
-            <div className="flex items-center gap-2 text-xs text-slate-400 pt-2 border-t border-slate-700/50">
-              <Clock className="w-3 h-3" />
-              <span>Updated: {new Date(prediction.lastUpdate || '').toLocaleTimeString()}</span>
-            </div>
-            
-            {/* Live indicator */}
-            {prediction.available && (
-              <div className="flex items-center gap-2">
-                <Activity className="w-3 h-3 text-emerald-400 animate-pulse" />
-                <span className="text-xs font-medium text-emerald-400">Live Market</span>
-              </div>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                  
+                  {/* Additional market info */}
+                  {!isPlayerProp && (prediction.spread || prediction.total) && (
+                    <motion.div 
+                      className="grid grid-cols-2 gap-4"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.8 }}
+                    >
+                      {prediction.spread && (
+                        <div className="bg-gradient-to-br from-purple-900/60 to-purple-800/40 rounded-xl p-4 border border-purple-500/40">
+                          <span className="text-sm font-black text-purple-300 uppercase tracking-wider">SPREAD</span>
+                          <p className="text-xl font-black text-purple-100 mt-2">
+                            {prediction.spread > 0 ? '+' : ''}{prediction.spread}
+                          </p>
+                        </div>
+                      )}
+                      {prediction.total && (
+                        <div className="bg-gradient-to-br from-indigo-900/60 to-indigo-800/40 rounded-xl p-4 border border-indigo-500/40">
+                          <span className="text-sm font-black text-indigo-300 uppercase tracking-wider">TOTAL</span>
+                          <p className="text-xl font-black text-indigo-100 mt-2">
+                            {prediction.total}
+                          </p>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                  
+                  {/* Footer info */}
+                  <motion.div 
+                    className="flex items-center justify-between text-sm text-slate-400 pt-4 border-t border-slate-700/50"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.9 }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4" />
+                      <span>Updated: {new Date(prediction.lastUpdate || '').toLocaleTimeString()}</span>
+                    </div>
+                    
+                    {prediction.available && (
+                      <div className="flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-emerald-400 animate-pulse" />
+                        <span className="text-emerald-400 font-medium">LIVE</span>
+                      </div>
+                    )}
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 };

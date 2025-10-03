@@ -18,6 +18,7 @@ import {
   Activity,
   AlertCircle,
   Play,
+  Filter,
   RotateCcw,
   DollarSign,
   Shield,
@@ -179,6 +180,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
   const [filterRisk, setFilterRisk] = useState<'all' | 'low' | 'medium' | 'high'>('all');
   const [showLiveOnly, setShowLiveOnly] = useState(false);
   const [bookmarkedPredictions, setBookmarkedPredictions] = useState<Set<string>>(new Set());
+  const [propFilter, setPropFilter] = useState<string>('all');
   const [shouldShowPredictions, setShouldShowPredictions] = useState(true);
   const [offseasonMessage, setOffseasonMessage] = useState('');
   const [seasonLoading, setSeasonLoading] = useState(true);
@@ -238,19 +240,20 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
     try {
       console.log(`🔮 Loading comprehensive predictions for ${selectedSport}...`);
       
-      // Fetch data from multiple market endpoints - prioritize other markets over player props
-      const endpoints = [
-        'moneyline', 
-        'spread', 
-        'total',
-        '1q-moneyline',
-        '1q-spread', 
-        '1q-total',
-        '1h-moneyline',
-        '1h-spread',
-        '1h-total',
-        'player-props' // Player props last, will be limited
-      ];
+            // Fetch data from multiple market endpoints - prioritize other markets over player props
+            const endpoints = [
+              'moneyline', 
+              'spread', 
+              'total',
+              '1q-moneyline',
+              '1q-spread', 
+              '1q-total',
+              '1h-moneyline',
+              '1h-spread',
+              '1h-total',
+              'player-props', // Player props last, will be limited
+              '1q-player-props' // 1Q player props
+            ];
       
       const allMarkets: MarketData[] = [];
       
@@ -271,11 +274,12 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
           if (data.success && data.data) {
             logSuccess('PredictionsTab', `Retrieved ${data.data.length} ${endpoint} markets`);
             
-            // Limit player props to avoid overwhelming the predictions tab
-            const limitedData = endpoint === 'player-props' ? data.data.slice(0, 8) : data.data;
-            if (endpoint === 'player-props' && data.data.length > 8) {
-              logInfo('PredictionsTab', `Limited player props from ${data.data.length} to 8 to prioritize other markets`);
-            }
+              // Limit player props to avoid overwhelming the predictions tab
+              const isPlayerPropsEndpoint = endpoint === 'player-props' || endpoint === '1q-player-props';
+              const limitedData = isPlayerPropsEndpoint ? data.data.slice(0, 6) : data.data;
+              if (isPlayerPropsEndpoint && data.data.length > 6) {
+                logInfo('PredictionsTab', `Limited ${endpoint} from ${data.data.length} to 6 to prioritize other markets`);
+              }
             
             // Process and add EV calculations for each market
             const processedMarkets = await Promise.all(
@@ -647,6 +651,24 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
   const filteredPredictions = predictions.filter(prediction => {
     if (filterRisk !== 'all' && getRiskLevel(prediction) !== filterRisk) return false;
     if (showLiveOnly && !prediction.available) return false;
+    
+    // Prop type filter
+    if (propFilter !== 'all') {
+      if (prediction.marketType === 'player-prop') {
+        const propType = prediction.propType?.toLowerCase() || '';
+        if (propFilter === 'passing' && !propType.includes('pass')) return false;
+        if (propFilter === 'rushing' && !propType.includes('rush')) return false;
+        if (propFilter === 'receiving' && !propType.includes('receiv')) return false;
+        if (propFilter === 'touchdowns' && !propType.includes('touchdown')) return false;
+        if (propFilter === 'yards' && !propType.includes('yard')) return false;
+        if (propFilter === 'completions' && !propType.includes('complet')) return false;
+        if (propFilter === 'interceptions' && !propType.includes('intercept')) return false;
+      } else {
+        // For non-player props, only show if they match the filter
+        if (propFilter !== prediction.marketType) return false;
+      }
+    }
+    
     return true;
   });
 
@@ -817,6 +839,27 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
             </SelectContent>
           </Select>
 
+          <Select value={propFilter} onValueChange={(value: any) => setPropFilter(value)}>
+            <SelectTrigger className="w-40">
+              <Filter className="w-4 h-4 mr-2" />
+              <SelectValue placeholder="Filter Props" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Props</SelectItem>
+              <SelectItem value="player-prop">Player Props</SelectItem>
+              <SelectItem value="moneyline">Moneyline</SelectItem>
+              <SelectItem value="spread">Spread</SelectItem>
+              <SelectItem value="total">Total</SelectItem>
+              <SelectItem value="passing">Passing Props</SelectItem>
+              <SelectItem value="rushing">Rushing Props</SelectItem>
+              <SelectItem value="receiving">Receiving Props</SelectItem>
+              <SelectItem value="touchdowns">Touchdown Props</SelectItem>
+              <SelectItem value="yards">Yard Props</SelectItem>
+              <SelectItem value="completions">Completion Props</SelectItem>
+              <SelectItem value="interceptions">Interception Props</SelectItem>
+            </SelectContent>
+          </Select>
+
           <Button
             variant={showLiveOnly ? "default" : "outline"}
             size="sm"
@@ -868,9 +911,9 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
       )}
 
       {/* Predictions Grid */}
-            {!isLoading && sortedPredictions.length > 0 && (
+      {!isLoading && sortedPredictions.length > 0 && (
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
-                {sortedPredictions.map((prediction) => (
+          {sortedPredictions.map((prediction) => (
                   <AdvancedPredictionCard
                     key={prediction.id}
                     prediction={prediction}

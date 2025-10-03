@@ -92,8 +92,8 @@ export default {
         
         console.log(`📊 Processing event ${i}: ${homeTeam} vs ${awayTeam} on ${gameDate}`);
 
-        if (endpoint === 'player-props') {
-          // Process player props
+        if (endpoint === 'player-props' || endpoint === '1q-player-props') {
+          // Process player props (including 1Q player props)
           const playerPropsMap = new Map<string, any>();
           
           for (const [propKey, propData] of Object.entries(event.odds)) {
@@ -187,6 +187,8 @@ export default {
                   awayTeam: awayTeamFull,
                   homeTeam: homeTeamFull,
                   betType: 'player_prop',
+                  marketType: 'player-prop',
+                  period: endpoint === '1q-player-props' ? '1st_quarter' : 'full_game',
                   isExactAPIData: true,
                   lastUpdate: new Date().toISOString(),
                   marketName: marketName
