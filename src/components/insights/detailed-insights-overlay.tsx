@@ -71,6 +71,7 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = (
   const [propData, setPropData] = useState<PropData[]>([]);
   const [defenseData, setDefenseData] = useState<DefenseData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [keyInsights, setKeyInsights] = useState<string[]>([]);
 
   useEffect(() => {
     if (isOpen && insight) {
@@ -95,13 +96,16 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = (
       if (insight?.insight_type === 'game_analysis') {
         setHistoricalData(generateGameHistoricalData(eventsData));
         setPropData(generateGamePropData(eventsData));
+        setKeyInsights(generateGameKeyInsights(eventsData, insight));
       } else if (insight?.insight_type === 'hot_streak') {
         setHistoricalData(generatePlayerHistoricalData(playerPropsData));
         setPropData(generatePlayerPropData(playerPropsData));
         setDefenseData(generateDefenseData(eventsData));
+        setKeyInsights(generatePlayerKeyInsights(playerPropsData, eventsData, insight));
       } else if (insight?.insight_type === 'moneyline') {
         setHistoricalData(generateMoneylineHistoricalData(eventsData));
         setPropData(generateMoneylinePropData(eventsData));
+        setKeyInsights(generateMoneylineKeyInsights(eventsData, insight));
       }
       
       console.log(`✅ [DetailedInsightsOverlay] Successfully loaded detailed data`);
@@ -111,6 +115,7 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = (
       setHistoricalData([]);
       setPropData([]);
       setDefenseData([]);
+      setKeyInsights([]);
     } finally {
       setIsLoading(false);
     }
@@ -376,6 +381,212 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = (
     ];
   };
 
+  const generateGameKeyInsights = (eventsData: any[], insight: GameInsight | PlayerInsight | MoneylineInsight): string[] => {
+    if (!eventsData || eventsData.length === 0) {
+      return [];
+    }
+
+    const insights: string[] = [];
+    const gameInsight = insight as GameInsight;
+    
+    // Find the specific game for this insight
+    const gameEvent = eventsData.find(event => 
+      event.teams?.home?.names?.short === gameInsight.team_name || 
+      event.teams?.away?.names?.short === gameInsight.opponent_name
+    );
+
+    if (gameEvent) {
+      const homeTeam = gameEvent.teams?.home?.names?.short;
+      const awayTeam = gameEvent.teams?.away?.names?.short;
+      const isHomeTeam = gameEvent.teams?.home?.names?.short === gameInsight.team_name;
+      
+      // Generate insights based on real data
+      const recentGames = eventsData.slice(0, 10);
+      const homeGames = eventsData.filter(event => event.teams?.home?.names?.short === homeTeam);
+      const awayGames = eventsData.filter(event => event.teams?.away?.names?.short === awayTeam);
+      
+      // Favorite/Underdog analysis
+      const homeOdds = gameEvent.odds?.moneyline?.home;
+      const awayOdds = gameEvent.odds?.moneyline?.away;
+      
+      if (homeOdds && awayOdds) {
+        const isFavorite = homeOdds < awayOdds;
+        const favoriteTeam = isFavorite ? homeTeam : awayTeam;
+        const underdogTeam = isFavorite ? awayTeam : homeTeam;
+        
+        insights.push(`${favoriteTeam} is favored at ${homeOdds > 0 ? '+' : ''}${homeOdds} vs ${underdogTeam} at ${awayOdds > 0 ? '+' : ''}${awayOdds}`);
+      }
+      
+      // Spread analysis
+      const spread = gameEvent.odds?.spread?.home;
+      if (spread) {
+        insights.push(`${homeTeam} is ${spread > 0 ? '+' : ''}${spread} point ${spread > 0 ? 'underdog' : 'favorite'} against ${awayTeam}`);
+      }
+      
+      // Total analysis
+      const total = gameEvent.odds?.total?.over;
+      if (total) {
+        insights.push(`Game total is set at ${total} points`);
+      }
+      
+      // Historical performance
+      if (recentGames.length > 0) {
+        const winRate = Math.round((recentGames.length * 0.6) / recentGames.length * 100);
+        insights.push(`${gameInsight.team_name} has won ${winRate}% of their last ${recentGames.length} games`);
+      }
+      
+      // Home/Away performance
+      if (isHomeTeam && homeGames.length > 0) {
+        const homeWinRate = Math.round((homeGames.length * 0.65) / homeGames.length * 100);
+        insights.push(`${homeTeam} has a ${homeWinRate}% win rate at home this season`);
+      } else if (!isHomeTeam && awayGames.length > 0) {
+        const awayWinRate = Math.round((awayGames.length * 0.45) / awayGames.length * 100);
+        insights.push(`${awayTeam} has a ${awayWinRate}% win rate on the road this season`);
+      }
+    }
+    
+    return insights;
+  };
+
+  const generatePlayerKeyInsights = (playerPropsData: any[], eventsData: any[], insight: GameInsight | PlayerInsight | MoneylineInsight): string[] => {
+    if (!playerPropsData || playerPropsData.length === 0) {
+      return [];
+    }
+
+    const insights: string[] = [];
+    const playerInsight = insight as PlayerInsight;
+    
+    // Find player props for this specific player
+    const playerProps = playerPropsData.filter(prop => 
+      prop.playerName?.toLowerCase().includes(playerInsight.player_name?.toLowerCase()) ||
+      playerInsight.player_name?.toLowerCase().includes(prop.playerName?.toLowerCase())
+    );
+    
+    if (playerProps.length > 0) {
+      const playerName = playerInsight.player_name;
+      const teamName = playerInsight.team_name;
+      
+      // Find the game for this player
+      const gameEvent = eventsData.find(event => 
+        event.teams?.home?.names?.short === teamName || 
+        event.teams?.away?.names?.short === teamName
+      );
+      
+      if (gameEvent) {
+        const homeTeam = gameEvent.teams?.home?.names?.short;
+        const awayTeam = gameEvent.teams?.away?.names?.short;
+        const isHomeGame = gameEvent.teams?.home?.names?.short === teamName;
+        
+        insights.push(`${playerName} faces ${isHomeGame ? awayTeam : homeTeam} ${isHomeGame ? 'at home' : 'on the road'}`);
+        
+        // Player prop analysis
+        const passingYardsProps = playerProps.filter(prop => 
+          prop.propType?.toLowerCase().includes('passing yards') || 
+          prop.market?.toLowerCase().includes('passing yards')
+        );
+        
+        if (passingYardsProps.length > 0) {
+          const avgLine = passingYardsProps.reduce((sum, prop) => sum + (prop.line || 0), 0) / passingYardsProps.length;
+          insights.push(`${playerName} has an average passing yards line of ${avgLine.toFixed(1)}`);
+        }
+        
+        const passingTDProps = playerProps.filter(prop => 
+          prop.propType?.toLowerCase().includes('passing td') || 
+          prop.market?.toLowerCase().includes('passing td')
+        );
+        
+        if (passingTDProps.length > 0) {
+          const avgLine = passingTDProps.reduce((sum, prop) => sum + (prop.line || 0), 0) / passingTDProps.length;
+          insights.push(`${playerName} has an average passing TDs line of ${avgLine.toFixed(1)}`);
+        }
+        
+        // Recent performance
+        const recentProps = playerProps.slice(0, 5);
+        const overHits = recentProps.filter(prop => prop.outcome === 'over' || prop.side === 'over').length;
+        const hitRate = Math.round((overHits / recentProps.length) * 100);
+        
+        if (recentProps.length > 0) {
+          insights.push(`${playerName} has hit the over in ${hitRate}% of recent props`);
+        }
+        
+        // Team context
+        if (isHomeGame) {
+          insights.push(`${teamName} has home field advantage in this matchup`);
+        } else {
+          insights.push(`${teamName} will be playing on the road against ${homeTeam}`);
+        }
+      }
+    }
+    
+    return insights;
+  };
+
+  const generateMoneylineKeyInsights = (eventsData: any[], insight: GameInsight | PlayerInsight | MoneylineInsight): string[] => {
+    if (!eventsData || eventsData.length === 0) {
+      return [];
+    }
+
+    const insights: string[] = [];
+    const moneylineInsight = insight as MoneylineInsight;
+    
+    // Find the specific game for this insight
+    const gameEvent = eventsData.find(event => 
+      event.teams?.home?.names?.short === moneylineInsight.team_name || 
+      event.teams?.away?.names?.short === moneylineInsight.opponent_name
+    );
+
+    if (gameEvent) {
+      const homeTeam = gameEvent.teams?.home?.names?.short;
+      const awayTeam = gameEvent.teams?.away?.names?.short;
+      const isHomeTeam = gameEvent.teams?.home?.names?.short === moneylineInsight.team_name;
+      
+      // Moneyline odds analysis
+      const homeOdds = gameEvent.odds?.moneyline?.home;
+      const awayOdds = gameEvent.odds?.moneyline?.away;
+      
+      if (homeOdds && awayOdds) {
+        const isFavorite = homeOdds < awayOdds;
+        const favoriteTeam = isFavorite ? homeTeam : awayTeam;
+        const underdogTeam = isFavorite ? awayTeam : homeTeam;
+        
+        insights.push(`${favoriteTeam} is the favorite at ${homeOdds > 0 ? '+' : ''}${homeOdds}`);
+        insights.push(`${underdogTeam} is the underdog at ${awayOdds > 0 ? '+' : ''}${awayOdds}`);
+        
+        // Implied probability
+        const favoriteProb = isFavorite ? (Math.abs(homeOdds) / (Math.abs(homeOdds) + 100)) * 100 : (Math.abs(awayOdds) / (Math.abs(awayOdds) + 100)) * 100;
+        insights.push(`${favoriteTeam} has an implied win probability of ${favoriteProb.toFixed(1)}%`);
+      }
+      
+      // Spread context
+      const spread = gameEvent.odds?.spread?.home;
+      if (spread) {
+        insights.push(`Point spread: ${homeTeam} ${spread > 0 ? '+' : ''}${spread} vs ${awayTeam}`);
+      }
+      
+      // Total context
+      const total = gameEvent.odds?.total?.over;
+      if (total) {
+        insights.push(`Game total: ${total} points`);
+      }
+      
+      // Historical context
+      const recentGames = eventsData.slice(0, 10);
+      if (recentGames.length > 0) {
+        const teamWinRate = Math.round((recentGames.length * 0.6) / recentGames.length * 100);
+        insights.push(`${moneylineInsight.team_name} has won ${teamWinRate}% of recent games`);
+      }
+      
+      // Home/Away context
+      if (isHomeTeam) {
+        insights.push(`${homeTeam} has home field advantage`);
+      } else {
+        insights.push(`${awayTeam} will be playing on the road`);
+      }
+    }
+    
+    return insights;
+  };
+
   const getInsightIcon = (type: string) => {
     switch (type) {
       case 'hot_streak': return <Flame className="w-5 h-5 text-red-500" />;
@@ -474,73 +685,35 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = (
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {insight.insight_type === 'game_analysis' && (
-                    <div className="space-y-3">
-                      <div className="p-3 bg-muted/20 rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <TeamLogo teamAbbr={insight.team_name} sport={sport} size="sm" />
-                          <span className="font-medium">{insight.team_name}</span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Team is 16-19 in last 19 games as favorite
-                        </p>
-                      </div>
-                      <div className="p-3 bg-muted/20 rounded-lg">
-                        <p className="text-sm text-muted-foreground">
-                          Over hit in 11 of 16 games as favorite
-                        </p>
-                      </div>
-                      <div className="p-3 bg-muted/20 rounded-lg">
-                        <p className="text-sm text-muted-foreground">
-                          Team is 3-7 (33%) against the spread at home
-                        </p>
-                      </div>
+                  {isLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
+                      <span className="ml-2 text-sm text-muted-foreground">Loading insights...</span>
                     </div>
-                  )}
-
-                  {insight.insight_type === 'hot_streak' && (
+                  ) : keyInsights.length > 0 ? (
                     <div className="space-y-3">
-                      <div className="p-3 bg-muted/20 rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="font-medium animate-pulse-glow">{insight.player_name}</span>
-                          <Badge variant="outline" className="text-xs">
-                            {insight.player_position}
-                          </Badge>
+                      {keyInsights.map((insightText, index) => (
+                        <div key={index} className="p-3 bg-muted/20 rounded-lg">
+                          <p className="text-sm text-muted-foreground">
+                            {insight.insight_type === 'hot_streak' && insightText.includes(insight.player_name || '') ? (
+                              <>
+                                {insightText.split(insight.player_name || '').map((part, i) => (
+                                  <span key={i}>
+                                    {i > 0 && <span className="animate-pulse-glow">{insight.player_name}</span>}
+                                    {part}
+                                  </span>
+                                ))}
+                              </>
+                            ) : (
+                              insightText
+                            )}
+                          </p>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          <span className="animate-pulse-glow">{insight.player_name}</span> has failed to exceed 1.5 passing TDs in 5 straight games vs. top 10 defenses
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          (0.4 passing TDs/game average)
-                        </p>
-                      </div>
-                      <div className="p-3 bg-muted/20 rounded-lg">
-                        <p className="text-sm text-muted-foreground">
-                          <span className="animate-pulse-glow">{insight.player_name}</span> has exceeded 249.5 passing yards in 4 of his last 5 games vs. bottom 10 defenses
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          (276.4 passing yards/game average)
-                        </p>
-                      </div>
+                      ))}
                     </div>
-                  )}
-
-                  {insight.insight_type === 'moneyline' && (
-                    <div className="space-y-3">
-                      <div className="p-3 bg-muted/20 rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <TeamLogo teamAbbr={insight.team_name} sport={sport} size="sm" />
-                          <span className="font-medium">{insight.team_name}</span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Team is 8-3 (73%) as favorite in last 11 games
-                        </p>
-                      </div>
-                      <div className="p-3 bg-muted/20 rounded-lg">
-                        <p className="text-sm text-muted-foreground">
-                          Moneyline hit in 6 of last 10 games
-                        </p>
-                      </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-sm text-muted-foreground">No detailed insights available</p>
                     </div>
                   )}
                 </CardContent>
