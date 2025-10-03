@@ -22,10 +22,12 @@ import {
   Calendar,
   X,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  Brain
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TeamLogo } from '@/components/ui/team-logo';
+import { DetailedInsightsOverlay } from './detailed-insights-overlay';
 import { MoneylineProps } from '@/components/predictions/moneyline-props';
 import { UnderdogAnalysis } from '@/components/predictions/underdog-analysis';
 import { seasonService } from '@/services/season-service';
@@ -62,6 +64,8 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [selectedInsight, setSelectedInsight] = useState<GameInsight | PlayerInsight | MoneylineInsight | null>(null);
+  const [isOverlayOpen, setIsOverlayOpen] = useState(false);
   
   // Season and moneyline state
   const [shouldShowMoneyline, setShouldShowMoneyline] = useState(true);
@@ -163,7 +167,15 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
     }
   };
 
-  // Helper functions for rendering insights
+  const handleInsightClick = (insight: GameInsight | PlayerInsight | MoneylineInsight) => {
+    setSelectedInsight(insight);
+    setIsOverlayOpen(true);
+  };
+
+  const handleCloseOverlay = () => {
+    setIsOverlayOpen(false);
+    setSelectedInsight(null);
+  };
 
   // Helper functions for rendering insights
 
@@ -216,10 +228,13 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
 
   const renderGameInsight = (insight: GameInsight) => (
     <div key={insight.insight_id} className="relative">
-      <Card className={cn(
-        "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer",
-        !isSubscribed && "blur-sm"
-      )}>
+      <Card 
+        className={cn(
+          "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer",
+          !isSubscribed && "blur-sm"
+        )}
+        onClick={() => handleInsightClick(insight)}
+      >
       
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -276,10 +291,13 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
 
   const renderPlayerInsight = (insight: PlayerInsight) => (
     <div key={insight.insight_id} className="relative">
-      <Card className={cn(
-        "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer",
-        !isSubscribed && "blur-sm"
-      )}>
+      <Card 
+        className={cn(
+          "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer",
+          !isSubscribed && "blur-sm"
+        )}
+        onClick={() => handleInsightClick(insight)}
+      >
       
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -330,10 +348,13 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
 
   const renderMoneylineInsight = (insight: MoneylineInsight) => (
     <div key={insight.insight_id} className="relative">
-      <Card className={cn(
-        "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer",
-        !isSubscribed && "blur-sm"
-      )}>
+      <Card 
+        className={cn(
+          "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer",
+          !isSubscribed && "blur-sm"
+        )}
+        onClick={() => handleInsightClick(insight)}
+      >
       
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -445,44 +466,50 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
       </div>
 
       {/* Explanation Key */}
-      <div className="bg-muted/20 border border-border/30 rounded-lg p-4">
-        <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-          <BarChart3 className="w-4 h-4" />
-          Understanding Your Insights
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="text-green-500 font-medium">↑ +12%</span>
-              <span className="text-muted-foreground">Trending up 12% this week</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-red-500 font-medium">↓ -8%</span>
-              <span className="text-muted-foreground">Trending down 8% this week</span>
-            </div>
+    <div className="bg-muted/20 border border-border/30 rounded-lg p-4">
+      <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+        <BarChart3 className="w-4 h-4" />
+        Understanding Your Insights
+      </h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-green-500 font-medium">↑ +12%</span>
+            <span className="text-muted-foreground">Trending up 12% this week</span>
           </div>
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Flame className="w-3 h-3 text-red-500" />
-              <span className="text-muted-foreground">Hot Streak: Player performing exceptionally well</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Target className="w-3 h-3 text-blue-500" />
-              <span className="text-muted-foreground">Game Analysis: Team vs team matchup insights</span>
-            </div>
+          <div className="flex items-center gap-2">
+            <span className="text-red-500 font-medium">↓ -8%</span>
+            <span className="text-muted-foreground">Trending down 8% this week</span>
           </div>
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="text-yellow-500 font-medium">85%</span>
-              <span className="text-muted-foreground">Confidence: How reliable this insight is</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-blue-500 font-medium">72%</span>
-              <span className="text-muted-foreground">Value: Performance metric or probability</span>
-            </div>
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Flame className="w-3 h-3 text-red-500" />
+            <span className="text-muted-foreground">Hot Streak: Player performing exceptionally well</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Target className="w-3 h-3 text-blue-500" />
+            <span className="text-muted-foreground">Game Analysis: Team vs team matchup insights</span>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-yellow-500 font-medium">85%</span>
+            <span className="text-muted-foreground">Confidence: How reliable this insight is</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-blue-500 font-medium">72%</span>
+            <span className="text-muted-foreground">Value: Performance metric or probability</span>
           </div>
         </div>
       </div>
+      <div className="mt-3 pt-3 border-t border-border/20">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Brain className="w-3 h-3" />
+          <span>💡 <strong>Tip:</strong> Click any insight card for detailed analysis and historical data</span>
+        </div>
+      </div>
+    </div>
 
       {/* Filter Tabs */}
       <Tabs value={activeFilter} onValueChange={(value) => setActiveFilter(value as 'all' | 'game' | 'player' | 'moneyline')}>
@@ -793,6 +820,14 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
           <p className="text-sm text-muted-foreground">Overall accuracy</p>
         </Card>
       </div>
+
+      {/* Detailed Insights Overlay */}
+      <DetailedInsightsOverlay
+        isOpen={isOverlayOpen}
+        onClose={handleCloseOverlay}
+        insight={selectedInsight}
+        sport={selectedSport}
+      />
     </div>
   );
 };
