@@ -211,8 +211,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Function to get SportsGameOdds API usage statistics
 CREATE OR REPLACE FUNCTION get_sportsgameodds_api_usage_stats(
   p_user_id UUID DEFAULT NULL,
-  p_start_date TIMESTAMP WITH TIME ZONE DEFAULT now() - interval '30 days',
-  p_end_date TIMESTAMP WITH TIME ZONE DEFAULT now()
+  p_start_date TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+  p_end_date TIMESTAMP WITH TIME ZONE DEFAULT NULL
 )
 RETURNS TABLE (
   user_id UUID,
@@ -260,7 +260,7 @@ BEGIN
       COUNT(*) as endpoint_count
     FROM public.api_usage_logs
     WHERE (p_user_id IS NULL OR user_id = p_user_id)
-      AND created_at BETWEEN p_start_date AND p_end_date
+      AND created_at BETWEEN COALESCE(p_start_date, now() - interval '30 days') AND COALESCE(p_end_date, now())
     GROUP BY endpoint
   ) endpoint_stats ON logs.endpoint = endpoint_stats.endpoint
   LEFT JOIN (
@@ -269,12 +269,12 @@ BEGIN
       COUNT(*) as sport_count
     FROM public.api_usage_logs
     WHERE (p_user_id IS NULL OR user_id = p_user_id)
-      AND created_at BETWEEN p_start_date AND p_end_date
+      AND created_at BETWEEN COALESCE(p_start_date, now() - interval '30 days') AND COALESCE(p_end_date, now())
       AND sport IS NOT NULL
     GROUP BY sport
   ) sport_stats ON logs.sport = sport_stats.sport
   WHERE (p_user_id IS NULL OR logs.user_id = p_user_id)
-    AND logs.created_at BETWEEN p_start_date AND p_end_date
+    AND logs.created_at BETWEEN COALESCE(p_start_date, now() - interval '30 days') AND COALESCE(p_end_date, now())
   GROUP BY logs.user_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
