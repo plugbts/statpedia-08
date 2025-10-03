@@ -28,6 +28,7 @@ interface SportsbookOdds {
   overOdds: number;
   underOdds: number;
   lastUpdate: string;
+  isPickEm?: boolean;
 }
 
 interface PlayerProp {
@@ -502,13 +503,32 @@ export function PlayerPropCard3D({
                       <div>
                         <div className="text-xs text-slate-500 uppercase font-semibold mb-2">All Sportsbooks</div>
                         <div className="space-y-1">
-                          {prop.allSportsbookOdds.slice(0, 6).map((odds, index) => (
+                          {/* Regular Sportsbooks with Odds */}
+                          {prop.allSportsbookOdds
+                            .filter(odds => !odds.isPickEm)
+                            .slice(0, 6)
+                            .map((odds, index) => (
                             <div key={index} className="flex items-center justify-between text-xs bg-slate-800/30 rounded px-2 py-1">
                               <span className="text-slate-300 font-medium text-xs">{odds.sportsbook}</span>
                               <div className="flex items-center space-x-2">
                                 <span className="text-green-300 font-semibold">{formatOdds(odds.overOdds)}</span>
                                 <span className="text-slate-400">|</span>
                                 <span className="text-red-300 font-semibold">{formatOdds(odds.underOdds)}</span>
+                              </div>
+                            </div>
+                          ))}
+                          
+                          {/* Pick'em Sportsbooks */}
+                          {prop.allSportsbookOdds
+                            .filter(odds => odds.isPickEm)
+                            .map((odds, index) => (
+                            <div key={`pickem-${index}`} className="flex items-center justify-between text-xs bg-blue-900/30 rounded px-2 py-1 border border-blue-700/30">
+                              <div className="flex items-center space-x-1">
+                                <span className="text-blue-300 font-medium text-xs">{odds.sportsbook}</span>
+                                <span className="text-blue-400 text-xs">(Pick'em)</span>
+                              </div>
+                              <div className="text-blue-300 font-semibold text-xs">
+                                Pick Over/Under
                               </div>
                             </div>
                           ))}

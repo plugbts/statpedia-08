@@ -196,22 +196,29 @@ export default {
             const odds = parseNumber(bookmaker.odds);
             if (odds === null) continue;
             
+            // Check if this is a pick'em style sportsbook
+            const pickEmSportsbooks = ['underdog', 'prizepicks', 'thrivefantasy', 'superdraft'];
+            const isPickEm = pickEmSportsbooks.includes(bookmakerId.toLowerCase());
+            
             // Add to allSportsbookOdds
             const existingBookmaker = prop.allSportsbookOdds.find(sb => sb.sportsbook === bookmakerId);
             if (!existingBookmaker) {
               prop.allSportsbookOdds.push({
                 sportsbook: bookmakerId,
                 line: sportsbookLine,
-                overOdds: side === 'over' ? odds : null,
-                underOdds: side === 'under' ? odds : null,
+                overOdds: isPickEm ? null : (side === 'over' ? odds : null),
+                underOdds: isPickEm ? null : (side === 'under' ? odds : null),
+                isPickEm: isPickEm,
                 lastUpdate: bookmaker.lastUpdatedAt || new Date().toISOString()
               });
             } else {
               // Update existing bookmaker odds
-              if (side === 'over') {
-                existingBookmaker.overOdds = odds;
-              } else if (side === 'under') {
-                existingBookmaker.underOdds = odds;
+              if (!isPickEm) {
+                if (side === 'over') {
+                  existingBookmaker.overOdds = odds;
+                } else if (side === 'under') {
+                  existingBookmaker.underOdds = odds;
+                }
               }
               // Update last update time
               if (bookmaker.lastUpdatedAt && new Date(bookmaker.lastUpdatedAt) > new Date(existingBookmaker.lastUpdate)) {
@@ -239,10 +246,10 @@ export default {
           let bestSportsbook = null;
           let bestScore = -Infinity;
           
-          // First, try to find a preferred sportsbook with both over and under odds
+          // First, try to find a preferred sportsbook with both over and under odds (excluding pick'em books)
           for (const preferred of preferredSportsbooks) {
             const sb = prop.allSportsbookOdds.find(s => s.sportsbook === preferred);
-            if (sb && sb.overOdds !== null && sb.underOdds !== null) {
+            if (sb && sb.overOdds !== null && sb.underOdds !== null && !sb.isPickEm) {
               // Calculate a score for this sportsbook (higher is better)
               const overScore = sb.overOdds > 0 ? sb.overOdds : (100 + Math.abs(sb.overOdds));
               const underScore = sb.underOdds > 0 ? sb.underOdds : (100 + Math.abs(sb.underOdds));
@@ -255,10 +262,10 @@ export default {
             }
           }
           
-          // If no preferred sportsbook found, find the best overall sportsbook
+          // If no preferred sportsbook found, find the best overall sportsbook (excluding pick'em books)
           if (!bestSportsbook) {
             for (const sb of prop.allSportsbookOdds) {
-              if (sb.overOdds !== null && sb.underOdds !== null) {
+              if (sb.overOdds !== null && sb.underOdds !== null && !sb.isPickEm) {
                 const overScore = sb.overOdds > 0 ? sb.overOdds : (100 + Math.abs(sb.overOdds));
                 const underScore = sb.underOdds > 0 ? sb.underOdds : (100 + Math.abs(sb.underOdds));
                 const totalScore = overScore + underScore;
