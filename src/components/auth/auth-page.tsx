@@ -21,6 +21,7 @@ import {
   checkRateLimit
 } from '@/utils/security';
 import { rateLimitingService } from '@/services/rate-limiting-service';
+import { backupService } from '@/services/backup-service';
 
 interface AuthPageProps {
   onAuthSuccess: (user: any, subscription: string) => void;
@@ -70,7 +71,16 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
 
       if (error) {
         console.error('Error fetching profile:', error);
-        // If profiles table doesn't exist, just use default subscription
+        
+        // Try to restore from backup if profile doesn't exist
+        const restored = await backupService.restoreUserData(user.id);
+        if (restored) {
+          console.log('✅ User data restored from backup');
+          onAuthSuccess(user, 'free'); // Will be updated after restoration
+          return;
+        }
+        
+        // If profiles table doesn't exist and no backup, use default subscription
         onAuthSuccess(user, 'free');
         return;
       }
@@ -79,7 +89,20 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
       onAuthSuccess(user, subscription);
     } catch (error) {
       console.error('Error fetching profile:', error);
-      // Fallback to free subscription if profiles table doesn't exist
+      
+      // Try to restore from backup as fallback
+      try {
+        const restored = await backupService.restoreUserData(user.id);
+        if (restored) {
+          console.log('✅ User data restored from backup after error');
+          onAuthSuccess(user, 'free');
+          return;
+        }
+      } catch (restoreError) {
+        console.error('Error restoring from backup:', restoreError);
+      }
+      
+      // Final fallback to free subscription
       onAuthSuccess(user, 'free');
     }
   };
@@ -254,6 +277,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
         }
 
         if (data.user) {
+          // Create backup of user data on successful login
+          await backupService.createUserBackup(data.user.id);
+          await backupService.createAuthBackup(data.user);
+          
           toast({
             title: "Login Successful",
             description: "Welcome back to Statpedia!",
@@ -318,6 +345,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
         }
 
         if (data.user) {
+          // Create backup of new user data
+          await backupService.createUserBackup(data.user.id);
+          await backupService.createAuthBackup(data.user);
+          
           toast({
             title: "Account Created",
             description: "Please choose your subscription plan",
