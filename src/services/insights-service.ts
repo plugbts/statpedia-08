@@ -84,6 +84,7 @@ class InsightsService {
       
       // Get real games data
       const games = await gamesService.getCurrentWeekGames(sport);
+      console.log(`📊 [InsightsService] Retrieved ${games.length} games for ${sport}`);
       
       // Generate insights from real games data
       const insights = this.generateGameInsightsFromRealData(games, sport);
@@ -94,7 +95,7 @@ class InsightsService {
       return insights;
     } catch (error) {
       console.error(`❌ [InsightsService] Failed to fetch game insights for ${sport}:`, error);
-      // Return empty array instead of mock data
+      // Return empty array - no sample data
       return [];
     }
   }
@@ -114,6 +115,7 @@ class InsightsService {
       
       // Get real player props data
       const playerProps = await cloudflarePlayerPropsAPI.getPlayerProps(sport);
+      console.log(`👤 [InsightsService] Retrieved ${playerProps.length} player props for ${sport}`);
       
       // Generate insights from real player props data
       const insights = this.generatePlayerInsightsFromRealData(playerProps, sport);
@@ -124,7 +126,7 @@ class InsightsService {
       return insights;
     } catch (error) {
       console.error(`❌ [InsightsService] Failed to fetch player insights for ${sport}:`, error);
-      // Return empty array instead of mock data
+      // Return empty array - no sample data
       return [];
     }
   }
@@ -144,6 +146,7 @@ class InsightsService {
       
       // Get real games data for moneyline analysis
       const games = await gamesService.getCurrentWeekGames(sport);
+      console.log(`💰 [InsightsService] Retrieved ${games.length} games for moneyline analysis`);
       
       // Generate insights from real games data
       const insights = this.generateMoneylineInsightsFromRealData(games, sport);
@@ -154,7 +157,7 @@ class InsightsService {
       return insights;
     } catch (error) {
       console.error(`❌ [InsightsService] Failed to fetch moneyline insights for ${sport}:`, error);
-      // Return empty array instead of mock data
+      // Return empty array - no sample data
       return [];
     }
   }
@@ -341,9 +344,102 @@ class InsightsService {
   }
 
   private getPlayerPosition(playerName: string, sport: string): string {
-    // Simple position mapping based on common names and sport
+    // Better position mapping based on known players and common patterns
+    const knownPlayers: { [key: string]: string } = {
+      // NFL Quarterbacks
+      'Carson Wentz': 'QB',
+      'Tom Brady': 'QB',
+      'Aaron Rodgers': 'QB',
+      'Patrick Mahomes': 'QB',
+      'Josh Allen': 'QB',
+      'Lamar Jackson': 'QB',
+      'Dak Prescott': 'QB',
+      'Russell Wilson': 'QB',
+      'Matthew Stafford': 'QB',
+      'Derek Carr': 'QB',
+      'Kirk Cousins': 'QB',
+      'Ryan Tannehill': 'QB',
+      'Jalen Hurts': 'QB',
+      'Tua Tagovailoa': 'QB',
+      'Justin Herbert': 'QB',
+      'Trevor Lawrence': 'QB',
+      'Mac Jones': 'QB',
+      'Zach Wilson': 'QB',
+      'Trey Lance': 'QB',
+      'Justin Fields': 'QB',
+      
+      // NFL Running Backs
+      'Derrick Henry': 'RB',
+      'Christian McCaffrey': 'RB',
+      'Saquon Barkley': 'RB',
+      'Nick Chubb': 'RB',
+      'Dalvin Cook': 'RB',
+      'Alvin Kamara': 'RB',
+      'Ezekiel Elliott': 'RB',
+      'Aaron Jones': 'RB',
+      'Austin Ekeler': 'RB',
+      'Jonathan Taylor': 'RB',
+      
+      // NFL Wide Receivers
+      'Davante Adams': 'WR',
+      'Tyreek Hill': 'WR',
+      'Cooper Kupp': 'WR',
+      'Stefon Diggs': 'WR',
+      'DeAndre Hopkins': 'WR',
+      'Julio Jones': 'WR',
+      'Mike Evans': 'WR',
+      'Keenan Allen': 'WR',
+      'Amari Cooper': 'WR',
+      'DK Metcalf': 'WR',
+      
+      // NFL Tight Ends
+      'Travis Kelce': 'TE',
+      'George Kittle': 'TE',
+      'Darren Waller': 'TE',
+      'Mark Andrews': 'TE',
+      'Kyle Pitts': 'TE',
+      
+      // NBA Players
+      'LeBron James': 'SF',
+      'Stephen Curry': 'PG',
+      'Kevin Durant': 'SF',
+      'Giannis Antetokounmpo': 'PF',
+      'Luka Doncic': 'PG',
+      'Jayson Tatum': 'SF',
+      'Joel Embiid': 'C',
+      'Nikola Jokic': 'C',
+      'Damian Lillard': 'PG',
+      'Jimmy Butler': 'SF'
+    };
+    
+    // Check if we know this player
+    if (knownPlayers[playerName]) {
+      return knownPlayers[playerName];
+    }
+    
+    // Fallback: try to infer from name patterns or use sport-specific defaults
+    const name = playerName.toLowerCase();
+    
+    // NFL specific patterns
+    if (sport.toLowerCase() === 'nfl') {
+      // Common QB name patterns
+      if (name.includes('wentz') || name.includes('brady') || name.includes('rodgers') || 
+          name.includes('mahomes') || name.includes('allen') || name.includes('jackson') ||
+          name.includes('prescott') || name.includes('wilson') || name.includes('stafford')) {
+        return 'QB';
+      }
+      // Default to most common positions
+      return Math.random() > 0.5 ? 'WR' : 'RB';
+    }
+    
+    // NBA specific patterns
+    if (sport.toLowerCase() === 'nba') {
+      return Math.random() > 0.5 ? 'PG' : 'SG';
+    }
+    
+    // Default fallback
     const positions: { [key: string]: string[] } = {
-      nfl: ['QB', 'RB', 'WR', 'TE', 'K'],
+      nfl: ['QB', 'RB', 'WR', 'TE'],
       nba: ['PG', 'SG', 'SF', 'PF', 'C'],
       mlb: ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF'],
       nhl: ['G', 'D', 'C', 'LW', 'RW']
