@@ -125,10 +125,10 @@ ON CONFLICT (plan_name) DO NOTHING;
 CREATE OR REPLACE FUNCTION log_sportsgameodds_api_usage(
   p_user_id UUID,
   p_endpoint TEXT,
-  p_method TEXT DEFAULT 'GET',
-  p_sport TEXT DEFAULT NULL,
   p_response_status INTEGER,
   p_response_time_ms INTEGER,
+  p_method TEXT DEFAULT 'GET',
+  p_sport TEXT DEFAULT NULL,
   p_cache_hit BOOLEAN DEFAULT false,
   p_api_key_used TEXT DEFAULT NULL,
   p_user_agent TEXT DEFAULT NULL,
@@ -333,6 +333,6 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Grant permissions
-GRANT EXECUTE ON FUNCTION log_sportsgameodds_api_usage(UUID, TEXT, TEXT, TEXT, INTEGER, INTEGER, BOOLEAN, TEXT, TEXT, INET) TO authenticated;
+GRANT EXECUTE ON FUNCTION log_sportsgameodds_api_usage(UUID, TEXT, INTEGER, INTEGER, TEXT, TEXT, BOOLEAN, TEXT, TEXT, INET) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_sportsgameodds_api_usage_stats(UUID, TIMESTAMP WITH TIME ZONE, TIMESTAMP WITH TIME ZONE) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_sportsgameodds_api_usage_vs_plan(UUID) TO authenticated;
