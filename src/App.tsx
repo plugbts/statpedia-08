@@ -294,24 +294,34 @@ const SyncProvider = ({ children }: { children: React.ReactNode }) => {
 };
 
 const App = () => {
+  console.log("🚀 App.tsx: App component initializing");
+  
   // Initialize theme immediately to prevent black screen
   useEffect(() => {
+    console.log("🚀 App.tsx: Theme initialization starting");
     const savedTheme = localStorage.getItem('statpedia-theme');
     const html = document.documentElement;
+    
+    console.log("🚀 App.tsx: Saved theme:", savedTheme);
     
     // Apply theme immediately without waiting
     if (savedTheme === 'light') {
       html.classList.remove('dark');
       html.classList.add('light');
+      console.log("🚀 App.tsx: Applied light theme");
     } else {
       // Default to dark mode if no preference saved
       html.classList.remove('light');
       html.classList.add('dark');
+      console.log("🚀 App.tsx: Applied dark theme");
     }
     
     // Ensure body has proper background
     document.body.style.backgroundColor = savedTheme === 'light' ? '#ffffff' : '#0a0a0a';
+    console.log("🚀 App.tsx: Theme initialization complete");
   }, []);
+  
+  console.log("🚀 App.tsx: About to render main app structure");
 
   return (
     <QueryClientProvider client={queryClient}>
