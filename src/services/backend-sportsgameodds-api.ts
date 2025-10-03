@@ -232,21 +232,27 @@ export class BackendSportsGameOddsAPI {
 
   async getPollingStatus(): Promise<any> {
     try {
-      // Return empty polling status if function doesn't exist
-      return {
-        status: {
-          isPolling: false,
-          config: null
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('Authentication required');
+      }
+      
+      const response = await fetch(`${this.baseUrl}/background-poller?action=status`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+          'Authorization': `Bearer ${session.access_token}`,
         }
-      };
+      });
+
+      const data = await response.json();
+      return data;
+
     } catch (error) {
       logError('BackendSportsGameOddsAPI', 'Failed to get polling status:', error);
-      return {
-        status: {
-          isPolling: false,
-          config: null
-        }
-      };
+      throw error;
     }
   }
 
@@ -288,85 +294,100 @@ export class BackendSportsGameOddsAPI {
   // Analytics methods (admin only)
   async getAPIAnalytics(startDate?: string, endDate?: string): Promise<any> {
     try {
-      // Return empty analytics if function doesn't exist
-      return {
-        totalRequests: 0,
-        uniqueUsers: 0,
-        cacheHitRate: 0,
-        avgResponseTime: 0,
-        requestsByEndpoint: {},
-        requestsBySport: {},
-        requestsByHour: {},
-        topUsers: [],
-        errorRate: 0,
-        rateLimitHits: 0
-      };
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('Authentication required');
+      }
+
+      const url = new URL(`${this.baseUrl}/api-analytics`);
+      url.searchParams.append('action', 'analytics');
+      
+      if (startDate) url.searchParams.append('start_date', startDate);
+      if (endDate) url.searchParams.append('end_date', endDate);
+
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+          'Authorization': `Bearer ${session.access_token}`,
+        }
+      });
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to get analytics');
+      }
+
+      return data.data;
+
     } catch (error) {
       logError('BackendSportsGameOddsAPI', 'Failed to get API analytics:', error);
-      return {
-        totalRequests: 0,
-        uniqueUsers: 0,
-        cacheHitRate: 0,
-        avgResponseTime: 0,
-        requestsByEndpoint: {},
-        requestsBySport: {},
-        requestsByHour: {},
-        topUsers: [],
-        errorRate: 0,
-        rateLimitHits: 0
-      };
+      throw error;
     }
   }
 
   async getRealtimeStats(): Promise<any> {
     try {
-      // Return empty realtime stats if function doesn't exist
-      return {
-        recentActivity: [],
-        activeCacheEntries: 0,
-        cacheEntries: [],
-        activeRateLimits: 0,
-        rateLimitDetails: []
-      };
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`${this.baseUrl}/api-analytics?action=realtime`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+          'Authorization': `Bearer ${session.access_token}`,
+        }
+      });
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to get realtime stats');
+      }
+
+      return data.data;
+
     } catch (error) {
       logError('BackendSportsGameOddsAPI', 'Failed to get realtime stats:', error);
-      return {
-        recentActivity: [],
-        activeCacheEntries: 0,
-        cacheEntries: [],
-        activeRateLimits: 0,
-        rateLimitDetails: []
-      };
+      throw error;
     }
   }
 
   async getSystemHealth(): Promise<any> {
     try {
-      // Return empty system health if function doesn't exist
-      return {
-        backgroundPollingActive: false,
-        lastPollingTime: null,
-        freshCacheEntries: 0,
-        totalConfigEntries: 0,
-        systemStatus: {
-          polling: 'inactive',
-          cache: 'empty',
-          config: 'incomplete'
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`${this.baseUrl}/api-analytics?action=health`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+          'Authorization': `Bearer ${session.access_token}`,
         }
-      };
+      });
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to get system health');
+      }
+
+      return data.data;
+
     } catch (error) {
       logError('BackendSportsGameOddsAPI', 'Failed to get system health:', error);
-      return {
-        backgroundPollingActive: false,
-        lastPollingTime: null,
-        freshCacheEntries: 0,
-        totalConfigEntries: 0,
-        systemStatus: {
-          polling: 'inactive',
-          cache: 'empty',
-          config: 'incomplete'
-        }
-      };
+      throw error;
     }
   }
 

@@ -151,11 +151,21 @@ class CloudflareR2UsageService {
     endDate?: Date
   ): Promise<R2UsageStats[]> {
     try {
-      // Return empty array if RPC function doesn't exist
-      return [];
+      const { data, error } = await supabase.rpc('get_r2_usage_stats', {
+        p_bucket_name: bucketName || null,
+        p_start_date: startDate?.toISOString() || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+        p_end_date: endDate?.toISOString() || new Date().toISOString()
+      });
+
+      if (error) {
+        console.error('Failed to get R2 usage stats:', error);
+        throw error;
+      }
+
+      return data || [];
     } catch (error) {
       console.error('R2 usage stats error:', error);
-      return [];
+      throw error;
     }
   }
 
@@ -164,11 +174,19 @@ class CloudflareR2UsageService {
    */
   async getUsageVsPlan(bucketName?: string): Promise<R2UsageVsPlan[]> {
     try {
-      // Return empty array if RPC function doesn't exist
-      return [];
+      const { data, error } = await supabase.rpc('get_r2_usage_vs_plan', {
+        p_bucket_name: bucketName || null
+      });
+
+      if (error) {
+        console.error('Failed to get R2 usage vs plan:', error);
+        throw error;
+      }
+
+      return data || [];
     } catch (error) {
       console.error('R2 usage vs plan error:', error);
-      return [];
+      throw error;
     }
   }
 
@@ -177,11 +195,21 @@ class CloudflareR2UsageService {
    */
   async getPlanConfig(): Promise<R2PlanConfig[]> {
     try {
-      // Return empty array if table doesn't exist
-      return [];
+      const { data, error } = await supabase
+        .from('r2_plan_config')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Failed to get R2 plan config:', error);
+        throw error;
+      }
+
+      return data || [];
     } catch (error) {
       console.error('R2 plan config error:', error);
-      return [];
+      throw error;
     }
   }
 
@@ -190,11 +218,20 @@ class CloudflareR2UsageService {
    */
   async getCurrentUsage(): Promise<R2CurrentUsage[]> {
     try {
-      // Return empty array if table doesn't exist
-      return [];
+      const { data, error } = await supabase
+        .from('r2_current_usage')
+        .select('*')
+        .order('last_updated', { ascending: false });
+
+      if (error) {
+        console.error('Failed to get R2 current usage:', error);
+        throw error;
+      }
+
+      return data || [];
     } catch (error) {
       console.error('R2 current usage error:', error);
-      return [];
+      throw error;
     }
   }
 
@@ -206,11 +243,30 @@ class CloudflareR2UsageService {
     endDate?: Date
   ): Promise<R2UsageSummary[]> {
     try {
-      // Return empty array if table doesn't exist
-      return [];
+      let query = supabase
+        .from('r2_usage_summary')
+        .select('*')
+        .order('usage_date', { ascending: false });
+
+      if (startDate) {
+        query = query.gte('usage_date', startDate.toISOString().split('T')[0]);
+      }
+
+      if (endDate) {
+        query = query.lte('usage_date', endDate.toISOString().split('T')[0]);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('Failed to get R2 usage summary:', error);
+        throw error;
+      }
+
+      return data || [];
     } catch (error) {
       console.error('R2 usage summary error:', error);
-      return [];
+      throw error;
     }
   }
 
