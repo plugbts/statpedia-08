@@ -18,7 +18,6 @@ import { cn } from '@/lib/utils';
 import { SeasonalCardBackground } from '@/components/ui/seasonal-card-background';
 import { teamColorsService } from '@/services/team-colors-service';
 import { convertEVToText, getEVBadgeClasses } from '@/utils/ev-text-converter';
-import { SportsbookIconsList } from '@/components/ui/sportsbook-icons';
 import { SportsbookOverlay } from '@/components/ui/sportsbook-overlay';
 import { statpediaRatingService, StatpediaRating } from '@/services/statpedia-rating-service';
 
@@ -337,15 +336,22 @@ export function PlayerPropCard3D({
               <div className="flex-1 min-w-0 space-y-2">
                 {/* Prop Details - Compact */}
                 <div className="space-y-2">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 mr-2 min-w-0">
-                      <span className="text-slate-400 text-xs font-semibold tracking-wide uppercase block leading-tight animate-pulse-glow truncate">
-                        {prop.propType}
-                      </span>
+                  {/* Centered Prop Name - Similar to Column View */}
+                  <div className="text-center space-y-1">
+                    <div className="text-slate-400 text-xs font-semibold tracking-wide uppercase leading-tight">
+                      {prop.propType.length > 12 ? (
+                        <div className="space-y-0.5">
+                          {prop.propType.split(' ').map((word, index) => (
+                            <div key={index}>{word}</div>
+                          ))}
+                        </div>
+                      ) : (
+                        prop.propType
+                      )}
                     </div>
-                    <span className="text-slate-100 text-lg font-bold tracking-tight flex-shrink-0">
+                    <div className="text-slate-100 text-lg font-bold tracking-tight">
                       {formatNumber(prop.line)}
-                    </span>
+                    </div>
                   </div>
                   
                   {/* AI Prediction & Form - Inline */}
@@ -392,19 +398,6 @@ export function PlayerPropCard3D({
                 </div>
 
                 {/* Sportsbooks - Ultra Compact */}
-                {prop.availableSportsbooks && prop.availableSportsbooks.length > 0 && (
-                  <div>
-                    <div className="text-xs text-slate-500 uppercase font-semibold mb-1">
-                      {prop.availableSportsbooks.length} Book{prop.availableSportsbooks.length !== 1 ? 's' : ''}
-                    </div>
-                    <SportsbookIconsList 
-                      sportsbooks={prop.availableSportsbooks} 
-                      maxVisible={3}
-                      onClick={() => setShowSportsbookOverlay(true)}
-                      className="justify-start"
-                    />
-                  </div>
-                )}
               </div>
 
               {/* Right Section - Scrollable Details */}

@@ -54,7 +54,7 @@ export default {
       console.log('Fetching fresh data from API...');
 
       // Fetch from SportGameOdds API
-      const apiResponse = await fetch(`https://api.sportsgameodds.com/v2/events?leagueID=${sport.toUpperCase()}&marketOddsAvailable=true&limit=${maxEvents}`, {
+      const apiResponse = await fetch(`https://api.sportsgameodds.com/v2/events?leagueID=${sport.toUpperCase()}&oddsAvailable=true&limit=${maxEvents}`, {
         headers: {
           'X-API-Key': env.SPORTSGAMEODDS_API_KEY,
           'Content-Type': 'application/json',
@@ -67,7 +67,7 @@ export default {
 
       const rawData = await apiResponse.json();
       console.log(`✅ API success: ${rawData?.data?.length || 0} events`);
-      
+
       // Debug: Log first event structure
       if (rawData?.data?.length > 0) {
         console.log(`🔍 First event structure:`, JSON.stringify(rawData.data[0], null, 2).substring(0, 1000));
@@ -109,7 +109,7 @@ export default {
               continue;
             }
             
-            // Skip team-level props (all, away, home)
+            // Skip team-level props (all, away, home) for player props
             if (['all', 'away', 'home'].includes(propData.statEntityID.toLowerCase())) {
               console.log(`❌ Skipping ${propKey}: team-level prop (${propData.statEntityID})`);
               continue;
@@ -296,10 +296,18 @@ export default {
           for (const [propKey, propData] of Object.entries(event.odds)) {
             if (allMarkets.length >= maxProps) break;
             if (!propData || typeof propData !== 'object') continue;
-            if (propData.statEntityID) continue; // Skip player props
+            
+            // Skip individual player props (those with statEntityID that aren't team-level)
+            if (propData.statEntityID && !['all', 'away', 'home'].includes(propData.statEntityID.toLowerCase())) {
+              continue; // Skip individual player props
+            }
+            
+            // Process team-level props as game markets
+            const isTeamLevel = propData.statEntityID && ['all', 'away', 'home'].includes(propData.statEntityID.toLowerCase());
+            const isGameLevel = !propData.statEntityID || isTeamLevel;
             
             // Process moneyline markets
-            if (marketType === 'moneyline' && propKey.includes('moneyline')) {
+            if (marketType === 'moneyline' && (propKey.includes('moneyline') || (isGameLevel && propKey.includes('moneyline')))) {
               const marketKey = `${event.id}-moneyline-${period}`;
               if (!marketsMap.has(marketKey)) {
                 marketsMap.set(marketKey, {
@@ -400,8 +408,8 @@ export default {
               }
             }
             
-            // Process total markets
-            if (marketType === 'total' && propKey.includes('total')) {
+            // Process total markets (including team-level props like "points")
+            if (marketType === 'total' && (propKey.includes('total') || (isTeamLevel && (propKey.includes('points') || propKey.includes('total'))))) {
               const marketKey = `${event.id}-total-${period}`;
               if (!marketsMap.has(marketKey)) {
                 marketsMap.set(marketKey, {
@@ -490,8 +498,8 @@ export default {
       if (env.PLAYER_PROPS_CACHE) {
         try {
           await env.PLAYER_PROPS_CACHE.put(cacheKey, responseJson, {
-            expirationTtl: cacheTtlSeconds,
-          });
+        expirationTtl: cacheTtlSeconds,
+      });
         } catch (cacheError) {
           console.warn('Cache storage failed:', cacheError);
         }
