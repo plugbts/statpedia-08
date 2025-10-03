@@ -40,7 +40,42 @@ export default defineConfig(({ mode }) => ({
   build: {
     rollupOptions: {
       external: ['fsevents'],
+      output: {
+        manualChunks: (id) => {
+          // Vendor chunks
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+              return 'react-vendor';
+            }
+            if (id.includes('@radix-ui')) {
+              return 'ui-vendor';
+            }
+            if (id.includes('@tanstack') || id.includes('framer-motion') || id.includes('recharts') || id.includes('date-fns')) {
+              return 'utils-vendor';
+            }
+            if (id.includes('@supabase')) {
+              return 'supabase-vendor';
+            }
+            return 'vendor';
+          }
+          
+          // Feature chunks
+          if (id.includes('player-props-tab')) {
+            return 'player-props';
+          }
+          if (id.includes('detailed-insights-overlay')) {
+            return 'insights';
+          }
+          if (id.includes('analytics-tab')) {
+            return 'analytics';
+          }
+          if (id.includes('auth-page')) {
+            return 'auth';
+          }
+        },
+      },
     },
+    chunkSizeWarningLimit: 1000,
   },
   define: {
     // Ensure environment variables are available

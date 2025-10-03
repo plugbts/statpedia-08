@@ -1,5 +1,5 @@
 // Detailed insights overlay component for showing comprehensive analysis
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo, useCallback, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -60,7 +60,7 @@ interface DefenseData {
   description: string;
 }
 
-export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = ({
+export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = memo(({
   isOpen,
   onClose,
   insight,
@@ -77,9 +77,9 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = (
     if (isOpen && insight) {
       loadDetailedData();
     }
-  }, [isOpen, insight]);
+  }, [isOpen, insight, loadDetailedData]);
 
-  const loadDetailedData = async () => {
+  const loadDetailedData = useCallback(async () => {
     setIsLoading(true);
     try {
       console.log(`🔍 [DetailedInsightsOverlay] Loading detailed data for ${insight?.insight_type}...`);
@@ -119,7 +119,7 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = (
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [insight, sport]);
 
   const generateGameHistoricalData = (eventsData?: any[]): HistoricalData[] => {
     // Only use real data - no fallback generation
@@ -837,4 +837,4 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = (
       </DialogContent>
     </Dialog>
   );
-};
+});

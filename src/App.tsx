@@ -5,19 +5,30 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useSync } from "@/hooks/use-sync";
 import { useEmailCron } from "@/hooks/use-email-cron";
-import Index from "./pages/Index";
-import Admin from "./pages/Admin";
-import PredictionDetail from "./pages/PredictionDetail";
-import { Settings } from "./pages/Settings";
-import NotFound from "./pages/NotFound";
-import { SubscriptionPlans } from "./components/auth/subscription-plans";
-import { SupportCenter } from "./components/support/support-center";
 import { UserProvider } from "@/contexts/user-context";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense, lazy } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
-const queryClient = new QueryClient();
+// Lazy load heavy components
+const Index = lazy(() => import("./pages/Index"));
+const Admin = lazy(() => import("./pages/Admin"));
+const PredictionDetail = lazy(() => import("./pages/PredictionDetail"));
+const Settings = lazy(() => import("./pages/Settings").then(module => ({ default: module.Settings })));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const SubscriptionPlans = lazy(() => import("./components/auth/subscription-plans").then(module => ({ default: module.SubscriptionPlans })));
+const SupportCenter = lazy(() => import("./components/support/support-center").then(module => ({ default: module.SupportCenter })));
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      cacheTime: 10 * 60 * 1000, // 10 minutes
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 // Settings Wrapper Component
 const SettingsWrapper = () => {
@@ -231,19 +242,25 @@ const App = () => {
             <Toaster />
             <Sonner />
             <BrowserRouter>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/admin" element={<Admin />} />
-                <Route path="/prediction-detail" element={<PredictionDetail />} />
-                <Route path="/settings" element={<SettingsWrapper />} />
-                <Route path="/subscription" element={<SubscriptionPlans onSubscriptionSuccess={(plan) => {
-                  console.log('Subscription successful:', plan);
-                  // Handle successful subscription
-                }} />} />
-                <Route path="/support" element={<SupportCenterWrapper />} />
-                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
+              <Suspense fallback={
+                <div className="min-h-screen bg-background flex items-center justify-center">
+                  <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+                </div>
+              }>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/admin" element={<Admin />} />
+                  <Route path="/prediction-detail" element={<PredictionDetail />} />
+                  <Route path="/settings" element={<SettingsWrapper />} />
+                  <Route path="/subscription" element={<SubscriptionPlans onSubscriptionSuccess={(plan) => {
+                    console.log('Subscription successful:', plan);
+                    // Handle successful subscription
+                  }} />} />
+                  <Route path="/support" element={<SupportCenterWrapper />} />
+                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Suspense>
             </BrowserRouter>
           </SyncProvider>
         </UserProvider>

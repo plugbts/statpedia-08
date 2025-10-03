@@ -1,22 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy, memo, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AuthPage } from '@/components/auth/auth-page';
-import { PlayerPropsTab } from '@/components/player-props/player-props-tab';
-import { StrikeoutCenter } from '@/components/strikeout-center/strikeout-center';
-import { InsightsTab } from '@/components/insights/insights-tab';
 import { MatrixBackground } from '@/components/effects/matrix-background';
 import { Navigation } from '@/components/layout/navigation';
 import { StatsOverview } from '@/components/analytics/stats-overview';
 import { PredictionCard } from '@/components/analytics/prediction-card';
 import { PreviousDayWins } from '@/components/analytics/previous-day-wins';
 import { TodaysPicksCarousel } from '@/components/analytics/todays-picks-carousel';
-import { SyncTest } from '@/components/sync/sync-test';
 import { FeatureTooltip } from '@/components/onboarding/feature-tooltip';
 import { CommentsSection } from '@/components/ui/comments-section';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, Zap, BarChart3, Settings, RefreshCw } from 'lucide-react';
-import heroImage from '@/assets/hero-analytics.jpg';
 import { supabase } from '@/integrations/supabase/client';
 import { useSportsData } from '@/hooks/use-sports-data';
 import type { User } from '@supabase/supabase-js';
@@ -25,14 +19,21 @@ import { useToast } from '@/hooks/use-toast';
 import { predictionTracker } from '@/services/prediction-tracker';
 import { gamesService } from '@/services/games-service';
 import { SeasonalVideoBackground } from '@/components/ui/seasonal-video-background';
-import { BetTrackingTab } from '@/components/bet-tracking/bet-tracking-tab';
-import { SocialTab } from '@/components/social/social-tab';
-import { MostLikely } from '@/components/mlb/most-likely';
-import { PredictionsTab } from '@/components/predictions/predictions-tab';
-import { ParlayGen } from '@/components/parlay/parlay-gen';
-import { AnalyticsTab } from '@/components/analytics/analytics-tab';
 import { HeaderBannerAd, InFeedAd, FooterBannerAd, MobileBannerAd } from '@/components/ads/ad-placements';
 import { useUser } from '@/contexts/user-context';
+
+// Lazy load heavy components
+const AuthPage = lazy(() => import('@/components/auth/auth-page').then(module => ({ default: module.AuthPage })));
+const PlayerPropsTab = lazy(() => import('@/components/player-props/player-props-tab').then(module => ({ default: module.PlayerPropsTab })));
+const StrikeoutCenter = lazy(() => import('@/components/strikeout-center/strikeout-center').then(module => ({ default: module.StrikeoutCenter })));
+const InsightsTab = lazy(() => import('@/components/insights/insights-tab').then(module => ({ default: module.InsightsTab })));
+const SyncTest = lazy(() => import('@/components/sync/sync-test').then(module => ({ default: module.SyncTest })));
+const BetTrackingTab = lazy(() => import('@/components/bet-tracking/bet-tracking-tab').then(module => ({ default: module.BetTrackingTab })));
+const SocialTab = lazy(() => import('@/components/social/social-tab').then(module => ({ default: module.SocialTab })));
+const MostLikely = lazy(() => import('@/components/mlb/most-likely').then(module => ({ default: module.MostLikely })));
+const PredictionsTab = lazy(() => import('@/components/predictions/predictions-tab').then(module => ({ default: module.PredictionsTab })));
+const ParlayGen = lazy(() => import('@/components/parlay/parlay-gen').then(module => ({ default: module.ParlayGen })));
+const AnalyticsTab = lazy(() => import('@/components/analytics/analytics-tab').then(module => ({ default: module.AnalyticsTab })));
 
 const Index = () => {
   const navigate = useNavigate();
@@ -172,7 +173,7 @@ const Index = () => {
     return filteredPredictions;
   };
 
-  const handleTabChange = (tab: string) => {
+  const handleTabChange = useCallback((tab: string) => {
     if (tab === 'admin') {
       navigate('/admin');
     } else if (tab === 'settings') {
@@ -184,22 +185,22 @@ const Index = () => {
     } else {
       setActiveTab(tab);
     }
-  };
+  }, [navigate]);
 
-  const handleSportChange = (sport: string) => {
+  const handleSportChange = useCallback((sport: string) => {
     setSelectedSport(sport);
     // Close today's picks when sport changes
     setShowTodaysPicks(false);
-  };
+  }, []);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     try {
       await supabase.auth.signOut();
       // User state is now managed by UserContext
     } catch (error) {
       console.error('Logout error:', error);
     }
-  };
+  }, []);
 
   // User state is now managed by UserContext, no need for local auth handling
 
@@ -379,13 +380,20 @@ const Index = () => {
   // User subscription and role are now managed by UserContext
 
   // Use real predictions data from sports API - prioritize realPredictions over hook data
-  const allPredictions = realPredictions.length > 0 ? realPredictions : (predictions || []);
+  const allPredictions = useMemo(() => 
+    realPredictions.length > 0 ? realPredictions : (predictions || []), 
+    [realPredictions, predictions]
+  );
   
   // Pagination logic
-  const totalPages = Math.ceil(allPredictions.length / predictionsPerPage);
-  const startIndex = (currentPage - 1) * predictionsPerPage;
-  const endIndex = startIndex + predictionsPerPage;
-  const currentPredictions = allPredictions.slice(startIndex, endIndex);
+  const paginationData = useMemo(() => {
+    const totalPages = Math.ceil(allPredictions.length / predictionsPerPage);
+    const startIndex = (currentPage - 1) * predictionsPerPage;
+    const endIndex = startIndex + predictionsPerPage;
+    const currentPredictions = allPredictions.slice(startIndex, endIndex);
+    
+    return { totalPages, startIndex, endIndex, currentPredictions };
+  }, [allPredictions, currentPage, predictionsPerPage]);
   
   // Reset to page 1 when predictions change
   useEffect(() => {
@@ -919,7 +927,15 @@ const Index = () => {
 
   // Show auth page for non-authenticated users
   if (!user) {
-    return <AuthPage onAuthSuccess={() => {}} />;
+    return (
+      <Suspense fallback={
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+        </div>
+      }>
+        <AuthPage onAuthSuccess={() => {}} />
+      </Suspense>
+    );
   }
 
   // Show dashboard for authenticated users
@@ -942,18 +958,54 @@ const Index = () => {
         <MobileBannerAd userSubscription={userSubscription} />
         
         {activeTab === 'dashboard' && renderDashboard()}
-        {activeTab === 'predictions' && <PredictionsTab selectedSport={selectedSport} userRole={userRole} userSubscription={userSubscription} onPredictionsCountChange={setPredictionsCount} />}
-        {activeTab === 'player-props' && <PlayerPropsTab userSubscription={userSubscription} userRole={userRole} selectedSport={selectedSport} />}
-        {activeTab === 'insights' && <InsightsTab selectedSport={selectedSport} userRole={userRole} userSubscription={userSubscription} />}
-        {activeTab === 'bet-tracking' && <BetTrackingTab userRole={userRole} />}
-        {activeTab === 'social' && <SocialTab userRole={userRole} userSubscription={userSubscription} onReturnToDashboard={() => {
-          console.log('Navigating to dashboard from social tab');
-          setActiveTab('dashboard');
-        }} />}
-        {activeTab === 'strikeout-center' && <StrikeoutCenter />}
-        {activeTab === 'most-likely' && <MostLikely />}
-        {activeTab === 'parlay-gen' && <ParlayGen />}
-        {activeTab === 'analytics' && <AnalyticsTab userRole={userRole} userSubscription={userSubscription} />}
+        {activeTab === 'predictions' && (
+          <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
+            <PredictionsTab selectedSport={selectedSport} userRole={userRole} userSubscription={userSubscription} onPredictionsCountChange={setPredictionsCount} />
+          </Suspense>
+        )}
+        {activeTab === 'player-props' && (
+          <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
+            <PlayerPropsTab userSubscription={userSubscription} userRole={userRole} selectedSport={selectedSport} />
+          </Suspense>
+        )}
+        {activeTab === 'insights' && (
+          <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
+            <InsightsTab selectedSport={selectedSport} userRole={userRole} userSubscription={userSubscription} />
+          </Suspense>
+        )}
+        {activeTab === 'bet-tracking' && (
+          <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
+            <BetTrackingTab userRole={userRole} />
+          </Suspense>
+        )}
+        {activeTab === 'social' && (
+          <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
+            <SocialTab userRole={userRole} userSubscription={userSubscription} onReturnToDashboard={() => {
+              console.log('Navigating to dashboard from social tab');
+              setActiveTab('dashboard');
+            }} />
+          </Suspense>
+        )}
+        {activeTab === 'strikeout-center' && (
+          <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
+            <StrikeoutCenter />
+          </Suspense>
+        )}
+        {activeTab === 'most-likely' && (
+          <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
+            <MostLikely />
+          </Suspense>
+        )}
+        {activeTab === 'parlay-gen' && (
+          <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
+            <ParlayGen />
+          </Suspense>
+        )}
+        {activeTab === 'analytics' && (
+          <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
+            <AnalyticsTab userRole={userRole} userSubscription={userSubscription} />
+          </Suspense>
+        )}
         {activeTab === 'sync-test' && renderSyncTest()}
         {activeTab !== 'dashboard' && activeTab !== 'predictions' && activeTab !== 'player-props' && activeTab !== 'insights' && activeTab !== 'bet-tracking' && activeTab !== 'social' && activeTab !== 'strikeout-center' && activeTab !== 'most-likely' && activeTab !== 'parlay-gen' && activeTab !== 'analytics' && activeTab !== 'sync-test' && (
           <div className="text-center py-16">

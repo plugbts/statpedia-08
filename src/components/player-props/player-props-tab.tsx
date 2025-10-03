@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -210,7 +210,7 @@ interface MyPick {
   addedAt: string;
 }
 
-export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ 
+export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = memo(({ 
   userSubscription, 
   userRole = 'user', 
   selectedSport 
@@ -1518,4 +1518,4 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       </div>
     </div>
   );
-};
+});
