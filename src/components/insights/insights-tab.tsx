@@ -12,7 +12,6 @@ import {
   BarChart3, 
   Users, 
   Home, 
-  Away,
   Flame,
   Trophy,
   Activity,
@@ -38,34 +37,9 @@ interface InsightsTabProps {
   userSubscription?: string;
 }
 
-interface GameInsight {
-  id: string;
-  type: 'over_hit_favorite' | 'spread_performance' | 'moneyline_home' | 'total_trends';
-  title: string;
-  description: string;
-  value: number;
-  trend: 'up' | 'down' | 'neutral';
-  change: number;
-  team?: string;
-  opponent?: string;
-  gameDate?: string;
-  confidence: number;
-}
+// Using the GameInsight interface from insights-service.ts
 
-interface PlayerInsight {
-  id: string;
-  type: 'hot_streak' | 'cold_streak' | 'home_advantage' | 'vs_opponent' | 'recent_form';
-  title: string;
-  description: string;
-  value: number;
-  trend: 'up' | 'down' | 'neutral';
-  change: number;
-  player: string;
-  team: string;
-  position: string;
-  confidence: number;
-  lastGame?: string;
-}
+// Using the PlayerInsight interface from insights-service.ts
 
 export const InsightsTab: React.FC<InsightsTabProps> = ({ 
   selectedSport, 
@@ -108,9 +82,9 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
         setOffseasonMessage(message);
       } catch (error) {
         console.error('Error loading season data:', error);
-        // Fallback to sync methods
-        setShouldShowMoneyline(seasonService.shouldShowMoneylinePredictionsSync(selectedSport));
-        setOffseasonMessage(seasonService.getOffseasonMessageSync(selectedSport));
+        // Fallback to default values
+        setShouldShowMoneyline(true);
+        setOffseasonMessage(null);
       } finally {
         setSeasonLoading(false);
       }
