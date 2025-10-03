@@ -42,14 +42,14 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       return this.props.fallback || (
         <div style={{ 
           minHeight: '100vh', 
-          backgroundColor: '#0a0a0a', 
+          backgroundColor: 'hsl(var(--background))', 
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'center',
           flexDirection: 'column',
           gap: '1rem'
         }}>
-          <div className="text-white text-lg">Something went wrong</div>
+          <div className="text-foreground text-lg">Something went wrong</div>
           <button 
             onClick={() => window.location.reload()}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
@@ -161,7 +161,7 @@ const SettingsWrapper = () => {
     return (
       <div style={{ 
         minHeight: '100vh', 
-        backgroundColor: '#0a0a0a', 
+        backgroundColor: 'hsl(var(--background))', 
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center' 
@@ -229,7 +229,7 @@ const SupportCenterWrapper = () => {
     return (
       <div style={{ 
         minHeight: '100vh', 
-        backgroundColor: '#0a0a0a', 
+        backgroundColor: 'hsl(var(--background))', 
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center' 
@@ -294,52 +294,24 @@ const SyncProvider = ({ children }: { children: React.ReactNode }) => {
 };
 
 const App = () => {
-  // Initialize theme on app start - run synchronously to prevent black screen
-  const [themeInitialized, setThemeInitialized] = useState(false);
-  
+  // Initialize theme immediately to prevent black screen
   useEffect(() => {
     const savedTheme = localStorage.getItem('statpedia-theme');
     const html = document.documentElement;
     
-    // Ensure CSS variables are loaded before setting theme
-    const initializeTheme = () => {
-      if (savedTheme === 'light') {
-        html.classList.remove('dark');
-        html.classList.add('light');
-      } else {
-        // Default to dark mode if no preference saved
-        html.classList.remove('light');
-        html.classList.add('dark');
-      }
-      setThemeInitialized(true);
-    };
-    
-    // Check if CSS is loaded
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initializeTheme);
+    // Apply theme immediately without waiting
+    if (savedTheme === 'light') {
+      html.classList.remove('dark');
+      html.classList.add('light');
     } else {
-      initializeTheme();
+      // Default to dark mode if no preference saved
+      html.classList.remove('light');
+      html.classList.add('dark');
     }
     
-    return () => {
-      document.removeEventListener('DOMContentLoaded', initializeTheme);
-    };
+    // Ensure body has proper background
+    document.body.style.backgroundColor = savedTheme === 'light' ? '#ffffff' : '#0a0a0a';
   }, []);
-  
-  // Show loading until theme is initialized to prevent black screen
-  if (!themeInitialized) {
-    return (
-      <div style={{ 
-        minHeight: '100vh', 
-        backgroundColor: '#0a0a0a', // Fallback dark background
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center' 
-      }}>
-        <div className="animate-spin h-8 w-8 border-4 border-cyan-500 border-t-transparent rounded-full" />
-      </div>
-    );
-  }
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -353,14 +325,14 @@ const App = () => {
                 fallback={
                   <div style={{ 
                     minHeight: '100vh', 
-                    backgroundColor: '#0a0a0a', 
+                    backgroundColor: 'hsl(var(--background))', 
                     display: 'flex', 
                     alignItems: 'center', 
                     justifyContent: 'center',
                     flexDirection: 'column',
                     gap: '1rem'
                   }}>
-                    <div className="text-white text-lg">Something went wrong</div>
+                    <div className="text-foreground text-lg">Something went wrong</div>
                     <button 
                       onClick={() => window.location.reload()}
                       className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
@@ -380,7 +352,7 @@ const App = () => {
                 <Suspense fallback={
                   <div style={{ 
                     minHeight: '100vh', 
-                    backgroundColor: '#0a0a0a', 
+                    backgroundColor: 'hsl(var(--background))', 
                     display: 'flex', 
                     alignItems: 'center', 
                     justifyContent: 'center' 
