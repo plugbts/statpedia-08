@@ -129,6 +129,9 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
         setLastRefresh(new Date());
         
         console.log(`✅ [InsightsTab] Successfully loaded insights for ${selectedSport}`);
+        console.log(`📊 [InsightsTab] Game Insights: ${gameData.length}`, gameData);
+        console.log(`👤 [InsightsTab] Player Insights: ${playerData.length}`, playerData.slice(0, 2));
+        console.log(`💰 [InsightsTab] Moneyline Insights: ${moneylineData.length}`, moneylineData.slice(0, 2));
       } catch (error) {
         console.error('Error loading insights:', error);
         console.log('🔄 [InsightsTab] Setting error state due to insights loading failure');

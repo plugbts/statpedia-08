@@ -149,7 +149,10 @@ class InsightsService {
       this.cache.set(cacheKey, { data: insights, timestamp: now });
       
       console.log(`✅ [InsightsService] Successfully generated ${insights.length} real game insights for ${sport}`);
-      return insights.filter(insight => insight && insight.insight_id);
+      console.log(`📊 [InsightsService] Game insights details:`, insights);
+      const filteredInsights = insights.filter(insight => insight && insight.insight_id);
+      console.log(`📊 [InsightsService] Filtered game insights: ${filteredInsights.length}`, filteredInsights);
+      return filteredInsights;
     } catch (error) {
       console.error(`❌ [InsightsService] Failed to fetch game insights for ${sport}:`, error);
       // Return empty array - no sample data
@@ -363,7 +366,11 @@ class InsightsService {
   private generateGameInsightsFromRealData(playerProps: any[], sport: string): GameInsight[] {
     const insights: GameInsight[] = [];
     
-    if (playerProps.length === 0) return insights;
+    console.log(`🎮 [InsightsService] generateGameInsightsFromRealData called with ${playerProps.length} player props`);
+    if (playerProps.length === 0) {
+      console.log(`🎮 [InsightsService] No player props, returning empty insights`);
+      return insights;
+    }
     
     // Group props by game to analyze game-level insights
     const gameGroups = playerProps.reduce((acc, prop: any) => {
@@ -379,6 +386,8 @@ class InsightsService {
       acc[gameKey].props.push(prop);
       return acc;
     }, {} as Record<string, any>);
+    
+    console.log(`🎮 [InsightsService] Game groups created:`, Object.keys(gameGroups));
     
     // Generate insights for each game
     Object.entries(gameGroups).forEach(([gameKey, gameData]) => {
