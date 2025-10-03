@@ -621,14 +621,6 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = (
           <DialogTitle className="flex items-center gap-3">
             {getInsightIcon(insight.insight_type)}
             <span>Detailed Analysis</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              className="ml-auto"
-            >
-              <X className="w-4 h-4" />
-            </Button>
           </DialogTitle>
         </DialogHeader>
 

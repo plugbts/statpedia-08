@@ -316,26 +316,26 @@ class InsightsService {
         const streakValue = Math.round(Math.random() * 20 + 60); // 60-80% range
         
           const hotStreakTexts = [
-            `${finalPlayerName} is absolutely on fire right now`,
-            `${finalPlayerName} has been scorching hot lately`,
-            `${finalPlayerName} is in the zone and unstoppable`,
-            `${finalPlayerName} has been lighting it up recently`,
-            `${finalPlayerName} is on a blazing hot streak`,
-            `${finalPlayerName} has been red-hot and dominant`,
-            `${finalPlayerName} is cooking and can't be stopped`,
-            `${finalPlayerName} has been sizzling on the field`,
+            `${finalPlayerName} have been playing absolutely out of his mind lately!`,
+            `${finalPlayerName} is scorching!`,
+            `${finalPlayerName} is on a ${Math.floor(Math.random() * 8 + 3)} game hit streak right now!`,
+            `${finalPlayerName} is dominating at the moment!`,
             `${finalPlayerName} is on fire and showing no signs of cooling down`,
-            `${finalPlayerName} has been absolutely torching opponents`,
-            `${finalPlayerName} is in peak form and unstoppable`,
-            `${finalPlayerName} has been electric and game-changing`,
-            `${finalPlayerName} is on a tear and dominating`,
-            `${finalPlayerName} has been explosive and clutch`,
-            `${finalPlayerName} is white-hot and making big plays`,
-            `${finalPlayerName} has been sensational and game-breaking`,
-            `${finalPlayerName} is on a heater and delivering`,
-            `${finalPlayerName} has been phenomenal and consistent`,
-            `${finalPlayerName} is blazing hot and in rhythm`,
-            `${finalPlayerName} has been outstanding and reliable`
+            `${finalPlayerName} has been red hot!`,
+            `${finalPlayerName} have been playing absolutely out of his mind lately!`,
+            `${finalPlayerName} is scorching!`,
+            `${finalPlayerName} is on a ${Math.floor(Math.random() * 8 + 3)} game passing yards hit streak right now!`,
+            `${finalPlayerName} is dominating at the moment!`,
+            `${finalPlayerName} is on fire and showing no signs of cooling down`,
+            `${finalPlayerName} has been red hot!`,
+            `${finalPlayerName} have been playing absolutely out of his mind lately!`,
+            `${finalPlayerName} is scorching!`,
+            `${finalPlayerName} is on a ${Math.floor(Math.random() * 8 + 3)} game receiving yards hit streak right now!`,
+            `${finalPlayerName} is dominating at the moment!`,
+            `${finalPlayerName} is on fire and showing no signs of cooling down`,
+            `${finalPlayerName} has been red hot!`,
+            `${finalPlayerName} have been playing absolutely out of his mind lately!`,
+            `${finalPlayerName} is scorching!`
           ];
           
           const randomHotText = hotStreakTexts[Math.floor(Math.random() * hotStreakTexts.length)];
@@ -373,26 +373,26 @@ class InsightsService {
       const streakValue = Math.round(Math.random() * 20 + 70); // 70-90% range
       
       const hotStreakTexts = [
-        `${cleanPlayerName} is absolutely on fire right now`,
-        `${cleanPlayerName} has been scorching hot lately`,
-        `${cleanPlayerName} is in the zone and unstoppable`,
-        `${cleanPlayerName} has been lighting it up recently`,
-        `${cleanPlayerName} is on a blazing hot streak`,
-        `${cleanPlayerName} has been red-hot and dominant`,
-        `${cleanPlayerName} is cooking and can't be stopped`,
-        `${cleanPlayerName} has been sizzling on the field`,
+        `${cleanPlayerName} have been playing absolutely out of his mind lately!`,
+        `${cleanPlayerName} is scorching!`,
+        `${cleanPlayerName} is on a ${Math.floor(Math.random() * 8 + 3)} game hit streak right now!`,
+        `${cleanPlayerName} is dominating at the moment!`,
         `${cleanPlayerName} is on fire and showing no signs of cooling down`,
-        `${cleanPlayerName} has been absolutely torching opponents`,
-        `${cleanPlayerName} is in peak form and unstoppable`,
-        `${cleanPlayerName} has been electric and game-changing`,
-        `${cleanPlayerName} is on a tear and dominating`,
-        `${cleanPlayerName} has been explosive and clutch`,
-        `${cleanPlayerName} is white-hot and making big plays`,
-        `${cleanPlayerName} has been sensational and game-breaking`,
-        `${cleanPlayerName} is on a heater and delivering`,
-        `${cleanPlayerName} has been phenomenal and consistent`,
-        `${cleanPlayerName} is blazing hot and in rhythm`,
-        `${cleanPlayerName} has been outstanding and reliable`
+        `${cleanPlayerName} has been red hot!`,
+        `${cleanPlayerName} have been playing absolutely out of his mind lately!`,
+        `${cleanPlayerName} is scorching!`,
+        `${cleanPlayerName} is on a ${Math.floor(Math.random() * 8 + 3)} game passing yards hit streak right now!`,
+        `${cleanPlayerName} is dominating at the moment!`,
+        `${cleanPlayerName} is on fire and showing no signs of cooling down`,
+        `${cleanPlayerName} has been red hot!`,
+        `${cleanPlayerName} have been playing absolutely out of his mind lately!`,
+        `${cleanPlayerName} is scorching!`,
+        `${cleanPlayerName} is on a ${Math.floor(Math.random() * 8 + 3)} game receiving yards hit streak right now!`,
+        `${cleanPlayerName} is dominating at the moment!`,
+        `${cleanPlayerName} is on fire and showing no signs of cooling down`,
+        `${cleanPlayerName} has been red hot!`,
+        `${cleanPlayerName} have been playing absolutely out of his mind lately!`,
+        `${cleanPlayerName} is scorching!`
       ];
       
       const randomHotText = hotStreakTexts[Math.floor(Math.random() * hotStreakTexts.length)];
