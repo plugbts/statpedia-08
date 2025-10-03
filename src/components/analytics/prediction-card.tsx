@@ -128,7 +128,7 @@ export const PredictionCard = ({
                 {player}
               </h3>
               <p className="text-sm text-muted-foreground">
-                {team} vs {opponent}
+                {team} @ {opponent}
               </p>
               {gameDate && (
                 <p className="text-xs text-muted-foreground mt-0.5">

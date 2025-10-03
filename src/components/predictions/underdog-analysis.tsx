@@ -304,7 +304,7 @@ export const UnderdogAnalysis: React.FC<UnderdogAnalysisProps> = ({ selectedSpor
                     </div>
                   </div>
                   <CardTitle className="text-xl">
-                    {underdog.game.homeTeam} vs {underdog.game.awayTeam}
+                    {underdog.game.awayTeam} @ {underdog.game.homeTeam}
                   </CardTitle>
                   <CardDescription className="flex items-center gap-2">
                     <MapPin className="w-3 h-3" />

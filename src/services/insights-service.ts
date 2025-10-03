@@ -70,6 +70,47 @@ class InsightsService {
   private cache = new Map<string, { data: any; timestamp: number }>();
   private cacheTimeout = 5 * 60 * 1000; // 5 minutes cache
 
+  // Calculate confidence based on odds consistency and value
+  private calculateConfidenceFromOdds(playerProps: any[]): number {
+    if (playerProps.length === 0) return 50;
+    
+    let totalConfidence = 0;
+    let validProps = 0;
+    
+    playerProps.forEach((prop: any) => {
+      const overOdds = prop.overOdds;
+      const underOdds = prop.underOdds;
+      
+      if (overOdds && underOdds) {
+        // Calculate confidence based on odds spread and value
+        const oddsSpread = Math.abs(overOdds - underOdds);
+        const avgOdds = (Math.abs(overOdds) + Math.abs(underOdds)) / 2;
+        
+        // Lower spread and closer to even odds = higher confidence
+        let confidence = 50; // Base confidence
+        
+        // Adjust based on odds spread (lower spread = higher confidence)
+        if (oddsSpread <= 5) confidence += 20;
+        else if (oddsSpread <= 10) confidence += 15;
+        else if (oddsSpread <= 20) confidence += 10;
+        else confidence += 5;
+        
+        // Adjust based on how close to even odds (closer to -110 = higher confidence)
+        if (avgOdds >= 100 && avgOdds <= 120) confidence += 15;
+        else if (avgOdds >= 80 && avgOdds <= 140) confidence += 10;
+        else if (avgOdds >= 60 && avgOdds <= 160) confidence += 5;
+        
+        // Cap confidence between 30-95%
+        confidence = Math.max(30, Math.min(95, confidence));
+        
+        totalConfidence += confidence;
+        validProps++;
+      }
+    });
+    
+    return validProps > 0 ? Math.round(totalConfidence / validProps) : 50;
+  }
+
   // Get game insights from real data using the same system as player props
   async getGameInsights(sport: string, daysBack: number = 7): Promise<GameInsight[]> {
     const cacheKey = `game_insights_${sport}_${daysBack}`;
@@ -234,7 +275,7 @@ class InsightsService {
           value: hitRate,
           trend: hitRate >= 60 ? 'up' : hitRate <= 40 ? 'down' : 'neutral',
           change_percent: Math.round(Math.random() * 15 + 5), // 5-20% range
-          confidence: Math.round(Math.random() * 15 + 80), // 80-95% range
+          confidence: this.calculateConfidenceFromOdds([event]),
           team_name: typedGameData.homeTeam,
           opponent_name: typedGameData.awayTeam,
           game_date: typedGameData.gameTime,
@@ -292,7 +333,7 @@ class InsightsService {
           value: Math.round(Math.random() * 20 + 70), // 70-90% range
           trend: Math.random() > 0.5 ? 'up' : 'down',
           change_percent: Math.round(Math.random() * 15 + 5), // 5-20% range
-          confidence: Math.round(Math.random() * 15 + 80), // 80-95% range
+          confidence: this.calculateConfidenceFromOdds([event]),
           team_name: event.teams.home.names.short,
           opponent_name: event.teams.away.names.short,
           game_date: event.status.startsAt,
@@ -349,7 +390,7 @@ class InsightsService {
         value: hitRate,
         trend: hitRate >= 60 ? 'up' : hitRate <= 40 ? 'down' : 'neutral',
         change_percent: Math.round(Math.random() * 20 + 5),
-        confidence: Math.round(Math.random() * 20 + 75),
+        confidence: this.calculateConfidenceFromOdds(allTeamProps),
         team_name: '',
         opponent_name: '',
         game_date: new Date().toISOString().split('T')[0],
@@ -375,7 +416,7 @@ class InsightsService {
       value: overallHitRate,
       trend: overallHitRate >= 60 ? 'up' : overallHitRate <= 40 ? 'down' : 'neutral',
       change_percent: Math.round(Math.random() * 10 + 3),
-      confidence: Math.round(Math.random() * 15 + 80),
+      confidence: this.calculateConfidenceFromOdds(playerProps),
       team_name: '',
       opponent_name: '',
       game_date: new Date().toISOString().split('T')[0],
@@ -440,7 +481,7 @@ class InsightsService {
           value: hitRate,
           trend: hitRate >= 60 ? 'up' : hitRate <= 40 ? 'down' : 'neutral',
           change_percent: Math.round(Math.random() * 15 + 5),
-          confidence: Math.round(Math.random() * 10 + 85),
+          confidence: this.calculateConfidenceFromOdds([playerProps[0]]),
           player_name: finalPlayerName,
           team_name: firstProp.teamAbbr,
           player_position: this.getPlayerPosition(finalPlayerName, sport),
@@ -543,7 +584,7 @@ class InsightsService {
             value: streakValue,
             trend: 'up',
             change_percent: Math.round(Math.random() * 15 + 5),
-            confidence: Math.round(Math.random() * 10 + 85),
+            confidence: this.calculateConfidenceFromOdds(props as any[]),
             player_name: finalPlayerName,
             team_name: firstProp.teamAbbr,
             player_position: this.getPlayerPosition(finalPlayerName, sport),
@@ -620,7 +661,7 @@ class InsightsService {
         value: hitRate,
         trend: 'up',
         change_percent: Math.round(Math.random() * 15 + 5),
-        confidence: Math.round(Math.random() * 10 + 85),
+        confidence: this.calculateConfidenceFromOdds([playerProps[0]]),
         player_name: cleanPlayerName,
         team_name: firstProp.teamAbbr,
         player_position: this.getPlayerPosition(cleanPlayerName, sport),
@@ -642,7 +683,7 @@ class InsightsService {
         value: advantageValue,
         trend: 'up',
         change_percent: Math.round(Math.random() * 8 + 2),
-        confidence: Math.round(Math.random() * 15 + 75),
+        confidence: this.calculateConfidenceFromOdds(playerProps),
         player_name: cleanPlayerName,
         team_name: homePlayer.teamAbbr,
         player_position: this.getPlayerPosition(cleanPlayerName, sport),
@@ -671,7 +712,7 @@ class InsightsService {
           value: topPropType[1] as number,
           trend: 'up',
           change_percent: Math.round(Math.random() * 10 + 5),
-          confidence: Math.round(Math.random() * 15 + 80),
+          confidence: this.calculateConfidenceFromOdds(playerProps),
           player_name: '',
           team_name: '',
           player_position: '',
@@ -690,7 +731,7 @@ class InsightsService {
         value: Math.round(avgLine),
         trend: avgLine > 50 ? 'up' : 'down',
         change_percent: Math.round(Math.random() * 8 + 2),
-        confidence: Math.round(Math.random() * 10 + 85),
+        confidence: this.calculateConfidenceFromOdds([playerProps[0]]),
         player_name: '',
         team_name: '',
         player_position: '',
@@ -739,7 +780,7 @@ class InsightsService {
           value: hitRate,
           trend: hitRate >= 60 ? 'up' : hitRate <= 40 ? 'down' : 'neutral',
           change_percent: Math.round(Math.random() * 12 + 3), // 3-15% range
-          confidence: Math.round(Math.random() * 20 + 75), // 75-95% range
+          confidence: this.calculateConfidenceFromOdds([event]),
           team_name: typedGameData.homeTeam,
           opponent_name: typedGameData.awayTeam,
           game_date: typedGameData.gameTime,
@@ -798,7 +839,7 @@ class InsightsService {
           value: Math.round(Math.random() * 25 + 60), // 60-85% range
           trend: Math.random() > 0.5 ? 'up' : 'down',
           change_percent: Math.round(Math.random() * 12 + 3), // 3-15% range
-          confidence: Math.round(Math.random() * 20 + 75), // 75-95% range
+          confidence: this.calculateConfidenceFromOdds([event]),
           team_name: event.teams.home.names.short,
           opponent_name: event.teams.away.names.short,
           game_date: event.status.startsAt,
@@ -852,7 +893,7 @@ class InsightsService {
           value: hitRate,
           trend: hitRate >= 60 ? 'up' : hitRate <= 40 ? 'down' : 'neutral',
           change_percent: Math.round(Math.random() * 8 + 2),
-          confidence: Math.round(Math.random() * 15 + 75),
+          confidence: this.calculateConfidenceFromOdds(playerProps),
           team_name: typedGameData.homeTeam,
           opponent_name: typedGameData.awayTeam,
           game_date: typedGameData.gameTime ? new Date(typedGameData.gameTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],

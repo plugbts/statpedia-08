@@ -155,7 +155,7 @@ export const MoneylineProps: React.FC<MoneylinePropsProps> = ({
           <Button 
             variant="outline" 
             size="sm" 
-            onClick={loadGames}
+            onClick={loadPredictions}
             className="ml-2"
           >
             <RotateCcw className="w-4 h-4 mr-1" />
@@ -277,7 +277,7 @@ export const MoneylineProps: React.FC<MoneylinePropsProps> = ({
                       </div>
                     </div>
                     <CardTitle className="text-lg">
-                      {game.homeTeam} vs {game.awayTeam}
+                      {game.awayTeam} @ {game.homeTeam}
                     </CardTitle>
                     <CardDescription className="flex items-center gap-2">
                       <MapPin className="w-3 h-3" />

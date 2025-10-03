@@ -79,12 +79,16 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = m
       console.log(`🔍 [DetailedInsightsOverlay] Loading detailed data for ${insight?.insight_type}...`);
       
       // Use our existing API system to get real data
+      console.log(`🔍 [DetailedInsightsOverlay] Starting data fetch for sport: ${sport}`);
+      
       const [eventsData, playerPropsData] = await Promise.all([
         sportsGameOddsEdgeAPI.getEvents(sport),
         cloudflarePlayerPropsAPI.getPlayerProps(sport)
       ]);
       
       console.log(`📊 [DetailedInsightsOverlay] Retrieved ${eventsData.length} events and ${playerPropsData.length} player props`);
+      console.log(`🔍 [DetailedInsightsOverlay] Events data sample:`, eventsData.slice(0, 2));
+      console.log(`🔍 [DetailedInsightsOverlay] Player props data sample:`, playerPropsData.slice(0, 2));
       
       // Generate historical data based on insight type using real data
       if (insight?.insight_type === 'game_analysis') {
@@ -124,8 +128,11 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = m
   const generateGameHistoricalData = (eventsData?: any[]): HistoricalData[] => {
     // Only use real data - no fallback generation
     if (!eventsData || eventsData.length === 0) {
+      console.log(`⚠️ [DetailedInsightsOverlay] No events data available for historical analysis`);
       return [];
     }
+    
+    console.log(`📈 [DetailedInsightsOverlay] Generating historical data from ${eventsData.length} events`);
     
     // Analyze real events data to generate historical insights
     const recentGames = eventsData.slice(0, 10);
@@ -222,8 +229,11 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = m
   const generatePlayerHistoricalData = (playerPropsData?: any[]): HistoricalData[] => {
     // Only use real data - no fallback generation
     if (!playerPropsData || playerPropsData.length === 0) {
+      console.log(`⚠️ [DetailedInsightsOverlay] No player props data available for historical analysis`);
       return [];
     }
+    
+    console.log(`📈 [DetailedInsightsOverlay] Generating player historical data from ${playerPropsData.length} props`);
     
     // Analyze real player props data
     const recentProps = playerPropsData.slice(0, 10);
@@ -316,8 +326,11 @@ export const DetailedInsightsOverlay: React.FC<DetailedInsightsOverlayProps> = m
   const generateMoneylineHistoricalData = (eventsData?: any[]): HistoricalData[] => {
     // Only use real data - no fallback generation
     if (!eventsData || eventsData.length === 0) {
+      console.log(`⚠️ [DetailedInsightsOverlay] No events data available for moneyline historical analysis`);
       return [];
     }
+    
+    console.log(`📈 [DetailedInsightsOverlay] Generating moneyline historical data from ${eventsData.length} events`);
     
     // Analyze real events data for moneyline insights
     const recentGames = eventsData.slice(0, 10);

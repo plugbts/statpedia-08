@@ -308,6 +308,11 @@ export default {
             const isTeamLevel = propData.statEntityID && ['all', 'away', 'home'].includes(propData.statEntityID.toLowerCase());
             const isGameLevel = !propData.statEntityID || isTeamLevel;
             
+            // Log prop key for debugging total markets
+            if (marketType === 'total' && (propKey.includes('total') || propKey.includes('ou') || propKey.includes('points'))) {
+              console.log(`🔍 Processing total prop: ${propKey}, sideID: ${propData.sideID}, period: ${period}`);
+            }
+            
             // Process moneyline markets (including team-level moneyline)
             if (marketType === 'moneyline' && (propKey.includes('moneyline') || propKey.includes('-ml-'))) {
               const marketKey = `${event.id}-moneyline-${period}`;
@@ -411,7 +416,17 @@ export default {
             }
             
             // Process total markets (including team-level props like "points")
-            if (marketType === 'total' && (propKey.includes('total') || (isTeamLevel && (propKey.includes('points') || propKey.includes('total'))))) {
+            // Support various total market formats: total, points, game-ou, game-total, etc.
+            const isTotalMarket = marketType === 'total' && (
+              propKey.includes('total') || 
+              propKey.includes('points') || 
+              propKey.includes('game-ou') || 
+              propKey.includes('game-total') ||
+              propKey.includes('over-under') ||
+              (isTeamLevel && (propKey.includes('points') || propKey.includes('total')))
+            );
+            
+            if (isTotalMarket) {
               const marketKey = `${event.id}-total-${period}`;
               if (!marketsMap.has(marketKey)) {
                 marketsMap.set(marketKey, {
@@ -448,6 +463,9 @@ export default {
                 const total = parseFloat(bookmaker.overUnder);
                 const side = propData.sideID;
                 
+                // Ensure we have valid odds and total
+                if (isNaN(odds) || isNaN(total)) continue;
+                
                 market.total = total;
                 if (side === 'over') market.overOdds = odds;
                 else if (side === 'under') market.underOdds = odds;
@@ -460,6 +478,9 @@ export default {
                   lastUpdate: bookmaker.lastUpdatedAt || new Date().toISOString()
                 });
               }
+              
+              // Log total market processing for debugging
+              console.log(`📊 Total market ${marketKey}: overOdds=${market.overOdds}, underOdds=${market.underOdds}, total=${market.total}, period=${period}`);
             }
           }
           

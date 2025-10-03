@@ -323,7 +323,7 @@ class GamesService {
       awayOdds: -110, // Default away odds
       drawOdds: game.sport === 'soccer' ? -110 : undefined,
       prediction: 'home', // Default prediction
-      confidence: 0.6, // Default confidence
+      confidence: 0.85, // Higher confidence for underdog analysis
       reasoning: 'Based on current form and head-to-head record'
     }));
   }

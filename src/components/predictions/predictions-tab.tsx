@@ -993,12 +993,12 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
                         {prediction.marketType === 'player-prop' ? (
                           `${prediction.playerName} - ${prediction.propType} ${prediction.line}`
                         ) : (
-                          `${prediction.homeTeamAbbr} vs ${prediction.awayTeamAbbr}`
+                          `${prediction.awayTeamAbbr} @ ${prediction.homeTeamAbbr}`
                         )}
                       </h3>
                       <p className="text-sm text-muted-foreground">
                         {prediction.marketType === 'player-prop' ? (
-                          `${prediction.teamAbbr} vs ${prediction.opponentAbbr}`
+                          `${prediction.teamAbbr} @ ${prediction.opponentAbbr}`
                         ) : (
                           `${prediction.marketType?.toUpperCase()} ${prediction.period !== 'full_game' ? `(${prediction.period.replace('_', ' ')})` : ''}`
                         )}
@@ -1120,7 +1120,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
                   {prediction.marketType === 'player-prop' ? (
                     `${prediction.playerName} - ${prediction.propType} ${prediction.line}`
                   ) : (
-                    `${prediction.homeTeamAbbr} vs ${prediction.awayTeamAbbr}`
+                    `${prediction.awayTeamAbbr} @ ${prediction.homeTeamAbbr}`
                   )}
                 </CardTitle>
                 
@@ -1130,7 +1130,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
                   <span className="mx-1">•</span>
                   <span>
                     {prediction.marketType === 'player-prop' ? (
-                      `${prediction.teamAbbr} vs ${prediction.opponentAbbr}`
+                      `${prediction.teamAbbr} @ ${prediction.opponentAbbr}`
                     ) : (
                       `${prediction.marketType?.toUpperCase()} ${prediction.period !== 'full_game' ? `(${prediction.period})` : ''}`
                     )}

@@ -1471,7 +1471,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = memo(({
                           {pick.prop.propType} {pick.prediction} {formatNumber(pick.prop.line)}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {pick.prop.team} vs {pick.prop.opponent}
+                          {pick.prop.team} @ {pick.prop.opponent}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">

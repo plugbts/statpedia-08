@@ -38,12 +38,14 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { aiPredictionFactors } from '@/services/ai-prediction-factors';
+import { TeamLogo } from '@/components/ui/team-logo';
 
 interface AdvancedPredictionCardProps {
   prediction: {
     id: string;
     marketType: 'player-prop' | 'moneyline' | 'spread' | 'total';
     period: 'full_game' | '1st_quarter' | '1st_half';
+    sport?: string;
     
     // Game info
     homeTeam: string;
@@ -344,7 +346,7 @@ export const AdvancedPredictionCard: React.FC<AdvancedPredictionCardProps> = ({
                       className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-blue-500/40"
                       whileHover={{ scale: 1.1 }}
                     >
-                      {prediction.homeTeamAbbr}
+                      <TeamLogo teamAbbr={prediction.homeTeamAbbr} sport={prediction.sport || "nfl"} size="sm" className="w-8 h-8" />
                     </motion.div>
                     <p className="text-sm text-slate-200 mt-2 font-bold">{prediction.homeTeamAbbr}</p>
                   </div>
@@ -366,7 +368,7 @@ export const AdvancedPredictionCard: React.FC<AdvancedPredictionCardProps> = ({
                       className="w-12 h-12 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-red-500/40"
                       whileHover={{ scale: 1.1 }}
                     >
-                      {prediction.awayTeamAbbr}
+                      <TeamLogo teamAbbr={prediction.awayTeamAbbr} sport={prediction.sport || "nfl"} size="sm" className="w-8 h-8" />
                     </motion.div>
                     <p className="text-sm text-slate-200 mt-2 font-bold">{prediction.awayTeamAbbr}</p>
                   </div>

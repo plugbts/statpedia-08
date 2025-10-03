@@ -230,23 +230,23 @@ class EVCalculatorService {
     return Math.max(0.25, Math.min(0.75, adjustedProbability)); // Clamp between 25% and 75%
   }
 
-  // Calculate star rating based on EV and factors
+  // Calculate star rating based on EV and factors - made less strict to allow A/A+ ratings
   private calculateStarRating(evPercentage: number, factors: EVFactor[]): number {
     let baseRating = 3; // Start with neutral rating
 
-    // EV-based rating
-    if (evPercentage > 10) baseRating = 5;
-    else if (evPercentage > 5) baseRating = 4;
-    else if (evPercentage > 0) baseRating = 3;
-    else if (evPercentage > -5) baseRating = 2;
-    else baseRating = 1;
+    // EV-based rating - more lenient thresholds
+    if (evPercentage > 5) baseRating = 5; // A+ rating (was 10)
+    else if (evPercentage > 2) baseRating = 4; // A rating (was 5)
+    else if (evPercentage > -2) baseRating = 3; // B rating (was 0)
+    else if (evPercentage > -8) baseRating = 2; // C rating (was -5)
+    else baseRating = 1; // Below C rating
 
-    // Factor-based adjustments
+    // Factor-based adjustments - more generous
     const positiveFactors = factors.filter(f => f.impact === 'positive').length;
     const negativeFactors = factors.filter(f => f.impact === 'negative').length;
     
-    if (positiveFactors > negativeFactors + 1) baseRating = Math.min(5, baseRating + 1);
-    if (negativeFactors > positiveFactors + 1) baseRating = Math.max(1, baseRating - 1);
+    if (positiveFactors > negativeFactors) baseRating = Math.min(5, baseRating + 1);
+    if (negativeFactors > positiveFactors) baseRating = Math.max(1, baseRating - 1);
 
     return baseRating;
   }
@@ -263,13 +263,13 @@ class EVCalculatorService {
     return Math.min(95, Math.max(30, weightedConfidence));
   }
 
-  // Get recommendation based on EV and rating
+  // Get recommendation based on EV and rating - made less strict
   private getRecommendation(evPercentage: number, aiRating: number): EVCalculation['recommendation'] {
-    if (evPercentage > 8 && aiRating >= 4) return 'strong_bet';
-    if (evPercentage > 3 && aiRating >= 3) return 'good_bet';
-    if (evPercentage > -3 && aiRating >= 2) return 'neutral';
-    if (evPercentage > -8 && aiRating <= 2) return 'avoid';
-    return 'strong_avoid';
+    if (evPercentage > 3 && aiRating >= 4) return 'strong_bet'; // A+ rating
+    if (evPercentage > 0 && aiRating >= 3) return 'good_bet'; // A rating
+    if (evPercentage > -5 && aiRating >= 2) return 'neutral'; // B rating
+    if (evPercentage > -10 && aiRating <= 2) return 'avoid'; // C rating
+    return 'strong_avoid'; // Below C rating
   }
 
   // Calculate matchup strength

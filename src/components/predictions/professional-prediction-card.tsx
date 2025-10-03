@@ -21,12 +21,14 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { TeamLogo } from '@/components/ui/team-logo';
 
 interface ProfessionalPredictionCardProps {
   prediction: {
     id: string;
     marketType: 'player-prop' | 'moneyline' | 'spread' | 'total';
     period: 'full_game' | '1st_quarter' | '1st_half';
+    sport?: string;
     
     // Game info
     homeTeam: string;
@@ -164,7 +166,7 @@ export const ProfessionalPredictionCard: React.FC<ProfessionalPredictionCardProp
                 <div className="flex items-center gap-3">
                   <div className="text-center">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-xs">
-                      {prediction.homeTeamAbbr}
+                      <TeamLogo teamAbbr={prediction.homeTeamAbbr} sport={prediction.sport || "nfl"} size="sm" className="w-6 h-6" />
                     </div>
                     <p className="text-xs text-gray-600 mt-1 font-medium">{prediction.homeTeamAbbr}</p>
                   </div>
@@ -177,7 +179,7 @@ export const ProfessionalPredictionCard: React.FC<ProfessionalPredictionCardProp
                   </div>
                   <div className="text-center">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-white font-bold text-xs">
-                      {prediction.awayTeamAbbr}
+                      <TeamLogo teamAbbr={prediction.awayTeamAbbr} sport={prediction.sport || "nfl"} size="sm" className="w-6 h-6" />
                     </div>
                     <p className="text-xs text-gray-600 mt-1 font-medium">{prediction.awayTeamAbbr}</p>
                   </div>

@@ -179,7 +179,7 @@ export const PlayerPropCard: React.FC<PlayerPropCardProps> = ({
                 <SportIcon sport={sport} className="h-6 w-6" />
                 <CardTitle className="text-lg">{playerName}</CardTitle>
               </div>
-              <CardDescription className="mt-1">{team} vs {opponent}</CardDescription>
+              <CardDescription className="mt-1">{team} @ {opponent}</CardDescription>
             </div>
           </div>
           
