@@ -312,11 +312,11 @@ class InsightsService {
     
     // Group props by game to analyze game-level insights
     const gameGroups = playerProps.reduce((acc, prop: any) => {
-      const gameKey = `${prop.teamAbbr || prop.team}_vs_${prop.opponentAbbr || 'Unknown'}`;
+      const gameKey = `${prop.teamAbbr}_vs_${prop.opponentAbbr}`;
       if (!acc[gameKey]) {
         acc[gameKey] = {
-          homeTeam: prop.teamAbbr || prop.team,
-          awayTeam: prop.opponentAbbr || 'Unknown',
+          homeTeam: prop.teamAbbr,
+          awayTeam: prop.opponentAbbr,
           gameTime: prop.gameDate,
           props: []
         };
@@ -442,7 +442,7 @@ class InsightsService {
           change_percent: Math.round(Math.random() * 15 + 5),
           confidence: Math.round(Math.random() * 10 + 85),
           player_name: finalPlayerName,
-          team_name: firstProp.team,
+          team_name: firstProp.teamAbbr,
           player_position: this.getPlayerPosition(finalPlayerName, sport),
           last_game_date: firstProp.gameTime ? new Date(firstProp.gameTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
           created_at: new Date().toISOString()
@@ -545,7 +545,7 @@ class InsightsService {
             change_percent: Math.round(Math.random() * 15 + 5),
             confidence: Math.round(Math.random() * 10 + 85),
             player_name: finalPlayerName,
-            team_name: firstProp.team,
+            team_name: firstProp.teamAbbr,
             player_position: this.getPlayerPosition(finalPlayerName, sport),
             last_game_date: firstProp.gameTime ? new Date(firstProp.gameTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
             created_at: new Date().toISOString()
@@ -622,7 +622,7 @@ class InsightsService {
         change_percent: Math.round(Math.random() * 15 + 5),
         confidence: Math.round(Math.random() * 10 + 85),
         player_name: cleanPlayerName,
-        team_name: firstProp.team,
+        team_name: firstProp.teamAbbr,
         player_position: this.getPlayerPosition(cleanPlayerName, sport),
         last_game_date: firstProp.gameTime ? new Date(firstProp.gameTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         created_at: new Date().toISOString()
@@ -644,7 +644,7 @@ class InsightsService {
         change_percent: Math.round(Math.random() * 8 + 2),
         confidence: Math.round(Math.random() * 15 + 75),
         player_name: cleanPlayerName,
-        team_name: homePlayer.team,
+        team_name: homePlayer.teamAbbr,
         player_position: this.getPlayerPosition(cleanPlayerName, sport),
         last_game_date: homePlayer.gameTime ? new Date(homePlayer.gameTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         created_at: new Date().toISOString()
@@ -771,11 +771,11 @@ class InsightsService {
     
     // Group props by game to analyze moneyline opportunities
     const gameGroups = playerProps.reduce((acc, prop: any) => {
-      const gameKey = `${prop.teamAbbr || prop.team}_vs_${prop.opponentAbbr || 'Unknown'}`;
+      const gameKey = `${prop.teamAbbr}_vs_${prop.opponentAbbr}`;
       if (!acc[gameKey]) {
         acc[gameKey] = {
-          homeTeam: prop.teamAbbr || prop.team,
-          awayTeam: prop.opponentAbbr || 'Unknown',
+          homeTeam: prop.teamAbbr,
+          awayTeam: prop.opponentAbbr,
           gameTime: prop.gameDate,
           props: []
         };
