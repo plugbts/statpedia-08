@@ -23,8 +23,8 @@ const CrossReferenceAnalysis = lazy(() => import("@/components/admin/cross-refer
 const ServerAPIDashboard = lazy(() => import("@/components/admin/server-api-dashboard").then(module => ({ default: module.ServerAPIDashboard })));
 const DualAIDebugger = lazy(() => import("@/components/admin/dual-ai-debugger").then(module => ({ default: module.DualAIDebugger })));
 const APIUsageChecker = lazy(() => import("@/components/debug/api-usage-checker").then(module => ({ default: module.APIUsageChecker })));
-const CloudflareR2UsagePanel = lazy(() => import("@/components/admin/cloudflare-r2-usage-panel").then(module => ({ default: module.CloudflareR2UsagePanel })));
-const SportsGameOddsAPIUsagePanel = lazy(() => import("@/components/admin/sportsgameodds-api-usage-panel").then(module => ({ default: module.SportsGameOddsAPIUsagePanel })));
+const R2UsageMonitor = lazy(() => import("@/components/admin/r2-usage-monitor").then(module => ({ default: module.R2UsageMonitor })));
+const SportsGameOddsAPIMonitor = lazy(() => import("@/components/admin/sportsgameodds-api-monitor").then(module => ({ default: module.SportsGameOddsAPIMonitor })));
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -278,7 +278,7 @@ export default function Admin() {
           {userRole === 'owner' && (
             <TabsContent value="r2-usage" className="space-y-2 mt-2">
               <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
-                <CloudflareR2UsagePanel />
+                <R2UsageMonitor />
               </Suspense>
             </TabsContent>
           )}
@@ -286,10 +286,11 @@ export default function Admin() {
           {userRole === 'owner' && (
             <TabsContent value="sportsgameodds-api" className="space-y-2 mt-2">
               <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
-                <SportsGameOddsAPIUsagePanel />
+                <SportsGameOddsAPIMonitor />
               </Suspense>
             </TabsContent>
           )}
+
         </Tabs>
       </div>
     </div>
