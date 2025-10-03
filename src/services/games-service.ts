@@ -253,73 +253,33 @@ class GamesService {
     };
   }
 
-  private async getCurrentWeekFromAPI(sport: string): Promise<number> {
-    try {
-      // Use our Cloudflare API to get current games and determine week
-      const { cloudflarePlayerPropsAPI } = await import('./cloudflare-player-props-api');
-      const playerProps = await cloudflarePlayerPropsAPI.getPlayerProps(sport, false);
-      
-      if (playerProps.length === 0) {
-        return this.getCurrentWeekFallback(sport);
-      }
-
-      // Get unique game dates from the API data
-      const gameDates = [...new Set(playerProps.map(prop => prop.gameDate))].sort();
-      
-      if (gameDates.length === 0) {
-        return this.getCurrentWeekFallback(sport);
-      }
-
-      // Calculate week based on game dates
-      const firstGameDate = new Date(gameDates[0]);
-      const now = new Date();
-      
-      // Calculate weeks since first game
-      const weeksSinceStart = Math.ceil((now.getTime() - firstGameDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
-      
-      // Return week number (minimum 1, maximum based on sport)
-      const maxWeeks = sport.toLowerCase() === 'nfl' ? 18 : 26;
-      return Math.max(1, Math.min(maxWeeks, weeksSinceStart));
-      
-    } catch (error) {
-      console.warn('Failed to get current week from API, using fallback:', error);
-      return this.getCurrentWeekFallback(sport);
-    }
-  }
-
-  private getCurrentWeekFallback(sport: string): number {
-    const now = new Date();
-    const year = now.getFullYear();
-    
-    switch (sport.toLowerCase()) {
-      case 'nfl':
-        // NFL 2025 season started September 4, 2025 (Week 1)
-        const nflStart = new Date(2025, 8, 4); // September 4, 2025
-        const nflWeeks = Math.ceil((now.getTime() - nflStart.getTime()) / (7 * 24 * 60 * 60 * 1000));
-        return Math.max(1, Math.min(18, nflWeeks));
-      case 'nba':
-        // NBA 2025-26 season started October 21, 2025
-        const nbaStart = new Date(2025, 9, 21); // October 21, 2025
-        const nbaWeeks = Math.ceil((now.getTime() - nbaStart.getTime()) / (7 * 24 * 60 * 60 * 1000));
-        return Math.max(1, Math.min(26, nbaWeeks));
-      case 'mlb':
-        // MLB 2025 season started March 27, 2025
-        const mlbStart = new Date(2025, 2, 27); // March 27, 2025
-        const mlbWeeks = Math.ceil((now.getTime() - mlbStart.getTime()) / (7 * 24 * 60 * 60 * 1000));
-        return Math.max(1, Math.min(26, mlbWeeks));
-      case 'nhl':
-        // NHL 2025-26 season started October 7, 2025
-        const nhlStart = new Date(2025, 9, 7); // October 7, 2025
-        const nhlWeeks = Math.ceil((now.getTime() - nhlStart.getTime()) / (7 * 24 * 60 * 60 * 1000));
-        return Math.max(1, Math.min(26, nhlWeeks));
-      default:
-        return 1;
-    }
-  }
-
-  // Public method to get current week (async)
+  // Get current week from real API data only
   async getCurrentWeek(sport: string): Promise<number> {
-    return this.getCurrentWeekFromAPI(sport);
+    // Use our Cloudflare API to get current games and determine week
+    const { cloudflarePlayerPropsAPI } = await import('./cloudflare-player-props-api');
+    const playerProps = await cloudflarePlayerPropsAPI.getPlayerProps(sport, false);
+    
+    if (playerProps.length === 0) {
+      throw new Error(`No player props data available for ${sport} to determine current week`);
+    }
+
+    // Get unique game dates from the API data
+    const gameDates = [...new Set(playerProps.map(prop => prop.gameDate))].sort();
+    
+    if (gameDates.length === 0) {
+      throw new Error(`No game dates found in player props data for ${sport}`);
+    }
+
+    // Calculate week based on game dates
+    const firstGameDate = new Date(gameDates[0]);
+    const now = new Date();
+    
+    // Calculate weeks since first game
+    const weeksSinceStart = Math.ceil((now.getTime() - firstGameDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    
+    // Return week number (minimum 1, maximum based on sport)
+    const maxWeeks = sport.toLowerCase() === 'nfl' ? 18 : 26;
+    return Math.max(1, Math.min(maxWeeks, weeksSinceStart));
   }
 
   // Format number for display
