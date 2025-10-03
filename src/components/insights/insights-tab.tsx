@@ -12,7 +12,6 @@ import {
   BarChart3, 
   Users, 
   Home, 
-  Away,
   Flame,
   Trophy,
   Activity,
@@ -23,7 +22,8 @@ import {
   Calendar,
   X,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  Brain
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MoneylineProps } from '@/components/predictions/moneyline-props';
@@ -38,34 +38,6 @@ interface InsightsTabProps {
   userSubscription?: string;
 }
 
-interface GameInsight {
-  id: string;
-  type: 'over_hit_favorite' | 'spread_performance' | 'moneyline_home' | 'total_trends';
-  title: string;
-  description: string;
-  value: number;
-  trend: 'up' | 'down' | 'neutral';
-  change: number;
-  team?: string;
-  opponent?: string;
-  gameDate?: string;
-  confidence: number;
-}
-
-interface PlayerInsight {
-  id: string;
-  type: 'hot_streak' | 'cold_streak' | 'home_advantage' | 'vs_opponent' | 'recent_form';
-  title: string;
-  description: string;
-  value: number;
-  trend: 'up' | 'down' | 'neutral';
-  change: number;
-  player: string;
-  team: string;
-  position: string;
-  confidence: number;
-  lastGame?: string;
-}
 
 export const InsightsTab: React.FC<InsightsTabProps> = ({ 
   selectedSport, 
@@ -73,7 +45,7 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
   userSubscription = 'free' 
 }) => {
   const navigate = useNavigate();
-  const [activeFilter, setActiveFilter] = useState<'all' | 'game' | 'player' | 'moneyline'>('all');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'game' | 'player' | 'moneyline' | 'underdogs' | 'regular-moneyline'>('all');
 
   const handleUpgrade = () => {
     navigate('/subscription');
@@ -109,8 +81,8 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
       } catch (error) {
         console.error('Error loading season data:', error);
         // Fallback to sync methods
-        setShouldShowMoneyline(seasonService.shouldShowMoneylinePredictionsSync(selectedSport));
-        setOffseasonMessage(seasonService.getOffseasonMessageSync(selectedSport));
+        setShouldShowMoneyline(seasonService.shouldShowMoneylinePredictions(selectedSport));
+        setOffseasonMessage(seasonService.getOffseasonMessage(selectedSport));
       } finally {
         setSeasonLoading(false);
       }
@@ -242,39 +214,102 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
   const renderGameInsight = (insight: GameInsight) => (
     <div key={insight.insight_id} className="relative">
       <Card className={cn(
-        "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer",
+        "p-8 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer",
         !isSubscribed && "blur-sm"
       )}>
       
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-3">
-          {getInsightIcon(insight.insight_type)}
+      <div className="flex items-start justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+            {getInsightIcon(insight.insight_type)}
+          </div>
           <div>
-            <h3 className="font-semibold text-foreground">{insight.title}</h3>
-            <p className="text-sm text-muted-foreground">{insight.description}</p>
+            <h3 className="text-xl font-bold text-foreground">{insight.title}</h3>
+            <p className="text-muted-foreground mt-1">{insight.description}</p>
           </div>
         </div>
-        <Badge variant="outline" className="bg-primary/10 text-primary">
-          {insight.confidence}% confidence
-        </Badge>
+        <div className="flex flex-col gap-2">
+          <Badge variant="outline" className="bg-primary/10 text-primary">
+            {insight.confidence}% confidence
+          </Badge>
+          <Badge variant="outline" className="bg-blue-500/10 text-blue-500">
+            <Activity className="w-3 h-3 mr-1" />
+            Game Analysis
+          </Badge>
+        </div>
       </div>
       
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl font-bold text-foreground">{insight.value}%</span>
-          <div className="flex items-center gap-1">
-            {getTrendIcon(insight.trend)}
-            <span className={cn("text-sm font-medium", getTrendColor(insight.trend))}>
-              {insight.change_percent > 0 ? '+' : ''}{insight.change_percent}%
-            </span>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-blue-500" />
+            <span className="text-sm font-semibold text-foreground">Performance</span>
+          </div>
+          <p className="text-3xl font-bold text-blue-500">{insight.value}%</p>
+          <p className="text-sm text-muted-foreground">
+            {insight.change_percent > 0 ? '+' : ''}{insight.change_percent}% vs last period
+          </p>
+        </div>
+        
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Target className="w-4 h-4 text-green-500" />
+            <span className="text-sm font-semibold text-foreground">Matchup</span>
+          </div>
+          <p className="text-lg font-bold text-foreground">{insight.team_name} vs {insight.opponent_name}</p>
+          <p className="text-sm text-muted-foreground">{insight.game_date}</p>
+        </div>
+        
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-purple-500" />
+            <span className="text-sm font-semibold text-foreground">Trend</span>
+          </div>
+          <p className="text-2xl font-bold text-purple-500 capitalize">{insight.trend}</p>
+          <p className="text-sm text-muted-foreground">Performance direction</p>
+        </div>
+      </div>
+      
+      {/* Detailed Analysis Section */}
+      <div className="bg-muted/30 rounded-lg p-6 border border-border/50">
+        <h4 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Brain className="w-5 h-5 text-primary" />
+          Detailed Analysis
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
+              <div>
+                <p className="font-semibold text-foreground">Team Performance</p>
+                <p className="text-sm text-muted-foreground">Consistent performance metrics over recent games</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="w-2 h-2 rounded-full bg-green-500 mt-2"></div>
+              <div>
+                <p className="font-semibold text-foreground">Matchup Analysis</p>
+                <p className="text-sm text-muted-foreground">Historical head-to-head data and recent form</p>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="w-2 h-2 rounded-full bg-purple-500 mt-2"></div>
+              <div>
+                <p className="font-semibold text-foreground">Situational Factors</p>
+                <p className="text-sm text-muted-foreground">Home field advantage and rest days considered</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="w-2 h-2 rounded-full bg-orange-500 mt-2"></div>
+              <div>
+                <p className="font-semibold text-foreground">Weather Impact</p>
+                <p className="text-sm text-muted-foreground">Current conditions and historical weather data</p>
+              </div>
+            </div>
           </div>
         </div>
-        {insight.team_name && (
-          <div className="text-right">
-            <p className="text-sm font-medium text-foreground">{insight.team_name} vs {insight.opponent_name}</p>
-            <p className="text-xs text-muted-foreground">{insight.game_date}</p>
-          </div>
-        )}
       </div>
     </Card>
     
@@ -283,7 +318,7 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
       isVisible={!isSubscribed}
       icon={<BarChart3 className="w-5 h-5 text-primary" />}
       title="Premium Content"
-      description="Subscribe to view insights"
+      description="Subscribe to view detailed game insights"
       buttonText="Upgrade to Pro"
       size="small"
       onUpgrade={handleUpgrade}
@@ -294,36 +329,101 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
   const renderPlayerInsight = (insight: PlayerInsight) => (
     <div key={insight.insight_id} className="relative">
       <Card className={cn(
-        "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer",
+        "p-8 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer",
         !isSubscribed && "blur-sm"
       )}>
       
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-3">
-          {getInsightIcon(insight.insight_type)}
+      <div className="flex items-start justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
+            {getInsightIcon(insight.insight_type)}
+          </div>
           <div>
-            <h3 className="font-semibold text-foreground">{insight.title}</h3>
-            <p className="text-sm text-muted-foreground">{insight.description}</p>
+            <h3 className="text-xl font-bold text-foreground">{insight.title}</h3>
+            <p className="text-muted-foreground mt-1">{insight.description}</p>
           </div>
         </div>
-        <Badge variant="outline" className="bg-primary/10 text-primary">
-          {insight.confidence}% confidence
-        </Badge>
+        <div className="flex flex-col gap-2">
+          <Badge variant="outline" className="bg-primary/10 text-primary">
+            {insight.confidence}% confidence
+          </Badge>
+          <Badge variant="outline" className="bg-purple-500/10 text-purple-500">
+            <Users className="w-3 h-3 mr-1" />
+            Player Analysis
+          </Badge>
+        </div>
       </div>
       
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl font-bold text-foreground">{insight.value}%</span>
-          <div className="flex items-center gap-1">
-            {getTrendIcon(insight.trend)}
-            <span className={cn("text-sm font-medium", getTrendColor(insight.trend))}>
-              {insight.change_percent > 0 ? '+' : ''}{insight.change_percent}%
-            </span>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-purple-500" />
+            <span className="text-sm font-semibold text-foreground">Performance</span>
           </div>
+          <p className="text-3xl font-bold text-purple-500">{insight.value}%</p>
+          <p className="text-sm text-muted-foreground">
+            {insight.change_percent > 0 ? '+' : ''}{insight.change_percent}% vs last period
+          </p>
         </div>
-        <div className="text-right">
-          <p className="text-sm font-medium text-foreground">{insight.player_name} ({insight.player_position})</p>
-          <p className="text-xs text-muted-foreground">{insight.team_name} • {insight.last_game_date}</p>
+        
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-green-500" />
+            <span className="text-sm font-semibold text-foreground">Player</span>
+          </div>
+          <p className="text-lg font-bold text-foreground">{insight.player_name} ({insight.player_position})</p>
+          <p className="text-sm text-muted-foreground">{insight.team_name}</p>
+        </div>
+        
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-blue-500" />
+            <span className="text-sm font-semibold text-foreground">Trend</span>
+          </div>
+          <p className="text-2xl font-bold text-blue-500 capitalize">{insight.trend}</p>
+          <p className="text-sm text-muted-foreground">Performance direction</p>
+        </div>
+      </div>
+      
+      {/* Detailed Analysis Section */}
+      <div className="bg-muted/30 rounded-lg p-6 border border-border/50">
+        <h4 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Brain className="w-5 h-5 text-primary" />
+          Detailed Analysis
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="w-2 h-2 rounded-full bg-purple-500 mt-2"></div>
+              <div>
+                <p className="font-semibold text-foreground">Recent Form</p>
+                <p className="text-sm text-muted-foreground">Player performance trends over last 5 games</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="w-2 h-2 rounded-full bg-green-500 mt-2"></div>
+              <div>
+                <p className="font-semibold text-foreground">Usage Rate</p>
+                <p className="text-sm text-muted-foreground">Team's reliance on this player in key situations</p>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
+              <div>
+                <p className="font-semibold text-foreground">Matchup Advantage</p>
+                <p className="text-sm text-muted-foreground">Historical performance against similar opponents</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="w-2 h-2 rounded-full bg-orange-500 mt-2"></div>
+              <div>
+                <p className="font-semibold text-foreground">Injury Status</p>
+                <p className="text-sm text-muted-foreground">Current health and availability for the game</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </Card>
@@ -333,7 +433,7 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
       isVisible={!isSubscribed}
       icon={<Users className="w-5 h-5 text-primary" />}
       title="Premium Content"
-      description="Subscribe to view insights"
+      description="Subscribe to view detailed player insights"
       buttonText="Upgrade to Pro"
       size="small"
       onUpgrade={handleUpgrade}
@@ -344,43 +444,108 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
   const renderMoneylineInsight = (insight: MoneylineInsight) => (
     <div key={insight.insight_id} className="relative">
       <Card className={cn(
-        "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer",
+        "p-8 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer",
         !isSubscribed && "blur-sm"
       )}>
       
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-3">
-          {getInsightIcon(insight.insight_type)}
+      <div className="flex items-start justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center">
+            {getInsightIcon(insight.insight_type)}
+          </div>
           <div>
-            <h3 className="font-semibold text-foreground">{insight.title}</h3>
-            <p className="text-sm text-muted-foreground">{insight.description}</p>
+            <h3 className="text-xl font-bold text-foreground">{insight.title}</h3>
+            <p className="text-muted-foreground mt-1">{insight.description}</p>
           </div>
         </div>
         <div className="flex flex-col gap-2">
           <Badge variant="outline" className="bg-primary/10 text-primary">
             {insight.confidence}% confidence
           </Badge>
-          {insight.underdog_opportunity && (
+          {insight.underdog_opportunity ? (
             <Badge variant="outline" className="bg-green-500/10 text-green-500">
+              <TrendingUp className="w-3 h-3 mr-1" />
               Underdog Opportunity
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="bg-orange-500/10 text-orange-500">
+              <Target className="w-3 h-3 mr-1" />
+              Moneyline Analysis
             </Badge>
           )}
         </div>
       </div>
       
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl font-bold text-foreground">{insight.value}%</span>
-          <div className="flex items-center gap-1">
-            {getTrendIcon(insight.trend)}
-            <span className={cn("text-sm font-medium", getTrendColor(insight.trend))}>
-              {insight.change_percent > 0 ? '+' : ''}{insight.change_percent}%
-            </span>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-orange-500" />
+            <span className="text-sm font-semibold text-foreground">Win Rate</span>
           </div>
+          <p className="text-3xl font-bold text-orange-500">{insight.value}%</p>
+          <p className="text-sm text-muted-foreground">
+            {insight.change_percent > 0 ? '+' : ''}{insight.change_percent}% vs last period
+          </p>
         </div>
-        <div className="text-right">
-          <p className="text-sm font-medium text-foreground">{insight.team_name} vs {insight.opponent_name}</p>
-          <p className="text-xs text-muted-foreground">{insight.game_date}</p>
+        
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Target className="w-4 h-4 text-green-500" />
+            <span className="text-sm font-semibold text-foreground">Matchup</span>
+          </div>
+          <p className="text-lg font-bold text-foreground">{insight.team_name} vs {insight.opponent_name}</p>
+          <p className="text-sm text-muted-foreground">{insight.game_date}</p>
+        </div>
+        
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-purple-500" />
+            <span className="text-sm font-semibold text-foreground">Trend</span>
+          </div>
+          <p className="text-2xl font-bold text-purple-500 capitalize">{insight.trend}</p>
+          <p className="text-sm text-muted-foreground">Performance direction</p>
+        </div>
+      </div>
+      
+      {/* Detailed Analysis Section */}
+      <div className="bg-muted/30 rounded-lg p-6 border border-border/50">
+        <h4 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Brain className="w-5 h-5 text-primary" />
+          Detailed Analysis
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="w-2 h-2 rounded-full bg-orange-500 mt-2"></div>
+              <div>
+                <p className="font-semibold text-foreground">Team Performance</p>
+                <p className="text-sm text-muted-foreground">Recent form and key performance indicators</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="w-2 h-2 rounded-full bg-green-500 mt-2"></div>
+              <div>
+                <p className="font-semibold text-foreground">Head-to-Head</p>
+                <p className="text-sm text-muted-foreground">Historical matchup data and trends</p>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="w-2 h-2 rounded-full bg-purple-500 mt-2"></div>
+              <div>
+                <p className="font-semibold text-foreground">Situational Factors</p>
+                <p className="text-sm text-muted-foreground">Home field advantage and rest days</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
+              <div>
+                <p className="font-semibold text-foreground">Market Analysis</p>
+                <p className="text-sm text-muted-foreground">Odds movement and betting patterns</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </Card>
@@ -390,7 +555,7 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
       isVisible={!isSubscribed}
       icon={<Target className="w-5 h-5 text-primary" />}
       title="Premium Content"
-      description="Subscribe to view insights"
+      description="Subscribe to view detailed moneyline insights"
       buttonText="Upgrade to Pro"
       size="small"
       onUpgrade={handleUpgrade}
@@ -450,12 +615,14 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
       </div>
 
       {/* Filter Tabs */}
-      <Tabs value={activeFilter} onValueChange={(value) => setActiveFilter(value as 'all' | 'game' | 'player' | 'moneyline')}>
-        <TabsList className="grid w-full grid-cols-4">
+      <Tabs value={activeFilter} onValueChange={(value) => setActiveFilter(value as 'all' | 'game' | 'player' | 'moneyline' | 'underdogs' | 'regular-moneyline')}>
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="all">All Insights</TabsTrigger>
           <TabsTrigger value="game">Game Insights</TabsTrigger>
           <TabsTrigger value="player">Player Insights</TabsTrigger>
           <TabsTrigger value="moneyline">Moneyline</TabsTrigger>
+          <TabsTrigger value="underdogs">Top Underdogs</TabsTrigger>
+          <TabsTrigger value="regular-moneyline">Regular Moneyline</TabsTrigger>
         </TabsList>
 
         {/* All Insights */}
@@ -503,7 +670,7 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
             </div>
           )}
           
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6">
             {gameInsights.map(renderGameInsight)}
             {playerInsights.map(renderPlayerInsight)}
             {moneylineInsights.map(renderMoneylineInsight)}
@@ -512,20 +679,159 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
 
         {/* Game Insights */}
         <TabsContent value="game" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6">
             {gameInsights.map(renderGameInsight)}
           </div>
         </TabsContent>
 
         {/* Player Insights */}
         <TabsContent value="player" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6">
             {playerInsights.map(renderPlayerInsight)}
           </div>
         </TabsContent>
 
-        {/* Moneyline Props */}
+        {/* Moneyline Insights */}
         <TabsContent value="moneyline" className="space-y-6">
+          <div className="grid grid-cols-1 gap-6">
+            {moneylineInsights.map(renderMoneylineInsight)}
+          </div>
+        </TabsContent>
+
+        {/* Top Underdogs Tab */}
+        <TabsContent value="underdogs" className="space-y-6">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <Target className="w-6 h-6 text-primary" />
+              <h2 className="text-2xl font-bold text-foreground">Top Underdog Opportunities</h2>
+              <Badge variant="outline" className="gap-1">
+                <TrendingUp className="w-3 h-3" />
+                High Value
+              </Badge>
+            </div>
+            <p className="text-muted-foreground">
+              AI-powered analysis of the best underdog moneyline opportunities with detailed reasoning and value analysis
+            </p>
+            
+            {/* Underdog Cards - Bigger Column Layout */}
+            <div className="grid grid-cols-1 gap-6">
+              {moneylineInsights.filter(insight => insight.underdog_opportunity).map((insight) => (
+                <div key={insight.insight_id} className="relative">
+                  <Card className={cn(
+                    "p-8 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer",
+                    !isSubscribed && "blur-sm"
+                  )}>
+                    
+                    <div className="flex items-start justify-between mb-6">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
+                          <Target className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-bold text-foreground">{insight.title}</h3>
+                          <p className="text-muted-foreground mt-1">{insight.description}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <Badge variant="outline" className="bg-primary/10 text-primary">
+                          {insight.confidence}% confidence
+                        </Badge>
+                        <Badge variant="outline" className="bg-green-500/10 text-green-500">
+                          <TrendingUp className="w-3 h-3 mr-1" />
+                          Underdog Opportunity
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <TrendingUp className="w-4 h-4 text-green-500" />
+                          <span className="text-sm font-semibold text-foreground">Win Rate</span>
+                        </div>
+                        <p className="text-3xl font-bold text-green-500">{insight.value}%</p>
+                        <p className="text-sm text-muted-foreground">
+                          {insight.change_percent > 0 ? '+' : ''}{insight.change_percent}% vs last period
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Target className="w-4 h-4 text-blue-500" />
+                          <span className="text-sm font-semibold text-foreground">Matchup</span>
+                        </div>
+                        <p className="text-lg font-bold text-foreground">{insight.team_name} vs {insight.opponent_name}</p>
+                        <p className="text-sm text-muted-foreground">{insight.game_date}</p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <BarChart3 className="w-4 h-4 text-purple-500" />
+                          <span className="text-sm font-semibold text-foreground">Value Rating</span>
+                        </div>
+                        <p className="text-2xl font-bold text-purple-500">High</p>
+                        <p className="text-sm text-muted-foreground">Based on AI analysis</p>
+                      </div>
+                    </div>
+                    
+                    {/* Detailed Analysis Section */}
+                    <div className="bg-muted/30 rounded-lg p-6 border border-border/50">
+                      <h4 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                        <Brain className="w-5 h-5 text-primary" />
+                        Detailed Analysis
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-3">
+                          <div className="flex items-start gap-3">
+                            <div className="w-2 h-2 rounded-full bg-green-500 mt-2"></div>
+                            <div>
+                              <p className="font-semibold text-foreground">Recent Form</p>
+                              <p className="text-sm text-muted-foreground">Team has exceeded expectations in 3 of last 4 games</p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-3">
+                            <div className="w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
+                            <div>
+                              <p className="font-semibold text-foreground">Head-to-Head</p>
+                              <p className="text-sm text-muted-foreground">Historical matchup data favors the underdog</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="flex items-start gap-3">
+                            <div className="w-2 h-2 rounded-full bg-purple-500 mt-2"></div>
+                            <div>
+                              <p className="font-semibold text-foreground">Injury Impact</p>
+                              <p className="text-sm text-muted-foreground">Key players healthy, no major concerns</p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-3">
+                            <div className="w-2 h-2 rounded-full bg-orange-500 mt-2"></div>
+                            <div>
+                              <p className="font-semibold text-foreground">Market Value</p>
+                              <p className="text-sm text-muted-foreground">Odds provide excellent value opportunity</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                  
+                  {/* Subscription overlay for free users */}
+                  <SubscriptionOverlay
+                    isVisible={!isSubscribed}
+                    icon={<Target className="w-5 h-5 text-primary" />}
+                    title="Premium Content"
+                    description="Subscribe to view detailed underdog analysis"
+                    buttonText="Upgrade to Pro"
+                    size="small"
+                    onUpgrade={handleUpgrade}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        </TabsContent>
           <div className="space-y-8">
             {/* Moneyline Insights */}
             {moneylineInsights.length > 0 && (
@@ -627,6 +933,141 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
                 </div>
               </div>
             )}
+          </div>
+        </TabsContent>
+
+        {/* Regular Moneyline Tab */}
+        <TabsContent value="regular-moneyline" className="space-y-6">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <BarChart3 className="w-6 h-6 text-primary" />
+              <h2 className="text-2xl font-bold text-foreground">Regular Moneyline Insights</h2>
+              <Badge variant="outline" className="gap-1">
+                <Activity className="w-3 h-3" />
+                Standard Analysis
+              </Badge>
+            </div>
+            <p className="text-muted-foreground">
+              Comprehensive moneyline analysis with team performance metrics and matchup insights
+            </p>
+            
+            {/* Regular Moneyline Cards - Bigger Column Layout */}
+            <div className="grid grid-cols-1 gap-6">
+              {moneylineInsights.filter(insight => !insight.underdog_opportunity).map((insight) => (
+                <div key={insight.insight_id} className="relative">
+                  <Card className={cn(
+                    "p-8 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer",
+                    !isSubscribed && "blur-sm"
+                  )}>
+                    
+                    <div className="flex items-start justify-between mb-6">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                          <BarChart3 className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-bold text-foreground">{insight.title}</h3>
+                          <p className="text-muted-foreground mt-1">{insight.description}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <Badge variant="outline" className="bg-primary/10 text-primary">
+                          {insight.confidence}% confidence
+                        </Badge>
+                        <Badge variant="outline" className="bg-blue-500/10 text-blue-500">
+                          <Activity className="w-3 h-3 mr-1" />
+                          Standard Analysis
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <TrendingUp className="w-4 h-4 text-blue-500" />
+                          <span className="text-sm font-semibold text-foreground">Performance</span>
+                        </div>
+                        <p className="text-3xl font-bold text-blue-500">{insight.value}%</p>
+                        <p className="text-sm text-muted-foreground">
+                          {insight.change_percent > 0 ? '+' : ''}{insight.change_percent}% vs last period
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Target className="w-4 h-4 text-green-500" />
+                          <span className="text-sm font-semibold text-foreground">Matchup</span>
+                        </div>
+                        <p className="text-lg font-bold text-foreground">{insight.team_name} vs {insight.opponent_name}</p>
+                        <p className="text-sm text-muted-foreground">{insight.game_date}</p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <BarChart3 className="w-4 h-4 text-purple-500" />
+                          <span className="text-sm font-semibold text-foreground">Trend</span>
+                        </div>
+                        <p className="text-2xl font-bold text-purple-500 capitalize">{insight.trend}</p>
+                        <p className="text-sm text-muted-foreground">Performance direction</p>
+                      </div>
+                    </div>
+                    
+                    {/* Detailed Analysis Section */}
+                    <div className="bg-muted/30 rounded-lg p-6 border border-border/50">
+                      <h4 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                        <Brain className="w-5 h-5 text-primary" />
+                        Detailed Analysis
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-3">
+                          <div className="flex items-start gap-3">
+                            <div className="w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
+                            <div>
+                              <p className="font-semibold text-foreground">Team Performance</p>
+                              <p className="text-sm text-muted-foreground">Consistent performance metrics over recent games</p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-3">
+                            <div className="w-2 h-2 rounded-full bg-green-500 mt-2"></div>
+                            <div>
+                              <p className="font-semibold text-foreground">Offensive Efficiency</p>
+                              <p className="text-sm text-muted-foreground">Strong offensive metrics and scoring trends</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="flex items-start gap-3">
+                            <div className="w-2 h-2 rounded-full bg-purple-500 mt-2"></div>
+                            <div>
+                              <p className="font-semibold text-foreground">Defensive Strength</p>
+                              <p className="text-sm text-muted-foreground">Solid defensive performance and key stops</p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-3">
+                            <div className="w-2 h-2 rounded-full bg-orange-500 mt-2"></div>
+                            <div>
+                              <p className="font-semibold text-foreground">Situational Factors</p>
+                              <p className="text-sm text-muted-foreground">Home field advantage and rest days considered</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                  
+                  {/* Subscription overlay for free users */}
+                  <SubscriptionOverlay
+                    isVisible={!isSubscribed}
+                    icon={<BarChart3 className="w-5 h-5 text-primary" />}
+                    title="Premium Content"
+                    description="Subscribe to view detailed moneyline analysis"
+                    buttonText="Upgrade to Pro"
+                    size="small"
+                    onUpgrade={handleUpgrade}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         </TabsContent>
       </Tabs>
