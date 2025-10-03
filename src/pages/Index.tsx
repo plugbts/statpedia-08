@@ -768,7 +768,7 @@ const Index = () => {
           <div>
             <h2 className="text-2xl font-bold text-foreground">This Week's Predictions</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Showing {startIndex + 1}-{Math.min(endIndex, allPredictions.length)} of {allPredictions.length} predictions
+              Showing {paginationData.startIndex + 1}-{Math.min(paginationData.endIndex, allPredictions.length)} of {allPredictions.length} predictions
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -803,7 +803,7 @@ const Index = () => {
               <span className="text-muted-foreground">Loading live predictions...</span>
             </div>
           </div>
-        ) : currentPredictions.length === 0 ? (
+        ) : paginationData.currentPredictions.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground mb-4">No predictions available for {selectedSport.toUpperCase()}</p>
             <Button onClick={loadRealPredictions} variant="outline">
@@ -814,7 +814,7 @@ const Index = () => {
         ) : (
           <>
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-              {currentPredictions.map((prediction, index) => (
+              {paginationData.currentPredictions.map((prediction, index) => (
             <PredictionCard
                   key={prediction.id || index}
               {...prediction}
@@ -824,7 +824,7 @@ const Index = () => {
         </div>
             
             {/* Pagination Controls */}
-            {totalPages > 1 && (
+            {paginationData.totalPages > 1 && (
               <div className="flex items-center justify-center gap-2 mt-8">
                 <Button
                   variant="outline"
@@ -836,14 +836,14 @@ const Index = () => {
                 </Button>
                 
                 <div className="flex items-center gap-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  {Array.from({ length: Math.min(5, paginationData.totalPages) }, (_, i) => {
                     let pageNum;
-                    if (totalPages <= 5) {
+                    if (paginationData.totalPages <= 5) {
                       pageNum = i + 1;
                     } else if (currentPage <= 3) {
                       pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
+                    } else if (currentPage >= paginationData.totalPages - 2) {
+                      pageNum = paginationData.totalPages - 4 + i;
                     } else {
                       pageNum = currentPage - 2 + i;
                     }
@@ -861,15 +861,15 @@ const Index = () => {
                     );
                   })}
                   
-                  {totalPages > 5 && currentPage < totalPages - 2 && (
+                  {paginationData.totalPages > 5 && currentPage < paginationData.totalPages - 2 && (
                     <>
                       <span className="text-muted-foreground">...</span>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setCurrentPage(totalPages)}
+                        onClick={() => setCurrentPage(paginationData.totalPages)}
                       >
-                        {totalPages}
+                        {paginationData.totalPages}
                       </Button>
                     </>
                   )}
@@ -878,8 +878,8 @@ const Index = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(prev => Math.min(paginationData.totalPages, prev + 1))}
+                  disabled={currentPage === paginationData.totalPages}
                 >
                   Next
                 </Button>
