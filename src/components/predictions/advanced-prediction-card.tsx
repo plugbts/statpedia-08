@@ -176,7 +176,7 @@ const generateDetailedAnalysis = (prediction: AdvancedPredictionCardProps['predi
       impact: "medium"
     });
     
-    if (prediction.propType?.includes('Touchdown')) {
+    if (prediction.propType && prediction.propType.includes('Touchdown')) {
       analysis.push({
         icon: <Target className="w-4 h-4 text-orange-400" />,
         title: "Red Zone Opportunity",
@@ -185,7 +185,7 @@ const generateDetailedAnalysis = (prediction: AdvancedPredictionCardProps['predi
       });
     }
     
-    if (prediction.propType?.includes('Yard')) {
+    if (prediction.propType && prediction.propType.includes('Yard')) {
       analysis.push({
         icon: <BarChart3 className="w-4 h-4 text-cyan-400" />,
         title: "Volume-Based Metric",
@@ -223,7 +223,7 @@ const generateDetailedAnalysis = (prediction: AdvancedPredictionCardProps['predi
   }
   
   // Period-specific analysis
-  if (prediction.period !== 'full_game') {
+  if (prediction.period && prediction.period !== 'full_game') {
     analysis.push({
       icon: <Clock className="w-4 h-4 text-yellow-400" />,
       title: "Period-Specific Analysis",
@@ -441,7 +441,7 @@ export const AdvancedPredictionCard: React.FC<AdvancedPredictionCardProps> = ({
               <span className="text-sm font-semibold text-slate-200">AI Recommendation</span>
             </div>
             <Badge className={cn("text-xs font-bold px-3 py-1", getRiskColor(riskLevel))}>
-              <span className="capitalize">{prediction.recommendation?.replace('_', ' ') || 'Neutral'}</span>
+              <span className="capitalize">{prediction.recommendation ? prediction.recommendation.replace('_', ' ') : 'Neutral'}</span>
             </Badge>
           </div>
         </div>
