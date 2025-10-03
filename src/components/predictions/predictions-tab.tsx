@@ -407,6 +407,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
       });
     } catch (error) {
       console.error('Error loading predictions:', error);
+      console.log('🔄 [PredictionsTab] Setting error state due to prediction loading failure');
       setError('Failed to load predictions. Please try again.');
     } finally {
       setIsLoading(false);

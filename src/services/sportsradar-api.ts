@@ -720,6 +720,7 @@ class SportsRadarAPI {
     } catch (error) {
       logError('SportsRadarAPI', `Failed to get games for ${sport}:`, error);
       // Return sample data for development
+      console.log(`🔄 [SportsRadarAPI] Using sample games for ${sport} due to API error`);
       return this.getSampleGames(sport);
     }
   }

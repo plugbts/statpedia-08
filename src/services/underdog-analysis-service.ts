@@ -98,6 +98,7 @@ class UnderdogAnalysisService {
       return validUnderdogs;
     } catch (error) {
       console.error('Error getting top underdogs:', error);
+      console.log(`🔄 [UnderdogAnalysisService] Returning empty underdogs array due to error`);
       return [];
     }
   }

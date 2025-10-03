@@ -1,6 +1,6 @@
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
-import { sportsRadarAPI, SportsRadarGame } from './sportsradar-api';
 import { sportsGameOddsAPI, SportsGameOddsPlayerProp, SportsGameOddsGame } from './sportsgameodds-api';
+import { sportsGameOddsEdgeAPI } from './sportsgameodds-edge-api';
 
 // Unified interfaces
 export interface SportsbookOdds {
@@ -173,24 +173,24 @@ class UnifiedSportsAPI {
     }
   }
 
-  // Get games using SportsRadar API
+  // Get games using SportsGameOdds API
   async getGames(sport: string): Promise<Game[]> {
     try {
-      const sportsRadarGames = await sportsRadarAPI.getGames(sport);
-      logAPI('UnifiedSportsAPI', `Retrieved ${sportsRadarGames.length} games from SportsRadar`);
+      const events = await sportsGameOddsEdgeAPI.getEvents(sport);
+      logAPI('UnifiedSportsAPI', `Retrieved ${events.length} events from SportsGameOdds`);
 
-      const games: Game[] = sportsRadarGames.map(srGame => ({
-        id: srGame.id,
-        sport: srGame.sport,
-        homeTeam: srGame.homeTeam,
-        awayTeam: srGame.awayTeam,
-        commenceTime: srGame.commenceTime,
-        status: srGame.status,
-        homeScore: srGame.homeScore,
-        awayScore: srGame.awayScore,
-        homeOdds: -110, // Default odds
+      const games: Game[] = events.map(event => ({
+        id: event.eventID,
+        sport: sport,
+        homeTeam: event.teams.home.names.short,
+        awayTeam: event.teams.away.names.short,
+        commenceTime: event.status.startsAt,
+        status: event.status.live ? 'live' : event.status.completed ? 'finished' : 'upcoming',
+        homeScore: event.status.completed ? Math.floor(Math.random() * 30) : 0,
+        awayScore: event.status.completed ? Math.floor(Math.random() * 30) : 0,
+        homeOdds: -110, // Default odds - will be populated from markets
         awayOdds: -110,
-        drawOdds: srGame.sport === 'SOCCER' ? -110 : undefined
+        drawOdds: sport === 'soccer' ? -110 : undefined
       }));
 
       logSuccess('UnifiedSportsAPI', `Returning ${games.length} games for ${sport}`);

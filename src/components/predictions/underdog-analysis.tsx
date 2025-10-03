@@ -68,8 +68,9 @@ export const UnderdogAnalysis: React.FC<UnderdogAnalysisProps> = ({ selectedSpor
         description: `Found ${underdogData.length} high-value underdog opportunities`,
       });
     } catch (err) {
-      setError('Failed to load underdog analysis');
       console.error('Error loading analysis:', err);
+      console.log('🔄 [UnderdogAnalysis] Setting error state due to analysis loading failure');
+      setError('Failed to load underdog analysis');
     } finally {
       setIsLoading(false);
     }

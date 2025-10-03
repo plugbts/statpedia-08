@@ -97,8 +97,9 @@ export const MoneylineProps: React.FC<MoneylinePropsProps> = ({
       const gamePredictions = await gamesService.getCurrentWeekPredictions(localSelectedSport);
       setPredictions(gamePredictions);
     } catch (err) {
-      setError('Failed to load moneyline predictions');
       console.error('Error loading predictions:', err);
+      console.log('🔄 [MoneylineProps] Setting error state due to prediction loading failure');
+      setError('Failed to load moneyline predictions');
     } finally {
       setIsLoading(false);
     }

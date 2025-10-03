@@ -1,5 +1,5 @@
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
-import { sportsRadarAPI, SportsRadarPlayerProp } from './sportsradar-api';
+import { cloudflarePlayerPropsAPI } from './cloudflare-player-props-api';
 
 export interface SyncResult {
   success: boolean;
@@ -25,10 +25,10 @@ class RealTimeSportsbookSync {
 
   constructor() {
     logInfo('RealTimeSportsbookSync', 'Service initialized - Version 3.0.0');
-    logInfo('RealTimeSportsbookSync', 'Using SportsRadar API for real-time sportsbook synchronization');
+    logInfo('RealTimeSportsbookSync', 'Using SportsGameOdds API for real-time sportsbook synchronization');
   }
 
-  // Perform real-time sync with SportsRadar
+  // Perform real-time sync with SportsGameOdds
   async performSync(sport: string): Promise<SyncResult> {
     logAPI('RealTimeSportsbookSync', `Starting real-time sync for ${sport}`);
     
@@ -38,11 +38,11 @@ class RealTimeSportsbookSync {
     const sportsbooks: string[] = [];
 
     try {
-      // Get player props from SportsRadar
-      const playerProps = await sportsRadarAPI.getPlayerProps(sport);
+      // Get player props from SportsGameOdds
+      const playerProps = await cloudflarePlayerPropsAPI.getPlayerProps(sport, true);
       propsCount = playerProps.length;
       
-      logAPI('RealTimeSportsbookSync', `Retrieved ${propsCount} player props from SportsRadar`);
+      logAPI('RealTimeSportsbookSync', `Retrieved ${propsCount} player props from SportsGameOdds`);
       
       // Extract unique sportsbooks from props
       const uniqueSportsbooks = [...new Set(playerProps.map(prop => prop.sportsbook))];

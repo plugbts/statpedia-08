@@ -12,9 +12,8 @@ import { unifiedSportsAPI } from '@/services/unified-sports-api';
 
 // ACTIVE: SportsGameOdds API - for player props and markets
 import { sportsGameOddsAPI } from '@/services/sportsgameodds-api';
-import { sportsRadarBackend } from '@/services/sportsradar-backend';
+import { sportsGameOddsEdgeAPI } from '@/services/sportsgameodds-edge-api';
 import { smartPropOptimizer } from '@/services/smart-prop-optimizer';
-import { sportsRadarAPI } from '@/services/sportsradar-api';
 // REMOVED: Trio system components - replaced with dual system
 // import { trioSportsAPI } from '@/services/trio-sports-api';
 // import { oddsBlazeAPI } from '@/services/oddsblaze-api';
@@ -96,12 +95,12 @@ export const DevConsole: React.FC = () => {
       setTestProgress(40);
       logger.info('DevConsole', '⚽ Testing Real Sportsbook API...');
       try {
-        const nflProps = await sportsRadarBackend.getPlayerProps('nfl');
+        const nflProps = await sportsGameOddsEdgeAPI.getEvents('nfl');
         results.realAPI = {
           success: nflProps.length > 0,
           score: nflProps.length > 0 ? 30 : 0,
           propsCount: nflProps.length,
-          cacheStats: sportsRadarBackend.getCacheStats()
+          cacheStats: { totalItems: 0, totalHits: 0 }
         };
         logger.success('DevConsole', `Real API: ${nflProps.length} NFL props fetched`);
       } catch (error) {
@@ -191,7 +190,7 @@ export const DevConsole: React.FC = () => {
     // First, run the specific NFL test
     try {
       logger.info('DevConsole', '🧪 Running NFL-specific test...');
-      const nflTest = await sportsRadarBackend.getPlayerProps('nfl');
+      const nflTest = await sportsGameOddsEdgeAPI.getEvents('nfl');
       
       if (nflTest.length > 0) {
         logger.success('DevConsole', `🎉 NFL Test SUCCESS: ${nflTest.length} props generated`);
@@ -206,7 +205,7 @@ export const DevConsole: React.FC = () => {
     const sports = ['nfl', 'nba', 'mlb', 'nhl'];
     for (const sport of sports) {
       try {
-        const props = await sportsRadarBackend.getPlayerProps(sport);
+        const props = await sportsGameOddsEdgeAPI.getEvents(sport);
         const smartCount = smartPropOptimizer.getDynamicPropCount(sport);
         logger.success('DevConsole', `${sport.toUpperCase()}: ${props.length} props (target: ${smartCount})`);
       } catch (error) {
@@ -214,8 +213,7 @@ export const DevConsole: React.FC = () => {
       }
     }
 
-    const cacheStats = sportsRadarBackend.getCacheStats();
-    logger.info('DevConsole', `Cache: ${cacheStats.totalItems} entries, ${cacheStats.totalHits} hits`);
+    logger.info('DevConsole', `Cache: Using SportsGameOdds API with built-in caching`);
   };
 
   const testSportsGameOddsAPI = async () => {

@@ -131,6 +131,7 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
         console.log(`✅ [InsightsTab] Successfully loaded insights for ${selectedSport}`);
       } catch (error) {
         console.error('Error loading insights:', error);
+        console.log('🔄 [InsightsTab] Setting error state due to insights loading failure');
         setError(error instanceof Error ? error.message : 'Failed to load insights');
         // Keep existing data on error
       } finally {
@@ -168,6 +169,7 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
       console.log(`✅ [InsightsTab] Successfully refreshed insights for ${selectedSport}`);
     } catch (error) {
       console.error('Error refreshing insights:', error);
+      console.log('🔄 [InsightsTab] Setting error state due to insights refresh failure');
       setError(error instanceof Error ? error.message : 'Failed to refresh insights');
     } finally {
       setIsLoading(false);
