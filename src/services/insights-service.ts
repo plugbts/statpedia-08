@@ -350,8 +350,8 @@ class InsightsService {
         trend: hitRate >= 60 ? 'up' : hitRate <= 40 ? 'down' : 'neutral',
         change_percent: Math.round(Math.random() * 20 + 5),
         confidence: Math.round(Math.random() * 20 + 75),
-        team_name: 'Teams',
-        opponent_name: 'Average',
+        team_name: '',
+        opponent_name: '',
         game_date: new Date().toISOString().split('T')[0],
         created_at: new Date().toISOString()
       });
@@ -376,8 +376,8 @@ class InsightsService {
       trend: overallHitRate >= 60 ? 'up' : overallHitRate <= 40 ? 'down' : 'neutral',
       change_percent: Math.round(Math.random() * 10 + 3),
       confidence: Math.round(Math.random() * 15 + 80),
-      team_name: 'League',
-      opponent_name: 'Average',
+      team_name: '',
+      opponent_name: '',
       game_date: new Date().toISOString().split('T')[0],
       created_at: new Date().toISOString()
     });
