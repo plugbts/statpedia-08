@@ -4,6 +4,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { gamesService } from './games-service';
 import { cloudflarePlayerPropsAPI } from './cloudflare-player-props-api';
+import { sportsGameOddsAPI } from './sportsgameodds-api';
 import { useOddsAPI } from '@/hooks/use-odds-api';
 
 export interface GameInsight {
@@ -82,9 +83,9 @@ class InsightsService {
     try {
       console.log(`📊 [InsightsService] Fetching real game insights for ${sport}...`);
       
-      // Get real games data
-      const games = await gamesService.getCurrentWeekGames(sport);
-      console.log(`📊 [InsightsService] Retrieved ${games.length} games for ${sport}`);
+      // Get real games data from SportsGameOdds API
+      const games = await sportsGameOddsAPI.getGames(sport);
+      console.log(`📊 [InsightsService] Retrieved ${games.length} games for ${sport} from SportsGameOdds`);
       
       // Generate insights from real games data
       const insights = this.generateGameInsightsFromRealData(games, sport);
@@ -113,9 +114,9 @@ class InsightsService {
     try {
       console.log(`👤 [InsightsService] Fetching real player insights for ${sport}...`);
       
-      // Get real player props data
-      const playerProps = await cloudflarePlayerPropsAPI.getPlayerProps(sport);
-      console.log(`👤 [InsightsService] Retrieved ${playerProps.length} player props for ${sport}`);
+      // Get real player props data from SportsGameOdds API
+      const playerProps = await sportsGameOddsAPI.getPlayerProps(sport);
+      console.log(`👤 [InsightsService] Retrieved ${playerProps.length} player props for ${sport} from SportsGameOdds`);
       
       // Generate insights from real player props data
       const insights = this.generatePlayerInsightsFromRealData(playerProps, sport);
@@ -144,9 +145,9 @@ class InsightsService {
     try {
       console.log(`💰 [InsightsService] Fetching real moneyline insights for ${sport}...`);
       
-      // Get real games data for moneyline analysis
-      const games = await gamesService.getCurrentWeekGames(sport);
-      console.log(`💰 [InsightsService] Retrieved ${games.length} games for moneyline analysis`);
+      // Get real games data for moneyline analysis from SportsGameOdds API
+      const games = await sportsGameOddsAPI.getGames(sport);
+      console.log(`💰 [InsightsService] Retrieved ${games.length} games for moneyline analysis from SportsGameOdds`);
       
       // Generate insights from real games data
       const insights = this.generateMoneylineInsightsFromRealData(games, sport);
@@ -199,8 +200,8 @@ class InsightsService {
     if (games.length === 0) return insights;
     
     // Home team win rate insight
-    const homeGames = games.filter(game => game.status === 'upcoming' || game.status === 'live');
-    if (homeGames.length > 0) {
+    const upcomingGames = games.filter(game => game.status === 'scheduled' || game.status === 'upcoming');
+    if (upcomingGames.length > 0) {
       const homeWinRate = Math.round(Math.random() * 20 + 60); // 60-80% range
       insights.push({
         insight_id: `home_win_rate_${sport}`,
@@ -211,15 +212,15 @@ class InsightsService {
         trend: 'up',
         change_percent: Math.round(Math.random() * 5 + 1),
         confidence: Math.round(Math.random() * 20 + 75),
-        team_name: homeGames[0]?.homeTeam || 'Home Team',
-        opponent_name: homeGames[0]?.awayTeam || 'Away Team',
-        game_date: homeGames[0]?.date || new Date().toISOString().split('T')[0],
+        team_name: upcomingGames[0]?.homeTeam || 'Home Team',
+        opponent_name: upcomingGames[0]?.awayTeam || 'Away Team',
+        game_date: upcomingGames[0]?.gameTime ? new Date(upcomingGames[0].gameTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         created_at: new Date().toISOString()
       });
     }
     
     // Over/Under trends insight
-    if (homeGames.length > 0) {
+    if (upcomingGames.length > 0) {
       const overRate = Math.round(Math.random() * 20 + 55); // 55-75% range
       insights.push({
         insight_id: `over_under_trend_${sport}`,
@@ -230,9 +231,9 @@ class InsightsService {
         trend: 'up',
         change_percent: Math.round(Math.random() * 10 + 3),
         confidence: Math.round(Math.random() * 15 + 80),
-        team_name: homeGames[0]?.homeTeam || 'Home Team',
-        opponent_name: homeGames[0]?.awayTeam || 'Away Team',
-        game_date: homeGames[0]?.date || new Date().toISOString().split('T')[0],
+        team_name: upcomingGames[0]?.homeTeam || 'Home Team',
+        opponent_name: upcomingGames[0]?.awayTeam || 'Away Team',
+        game_date: upcomingGames[0]?.gameTime ? new Date(upcomingGames[0].gameTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         created_at: new Date().toISOString()
       });
     }
@@ -259,9 +260,9 @@ class InsightsService {
         change_percent: Math.round(Math.random() * 15 + 5),
         confidence: Math.round(Math.random() * 10 + 85),
         player_name: hotPlayer.playerName,
-        team_name: hotPlayer.teamAbbr,
+        team_name: hotPlayer.team,
         player_position: this.getPlayerPosition(hotPlayer.playerName, sport),
-        last_game_date: hotPlayer.gameDate || new Date().toISOString().split('T')[0],
+        last_game_date: hotPlayer.gameTime ? new Date(hotPlayer.gameTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         created_at: new Date().toISOString()
       });
     }
@@ -280,9 +281,9 @@ class InsightsService {
         change_percent: Math.round(Math.random() * 8 + 2),
         confidence: Math.round(Math.random() * 15 + 75),
         player_name: homePlayer.playerName,
-        team_name: homePlayer.teamAbbr,
+        team_name: homePlayer.team,
         player_position: this.getPlayerPosition(homePlayer.playerName, sport),
-        last_game_date: homePlayer.gameDate || new Date().toISOString().split('T')[0],
+        last_game_date: homePlayer.gameTime ? new Date(homePlayer.gameTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         created_at: new Date().toISOString()
       });
     }
@@ -296,8 +297,9 @@ class InsightsService {
     if (games.length === 0) return insights;
     
     // Underdog opportunity insight
-    const underdogGame = games.find(game => game.homeOdds > game.awayOdds) || games[0];
-    if (underdogGame) {
+    const upcomingGames = games.filter(game => game.status === 'scheduled' || game.status === 'upcoming');
+    if (upcomingGames.length > 0) {
+      const underdogGame = upcomingGames[0];
       const underdogRate = Math.round(Math.random() * 15 + 30); // 30-45% range
       insights.push({
         insight_id: `underdog_win_rate_${underdogGame.id}`,
@@ -310,7 +312,7 @@ class InsightsService {
         confidence: Math.round(Math.random() * 15 + 75),
         team_name: underdogGame.homeTeam,
         opponent_name: underdogGame.awayTeam,
-        game_date: underdogGame.date || new Date().toISOString().split('T')[0],
+        game_date: underdogGame.gameTime ? new Date(underdogGame.gameTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         underdog_opportunity: true,
         created_at: new Date().toISOString()
       });
