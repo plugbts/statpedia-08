@@ -102,7 +102,7 @@ interface PredictionWithUI extends MarketData {
   isBookmarked?: boolean;
 }
 import { EnhancedAnalysisOverlay } from './enhanced-analysis-overlay';
-import { ProfessionalPredictionCard } from './professional-prediction-card';
+import { AdvancedPredictionCard } from './advanced-prediction-card';
 
 interface PredictionsTabProps {
   selectedSport: string;
@@ -868,17 +868,17 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
       )}
 
       {/* Predictions Grid */}
-      {!isLoading && sortedPredictions.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sortedPredictions.map((prediction) => (
-            <ProfessionalPredictionCard
-              key={prediction.id}
-              prediction={prediction}
-              onBookmark={toggleBookmark}
-            />
-          ))}
-        </div>
-      )}
+            {!isLoading && sortedPredictions.length > 0 && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
+                {sortedPredictions.map((prediction) => (
+                  <AdvancedPredictionCard
+                    key={prediction.id}
+                    prediction={prediction}
+                    onBookmark={toggleBookmark}
+                  />
+                ))}
+              </div>
+            )}
 
       {/* Legacy card rendering - keeping for reference but not used */}
       {false && sortedPredictions.map((prediction) => (

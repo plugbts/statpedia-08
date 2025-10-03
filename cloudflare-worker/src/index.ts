@@ -306,8 +306,8 @@ export default {
             const isTeamLevel = propData.statEntityID && ['all', 'away', 'home'].includes(propData.statEntityID.toLowerCase());
             const isGameLevel = !propData.statEntityID || isTeamLevel;
             
-            // Process moneyline markets
-            if (marketType === 'moneyline' && (propKey.includes('moneyline') || (isGameLevel && propKey.includes('moneyline')))) {
+            // Process moneyline markets (including team-level moneyline)
+            if (marketType === 'moneyline' && (propKey.includes('moneyline') || propKey.includes('-ml-'))) {
               const marketKey = `${event.id}-moneyline-${period}`;
               if (!marketsMap.has(marketKey)) {
                 marketsMap.set(marketKey, {
@@ -356,8 +356,8 @@ export default {
               }
             }
             
-            // Process spread markets
-            if (marketType === 'spread' && propKey.includes('spread')) {
+            // Process spread markets (including team-level spread)
+            if (marketType === 'spread' && (propKey.includes('spread') || propKey.includes('-sp-'))) {
               const marketKey = `${event.id}-spread-${period}`;
               if (!marketsMap.has(marketKey)) {
                 marketsMap.set(marketKey, {
