@@ -82,6 +82,9 @@
     /* Ultra-Dark Professional Theme with 3D Effects */
     --background: 220 27% 4%;
     --foreground: 220 9% 95%;
+    
+    /* Fallback background to prevent black screen */
+    background-color: #0a0a0a;
 
     /* Deep card backgrounds with 3D depth */
     --card: 220 27% 6%;

@@ -219,20 +219,52 @@ const SyncProvider = ({ children }: { children: React.ReactNode }) => {
 };
 
 const App = () => {
-  // Initialize theme on app start
+  // Initialize theme on app start - run synchronously to prevent black screen
+  const [themeInitialized, setThemeInitialized] = useState(false);
+  
   useEffect(() => {
     const savedTheme = localStorage.getItem('statpedia-theme');
     const html = document.documentElement;
     
-    if (savedTheme === 'light') {
-      html.classList.remove('dark');
-      html.classList.add('light');
+    // Ensure CSS variables are loaded before setting theme
+    const initializeTheme = () => {
+      if (savedTheme === 'light') {
+        html.classList.remove('dark');
+        html.classList.add('light');
+      } else {
+        // Default to dark mode if no preference saved
+        html.classList.remove('light');
+        html.classList.add('dark');
+      }
+      setThemeInitialized(true);
+    };
+    
+    // Check if CSS is loaded
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initializeTheme);
     } else {
-      // Default to dark mode if no preference saved
-      html.classList.remove('light');
-      html.classList.add('dark');
+      initializeTheme();
     }
+    
+    return () => {
+      document.removeEventListener('DOMContentLoaded', initializeTheme);
+    };
   }, []);
+  
+  // Show loading until theme is initialized to prevent black screen
+  if (!themeInitialized) {
+    return (
+      <div style={{ 
+        minHeight: '100vh', 
+        backgroundColor: '#0a0a0a', // Fallback dark background
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center' 
+      }}>
+        <div className="animate-spin h-8 w-8 border-4 border-cyan-500 border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -243,8 +275,14 @@ const App = () => {
             <Sonner />
             <BrowserRouter>
               <Suspense fallback={
-                <div className="min-h-screen bg-background flex items-center justify-center">
-                  <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+                <div style={{ 
+                  minHeight: '100vh', 
+                  backgroundColor: '#0a0a0a', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center' 
+                }}>
+                  <div className="animate-spin h-8 w-8 border-4 border-cyan-500 border-t-transparent rounded-full" />
                 </div>
               }>
                 <Routes>
