@@ -477,7 +477,7 @@ class UnderdogAnalysisService {
     };
 
     return {
-      week: this.getCurrentWeek(),
+      week: await this.getCurrentWeek(sport),
       sport: sport.toUpperCase(),
       season: new Date().getFullYear().toString(),
       topUnderdogs,
@@ -487,11 +487,9 @@ class UnderdogAnalysisService {
     };
   }
 
-  private getCurrentWeek(): number {
-    const now = new Date();
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
-    const days = Math.floor((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
-    return Math.ceil((days + startOfYear.getDay() + 1) / 7);
+  private async getCurrentWeek(sport: string): Promise<number> {
+    // Use the games service to get current week from API
+    return await gamesService.getCurrentWeek(sport);
   }
 
   private calculateMarketEfficiency(underdogs: UnderdogAnalysis[]): number {
