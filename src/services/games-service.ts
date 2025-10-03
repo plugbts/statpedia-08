@@ -259,13 +259,25 @@ class GamesService {
     
     switch (sport.toLowerCase()) {
       case 'nfl':
-        const nflStart = new Date(year, 8, 1); // September 1st
+        // NFL 2024 season started September 5, 2024 (Week 1)
+        const nflStart = new Date(2024, 8, 5); // September 5, 2024
         const nflWeeks = Math.ceil((now.getTime() - nflStart.getTime()) / (7 * 24 * 60 * 60 * 1000));
         return Math.max(1, Math.min(18, nflWeeks));
       case 'nba':
-        const nbaStart = new Date(year, 9, 20); // October 20th
+        // NBA 2024-25 season started October 22, 2024
+        const nbaStart = new Date(2024, 9, 22); // October 22, 2024
         const nbaWeeks = Math.ceil((now.getTime() - nbaStart.getTime()) / (7 * 24 * 60 * 60 * 1000));
         return Math.max(1, Math.min(26, nbaWeeks));
+      case 'mlb':
+        // MLB 2024 season started March 28, 2024
+        const mlbStart = new Date(2024, 2, 28); // March 28, 2024
+        const mlbWeeks = Math.ceil((now.getTime() - mlbStart.getTime()) / (7 * 24 * 60 * 60 * 1000));
+        return Math.max(1, Math.min(26, mlbWeeks));
+      case 'nhl':
+        // NHL 2024-25 season started October 8, 2024
+        const nhlStart = new Date(2024, 9, 8); // October 8, 2024
+        const nhlWeeks = Math.ceil((now.getTime() - nhlStart.getTime()) / (7 * 24 * 60 * 60 * 1000));
+        return Math.max(1, Math.min(26, nhlWeeks));
       default:
         return 1;
     }
