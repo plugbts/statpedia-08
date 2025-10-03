@@ -315,21 +315,46 @@ class InsightsService {
         
         const streakValue = Math.round(Math.random() * 20 + 60); // 60-80% range
         
-        insights.push({
-          insight_id: `hot_streak_${finalPlayerName}`,
-          insight_type: 'hot_streak',
-          title: 'Hot Streak',
-          description: `${finalPlayerName} has been performing exceptionally well`,
-          value: streakValue,
-          trend: 'up',
-          change_percent: Math.round(Math.random() * 15 + 5),
-          confidence: Math.round(Math.random() * 10 + 85),
-          player_name: finalPlayerName,
-          team_name: firstProp.team,
-          player_position: this.getPlayerPosition(finalPlayerName, sport),
-          last_game_date: firstProp.gameTime ? new Date(firstProp.gameTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-          created_at: new Date().toISOString()
-        });
+          const hotStreakTexts = [
+            `${finalPlayerName} is absolutely on fire right now`,
+            `${finalPlayerName} has been scorching hot lately`,
+            `${finalPlayerName} is in the zone and unstoppable`,
+            `${finalPlayerName} has been lighting it up recently`,
+            `${finalPlayerName} is on a blazing hot streak`,
+            `${finalPlayerName} has been red-hot and dominant`,
+            `${finalPlayerName} is cooking and can't be stopped`,
+            `${finalPlayerName} has been sizzling on the field`,
+            `${finalPlayerName} is on fire and showing no signs of cooling down`,
+            `${finalPlayerName} has been absolutely torching opponents`,
+            `${finalPlayerName} is in peak form and unstoppable`,
+            `${finalPlayerName} has been electric and game-changing`,
+            `${finalPlayerName} is on a tear and dominating`,
+            `${finalPlayerName} has been explosive and clutch`,
+            `${finalPlayerName} is white-hot and making big plays`,
+            `${finalPlayerName} has been sensational and game-breaking`,
+            `${finalPlayerName} is on a heater and delivering`,
+            `${finalPlayerName} has been phenomenal and consistent`,
+            `${finalPlayerName} is blazing hot and in rhythm`,
+            `${finalPlayerName} has been outstanding and reliable`
+          ];
+          
+          const randomHotText = hotStreakTexts[Math.floor(Math.random() * hotStreakTexts.length)];
+          
+          insights.push({
+            insight_id: `hot_streak_${finalPlayerName}`,
+            insight_type: 'hot_streak',
+            title: 'Hot Streak',
+            description: randomHotText,
+            value: streakValue,
+            trend: 'up',
+            change_percent: Math.round(Math.random() * 15 + 5),
+            confidence: Math.round(Math.random() * 10 + 85),
+            player_name: finalPlayerName,
+            team_name: firstProp.team,
+            player_position: this.getPlayerPosition(finalPlayerName, sport),
+            last_game_date: firstProp.gameTime ? new Date(firstProp.gameTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+            created_at: new Date().toISOString()
+          });
       }
     });
     
@@ -346,11 +371,37 @@ class InsightsService {
     if (hotPlayer) {
       const cleanPlayerName = this.cleanPlayerName(hotPlayer.playerName);
       const streakValue = Math.round(Math.random() * 20 + 70); // 70-90% range
+      
+      const hotStreakTexts = [
+        `${cleanPlayerName} is absolutely on fire right now`,
+        `${cleanPlayerName} has been scorching hot lately`,
+        `${cleanPlayerName} is in the zone and unstoppable`,
+        `${cleanPlayerName} has been lighting it up recently`,
+        `${cleanPlayerName} is on a blazing hot streak`,
+        `${cleanPlayerName} has been red-hot and dominant`,
+        `${cleanPlayerName} is cooking and can't be stopped`,
+        `${cleanPlayerName} has been sizzling on the field`,
+        `${cleanPlayerName} is on fire and showing no signs of cooling down`,
+        `${cleanPlayerName} has been absolutely torching opponents`,
+        `${cleanPlayerName} is in peak form and unstoppable`,
+        `${cleanPlayerName} has been electric and game-changing`,
+        `${cleanPlayerName} is on a tear and dominating`,
+        `${cleanPlayerName} has been explosive and clutch`,
+        `${cleanPlayerName} is white-hot and making big plays`,
+        `${cleanPlayerName} has been sensational and game-breaking`,
+        `${cleanPlayerName} is on a heater and delivering`,
+        `${cleanPlayerName} has been phenomenal and consistent`,
+        `${cleanPlayerName} is blazing hot and in rhythm`,
+        `${cleanPlayerName} has been outstanding and reliable`
+      ];
+      
+      const randomHotText = hotStreakTexts[Math.floor(Math.random() * hotStreakTexts.length)];
+      
       insights.push({
         insight_id: `hot_streak_${cleanPlayerName}`,
         insight_type: 'hot_streak',
         title: 'Hot Streak Alert',
-        description: `${cleanPlayerName} has been performing exceptionally well`,
+        description: randomHotText,
         value: streakValue,
         trend: 'up',
         change_percent: Math.round(Math.random() * 15 + 5),
