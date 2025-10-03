@@ -6,98 +6,25 @@ import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import { useSync } from "@/hooks/use-sync";
 import { useEmailCron } from "@/hooks/use-email-cron";
 import { UserProvider } from "@/contexts/user-context";
-import { useState, useEffect, Suspense, lazy, Component, ReactNode } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
-// Custom Error Boundary Component
-interface ErrorBoundaryState {
-  hasError: boolean;
-  error?: Error;
-}
+// Direct imports - no lazy loading
+import Index from "./pages/Index";
+import Admin from "./pages/Admin";
+import PredictionDetail from "./pages/PredictionDetail";
+import { Settings } from "./pages/Settings";
+import NotFound from "./pages/NotFound";
+import { SubscriptionPlans } from "./components/auth/subscription-plans";
+import { SupportCenter } from "./components/support/support-center";
 
-interface ErrorBoundaryProps {
-  children: ReactNode;
-  fallback?: ReactNode;
-  onError?: (error: Error) => void;
-}
-
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: Error, errorInfo: any) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
-    this.props.onError?.(error);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return this.props.fallback || (
-        <div style={{ 
-          minHeight: '100vh', 
-          backgroundColor: 'hsl(var(--background))', 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center',
-          flexDirection: 'column',
-          gap: '1rem'
-        }}>
-          <div className="text-foreground text-lg">Something went wrong</div>
-          <button 
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Reload Page
-          </button>
-        </div>
-      );
-    }
-
-    return this.props.children;
-  }
-}
-
-// Error handler for dynamic imports
-const handleDynamicImportError = (error: Error) => {
-  console.error('Dynamic import error:', error);
-  if (error.message.includes('Failed to fetch dynamically imported module')) {
-    console.log('Reloading page to fetch latest modules...');
-    window.location.reload();
-  }
-};
-
-// Lazy load heavy components with error handling
-const Index = lazy(() => import("./pages/Index").catch(handleDynamicImportError));
-const Admin = lazy(() => import("./pages/Admin").catch(handleDynamicImportError));
-const PredictionDetail = lazy(() => import("./pages/PredictionDetail").catch(handleDynamicImportError));
-const Settings = lazy(() => import("./pages/Settings").then(module => ({ default: module.Settings })).catch(handleDynamicImportError));
-const NotFound = lazy(() => import("./pages/NotFound").catch(handleDynamicImportError));
-const SubscriptionPlans = lazy(() => import("./components/auth/subscription-plans").then(module => ({ default: module.SubscriptionPlans })).catch(handleDynamicImportError));
-const SupportCenter = lazy(() => import("./components/support/support-center").then(module => ({ default: module.SupportCenter })).catch(handleDynamicImportError));
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      cacheTime: 10 * 60 * 1000, // 10 minutes
-      refetchOnWindowFocus: false,
-      retry: 1,
-    },
-  },
-});
+const queryClient = new QueryClient();
 
 // Settings Wrapper Component
 const SettingsWrapper = () => {
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState('user');
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Load theme preference on app start
@@ -129,7 +56,6 @@ const SettingsWrapper = () => {
           setUserRole('user');
         }
       }
-      setIsLoading(false);
     });
 
     // Listen for auth changes
@@ -151,25 +77,10 @@ const SettingsWrapper = () => {
         setUser(null);
         setUserRole('user');
       }
-      setIsLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
-
-  if (isLoading) {
-    return (
-      <div style={{ 
-        minHeight: '100vh', 
-        backgroundColor: 'hsl(var(--background))', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center' 
-      }}>
-        <div className="animate-spin h-8 w-8 border-4 border-cyan-500 border-t-transparent rounded-full" />
-      </div>
-    );
-  }
 
   return <Settings user={user} userRole={userRole} />;
 };
@@ -178,7 +89,6 @@ const SettingsWrapper = () => {
 const SupportCenterWrapper = () => {
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState('user');
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Get initial session
@@ -197,7 +107,6 @@ const SupportCenterWrapper = () => {
           setUserRole('user');
         }
       }
-      setIsLoading(false);
     });
 
     // Listen for auth changes
@@ -219,25 +128,10 @@ const SupportCenterWrapper = () => {
         setUser(null);
         setUserRole('user');
       }
-      setIsLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
-
-  if (isLoading) {
-    return (
-      <div style={{ 
-        minHeight: '100vh', 
-        backgroundColor: 'hsl(var(--background))', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center' 
-      }}>
-        <div className="animate-spin h-8 w-8 border-4 border-cyan-500 border-t-transparent rounded-full" />
-      </div>
-    );
-  }
 
   return (
     <SupportCenter 
@@ -253,24 +147,18 @@ const SyncProvider = ({ children }: { children: React.ReactNode }) => {
   const sync = useSync({
     enableLoveableSync: true,
     enableSupabaseRealtime: true,
-    onSyncSuccess: (event) => {
-      console.log('Sync successful:', event);
-    },
-    onSyncError: (error) => {
-      console.error('Sync error:', error);
-    },
     tables: [
       {
         table: 'profiles',
-        onInsert: (payload) => console.log('Profile created:', payload),
-        onUpdate: (payload) => console.log('Profile updated:', payload),
-        onDelete: (payload) => console.log('Profile deleted:', payload),
+        onInsert: () => {},
+        onUpdate: () => {},
+        onDelete: () => {},
       },
       {
         table: 'bet_tracking',
-        onInsert: (payload) => console.log('Bet created:', payload),
-        onUpdate: (payload) => console.log('Bet updated:', payload),
-        onDelete: (payload) => console.log('Bet deleted:', payload),
+        onInsert: () => {},
+        onUpdate: () => {},
+        onDelete: () => {},
       },
     ],
   });
@@ -278,51 +166,11 @@ const SyncProvider = ({ children }: { children: React.ReactNode }) => {
   // Initialize email cron service
   const emailCron = useEmailCron();
 
-  // Log sync status
-  console.log('Sync Status:', {
-    isFullyConnected: sync.isFullyConnected,
-    isLoveableConnected: sync.isLoveableConnected,
-    isSupabaseConnected: sync.isSupabaseConnected,
-    lastSync: sync.lastSync,
-    error: sync.error,
-  });
-
-  // Log email cron status
-  console.log('Email Cron Status:', emailCron.status);
 
   return <>{children}</>;
 };
 
 const App = () => {
-  console.log("🚀 App.tsx: App component initializing");
-  
-  // Initialize theme immediately to prevent black screen
-  useEffect(() => {
-    console.log("🚀 App.tsx: Theme initialization starting");
-    const savedTheme = localStorage.getItem('statpedia-theme');
-    const html = document.documentElement;
-    
-    console.log("🚀 App.tsx: Saved theme:", savedTheme);
-    
-    // Apply theme immediately without waiting
-    if (savedTheme === 'light') {
-      html.classList.remove('dark');
-      html.classList.add('light');
-      console.log("🚀 App.tsx: Applied light theme");
-    } else {
-      // Default to dark mode if no preference saved
-      html.classList.remove('light');
-      html.classList.add('dark');
-      console.log("🚀 App.tsx: Applied dark theme");
-    }
-    
-    // Ensure body has proper background
-    document.body.style.backgroundColor = savedTheme === 'light' ? '#ffffff' : '#0a0a0a';
-    console.log("🚀 App.tsx: Theme initialization complete");
-  }, []);
-  
-  console.log("🚀 App.tsx: About to render main app structure");
-
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -331,60 +179,15 @@ const App = () => {
             <Toaster />
             <Sonner />
             <BrowserRouter>
-              <ErrorBoundary
-                fallback={
-                  <div style={{ 
-                    minHeight: '100vh', 
-                    backgroundColor: 'hsl(var(--background))', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    flexDirection: 'column',
-                    gap: '1rem'
-                  }}>
-                    <div className="text-foreground text-lg">Something went wrong</div>
-                    <button 
-                      onClick={() => window.location.reload()}
-                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                    >
-                      Reload Page
-                    </button>
-                  </div>
-                }
-                onError={(error) => {
-                  console.error('App Error Boundary caught:', error);
-                  if (error.message.includes('Failed to fetch dynamically imported module')) {
-                    console.log('Reloading page due to dynamic import error...');
-                    window.location.reload();
-                  }
-                }}
-              >
-                <Suspense fallback={
-                  <div style={{ 
-                    minHeight: '100vh', 
-                    backgroundColor: 'hsl(var(--background))', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center' 
-                  }}>
-                    <div className="animate-spin h-8 w-8 border-4 border-cyan-500 border-t-transparent rounded-full" />
-                  </div>
-                }>
-                  <Routes>
-                    <Route path="/" element={<Index />} />
-                    <Route path="/admin" element={<Admin />} />
-                    <Route path="/prediction-detail" element={<PredictionDetail />} />
-                    <Route path="/settings" element={<SettingsWrapper />} />
-                    <Route path="/subscription" element={<SubscriptionPlans onSubscriptionSuccess={(plan) => {
-                      console.log('Subscription successful:', plan);
-                      // Handle successful subscription
-                    }} />} />
-                    <Route path="/support" element={<SupportCenterWrapper />} />
-                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </Suspense>
-              </ErrorBoundary>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/admin" element={<Admin />} />
+                <Route path="/prediction-detail" element={<PredictionDetail />} />
+                <Route path="/settings" element={<SettingsWrapper />} />
+                <Route path="/subscription" element={<SubscriptionPlans onSubscriptionSuccess={() => {}} />} />
+                <Route path="/support" element={<SupportCenterWrapper />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
             </BrowserRouter>
           </SyncProvider>
         </UserProvider>
