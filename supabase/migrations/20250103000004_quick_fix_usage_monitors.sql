@@ -50,13 +50,19 @@ ALTER TABLE public.api_usage_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.api_plan_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.api_current_usage ENABLE ROW LEVEL SECURITY;
 
--- Create RLS policies
-CREATE POLICY IF NOT EXISTS "Users can view their own API usage logs" 
+-- Create RLS policies (drop first to avoid conflicts)
+DROP POLICY IF EXISTS "Users can view their own API usage logs" ON public.api_usage_logs;
+DROP POLICY IF EXISTS "Admins can view all API usage logs" ON public.api_usage_logs;
+DROP POLICY IF EXISTS "Admins can manage API plan config" ON public.api_plan_config;
+DROP POLICY IF EXISTS "Users can view their own current usage" ON public.api_current_usage;
+DROP POLICY IF EXISTS "Admins can view all current usage" ON public.api_current_usage;
+
+CREATE POLICY "Users can view their own API usage logs" 
 ON public.api_usage_logs 
 FOR SELECT 
 USING (auth.uid() = user_id);
 
-CREATE POLICY IF NOT EXISTS "Admins can view all API usage logs" 
+CREATE POLICY "Admins can view all API usage logs" 
 ON public.api_usage_logs 
 FOR ALL 
 USING (
@@ -67,7 +73,7 @@ USING (
   )
 );
 
-CREATE POLICY IF NOT EXISTS "Admins can manage API plan config" 
+CREATE POLICY "Admins can manage API plan config" 
 ON public.api_plan_config 
 FOR ALL 
 USING (
@@ -78,12 +84,12 @@ USING (
   )
 );
 
-CREATE POLICY IF NOT EXISTS "Users can view their own current usage" 
+CREATE POLICY "Users can view their own current usage" 
 ON public.api_current_usage 
 FOR SELECT 
 USING (auth.uid() = user_id);
 
-CREATE POLICY IF NOT EXISTS "Admins can view all current usage" 
+CREATE POLICY "Admins can view all current usage" 
 ON public.api_current_usage 
 FOR ALL 
 USING (
