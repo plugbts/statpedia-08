@@ -171,6 +171,20 @@ const SyncProvider = ({ children }: { children: React.ReactNode }) => {
 };
 
 const App = () => {
+  // Initialize theme immediately
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('statpedia-theme');
+    const html = document.documentElement;
+    
+    if (savedTheme === 'light') {
+      html.classList.remove('dark');
+      html.classList.add('light');
+    } else {
+      html.classList.remove('light');
+      html.classList.add('dark');
+    }
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
