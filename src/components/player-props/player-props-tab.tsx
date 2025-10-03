@@ -943,6 +943,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                     <SelectItem value="nba">🏀 NBA</SelectItem>
                     <SelectItem value="mlb">⚾ MLB</SelectItem>
                     <SelectItem value="nhl">🏒 NHL</SelectItem>
+                    <SelectItem value="college-basketball">🏀 CBB</SelectItem>
+                    <SelectItem value="college-football">🏈 CFB</SelectItem>
+                    <SelectItem value="wnba">🏀 WNBA</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

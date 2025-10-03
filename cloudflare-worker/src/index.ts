@@ -106,7 +106,8 @@ export default {
           if (!['over', 'under'].includes(side)) continue;
           
           // Parse REAL player name from playerID with proper capitalization
-          const playerName = playerID.replace(/_1_NFL$/, '').replace(/_/g, ' ')
+          const playerName = playerID.replace(/_1_NFL$/, '').replace(/_1_MLB$/, '').replace(/_1_NBA$/, '').replace(/_1_NHL$/, '').replace(/_1_WNBA$/, '')
+            .replace(/_/g, ' ')
             .split(' ')
             .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
             .join(' ');
