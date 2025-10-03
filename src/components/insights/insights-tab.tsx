@@ -21,12 +21,16 @@ import {
   ArrowDown,
   Minus,
   Calendar,
-  X
+  X,
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MoneylineProps } from '@/components/predictions/moneyline-props';
 import { UnderdogAnalysis } from '@/components/predictions/underdog-analysis';
 import { seasonService } from '@/services/season-service';
+import { insightsService, type GameInsight, type PlayerInsight, type MoneylineInsight, type PredictionAnalytics } from '@/services/insights-service';
+import { predictionTracker } from '@/services/prediction-tracker';
 
 interface InsightsTabProps {
   selectedSport: string;
@@ -69,14 +73,22 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
   userSubscription = 'free' 
 }) => {
   const navigate = useNavigate();
-  const [activeFilter, setActiveFilter] = useState<'all' | 'game' | 'player'>('all');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'game' | 'player' | 'moneyline'>('all');
 
   const handleUpgrade = () => {
     navigate('/subscription');
   };
+  
+  // State for insights data
   const [gameInsights, setGameInsights] = useState<GameInsight[]>([]);
   const [playerInsights, setPlayerInsights] = useState<PlayerInsight[]>([]);
+  const [moneylineInsights, setMoneylineInsights] = useState<MoneylineInsight[]>([]);
+  const [predictionAnalytics, setPredictionAnalytics] = useState<PredictionAnalytics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  
+  // Season and moneyline state
   const [shouldShowMoneyline, setShouldShowMoneyline] = useState(true);
   const [offseasonMessage, setOffseasonMessage] = useState('');
   const [seasonLoading, setSeasonLoading] = useState(true);
@@ -107,32 +119,34 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
     loadSeasonData();
   }, [selectedSport]);
 
-  // Load real insights data
+  // Load real insights data using the insights service
   useEffect(() => {
     const loadInsights = async () => {
       setIsLoading(true);
+      setError(null);
       
       try {
-        // Get real predictions from games service
-        const gamePredictions = await gamesService.getCurrentWeekPredictions(selectedSport);
+        console.log(`🔄 [InsightsTab] Loading insights for ${selectedSport}...`);
         
-        // Filter for future games only
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        // Load all insights data in parallel
+        const [gameData, playerData, moneylineData, analyticsData] = await Promise.all([
+          insightsService.getGameInsights(selectedSport, 7),
+          insightsService.getPlayerInsights(selectedSport, 7),
+          insightsService.getMoneylineInsights(selectedSport, 7),
+          insightsService.getPredictionAnalytics(selectedSport, 30)
+        ]);
         
-        const futureGames = gamePredictions.filter(prediction => {
-          const gameDate = new Date(prediction.game.date);
-          return gameDate >= today && prediction.game.status !== 'finished';
-        });
+        setGameInsights(gameData);
+        setPlayerInsights(playerData);
+        setMoneylineInsights(moneylineData);
+        setPredictionAnalytics(analyticsData);
+        setLastRefresh(new Date());
         
-        // Generate insights from real data
-        generateRealInsights(futureGames);
+        console.log(`✅ [InsightsTab] Successfully loaded insights for ${selectedSport}`);
       } catch (error) {
         console.error('Error loading insights:', error);
-        // No fallback - show empty state if real data fails
-        setGameInsights([]);
-        setPlayerInsights([]);
-        setTrendInsights([]);
+        setError(error instanceof Error ? error.message : 'Failed to load insights');
+        // Keep existing data on error
       } finally {
         setIsLoading(false);
       }
@@ -141,218 +155,42 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
     loadInsights();
   }, [selectedSport]);
 
-  const generateRealInsights = (gamePredictions: any[]) => {
-    // Generate insights from real game data
-    const gameInsightsData: GameInsight[] = [];
-    const playerInsightsData: PlayerInsight[] = [];
-    const trendInsightsData: TrendInsight[] = [];
+  // Refresh insights data
+  const refreshInsights = async () => {
+    setIsLoading(true);
+    setError(null);
     
-    if (gamePredictions.length === 0) {
-      // If no games, show empty state
-      setGameInsights([]);
-      setPlayerInsights([]);
-      setTrendInsights([]);
-      return;
+    try {
+      console.log(`🔄 [InsightsTab] Refreshing insights for ${selectedSport}...`);
+      
+      // Clear cache and reload
+      insightsService.clearCache();
+      
+      const [gameData, playerData, moneylineData, analyticsData] = await Promise.all([
+        insightsService.getGameInsights(selectedSport, 7),
+        insightsService.getPlayerInsights(selectedSport, 7),
+        insightsService.getMoneylineInsights(selectedSport, 7),
+        insightsService.getPredictionAnalytics(selectedSport, 30)
+      ]);
+      
+      setGameInsights(gameData);
+      setPlayerInsights(playerData);
+      setMoneylineInsights(moneylineData);
+      setPredictionAnalytics(analyticsData);
+      setLastRefresh(new Date());
+      
+      console.log(`✅ [InsightsTab] Successfully refreshed insights for ${selectedSport}`);
+    } catch (error) {
+      console.error('Error refreshing insights:', error);
+      setError(error instanceof Error ? error.message : 'Failed to refresh insights');
+    } finally {
+      setIsLoading(false);
     }
-    
-    // Calculate real insights from game predictions
-    const totalGames = gamePredictions.length;
-    const homeFavorites = gamePredictions.filter(p => p.prediction.homeWinProbability > 0.6);
-    const awayFavorites = gamePredictions.filter(p => p.prediction.awayWinProbability > 0.6);
-    const highConfidence = gamePredictions.filter(p => p.prediction.confidence > 0.8);
-    
-    // Game Insights
-    if (homeFavorites.length > 0) {
-      const homeFavWinRate = homeFavorites.reduce((sum, p) => sum + p.prediction.homeWinProbability, 0) / homeFavorites.length;
-      gameInsightsData.push({
-        id: 'home-favorites',
-        type: 'home_favorite_win_rate',
-        title: 'Home Favorites Win Rate',
-        description: `Home teams favored by 60%+ win ${(homeFavWinRate * 100).toFixed(1)}% of the time`,
-        value: homeFavWinRate * 100,
-        trend: 'up',
-        confidence: 85
-      });
-    }
-    
-    if (highConfidence.length > 0) {
-      const avgConfidence = highConfidence.reduce((sum, p) => sum + p.prediction.confidence, 0) / highConfidence.length;
-      gameInsightsData.push({
-        id: 'high-confidence',
-        type: 'high_confidence_games',
-        title: 'High Confidence Games',
-        description: `${highConfidence.length} games with ${(avgConfidence * 100).toFixed(1)}% average confidence`,
-        value: avgConfidence * 100,
-        trend: 'up',
-        confidence: 90
-      });
-    }
-    
-    // Player Insights (simplified for now)
-    const uniqueTeams = [...new Set(gamePredictions.flatMap(p => [p.game.homeTeam, p.game.awayTeam]))];
-    uniqueTeams.slice(0, 5).forEach((team, index) => {
-      playerInsightsData.push({
-        id: `player-${index}`,
-        player: team,
-        team: team,
-        stat: 'Performance',
-        value: Math.random() * 20 + 70,
-        trend: Math.random() > 0.5 ? 'up' : 'down',
-        confidence: Math.random() * 20 + 70
-      });
-    });
-    
-    // Trend Insights
-    const avgExpectedValue = gamePredictions.reduce((sum, p) => sum + p.prediction.expectedValue, 0) / totalGames;
-    trendInsightsData.push({
-      id: 'expected-value',
-      type: 'expected_value_trend',
-      title: 'Average Expected Value',
-      description: `Current games show ${avgExpectedValue.toFixed(2)} average expected value`,
-      value: avgExpectedValue,
-      trend: avgExpectedValue > 0 ? 'up' : 'down',
-      confidence: 75
-    });
-    
-    setGameInsights(gameInsightsData);
-    setPlayerInsights(playerInsightsData);
-    setTrendInsights(trendInsightsData);
   };
 
-  const generateMockInsights = () => {
-    // Game Insights
-    const gameInsightsData: GameInsight[] = [
-      {
-        id: '1',
-        type: 'over_hit_favorite',
-        title: 'Over Hit Rate as Favorite',
-        description: `${selectedSport.toUpperCase()} teams favored by 3+ points hit the over 73.2% of the time`,
-        value: 73.2,
-        trend: 'up',
-        change: 5.4,
-        team: 'Chiefs',
-        opponent: 'Raiders',
-        gameDate: '2024-01-15',
-        confidence: 87
-      },
-      {
-        id: '2',
-        type: 'spread_performance',
-        title: 'Cover Rate at Home',
-        description: 'Home teams cover the spread 58.7% of the time in divisional games',
-        value: 58.7,
-        trend: 'up',
-        change: 2.1,
-        team: 'Lakers',
-        opponent: 'Warriors',
-        gameDate: '2024-01-14',
-        confidence: 82
-      },
-      {
-        id: '3',
-        type: 'moneyline_home',
-        title: 'Moneyline Win % at Home',
-        description: 'Home field advantage shows 64.3% moneyline win rate',
-        value: 64.3,
-        trend: 'neutral',
-        change: 0.2,
-        team: 'Cowboys',
-        opponent: 'Eagles',
-        gameDate: '2024-01-13',
-        confidence: 79
-      },
-      {
-        id: '4',
-        type: 'total_trends',
-        title: 'Over/Under Trends',
-        description: 'Games with totals 45+ hit the over 68.9% in recent weeks',
-        value: 68.9,
-        trend: 'up',
-        change: 8.7,
-        team: 'Bills',
-        opponent: 'Dolphins',
-        gameDate: '2024-01-12',
-        confidence: 91
-      }
-    ];
+  // Helper functions for rendering insights
 
-    // Player Insights
-    const playerInsightsData: PlayerInsight[] = [
-      {
-        id: '1',
-        type: 'hot_streak',
-        title: 'Hot Streak Alert',
-        description: 'Player has exceeded prop line in 7 of last 8 games',
-        value: 87.5,
-        trend: 'up',
-        change: 12.3,
-        player: 'Josh Allen',
-        team: 'BUF',
-        position: 'QB',
-        confidence: 94,
-        lastGame: '2024-01-15'
-      },
-      {
-        id: '2',
-        type: 'home_advantage',
-        title: 'Home Field Advantage',
-        description: 'Player performs 23% better at home vs away',
-        value: 23.0,
-        trend: 'up',
-        change: 4.2,
-        player: 'LeBron James',
-        team: 'LAL',
-        position: 'SF',
-        confidence: 88,
-        lastGame: '2024-01-14'
-      },
-      {
-        id: '3',
-        type: 'vs_opponent',
-        title: 'vs Opponent History',
-        description: 'Player averages 15% above season average vs this opponent',
-        value: 15.0,
-        trend: 'up',
-        change: 2.8,
-        player: 'Travis Kelce',
-        team: 'KC',
-        position: 'TE',
-        confidence: 85,
-        lastGame: '2024-01-13'
-      },
-      {
-        id: '4',
-        type: 'recent_form',
-        title: 'Recent Form',
-        description: 'Player has been trending up with 3 straight over performances',
-        value: 75.0,
-        trend: 'up',
-        change: 18.5,
-        player: 'Tyreek Hill',
-        team: 'MIA',
-        position: 'WR',
-        confidence: 92,
-        lastGame: '2024-01-12'
-      },
-      {
-        id: '5',
-        type: 'cold_streak',
-        title: 'Cold Streak Warning',
-        description: 'Player has been under prop line in 5 of last 6 games',
-        value: 16.7,
-        trend: 'down',
-        change: -22.1,
-        player: 'Russell Wilson',
-        team: 'DEN',
-        position: 'QB',
-        confidence: 78,
-        lastGame: '2024-01-11'
-      }
-    ];
-
-    setGameInsights(gameInsightsData);
-    setPlayerInsights(playerInsightsData);
-  };
+  // Helper functions for rendering insights
 
   const getTrendIcon = (trend: 'up' | 'down' | 'neutral') => {
     switch (trend) {
@@ -402,7 +240,7 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
   };
 
   const renderGameInsight = (insight: GameInsight) => (
-    <div key={insight.id} className="relative">
+    <div key={insight.insight_id} className="relative">
       <Card className={cn(
         "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer",
         !isSubscribed && "blur-sm"
@@ -410,7 +248,7 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
       
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
-          {getInsightIcon(insight.type)}
+          {getInsightIcon(insight.insight_type)}
           <div>
             <h3 className="font-semibold text-foreground">{insight.title}</h3>
             <p className="text-sm text-muted-foreground">{insight.description}</p>
@@ -427,14 +265,14 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
           <div className="flex items-center gap-1">
             {getTrendIcon(insight.trend)}
             <span className={cn("text-sm font-medium", getTrendColor(insight.trend))}>
-              {insight.change > 0 ? '+' : ''}{insight.change}%
+              {insight.change_percent > 0 ? '+' : ''}{insight.change_percent}%
             </span>
           </div>
         </div>
-        {insight.team && (
+        {insight.team_name && (
           <div className="text-right">
-            <p className="text-sm font-medium text-foreground">{insight.team} vs {insight.opponent}</p>
-            <p className="text-xs text-muted-foreground">{insight.gameDate}</p>
+            <p className="text-sm font-medium text-foreground">{insight.team_name} vs {insight.opponent_name}</p>
+            <p className="text-xs text-muted-foreground">{insight.game_date}</p>
           </div>
         )}
       </div>
@@ -454,7 +292,7 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
   );
 
   const renderPlayerInsight = (insight: PlayerInsight) => (
-    <div key={insight.id} className="relative">
+    <div key={insight.insight_id} className="relative">
       <Card className={cn(
         "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer",
         !isSubscribed && "blur-sm"
@@ -462,7 +300,7 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
       
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
-          {getInsightIcon(insight.type)}
+          {getInsightIcon(insight.insight_type)}
           <div>
             <h3 className="font-semibold text-foreground">{insight.title}</h3>
             <p className="text-sm text-muted-foreground">{insight.description}</p>
@@ -479,13 +317,13 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
           <div className="flex items-center gap-1">
             {getTrendIcon(insight.trend)}
             <span className={cn("text-sm font-medium", getTrendColor(insight.trend))}>
-              {insight.change > 0 ? '+' : ''}{insight.change}%
+              {insight.change_percent > 0 ? '+' : ''}{insight.change_percent}%
             </span>
           </div>
         </div>
         <div className="text-right">
-          <p className="text-sm font-medium text-foreground">{insight.player} ({insight.position})</p>
-          <p className="text-xs text-muted-foreground">{insight.team} • {insight.lastGame}</p>
+          <p className="text-sm font-medium text-foreground">{insight.player_name} ({insight.player_position})</p>
+          <p className="text-xs text-muted-foreground">{insight.team_name} • {insight.last_game_date}</p>
         </div>
       </div>
     </Card>
@@ -494,6 +332,63 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
     <SubscriptionOverlay
       isVisible={!isSubscribed}
       icon={<Users className="w-5 h-5 text-primary" />}
+      title="Premium Content"
+      description="Subscribe to view insights"
+      buttonText="Upgrade to Pro"
+      size="small"
+      onUpgrade={handleUpgrade}
+    />
+    </div>
+  );
+
+  const renderMoneylineInsight = (insight: MoneylineInsight) => (
+    <div key={insight.insight_id} className="relative">
+      <Card className={cn(
+        "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer",
+        !isSubscribed && "blur-sm"
+      )}>
+      
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-3">
+          {getInsightIcon(insight.insight_type)}
+          <div>
+            <h3 className="font-semibold text-foreground">{insight.title}</h3>
+            <p className="text-sm text-muted-foreground">{insight.description}</p>
+          </div>
+        </div>
+        <div className="flex flex-col gap-2">
+          <Badge variant="outline" className="bg-primary/10 text-primary">
+            {insight.confidence}% confidence
+          </Badge>
+          {insight.underdog_opportunity && (
+            <Badge variant="outline" className="bg-green-500/10 text-green-500">
+              Underdog Opportunity
+            </Badge>
+          )}
+        </div>
+      </div>
+      
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-2xl font-bold text-foreground">{insight.value}%</span>
+          <div className="flex items-center gap-1">
+            {getTrendIcon(insight.trend)}
+            <span className={cn("text-sm font-medium", getTrendColor(insight.trend))}>
+              {insight.change_percent > 0 ? '+' : ''}{insight.change_percent}%
+            </span>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-sm font-medium text-foreground">{insight.team_name} vs {insight.opponent_name}</p>
+          <p className="text-xs text-muted-foreground">{insight.game_date}</p>
+        </div>
+      </div>
+    </Card>
+    
+    {/* Subscription overlay for free users - outside the blurred card */}
+    <SubscriptionOverlay
+      isVisible={!isSubscribed}
+      icon={<Target className="w-5 h-5 text-primary" />}
       title="Premium Content"
       description="Subscribe to view insights"
       buttonText="Upgrade to Pro"
@@ -514,13 +409,43 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
     );
   }
 
+  if (error) {
+    return (
+      <div className="space-y-8">
+        <div className="text-center py-12">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-foreground mb-2">Error Loading Insights</h3>
+          <p className="text-muted-foreground mb-4">{error}</p>
+          <Button onClick={refreshInsights} variant="outline">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Try Again
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
-      {/* Header */}
+      {/* Header with refresh button */}
       <div className="text-center">
-        <h1 className="text-3xl font-bold text-foreground mb-2">Insights Dashboard</h1>
-        <p className="text-muted-foreground">
-          Advanced analytics and trends for {selectedSport.toUpperCase()}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex-1"></div>
+          <div className="flex-1 text-center">
+            <h1 className="text-3xl font-bold text-foreground mb-2">Insights Dashboard</h1>
+            <p className="text-muted-foreground">
+              Advanced analytics and trends for {selectedSport.toUpperCase()}
+            </p>
+          </div>
+          <div className="flex-1 flex justify-end">
+            <Button onClick={refreshInsights} variant="outline" size="sm">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Last updated: {lastRefresh.toLocaleTimeString()}
         </p>
       </div>
 
@@ -535,9 +460,53 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
 
         {/* All Insights */}
         <TabsContent value="all" className="space-y-6">
+          {/* Analytics Summary */}
+          {predictionAnalytics && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+              <Card className="p-4 bg-gradient-card border-border/50">
+                <div className="flex items-center gap-3 mb-2">
+                  <Target className="w-5 h-5 text-blue-500" />
+                  <h3 className="font-semibold text-foreground">Total Predictions</h3>
+                </div>
+                <p className="text-2xl font-bold text-foreground">{predictionAnalytics.total_predictions.toLocaleString()}</p>
+                <p className="text-sm text-muted-foreground">Last 30 days</p>
+              </Card>
+              
+              <Card className="p-4 bg-gradient-card border-border/50">
+                <div className="flex items-center gap-3 mb-2">
+                  <Trophy className="w-5 h-5 text-green-500" />
+                  <h3 className="font-semibold text-foreground">Win Rate</h3>
+                </div>
+                <p className="text-2xl font-bold text-foreground">{predictionAnalytics.win_rate}%</p>
+                <p className="text-sm text-muted-foreground">Overall accuracy</p>
+              </Card>
+              
+              <Card className="p-4 bg-gradient-card border-border/50">
+                <div className="flex items-center gap-3 mb-2">
+                  <Zap className="w-5 h-5 text-yellow-500" />
+                  <h3 className="font-semibold text-foreground">Total Profit</h3>
+                </div>
+                <p className="text-2xl font-bold text-foreground">
+                  {predictionAnalytics.total_profit >= 0 ? '+' : ''}${predictionAnalytics.total_profit.toFixed(2)}
+                </p>
+                <p className="text-sm text-muted-foreground">Last 30 days</p>
+              </Card>
+              
+              <Card className="p-4 bg-gradient-card border-border/50">
+                <div className="flex items-center gap-3 mb-2">
+                  <BarChart3 className="w-5 h-5 text-purple-500" />
+                  <h3 className="font-semibold text-foreground">Avg Confidence</h3>
+                </div>
+                <p className="text-2xl font-bold text-foreground">{predictionAnalytics.avg_confidence}%</p>
+                <p className="text-sm text-muted-foreground">Prediction quality</p>
+              </Card>
+            </div>
+          )}
+          
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {gameInsights.map(renderGameInsight)}
             {playerInsights.map(renderPlayerInsight)}
+            {moneylineInsights.map(renderMoneylineInsight)}
           </div>
         </TabsContent>
 
@@ -558,6 +527,26 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
         {/* Moneyline Props */}
         <TabsContent value="moneyline" className="space-y-6">
           <div className="space-y-8">
+            {/* Moneyline Insights */}
+            {moneylineInsights.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <Target className="w-6 h-6 text-primary" />
+                  <h2 className="text-2xl font-bold text-foreground">Moneyline Insights</h2>
+                  <Badge variant="outline" className="gap-1">
+                    <Activity className="w-3 h-3" />
+                    Real Data
+                  </Badge>
+                </div>
+                <p className="text-muted-foreground">
+                  AI-powered analysis of moneyline trends and underdog opportunities
+                </p>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {moneylineInsights.map(renderMoneylineInsight)}
+                </div>
+              </div>
+            )}
+
             {/* Underdog Analysis Section */}
             <div className="space-y-4">
               <div className="flex items-center gap-3">
@@ -643,14 +632,14 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
       </Tabs>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="p-6 bg-gradient-card border-border/50">
           <div className="flex items-center gap-3 mb-2">
             <Trophy className="w-5 h-5 text-yellow-500" />
             <h3 className="font-semibold text-foreground">Total Insights</h3>
           </div>
           <p className="text-2xl font-bold text-foreground">
-            {gameInsights.length + playerInsights.length}
+            {gameInsights.length + playerInsights.length + moneylineInsights.length}
           </p>
           <p className="text-sm text-muted-foreground">Active insights</p>
         </Card>
@@ -661,7 +650,7 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
             <h3 className="font-semibold text-foreground">Hot Streaks</h3>
           </div>
           <p className="text-2xl font-bold text-foreground">
-            {playerInsights.filter(i => i.type === 'hot_streak').length}
+            {playerInsights.filter(i => i.insight_type === 'hot_streak').length}
           </p>
           <p className="text-sm text-muted-foreground">Players trending up</p>
         </Card>
@@ -669,13 +658,24 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
         <Card className="p-6 bg-gradient-card border-border/50">
           <div className="flex items-center gap-3 mb-2">
             <Target className="w-5 h-5 text-green-500" />
+            <h3 className="font-semibold text-foreground">Underdog Opportunities</h3>
+          </div>
+          <p className="text-2xl font-bold text-foreground">
+            {moneylineInsights.filter(i => i.underdog_opportunity).length}
+          </p>
+          <p className="text-sm text-muted-foreground">High-value bets</p>
+        </Card>
+
+        <Card className="p-6 bg-gradient-card border-border/50">
+          <div className="flex items-center gap-3 mb-2">
+            <BarChart3 className="w-5 h-5 text-purple-500" />
             <h3 className="font-semibold text-foreground">Avg Confidence</h3>
           </div>
           <p className="text-2xl font-bold text-foreground">
             {Math.round(
-              [...gameInsights, ...playerInsights]
+              [...gameInsights, ...playerInsights, ...moneylineInsights]
                 .reduce((acc, insight) => acc + insight.confidence, 0) / 
-              (gameInsights.length + playerInsights.length)
+              (gameInsights.length + playerInsights.length + moneylineInsights.length)
             )}%
           </p>
           <p className="text-sm text-muted-foreground">Overall accuracy</p>
