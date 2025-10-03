@@ -136,7 +136,22 @@ class AdvancedPredictionService {
       
     } catch (error) {
       console.error('Error generating comprehensive prediction:', error);
-      throw new Error(`Failed to generate prediction: ${error.message}`);
+      
+      // Provide more specific error messages
+      let errorMessage = 'Failed to generate prediction';
+      if (error instanceof Error) {
+        if (error.message.includes('external data')) {
+          errorMessage = 'Failed to fetch external data sources';
+        } else if (error.message.includes('ML pipeline')) {
+          errorMessage = 'Machine learning analysis failed';
+        } else if (error.message.includes('feature engineering')) {
+          errorMessage = 'Feature analysis failed';
+        } else {
+          errorMessage = `Prediction failed: ${error.message}`;
+        }
+      }
+      
+      throw new Error(errorMessage);
     }
   }
 
@@ -144,25 +159,46 @@ class AdvancedPredictionService {
   private async gatherExternalData(request: PredictionRequest) {
     console.log('📊 Gathering external data...');
     
-    const [nflfastrData, pffData, dvoaData, nextGenData, weatherData, refereeData] = await Promise.all([
-      externalDataService.getNFLfastRData(2025, this.getWeekFromDate(request.gameDate)),
-      externalDataService.getPFFData(request.playerId, request.team),
-      externalDataService.getDVOAData(2025, this.getWeekFromDate(request.gameDate)),
-      externalDataService.getNextGenStatsData(request.playerId, request.team),
-      externalDataService.getWeatherData(request.gameId, request.gameDate, this.getLocationFromTeam(request.team)),
-      externalDataService.getRefereeData(2025, this.getWeekFromDate(request.gameDate)),
-    ]);
-    
-    return {
-      nflfastr: nflfastrData.find(data => 
-        data.homeTeam === request.team || data.awayTeam === request.team
-      ) || null,
-      pff: pffData.find(data => data.playerId === request.playerId) || null,
-      dvoa: dvoaData.find(data => data.team === request.team) || null,
-      nextGen: nextGenData.find(data => data.playerId === request.playerId) || null,
-      weather: weatherData,
-      referee: refereeData[0] || null,
-    };
+    try {
+      const [nflfastrData, pffData, dvoaData, nextGenData, weatherData, refereeData] = await Promise.allSettled([
+        externalDataService.getNFLfastRData(2025, this.getWeekFromDate(request.gameDate)),
+        externalDataService.getPFFData(request.playerId, request.team),
+        externalDataService.getDVOAData(2025, this.getWeekFromDate(request.gameDate)),
+        externalDataService.getNextGenStatsData(request.playerId, request.team),
+        externalDataService.getWeatherData(request.gameId, request.gameDate, this.getLocationFromTeam(request.team)),
+        externalDataService.getRefereeData(2025, this.getWeekFromDate(request.gameDate)),
+      ]);
+      
+      // Extract data from settled promises, handling failures gracefully
+      const nflfastr = nflfastrData.status === 'fulfilled' ? nflfastrData.value : [];
+      const pff = pffData.status === 'fulfilled' ? pffData.value : [];
+      const dvoa = dvoaData.status === 'fulfilled' ? dvoaData.value : [];
+      const nextGen = nextGenData.status === 'fulfilled' ? nextGenData.value : [];
+      const weather = weatherData.status === 'fulfilled' ? weatherData.value : null;
+      const referee = refereeData.status === 'fulfilled' ? refereeData.value : [];
+      
+      return {
+        nflfastr: nflfastr.find(data => 
+          data.homeTeam === request.team || data.awayTeam === request.team
+        ) || null,
+        pff: pff.find(data => data.playerId === request.playerId) || null,
+        dvoa: dvoa.find(data => data.team === request.team) || null,
+        nextGen: nextGen.find(data => data.playerId === request.playerId) || null,
+        weather: weather,
+        referee: referee[0] || null,
+      };
+    } catch (error) {
+      console.warn('Some external data sources failed, continuing with available data:', error);
+      // Return empty data structure to allow prediction to continue
+      return {
+        nflfastr: null,
+        pff: null,
+        dvoa: null,
+        nextGen: null,
+        weather: null,
+        referee: null,
+      };
+    }
   }
 
   // Create advanced game context

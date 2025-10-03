@@ -53,6 +53,10 @@ export interface PredictionCardProps {
   predictionDirection: 'over' | 'under';
   confidence: number;
   odds: number;
+  overOdds?: number | null;
+  underOdds?: number | null;
+  homeOdds?: number | null;
+  awayOdds?: number | null;
   expectedValue: number;
   gameDate: string;
   gameTime: string;
@@ -223,6 +227,10 @@ class GamesService {
       predictionDirection: prediction.prediction,
       confidence: prediction.confidence,
       odds: prediction.odds,
+      overOdds: prediction.overOdds || prediction.odds || -110,
+      underOdds: prediction.underOdds || prediction.odds || -110,
+      homeOdds: prediction.homeOdds || prediction.odds || -110,
+      awayOdds: prediction.awayOdds || prediction.odds || -110,
       expectedValue: prediction.expectedValue,
       gameDate: prediction.gameDate,
       gameTime: prediction.gameTime,
@@ -295,8 +303,11 @@ class GamesService {
       awayTeam: game.awayTeam,
       sport: game.sport,
       date: game.commenceTime,
-      homeOdds: -110, // Default odds
-      awayOdds: -110,
+      odds: -110, // Default odds
+      overOdds: -110, // Default over odds
+      underOdds: -110, // Default under odds
+      homeOdds: -110, // Default home odds
+      awayOdds: -110, // Default away odds
       drawOdds: game.sport === 'soccer' ? -110 : undefined,
       prediction: 'home', // Default prediction
       confidence: 0.6, // Default confidence
