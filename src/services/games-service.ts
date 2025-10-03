@@ -83,7 +83,7 @@ class GamesService {
     try {
       console.log(`🏈 [GamesService] Fetching current week games for ${sport}...`);
       const apiGames = await sportsRadarAPI.getGames(sport);
-      const realGames = this.convertAPIGamesToRealGames(apiGames);
+      const realGames = await this.convertAPIGamesToRealGames(apiGames);
       
       this.cache.set(cacheKey, { data: realGames, timestamp: now });
       console.log(`✅ [GamesService] Successfully fetched ${realGames.length} games for ${sport}`);
@@ -108,7 +108,7 @@ class GamesService {
     try {
       console.log(`🔴 [GamesService] Fetching live games for ${sport}...`);
       const apiGames = await sportsRadarAPI.getGames(sport);
-      const realGames = this.convertAPIGamesToRealGames(apiGames);
+      const realGames = await this.convertAPIGamesToRealGames(apiGames);
       
       this.cache.set(cacheKey, { data: realGames, timestamp: now });
       console.log(`✅ [GamesService] Successfully fetched ${realGames.length} live games for ${sport}`);
@@ -177,7 +177,9 @@ class GamesService {
   }
 
   // Convert API games to RealGame format
-  private convertAPIGamesToRealGames(apiGames: any[]): RealGame[] {
+  private async convertAPIGamesToRealGames(apiGames: any[]): Promise<RealGame[]> {
+    const currentWeek = await this.getCurrentWeek(apiGames[0]?.sport || 'nfl');
+    
     return apiGames.map(game => ({
       id: game.id,
       homeTeam: game.homeTeam,
@@ -210,7 +212,7 @@ class GamesService {
       awayTeamId: game.awayTeamId?.toString() || '',
       league: game.sport,
       season: '2025',
-      week: await this.getCurrentWeek(game.sport),
+      week: currentWeek,
     }));
   }
 
