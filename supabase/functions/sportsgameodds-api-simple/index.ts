@@ -16,9 +16,24 @@ serve(async (req) => {
       throw new Error('SPORTSGAMEODDS_API_KEY not configured');
     }
 
-    const url = new URL(req.url);
-    const endpoint = url.searchParams.get('endpoint') || 'games';
-    const sport = url.searchParams.get('sport') || 'nfl';
+    // Parse request body for JSON data
+    let endpoint = 'games';
+    let sport = 'nfl';
+    
+    if (req.method === 'POST' && req.body) {
+      try {
+        const body = await req.json();
+        endpoint = body.endpoint || 'games';
+        sport = body.sport || 'nfl';
+      } catch (e) {
+        console.warn('Failed to parse JSON body, using defaults');
+      }
+    } else {
+      // Fallback to URL search params for GET requests
+      const url = new URL(req.url);
+      endpoint = url.searchParams.get('endpoint') || 'games';
+      sport = url.searchParams.get('sport') || 'nfl';
+    }
     
     console.log(`🎯 SportsGameOdds API request: ${endpoint} for ${sport}`);
 

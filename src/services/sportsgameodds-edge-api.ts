@@ -76,7 +76,11 @@ class SportsGameOddsEdgeAPI {
       console.log(`🎯 [SportsGameOddsEdgeAPI] Fetching events for ${sport}...`);
       
       const { data, error } = await supabase.functions.invoke('sportsgameodds-api-simple', {
-        body: { endpoint: 'games', sport: sport }
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ endpoint: 'games', sport: sport })
       });
 
       if (error) throw error;
@@ -121,7 +125,11 @@ class SportsGameOddsEdgeAPI {
       console.log(`🎯 [SportsGameOddsEdgeAPI] Fetching player props for ${sport}...`);
       
       const { data, error } = await supabase.functions.invoke('sportsgameodds-api-simple', {
-        body: { endpoint: 'player-props', sport: sport }
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ endpoint: 'player-props', sport: sport })
       });
 
       if (error) throw error;
