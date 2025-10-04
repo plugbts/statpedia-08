@@ -215,6 +215,22 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
   console.log(`Raw API response: ${rawEvents.length} events`);
   console.log(`Sample event keys:`, rawEvents[0] ? Object.keys(rawEvents[0]) : 'No events');
 
+  // Debug the raw data
+  if (rawEvents.length > 0) {
+    console.log({
+      league: league,
+      eventCount: rawEvents.length,
+      sampleEvent: {
+        id: rawEvents[0]?.eventID,
+        start_time: rawEvents[0]?.info?.scheduled || rawEvents[0]?.status?.startsAt,
+        home_team: rawEvents[0]?.teams?.home?.names?.long,
+        away_team: rawEvents[0]?.teams?.away?.names?.long,
+        oddsCount: Object.keys(rawEvents[0]?.odds || {}).length,
+        playersCount: Object.keys(rawEvents[0]?.players || {}).length,
+      }
+    });
+  }
+
   // Filter by league (support both old and new schema)
   const events = rawEvents.filter((ev: any) => {
     const leagueId = ev.league_id || ev.leagueID;
@@ -500,6 +516,12 @@ function normalizeEventSGO(ev: any, request: any) {
   
   console.log(`Normalizing SGO event ${ev.eventID} with ${Object.keys(oddsDict).length} odds`);
 
+  // Handle empty days gracefully
+  if (!ev.teams?.home || !ev.teams?.away) {
+    console.log("Skipping invalid event", ev.eventID, "missing teams");
+    return null;
+  }
+
   // Group by SGO identifiers to preserve all distinct prop types
   const groups: Record<string, any[]> = {};
   for (const oddID in oddsDict) {
@@ -542,13 +564,16 @@ function normalizeEventSGO(ev: any, request: any) {
   }
   
   console.log(`Final counts: playerProps=${playerProps.length}, teamProps=${teamProps.length}`);
+
+  const homeTeam = normalizeTeam(ev.teams?.home);
+  const awayTeam = normalizeTeam(ev.teams?.away);
   
   return {
     eventID: ev.eventID,
     leagueID: ev.leagueID,
     start_time: toUserTimeSGO(ev.info?.scheduled || ev.status?.startsAt, request.cf?.timezone || "America/New_York"),
-    home_team: normalizeTeamSGO(ev.teams?.home) || normalizeTeam(ev.teams?.home),
-    away_team: normalizeTeamSGO(ev.teams?.away) || normalizeTeam(ev.teams?.away),
+    home_team: homeTeam,
+    away_team: awayTeam,
     team_props: teamProps,
     player_props: playerProps,
   };
@@ -855,11 +880,13 @@ function normalizeTeam(team: any) {
     id: team.teamID ?? team.id ?? null,
     abbr:
       team.abbreviation ??
+      team.names?.short ??
       team.names?.abbr ??
       team.alias ??
       team.displayName ??
       "UNK",
     name:
+      team.names?.long ??
       team.names?.full ??
       team.displayName ??
       (team.market && team.name ? `${team.market} ${team.name}` : null) ??
@@ -1089,13 +1116,13 @@ function debugNormalizeEvent(ev: any) {
       start_time: ev?.scheduled,
       home_team: {
         id: ev?.teams?.home?.teamID ?? ev?.teams?.home?.id ?? null,
-        abbr: ev?.teams?.home?.abbreviation ?? ev?.teams?.home?.names?.abbr ?? null,
-        name: ev?.teams?.home?.names?.full ?? null,
+        abbr: ev?.teams?.home?.abbreviation ?? ev?.teams?.home?.names?.short ?? ev?.teams?.home?.names?.abbr ?? null,
+        name: ev?.teams?.home?.names?.long ?? ev?.teams?.home?.names?.full ?? null,
       },
       away_team: {
         id: ev?.teams?.away?.teamID ?? ev?.teams?.away?.id ?? null,
-        abbr: ev?.teams?.away?.abbreviation ?? ev?.teams?.away?.names?.abbr ?? null,
-        name: ev?.teams?.away?.names?.full ?? null,
+        abbr: ev?.teams?.away?.abbreviation ?? ev?.teams?.away?.names?.short ?? ev?.teams?.away?.names?.abbr ?? null,
+        name: ev?.teams?.away?.names?.long ?? ev?.teams?.away?.names?.full ?? null,
       },
       team_props: [],
       player_props: [],
@@ -1146,13 +1173,13 @@ function debugNormalizeEventInternal(ev: any) {
     start_time: ev.scheduled,
     home_team: {
       id: ev.teams?.home?.teamID ?? ev.teams?.home?.id ?? null,
-      abbr: ev.teams?.home?.abbreviation ?? ev.teams?.home?.names?.abbr ?? null,
-      name: ev.teams?.home?.names?.full ?? null,
+      abbr: ev.teams?.home?.abbreviation ?? ev.teams?.home?.names?.short ?? ev.teams?.home?.names?.abbr ?? null,
+      name: ev.teams?.home?.names?.long ?? ev.teams?.home?.names?.full ?? null,
     },
     away_team: {
       id: ev.teams?.away?.teamID ?? ev.teams?.away?.id ?? null,
-      abbr: ev.teams?.away?.abbreviation ?? ev.teams?.away?.names?.abbr ?? null,
-      name: ev.teams?.away?.names?.full ?? null,
+      abbr: ev.teams?.away?.abbreviation ?? ev.teams?.away?.names?.short ?? ev.teams?.away?.names?.abbr ?? null,
+      name: ev.teams?.away?.names?.long ?? ev.teams?.away?.names?.full ?? null,
     },
     team_props: teamProps,
     player_props: playerProps,
