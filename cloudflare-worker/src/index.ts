@@ -2,30 +2,7 @@
 
 /// <reference types="@cloudflare/workers-types" />
 
-function corsHeaders(request: Request) {
-  const origin = request.headers.get("Origin") || "*";
-  const reqHeaders = request.headers.get("Access-Control-Request-Headers") || "Content-Type, Authorization";
-
-  return {
-    "Access-Control-Allow-Origin": origin, // echo back the origin
-    "Access-Control-Allow-Methods": "GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS",
-    "Access-Control-Allow-Headers": reqHeaders,
-    "Access-Control-Allow-Credentials": "true",
-    "Access-Control-Max-Age": "86400",
-  };
-}
-
-function handleOptions(request: Request) {
-  return new Response(null, { headers: corsHeaders(request) });
-}
-
-function withCORS(resp: Response, request: Request) {
-  const newHeaders = new Headers(resp.headers);
-  for (const [k, v] of Object.entries(corsHeaders(request))) {
-    newHeaders.set(k, v);
-  }
-  return new Response(resp.body, { status: resp.status, headers: newHeaders });
-}
+import { withCORS, handleOptions } from "./cors";
 
 export interface Env {
   SPORTSODDS_API_KEY: string;
@@ -174,11 +151,11 @@ export default {
       const league = match[1].toLowerCase(); // e.g. nfl, nba
         resp = await handlePlayerProps(request, env, ctx, league);
       } else {
-        resp = new Response("Not found", { status: 404 });
+        resp = withCORS(new Response("Not found", { status: 404 }), "*");
       }
     }
 
-    return withCORS(resp, request);
+    return withCORS(resp, request.headers.get("Origin") || "*");
   },
 };
 
@@ -197,29 +174,35 @@ export async function handlePropsDebug(request: Request, env: Env) {
     // 2. Just dump the first event
     const sample = rawEvents[0] || null;
 
-    return new Response(
-      JSON.stringify(
-        {
-          league,
-          rawCount: rawEvents.length,
-          sampleEvent: sample,
-        },
-        null,
-        2
+    return withCORS(
+      new Response(
+        JSON.stringify(
+          {
+            league,
+            rawCount: rawEvents.length,
+            sampleEvent: sample,
+          },
+          null,
+          2
+        ),
+        { headers: { "content-type": "application/json" } }
       ),
-      { headers: { "content-type": "application/json" } }
+      "*"
     );
   } catch (error) {
-    return new Response(
-      JSON.stringify(
-        {
-          error: "Debug endpoint failed",
-          message: error instanceof Error ? error.message : "Unknown error",
-        },
-        null,
-        2
+    return withCORS(
+      new Response(
+        JSON.stringify(
+          {
+            error: "Debug endpoint failed",
+            message: error instanceof Error ? error.message : "Unknown error",
+          },
+          null,
+          2
+        ),
+        { headers: { "content-type": "application/json" } }
       ),
-      { headers: { "content-type": "application/json" } }
+      "*"
     );
   }
 }
@@ -306,18 +289,24 @@ export async function handlePropsEndpoint(request: Request, env: Env) {
 
     if (debug) responseData.debug = debugInfo;
 
-    return new Response(JSON.stringify(responseData), {
-      headers: { "content-type": "application/json" },
-    });
+    return withCORS(
+      new Response(JSON.stringify(responseData), {
+        headers: { "content-type": "application/json" },
+      }),
+      "*"
+    );
   } catch (error) {
     console.error("Error in handlePropsEndpoint:", error);
-    return new Response(JSON.stringify({ 
-      error: "Internal server error", 
-      message: error instanceof Error ? error.message : "Unknown error" 
-    }), {
-      status: 500,
-      headers: { "content-type": "application/json" },
-    });
+    return withCORS(
+      new Response(JSON.stringify({ 
+        error: "Internal server error", 
+        message: error instanceof Error ? error.message : "Unknown error" 
+      }), {
+        status: 500,
+        headers: { "content-type": "application/json" },
+      }),
+      "*"
+    );
   }
 }
 
@@ -371,20 +360,23 @@ async function handleCachePurge(url: URL, request: Request, env: Env): Promise<R
   const league = url.searchParams.get("league")?.toUpperCase();
   const date = url.searchParams.get("date");
   if (!league || !date) {
-    return new Response("Missing league or date", { status: 400 });
+    return withCORS(new Response("Missing league or date", { status: 400 }), "*");
   }
 
   const cacheKey = buildCacheKey(url, league, date);
   const cache = await caches.open('default');
   const deleted = await cache.delete(cacheKey);
 
-  return new Response(
-    JSON.stringify({ message: "Cache purged", league, date, cacheKey, deleted }),
-    { 
-        headers: {
-        "content-type": "application/json"
-      } 
-    }
+  return withCORS(
+    new Response(
+      JSON.stringify({ message: "Cache purged", league, date, cacheKey, deleted }),
+      { 
+          headers: {
+          "content-type": "application/json"
+        } 
+      }
+    ),
+    "*"
   );
 }
 
@@ -417,12 +409,15 @@ function buildCacheKey(url: URL, league: string, date: string, oddIDs?: string |
 
 // JSON helper
 function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 
-      "content-type": "application/json"
-    },
-  });
+  return withCORS(
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { 
+        "content-type": "application/json"
+      },
+    }),
+    "*"
+  );
 }
 
 // ===== Normalization =====
@@ -1325,7 +1320,7 @@ async function handleMetrics(url: URL, request: Request, env: Env): Promise<Resp
   if (env.PURGE_TOKEN) {
     const authHeader = request.headers.get("authorization");
     if (!authHeader || authHeader !== `Bearer ${env.PURGE_TOKEN}`) {
-      return new Response("Unauthorized", { status: 401 });
+      return withCORS(new Response("Unauthorized", { status: 401 }), "*");
     }
   }
 
@@ -1333,18 +1328,24 @@ async function handleMetrics(url: URL, request: Request, env: Env): Promise<Resp
   
   try {
     const metrics = await getMetrics(env, reset);
-    return new Response(JSON.stringify(metrics), {
-      headers: { 
-        "content-type": "application/json"
-      }
-    });
+    return withCORS(
+      new Response(JSON.stringify(metrics), {
+        headers: { 
+          "content-type": "application/json"
+        }
+      }),
+      "*"
+    );
   } catch (error) {
-    return new Response(JSON.stringify({ error: "Failed to get metrics" }), {
-      status: 500,
-      headers: { 
-        "content-type": "application/json"
-      }
-    });
+    return withCORS(
+      new Response(JSON.stringify({ error: "Failed to get metrics" }), {
+        status: 500,
+        headers: { 
+          "content-type": "application/json"
+        }
+      }),
+      "*"
+    );
   }
 }
 
