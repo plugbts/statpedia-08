@@ -5,6 +5,7 @@
 export interface Env {
   SPORTSODDS_API_KEY: string;
   CACHE_LOCKS?: KVNamespace; // create a KV namespace for lock keys in wrangler.toml
+  PURGE_TOKEN?: string; // optional secret token for cache purge endpoint
 }
 
 type Player = {
@@ -68,6 +69,11 @@ type SGEvent = {
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+
+    // Purge cache endpoint: /api/cache/purge?league=nfl&date=YYYY-MM-DD
+    if (url.pathname === "/api/cache/purge") {
+      return handleCachePurge(url, request, env);
+    }
 
     // Route: /api/{league}/player-props
     const match = url.pathname.match(/^\/api\/([a-z]+)\/player-props$/);
@@ -143,12 +149,38 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
   return response;
 }
 
+async function handleCachePurge(url: URL, request: Request, env: Env): Promise<Response> {
+  // Optional authentication check
+  if (env.PURGE_TOKEN) {
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader || authHeader !== `Bearer ${env.PURGE_TOKEN}`) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+  }
+
+  const league = url.searchParams.get("league")?.toUpperCase();
+  const date = url.searchParams.get("date");
+  if (!league || !date) {
+    return new Response("Missing league or date", { status: 400 });
+  }
+
+  const cacheKey = buildCacheKey(url, league, date);
+  const cache = await caches.open('default');
+  const deleted = await cache.delete(cacheKey);
+
+  return new Response(
+    JSON.stringify({ message: "Cache purged", league, date, cacheKey, deleted }),
+    { headers: { "content-type": "application/json" } }
+  );
+}
+
 function buildUpstreamUrl(path: string, league: string, date: string, oddIDs?: string | null, bookmakerID?: string | null) {
   const BASE_URL = "https://api.sportsgameodds.com";
   const url = new URL(path, BASE_URL);
   url.searchParams.set("oddsAvailable", "true");
   url.searchParams.set("leagueID", league);
   url.searchParams.set("date", date);
+  // Only add oddIDs if explicitly provided by client
   if (oddIDs) url.searchParams.set("oddIDs", oddIDs);
   if (bookmakerID) url.searchParams.set("bookmakerID", bookmakerID);
   return url.toString();
@@ -249,13 +281,12 @@ function normalizePlayerGroup(markets: MarketSide[], players: Record<string, Pla
   const over = markets.find(m => isOverSide(m.sideID));
   const under = markets.find(m => isUnderSide(m.sideID));
   const base = over || under;
-  if (!base) return null; // truly invalid
+  if (!base) return null;
 
   const player = base.playerID ? players[base.playerID] : undefined;
   const playerName = player?.name || extractNameFromMarket(base.marketName);
   const marketType = formatStatID(base.statID);
 
-  // Prefer market-level line
   const lineStr = firstDefined(
     over?.bookOverUnder,
     under?.bookOverUnder,
@@ -269,7 +300,7 @@ function normalizePlayerGroup(markets: MarketSide[], players: Record<string, Pla
   for (const side of [over, under]) {
     if (!side) continue;
 
-    // Always include a consensus fallback from market-level odds
+    // Always include consensus fallback
     if (side.bookOdds || side.bookOverUnder || side.fairOdds || side.fairOverUnder) {
       books.push({
         bookmaker: "consensus",
@@ -281,7 +312,7 @@ function normalizePlayerGroup(markets: MarketSide[], players: Record<string, Pla
 
     // Add per-book odds if available
     for (const [book, data] of Object.entries(side.byBookmaker || {})) {
-      if (!data.odds && !data.overUnder) continue; // skip empty
+      if (!data.odds && !data.overUnder) continue;
       books.push({
         bookmaker: book,
         side: side.sideID,
@@ -303,15 +334,6 @@ function normalizePlayerGroup(markets: MarketSide[], players: Record<string, Pla
     best_over,
     best_under,
     books,
-    oddIDs: {
-      over: over?.oddID ?? null,
-      under: under?.oddID ?? null,
-    },
-    status: {
-      started: !!(over?.started || under?.started),
-      ended: !!(over?.ended || under?.ended),
-      cancelled: !!(over?.cancelled || under?.cancelled),
-    },
   };
 }
 
