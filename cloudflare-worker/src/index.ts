@@ -1211,8 +1211,8 @@ export async function fetchSportsGameOddsDay(league: string, date: string, env: 
     };
   }
 
-  // 3. Build URL with correct endpoint format (omit sportID as it may cause issues)
-  const url = `https://api.sportsgameodds.com/v2/events?leagueID=${mapping.leagueID}&date=${date}`;
+  // 3. Build URL with correct endpoint format (try season parameter)
+  const url = `https://api.sportsgameodds.com/v2/events?leagueID=${mapping.leagueID}&date=${date}&season=2025`;
   console.log(`[fetchSportsGameOddsDay] Fetching: ${url}`);
   const res = await fetch(url, {
     headers: {
@@ -1232,9 +1232,23 @@ export async function fetchSportsGameOddsDay(league: string, date: string, env: 
 
   // 5. Return parsed JSON
   const response = await res.json() as any;
+  const rawEvents = response.data || [];
   
-  // Return the data array from the response
-  return response.data || [];
+  // 6. Filter out events from wrong year to prevent stale data
+  const requestedYear = parseInt(date.split('-')[0]);
+  const filteredEvents = rawEvents.filter((ev: any) => {
+    if (!ev.status?.startsAt) return false;
+    const evYear = new Date(ev.status.startsAt).getFullYear();
+    const isCorrectYear = evYear === requestedYear;
+    
+    console.log(`[fetchSportsGameOddsDay] Event ${ev.eventID}: startsAt=${ev.status.startsAt}, evYear=${evYear}, requestedYear=${requestedYear}, match=${isCorrectYear}`);
+    
+    return isCorrectYear;
+  });
+  
+  console.log(`[fetchSportsGameOddsDay] Filtered ${rawEvents.length} events to ${filteredEvents.length} events for year ${requestedYear}`);
+  
+  return filteredEvents;
 }
 
 async function fetchLeagueWeek(league: string, baseDate: Date, env: Env) {
