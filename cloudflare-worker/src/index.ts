@@ -201,20 +201,10 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
   console.log(`Filtered ${events.length} events for league ${league}`);
 
   // Normalize
-  const normalized = events.map((ev: any) => safeNormalizeEvent(ev as SGEvent));
+  let normalized = events.map((ev: any) => safeNormalizeEvent(ev as SGEvent));
 
-  // Apply total prop limit across all events
-  const MAX_TOTAL_PROPS = 125;
-  let totalCount = 0;
-  for (const event of normalized) {
-    const remaining = MAX_TOTAL_PROPS - totalCount;
-    if (remaining <= 0) {
-      event.player_props = [];
-      continue;
-    }
-    event.player_props = event.player_props.slice(0, remaining);
-    totalCount += event.player_props.length;
-  }
+  // Apply 125-prop cap per league
+  normalized = capPropsPerLeague(normalized, 125);
 
   const totalPlayerProps = normalized.reduce((a, ev) => a + (ev.player_props?.length || 0), 0);
   const totalDroppedProps = normalized.reduce((a, ev) => a + ((ev as any).debug_counts?.droppedPlayerProps || 0), 0);
@@ -746,6 +736,23 @@ function sortProps(props: any[]) {
     const bi = priority.indexOf(b.market_type);
     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
   });
+}
+
+function capPropsPerLeague(normalizedEvents: any[], maxProps: number = 125) {
+  let total = 0;
+
+  for (const event of normalizedEvents) {
+    const remaining = maxProps - total;
+    if (remaining <= 0) {
+      event.player_props = [];
+      continue;
+    }
+    // Slice this event's props down to what's left
+    event.player_props = (event.player_props || []).slice(0, remaining);
+    total += event.player_props.length;
+  }
+
+  return normalizedEvents;
 }
 
 function getWeekRange(baseDate: Date = new Date(), days: number = 7) {
