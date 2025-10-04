@@ -365,7 +365,7 @@ function normalizeEventSGO(ev, request) {
   return {
     eventID: ev.eventID,
     leagueID: ev.leagueID,
-    start_time: toUserTimeSGO(ev.status?.startsAt, request.cf?.timezone || "America/New_York"),
+    start_time: toUserTimeSGO(ev.startTime || ev.status?.startsAt, request.cf?.timezone || "America/New_York"),
     home_team,
     away_team,
     players: ev.players || {},
@@ -812,13 +812,14 @@ async function fetchSportsGameOddsDay(league, date, env) {
       supported: Object.keys(sportLeagueMap)
     };
   }
-  const url = `https://api.sportsgameodds.com/v2/events?leagueID=${mapping.leagueID}&date=${date}&season=2025`;
-  console.log(`[fetchSportsGameOddsDay] Fetching: ${url}`);
+  const requestedYear = new Date(date).getFullYear();
+  const url = `https://api.sportsgameodds.com/v2/events?leagueID=${mapping.leagueID}&date=${date}`;
+  console.log(`[fetchSportsGameOddsDay] Fetching: ${url} (requestedYear: ${requestedYear})`);
   const res = await fetch(url, {
     headers: {
       "accept": "application/json",
       "x-api-key": env.SGO_API_KEY
-      // Use correct header format
+      // Use x-api-key header format
     }
   });
   if (!res.ok) {
@@ -828,19 +829,19 @@ async function fetchSportsGameOddsDay(league, date, env) {
       body: await res.text()
     };
   }
-  const response = await res.json();
-  const rawEvents = response.data || [];
-  const requestedYear = parseInt(date.split("-")[0]);
-  const filteredEvents = rawEvents.filter((ev) => {
-    if (!ev.status?.startsAt)
+  const raw = await res.json();
+  const rawEvents = raw.data || raw.events || raw;
+  const events = rawEvents.filter((ev) => {
+    const startTime = ev.startTime || ev.status?.startsAt;
+    if (!startTime)
       return false;
-    const evYear = new Date(ev.status.startsAt).getFullYear();
+    const evYear = new Date(startTime).getFullYear();
     const isCorrectYear = evYear === requestedYear;
-    console.log(`[fetchSportsGameOddsDay] Event ${ev.eventID}: startsAt=${ev.status.startsAt}, evYear=${evYear}, requestedYear=${requestedYear}, match=${isCorrectYear}`);
+    console.log(`[fetchSportsGameOddsDay] Event: startTime=${startTime}, evYear=${evYear}, requestedYear=${requestedYear}, match=${isCorrectYear}`);
     return isCorrectYear;
   });
-  console.log(`[fetchSportsGameOddsDay] Filtered ${rawEvents.length} events to ${filteredEvents.length} events for year ${requestedYear}`);
-  return filteredEvents;
+  console.log(`[fetchSportsGameOddsDay] Filtered to ${events.length} events for year ${requestedYear}`);
+  return events;
 }
 __name(fetchSportsGameOddsDay, "fetchSportsGameOddsDay");
 function pickBest(books) {
