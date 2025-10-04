@@ -361,11 +361,7 @@ async function handleDebugPlayerProps(url: URL, env: Env): Promise<Response> {
   upstream.searchParams.set("oddsAvailable", "true");
   upstream.searchParams.set("apikey", env.SGO_API_KEY);
 
-  const res = await fetch(upstream.toString(), {
-    headers: { 
-      'X-API-Key': env.SGO_API_KEY,
-    },
-  });
+  const res = await fetchSGO(upstream.toString(), env);
   if (!res.ok) return json({ error: "Upstream error", status: res.status }, 502);
 
   const data = await res.json() as any;
@@ -425,12 +421,37 @@ async function handleCachePurge(url: URL, request: Request, env: Env): Promise<R
 // DEPRECATED: SportRadar proxy function - removed
 // All SportRadar functionality has been migrated to SportsGameOdds API
 
+// Helper function to create standardized API requests with proper headers
+async function fetchWithAPIKey(url: string, env: Env, options: RequestInit = {}, apiKey: string = env.SGO_API_KEY): Promise<Response> {
+  const headers = {
+    "accept": "application/json",
+    "X-API-Key": apiKey,
+    ...options.headers,
+  };
+  
+  return fetch(url, {
+    ...options,
+    headers,
+  });
+}
+
+// Helper function for SportsGameOdds API requests
+async function fetchSGO(url: string, env: Env, options: RequestInit = {}): Promise<Response> {
+  return fetchWithAPIKey(url, env, options, env.SGO_API_KEY);
+}
+
+// Helper function for SportsOdds API requests (if needed in the future)
+async function fetchSportsOdds(url: string, env: Env, options: RequestInit = {}): Promise<Response> {
+  return fetchWithAPIKey(url, env, options, env.SPORTSODDS_API_KEY);
+}
+
 function buildUpstreamUrl(path: string, league: string, date: string, oddIDs?: string | null, bookmakerID?: string | null) {
   const BASE_URL = "https://api.sportsgameodds.com";
   const url = new URL(path, BASE_URL);
   url.searchParams.set("oddsAvailable", "true");
   url.searchParams.set("leagueID", league);
   url.searchParams.set("date", date);
+  url.searchParams.set("apikey", ""); // Will be set by fetchWithAPIKey
   // Only add oddIDs if explicitly provided by client
   if (oddIDs) url.searchParams.set("oddIDs", oddIDs);
   if (bookmakerID) url.searchParams.set("bookmakerID", bookmakerID);
@@ -1323,12 +1344,7 @@ export async function fetchSportsGameOddsDay(
   const requestedYear = new Date(date).getFullYear();
   const url = `https://api.sportsgameodds.com/v2/events?leagueID=${leagueID}&oddsAvailable=true&date=${date}&apikey=${env.SGO_API_KEY}`;
   console.log(`[fetchSportsGameOddsDay] Fetching: ${url.replace(env.SGO_API_KEY, '[API_KEY]')} (requestedYear: ${requestedYear})`);
-  const res = await fetch(url, {
-    headers: {
-      "accept": "application/json",
-      "X-API-Key": env.SGO_API_KEY, // Use X-API-Key header format as required by SportsGameOdds API
-    },
-  });
+  const res = await fetchSGO(url, env);
 
   // 4. Handle errors gracefully
   if (!res.ok) {
