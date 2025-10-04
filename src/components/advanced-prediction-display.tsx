@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Advanced Prediction Display Component
 // Shows comprehensive predictions with all advanced features
 

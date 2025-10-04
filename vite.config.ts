@@ -15,17 +15,8 @@ export default defineConfig(({ mode }) => ({
     // Add polyfill plugin for Node.js globals
     {
       name: 'node-polyfill',
-      configResolved(config) {
-        // Ensure process is available globally
-        if (typeof globalThis.process === 'undefined') {
-          globalThis.process = {
-            env: { NODE_ENV: 'development' },
-            version: 'v16.0.0',
-            versions: { node: '16.0.0' },
-            platform: 'browser',
-            browser: true
-          };
-        }
+      configResolved() {
+        // Polyfill handled in index.html
       }
     }
   ].filter(Boolean),

@@ -175,7 +175,7 @@ Please provide at least 3-5 different approaches, ranging from simple quick fixe
 Focus on actionable solutions that can be implemented in a development environment.
       `;
 
-      const response = await chatGPTService.sendMessage(prompt);
+      const response = await chatGPTService.sendMessage([{ role: 'user', content: prompt }]);
       
       setSessions(prev => prev.map(session => 
         session.id === sessionId 

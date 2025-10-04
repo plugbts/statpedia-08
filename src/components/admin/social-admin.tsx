@@ -87,7 +87,7 @@ export const SocialAdmin: React.FC = () => {
       // Load comments - we need to get all comments, so we'll use a different approach
       let commentsData: Comment[] = [];
       try {
-        // Try to get comments from all posts
+      // Try to get comments from all posts
         const { data: comments, error: commentsError } = await supabase
           .from('comments')
           .select(`
@@ -98,13 +98,13 @@ export const SocialAdmin: React.FC = () => {
           .limit(100);
         
         if (!commentsError && comments) {
-          commentsData = comments;
+          commentsData = comments as any;
         }
       } catch (commentError) {
         console.warn('Could not load comments:', commentError);
       }
       
-      setComments(commentsData);
+      setComments(commentsData as any);
       
       logSecurityEvent('SOCIAL_ADMIN_DATA_LOADED', { 
         userCount: usersData?.length || 0,

@@ -4,11 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, RefreshCw, Copy, Check } from 'lucide-react';
-import { crossReferenceService, CrossReferenceAnalysis } from '@/services/cross-reference-service';
+import { crossReferenceService, CrossReferenceAnalysis as CrossReferenceAnalysisType } from '@/services/cross-reference-service';
 import { unifiedSportsAPI } from '@/services/unified-sports-api';
 
 export const CrossReferenceAnalysis: React.FC = () => {
-  const [analysis, setAnalysis] = useState<CrossReferenceAnalysis | null>(null);
+  const [analysis, setAnalysis] = useState<CrossReferenceAnalysisType | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedSport, setSelectedSport] = useState('NBA');
   const [copied, setCopied] = useState(false);
@@ -33,7 +33,7 @@ export const CrossReferenceAnalysis: React.FC = () => {
     runAnalysis();
   }, [selectedSport]);
 
-  const formatAnalysisForCoding = (analysis: CrossReferenceAnalysis): string => {
+  const formatAnalysisForCoding = (analysis: CrossReferenceAnalysisType): string => {
     const criticalDiscrepancies = analysis.detailedDiscrepancies.filter(d => d.severity === 'critical');
     const highDiscrepancies = analysis.detailedDiscrepancies.filter(d => d.severity === 'high');
     

@@ -80,9 +80,9 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
         setOffseasonMessage(message);
       } catch (error) {
         console.error('Error loading season data:', error);
-        // Fallback to sync methods
-        setShouldShowMoneyline(seasonService.shouldShowMoneylinePredictions(selectedSport));
-        setOffseasonMessage(seasonService.getOffseasonMessage(selectedSport));
+        // Fallback to defaults on error
+        setShouldShowMoneyline(true);
+        setOffseasonMessage('');
       } finally {
         setSeasonLoading(false);
       }
@@ -830,109 +830,6 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
                 </div>
               ))}
             </div>
-          </div>
-        </TabsContent>
-          <div className="space-y-8">
-            {/* Moneyline Insights */}
-            {moneylineInsights.length > 0 && (
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <Target className="w-6 h-6 text-primary" />
-                  <h2 className="text-2xl font-bold text-foreground">Moneyline Insights</h2>
-                  <Badge variant="outline" className="gap-1">
-                    <Activity className="w-3 h-3" />
-                    Real Data
-                  </Badge>
-                </div>
-                <p className="text-muted-foreground">
-                  AI-powered analysis of moneyline trends and underdog opportunities
-                </p>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {moneylineInsights.map(renderMoneylineInsight)}
-                </div>
-              </div>
-            )}
-
-            {/* Underdog Analysis Section */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <Target className="w-6 h-6 text-primary" />
-                <h2 className="text-2xl font-bold text-foreground">Top Underdog Opportunities</h2>
-                <Badge variant="outline" className="gap-1">
-                  <TrendingUp className="w-3 h-3" />
-                  AI Analysis
-                </Badge>
-              </div>
-              <p className="text-muted-foreground">
-                AI-powered analysis of the top 3 underdog moneyline opportunities with detailed reasoning
-              </p>
-              <UnderdogAnalysis selectedSport={selectedSport} />
-            </div>
-
-            {/* Moneyline Predictions Section */}
-            {seasonLoading ? (
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <BarChart3 className="w-6 h-6 text-primary" />
-                  <h2 className="text-xl font-semibold">Moneyline Predictions</h2>
-                </div>
-                <div className="flex items-center justify-center py-8">
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                    <p className="text-muted-foreground">Loading season data...</p>
-                  </div>
-                </div>
-              </div>
-            ) : shouldShowMoneyline ? (
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <BarChart3 className="w-6 h-6 text-primary" />
-                  <h2 className="text-2xl font-bold text-foreground">Moneyline Predictions</h2>
-                  <Badge variant="outline" className="gap-1">
-                    <Activity className="w-3 h-3" />
-                    Simulations
-                  </Badge>
-                </div>
-                <p className="text-muted-foreground">
-                  AI-powered final score predictions with thousands of simulations and backtesting
-                </p>
-                <MoneylineProps userSubscription={userSubscription || 'free'} userRole={userRole} selectedSport={selectedSport} />
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <BarChart3 className="w-6 h-6 text-muted-foreground" />
-                  <h2 className="text-2xl font-bold text-muted-foreground">Moneyline Predictions</h2>
-                  <Badge variant="outline" className="gap-1">
-                    <Activity className="w-3 h-3" />
-                    Offseason
-                  </Badge>
-                </div>
-                <div className="relative p-6 bg-muted/30 rounded-lg border border-muted">
-                  {/* X Close Button */}
-                  <button
-                    onClick={() => setShouldShowMoneyline(true)}
-                    className="absolute top-2 right-2 w-6 h-6 rounded-full bg-muted hover:bg-muted/80 flex items-center justify-center transition-colors"
-                    title="Close offseason message"
-                  >
-                    <X className="w-4 h-4 text-muted-foreground" />
-                  </button>
-                  
-                  <div className="text-center space-y-3">
-                    <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto">
-                      <Calendar className="w-8 h-8 text-muted-foreground" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-muted-foreground">Season Ended</h3>
-                    <p className="text-muted-foreground">
-                      {offseasonMessage}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Moneyline predictions will return when the season begins.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </TabsContent>
 
