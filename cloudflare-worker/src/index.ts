@@ -1211,9 +1211,9 @@ export async function fetchSportsGameOddsDay(league: string, date: string, env: 
     };
   }
 
-  // 3. Build URL with correct endpoint format (use /events endpoint)
+  // 3. Build URL with correct endpoint format (use /events endpoint with oddsAvailable)
   const requestedYear = new Date(date).getFullYear();
-  const url = `https://api.sportsgameodds.com/v2/events?leagueID=${mapping.leagueID}&date=${date}`;
+  const url = `https://api.sportsgameodds.com/v2/events?leagueID=${mapping.leagueID}&oddsAvailable=true&date=${date}`;
   console.log(`[fetchSportsGameOddsDay] Fetching: ${url} (requestedYear: ${requestedYear})`);
   const res = await fetch(url, {
     headers: {
@@ -1233,11 +1233,11 @@ export async function fetchSportsGameOddsDay(league: string, date: string, env: 
 
   // 5. Return parsed JSON
   const raw = await res.json() as any;
-  const rawEvents = raw.data || raw.events || raw;
+  const rawEvents = raw.data || raw.events || raw; // SGO wraps in { data: [...] }
   
   // 6. Filter out events that don't match the requested year
   const events = rawEvents.filter((ev: any) => {
-    const startTime = ev.startTime || ev.status?.startsAt;
+    const startTime = ev.status?.startsAt; // API uses status.startsAt
     if (!startTime) return false;
     const evYear = new Date(startTime).getFullYear();
     const isCorrectYear = evYear === requestedYear;

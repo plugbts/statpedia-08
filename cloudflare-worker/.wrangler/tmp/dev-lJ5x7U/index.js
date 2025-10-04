@@ -813,7 +813,7 @@ async function fetchSportsGameOddsDay(league, date, env) {
     };
   }
   const requestedYear = new Date(date).getFullYear();
-  const url = `https://api.sportsgameodds.com/v2/events?leagueID=${mapping.leagueID}&date=${date}`;
+  const url = `https://api.sportsgameodds.com/v2/events?leagueID=${mapping.leagueID}&oddsAvailable=true&date=${date}`;
   console.log(`[fetchSportsGameOddsDay] Fetching: ${url} (requestedYear: ${requestedYear})`);
   const res = await fetch(url, {
     headers: {
@@ -832,7 +832,7 @@ async function fetchSportsGameOddsDay(league, date, env) {
   const raw = await res.json();
   const rawEvents = raw.data || raw.events || raw;
   const events = rawEvents.filter((ev) => {
-    const startTime = ev.startTime || ev.status?.startsAt;
+    const startTime = ev.status?.startsAt;
     if (!startTime)
       return false;
     const evYear = new Date(startTime).getFullYear();
