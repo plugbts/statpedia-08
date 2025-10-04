@@ -158,7 +158,7 @@ export default {
     else {
     const match = url.pathname.match(/^\/api\/([a-z]+)\/player-props$/);
     if (match) {
-      const league = match[1].toUpperCase(); // e.g. NFL, NBA
+      const league = match[1].toLowerCase(); // e.g. nfl, nba
         resp = await handlePlayerProps(request, env, ctx, league);
       } else {
         resp = new Response("Not found", { status: 404 });
@@ -170,176 +170,101 @@ export default {
 };
 
 async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionContext, league: string): Promise<Response> {
-  const startTime = Date.now();
-      const url = new URL(request.url);
-  const date = url.searchParams.get("date") || new Date().toISOString().split('T')[0]; // Default to today
-  const oddIDs = url.searchParams.get("oddIDs");
-  const bookmakerID = url.searchParams.get("bookmakerID");
-  const debug = url.searchParams.get("debug") === "true";
-  const view = url.searchParams.get("view");
+  const url = new URL(request.url);
+  const leagues = (url.searchParams.get("league") || "nfl")
+    .split(",")
+    .map(l => l.trim().toLowerCase());
+  const date = url.searchParams.get("date") || new Date().toISOString().split('T')[0];
+  const view = url.searchParams.get("view") || "full";
+  const debug = url.searchParams.has("debug");
 
-  const cacheKey = buildCacheKey(url, league, date, oddIDs, bookmakerID, view, debug);
-  // Try cache
-  const cached = await caches.open('default').then(cache => cache.match(cacheKey));
-  let cacheHit = false;
-  let keptProps = 0;
-  let droppedProps = 0;
-  let upstreamStatus = 200;
-  
-  if (cached) {
-    cacheHit = true;
-    const durationMs = Date.now() - startTime;
-    
-    // Log metrics for cache hit
-    console.log(JSON.stringify({
-      type: 'cache_hit',
-      league,
-      date,
-      cacheHit: true,
-      keptProps: 0, // We don't know for cache hits
-      droppedProps: 0,
-      upstreamStatus: 200,
-      durationMs
-    }));
-    
-    // Update metrics
-    await updateMetrics(env, { cacheHit: true, durationMs });
-    
-    return cached;
-  }
+  const responseData: any = { events: [] };
+  const debugInfo: any = {};
 
-  // Fetch upstream - get full week of events
-  const requestedDate = new Date(date);
-  const rawEvents = await fetchLeagueWeek(league, requestedDate, env);
-  
-  console.log(`Raw API response: ${rawEvents.length} events`);
-  console.log(`Sample event keys:`, rawEvents[0] ? Object.keys(rawEvents[0]) : 'No events');
+  for (const league of leagues) {
+    // 1. Fetch raw events for the week from SportsGameOdds
+    console.log(`Fetching events for league: ${league}, date: ${date}`);
+    // Test with single date first
+    const rawEvents = await fetchUpstreamProps(league.toUpperCase(), date, env);
+    console.log(`Fetched ${rawEvents.length} raw events for ${league}`);
 
-  // Debug the raw data
-  if (rawEvents.length > 0) {
-    console.log({
-      league: league,
-      eventCount: rawEvents.length,
-      sampleEvent: {
-        id: rawEvents[0]?.eventID,
-        start_time: rawEvents[0]?.info?.scheduled || rawEvents[0]?.status?.startsAt,
-        home_team: rawEvents[0]?.teams?.home?.names?.long,
-        away_team: rawEvents[0]?.teams?.away?.names?.long,
-        oddsCount: Object.keys(rawEvents[0]?.odds || {}).length,
-        playersCount: Object.keys(rawEvents[0]?.players || {}).length,
+    // 2. Normalize events
+    let normalized = rawEvents
+      .map(ev => normalizeEventSGO(ev, request))
+      .filter(Boolean);
+
+    // 3. Group + normalize player props
+    for (const event of normalized) {
+      if (event && event.player_props?.length) {
+        const grouped: Record<string, any[]> = {};
+        for (const m of event.player_props) {
+          const key = [
+            m.player_id || "",
+            m.market_id || "",
+            m.market_type || "",
+            m.period || "",
+            m.bet_type || "",
+          ].join("|");
+          (grouped[key] ||= []).push(m);
+        }
+        event.player_props = Object.values(grouped)
+          .map(group => normalizePlayerGroup(group, {}, league))
+          .filter(Boolean);
       }
-    });
-  }
+    }
 
-  // Filter by league (support both old and new schema)
-  const events = rawEvents.filter((ev: any) => {
-    const leagueId = ev.league_id || ev.leagueID;
-    return String(leagueId).toUpperCase() === league;
-  });
-  
-  console.log(`Filtered ${events.length} events for league ${league}`);
+    // 4. Prioritize + cap props per league
+    normalized = capPropsPerLeague(normalized, league, 125);
 
-  // 2. Normalize events using SGO-only approach
-  let normalized = events
-    .map(ev => normalizeEventSGO(ev, request))
-    .filter(Boolean);
-
-  // 3. Cap & prioritize props per league
-  normalized = capPropsPerLeague(normalized, league, 125);
-
-  const totalPlayerProps = normalized.reduce((a, ev) => a + (ev.player_props?.length || 0), 0);
-  console.log(`Total player props after capping: ${totalPlayerProps}`);
-  keptProps = totalPlayerProps;
-  droppedProps = 0; // SGO normalization doesn't drop props
-  const ttl = totalPlayerProps > 50 ? 1800 : 300;
-
-  // 4. Shape response
-  let responseData: any = { events: normalized };
-  
-  if (view === "compact") {
-    responseData = {
-      events: normalized.map(event => ({
-        eventID: event.eventID,
-        leagueID: event.leagueID,
-        start_time: event.start_time,
-        home_team: event.home_team,
-        away_team: event.away_team,
-        player_props: (event.player_props || []).map(prop => {
-          const over = pickBest((prop.books || []).filter(b => String(b.side).toLowerCase() === "over"));
-          const under = pickBest((prop.books || []).filter(b => String(b.side).toLowerCase() === "under"));
-          return {
-            player_name: prop.player_name,
+    // 5. Shape response
+    if (view === "compact") {
+      responseData.events.push(
+        ...normalized.filter((event): event is NonNullable<typeof event> => event !== null).map(event => ({
+          eventID: event.eventID,
+          leagueID: event.leagueID,
+          start_time: event.start_time,
+          home_team: event.home_team,
+          away_team: event.away_team,
+          player_props: (event.player_props || []).map(prop => {
+            const over = pickBest((prop.books || []).filter(b => String(b.side).toLowerCase() === "over"));
+            const under = pickBest((prop.books || []).filter(b => String(b.side).toLowerCase() === "under"));
+            return {
+              player_name: prop.player_name,
+              market_type: formatMarketType(prop.market_type, event.leagueID),
+              line: prop.line,
+              best_over: over?.price ?? null,
+              best_under: under?.price ?? null,
+              best_over_book: over?.bookmaker ?? null,
+              best_under_book: under?.bookmaker ?? null,
+            };
+          }),
+          team_props: (event.team_props || []).map(prop => ({
             market_type: formatMarketType(prop.market_type, event.leagueID),
             line: prop.line,
-            best_over: over?.price ?? null,
-            best_under: under?.price ?? null,
-            best_over_book: over?.bookmaker ?? null,
-            best_under_book: under?.bookmaker ?? null,
-          };
-        }),
-        team_props: (event.team_props || []).map(prop => ({
-          market_type: formatMarketType(prop.market_type, event.leagueID),
-          line: prop.line,
-          best_over: prop.best_over,
-          best_under: prop.best_under,
-        })),
-      })),
-      ...(debug
-        ? {
-            debug: {
-              upstreamEvents: rawEvents.length,
-              totalProps: totalPlayerProps,
-              view: "compact",
-            },
-          }
-        : {}),
-    };
-  } else {
-    // Full view: return all fields
-    responseData = {
-    events: normalized,
-    ...(debug ? { 
-      debug: { 
-        upstreamEvents: rawEvents.length, 
-          totalProps: totalPlayerProps,
-          view: "full",
-      } 
-    } : {}),
-  };
+            best_over: prop.best_over,
+            best_under: prop.best_under,
+          })),
+        }))
+      );
+    } else {
+      responseData.events.push(...normalized.filter((event): event is NonNullable<typeof event> => event !== null));
+    }
+
+    if (debug) {
+      debugInfo[league] = {
+        upstreamEvents: rawEvents.length,
+        normalizedEvents: normalized.length,
+        totalProps: normalized.filter((e): e is NonNullable<typeof e> => e !== null).reduce((a, e) => a + (e.player_props?.length || 0), 0),
+        sampleEvent: normalized[0] || null,
+      };
+    }
   }
 
-  const response = new Response(JSON.stringify(responseData), {
-        headers: {
-      "content-type": "application/json",
-      "cache-control": `public, s-maxage=${ttl}, stale-while-revalidate=1800`,
-        },
-      });
+  if (debug) responseData.debug = debugInfo;
 
-  await caches.open('default').then(cache => cache.put(cacheKey, response.clone()));
-  
-  // Log metrics for successful request
-  const durationMs = Date.now() - startTime;
-  console.log(JSON.stringify({
-    type: 'request_success',
-    league,
-    date,
-    cacheHit: false,
-    keptProps,
-    droppedProps,
-    upstreamStatus,
-    durationMs
-  }));
-  
-  // Update metrics
-  await updateMetrics(env, { 
-    cacheHit: false, 
-    keptProps, 
-    droppedProps, 
-    upstreamStatus, 
-    durationMs 
+  return new Response(JSON.stringify(responseData), {
+    headers: { "content-type": "application/json" },
   });
-  
-  return response;
 }
 
 async function handleDebugPlayerProps(url: URL, env: Env): Promise<Response> {
@@ -360,10 +285,10 @@ async function handleDebugPlayerProps(url: URL, env: Env): Promise<Response> {
 
   const data = await res.json() as any;
   const rawEvents = data?.data || [];
-
+  
   // Strict, case-insensitive league filter
   const events = rawEvents.filter((ev: any) => String(ev.leagueID).toUpperCase() === league);
-
+  
   const normalized = events.map(debugNormalizeEvent);
 
   const totalKept = normalized.reduce((a, ev) => a + (ev.debug_counts?.keptPlayerProps || 0), 0);
@@ -371,8 +296,8 @@ async function handleDebugPlayerProps(url: URL, env: Env): Promise<Response> {
 
   return json({
     events: normalized,
-    debug: {
-      upstreamEvents: rawEvents.length,
+      debug: { 
+        upstreamEvents: rawEvents.length, 
       normalizedEvents: normalized.length,
       totalKeptPlayerProps: totalKept,
       totalDroppedPlayerProps: totalDropped,
@@ -402,7 +327,7 @@ async function handleCachePurge(url: URL, request: Request, env: Env): Promise<R
   return new Response(
     JSON.stringify({ message: "Cache purged", league, date, cacheKey, deleted }),
     { 
-      headers: { 
+        headers: {
         "content-type": "application/json"
       } 
     }
