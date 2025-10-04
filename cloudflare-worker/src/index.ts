@@ -28,9 +28,108 @@ export default {
 
     try {
       const url = new URL(request.url);
-      const sport = url.searchParams.get('sport') || 'nfl';
-      const endpoint = url.searchParams.get('endpoint') || 'player-props';
-      const forceRefresh = url.searchParams.get('forceRefresh') === 'true';
+      const pathname = url.pathname;
+      const searchParams = url.searchParams;
+      
+      // Handle /api/odds endpoint
+      if (pathname === '/api/odds') {
+        const league = searchParams.get('league');
+        const date = searchParams.get('date');
+        if (!league || !date) {
+          return new Response(JSON.stringify({ error: 'Missing league or date' }), { 
+            status: 400, 
+            headers: corsHeaders 
+          });
+        }
+
+        const upstreamUrl = `https://api.sportsgameodds.com/v2/events?leagueID=${league}&date=${date}`;
+        const headers = new Headers({ 'x-api-key': env.SPORTSGAMEODDS_API_KEY });
+
+        try {
+          const res = await fetch(upstreamUrl, { headers });
+          if (!res.ok) {
+            return new Response(JSON.stringify({ 
+              error: 'SportsGameOdds upstream error', 
+              status: res.status 
+            }), { 
+              status: 502, 
+              headers: corsHeaders 
+            });
+          }
+          const data = await res.json();
+
+          const events = (data.data || []).map((ev: any) => {
+            // Extract team and player props from odds
+            const teamProps: any[] = [];
+            const playerProps: any[] = [];
+            
+            for (const [propKey, propData] of Object.entries(ev.odds || {})) {
+              if (!propData || typeof propData !== 'object') continue;
+              
+              const prop = propData as any;
+              
+              // Team props (all, away, home)
+              if (['all', 'away', 'home'].includes(prop.statEntityID?.toLowerCase())) {
+                teamProps.push({
+                  id: prop.oddID,
+                  type: prop.marketName || prop.statID,
+                  statEntityID: prop.statEntityID,
+                  sideID: prop.sideID,
+                  line: prop.byBookmaker ? Object.values(prop.byBookmaker)[0]?.overUnder || 0 : 0,
+                  odds: prop.byBookmaker ? Object.values(prop.byBookmaker)[0]?.odds || 0 : 0,
+                  bookmakers: prop.byBookmaker || {}
+                });
+              } else if (prop.statEntityID && prop.statEntityID.length > 3) {
+                // Player props (individual players)
+                const playerName = prop.statEntityID
+                  .replace(/_1_NFL$/, '').replace(/_1_MLB$/, '').replace(/_1_NBA$/, '').replace(/_1_NHL$/, '').replace(/_1_WNBA$/, '')
+                  .replace(/_/g, ' ')
+                  .split(' ')
+                  .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                  .join(' ');
+                
+                playerProps.push({
+                  id: prop.oddID,
+                  type: prop.marketName || prop.statID,
+                  player_name: playerName,
+                  statEntityID: prop.statEntityID,
+                  sideID: prop.sideID,
+                  line: prop.byBookmaker ? Object.values(prop.byBookmaker)[0]?.overUnder || 0 : 0,
+                  odds: prop.byBookmaker ? Object.values(prop.byBookmaker)[0]?.odds || 0 : 0,
+                  bookmakers: prop.byBookmaker || {}
+                });
+              }
+            }
+
+            return {
+              id: ev.eventID,
+              league: ev.leagueID || league,
+              start_time: ev.scheduled,
+              home_team: ev.teams?.home?.names?.long || ev.teams?.home?.names?.short,
+              away_team: ev.teams?.away?.names?.long || ev.teams?.away?.names?.short,
+              team_props: teamProps,
+              player_props: playerProps,
+            };
+          });
+
+          return new Response(JSON.stringify({ events }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        } catch (e: any) {
+          return new Response(JSON.stringify({ 
+            error: 'Fetch failed', 
+            details: e?.message 
+          }), { 
+            status: 500, 
+            headers: corsHeaders 
+          });
+        }
+      }
+      
+      // Handle legacy /api/player-props endpoint
+      const sport = searchParams.get('sport') || 'nfl';
+      const endpoint = searchParams.get('endpoint') || 'player-props';
+      const forceRefresh = searchParams.get('forceRefresh') === 'true';
       
       console.log(`🚀 ${endpoint} API Request: ${sport}${forceRefresh ? ' (force refresh)' : ''}`);
       
