@@ -237,7 +237,7 @@ export async function handlePropsEndpoint(request: Request, env: Env) {
         .filter(ev => ev.type === "match") // Only process match events (real games with players)
         .slice(0, 10) // Limit to first 10 match events for performance
         .map(ev => normalizeEventSGO(ev, request))
-        .filter(Boolean);
+        .filter(ev => ev !== null && ev !== undefined); // Filter out null/undefined from error responses
 
       // DEBUG: Log event normalization
       console.log("DEBUG event normalization", {
@@ -347,7 +347,7 @@ async function handleDebugPlayerProps(url: URL, env: Env): Promise<Response> {
   upstream.searchParams.set("oddsAvailable", "true");
 
   const res = await fetch(upstream.toString(), {
-    headers: { 'x-api-key': env.SPORTSODDS_API_KEY },
+    headers: { 'x-api-key': env.SGO_API_KEY },
   });
   if (!res.ok) return json({ error: "Upstream error", status: res.status }, 502);
 
@@ -473,6 +473,12 @@ function safeNormalizeEvent(ev: SGEvent) {
 }
 
 function normalizeEventSGO(ev: any, request: any) {
+  // Guard against error responses
+  if (ev && typeof ev === 'object' && ev.error === true) {
+    console.log("DEBUG: Skipping error response in normalizer", ev.message);
+    return null;
+  }
+
   // DEBUG: Log odds flattening
   console.log("DEBUG odds flatten", {
     totalOdds: Object.keys(ev.odds || {}).length,

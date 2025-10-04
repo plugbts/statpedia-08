@@ -167,7 +167,7 @@ async function handlePropsEndpoint(request, env) {
         responseData.errors[league] = rawEvents;
         continue;
       }
-      let normalized = (rawEvents || []).filter((ev) => ev.type === "match").slice(0, 10).map((ev) => normalizeEventSGO(ev, request)).filter(Boolean);
+      let normalized = (rawEvents || []).filter((ev) => ev.type === "match").slice(0, 10).map((ev) => normalizeEventSGO(ev, request)).filter((ev) => ev !== null && ev !== void 0);
       console.log("DEBUG event normalization", {
         league,
         rawEventsCount: rawEvents.length,
@@ -262,7 +262,7 @@ async function handleDebugPlayerProps(url, env) {
   upstream.searchParams.set("date", date);
   upstream.searchParams.set("oddsAvailable", "true");
   const res = await fetch(upstream.toString(), {
-    headers: { "x-api-key": env.SPORTSODDS_API_KEY }
+    headers: { "x-api-key": env.SGO_API_KEY }
   });
   if (!res.ok)
     return json({ error: "Upstream error", status: res.status }, 502);
@@ -333,6 +333,10 @@ function json(body, status = 200) {
 }
 __name(json, "json");
 function normalizeEventSGO(ev, request) {
+  if (ev && typeof ev === "object" && ev.error === true) {
+    console.log("DEBUG: Skipping error response in normalizer", ev.message);
+    return null;
+  }
   console.log("DEBUG odds flatten", {
     totalOdds: Object.keys(ev.odds || {}).length,
     firstOdd: Object.values(ev.odds || {})[0],
