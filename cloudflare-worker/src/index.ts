@@ -81,9 +81,30 @@ type SGEvent = {
   eventID: string;
   leagueID: string;
   sportID: string;
+  scheduled: string;
   teams: {
-    home: { names: { long: string; short: string } };
-    away: { names: { long: string; short: string } };
+    home: { 
+      teamID?: string;
+      id?: string;
+      abbreviation?: string;
+      names: { 
+        long: string; 
+        short: string;
+        abbr?: string;
+        full?: string;
+      } 
+    };
+    away: { 
+      teamID?: string;
+      id?: string;
+      abbreviation?: string;
+      names: { 
+        long: string; 
+        short: string;
+        abbr?: string;
+        full?: string;
+      } 
+    };
   };
   status: {
     startsAt: string;
@@ -219,13 +240,21 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
         start_time: event.start_time,
         home_team: event.home_team,
         away_team: event.away_team,
-        player_props: event.player_props?.map(prop => ({
-          player_name: prop.player_name,
-          market_type: prop.market_type,
-          line: prop.line,
-          best_over: prop.best_over,
-          best_under: prop.best_under
-        })) || [],
+        player_props: event.player_props?.map(prop => {
+          const line = prop.line ?? prop.books?.[0]?.line ?? null;
+          const over = bestBySide(prop.books || [], "over");
+          const under = bestBySide(prop.books || [], "under");
+
+          return {
+            player_name: prop.player_name,
+            market_type: prop.market_type,
+            line,
+            best_over: over?.price ?? null,
+            best_under: under?.price ?? null,
+            best_over_book: over?.bookmaker ?? null,
+            best_under_book: under?.bookmaker ?? null,
+          };
+        }) || [],
         team_props: event.team_props?.map(prop => ({
           market_type: prop.market_type,
           line: prop.line,
@@ -411,9 +440,17 @@ function safeNormalizeEvent(ev: SGEvent) {
     return {
       eventID: ev?.eventID ?? null,
       leagueID: ev?.leagueID ?? null,
-      start_time: ev?.status?.startsAt ?? null,
-      home_team: ev?.teams?.home?.names ?? null,
-      away_team: ev?.teams?.away?.names ?? null,
+      start_time: ev?.scheduled ?? null,
+      home_team: {
+        id: ev?.teams?.home?.teamID ?? ev?.teams?.home?.id ?? null,
+        abbr: ev?.teams?.home?.abbreviation ?? ev?.teams?.home?.names?.abbr ?? null,
+        name: ev?.teams?.home?.names?.full ?? null,
+      },
+      away_team: {
+        id: ev?.teams?.away?.teamID ?? ev?.teams?.away?.id ?? null,
+        abbr: ev?.teams?.away?.abbreviation ?? ev?.teams?.away?.names?.abbr ?? null,
+        name: ev?.teams?.away?.names?.full ?? null,
+      },
       team_props: [],
       player_props: [],
       _error: String(err),
@@ -427,11 +464,16 @@ function normalizeEvent(ev: SGEvent) {
   
   console.log(`Normalizing event ${ev.eventID} with ${Object.keys(oddsDict).length} odds`);
 
-  // Group by statEntityID + statID + periodID + betTypeID
+  // Group by statEntityID + statID + periodID + betTypeID to preserve all prop types
   const groups: Record<string, MarketSide[]> = {};
   for (const oddID in oddsDict) {
     const m = oddsDict[oddID];
-    const key = [m.statEntityID || "", m.statID || "", m.periodID || "", m.betTypeID || ""].join("|");
+    const key = [
+      m.statEntityID || "",
+      m.statID || "",
+      m.periodID || "",
+      m.betTypeID || ""
+    ].join("|");
     (groups[key] ||= []).push(m);
   }
   
@@ -467,9 +509,17 @@ function normalizeEvent(ev: SGEvent) {
   return {
     eventID: ev.eventID,
     leagueID: ev.leagueID,
-    start_time: ev.status.startsAt,
-    home_team: ev.teams.home.names, // { long, short }
-    away_team: ev.teams.away.names, // { long, short }
+    start_time: ev.scheduled,
+    home_team: {
+      id: ev.teams?.home?.teamID ?? ev.teams?.home?.id ?? null,
+      abbr: ev.teams?.home?.abbreviation ?? ev.teams?.home?.names?.abbr ?? null,
+      name: ev.teams?.home?.names?.full ?? null,
+    },
+    away_team: {
+      id: ev.teams?.away?.teamID ?? ev.teams?.away?.id ?? null,
+      abbr: ev.teams?.away?.abbreviation ?? ev.teams?.away?.names?.abbr ?? null,
+      name: ev.teams?.away?.names?.full ?? null,
+    },
     team_props: teamProps,
     player_props: playerProps,
   };
@@ -640,6 +690,28 @@ function toNumberOrNull(s?: string | null) {
   return Number.isFinite(n) ? n : null;
 }
 
+function parseAmerican(odds: string | number | null | undefined): number | null {
+  if (odds === null || odds === undefined) return null;
+  const s = String(odds).trim();
+  if (!s) return null;
+  const n = parseInt(s, 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+function bestBySide(books: any[], side: "over" | "under") {
+  const candidates = books.filter(b => String(b.side).toLowerCase() === side && parseAmerican(b.price) !== null);
+  if (candidates.length === 0) return null;
+  // For American odds: maximize positive odds, minimize absolute value for negatives.
+  return candidates.sort((a, b) => {
+    const A = parseAmerican(a.price)!;
+    const B = parseAmerican(b.price)!;
+    // Higher is better for positive; for negatives, closer to zero is better.
+    const scoreA = A >= 0 ? A : -A; // adjust if you prefer strict American comparison
+    const scoreB = B >= 0 ? B : -B;
+    return scoreB - scoreA;
+  })[0];
+}
+
 function pickBest(entries: { price: string }[]) {
   if (!entries.length) return null;
   const score = (oddsStr: string) => {
@@ -659,9 +731,17 @@ function debugNormalizeEvent(ev: any) {
     return {
       eventID: ev?.eventID,
       leagueID: ev?.leagueID,
-      start_time: ev?.status?.startsAt,
-      home_team: ev?.teams?.home?.names,
-      away_team: ev?.teams?.away?.names,
+      start_time: ev?.scheduled,
+      home_team: {
+        id: ev?.teams?.home?.teamID ?? ev?.teams?.home?.id ?? null,
+        abbr: ev?.teams?.home?.abbreviation ?? ev?.teams?.home?.names?.abbr ?? null,
+        name: ev?.teams?.home?.names?.full ?? null,
+      },
+      away_team: {
+        id: ev?.teams?.away?.teamID ?? ev?.teams?.away?.id ?? null,
+        abbr: ev?.teams?.away?.abbreviation ?? ev?.teams?.away?.names?.abbr ?? null,
+        name: ev?.teams?.away?.names?.full ?? null,
+      },
       team_props: [],
       player_props: [],
       debug_counts: { keptPlayerProps: 0, droppedPlayerProps: 0 },
@@ -708,9 +788,17 @@ function debugNormalizeEventInternal(ev: any) {
   return {
     eventID: ev.eventID,
     leagueID: ev.leagueID,
-    start_time: ev.status?.startsAt,
-    home_team: ev.teams?.home?.names,
-    away_team: ev.teams?.away?.names,
+    start_time: ev.scheduled,
+    home_team: {
+      id: ev.teams?.home?.teamID ?? ev.teams?.home?.id ?? null,
+      abbr: ev.teams?.home?.abbreviation ?? ev.teams?.home?.names?.abbr ?? null,
+      name: ev.teams?.home?.names?.full ?? null,
+    },
+    away_team: {
+      id: ev.teams?.away?.teamID ?? ev.teams?.away?.id ?? null,
+      abbr: ev.teams?.away?.abbreviation ?? ev.teams?.away?.names?.abbr ?? null,
+      name: ev.teams?.away?.names?.full ?? null,
+    },
     team_props: teamProps,
     player_props: playerProps,
     debug_counts: { keptPlayerProps, droppedPlayerProps },
