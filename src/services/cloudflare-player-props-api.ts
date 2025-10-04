@@ -23,6 +23,25 @@ interface PlayerProp {
     confidence: number;
     reasoning: string;
   };
+  // Enhanced fields for new API format
+  bestOver?: {
+    price: number;
+    bookmaker: string;
+    line?: number;
+  };
+  bestUnder?: {
+    price: number;
+    bookmaker: string;
+    line?: number;
+  };
+  allBooks?: Array<{
+    bookmaker: string;
+    side: string;
+    price: number;
+    line?: number;
+  }>;
+  homeTeamLogo?: string;
+  awayTeamLogo?: string;
 }
 
 interface APIResponse {
@@ -98,6 +117,51 @@ class CloudflarePlayerPropsAPI {
         totalPlayerProps: data.events?.reduce((sum: number, event: any) => sum + (event.player_props?.length || 0), 0) || 0
       });
 
+      // NFL Team mapping for logos
+      const nflTeamMap: Record<string, string> = {
+        'Arizona Cardinals': 'https://a.espncdn.com/i/teamlogos/nfl/500/ari.png',
+        'Atlanta Falcons': 'https://a.espncdn.com/i/teamlogos/nfl/500/atl.png',
+        'Baltimore Ravens': 'https://a.espncdn.com/i/teamlogos/nfl/500/bal.png',
+        'Buffalo Bills': 'https://a.espncdn.com/i/teamlogos/nfl/500/buf.png',
+        'Carolina Panthers': 'https://a.espncdn.com/i/teamlogos/nfl/500/car.png',
+        'Chicago Bears': 'https://a.espncdn.com/i/teamlogos/nfl/500/chi.png',
+        'Cincinnati Bengals': 'https://a.espncdn.com/i/teamlogos/nfl/500/cin.png',
+        'Cleveland Browns': 'https://a.espncdn.com/i/teamlogos/nfl/500/cle.png',
+        'Dallas Cowboys': 'https://a.espncdn.com/i/teamlogos/nfl/500/dal.png',
+        'Denver Broncos': 'https://a.espncdn.com/i/teamlogos/nfl/500/den.png',
+        'Detroit Lions': 'https://a.espncdn.com/i/teamlogos/nfl/500/det.png',
+        'Green Bay Packers': 'https://a.espncdn.com/i/teamlogos/nfl/500/gb.png',
+        'Houston Texans': 'https://a.espncdn.com/i/teamlogos/nfl/500/hou.png',
+        'Indianapolis Colts': 'https://a.espncdn.com/i/teamlogos/nfl/500/ind.png',
+        'Jacksonville Jaguars': 'https://a.espncdn.com/i/teamlogos/nfl/500/jax.png',
+        'Kansas City Chiefs': 'https://a.espncdn.com/i/teamlogos/nfl/500/kc.png',
+        'Las Vegas Raiders': 'https://a.espncdn.com/i/teamlogos/nfl/500/lv.png',
+        'Los Angeles Chargers': 'https://a.espncdn.com/i/teamlogos/nfl/500/lac.png',
+        'Los Angeles Rams': 'https://a.espncdn.com/i/teamlogos/nfl/500/lar.png',
+        'Miami Dolphins': 'https://a.espncdn.com/i/teamlogos/nfl/500/mia.png',
+        'Minnesota Vikings': 'https://a.espncdn.com/i/teamlogos/nfl/500/min.png',
+        'New England Patriots': 'https://a.espncdn.com/i/teamlogos/nfl/500/ne.png',
+        'New Orleans Saints': 'https://a.espncdn.com/i/teamlogos/nfl/500/no.png',
+        'New York Giants': 'https://a.espncdn.com/i/teamlogos/nfl/500/nyg.png',
+        'New York Jets': 'https://a.espncdn.com/i/teamlogos/nfl/500/nyj.png',
+        'Philadelphia Eagles': 'https://a.espncdn.com/i/teamlogos/nfl/500/phi.png',
+        'Pittsburgh Steelers': 'https://a.espncdn.com/i/teamlogos/nfl/500/pit.png',
+        'San Francisco 49ers': 'https://a.espncdn.com/i/teamlogos/nfl/500/sf.png',
+        'Seattle Seahawks': 'https://a.espncdn.com/i/teamlogos/nfl/500/sea.png',
+        'Tampa Bay Buccaneers': 'https://a.espncdn.com/i/teamlogos/nfl/500/tb.png',
+        'Tennessee Titans': 'https://a.espncdn.com/i/teamlogos/nfl/500/ten.png',
+        'Washington Commanders': 'https://a.espncdn.com/i/teamlogos/nfl/500/wsh.png'
+      };
+
+      // Helper function to format market names
+      const formatMarketName = (marketType: string): string => {
+        return marketType
+          .replace(/_/g, ' ')
+          .split(' ')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .join(' ');
+      };
+
       // Transform the new format to the expected PlayerProp format
       const playerProps: PlayerProp[] = [];
       
@@ -106,42 +170,48 @@ class CloudflarePlayerPropsAPI {
           if (event.player_props) {
             for (const prop of event.player_props) {
               // Only include props with actual odds
-              if (prop.odds && prop.odds !== '0' && prop.odds !== 0) {
+              if (prop.best_over || prop.best_under) {
                 playerProps.push({
-                  id: prop.id,
-                  playerId: prop.statEntityID,
+                  id: prop.market_type + '-' + prop.player_name,
+                  playerId: prop.player_name,
                   playerName: prop.player_name,
                   team: event.home_team || 'Unknown',
                   opponent: event.away_team || 'Unknown',
-                  propType: prop.type,
-                  line: prop.line || 0,
-                  overOdds: prop.sideID === 'over' ? parseFloat(prop.odds.toString().replace('+', '')) : null,
-                  underOdds: prop.sideID === 'under' ? parseFloat(prop.odds.toString().replace('+', '')) : null,
+                  propType: formatMarketName(prop.market_type),
+                  line: prop.line,
+                  overOdds: prop.best_over?.price ? parseFloat(prop.best_over.price.toString().replace('+', '')) : null,
+                  underOdds: prop.best_under?.price ? parseFloat(prop.best_under.price.toString().replace('+', '')) : null,
                   confidence: 0.5, // Default fallback
                   expectedValue: 0, // Default fallback
                   gameDate: event.start_time?.split('T')[0] || today,
                   gameTime: event.start_time || new Date().toISOString(),
                   sport: sport,
-                  availableSportsbooks: Object.keys(prop.bookmakers || {}),
+                  availableSportsbooks: prop.books?.map((book: any) => book.bookmaker) || [],
                   teamAbbr: event.home_team?.split(' ').pop() || 'UNK',
                   opponentAbbr: event.away_team?.split(' ').pop() || 'UNK',
                   gameId: event.id,
-                  allSportsbookOdds: Object.entries(prop.bookmakers || {}).map(([bookmaker, data]: [string, any]) => ({
-                    sportsbook: bookmaker,
-                    odds: parseFloat(data.odds?.toString().replace('+', '') || '0'),
-                    lastUpdate: data.lastUpdatedAt || new Date().toISOString()
-                  })),
+                  allSportsbookOdds: prop.books?.map((book: any) => ({
+                    sportsbook: book.bookmaker,
+                    odds: parseFloat(book.price?.toString().replace('+', '') || '0'),
+                    lastUpdate: new Date().toISOString()
+                  })) || [],
                   available: true,
                   awayTeam: event.away_team,
                   homeTeam: event.home_team,
                   betType: 'player_prop',
                   isExactAPIData: true,
                   lastUpdate: new Date().toISOString(),
-                  marketName: prop.type,
-                  market: prop.type,
-                  marketId: prop.id,
+                  marketName: formatMarketName(prop.market_type),
+                  market: formatMarketName(prop.market_type),
+                  marketId: prop.market_type,
                   period: 'full_game',
-                  statEntity: prop.statEntityID
+                  statEntity: prop.player_name,
+                  // New fields for enhanced display
+                  bestOver: prop.best_over,
+                  bestUnder: prop.best_under,
+                  allBooks: prop.books,
+                  homeTeamLogo: nflTeamMap[event.home_team || ''],
+                  awayTeamLogo: nflTeamMap[event.away_team || '']
                 });
               }
             }
