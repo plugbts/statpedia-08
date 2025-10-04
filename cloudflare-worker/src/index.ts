@@ -617,13 +617,14 @@ function normalizePlayerGroup(markets: any[], players: Record<string, any>, leag
 
     // Per-book odds
     for (const [book, data] of Object.entries(side.byBookmaker || {})) {
-      if (!data.odds && !data.overUnder) continue;
+      const bookData = data as any;
+      if (!bookData.odds && !bookData.overUnder) continue;
       books.push({
         bookmaker: book,
         side: side.sideID,
-        price: data.odds ?? side.bookOdds ?? null,
-        line: Number(data.overUnder ?? side.bookOverUnder ?? null),
-        deeplink: data.deeplink,
+        price: bookData.odds ?? side.bookOdds ?? null,
+        line: Number(bookData.overUnder ?? side.bookOverUnder ?? null),
+        deeplink: bookData.deeplink,
       });
     }
   }
