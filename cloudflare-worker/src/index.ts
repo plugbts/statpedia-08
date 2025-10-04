@@ -71,6 +71,19 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
+    // Handle CORS preflight requests
+    if (request.method === "OPTIONS") {
+      return new Response(null, {
+        status: 200,
+        headers: {
+          "access-control-allow-origin": "*",
+          "access-control-allow-methods": "GET, POST, OPTIONS",
+          "access-control-allow-headers": "Content-Type, Authorization",
+          "access-control-max-age": "86400",
+        },
+      });
+    }
+
     // Debug endpoint: /debug/player-props?league=nfl&date=YYYY-MM-DD
     if (url.pathname === "/debug/player-props") {
       return handleDebugPlayerProps(url, env);
@@ -240,6 +253,9 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
         headers: {
       "content-type": "application/json",
       "cache-control": `public, s-maxage=${ttl}, stale-while-revalidate=1800`,
+      "access-control-allow-origin": "*",
+      "access-control-allow-methods": "GET, POST, OPTIONS",
+      "access-control-allow-headers": "Content-Type, Authorization",
         },
       });
 
@@ -329,7 +345,14 @@ async function handleCachePurge(url: URL, request: Request, env: Env): Promise<R
 
   return new Response(
     JSON.stringify({ message: "Cache purged", league, date, cacheKey, deleted }),
-    { headers: { "content-type": "application/json" } }
+    { 
+      headers: { 
+        "content-type": "application/json",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Content-Type, Authorization"
+      } 
+    }
   );
 }
 
@@ -361,7 +384,12 @@ function buildCacheKey(url: URL, league: string, date: string, oddIDs?: string |
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json" },
+    headers: { 
+      "content-type": "application/json",
+      "access-control-allow-origin": "*",
+      "access-control-allow-methods": "GET, POST, OPTIONS",
+      "access-control-allow-headers": "Content-Type, Authorization"
+    },
   });
 }
 
@@ -794,12 +822,22 @@ async function handleMetrics(url: URL, request: Request, env: Env): Promise<Resp
   try {
     const metrics = await getMetrics(env, reset);
     return new Response(JSON.stringify(metrics), {
-      headers: { "content-type": "application/json" }
+      headers: { 
+        "content-type": "application/json",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Content-Type, Authorization"
+      }
     });
   } catch (error) {
     return new Response(JSON.stringify({ error: "Failed to get metrics" }), {
       status: 500,
-      headers: { "content-type": "application/json" }
+      headers: { 
+        "content-type": "application/json",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Content-Type, Authorization"
+      }
     });
   }
 }
