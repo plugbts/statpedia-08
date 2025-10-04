@@ -319,16 +319,13 @@ async function handlePropsEndpoint(request, env, league) {
         firstEventPropsCount: normalized[0]?.player_props?.length || 0
       });
       for (const event of normalized) {
-        if (event.player_props?.length) {
-          groupPlayerProps(event, league2);
-          if (debug) {
-            console.log("DEBUG prop summary", {
-              eventID: event.eventID,
-              home: event.home_team,
-              away: event.away_team,
-              counts: summarizePropsByMarket(event, league2)
-            });
-          }
+        if (debug && event.player_props?.length) {
+          console.log("DEBUG prop summary", {
+            eventID: event.eventID,
+            home: event.home_team,
+            away: event.away_team,
+            counts: summarizePropsByMarket(event, league2)
+          });
         }
       }
       normalized = capPropsPerLeague(normalized, league2, 125);
@@ -485,6 +482,7 @@ function normalizeEventSGO(ev, request) {
     return null;
   }
   const normalized = normalizeEvent(ev);
+  console.log(`DEBUG normalizeEventSGO: eventID=${ev.eventID}, player_props=${normalized.player_props?.length || 0}, team_props=${normalized.team_props?.length || 0}`);
   return {
     eventID: normalized.eventID,
     leagueID: normalized.leagueID,
@@ -515,23 +513,51 @@ function normalizeEvent(ev) {
     for (const oddID in oddsDict) {
       const m = oddsDict[oddID];
       const key = [
-        m.player_id || "",
+        m.playerID || m.statEntityID || "",
         // which player/team this prop belongs to
-        m.market_id || "",
+        m.statID || "",
+        // market type identifier
+        m.sideID || "",
+        // over/under side
+        m.periodID || "",
+        // period (full_game, 1H, etc.)
+        m.marketID || ""
         // unique market identifier
-        m.market_type || "",
-        // e.g. passing_yards, rushing_yards, points
-        m.period || "",
-        // full_game, 1H, 1Q, etc.
-        m.bet_type || ""
-        // over/under, yes/no
       ].join("|");
       (groups[key] ||= []).push(m);
     }
+    const sampleOddID = Object.keys(oddsDict)[0];
+    if (sampleOddID) {
+      console.log("DEBUG: Sample market data", {
+        oddID: sampleOddID,
+        market: oddsDict[sampleOddID]
+      });
+    }
+    let playerMarketCount = 0;
+    let teamMarketCount = 0;
+    for (const oddID in oddsDict) {
+      const m = oddsDict[oddID];
+      if (m.playerID) {
+        playerMarketCount++;
+      } else if (m.statEntityID === "all" || m.statEntityID === "side1" || m.statEntityID === "side2") {
+        teamMarketCount++;
+      }
+    }
+    console.log(`DEBUG: Market counts - Player markets: ${playerMarketCount}, Team markets: ${teamMarketCount}`);
     console.log(`Created ${Object.keys(groups).length} groups`);
     for (const key in groups) {
       const markets = groups[key];
-      const hasPlayer = markets.some((mm) => !!mm.playerID);
+      const hasPlayer = markets.some((mm) => {
+        if (mm.playerID)
+          return true;
+        if (mm.statEntityID === "all" || mm.statEntityID === "side1" || mm.statEntityID === "side2") {
+          return false;
+        }
+        if (mm.statEntityID && players[mm.statEntityID]) {
+          return true;
+        }
+        return false;
+      });
       console.log(`Group ${key}: hasPlayer=${hasPlayer}, markets=${markets.length}`);
       if (hasPlayer) {
         const norm = normalizePlayerGroup(markets, players, leagueId || "NFL");
@@ -542,9 +568,14 @@ function normalizeEvent(ev) {
           console.log(`Failed to normalize player group: ${key}`);
         }
       } else {
+        console.log(`Processing team prop group: ${key}`);
         const norm = normalizeTeamGroup(markets);
-        if (norm)
+        if (norm) {
           teamProps.push(norm);
+          console.log(`Added team prop: ${norm.market_type}`);
+        } else {
+          console.log(`Failed to normalize team group: ${key}`);
+        }
       }
     }
   }
@@ -564,24 +595,6 @@ function normalizeEvent(ev) {
   };
 }
 __name(normalizeEvent, "normalizeEvent");
-function groupPlayerProps(event, league) {
-  const grouped = {};
-  for (const m of event.player_props) {
-    const key = [
-      m.playerID || "",
-      m.statID || "",
-      m.periodID || "",
-      m.betTypeID || ""
-    ].join("|");
-    (grouped[key] ||= []).push(m);
-  }
-  console.log("DEBUG grouped props", {
-    groups: Object.keys(grouped).length,
-    sample: Object.values(grouped)[0]
-  });
-  event.player_props = Object.values(grouped).map((group) => normalizePlayerGroup(group, event.players, league)).filter(Boolean);
-}
-__name(groupPlayerProps, "groupPlayerProps");
 function normalizePlayerGroup(markets, players, league) {
   const over = markets.find((m) => m.sideID?.toLowerCase() === "over" || m.sideID?.toLowerCase() === "yes");
   const under = markets.find((m) => m.sideID?.toLowerCase() === "under" || m.sideID?.toLowerCase() === "no");
@@ -603,6 +616,14 @@ function normalizePlayerGroup(markets, players, league) {
     if (players[base.statEntityID]) {
       playerName = players[base.statEntityID].name;
     }
+  }
+  if (!playerName) {
+    console.log("DEBUG: Skipping prop without player name", {
+      oddID: base.oddID,
+      statEntityID: base.statEntityID,
+      statID: base.statID
+    });
+    return null;
   }
   const allBooks = [...collectBooks(over), ...collectBooks(under)];
   let teamID = player?.teamID ?? null;

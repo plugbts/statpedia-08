@@ -255,19 +255,15 @@ export async function handlePropsEndpoint(request: Request, env: Env, league?: s
         firstEventPropsCount: normalized[0]?.player_props?.length || 0
       });
 
-      // 3. Group and normalize player props
+      // 3. Player props are already normalized by normalizeEvent, no need to group again
       for (const event of normalized) {
-        if (event.player_props?.length) {
-          groupPlayerProps(event, league);
-
-          if (debug) {
-            console.log("DEBUG prop summary", {
-              eventID: event.eventID,
-              home: event.home_team,
-              away: event.away_team,
-              counts: summarizePropsByMarket(event, league)
-            });
-          }
+        if (debug && event.player_props?.length) {
+          console.log("DEBUG prop summary", {
+            eventID: event.eventID,
+            home: event.home_team,
+            away: event.away_team,
+            counts: summarizePropsByMarket(event, league)
+          });
         }
       }
 
@@ -493,6 +489,8 @@ function normalizeEventSGO(ev: any, request: any) {
   // Use the existing normalizeEvent function which handles SGO schema properly
   const normalized = normalizeEvent(ev);
   
+  console.log(`DEBUG normalizeEventSGO: eventID=${ev.eventID}, player_props=${normalized.player_props?.length || 0}, team_props=${normalized.team_props?.length || 0}`);
+  
   return {
     eventID: normalized.eventID,
     leagueID: normalized.leagueID,
@@ -527,28 +525,68 @@ function normalizeEvent(ev: SGEvent) {
   const players = ev.players || {};
   const oddsDict = ev.odds || {};
   
-    // Group by SGO identifiers to preserve all distinct prop types
-    const groups: Record<string, any[]> = {};
+  // Group by SGO identifiers to preserve all distinct prop types
+  const groups: Record<string, any[]> = {};
   for (const oddID in oddsDict) {
     const m = oddsDict[oddID];
 
       // Build a composite key from SGO fields
+      // Use the actual SGO schema fields
       const key = [
-        (m as any).player_id || "",     // which player/team this prop belongs to
-        (m as any).market_id || "",     // unique market identifier
-        (m as any).market_type || "",   // e.g. passing_yards, rushing_yards, points
-        (m as any).period || "",        // full_game, 1H, 1Q, etc.
-        (m as any).bet_type || "",      // over/under, yes/no
+        (m as any).playerID || (m as any).statEntityID || "",     // which player/team this prop belongs to
+        (m as any).statID || "",     // market type identifier
+        (m as any).sideID || "",     // over/under side
+        (m as any).periodID || "",   // period (full_game, 1H, etc.)
+        (m as any).marketID || "",   // unique market identifier
       ].join("|");
 
     (groups[key] ||= []).push(m);
   }
   
+  // Debug: log sample market data and count player vs team markets
+  const sampleOddID = Object.keys(oddsDict)[0];
+  if (sampleOddID) {
+    console.log("DEBUG: Sample market data", {
+      oddID: sampleOddID,
+      market: oddsDict[sampleOddID]
+    });
+  }
+  
+  // Count markets with player IDs vs team IDs
+  let playerMarketCount = 0;
+  let teamMarketCount = 0;
+  for (const oddID in oddsDict) {
+    const m = oddsDict[oddID];
+    if (m.playerID) {
+      playerMarketCount++;
+    } else if (m.statEntityID === 'all' || m.statEntityID === 'side1' || m.statEntityID === 'side2') {
+      teamMarketCount++;
+    }
+  }
+  console.log(`DEBUG: Market counts - Player markets: ${playerMarketCount}, Team markets: ${teamMarketCount}`);
+  
   console.log(`Created ${Object.keys(groups).length} groups`);
 
   for (const key in groups) {
     const markets = groups[key];
-    const hasPlayer = markets.some(mm => !!mm.playerID);
+    // Check if this is a player prop or team prop
+    // Team props have statEntityID of 'all', 'side1', 'side2', or no playerID
+    const hasPlayer = markets.some(mm => {
+      // If it has a playerID, it's definitely a player prop
+      if (mm.playerID) return true;
+      
+      // If statEntityID is 'all', 'side1', 'side2', it's a team prop
+      if (mm.statEntityID === 'all' || mm.statEntityID === 'side1' || mm.statEntityID === 'side2') {
+        return false;
+      }
+      
+      // If statEntityID exists and is not a team identifier, it might be a player prop
+      if (mm.statEntityID && players[mm.statEntityID]) {
+        return true;
+      }
+      
+      return false;
+    });
     
     console.log(`Group ${key}: hasPlayer=${hasPlayer}, markets=${markets.length}`);
 
@@ -561,8 +599,14 @@ function normalizeEvent(ev: SGEvent) {
         console.log(`Failed to normalize player group: ${key}`);
       }
     } else {
+      console.log(`Processing team prop group: ${key}`);
       const norm = normalizeTeamGroup(markets);
-      if (norm) teamProps.push(norm);
+      if (norm) {
+        teamProps.push(norm);
+        console.log(`Added team prop: ${norm.market_type}`);
+      } else {
+        console.log(`Failed to normalize team group: ${key}`);
+      }
       }
     }
   }
@@ -635,6 +679,16 @@ function normalizePlayerGroup(markets: any[], players: Record<string, any>, leag
     if (players[base.statEntityID]) {
       playerName = players[base.statEntityID].name;
     }
+  }
+
+  // If we still don't have a player name, this might be a team prop that was misclassified
+  if (!playerName) {
+    console.log("DEBUG: Skipping prop without player name", {
+      oddID: base.oddID,
+      statEntityID: base.statEntityID,
+      statID: base.statID
+    });
+    return null;
   }
 
   const allBooks = [...collectBooks(over), ...collectBooks(under)];
