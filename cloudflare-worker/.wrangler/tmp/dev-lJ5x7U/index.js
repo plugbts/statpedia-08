@@ -812,7 +812,8 @@ async function fetchSportsGameOddsDay(league, date, env) {
       supported: Object.keys(sportLeagueMap)
     };
   }
-  const url = `https://api.sportsgameodds.com/v2/events?sportID=${mapping.sportID}&leagueID=${mapping.leagueID}&date=${date}`;
+  const url = `https://api.sportsgameodds.com/v2/events?leagueID=${mapping.leagueID}&date=${date}`;
+  console.log(`[fetchSportsGameOddsDay] Fetching: ${url}`);
   const res = await fetch(url, {
     headers: {
       "accept": "application/json",

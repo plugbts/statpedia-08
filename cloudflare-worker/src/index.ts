@@ -1211,8 +1211,9 @@ export async function fetchSportsGameOddsDay(league: string, date: string, env: 
     };
   }
 
-  // 3. Build URL with correct endpoint format
-  const url = `https://api.sportsgameodds.com/v2/events?sportID=${mapping.sportID}&leagueID=${mapping.leagueID}&date=${date}`;
+  // 3. Build URL with correct endpoint format (omit sportID as it may cause issues)
+  const url = `https://api.sportsgameodds.com/v2/events?leagueID=${mapping.leagueID}&date=${date}`;
+  console.log(`[fetchSportsGameOddsDay] Fetching: ${url}`);
   const res = await fetch(url, {
     headers: {
       "accept": "application/json",
