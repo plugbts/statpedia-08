@@ -13,7 +13,7 @@ interface Env {
 
 const BASE_URL = "https://api.sportsgameodds.com/v2";
 
-// Types
+// Types reflecting your raw API structures
 type Player = {
   playerID: string;
   teamID: string;
@@ -23,8 +23,8 @@ type Player = {
 };
 
 type BookData = {
-  odds?: string;         // e.g. "+102" or "-110"
-  overUnder?: string;    // line as string
+  odds?: string;
+  overUnder?: string;
   lastUpdatedAt?: string;
   available?: boolean;
   deeplink?: string;
@@ -34,21 +34,21 @@ type MarketSide = {
   oddID: string;
   opposingOddID?: string;
   marketName: string;
-  statID: string;           // e.g. "passing_attempts"
-  statEntityID: string;     // e.g. "JOE_FLACCO_1_NFL"
-  periodID: string;         // e.g. "game"
-  betTypeID: string;        // e.g. "ou"
+  statID: string;
+  statEntityID: string;
+  periodID: string;
+  betTypeID: string;
   sideID: "over" | "under" | "yes" | "no";
-  playerID?: string;        // e.g. "JOE_FLACCO_1_NFL"
+  playerID?: string;
   started?: boolean;
   ended?: boolean;
   cancelled?: boolean;
   bookOddsAvailable?: boolean;
   fairOddsAvailable?: boolean;
-  fairOdds?: string;        // e.g. "+104"
-  bookOdds?: string;        // e.g. "-110"
-  fairOverUnder?: string;   // e.g. "29.5"
-  bookOverUnder?: string;   // e.g. "29.5"
+  fairOdds?: string;
+  bookOdds?: string;
+  fairOverUnder?: string;
+  bookOverUnder?: string;
   openFairOdds?: string;
   openBookOdds?: string;
   openFairOverUnder?: string;
@@ -59,22 +59,23 @@ type MarketSide = {
 
 type SGEvent = {
   eventID: string;
-  leagueID: string;         // "NFL"
-  sportID: string;          // "FOOTBALL"
+  leagueID: string;  // "NFL"
+  sportID: string;   // "FOOTBALL"
   teams: {
     home: { names: { long: string; short: string } };
     away: { names: { long: string; short: string } };
   };
   scheduled: string;
-  odds: Record<string, MarketSide>;      // keyed by oddID
-  players: Record<string, Player>;       // keyed by playerID
+  odds: Record<string, MarketSide>;        // keyed by oddID
+  players: Record<string, Player>;         // keyed by playerID
 };
 
+// Build upstream URL with live markets
 function buildUpstreamUrl(path: string, params: URLSearchParams) {
   const url = new URL(path, BASE_URL);
-  url.searchParams.set('oddsAvailable', 'true');
 
-  ['date', 'bookmakerID', 'oddIDs'].forEach(k => {
+  url.searchParams.set("oddsAvailable", "true");
+  ["date", "oddIDs", "bookmakerID"].forEach(k => {
     const v = params.get(k);
     if (v) url.searchParams.set(k, v);
   });
@@ -82,24 +83,20 @@ function buildUpstreamUrl(path: string, params: URLSearchParams) {
   // Handle league parameter mapping
   const league = params.get('league');
   if (league) url.searchParams.set('leagueID', league);
+
   return url.toString();
 }
 
-// Normalization functions
-export function normalizeEvent(ev: SGEvent) {
+// Normalize one event into frontend-ready shape
+function normalizeEvent(ev: SGEvent) {
   const players = ev.players || {};
   const oddsDict = ev.odds || {};
 
-  // Group by player/stat/period/betType using statEntityID for stability
+  // Group by statEntityID + statID + periodID + betTypeID (stable across sides)
   const groups: Record<string, MarketSide[]> = {};
   for (const oddID in oddsDict) {
     const m = oddsDict[oddID];
-    const key = [
-      m.statEntityID || m.playerID || "", // prefer statEntityID
-      m.statID || "",
-      m.periodID || "",
-      m.betTypeID || "",
-    ].join("|");
+    const key = [m.statEntityID || "", m.statID || "", m.periodID || "", m.betTypeID || ""].join("|");
     (groups[key] ||= []).push(m);
   }
 
@@ -108,9 +105,8 @@ export function normalizeEvent(ev: SGEvent) {
 
   for (const key in groups) {
     const markets = groups[key];
-    const hasPlayer = markets.some(mm => !!mm.playerID || !!mm.statEntityID?.includes("_NFL"));
+    const hasPlayer = markets.some(mm => !!mm.playerID);
 
-    // Normalize each group defensively; never return null
     if (hasPlayer) {
       const norm = normalizePlayerGroup(markets, players);
       if (norm) playerProps.push(norm);
@@ -124,81 +120,121 @@ export function normalizeEvent(ev: SGEvent) {
     eventID: ev.eventID,
     leagueID: ev.leagueID,
     start_time: ev.scheduled,
-    home_team: ev.teams.home.names, // include both long/short for UI mapping
-    away_team: ev.teams.away.names,
+    home_team: ev.teams.home.names, // { long, short }
+    away_team: ev.teams.away.names, // { long, short }
     team_props: teamProps,
     player_props: playerProps,
   };
 }
 
+// Normalize player markets (handles single-sided and empty byBookmaker)
 function normalizePlayerGroup(markets: MarketSide[], players: Record<string, Player>) {
-  const over = markets.find(m => m.sideID === "over");
-  const under = markets.find(m => m.sideID === "under");
-
-  if (!over && !under) return null; // truly invalid
-
-  // Use whichever exists as base
+  const over = markets.find(m => isOverSide(m.sideID));
+  const under = markets.find(m => isUnderSide(m.sideID));
   const base = over || under;
+  if (!base) return null; // truly invalid group
 
-  const player = (base.playerID && players[base.playerID]) || undefined;
+  const player = base.playerID ? players[base.playerID] : undefined;
+  const playerName = player?.name || extractNameFromMarket(base.marketName);
+  const marketType = formatStatID(base.statID);
+
+  const lineStr = firstDefined(over?.bookOverUnder, under?.bookOverUnder, over?.fairOverUnder, under?.fairOverUnder);
+  const line = toNumberOrNull(lineStr);
+
   const books = collectBooks(over, under);
 
+  const best_over = pickBest(books.filter(b => b.side === "over" || b.side === "yes"));
+  const best_under = pickBest(books.filter(b => b.side === "under" || b.side === "no"));
+
   return {
-    player_name: player?.name ?? extractNameFromMarket(base.marketName),
+    player_name: playerName,
     teamID: player?.teamID ?? null,
-    market_type: formatStatID(base.statID),
-    line: parseFloat(base.bookOverUnder ?? base.fairOverUnder ?? "0"),
-    best_over: over ? { price: over.bookOdds, bookmaker: "consensus" } : null,
-    best_under: under ? { price: under.bookOdds, bookmaker: "consensus" } : null,
+    market_type: marketType,
+    line,
+    best_over,
+    best_under,
     books,
+    oddIDs: {
+      over: over?.oddID ?? null,
+      under: under?.oddID ?? null,
+      opposingOver: over?.opposingOddID ?? null,
+      opposingUnder: under?.opposingOddID ?? null,
+    },
+    status: {
+      started: !!(over?.started || under?.started),
+      ended: !!(over?.ended || under?.ended),
+      cancelled: !!(over?.cancelled || under?.cancelled),
+    },
   };
 }
 
+// Normalize team markets similarly
 function normalizeTeamGroup(markets: MarketSide[]) {
-  const over = markets.find(m => m.sideID === "over");
-  const under = markets.find(m => m.sideID === "under");
-
-  if (!over && !under) return null; // truly invalid
-
-  // Use whichever exists as base
+  const over = markets.find(m => isOverSide(m.sideID));
+  const under = markets.find(m => isUnderSide(m.sideID));
   const base = over || under;
+  if (!base) return null;
+
+  const marketType = formatStatID(base.statID);
+  const lineStr = firstDefined(over?.bookOverUnder, under?.bookOverUnder, over?.fairOverUnder, under?.fairOverUnder);
+  const line = toNumberOrNull(lineStr);
 
   const books = collectBooks(over, under);
 
+  const best_over = pickBest(books.filter(b => b.side === "over" || b.side === "yes"));
+  const best_under = pickBest(books.filter(b => b.side === "under" || b.side === "no"));
+
   return {
-    market_type: formatStatID(base.statID),
-    line: parseFloat(base.bookOverUnder ?? base.fairOverUnder ?? "0"),
-    best_over: over ? { price: over.bookOdds, bookmaker: "consensus" } : null,
-    best_under: under ? { price: under.bookOdds, bookmaker: "consensus" } : null,
+    market_type: marketType,
+    line,
+    best_over,
+    best_under,
     books,
+    oddIDs: {
+      over: over?.oddID ?? null,
+      under: under?.oddID ?? null,
+      opposingOver: over?.opposingOddID ?? null,
+      opposingUnder: under?.opposingOddID ?? null,
+    },
+    status: {
+      started: !!(over?.started || under?.started),
+      ended: !!(over?.ended || under?.ended),
+      cancelled: !!(over?.cancelled || under?.cancelled),
+    },
   };
 }
 
+// Collect per-book odds, and always add a consensus fallback using market-level bookOdds/bookOverUnder
 function collectBooks(over?: MarketSide, under?: MarketSide) {
-  const books: any[] = [];
+  const books: { bookmaker: string; side: string; price: string; line: number | null; deeplink?: string }[] = [];
 
   for (const side of [over, under]) {
     if (!side) continue;
 
-    // Always push a "default" book using bookOdds/bookOverUnder
-    books.push({
-      bookmaker: "consensus",
-      side: side.sideID,
-      price: side.bookOdds,
-      line: parseFloat(side.bookOverUnder),
-    });
+    // Consensus fallback from market-level fields
+    if (side.bookOdds || side.bookOverUnder) {
+      books.push({
+        bookmaker: "consensus",
+        side: String(side.sideID).toLowerCase(),
+        price: side.bookOdds ?? "",
+        line: toNumberOrNull(side.bookOverUnder ?? side.fairOverUnder),
+        deeplink: undefined,
+      });
+    }
 
-    // Then add per-book odds if available
-    for (const [book, data] of Object.entries(side.byBookmaker || {})) {
+    // Per-book odds if available
+    const byBook = side.byBookmaker || {};
+    for (const [book, data] of Object.entries(byBook)) {
       books.push({
         bookmaker: book,
-        side: side.sideID,
-        price: data.odds ?? side.bookOdds,
-        line: parseFloat(data.overUnder ?? side.bookOverUnder),
+        side: String(side.sideID).toLowerCase(),
+        price: data.odds ?? side.bookOdds ?? side.fairOdds ?? "",
+        line: toNumberOrNull(firstDefined(side.bookOverUnder, side.fairOverUnder, data.overUnder)),
         deeplink: data.deeplink,
       });
     }
   }
+
   return books;
 }
 
@@ -216,8 +252,7 @@ function formatStatID(statID: string) {
 }
 
 function extractNameFromMarket(marketName: string) {
-  // Fallback only: "Joe Flacco Passing Attempts Over/Under" -> "Joe Flacco"
-  return (marketName || "").replace(/\s+(Passing|Rushing|Receiving|Attempts|Completions|Yards|Touchdowns).*$/i, "");
+  return (marketName || "").replace(/\s+(Passing|Rushing|Receiving|Attempts|Completions|Yards|Touchdowns|Interceptions|Receptions).*$/i, "");
 }
 
 function firstDefined<T>(...vals: (T | undefined | null)[]) {
@@ -230,7 +265,7 @@ function toNumberOrNull(s?: string | null) {
   return Number.isFinite(n) ? n : null;
 }
 
-// Compare American odds by bettor payout multiplier; return best entry
+// Pick best American odds by bettor payout multiplier
 function pickBest(entries: { price: string }[]) {
   if (!entries.length) return null;
   const score = (oddsStr: string) => {
@@ -241,30 +276,19 @@ function pickBest(entries: { price: string }[]) {
   return entries.reduce((best, cur) => (score(cur.price) > score(best.price) ? cur : best), entries[0]);
 }
 
-function emptyGroup(markets: MarketSide[]) {
-  return {
-    market_type: "Unknown",
-    line: null,
-    best_over: null,
-    best_under: null,
-    books: [],
-    oddIDs: { over: null, under: null, opposingOver: null, opposingUnder: null },
-    status: { started: false, ended: false, cancelled: false },
-    _error: "No valid sides found",
-  };
+// Simple JSON responder
+function respondJson(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
 }
 
-function safeNormalizeEvent(ev: any) {
+// Defensive wrapper: never drop an event entirely
+function safeNormalizeEvent(ev: SGEvent) {
   try {
     return normalizeEvent(ev);
   } catch (err) {
-    console.error("normalizeEvent failed", {
-      eventID: ev?.eventID,
-      leagueID: ev?.leagueID,
-      teams: ev?.teams,
-      error: String(err),
-      stack: (err as any)?.stack,
-    });
     return {
       eventID: ev?.eventID ?? null,
       leagueID: ev?.leagueID ?? null,
@@ -273,7 +297,7 @@ function safeNormalizeEvent(ev: any) {
       away_team: ev?.teams?.away?.names ?? null,
       team_props: [],
       player_props: [],
-      _error: "normalizeEvent failed",
+      _error: String(err),
     };
   }
 }
@@ -310,7 +334,6 @@ export default {
         }
 
         const upstreamUrl = buildUpstreamUrl('/v2/events', searchParams);
-        console.log("Upstream URL:", upstreamUrl);
         const headers = new Headers({ 'x-api-key': env.SPORTSGAMEODDS_API_KEY });
 
         try {
@@ -326,42 +349,26 @@ export default {
           }
           const data = await res.json();
 
-          // Strictly filter NFL events, then normalize
-          const rawEvents = data?.data || [];
-          console.log("Upstream counts", {
-            events: rawEvents.length,
-            sampleEventID: rawEvents[0]?.eventID,
-            sampleLeagueID: rawEvents[0]?.leagueID,
-          });
-
-          const nflEvents = rawEvents.filter((ev: any) => String(ev?.leagueID || "").toUpperCase() === "NFL");
+          const rawEvents: SGEvent[] = data?.data || [];
+          const nflEvents = rawEvents.filter(ev => String(ev.leagueID).toUpperCase() === "NFL");
           const normalized = nflEvents.map(safeNormalizeEvent);
 
           const hasPlayerProps = normalized.some(ev => (ev.player_props?.length || 0) > 0);
           const ttl = hasPlayerProps ? 1800 : 300;
 
-          console.log("Normalized counts", {
-            events: normalized.length,
-            totalPlayerProps: normalized.reduce((a, ev) => a + (ev.player_props?.length || 0), 0),
-            totalTeamProps: normalized.reduce((a, ev) => a + (ev.team_props?.length || 0), 0),
-          });
+          // Temporary inline debug to verify normalization while logs aren't visible
+          const debug = {
+            upstream: { events: rawEvents.length },
+            normalized: {
+              events: normalized.length,
+              playerPropsTotal: normalized.reduce((a, ev) => a + (ev.player_props?.length || 0), 0),
+              teamPropsTotal: normalized.reduce((a, ev) => a + (ev.team_props?.length || 0), 0),
+            },
+          };
 
           return new Response(JSON.stringify({ 
             events: normalized,
-            debug: {
-              upstreamUrl: upstreamUrl,
-              rawCount: rawEvents.length,
-              nflCount: nflEvents.length,
-              normalizedCount: normalized.length,
-              totalPlayerProps: normalized.reduce((a, ev) => a + (ev.player_props?.length || 0), 0),
-              totalTeamProps: normalized.reduce((a, ev) => a + (ev.team_props?.length || 0), 0),
-              sampleEvent: rawEvents[0] ? {
-                eventID: rawEvents[0].eventID,
-                leagueID: rawEvents[0].leagueID,
-                oddsCount: Object.keys(rawEvents[0].odds || {}).length,
-                playersCount: Object.keys(rawEvents[0].players || {}).length
-              } : null
-            }
+            debug
           }), {
             headers: { 
               ...corsHeaders, 
