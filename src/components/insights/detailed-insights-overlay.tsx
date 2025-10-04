@@ -1151,4 +1151,3 @@ export const DetailedInsightsOverlay = ({
     </Dialog>
   );
 };
-}

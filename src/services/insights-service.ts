@@ -6,6 +6,7 @@ import { gamesService } from './games-service';
 import { cloudflarePlayerPropsAPI } from './cloudflare-player-props-api';
 import { sportsGameOddsEdgeAPI } from './sportsgameodds-edge-api';
 import { useOddsAPI } from '@/hooks/use-odds-api';
+import { devConsole } from '@/utils/dev-console';
 
 export interface GameInsight {
   insight_id: string;
@@ -136,22 +137,22 @@ class InsightsService {
     }
 
     try {
-      console.log(`📊 [InsightsService] Fetching real game insights for ${sport}...`);
+      devConsole.insights(`Fetching real game insights for ${sport}...`);
       
       // Use the same API system as player props - Cloudflare Workers API
       const { cloudflarePlayerPropsAPI } = await import('./cloudflare-player-props-api');
       const playerProps = await cloudflarePlayerPropsAPI.getPlayerProps(sport, true); // Force refresh
-      console.log(`📊 [InsightsService] Retrieved ${playerProps.length} player props for ${sport} from Cloudflare Workers API`);
+      devConsole.api(`Retrieved ${playerProps.length} player props for ${sport} from Cloudflare Workers API`);
       
       // Generate insights from real player props data (same structure as before)
       const insights = this.generateGameInsightsFromRealData(playerProps, sport);
       
       this.cache.set(cacheKey, { data: insights, timestamp: now });
       
-      console.log(`✅ [InsightsService] Successfully generated ${insights.length} real game insights for ${sport}`);
-      console.log(`📊 [InsightsService] Game insights details:`, insights);
+      devConsole.success(`Successfully generated ${insights.length} real game insights for ${sport}`);
+      devConsole.debug(`Game insights details:`, insights);
       const filteredInsights = insights.filter(insight => insight && insight.insight_id);
-      console.log(`📊 [InsightsService] Filtered game insights: ${filteredInsights.length}`, filteredInsights);
+      devConsole.debug(`Filtered game insights: ${filteredInsights.length}`, filteredInsights);
       return filteredInsights;
     } catch (error) {
       console.error(`❌ [InsightsService] Failed to fetch game insights for ${sport}:`, error);
@@ -171,19 +172,19 @@ class InsightsService {
     }
 
     try {
-      console.log(`👤 [InsightsService] Fetching real player insights for ${sport}...`);
+      devConsole.insights(`Fetching real player insights for ${sport}...`);
       
       // Use the same API system as player props - Cloudflare Workers API
       const { cloudflarePlayerPropsAPI } = await import('./cloudflare-player-props-api');
       const playerProps = await cloudflarePlayerPropsAPI.getPlayerProps(sport, true); // Force refresh
-      console.log(`👤 [InsightsService] Retrieved ${playerProps.length} player props for ${sport} from Cloudflare Workers API`);
+      devConsole.api(`Retrieved ${playerProps.length} player props for ${sport} from Cloudflare Workers API`);
       
       // Generate insights from real player props data (same structure as before)
       const insights = this.generatePlayerInsightsFromRealData(playerProps, sport);
       
       this.cache.set(cacheKey, { data: insights, timestamp: now });
       
-      console.log(`✅ [InsightsService] Successfully generated ${insights.length} real player insights for ${sport}`);
+      devConsole.success(`Successfully generated ${insights.length} real player insights for ${sport}`);
       return insights.filter(insight => insight && insight.insight_id);
     } catch (error) {
       console.error(`❌ [InsightsService] Failed to fetch player insights for ${sport}:`, error);
@@ -203,19 +204,19 @@ class InsightsService {
     }
 
     try {
-      console.log(`💰 [InsightsService] Fetching real moneyline insights for ${sport}...`);
+      devConsole.insights(`Fetching real moneyline insights for ${sport}...`);
       
       // Use the same API system as player props - Cloudflare Workers API
       const { cloudflarePlayerPropsAPI } = await import('./cloudflare-player-props-api');
       const playerProps = await cloudflarePlayerPropsAPI.getPlayerProps(sport, true); // Force refresh
-      console.log(`💰 [InsightsService] Retrieved ${playerProps.length} player props for moneyline analysis from Cloudflare Workers API`);
+      devConsole.api(`Retrieved ${playerProps.length} player props for moneyline analysis from Cloudflare Workers API`);
       
       // Generate insights from real player props data (same structure as before)
       const insights = this.generateMoneylineInsightsFromRealData(playerProps, sport);
       
       this.cache.set(cacheKey, { data: insights, timestamp: now });
       
-      console.log(`✅ [InsightsService] Successfully generated ${insights.length} real moneyline insights for ${sport}`);
+      devConsole.success(`Successfully generated ${insights.length} real moneyline insights for ${sport}`);
       return insights.filter(insight => insight && insight.insight_id);
     } catch (error) {
       console.error(`❌ [InsightsService] Failed to fetch moneyline insights for ${sport}:`, error);
@@ -235,7 +236,7 @@ class InsightsService {
     }
 
     try {
-      console.log(`📈 [InsightsService] Fetching real prediction analytics for ${sport}...`);
+      devConsole.insights(`Fetching real prediction analytics for ${sport}...`);
       
       // Get real predictions data
       const predictions = await gamesService.getCurrentWeekPredictions(sport);
@@ -245,7 +246,7 @@ class InsightsService {
       
       this.cache.set(cacheKey, { data: analytics, timestamp: now });
       
-      console.log(`✅ [InsightsService] Successfully generated real prediction analytics for ${sport}`);
+      devConsole.success(`Successfully generated real prediction analytics for ${sport}`);
       return analytics;
     } catch (error) {
       console.error(`❌ [InsightsService] Failed to fetch prediction analytics for ${sport}:`, error);
@@ -366,9 +367,9 @@ class InsightsService {
   private generateGameInsightsFromRealData(playerProps: any[], sport: string): GameInsight[] {
     const insights: GameInsight[] = [];
     
-    console.log(`🎮 [InsightsService] generateGameInsightsFromRealData called with ${playerProps.length} player props`);
+    devConsole.service(`generateGameInsightsFromRealData called with ${playerProps.length} player props`);
     if (playerProps.length === 0) {
-      console.log(`🎮 [InsightsService] No player props, returning empty insights`);
+      devConsole.warning(`No player props, returning empty insights`);
       return insights;
     }
     
@@ -387,7 +388,7 @@ class InsightsService {
       return acc;
     }, {} as Record<string, any>);
     
-    console.log(`🎮 [InsightsService] Game groups created:`, Object.keys(gameGroups));
+    devConsole.debug(`Game groups created:`, Object.keys(gameGroups));
     
     // Generate insights for each game
     Object.entries(gameGroups).forEach(([gameKey, gameData]) => {
@@ -449,7 +450,7 @@ class InsightsService {
         const cleanPlayerName = this.cleanPlayerName(playerName);
         const finalPlayerName = cleanPlayerName || playerName || 'Unknown Player'; // Fallback to original if cleaning removes everything
         
-        console.log(`🔍 [InsightsService] Player name: "${playerName}" -> "${finalPlayerName}"`);
+        devConsole.debug(`Player name: "${playerName}" -> "${finalPlayerName}"`);
         
         // Analyze player props to determine actual streak data
         const overHits = typedProps.filter((prop: any) => prop.overOdds && prop.underOdds && prop.overOdds > prop.underOdds).length;
@@ -517,7 +518,7 @@ class InsightsService {
       return sportTeams.some(team => teamName.includes(team));
     });
     
-    console.log(`🔍 [InsightsService] Filtered ${filteredPlayerProps.length} player props for ${sport} from ${playerProps.length} total props`);
+    devConsole.debug(`Filtered ${filteredPlayerProps.length} player props for ${sport} from ${playerProps.length} total props`);
     
     if (filteredPlayerProps.length === 0) return insights;
     
@@ -540,7 +541,7 @@ class InsightsService {
         const cleanPlayerName = this.cleanPlayerName(playerName);
         const finalPlayerName = cleanPlayerName || playerName || 'Unknown Player'; // Fallback to original if cleaning removes everything
         
-        console.log(`🔍 [InsightsService] Player name: "${playerName}" -> "${finalPlayerName}"`);
+        devConsole.debug(`Player name: "${playerName}" -> "${finalPlayerName}"`);
         
         const streakValue = Math.round(Math.random() * 20 + 60); // 60-80% range
         
@@ -881,12 +882,17 @@ class InsightsService {
         // Determine if this is an underdog opportunity based on hit rate
         const isUnderdogOpportunity = hitRate < 45; // Low hit rate suggests underdog value
         
-        // Generate both underdog and regular moneyline insights
+        // Determine which team is most likely to win based on props analysis
+        const mostLikelyWinner = hitRate >= 55 ? typedGameData.homeTeam : 
+                                hitRate <= 45 ? typedGameData.awayTeam : 
+                                'Close game expected';
+        
+        // Generate moneyline analysis showing most likely winner
         insights.push({
           insight_id: `moneyline_${gameKey}`,
-          insight_type: 'underdog_win_rate',
-          title: 'Moneyline Analysis',
-          description: `${typedGameData.awayTeam} @ ${typedGameData.homeTeam} - ${hitRate}% props hit rate`,
+          insight_type: 'moneyline_analysis',
+          title: 'Most Likely Winner',
+          description: `${mostLikelyWinner} most likely to win based on prop analysis (${hitRate}% confidence)`,
           value: hitRate,
           trend: hitRate >= 60 ? 'up' : hitRate <= 40 ? 'down' : 'neutral',
           change_percent: Math.round(Math.random() * 8 + 2),
@@ -921,8 +927,8 @@ class InsightsService {
         insights.push({
           insight_id: `favorite_${gameKey}`,
           insight_type: 'favorite_analysis',
-          title: 'Favorite Analysis',
-          description: `${typedGameData.homeTeam} favored with ${hitRate}% confidence`,
+          title: 'Game Analysis',
+          description: `${mostLikelyWinner} has the advantage with ${hitRate}% confidence`,
           value: hitRate,
           trend: hitRate >= 60 ? 'up' : 'neutral',
           change_percent: Math.round(Math.random() * 5 + 2),
@@ -1247,7 +1253,7 @@ class InsightsService {
   // Cache management
   clearCache(): void {
     this.cache.clear();
-    console.log('🧹 [InsightsService] Cache cleared');
+    devConsole.info('Cache cleared');
   }
 
   getCacheStats(): { size: number; keys: string[] } {

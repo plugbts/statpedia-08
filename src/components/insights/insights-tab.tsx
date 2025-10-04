@@ -33,6 +33,7 @@ import { UnderdogAnalysis } from '@/components/predictions/underdog-analysis';
 import { seasonService } from '@/services/season-service';
 import { insightsService, type GameInsight, type PlayerInsight, type MoneylineInsight, type PredictionAnalytics } from '@/services/insights-service';
 import { predictionTracker } from '@/services/prediction-tracker';
+import { devConsole } from '@/utils/dev-console';
 
 interface InsightsTabProps {
   selectedSport: string;
@@ -105,7 +106,7 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
       setError(null);
       
       try {
-        console.log(`🔄 [InsightsTab] Loading insights for ${selectedSport}...`);
+        devConsole.insights(`Loading insights for ${selectedSport}...`);
         
         // Clear cache when sport changes to ensure fresh data
         insightsService.clearCache();
@@ -128,13 +129,13 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
         setPredictionAnalytics(analyticsData);
         setLastRefresh(new Date());
         
-        console.log(`✅ [InsightsTab] Successfully loaded insights for ${selectedSport}`);
-        console.log(`📊 [InsightsTab] Game Insights: ${gameData.length}`, gameData);
-        console.log(`👤 [InsightsTab] Player Insights: ${playerData.length}`, playerData.slice(0, 2));
-        console.log(`💰 [InsightsTab] Moneyline Insights: ${moneylineData.length}`, moneylineData.slice(0, 2));
+        devConsole.success(`Successfully loaded insights for ${selectedSport}`);
+        devConsole.debug(`Game Insights: ${gameData.length}`, gameData);
+        devConsole.debug(`Player Insights: ${playerData.length}`, playerData.slice(0, 2));
+        devConsole.debug(`Moneyline Insights: ${moneylineData.length}`, moneylineData.slice(0, 2));
       } catch (error) {
         console.error('Error loading insights:', error);
-        console.log('🔄 [InsightsTab] Setting error state due to insights loading failure');
+        devConsole.error('Setting error state due to insights loading failure');
         setError(error instanceof Error ? error.message : 'Failed to load insights');
         // Keep existing data on error
       } finally {
@@ -151,7 +152,7 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
     setError(null);
     
     try {
-      console.log(`🔄 [InsightsTab] Refreshing insights for ${selectedSport}...`);
+      devConsole.insights(`Refreshing insights for ${selectedSport}...`);
       
       // Clear cache and reload
       insightsService.clearCache();
@@ -169,10 +170,10 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
       setPredictionAnalytics(analyticsData);
       setLastRefresh(new Date());
       
-      console.log(`✅ [InsightsTab] Successfully refreshed insights for ${selectedSport}`);
+      devConsole.success(`Successfully refreshed insights for ${selectedSport}`);
     } catch (error) {
       console.error('Error refreshing insights:', error);
-      console.log('🔄 [InsightsTab] Setting error state due to insights refresh failure');
+      devConsole.error('Setting error state due to insights refresh failure');
       setError(error instanceof Error ? error.message : 'Failed to refresh insights');
     } finally {
       setIsLoading(false);
@@ -283,7 +284,11 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
               </>
             )}
             <div className="text-right">
-              <p className="text-sm font-medium text-foreground">{insight.opponent_name} @ {insight.team_name}</p>
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <TeamLogo teamAbbr={insight.opponent_name} sport={selectedSport} size="sm" />
+                <span>@</span>
+                <TeamLogo teamAbbr={insight.team_name} sport={selectedSport} size="sm" />
+              </div>
               <p className="text-xs text-muted-foreground">
                 {insight.game_date ? new Date(insight.game_date).toLocaleDateString() : 'TBD'}
               </p>
@@ -419,7 +424,11 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
             </>
           )}
           <div className="text-right">
-            <p className="text-sm font-medium text-foreground">{insight.opponent_name} @ {insight.team_name}</p>
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <TeamLogo teamAbbr={insight.opponent_name} sport={selectedSport} size="sm" />
+              <span>@</span>
+              <TeamLogo teamAbbr={insight.team_name} sport={selectedSport} size="sm" />
+            </div>
             <p className="text-xs text-muted-foreground">
               {insight.game_date ? new Date(insight.game_date).toLocaleDateString() : 'TBD'}
             </p>
