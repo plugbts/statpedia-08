@@ -342,7 +342,7 @@ async function handlePropsEndpoint(request, env, league) {
               const under = pickBest((prop.books || []).filter((b) => String(b.side).toLowerCase() === "under"));
               return {
                 player_name: prop.player_name,
-                market_type: formatMarketType(prop.market_type, event.leagueID),
+                market_type: formatMarketType(prop.market_type, event.leagueID || "NFL"),
                 line: prop.line,
                 best_over: over?.price ?? null,
                 best_under: under?.price ?? null,
