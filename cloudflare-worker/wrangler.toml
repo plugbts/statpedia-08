@@ -7,13 +7,15 @@ compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
 # Global configuration (will be inherited by all environments)
+[vars]
+SPORTSODDS_API_KEY = "d5dc1f00bc42133550bc1605dd8f457f"
 
 [env.production]
 name = "statpedia-player-props"
 
 # Production environment variables
 [env.production.vars]
-SPORTSGAMEODDS_API_KEY = "d5dc1f00bc42133550bc1605dd8f457f"
+SPORTSODDS_API_KEY = "d5dc1f00bc42133550bc1605dd8f457f"
 CACHE_TTL_SECONDS = "300"
 MAX_EVENTS_PER_REQUEST = "100"
 MAX_PROPS_PER_REQUEST = "500"
@@ -30,12 +32,17 @@ bucket_name = "statpedia-player-props-cache"
 binding = "API_ANALYTICS"
 id = "8506dfcc9c964d20946e1b7ef872db7b"
 
+# Production KV namespace for cache locks
+[[env.production.kv_namespaces]]
+binding = "CACHE_LOCKS"
+id = "8506dfcc9c964d20946e1b7ef872db7b"
+
 [env.staging]
 name = "statpedia-player-props-staging"
 
 # Staging environment variables
 [env.staging.vars]
-SPORTSGAMEODDS_API_KEY = "d5dc1f00bc42133550bc1605dd8f457f"
+SPORTSODDS_API_KEY = "d5dc1f00bc42133550bc1605dd8f457f"
 CACHE_TTL_SECONDS = "300"
 MAX_EVENTS_PER_REQUEST = "100"
 MAX_PROPS_PER_REQUEST = "500"
@@ -50,4 +57,9 @@ bucket_name = "statpedia-player-props-cache"
 # Staging KV namespace
 [[env.staging.kv_namespaces]]
 binding = "API_ANALYTICS"
+id = "8506dfcc9c964d20946e1b7ef872db7b"
+
+# Staging KV namespace for cache locks
+[[env.staging.kv_namespaces]]
+binding = "CACHE_LOCKS"
 id = "8506dfcc9c964d20946e1b7ef872db7b"
