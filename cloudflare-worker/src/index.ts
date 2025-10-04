@@ -3,6 +3,7 @@
 /// <reference types="@cloudflare/workers-types" />
 
 import { withCORS, handleOptions } from "./cors";
+import { normalizeMarketType, isPlayerProp, extractPlayerInfo } from "./market-mapper";
 
 export interface Env {
   SPORTSODDS_API_KEY: string;
@@ -489,48 +490,18 @@ function normalizeEventSGO(ev: any, request: any) {
     return null;
   }
 
-  // DEBUG: Log odds flattening
-  console.log("DEBUG odds flatten", {
-    totalOdds: Object.keys(ev.odds || {}).length,
-    firstOdd: Object.values(ev.odds || {})[0],
-    hasTeams: !!ev.teams,
-    hasProps: !!ev.props,
-    eventType: ev.type
-  });
-
-  // Handle different response formats
-  let home_team = "UNK";
-  let away_team = "UNK";
-  let player_props: any[] = [];
-
-  // Check for team information in different possible locations
-  if (ev.teams?.home?.names?.long) {
-    home_team = ev.teams.home.names.long;
-  } else if (ev.teams?.home?.names?.short) {
-    home_team = ev.teams.home.names.short;
-  }
-
-  if (ev.teams?.away?.names?.long) {
-    away_team = ev.teams.away.names.long;
-  } else if (ev.teams?.away?.names?.short) {
-    away_team = ev.teams.away.names.short;
-  }
-
-  // Extract player props from odds or props
-  if (ev.odds && Object.keys(ev.odds).length > 0) {
-    player_props = Object.values(ev.odds);
-  } else if (ev.props && Object.keys(ev.props).length > 0) {
-    player_props = Object.values(ev.props);
-  }
-
+  // Use the existing normalizeEvent function which handles SGO schema properly
+  const normalized = normalizeEvent(ev);
+  
   return {
-    eventID: ev.eventID,
-    leagueID: ev.leagueID,
-    start_time: toUserTimeSGO(ev.startTime || ev.status?.startsAt, request.cf?.timezone || "America/New_York"),
-    home_team: home_team,
-    away_team: away_team,
+    eventID: normalized.eventID,
+    leagueID: normalized.leagueID,
+    start_time: normalized.start_time,
+    home_team: normalized.home_team,
+    away_team: normalized.away_team,
     players: ev.players || {},
-    player_props: player_props,
+    player_props: normalized.player_props,
+    team_props: normalized.team_props,
   };
 }
 
@@ -751,6 +722,54 @@ function collectBooks(side: any) {
   return books;
 }
 
+// New helper functions for SGO market processing
+function collectBooksFromMarket(market: any): any[] {
+  if (!market) return [];
+  const books: any[] = [];
+  
+  // Add consensus odds if available
+  if (market.bookOdds || market.bookOverUnder || market.fairOdds || market.fairOverUnder) {
+    books.push({
+      bookmaker: "consensus",
+      side: normalizeSide(market.sideID),
+      price: market.bookOdds || market.fairOdds || null,
+      line: Number(market.bookOverUnder || market.fairOverUnder || null),
+    });
+  }
+  
+  // Add individual bookmaker odds
+  if (market.byBookmaker) {
+    for (const [book, data] of Object.entries(market.byBookmaker)) {
+      const bookData = data as any;
+      if (!bookData.odds && !bookData.overUnder) continue;
+      
+      books.push({
+        bookmaker: book,
+        side: normalizeSide(market.sideID),
+        price: bookData.odds || market.bookOdds || market.fairOdds || null,
+        line: Number(bookData.overUnder || market.bookOverUnder || market.fairOverUnder || null),
+        deeplink: bookData.deeplink,
+      });
+    }
+  }
+  
+  return books;
+}
+
+function pickBestFromMarket(market: any, side: "over" | "under"): { price: string; bookmaker?: string } | null {
+  if (!market) return null;
+  
+  // Check if this market matches the requested side
+  const marketSide = normalizeSide(market.sideID);
+  if (marketSide !== side) return null;
+  
+  const books = collectBooksFromMarket(market);
+  if (books.length === 0) return null;
+  
+  // Use existing pickBest function
+  return pickBest(books);
+}
+
 function summarizePropsByMarket(event: any, league: string) {
   const counts: Record<string, number> = {};
 
@@ -819,7 +838,8 @@ function isUnderSide(side: any) {
 }
 
 function formatStatID(statID: string) {
-  return (statID || "").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  // Use the new market mapper for consistent formatting
+  return normalizeMarketType(statID);
 }
 
 function extractNameFromMarket(marketName: string) {
@@ -1094,39 +1114,8 @@ const MARKET_LABELS: Record<string, Record<string, string>> = {
 };
 
 function formatMarketType(raw: string, league: string): string {
-  if (!raw) return "Unknown";
-
-  const leagueMap = MARKET_LABELS[league.toLowerCase()] || {};
-  if (leagueMap[raw]) return leagueMap[raw];
-
-  // Team total fallback
-  if (raw.startsWith("team_total_")) {
-    const suffix = raw.replace("team_total_", "");
-    return "Team Total " + suffix.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-  }
-
-  // Touchdown/score fallback
-  if (raw.includes("touchdown") || raw.includes("score")) {
-    return raw.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-  }
-
-  // Period-based fallback
-  const periodMatch = raw.match(/(.+)_([0-9]+[hqip]|[0-9]+h|ot|ei)$/i);
-  if (periodMatch) {
-    const base = periodMatch[1].replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-    const periodCode = periodMatch[2].toLowerCase();
-
-    if (VIEW_MODE === "verbose") {
-      const leaguePeriods = PERIOD_LABELS[league.toLowerCase()] || {};
-      const label = leaguePeriods[periodCode];
-      if (label) return `${base} ${label}`;
-    }
-
-    return `${base} ${periodCode.toUpperCase()}`;
-  }
-
-  // Default fallback
-  return raw.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  // Use the new market mapper for consistent formatting
+  return normalizeMarketType(raw);
 }
 
 function sortPropsByLeague(props: any[], league: string) {

@@ -68,6 +68,145 @@ function handleOptions(request, origin = "*") {
 }
 __name(handleOptions, "handleOptions");
 
+// src/market-mapper.ts
+var MARKET_ALIASES = {
+  // Passing markets
+  "Passing Yards": "Passing Yards",
+  "passing_yards": "Passing Yards",
+  "Passing Attempts": "Passing Attempts",
+  "passing_attempts": "Passing Attempts",
+  "Passing Completions": "Passing Completions",
+  "passing_completions": "Passing Completions",
+  "Passing Touchdowns": "Passing TDs",
+  "passing_touchdowns": "Passing TDs",
+  "Passing Interceptions": "Passing INTs",
+  "passing_interceptions": "Passing INTs",
+  // Rushing markets
+  "Rushing Yards": "Rushing Yards",
+  "rushing_yards": "Rushing Yards",
+  "Rushing Attempts": "Rushing Attempts",
+  "rushing_attempts": "Rushing Attempts",
+  "Rushing Touchdowns": "Rushing TDs",
+  "rushing_touchdowns": "Rushing TDs",
+  // Receiving markets
+  "Receiving Yards": "Receiving Yards",
+  "receiving_yards": "Receiving Yards",
+  "Receiving Receptions": "Receptions",
+  "receiving_receptions": "Receptions",
+  "Receiving Touchdowns": "Receiving TDs",
+  "receiving_touchdowns": "Receiving TDs",
+  "Receiving Longest Reception": "Longest Reception",
+  "receiving_longestReception": "Longest Reception",
+  // Touchdown markets
+  "Touchdowns": "Touchdowns",
+  "touchdowns": "Touchdowns",
+  "First Touchdown": "First Touchdown",
+  "first_touchdown": "First Touchdown",
+  "Last Touchdown": "Last Touchdown",
+  "last_touchdown": "Last Touchdown",
+  "Anytime Touchdown": "Anytime Touchdown",
+  "anytime_touchdown": "Anytime Touchdown",
+  // Kicking markets
+  "Field Goals Made": "Field Goals Made",
+  "field_goals_made": "Field Goals Made",
+  "Extra Points Made": "Extra Points Made",
+  "extra_points_made": "Extra Points Made",
+  "Kicking Total Points": "Kicking Total Points",
+  "kicking_totalPoints": "Kicking Total Points",
+  // Defensive markets
+  "Tackles + Assists": "Tackles + Assists",
+  "tackles_assists": "Tackles + Assists",
+  "Tackles": "Tackles",
+  "tackles": "Tackles",
+  "Interceptions": "Interceptions",
+  "interceptions": "Interceptions",
+  "Sacks": "Sacks",
+  "sacks": "Sacks",
+  "Passes Defended": "Passes Defended",
+  "passes_defended": "Passes Defended",
+  "Forced Fumbles": "Forced Fumbles",
+  "forced_fumbles": "Forced Fumbles",
+  "Fumble Recoveries": "Fumble Recoveries",
+  "fumble_recoveries": "Fumble Recoveries",
+  // Fantasy/Scoring markets
+  "Fantasy Score": "Fantasy Score",
+  "fantasyScore": "Fantasy Score",
+  "Turnovers": "Turnovers",
+  "turnovers": "Turnovers",
+  // Team markets
+  "Team Total Points": "Team Total Points",
+  "team_total_points": "Team Total Points",
+  "Team Total Touchdowns": "Team Total Touchdowns",
+  "team_total_touchdowns": "Team Total Touchdowns",
+  "Team Total Field Goals": "Team Total Field Goals",
+  "team_total_field_goals": "Team Total Field Goals",
+  "Team Total Sacks": "Team Total Sacks",
+  "team_total_sacks": "Team Total Sacks",
+  "Team Total Interceptions": "Team Total Interceptions",
+  "team_total_interceptions": "Team Total Interceptions",
+  // NBA markets
+  "Points": "Points",
+  "points": "Points",
+  "Rebounds": "Rebounds",
+  "rebounds": "Rebounds",
+  "Assists": "Assists",
+  "assists": "Assists",
+  "3-Pointers Made": "3-Pointers Made",
+  "threes_made": "3-Pointers Made",
+  "Steals": "Steals",
+  "steals": "Steals",
+  "Blocks": "Blocks",
+  "blocks": "Blocks",
+  // MLB markets
+  "Hits": "Hits",
+  "hits": "Hits",
+  "Home Runs": "Home Runs",
+  "home_runs": "Home Runs",
+  "RBIs": "RBIs",
+  "rbis": "RBIs",
+  "Strikeouts": "Strikeouts",
+  "strikeouts": "Strikeouts",
+  "Total Bases": "Total Bases",
+  "total_bases": "Total Bases",
+  // NHL markets
+  "Goals": "Goals",
+  "goals": "Goals",
+  "Shots on Goal": "Shots on Goal",
+  "shots_on_goal": "Shots on Goal",
+  "Saves": "Saves",
+  "saves": "Saves"
+  // NCAAF markets (same as NFL but with different naming)
+  // Note: These are already defined above, so we don't need to redefine them
+};
+function normalizeMarketType(rawMarket) {
+  let raw;
+  if (typeof rawMarket === "string") {
+    raw = rawMarket;
+  } else if (rawMarket && typeof rawMarket === "object") {
+    raw = rawMarket.marketName || rawMarket.name || rawMarket.type || rawMarket.statID || rawMarket.market_type || "Unknown";
+  } else {
+    raw = "Unknown";
+  }
+  raw = raw.trim();
+  if (MARKET_ALIASES[raw]) {
+    return MARKET_ALIASES[raw];
+  }
+  if (raw.includes("_")) {
+    const titleCase = raw.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    if (MARKET_ALIASES[titleCase]) {
+      return MARKET_ALIASES[titleCase];
+    }
+  }
+  if (raw.match(/[a-z][A-Z]/)) {
+    const titleCase = raw.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/\b\w/g, (c) => c.toUpperCase());
+    if (MARKET_ALIASES[titleCase]) {
+      return MARKET_ALIASES[titleCase];
+    }
+  }
+  return raw.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+__name(normalizeMarketType, "normalizeMarketType");
+
 // src/index.ts
 var src_default = {
   async fetch(request, env, ctx) {
@@ -266,8 +405,11 @@ async function handleDebugPlayerProps(url, env) {
   upstream.searchParams.set("leagueID", league);
   upstream.searchParams.set("date", date);
   upstream.searchParams.set("oddsAvailable", "true");
+  upstream.searchParams.set("apikey", env.SGO_API_KEY);
   const res = await fetch(upstream.toString(), {
-    headers: { "x-api-key": env.SGO_API_KEY }
+    headers: {
+      "X-API-Key": env.SGO_API_KEY
+    }
   });
   if (!res.ok)
     return json({ error: "Upstream error", status: res.status }, 502);
@@ -342,42 +484,86 @@ function normalizeEventSGO(ev, request) {
     console.log("DEBUG: Skipping error response in normalizer", ev.message);
     return null;
   }
-  console.log("DEBUG odds flatten", {
-    totalOdds: Object.keys(ev.odds || {}).length,
-    firstOdd: Object.values(ev.odds || {})[0],
-    hasTeams: !!ev.teams,
-    hasProps: !!ev.props,
-    eventType: ev.type
-  });
-  let home_team = "UNK";
-  let away_team = "UNK";
-  let player_props = [];
-  if (ev.teams?.home?.names?.long) {
-    home_team = ev.teams.home.names.long;
-  } else if (ev.teams?.home?.names?.short) {
-    home_team = ev.teams.home.names.short;
-  }
-  if (ev.teams?.away?.names?.long) {
-    away_team = ev.teams.away.names.long;
-  } else if (ev.teams?.away?.names?.short) {
-    away_team = ev.teams.away.names.short;
-  }
-  if (ev.odds && Object.keys(ev.odds).length > 0) {
-    player_props = Object.values(ev.odds);
-  } else if (ev.props && Object.keys(ev.props).length > 0) {
-    player_props = Object.values(ev.props);
-  }
+  const normalized = normalizeEvent(ev);
   return {
-    eventID: ev.eventID,
-    leagueID: ev.leagueID,
-    start_time: toUserTimeSGO(ev.startTime || ev.status?.startsAt, request.cf?.timezone || "America/New_York"),
-    home_team,
-    away_team,
+    eventID: normalized.eventID,
+    leagueID: normalized.leagueID,
+    start_time: normalized.start_time,
+    home_team: normalized.home_team,
+    away_team: normalized.away_team,
     players: ev.players || {},
-    player_props
+    player_props: normalized.player_props,
+    team_props: normalized.team_props
   };
 }
 __name(normalizeEventSGO, "normalizeEventSGO");
+function normalizeEvent(ev) {
+  const eventId = ev.event_id || ev.eventID;
+  const leagueId = ev.league_id || ev.leagueID;
+  const startTime = ev.start_time || ev.scheduled;
+  console.log(`Normalizing event ${eventId} with SGO schema`);
+  let playerProps = [];
+  let teamProps = [];
+  if (ev.player_props && Array.isArray(ev.player_props)) {
+    playerProps = ev.player_props;
+    console.log(`Using SGO player_props: ${playerProps.length} props`);
+  } else if (ev.odds && ev.players) {
+    console.log(`Falling back to legacy normalization`);
+    const players = ev.players || {};
+    const oddsDict = ev.odds || {};
+    const groups = {};
+    for (const oddID in oddsDict) {
+      const m = oddsDict[oddID];
+      const key = [
+        m.player_id || "",
+        // which player/team this prop belongs to
+        m.market_id || "",
+        // unique market identifier
+        m.market_type || "",
+        // e.g. passing_yards, rushing_yards, points
+        m.period || "",
+        // full_game, 1H, 1Q, etc.
+        m.bet_type || ""
+        // over/under, yes/no
+      ].join("|");
+      (groups[key] ||= []).push(m);
+    }
+    console.log(`Created ${Object.keys(groups).length} groups`);
+    for (const key in groups) {
+      const markets = groups[key];
+      const hasPlayer = markets.some((mm) => !!mm.playerID);
+      console.log(`Group ${key}: hasPlayer=${hasPlayer}, markets=${markets.length}`);
+      if (hasPlayer) {
+        const norm = normalizePlayerGroup(markets, players, leagueId || "NFL");
+        if (norm) {
+          playerProps.push(norm);
+          console.log(`Added player prop: ${norm.player_name} ${norm.market_type}`);
+        } else {
+          console.log(`Failed to normalize player group: ${key}`);
+        }
+      } else {
+        const norm = normalizeTeamGroup(markets);
+        if (norm)
+          teamProps.push(norm);
+      }
+    }
+  }
+  if (ev.team_props && Array.isArray(ev.team_props)) {
+    teamProps = ev.team_props;
+  }
+  console.log(`Final counts: playerProps=${playerProps.length}, teamProps=${teamProps.length}`);
+  console.log(`Returning event ${eventId} with ${playerProps.length} player props and ${teamProps.length} team props`);
+  return {
+    eventID: eventId,
+    leagueID: leagueId,
+    start_time: toUserTime(startTime || "", "America/New_York"),
+    home_team: normalizeTeamSGO(ev.home_team) || normalizeTeam(ev.teams?.home),
+    away_team: normalizeTeamSGO(ev.away_team) || normalizeTeam(ev.teams?.away),
+    team_props: teamProps,
+    player_props: playerProps
+  };
+}
+__name(normalizeEvent, "normalizeEvent");
 function groupPlayerProps(event, league) {
   const grouped = {};
   for (const m of event.player_props) {
@@ -509,6 +695,40 @@ function summarizePropsByMarket(event, league) {
   return counts;
 }
 __name(summarizePropsByMarket, "summarizePropsByMarket");
+function normalizeTeamGroup(markets) {
+  const over = markets.find((m) => isOverSide(m.sideID));
+  const under = markets.find((m) => isUnderSide(m.sideID));
+  if (!over && !under)
+    return null;
+  const base = over || under;
+  if (!base)
+    return null;
+  const marketType = formatStatID(base.statID);
+  const lineStr = firstDefined(over?.bookOverUnder, under?.bookOverUnder, over?.fairOverUnder, under?.fairOverUnder);
+  const line = toNumberOrNull(lineStr);
+  const books = [...collectBooks(over), ...collectBooks(under)];
+  const best_over = pickBest(books.filter((b) => b.side === "over" || b.side === "yes"));
+  const best_under = pickBest(books.filter((b) => b.side === "under" || b.side === "no"));
+  return {
+    market_type: marketType,
+    line,
+    best_over,
+    best_under,
+    books,
+    oddIDs: {
+      over: over?.oddID ?? null,
+      under: under?.oddID ?? null,
+      opposingOver: over?.opposingOddID ?? null,
+      opposingUnder: under?.opposingOddID ?? null
+    },
+    status: {
+      started: !!(over?.started || under?.started),
+      ended: !!(over?.ended || under?.ended),
+      cancelled: !!(over?.cancelled || under?.cancelled)
+    }
+  };
+}
+__name(normalizeTeamGroup, "normalizeTeamGroup");
 function isOverSide(side) {
   const s = String(side || "").toLowerCase();
   return s === "over" || s === "yes";
@@ -519,6 +739,17 @@ function isUnderSide(side) {
   return s === "under" || s === "no";
 }
 __name(isUnderSide, "isUnderSide");
+function formatStatID(statID) {
+  return normalizeMarketType(statID);
+}
+__name(formatStatID, "formatStatID");
+function firstDefined(...vals) {
+  for (const v of vals)
+    if (v !== void 0 && v !== null)
+      return v;
+  return void 0;
+}
+__name(firstDefined, "firstDefined");
 function toNumberOrNull(s) {
   if (s === void 0 || s === null)
     return null;
@@ -536,7 +767,7 @@ function parseAmerican(odds) {
   return Number.isFinite(n) ? n : null;
 }
 __name(parseAmerican, "parseAmerican");
-function toUserTimeSGO(utcDate, tz = "America/New_York") {
+function toUserTime(utcDate, tz = "America/New_York") {
   try {
     const d = typeof utcDate === "string" ? new Date(utcDate) : utcDate;
     if (isNaN(d.getTime()))
@@ -553,7 +784,28 @@ function toUserTimeSGO(utcDate, tz = "America/New_York") {
     return null;
   }
 }
-__name(toUserTimeSGO, "toUserTimeSGO");
+__name(toUserTime, "toUserTime");
+function normalizeTeam(team) {
+  if (!team)
+    return { id: null, abbr: "UNK", name: "Unknown" };
+  return {
+    id: team.teamID ?? team.id ?? null,
+    abbr: team.names?.short ?? team.abbreviation ?? team.names?.abbr ?? team.alias ?? team.displayName ?? "UNK",
+    name: team.names?.long ?? team.names?.full ?? team.displayName ?? (team.market && team.name ? `${team.market} ${team.name}` : null) ?? team.alias ?? "Unknown"
+  };
+}
+__name(normalizeTeam, "normalizeTeam");
+function normalizeTeamSGO(team) {
+  if (!team)
+    return { id: null, abbr: "UNK", name: "TBD" };
+  return {
+    id: team.id ?? null,
+    abbr: team.abbreviation ?? team.alias ?? team.short_name ?? "UNK",
+    name: team.name ?? team.full_name ?? team.display_name ?? "TBD",
+    logo: team.logo ?? null
+  };
+}
+__name(normalizeTeamSGO, "normalizeTeamSGO");
 var PROP_PRIORITY = {
   nfl: [
     "passing_yards",
@@ -594,158 +846,8 @@ var PROP_PRIORITY = {
     "touchdowns"
   ]
 };
-var VIEW_MODE = "compact";
-var PERIOD_LABELS = {
-  nfl: {
-    "1q": "1st Quarter",
-    "2q": "2nd Quarter",
-    "3q": "3rd Quarter",
-    "4q": "4th Quarter",
-    "1h": "1st Half",
-    "2h": "2nd Half",
-    ot: "Overtime"
-  },
-  nba: {
-    "1q": "1st Quarter",
-    "2q": "2nd Quarter",
-    "3q": "3rd Quarter",
-    "4q": "4th Quarter",
-    "1h": "1st Half",
-    "2h": "2nd Half",
-    ot: "Overtime"
-  },
-  ncaaf: {
-    "1q": "1st Quarter",
-    "2q": "2nd Quarter",
-    "3q": "3rd Quarter",
-    "4q": "4th Quarter",
-    "1h": "1st Half",
-    "2h": "2nd Half",
-    ot: "Overtime"
-  },
-  nhl: {
-    "1p": "1st Period",
-    "2p": "2nd Period",
-    "3p": "3rd Period",
-    ot: "Overtime"
-  },
-  mlb: {
-    "1i": "1st Inning",
-    "2i": "2nd Inning",
-    "3i": "3rd Inning",
-    "4i": "4th Inning",
-    "5i": "5th Inning",
-    "6i": "6th Inning",
-    "7i": "7th Inning",
-    "8i": "8th Inning",
-    "9i": "9th Inning",
-    ei: "Extra Innings"
-  }
-};
-var MARKET_LABELS = {
-  nfl: {
-    // Offensive player props
-    passing_yards: "Passing Yards",
-    rushing_yards: "Rushing Yards",
-    receiving_yards: "Receiving Yards",
-    receptions: "Receptions",
-    touchdowns: "Touchdowns",
-    first_touchdown: "First Touchdown",
-    last_touchdown: "Last Touchdown",
-    firstTouchdown: "First Touchdown",
-    lastTouchdown: "Last Touchdown",
-    anytime_touchdown: "Anytime Touchdown",
-    passing_touchdowns: "Passing Touchdowns",
-    // Defensive player props
-    defense_sacks: "Sacks",
-    defense_interceptions: "Interceptions",
-    defense_tackles: "Tackles",
-    defense_tackles_assists: "Tackles + Assists",
-    defense_passes_defended: "Passes Defended",
-    defense_forced_fumbles: "Forced Fumbles",
-    defense_fumble_recoveries: "Fumble Recoveries",
-    // Team props
-    team_total_points: "Team Total Points",
-    team_total_touchdowns: "Team Total Touchdowns",
-    team_total_field_goals: "Team Total Field Goals",
-    team_total_sacks: "Team Total Sacks",
-    team_total_interceptions: "Team Total Interceptions"
-  },
-  nba: {
-    points: "Points",
-    rebounds: "Rebounds",
-    assists: "Assists",
-    threes_made: "3-Pointers Made",
-    steals: "Steals",
-    blocks: "Blocks",
-    // Team props
-    team_total_points: "Team Total Points",
-    team_total_rebounds: "Team Total Rebounds",
-    team_total_assists: "Team Total Assists",
-    team_total_threes: "Team Total 3-Pointers"
-  },
-  mlb: {
-    hits: "Hits",
-    home_runs: "Home Runs",
-    rbis: "RBIs",
-    strikeouts: "Strikeouts",
-    total_bases: "Total Bases",
-    // Team props
-    team_total_runs: "Team Total Runs",
-    team_total_hits: "Team Total Hits",
-    team_total_home_runs: "Team Total Home Runs"
-  },
-  nhl: {
-    goals: "Goals",
-    assists: "Assists",
-    points: "Points",
-    shots_on_goal: "Shots on Goal",
-    saves: "Saves",
-    // Team props
-    team_total_goals: "Team Total Goals",
-    team_total_shots: "Team Total Shots",
-    team_total_saves: "Team Total Saves"
-  },
-  ncaaf: {
-    passing_yards: "Passing Yards",
-    rushing_yards: "Rushing Yards",
-    receiving_yards: "Receiving Yards",
-    receptions: "Receptions",
-    touchdowns: "Touchdowns",
-    defense_sacks: "Sacks",
-    defense_interceptions: "Interceptions",
-    defense_tackles: "Tackles",
-    // Team props
-    team_total_points: "Team Total Points",
-    team_total_touchdowns: "Team Total Touchdowns"
-  }
-};
 function formatMarketType(raw, league) {
-  if (!raw)
-    return "Unknown";
-  const leagueMap = MARKET_LABELS[league.toLowerCase()] || {};
-  if (leagueMap[raw])
-    return leagueMap[raw];
-  if (raw.startsWith("team_total_")) {
-    const suffix = raw.replace("team_total_", "");
-    return "Team Total " + suffix.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-  }
-  if (raw.includes("touchdown") || raw.includes("score")) {
-    return raw.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-  }
-  const periodMatch = raw.match(/(.+)_([0-9]+[hqip]|[0-9]+h|ot|ei)$/i);
-  if (periodMatch) {
-    const base = periodMatch[1].replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-    const periodCode = periodMatch[2].toLowerCase();
-    if (VIEW_MODE === "verbose") {
-      const leaguePeriods = PERIOD_LABELS[league.toLowerCase()] || {};
-      const label = leaguePeriods[periodCode];
-      if (label)
-        return `${base} ${label}`;
-    }
-    return `${base} ${periodCode.toUpperCase()}`;
-  }
-  return raw.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  return normalizeMarketType(raw);
 }
 __name(formatMarketType, "formatMarketType");
 function sortPropsByLeague(props, league) {
@@ -820,13 +922,13 @@ async function fetchSportsGameOddsDay(league, date, env) {
     };
   }
   const requestedYear = new Date(date).getFullYear();
-  const url = `https://api.sportsgameodds.com/v2/events?leagueID=${leagueID}&oddsAvailable=true&date=${date}`;
-  console.log(`[fetchSportsGameOddsDay] Fetching: ${url} (requestedYear: ${requestedYear})`);
+  const url = `https://api.sportsgameodds.com/v2/events?leagueID=${leagueID}&oddsAvailable=true&date=${date}&apikey=${env.SGO_API_KEY}`;
+  console.log(`[fetchSportsGameOddsDay] Fetching: ${url.replace(env.SGO_API_KEY, "[API_KEY]")} (requestedYear: ${requestedYear})`);
   const res = await fetch(url, {
     headers: {
       "accept": "application/json",
-      "x-api-key": env.SGO_API_KEY
-      // Use x-api-key header format
+      "X-API-Key": env.SGO_API_KEY
+      // Use X-API-Key header format as required by SportsGameOdds API
     }
   });
   if (!res.ok) {
