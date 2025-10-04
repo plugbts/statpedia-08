@@ -77,12 +77,28 @@ type MarketSide = {
   byBookmaker?: Record<string, BookData>;
 };
 
+// SportsGameOdds Event Schema
 type SGEvent = {
-  eventID: string;
-  leagueID: string;
-  sportID: string;
-  scheduled: string;
-  teams: {
+  event_id: string;
+  league_id: string;
+  start_time: string;
+  home_team: {
+    id: string;
+    name: string;
+    abbreviation?: string;
+  };
+  away_team: {
+    id: string;
+    name: string;
+    abbreviation?: string;
+  };
+  team_props?: any[];
+  player_props?: any[];
+  // Legacy fields for backward compatibility
+  eventID?: string;
+  leagueID?: string;
+  scheduled?: string;
+  teams?: {
     home: { 
       teamID?: string;
       id?: string;
@@ -106,11 +122,11 @@ type SGEvent = {
       } 
     };
   };
-  status: {
+  status?: {
     startsAt: string;
   };
-  odds: Record<string, MarketSide>;
-  players: Record<string, Player>;
+  odds?: Record<string, MarketSide>;
+  players?: Record<string, Player>;
 };
 
 export default {
@@ -199,8 +215,11 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
   console.log(`Raw API response: ${rawEvents.length} events`);
   console.log(`Sample event keys:`, rawEvents[0] ? Object.keys(rawEvents[0]) : 'No events');
 
-  // Filter by league
-  const events = rawEvents.filter((ev: any) => String(ev.leagueID).toUpperCase() === league);
+  // Filter by league (support both old and new schema)
+  const events = rawEvents.filter((ev: any) => {
+    const leagueId = ev.league_id || ev.leagueID;
+    return String(leagueId).toUpperCase() === league;
+  });
   
   console.log(`Filtered ${events.length} events for league ${league}`);
 
@@ -488,32 +507,45 @@ function safeNormalizeEvent(ev: SGEvent) {
 }
 
 function normalizeEvent(ev: SGEvent) {
+  // Use SportsGameOdds schema as primary, fallback to legacy
+  const eventId = ev.event_id || ev.eventID;
+  const leagueId = ev.league_id || ev.leagueID;
+  const startTime = ev.start_time || ev.scheduled;
+  
+  console.log(`Normalizing event ${eventId} with SGO schema`);
+
+  // Use SGO's pre-normalized props if available, otherwise fall back to legacy normalization
+  let playerProps: any[] = [];
+  let teamProps: any[] = [];
+
+  if (ev.player_props && Array.isArray(ev.player_props)) {
+    // SGO already provides normalized player props
+    playerProps = ev.player_props;
+    console.log(`Using SGO player_props: ${playerProps.length} props`);
+  } else if (ev.odds && ev.players) {
+    // Fallback to legacy normalization for backward compatibility
+    console.log(`Falling back to legacy normalization`);
   const players = ev.players || {};
   const oddsDict = ev.odds || {};
   
-  console.log(`Normalizing event ${ev.eventID} with ${Object.keys(oddsDict).length} odds`);
-
-  // Group by all identifiers to preserve every distinct prop type
+    // Group by all identifiers to preserve every distinct prop type
   const groups: Record<string, MarketSide[]> = {};
   for (const oddID in oddsDict) {
     const m = oddsDict[oddID];
 
-    const key = [
-      m.statEntityID || "",   // player/team entity
-      m.statID || "",         // stat type (yards, TDs, etc.)
-      m.periodID || "",       // game period (full game, 1H, etc.)
-      m.betTypeID || "",      // bet type (over/under, yes/no, etc.)
-      (m as any).marketTypeID || "",   // market type (first TD, last TD, anytime TD, etc.)
-      (m as any).marketID || ""        // unique market ID if provided
-    ].join("|");
+      const key = [
+        m.statEntityID || "",   // player/team entity
+        m.statID || "",         // stat type (yards, TDs, etc.)
+        m.periodID || "",       // game period (full game, 1H, etc.)
+        m.betTypeID || "",      // bet type (over/under, yes/no, etc.)
+        (m as any).marketTypeID || "",   // market type (first TD, last TD, anytime TD, etc.)
+        (m as any).marketID || ""        // unique market ID if provided
+      ].join("|");
 
     (groups[key] ||= []).push(m);
   }
   
   console.log(`Created ${Object.keys(groups).length} groups`);
-
-  const playerProps: any[] = [];
-  const teamProps: any[] = [];
 
   for (const key in groups) {
     const markets = groups[key];
@@ -532,19 +564,24 @@ function normalizeEvent(ev: SGEvent) {
     } else {
       const norm = normalizeTeamGroup(markets);
       if (norm) teamProps.push(norm);
+      }
     }
+  }
+
+  if (ev.team_props && Array.isArray(ev.team_props)) {
+    teamProps = ev.team_props;
   }
   
   console.log(`Final counts: playerProps=${playerProps.length}, teamProps=${teamProps.length}`);
 
-  console.log(`Returning event ${ev.eventID} with ${playerProps.length} player props and ${teamProps.length} team props`);
+  console.log(`Returning event ${eventId} with ${playerProps.length} player props and ${teamProps.length} team props`);
   
   return {
-    eventID: ev.eventID,
-    leagueID: ev.leagueID,
-    start_time: toUserTime(ev.scheduled, "America/New_York"),
-    home_team: normalizeTeam(ev.teams?.home),
-    away_team: normalizeTeam(ev.teams?.away),
+    eventID: eventId,
+    leagueID: leagueId,
+    start_time: toUserTime(startTime || "", "America/New_York"),
+    home_team: normalizeTeamSGO(ev.home_team) || normalizeTeam(ev.teams?.home),
+    away_team: normalizeTeamSGO(ev.away_team) || normalizeTeam(ev.teams?.away),
     team_props: teamProps,
     player_props: playerProps,
   };
@@ -769,6 +806,16 @@ function normalizeTeam(team: any) {
       (team.market && team.name ? `${team.market} ${team.name}` : null) ??
       team.alias ??
       "Unknown",
+  };
+}
+
+function normalizeTeamSGO(team: any) {
+  if (!team) return { id: null, abbr: "UNK", name: "Unknown" };
+
+  return {
+    id: team.id ?? null,
+    abbr: team.abbreviation ?? "UNK",
+    name: team.name ?? "Unknown",
   };
 }
 
