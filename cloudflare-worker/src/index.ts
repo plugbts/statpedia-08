@@ -70,6 +70,11 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
+    // Debug endpoint: /debug/player-props?league=nfl&date=YYYY-MM-DD
+    if (url.pathname === "/debug/player-props") {
+      return handleDebugPlayerProps(url, env);
+    }
+
     // Purge cache endpoint: /api/cache/purge?league=nfl&date=YYYY-MM-DD
     if (url.pathname === "/api/cache/purge") {
       return handleCachePurge(url, request, env);
@@ -147,6 +152,44 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
 
   await caches.open('default').then(cache => cache.put(cacheKey, response.clone()));
   return response;
+}
+
+async function handleDebugPlayerProps(url: URL, env: Env): Promise<Response> {
+  const league = url.searchParams.get("league")?.toUpperCase();
+  const date = url.searchParams.get("date");
+  if (!league || !date) return json({ error: "Missing league or date" }, 400);
+
+  // Upstream: real data only
+  const upstream = new URL("https://api.sportsgameodds.com/v2/events");
+  upstream.searchParams.set("leagueID", league);
+  upstream.searchParams.set("date", date);
+  upstream.searchParams.set("oddsAvailable", "true");
+
+  const res = await fetch(upstream.toString(), {
+    headers: { 'x-api-key': env.SPORTSODDS_API_KEY },
+  });
+  if (!res.ok) return json({ error: "Upstream error", status: res.status }, 502);
+
+  const data = await res.json() as any;
+  const rawEvents = data?.data || [];
+
+  // Strict, case-insensitive league filter
+  const events = rawEvents.filter((ev: any) => String(ev.leagueID).toUpperCase() === league);
+
+  const normalized = events.map(debugNormalizeEvent);
+
+  const totalKept = normalized.reduce((a, ev) => a + (ev.debug_counts?.keptPlayerProps || 0), 0);
+  const totalDropped = normalized.reduce((a, ev) => a + (ev.debug_counts?.droppedPlayerProps || 0), 0);
+
+  return json({
+    events: normalized,
+    debug: {
+      upstreamEvents: rawEvents.length,
+      normalizedEvents: normalized.length,
+      totalKeptPlayerProps: totalKept,
+      totalDroppedPlayerProps: totalDropped,
+    },
+  });
 }
 
 async function handleCachePurge(url: URL, request: Request, env: Env): Promise<Response> {
@@ -450,4 +493,169 @@ function pickBest(entries: { price: string }[]) {
     return v > 0 ? 1 + v / 100 : 1 + 100 / Math.abs(v);
   };
   return entries.reduce((best, cur) => (score(cur.price) > score(best.price) ? cur : best), entries[0]);
+}
+
+// === Debug Normalization Functions ===
+
+function debugNormalizeEvent(ev: any) {
+  try {
+    return debugNormalizeEventInternal(ev);
+  } catch (err) {
+    return {
+      eventID: ev?.eventID,
+      leagueID: ev?.leagueID,
+      start_time: ev?.status?.startsAt,
+      home_team: ev?.teams?.home?.names,
+      away_team: ev?.teams?.away?.names,
+      team_props: [],
+      player_props: [],
+      debug_counts: { keptPlayerProps: 0, droppedPlayerProps: 0 },
+      _error: String(err),
+    };
+  }
+}
+
+function debugNormalizeEventInternal(ev: any) {
+  const players = ev.players || {};
+  const oddsDict = ev.odds || {};
+
+  const groups: Record<string, any[]> = {};
+  for (const oddID in oddsDict) {
+    const m = oddsDict[oddID];
+    const key = [m.statEntityID || "", m.statID || "", m.periodID || "", m.betTypeID || ""].join("|");
+    (groups[key] ||= []).push(m);
+  }
+
+  let keptPlayerProps = 0;
+  let droppedPlayerProps = 0;
+
+  const playerProps: any[] = [];
+  const teamProps: any[] = [];
+
+  for (const key in groups) {
+    const markets = groups[key];
+    const hasPlayer = markets.some(mm => !!mm.playerID);
+
+    if (hasPlayer) {
+      const norm = debugNormalizePlayerGroup(markets, players);
+      if (norm) {
+        playerProps.push(norm);
+        keptPlayerProps++;
+      } else {
+        droppedPlayerProps++;
+      }
+    } else {
+      const norm = debugNormalizeTeamGroup(markets);
+      if (norm) teamProps.push(norm);
+    }
+  }
+
+  return {
+    eventID: ev.eventID,
+    leagueID: ev.leagueID,
+    start_time: ev.status?.startsAt,
+    home_team: ev.teams?.home?.names,
+    away_team: ev.teams?.away?.names,
+    team_props: teamProps,
+    player_props: playerProps,
+    debug_counts: { keptPlayerProps, droppedPlayerProps },
+  };
+}
+
+function debugNormalizePlayerGroup(markets: any[], players: Record<string, any>) {
+  const over = markets.find(m => isOverSide(m.sideID));
+  const under = markets.find(m => isUnderSide(m.sideID));
+  const base = over || under;
+  if (!base) return null;
+
+  const player = base.playerID ? players[base.playerID] : undefined;
+  const playerName = player?.name || base.marketName;
+  const marketType = base.statID;
+
+  const lineStr =
+    over?.bookOverUnder ?? under?.bookOverUnder ?? over?.fairOverUnder ?? under?.fairOverUnder ?? null;
+  const line = lineStr && isFinite(parseFloat(lineStr)) ? parseFloat(lineStr) : null;
+
+  const books: any[] = [];
+
+  for (const side of [over, under]) {
+    if (!side) continue;
+
+    // Consensus fallback from market-level fields (real data only)
+    if (side.bookOdds || side.bookOverUnder || side.fairOdds || side.fairOverUnder) {
+      books.push({
+        bookmaker: "consensus",
+        side: String(side.sideID).toLowerCase(),
+        price: side.bookOdds ?? side.fairOdds ?? "",
+        line: toNumberOrNull(side.bookOverUnder ?? side.fairOverUnder),
+      });
+    }
+
+    // Per-book odds if present
+    for (const [book, data] of Object.entries(side.byBookmaker || {})) {
+      const bookData = data as any;
+      if (!bookData || (!bookData.odds && !bookData.overUnder)) continue;
+      books.push({
+        bookmaker: book,
+        side: String(side.sideID).toLowerCase(),
+        price: bookData.odds ?? side.bookOdds ?? "",
+        line: toNumberOrNull(bookData.overUnder ?? side.bookOverUnder),
+        deeplink: bookData.deeplink,
+      });
+    }
+  }
+
+  // If absolutely no odds entries, still return the prop with minimal info (real player + market + line)
+  return {
+    player_name: playerName,
+    teamID: player?.teamID ?? null,
+    market_type: marketType,
+    line,
+    books,
+  };
+}
+
+function debugNormalizeTeamGroup(markets: any[]) {
+  // Optional: include team props for completeness
+  const over = markets.find(m => isOverSide(m.sideID));
+  const under = markets.find(m => isUnderSide(m.sideID));
+  const base = over || under;
+  if (!base) return null;
+
+  const marketType = base.statID;
+  const lineStr =
+    over?.bookOverUnder ?? under?.bookOverUnder ?? over?.fairOverUnder ?? under?.fairOverUnder ?? null;
+  const line = lineStr && isFinite(parseFloat(lineStr)) ? parseFloat(lineStr) : null;
+
+  const books: any[] = [];
+
+  for (const side of [over, under]) {
+    if (!side) continue;
+
+    if (side.bookOdds || side.bookOverUnder || side.fairOdds || side.fairOverUnder) {
+      books.push({
+        bookmaker: "consensus",
+        side: String(side.sideID).toLowerCase(),
+        price: side.bookOdds ?? side.fairOdds ?? "",
+        line: toNumberOrNull(side.bookOverUnder ?? side.fairOverUnder),
+      });
+    }
+    for (const [book, data] of Object.entries(side.byBookmaker || {})) {
+      const bookData = data as any;
+      if (!bookData || (!bookData.odds && !bookData.overUnder)) continue;
+      books.push({
+        bookmaker: book,
+        side: String(side.sideID).toLowerCase(),
+        price: bookData.odds ?? side.bookOdds ?? "",
+        line: toNumberOrNull(bookData.overUnder ?? side.bookOverUnder),
+        deeplink: bookData.deeplink,
+      });
+    }
+  }
+
+  return {
+    market_type: marketType,
+    line,
+    books,
+  };
 }

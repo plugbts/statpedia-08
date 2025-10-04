@@ -97,7 +97,7 @@ const formatCompactTime = (gameTime: string, gameDate: string) => {
 };
 
 import { cloudflarePlayerPropsAPI } from '@/services/cloudflare-player-props-api';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   TrendingUp, 
   Search, 
@@ -253,6 +253,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
 }) => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   
   // Check if user is subscribed - do this early to avoid hooks issues
   const isSubscribed = userSubscription === 'pro' || userSubscription === 'premium' || userRole === 'admin' || userRole === 'owner';
@@ -282,6 +283,16 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const [maxLine, setMaxLine] = useState(100);
   const [showSelection, setShowSelection] = useState(false);
   const [viewMode, setViewMode] = useState<'column' | 'cards'>('column');
+  
+  // Handle view parameter from URL
+  useEffect(() => {
+    const viewParam = searchParams.get('view');
+    if (viewParam === 'compact') {
+      setViewMode('column');
+    } else if (viewParam === 'cards') {
+      setViewMode('cards');
+    }
+  }, [searchParams]);
   const [selectedSportsbook, setSelectedSportsbook] = useState<string>('all');
   const [availableSportsbooks, setAvailableSportsbooks] = useState<{ key: string; title: string; lastUpdate: string }[]>([]);
   
@@ -1251,12 +1262,22 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
               {/* View Mode */}
               <div className="flex items-center gap-2">
                 <label className="text-sm font-medium text-foreground">View:</label>
-                <Select value={viewMode} onValueChange={(value: 'column' | 'cards') => setViewMode(value)}>
+                <Select value={viewMode} onValueChange={(value: 'column' | 'cards') => {
+                  setViewMode(value);
+                  // Update URL parameter
+                  const newSearchParams = new URLSearchParams(searchParams);
+                  if (value === 'column') {
+                    newSearchParams.set('view', 'compact');
+                  } else {
+                    newSearchParams.set('view', 'cards');
+                  }
+                  setSearchParams(newSearchParams);
+                }}>
                   <SelectTrigger className="w-32 bg-background/50 border-primary/20 hover:border-primary/40">
                     <SelectValue placeholder="View" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="column">📊 Column</SelectItem>
+                    <SelectItem value="column">📊 Compact</SelectItem>
                     <SelectItem value="cards">🎴 Cards</SelectItem>
                   </SelectContent>
                 </Select>
