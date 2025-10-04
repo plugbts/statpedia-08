@@ -135,17 +135,9 @@ class CloudflarePlayerPropsAPI {
         const errorData = await response.json();
         console.warn(`⚠️ New /api/${league}/player-props endpoint failed: ${response.status} - ${errorData.error || 'Unknown error'}`);
         
-        // TEMPORARILY DISABLE FALLBACK TO DEBUG ISSUE
-        console.error('🚨 FALLBACK DISABLED - Main endpoint failed:', {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorData
-        });
-        throw new Error(`Main endpoint failed: ${response.status} - ${errorData.error || 'Unknown error'}`);
-        
         // Fallback to legacy endpoint
-        // console.log('🔄 Falling back to legacy /api/player-props endpoint...');
-        // return this.getPlayerPropsFromLegacy(sport, forceRefresh);
+        console.log('🔄 Falling back to legacy /api/player-props endpoint...');
+        return this.getPlayerPropsFromLegacy(sport, forceRefresh);
       }
 
       const data = await response.json();
