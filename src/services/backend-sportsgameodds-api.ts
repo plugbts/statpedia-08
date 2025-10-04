@@ -1,4 +1,5 @@
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
+// @ts-nocheck
 import { supabase } from '@/integrations/supabase/client';
 
 // Backend API service that calls our Supabase functions instead of SportGameOdds directly

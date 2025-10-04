@@ -48,16 +48,11 @@ class SportGameOddsAPIService {
     
     try {
       const { data, error } = await supabase
-        .from('api_config')
-        .select('key, value')
-        .in('key', [
-          'sportsgameodds_api_key',
-          'cache_ttl_seconds', 
-          'polling_interval_seconds',
-          'rate_limit_per_minute',
-          'max_props_per_request',
-          'enabled_sports'
-        ]);
+        .from('api_plan_config')
+        .select('*')
+        .eq('is_active', true)
+        .limit(1)
+        .single();
 
       if (error) {
         console.error('❌ Database error loading API config:', error);
@@ -70,45 +65,23 @@ class SportGameOddsAPIService {
         throw new Error(`Database configuration error: ${error.message}`);
       }
       
-      if (!data || data.length === 0) {
+      if (!data) {
         console.error('❌ No API configuration found in database');
-        throw new Error('No API configuration found. Please set up the api_config table.');
+        throw new Error('No API configuration found. Please set up the api_plan_config table.');
       }
       
-      console.log(`✅ Loaded ${data.length} configuration items from database`);
+      console.log(`✅ Loaded configuration from database`);
       
-      const configMap = data.reduce((acc: any, item) => {
-        acc[item.key] = item.value;
-        return acc;
-      }, {});
-
-      // Helper function to parse JSONB values
-      const parseConfigValue = (value: any): string => {
-      if (!value) return '';
-      
-      // If it's already a string, clean it
-      if (typeof value === 'string') {
-        return value.replace(/^"|"$/g, ''); // Remove leading/trailing quotes
-      }
-      
-      // If it's a JSON object/array, stringify and parse
-      try {
-        const stringified = typeof value === 'object' ? JSON.stringify(value) : value;
-        const parsed = JSON.parse(stringified);
-        return typeof parsed === 'string' ? parsed : stringified;
-      } catch (e) {
-        console.warn('Failed to parse config value:', value, e);
-        return String(value).replace(/^"|"$/g, '');
-      }
-      };
+      // Get API key from environment as fallback
+      const apiKey = Deno.env.get('SPORTSGAMEODDS_API_KEY') || '';
 
       this.config = {
-        sportsgameodds_api_key: parseConfigValue(configMap.sportsgameodds_api_key),
-        cache_ttl_seconds: parseInt(configMap.cache_ttl_seconds) || 10, // Reduced to 10 seconds for live data
-        polling_interval_seconds: parseInt(configMap.polling_interval_seconds) || 30,
-        rate_limit_per_minute: parseInt(configMap.rate_limit_per_minute) || 60,
-        max_props_per_request: parseInt(configMap.max_props_per_request) || 50, // Reduced from 500 to 50 to prevent memory issues
-        enabled_sports: Array.isArray(configMap.enabled_sports) ? configMap.enabled_sports : ['nfl', 'nba', 'mlb', 'nhl']
+        sportsgameodds_api_key: apiKey,
+        cache_ttl_seconds: 10,
+        polling_interval_seconds: 30,
+        rate_limit_per_minute: data.monthly_request_limit / 30 / 24 / 60 || 60,
+        max_props_per_request: 50,
+        enabled_sports: ['nfl', 'nba', 'mlb', 'nhl']
       };
 
       return this.config;

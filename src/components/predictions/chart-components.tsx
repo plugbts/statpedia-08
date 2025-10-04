@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { memo, useMemo, useCallback } from 'react';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { 

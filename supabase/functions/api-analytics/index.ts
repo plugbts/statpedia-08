@@ -84,14 +84,14 @@ class APIAnalyticsService {
     }
 
     // Calculate stats manually
-    const totalRequests = logs.length;
+    const requestCount = logs.length;
     const uniqueUsers = new Set(logs.map(log => log.user_id).filter(Boolean)).size;
     const cacheHits = logs.filter(log => log.cache_hit).length;
-    const cacheHitRate = totalRequests > 0 ? (cacheHits / totalRequests) * 100 : 0;
-    const avgResponseTime = logs.reduce((sum, log) => sum + (log.response_time_ms || 0), 0) / totalRequests;
+    const cacheHitRate = requestCount > 0 ? (cacheHits / requestCount) * 100 : 0;
+    const avgResponseTime = logs.reduce((sum, log) => sum + (log.response_time_ms || 0), 0) / requestCount;
     const errorLogs = logs.filter(log => log.response_status >= 400);
-    const errorRate = totalRequests > 0 ? (errorLogs.length / totalRequests) * 100 : 0;
-    const rateLimitHits = logs.filter(log => log.response_status === 429).length;
+    const errorPct = requestCount > 0 ? (errorLogs.length / requestCount) * 100 : 0;
+    const limitHits = logs.filter(log => log.response_status === 429).length;
 
     // Group by endpoint
     const requestsByEndpoint: Record<string, number> = {};
@@ -117,7 +117,7 @@ class APIAnalyticsService {
     });
 
     const stats = {
-      total_requests: totalRequests,
+      total_requests: requestCount,
       unique_users: uniqueUsers,
       cache_hit_rate: Math.round(cacheHitRate * 100) / 100,
       avg_response_time: Math.round(avgResponseTime * 100) / 100,

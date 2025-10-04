@@ -428,14 +428,14 @@ export const PlayerAnalysisOverlay: React.FC<PlayerAnalysisOverlayProps> = ({
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Confidence</p>
-                  <Progress value={confidence * 100} className="h-2" indicatorColor={getConfidenceColor(confidence)} />
+                  <Progress value={confidence * 100} className="h-2" />
                   <p className={cn("text-sm font-medium", getConfidenceColor(confidence))}>
                     {formatPercentage(confidence)}
                   </p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Expected Value</p>
-                  <Progress value={(expectedValue + 0.1) * 500} className="h-2" indicatorColor={getEVColor(expectedValue)} />
+                  <Progress value={(expectedValue + 0.1) * 500} className="h-2" />
                   <p className={cn("text-sm font-medium", getEVColor(expectedValue))}>
                     {formatPercentage(expectedValue)}
                   </p>
