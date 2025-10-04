@@ -643,7 +643,7 @@ function normalizeEvent(ev: SGEvent) {
     // SGO already provides normalized player props
     playerProps = ev.player_props;
     console.log(`Using SGO player_props: ${playerProps.length} props`);
-  } else if (ev.odds && ev.players) {
+  } else if (ev.odds) {
     // Fallback to legacy normalization for backward compatibility
     console.log(`Falling back to legacy normalization`);
   const players = ev.players || {};
@@ -786,6 +786,16 @@ function normalizePlayerGroup(markets: any[], players: Record<string, any>, leag
 
   const player = base.playerID ? players[base.playerID] : undefined;
   let playerName = player?.name ?? null;
+  
+  // Try to extract player name from marketName if player not found
+  if (!playerName && base.marketName) {
+    // Extract player name from marketName like "Joe Flacco To Record First Touchdown Yes/No"
+    const marketNameParts = base.marketName.split(' ');
+    if (marketNameParts.length >= 2) {
+      // Take the first two words as the player name
+      playerName = `${marketNameParts[0]} ${marketNameParts[1]}`;
+    }
+  }
   
   // Try to extract player name from oddID if player not found
   if (!playerName && base.oddID) {

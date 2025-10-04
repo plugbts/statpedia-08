@@ -183,7 +183,7 @@ class UnifiedSportsAPI {
       logAPI('UnifiedSportsAPI', `Fetching games for ${sport} on ${today} using /${league}/games endpoint`);
       
       // Call the backend API endpoint that uses the correct format
-      const response = await fetch(`/api/${league}/player-props?date=${today}`);
+      const response = await fetch(`https://statpedia-player-props.statpedia.workers.dev/api/${league}/player-props?date=${today}`);
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);

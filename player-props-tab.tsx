@@ -24,7 +24,7 @@ export default function PlayerPropsTab({ league }: { league: string }) {
   useEffect(() => {
     async function load() {
       setLoading(true);
-      const res = await fetch(`/api/${league}/player-props?date=2025-10-05`);
+      const res = await fetch(`https://statpedia-player-props.statpedia.workers.dev/api/${league}/player-props?date=2025-10-05`);
       const data = await res.json();
       setEvents(data);
       setLoading(false);
