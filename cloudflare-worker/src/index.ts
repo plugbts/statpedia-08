@@ -170,7 +170,7 @@ export default {
 };
 
 async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionContext, league: string): Promise<Response> {
-  const url = new URL(request.url);
+      const url = new URL(request.url);
   const leagues = (url.searchParams.get("league") || "nfl")
     .split(",")
     .map(l => l.trim().toLowerCase());
@@ -184,34 +184,13 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
   for (const league of leagues) {
     // 1. Fetch raw events for the week from SportsGameOdds
     console.log(`Fetching events for league: ${league}, date: ${date}`);
-    // Test with single date first
-    const rawEvents = await fetchUpstreamProps(league.toUpperCase(), date, env);
+    const rawEvents = await fetchLeagueWeek(league.toUpperCase(), new Date(date), env);
     console.log(`Fetched ${rawEvents.length} raw events for ${league}`);
 
-    // 2. Normalize events
+    // 2. Normalize events (normalizeEventSGO already handles player props)
     let normalized = rawEvents
       .map(ev => normalizeEventSGO(ev, request))
       .filter(Boolean);
-
-    // 3. Group + normalize player props
-    for (const event of normalized) {
-      if (event && event.player_props?.length) {
-        const grouped: Record<string, any[]> = {};
-        for (const m of event.player_props) {
-          const key = [
-            m.player_id || "",
-            m.market_id || "",
-            m.market_type || "",
-            m.period || "",
-            m.bet_type || "",
-          ].join("|");
-          (grouped[key] ||= []).push(m);
-        }
-        event.player_props = Object.values(grouped)
-          .map(group => normalizePlayerGroup(group, {}, league))
-          .filter(Boolean);
-      }
-    }
 
     // 4. Prioritize + cap props per league
     normalized = capPropsPerLeague(normalized, league, 125);
@@ -452,7 +431,7 @@ function normalizeEventSGO(ev: any, request: any) {
   for (const oddID in oddsDict) {
     const m = oddsDict[oddID];
 
-    // Build a composite key from SGO legacy fields
+    // Build a composite key from SGO legacy fields (same as debug endpoint)
     const key = [
       m.statEntityID || "",     // which player/team this prop belongs to
       m.statID || "",           // unique market identifier
@@ -470,6 +449,7 @@ function normalizeEventSGO(ev: any, request: any) {
 
   for (const key in groups) {
     const markets = groups[key];
+    // Use same logic as debug endpoint: check for playerID
     const hasPlayer = markets.some(mm => !!mm.playerID);
     
     console.log(`Group ${key}: hasPlayer=${hasPlayer}, markets=${markets.length}`);
