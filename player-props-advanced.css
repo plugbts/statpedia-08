@@ -1,0 +1,252 @@
+/* player-props-advanced.css */
+
+.player-props-advanced {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.loading, .error {
+  text-align: center;
+  padding: 2rem;
+  font-size: 1.1rem;
+}
+
+.error {
+  color: #e53e3e;
+  background: #fed7d7;
+  border-radius: 8px;
+}
+
+.controls {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: #f7fafc;
+  border-radius: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.control-group label {
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: #2d3748;
+}
+
+.control-group select {
+  padding: 0.5rem;
+  border: 1px solid #cbd5e0;
+  border-radius: 4px;
+  background: white;
+  font-size: 0.9rem;
+}
+
+.control-group input[type="checkbox"] {
+  margin-right: 0.5rem;
+}
+
+.refresh-btn {
+  padding: 0.5rem 1rem;
+  background: #3182ce;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  align-self: flex-end;
+}
+
+.refresh-btn:hover {
+  background: #2c5282;
+}
+
+.market-summary {
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background: #e6fffa;
+  border-radius: 8px;
+  border: 1px solid #81e6d9;
+}
+
+.market-summary h3 {
+  margin: 0 0 1rem 0;
+  color: #234e52;
+  font-size: 1.1rem;
+}
+
+.summary-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.market-tag {
+  background: #319795;
+  color: white;
+  padding: 0.5rem 0.75rem;
+  border-radius: 16px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 2px solid transparent;
+}
+
+.market-tag:hover {
+  background: #2c7a7b;
+  transform: translateY(-1px);
+}
+
+.market-tag.selected {
+  background: #2d3748;
+  border-color: #4a5568;
+}
+
+.event-block {
+  margin-bottom: 2rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1.5rem;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.event-block h2 {
+  margin: 0 0 0.5rem 0;
+  color: #2d3748;
+  font-size: 1.3rem;
+}
+
+.event-stats {
+  margin: 0 0 1rem 0;
+  color: #718096;
+  font-size: 0.9rem;
+}
+
+.no-props {
+  text-align: center;
+  color: #718096;
+  font-style: italic;
+  padding: 2rem;
+}
+
+.table-container {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  font-size: 0.9rem;
+}
+
+th {
+  background: #2d3748;
+  color: white;
+  padding: 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+}
+
+td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.prop-row:hover {
+  background: #f7fafc;
+}
+
+.prop-row:last-child td {
+  border-bottom: none;
+}
+
+.player-name {
+  font-weight: 500;
+  color: #2d3748;
+}
+
+.market-type {
+  color: #4a5568;
+  font-size: 0.85rem;
+}
+
+.line {
+  text-align: center;
+  font-weight: 500;
+  color: #2b6cb0;
+}
+
+.odds {
+  font-size: 0.85rem;
+}
+
+.odds.over {
+  color: #38a169;
+}
+
+.odds.under {
+  color: #e53e3e;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .player-props-advanced {
+    padding: 0.5rem;
+  }
+  
+  .controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .control-group {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .control-group label {
+    min-width: 100px;
+  }
+  
+  .market-tag {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.6rem;
+  }
+  
+  .event-block {
+    padding: 1rem;
+  }
+  
+  table {
+    font-size: 0.8rem;
+  }
+  
+  th, td {
+    padding: 0.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .table-container {
+    font-size: 0.75rem;
+  }
+  
+  th, td {
+    padding: 0.4rem;
+  }
+}

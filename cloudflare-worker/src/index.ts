@@ -229,6 +229,14 @@ export async function handlePropsEndpoint(request: Request, env: Env) {
         .map(ev => normalizeEventSGO(ev, request))
         .filter(Boolean);
 
+      // DEBUG: Log event normalization
+      console.log("DEBUG event normalization", {
+        league,
+        rawEventsCount: rawEvents.length,
+        normalizedCount: normalized.length,
+        firstEventPropsCount: normalized[0]?.player_props?.length || 0
+      });
+
       // 3. Group and normalize player props
       for (const event of normalized) {
         if (event.player_props?.length) {
@@ -288,6 +296,13 @@ export async function handlePropsEndpoint(request: Request, env: Env) {
     }
 
     if (debug) responseData.debug = debugInfo;
+
+    // DEBUG: Log final response structure
+    console.log("DEBUG final response", {
+      eventsCount: responseData.events.length,
+      firstEventPropsCount: responseData.events[0]?.player_props?.length || 0,
+      sampleProp: responseData.events[0]?.player_props?.[0] || null
+    });
 
     return withCORS(
       new Response(JSON.stringify(responseData), {
@@ -581,7 +596,7 @@ function normalizePlayerGroup(markets: any[], players: Record<string, any>, leag
 
   const allBooks = [...collectBooks(over), ...collectBooks(under)];
   
-  return {
+  const result = {
     player_name: playerName,
     teamID: player?.teamID ?? null,
     market_type: formatMarketType(base.statID, league),
@@ -590,6 +605,18 @@ function normalizePlayerGroup(markets: any[], players: Record<string, any>, leag
     best_under: pickBest(allBooks.filter(b => b.side === "under")),
     books: allBooks,
   };
+
+  // DEBUG: Log player group normalization
+  console.log("DEBUG player group", {
+    playerName,
+    marketType: result.market_type,
+    line: result.line,
+    booksCount: allBooks.length,
+    bestOver: result.best_over,
+    bestUnder: result.best_under
+  });
+
+  return result;
 }
 
 function normalizeSide(side: string | undefined): "over" | "under" | null {
