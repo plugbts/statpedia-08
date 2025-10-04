@@ -14,6 +14,7 @@ import { unifiedSportsAPI } from '@/services/unified-sports-api';
 import { sportsGameOddsAPI } from '@/services/sportsgameodds-api';
 import { sportsGameOddsEdgeAPI } from '@/services/sportsgameodds-edge-api';
 import { smartPropOptimizer } from '@/services/smart-prop-optimizer';
+import { sportsRadarBackend } from '@/services/sportsradar-backend';
 // REMOVED: Trio system components - replaced with dual system
 // import { trioSportsAPI } from '@/services/trio-sports-api';
 // import { oddsBlazeAPI } from '@/services/oddsblaze-api';
