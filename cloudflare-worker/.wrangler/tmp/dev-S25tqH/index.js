@@ -1,7 +1,7 @@
 var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
-// .wrangler/tmp/bundle-1sxyvh/checked-fetch.js
+// .wrangler/tmp/bundle-vr8Ana/checked-fetch.js
 var urls = /* @__PURE__ */ new Set();
 function checkURL(request, init) {
   const url = request instanceof URL ? request : new URL(
@@ -27,7 +27,7 @@ globalThis.fetch = new Proxy(globalThis.fetch, {
   }
 });
 
-// .wrangler/tmp/bundle-1sxyvh/strip-cf-connecting-ip-header.js
+// .wrangler/tmp/bundle-vr8Ana/strip-cf-connecting-ip-header.js
 function stripCfConnectingIPHeader(input, init) {
   const request = new Request(input, init);
   request.headers.delete("CF-Connecting-IP");
@@ -84,7 +84,17 @@ var src_default = {
     } else if (url.pathname === "/api/cache/purge") {
       resp = await handleCachePurge(url, request, env);
     } else if (url.pathname.startsWith("/api/sportradar/")) {
-      resp = await handleSportRadarProxy(url, request, env);
+      resp = new Response(
+        JSON.stringify({
+          error: "SportRadar API has been deprecated. Please use SportsGameOdds API instead.",
+          migration: "Use /api/{league}/player-props endpoint instead"
+        }),
+        {
+          status: 410,
+          // Gone
+          headers: { "content-type": "application/json" }
+        }
+      );
     } else {
       const match = url.pathname.match(/^\/api\/([a-z]+)\/player-props$/);
       if (match) {
@@ -143,11 +153,19 @@ async function handlePropsEndpoint(request, env) {
     const responseData = { events: [] };
     const debugInfo = {};
     for (const league of leagues) {
-      const rawEvents = await fetchSportsGameOddsWeek(league, env);
+      const rawEvents = await fetchUpstreamProps(league.toUpperCase(), "2025-10-05", env);
       let normalized = rawEvents.slice(0, 10).map((ev) => normalizeEventSGO(ev, request)).filter(Boolean);
       for (const event of normalized) {
         if (event.player_props?.length) {
           groupPlayerProps(event, league);
+          if (debug) {
+            console.log("DEBUG prop summary", {
+              eventID: event.eventID,
+              home: event.home_team,
+              away: event.away_team,
+              counts: summarizePropsByMarket(event, league)
+            });
+          }
         }
       }
       normalized = capPropsPerLeague(normalized, league, 125);
@@ -254,40 +272,6 @@ async function handleCachePurge(url, request, env) {
   );
 }
 __name(handleCachePurge, "handleCachePurge");
-async function handleSportRadarProxy(url, request, env) {
-  try {
-    const sportradarPath = url.pathname.replace("/api/sportradar", "");
-    const sportradarUrl = `https://api.sportradar.com${sportradarPath}${url.search}`;
-    console.log(`Proxying SportRadar request to: ${sportradarUrl}`);
-    const response = await fetch(sportradarUrl, {
-      method: request.method,
-      headers: {
-        "Accept": "application/json",
-        "User-Agent": "Statpedia/1.0",
-        "X-API-Key": "onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D"
-        // SportRadar API key
-      }
-    });
-    if (!response.ok) {
-      console.log(`SportRadar API error: ${response.status} ${response.statusText}`);
-      return new Response(
-        JSON.stringify({ error: "SportRadar API error", status: response.status }),
-        { status: response.status, headers: { "content-type": "application/json" } }
-      );
-    }
-    const data = await response.json();
-    return new Response(JSON.stringify(data), {
-      headers: { "content-type": "application/json" }
-    });
-  } catch (error) {
-    console.log(`SportRadar proxy error:`, error);
-    return new Response(
-      JSON.stringify({ error: "Proxy error" }),
-      { status: 500, headers: { "content-type": "application/json" } }
-    );
-  }
-}
-__name(handleSportRadarProxy, "handleSportRadarProxy");
 function buildUpstreamUrl(path, league, date, oddIDs, bookmakerID) {
   const BASE_URL = "https://api.sportsgameodds.com";
   const url = new URL(path, BASE_URL);
@@ -326,6 +310,10 @@ function json(body, status = 200) {
 }
 __name(json, "json");
 function normalizeEventSGO(ev, request) {
+  console.log("DEBUG odds flatten", {
+    totalOdds: Object.keys(ev.odds || {}).length,
+    firstOdd: Object.values(ev.odds || {})[0]
+  });
   return {
     eventID: ev.eventID,
     leagueID: ev.leagueID,
@@ -349,6 +337,10 @@ function groupPlayerProps(event, league) {
     ].join("|");
     (grouped[key] ||= []).push(m);
   }
+  console.log("DEBUG grouped props", {
+    groups: Object.keys(grouped).length,
+    sample: Object.values(grouped)[0]
+  });
   event.player_props = Object.values(grouped).map((group) => normalizePlayerGroup(group, event.players, league)).filter(Boolean);
 }
 __name(groupPlayerProps, "groupPlayerProps");
@@ -360,46 +352,65 @@ function normalizePlayerGroup(markets, players, league) {
     return null;
   const player = base.playerID ? players[base.playerID] : void 0;
   const playerName = player?.name ?? null;
-  const marketType = base.statID;
-  const line = Number(base.bookOverUnder ?? null);
-  const books = [];
-  for (const side of [over, under]) {
-    if (!side)
-      continue;
-    if (side.bookOdds || side.bookOverUnder) {
-      books.push({
-        bookmaker: "consensus",
-        side: side.sideID,
-        price: side.bookOdds ?? null,
-        line: Number(side.bookOverUnder ?? null)
-      });
-    }
-    for (const [book, data] of Object.entries(side.byBookmaker || {})) {
-      const bookData = data;
-      if (!bookData.odds && !bookData.overUnder)
-        continue;
-      books.push({
-        bookmaker: book,
-        side: side.sideID,
-        price: bookData.odds ?? side.bookOdds ?? null,
-        line: Number(bookData.overUnder ?? side.bookOverUnder ?? null),
-        deeplink: bookData.deeplink
-      });
-    }
-  }
-  const best_over = pickBest(books.filter((b) => String(b.side).toLowerCase() === "over" || b.side === "yes"));
-  const best_under = pickBest(books.filter((b) => String(b.side).toLowerCase() === "under" || b.side === "no"));
+  const allBooks = [...collectBooks(over), ...collectBooks(under)];
   return {
     player_name: playerName,
     teamID: player?.teamID ?? null,
-    market_type: formatMarketType(marketType, league),
-    line,
-    best_over,
-    best_under,
-    books
+    market_type: formatMarketType(base.statID, league),
+    line: Number(base.bookOverUnder ?? null),
+    best_over: pickBest(allBooks.filter((b) => b.side === "over")),
+    best_under: pickBest(allBooks.filter((b) => b.side === "under")),
+    books: allBooks
   };
 }
 __name(normalizePlayerGroup, "normalizePlayerGroup");
+function normalizeSide(side) {
+  if (!side)
+    return null;
+  const s = side.toLowerCase();
+  if (s === "over" || s === "yes")
+    return "over";
+  if (s === "under" || s === "no")
+    return "under";
+  return null;
+}
+__name(normalizeSide, "normalizeSide");
+function collectBooks(side) {
+  if (!side)
+    return [];
+  const books = [];
+  if (side.bookOdds || side.bookOverUnder) {
+    books.push({
+      bookmaker: "consensus",
+      side: normalizeSide(side.sideID),
+      price: side.bookOdds ?? null,
+      line: Number(side.bookOverUnder ?? null)
+    });
+  }
+  for (const [book, data] of Object.entries(side.byBookmaker || {})) {
+    const bookData = data;
+    if (!bookData.odds && !bookData.overUnder)
+      continue;
+    books.push({
+      bookmaker: book,
+      side: normalizeSide(side.sideID),
+      price: bookData.odds ?? side.bookOdds ?? null,
+      line: Number(bookData.overUnder ?? side.bookOverUnder ?? null),
+      deeplink: bookData.deeplink
+    });
+  }
+  return books;
+}
+__name(collectBooks, "collectBooks");
+function summarizePropsByMarket(event, league) {
+  const counts = {};
+  for (const prop of event.player_props || []) {
+    const label = formatMarketType(prop.market_type || prop.statID, league);
+    counts[label] = (counts[label] || 0) + 1;
+  }
+  return counts;
+}
+__name(summarizePropsByMarket, "summarizePropsByMarket");
 function isOverSide(side) {
   const s = String(side || "").toLowerCase();
   return s === "over" || s === "yes";
@@ -669,16 +680,6 @@ function capPropsPerLeague(normalizedEvents, league, maxProps = 125) {
   return normalizedEvents;
 }
 __name(capPropsPerLeague, "capPropsPerLeague");
-function getWeekRange(baseDate = /* @__PURE__ */ new Date(), days = 7) {
-  const start = new Date(baseDate);
-  const end = new Date(baseDate);
-  end.setDate(start.getDate() + (days - 1));
-  return {
-    start: start.toISOString().slice(0, 10),
-    end: end.toISOString().slice(0, 10)
-  };
-}
-__name(getWeekRange, "getWeekRange");
 async function fetchUpstreamProps(league, date, env) {
   const upstreamUrl = buildUpstreamUrl("/v2/events", league, date);
   const res = await fetch(upstreamUrl, { headers: { "x-api-key": env.SPORTSODDS_API_KEY } });
@@ -690,24 +691,6 @@ async function fetchUpstreamProps(league, date, env) {
   return data?.data || [];
 }
 __name(fetchUpstreamProps, "fetchUpstreamProps");
-async function fetchSportsGameOddsWeek(league, env) {
-  const baseDate = /* @__PURE__ */ new Date();
-  const { start, end } = getWeekRange(baseDate, 7);
-  const dates = [];
-  let d = new Date(start);
-  while (d <= new Date(end)) {
-    dates.push(d.toISOString().slice(0, 10));
-    d.setDate(d.getDate() + 1);
-  }
-  console.log(`Fetching ${league} props for dates: ${dates.join(", ")}`);
-  const results = await Promise.all(
-    dates.map((date) => fetchUpstreamProps(league.toUpperCase(), date, env))
-  );
-  const flatResults = results.flat();
-  console.log(`Fetched ${flatResults.length} total events across ${dates.length} days`);
-  return flatResults;
-}
-__name(fetchSportsGameOddsWeek, "fetchSportsGameOddsWeek");
 function pickBest(books) {
   const candidates = books.filter((b) => parseAmerican(b.price) !== null);
   if (candidates.length === 0)
@@ -1014,7 +997,7 @@ var jsonError = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx)
 }, "jsonError");
 var middleware_miniflare3_json_error_default = jsonError;
 
-// .wrangler/tmp/bundle-1sxyvh/middleware-insertion-facade.js
+// .wrangler/tmp/bundle-vr8Ana/middleware-insertion-facade.js
 var __INTERNAL_WRANGLER_MIDDLEWARE__ = [
   middleware_ensure_req_body_drained_default,
   middleware_miniflare3_json_error_default
@@ -1046,7 +1029,7 @@ function __facade_invoke__(request, env, ctx, dispatch, finalMiddleware) {
 }
 __name(__facade_invoke__, "__facade_invoke__");
 
-// .wrangler/tmp/bundle-1sxyvh/middleware-loader.entry.ts
+// .wrangler/tmp/bundle-vr8Ana/middleware-loader.entry.ts
 var __Facade_ScheduledController__ = class {
   constructor(scheduledTime, cron, noRetry) {
     this.scheduledTime = scheduledTime;

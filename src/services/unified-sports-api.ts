@@ -1,6 +1,6 @@
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
-import { sportsRadarAPI, SportsRadarGame } from './sportsradar-api';
 import { sportsGameOddsAPI, SportsGameOddsPlayerProp, SportsGameOddsGame } from './sportsgameodds-api';
+import { normalizeEventSGO, groupPlayerProps } from './normalizers';
 
 // Unified interfaces
 export interface SportsbookOdds {
@@ -94,8 +94,8 @@ export interface Outcome {
 
 class UnifiedSportsAPI {
   constructor() {
-    logInfo('UnifiedSportsAPI', 'Service initialized - Version 4.0.0');
-    logInfo('UnifiedSportsAPI', 'Using SportsRadar API for games/stats and SportsGameOdds API for markets/odds/props');
+    logInfo('UnifiedSportsAPI', 'Service initialized - Version 5.0.0');
+    logInfo('UnifiedSportsAPI', 'Using SportsGameOdds API for all data (games, markets, odds, props)');
   }
 
   // Get player props using SportsGameOdds API (markets/odds/props only)
@@ -173,24 +173,25 @@ class UnifiedSportsAPI {
     }
   }
 
-  // Get games using SportsRadar API
+  // Get games using SportsGameOdds API
   async getGames(sport: string): Promise<Game[]> {
     try {
-      const sportsRadarGames = await sportsRadarAPI.getGames(sport);
-      logAPI('UnifiedSportsAPI', `Retrieved ${sportsRadarGames.length} games from SportsRadar`);
+      // Get games from SportsGameOdds API
+      const sgoGames = await sportsGameOddsAPI.getGames(sport);
+      logAPI('UnifiedSportsAPI', `Retrieved ${sgoGames.length} games from SportsGameOdds`);
 
-      const games: Game[] = sportsRadarGames.map(srGame => ({
-        id: srGame.id,
-        sport: srGame.sport,
-        homeTeam: srGame.homeTeam,
-        awayTeam: srGame.awayTeam,
-        commenceTime: srGame.commenceTime,
-        status: srGame.status,
-        homeScore: srGame.homeScore,
-        awayScore: srGame.awayScore,
+      const games: Game[] = sgoGames.map(sgoGame => ({
+        id: sgoGame.id,
+        sport: sgoGame.sport,
+        homeTeam: sgoGame.homeTeam,
+        awayTeam: sgoGame.awayTeam,
+        commenceTime: sgoGame.gameTime,
+        status: sgoGame.status,
+        homeScore: undefined, // SportsGameOdds doesn't provide live scores
+        awayScore: undefined,
         homeOdds: -110, // Default odds
         awayOdds: -110,
-        drawOdds: srGame.sport === 'SOCCER' ? -110 : undefined
+        drawOdds: sgoGame.sport === 'SOCCER' ? -110 : undefined
       }));
 
       logSuccess('UnifiedSportsAPI', `Returning ${games.length} games for ${sport}`);
@@ -204,9 +205,21 @@ class UnifiedSportsAPI {
   // Get odds comparisons using SportsGameOdds API (for markets/odds)
   async getOddsComparisons(sport: string): Promise<OddsComparison[]> {
     try {
-      // SportsGameOdds API is for markets/odds/props, not SportsRadar
-      logWarning('UnifiedSportsAPI', `Odds comparisons should use SportsGameOdds API for markets/odds, not SportsRadar`);
-      return [];
+      // Get games and convert to odds comparisons format
+      const games = await this.getGames(sport);
+      
+      const comparisons: OddsComparison[] = games.map(game => ({
+        id: game.id,
+        sport: game.sport,
+        homeTeam: game.homeTeam,
+        awayTeam: game.awayTeam,
+        commenceTime: game.commenceTime,
+        markets: [], // SportsGameOdds doesn't provide market data in this format
+        lastUpdate: new Date().toISOString()
+      }));
+      
+      logSuccess('UnifiedSportsAPI', `Returning ${comparisons.length} odds comparisons for ${sport}`);
+      return comparisons;
     } catch (error) {
       logError('UnifiedSportsAPI', `Failed to get odds comparisons for ${sport}:`, error);
       return [];

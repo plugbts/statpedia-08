@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { sportsRadarAPI } from './sportsradar-api';
+import { sportsGameOddsAPI } from './sportsgameodds-api';
 
 export interface PlayerPropPrediction {
   id: string;

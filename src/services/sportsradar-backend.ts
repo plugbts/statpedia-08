@@ -9,7 +9,7 @@
  */
 
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
-import { sportsRadarAPI, SportsRadarPlayerProp, SportsRadarGame } from './sportsradar-api';
+import { sportsGameOddsAPI, SportsGameOddsPlayerProp, SportsGameOddsGame } from './sportsgameodds-api';
 
 // Backend configuration
 const BACKEND_CONFIG = {

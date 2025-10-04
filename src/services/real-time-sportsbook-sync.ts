@@ -1,5 +1,5 @@
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
-import { sportsRadarAPI, SportsRadarPlayerProp } from './sportsradar-api';
+import { sportsGameOddsAPI, SportsGameOddsPlayerProp } from './sportsgameodds-api';
 
 export interface SyncResult {
   success: boolean;

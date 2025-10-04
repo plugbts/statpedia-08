@@ -154,9 +154,18 @@ export default {
     else if (url.pathname === "/api/cache/purge") {
       resp = await handleCachePurge(url, request, env);
     }
-    // SportRadar proxy endpoint: /api/sportradar/*
+    // DEPRECATED: SportRadar proxy endpoint: /api/sportradar/*
     else if (url.pathname.startsWith("/api/sportradar/")) {
-      resp = await handleSportRadarProxy(url, request, env);
+      resp = new Response(
+        JSON.stringify({ 
+          error: "SportRadar API has been deprecated. Please use SportsGameOdds API instead.",
+          migration: "Use /api/{league}/player-props endpoint instead"
+        }), 
+        { 
+          status: 410, // Gone
+          headers: { "content-type": "application/json" } 
+        }
+      );
     }
     // Route: /api/{league}/player-props
     else {
@@ -228,8 +237,8 @@ export async function handlePropsEndpoint(request: Request, env: Env) {
     const debugInfo: any = {};
 
     for (const league of leagues) {
-      // 1. Fetch raw events from SportsGameOdds
-      const rawEvents = await fetchSportsGameOddsWeek(league, env);
+      // 1. Fetch raw events from SportsGameOdds (single day for debugging)
+      const rawEvents = await fetchUpstreamProps(league.toUpperCase(), "2025-10-05", env);
 
       // 2. Normalize events (limit to first 10 for performance)
       let normalized = rawEvents
@@ -241,6 +250,15 @@ export async function handlePropsEndpoint(request: Request, env: Env) {
       for (const event of normalized) {
         if (event.player_props?.length) {
           groupPlayerProps(event, league);
+
+          if (debug) {
+            console.log("DEBUG prop summary", {
+              eventID: event.eventID,
+              home: event.home_team,
+              away: event.away_team,
+              counts: summarizePropsByMarket(event, league)
+            });
+          }
         }
       }
 
@@ -370,44 +388,8 @@ async function handleCachePurge(url: URL, request: Request, env: Env): Promise<R
   );
 }
 
-async function handleSportRadarProxy(url: URL, request: Request, env: Env) {
-  try {
-    // Extract the SportRadar endpoint from the URL
-    const sportradarPath = url.pathname.replace("/api/sportradar", "");
-    const sportradarUrl = `https://api.sportradar.com${sportradarPath}${url.search}`;
-    
-    console.log(`Proxying SportRadar request to: ${sportradarUrl}`);
-    
-    // Forward the request to SportRadar
-    const response = await fetch(sportradarUrl, {
-      method: request.method,
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'Statpedia/1.0',
-        'X-API-Key': 'onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D' // SportRadar API key
-      }
-    });
-
-    if (!response.ok) {
-      console.log(`SportRadar API error: ${response.status} ${response.statusText}`);
-      return new Response(
-        JSON.stringify({ error: "SportRadar API error", status: response.status }),
-        { status: response.status, headers: { "content-type": "application/json" } }
-      );
-    }
-
-    const data = await response.json();
-    return new Response(JSON.stringify(data), {
-      headers: { "content-type": "application/json" }
-    });
-  } catch (error) {
-    console.log(`SportRadar proxy error:`, error);
-    return new Response(
-      JSON.stringify({ error: "Proxy error" }),
-      { status: 500, headers: { "content-type": "application/json" } }
-    );
-  }
-}
+// DEPRECATED: SportRadar proxy function - removed
+// All SportRadar functionality has been migrated to SportsGameOdds API
 
 function buildUpstreamUrl(path: string, league: string, date: string, oddIDs?: string | null, bookmakerID?: string | null) {
   const BASE_URL = "https://api.sportsgameodds.com";
@@ -471,6 +453,12 @@ function safeNormalizeEvent(ev: SGEvent) {
 }
 
 function normalizeEventSGO(ev: any, request: any) {
+  // DEBUG: Log odds flattening
+  console.log("DEBUG odds flatten", {
+    totalOdds: Object.keys(ev.odds || {}).length,
+    firstOdd: Object.values(ev.odds || {})[0]
+  });
+
   return {
     eventID: ev.eventID,
     leagueID: ev.leagueID,
@@ -576,6 +564,12 @@ function groupPlayerProps(event: any, league: string) {
     (grouped[key] ||= []).push(m);
   }
 
+  // DEBUG: Log grouped props
+  console.log("DEBUG grouped props", {
+    groups: Object.keys(grouped).length,
+    sample: Object.values(grouped)[0]
+  });
+
   event.player_props = Object.values(grouped)
     .map(group => normalizePlayerGroup(group, event.players, league))
     .filter(Boolean);
@@ -590,47 +584,61 @@ function normalizePlayerGroup(markets: any[], players: Record<string, any>, leag
   const player = base.playerID ? players[base.playerID] : undefined;
   const playerName = player?.name ?? null;
 
-  const marketType = base.statID;
-  const line = Number(base.bookOverUnder ?? null);
-
-  const books: any[] = [];
-  for (const side of [over, under]) {
-    if (!side) continue;
-
-    if (side.bookOdds || side.bookOverUnder) {
-      books.push({
-        bookmaker: "consensus",
-        side: side.sideID,
-        price: side.bookOdds ?? null,
-        line: Number(side.bookOverUnder ?? null),
-      });
-    }
-
-    for (const [book, data] of Object.entries(side.byBookmaker || {})) {
-      const bookData = data as any;
-      if (!bookData.odds && !bookData.overUnder) continue;
-      books.push({
-        bookmaker: book,
-        side: side.sideID,
-        price: bookData.odds ?? side.bookOdds ?? null,
-        line: Number(bookData.overUnder ?? side.bookOverUnder ?? null),
-        deeplink: bookData.deeplink,
-      });
-    }
-  }
-
-  const best_over = pickBest(books.filter(b => String(b.side).toLowerCase() === "over" || b.side === "yes"));
-  const best_under = pickBest(books.filter(b => String(b.side).toLowerCase() === "under" || b.side === "no"));
-
+  const allBooks = [...collectBooks(over), ...collectBooks(under)];
+  
   return {
     player_name: playerName,
     teamID: player?.teamID ?? null,
-    market_type: formatMarketType(marketType, league),
-    line,
-    best_over,
-    best_under,
-    books,
+    market_type: formatMarketType(base.statID, league),
+    line: Number(base.bookOverUnder ?? null),
+    best_over: pickBest(allBooks.filter(b => b.side === "over")),
+    best_under: pickBest(allBooks.filter(b => b.side === "under")),
+    books: allBooks,
   };
+}
+
+function normalizeSide(side: string | undefined): "over" | "under" | null {
+  if (!side) return null;
+  const s = side.toLowerCase();
+  if (s === "over" || s === "yes") return "over";
+  if (s === "under" || s === "no") return "under";
+  return null;
+}
+
+function collectBooks(side: any) {
+  if (!side) return [];
+  const books: any[] = [];
+  if (side.bookOdds || side.bookOverUnder) {
+    books.push({
+      bookmaker: "consensus",
+      side: normalizeSide(side.sideID),
+      price: side.bookOdds ?? null,
+      line: Number(side.bookOverUnder ?? null),
+    });
+  }
+  for (const [book, data] of Object.entries(side.byBookmaker || {})) {
+    const bookData = data as any;
+    if (!bookData.odds && !bookData.overUnder) continue;
+    books.push({
+      bookmaker: book,
+      side: normalizeSide(side.sideID),
+      price: bookData.odds ?? side.bookOdds ?? null,
+      line: Number(bookData.overUnder ?? side.bookOverUnder ?? null),
+      deeplink: bookData.deeplink,
+    });
+  }
+  return books;
+}
+
+function summarizePropsByMarket(event: any, league: string) {
+  const counts: Record<string, number> = {};
+
+  for (const prop of event.player_props || []) {
+    const label = formatMarketType(prop.market_type || prop.statID, league);
+    counts[label] = (counts[label] || 0) + 1;
+  }
+
+  return counts;
 }
 
 function normalizeTeamGroup(markets: MarketSide[]) {
@@ -651,7 +659,7 @@ function normalizeTeamGroup(markets: MarketSide[]) {
   const line = toNumberOrNull(lineStr);
 
   // Always collect books with consensus fallback
-  const books = collectBooks(over, under);
+  const books = [...collectBooks(over), ...collectBooks(under)];
 
   // Pick best odds per side (handle single-sided markets)
   const best_over = pickBest(books.filter(b => b.side === "over" || b.side === "yes"));
@@ -677,37 +685,6 @@ function normalizeTeamGroup(markets: MarketSide[]) {
   };
 }
 
-function collectBooks(over?: MarketSide, under?: MarketSide) {
-  const books: { bookmaker: string; side: string; price: string; line: number | null; deeplink?: string }[] = [];
-
-  for (const side of [over, under]) {
-    if (!side) continue;
-
-    // Always push a "consensus" book using bookOdds/bookOverUnder as fallback
-    // This ensures we always have at least one book entry, even if byBookmaker is empty
-    books.push({
-      bookmaker: "consensus",
-      side: String(side.sideID).toLowerCase(),
-      price: side.bookOdds ?? side.fairOdds ?? "",
-      line: toNumberOrNull(side.bookOverUnder ?? side.fairOverUnder),
-      deeplink: undefined,
-    });
-
-    // Then add per-book odds if available
-    const byBook = side.byBookmaker || {};
-    for (const [book, data] of Object.entries(byBook)) {
-      books.push({
-        bookmaker: book,
-        side: String(side.sideID).toLowerCase(),
-        price: data.odds ?? side.bookOdds ?? side.fairOdds ?? "",
-        line: toNumberOrNull(firstDefined(side.bookOverUnder, side.fairOverUnder, data.overUnder)),
-        deeplink: data.deeplink,
-      });
-    }
-  }
-            
-  return books;
-}
 
 // Helpers
 

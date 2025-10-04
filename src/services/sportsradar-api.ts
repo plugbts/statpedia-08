@@ -1,21 +1,9 @@
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
 
-// SportsRadar API Configuration
-const SPORTRADAR_API_KEYS = {
-  NFL: 'onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D',
-  NBA: 'onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D',
-  MLB: 'onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D',
-  NHL: 'onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D',
-  NCAAFB: 'onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D',
-  NCAAMB: 'onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D',
-  WNBA: 'onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D',
-  HEADSHOTS: 'onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D',
-  ODDS_COMPARISONS_PLAYER_PROPS: 'onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D',
-  ODDS_COMPARISONS_REGULAR: 'onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D',
-  ODDS_COMPARISONS_FUTURE: 'onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D'
-};
+// DEPRECATED: SportsRadar API - Migrated to SportsGameOdds API
+// This file is kept for reference but all functionality has been moved to sportsgameodds-api.ts
 
-const SPORTRADAR_BASE_URL = 'https://statpedia-player-props.statpedia.workers.dev/api/sportradar';
+logWarning('SportsRadarAPI', 'DEPRECATED: SportsRadar API has been migrated to SportsGameOdds API. Please use sportsgameodds-api.ts instead.');
 
 // Cache configuration
 const CACHE_DURATION = {
@@ -82,8 +70,8 @@ class SportsRadarAPI {
   private cache = new Map<string, { data: any; timestamp: number }>();
 
   constructor() {
-    logInfo('SportsRadarAPI', 'Service initialized - Version 3.0.0');
-    logInfo('SportsRadarAPI', 'Using correct SportsRadar API endpoints and authentication');
+    logWarning('SportsRadarAPI', 'DEPRECATED: SportsRadar API has been migrated to SportsGameOdds API');
+    logWarning('SportsRadarAPI', 'Please use sportsgameodds-api.ts instead');
   }
 
   // Make authenticated request to SportsRadar API
@@ -260,28 +248,10 @@ class SportsRadarAPI {
     }
   }
 
-  // Get player props using SportsRadar Player Props API
+  // DEPRECATED: Get player props using SportsRadar Player Props API
   async getPlayerProps(sport: string): Promise<SportsRadarPlayerProp[]> {
-    try {
-      const sportKey = this.mapSportToKey(sport);
-      
-      logAPI('SportsRadarAPI', `Fetching player props for ${sportKey} using Player Props API`);
-      
-      // Go directly to the Player Props API - this is the only way to get actual player props
-      const playerPropsData = await this.getPlayerPropsFromOddsAPI(sportKey);
-      
-      if (playerPropsData.length > 0) {
-        logSuccess('SportsRadarAPI', `Found ${playerPropsData.length} props from Player Props API`);
-        console.log('🎯 SportsRadar API returning props:', playerPropsData);
-        return playerPropsData;
-      } else {
-        logWarning('SportsRadarAPI', `No player props found from Player Props API for ${sport}`);
-        return [];
-      }
-    } catch (error) {
-      logError('SportsRadarAPI', `Failed to get player props for ${sport}:`, error);
-      return [];
-    }
+    logWarning('SportsRadarAPI', 'DEPRECATED: getPlayerProps - Use sportsgameodds-api.ts instead');
+    return [];
   }
 
   // Get player props from SportsRadar Player Props API
@@ -672,86 +642,22 @@ class SportsRadarAPI {
     return sampleProps;
   }
 
-  // Get games for a sport
+  // DEPRECATED: Get games for a sport
   async getGames(sport: string): Promise<SportsRadarGame[]> {
-    try {
-      const sportKey = this.mapSportToKey(sport);
-      const currentDate = this.getCurrentDate();
-      
-      const endpoint = `/oddscomparison/${sportKey}/regular/${currentDate}`;
-      const data = await this.makeRequest<any[]>(endpoint, sportKey, CACHE_DURATION.SPORTS);
-      
-      const games: SportsRadarGame[] = data.map((item: any) => ({
-        id: item.id,
-        sport: sportKey,
-        homeTeam: item.home_team,
-        awayTeam: item.away_team,
-        commenceTime: item.commence_time,
-        status: item.status || 'scheduled',
-        homeScore: item.home_score,
-        awayScore: item.away_score
-      }));
-      
-      logSuccess('SportsRadarAPI', `Retrieved ${games.length} games for ${sport}`);
-      return games;
-    } catch (error) {
-      logError('SportsRadarAPI', `Failed to get games for ${sport}:`, error);
-      return [];
-    }
+    logWarning('SportsRadarAPI', 'DEPRECATED: getGames - Use sportsgameodds-api.ts instead');
+    return [];
   }
 
-  // Get odds comparisons
+  // DEPRECATED: Get odds comparisons
   async getOddsComparisons(sport: string): Promise<SportsRadarOddsComparison[]> {
-    try {
-      const sportKey = this.mapSportToKey(sport);
-      const currentDate = this.getCurrentDate();
-      
-      const endpoint = `/oddscomparison/${sportKey}/regular/${currentDate}`;
-      const data = await this.makeRequest<any[]>(endpoint, sportKey, CACHE_DURATION.ODDS);
-      
-      const comparisons: SportsRadarOddsComparison[] = data.map((item: any) => ({
-        id: item.id,
-        sport: sportKey,
-        homeTeam: item.home_team,
-        awayTeam: item.away_team,
-        commenceTime: item.commence_time,
-        markets: item.markets || [],
-        lastUpdate: item.last_update || new Date().toISOString()
-      }));
-      
-      logSuccess('SportsRadarAPI', `Retrieved ${comparisons.length} odds comparisons for ${sport}`);
-      return comparisons;
-    } catch (error) {
-      logError('SportsRadarAPI', `Failed to get odds comparisons for ${sport}:`, error);
-      return [];
-    }
+    logWarning('SportsRadarAPI', 'DEPRECATED: getOddsComparisons - Use sportsgameodds-api.ts instead');
+    return [];
   }
 
-  // Get future odds comparisons
+  // DEPRECATED: Get future odds comparisons
   async getFutureOddsComparisons(sport: string): Promise<SportsRadarOddsComparison[]> {
-    try {
-      const sportKey = this.mapSportToKey(sport);
-      const currentDate = this.getCurrentDate();
-      
-      const endpoint = `/oddscomparison/${sportKey}/future/${currentDate}`;
-      const data = await this.makeRequest<any[]>(endpoint, sportKey, CACHE_DURATION.ODDS);
-      
-      const comparisons: SportsRadarOddsComparison[] = data.map((item: any) => ({
-        id: item.id,
-        sport: sportKey,
-        homeTeam: item.home_team,
-        awayTeam: item.away_team,
-        commenceTime: item.commence_time,
-        markets: item.markets || [],
-        lastUpdate: item.last_update || new Date().toISOString()
-      }));
-      
-      logSuccess('SportsRadarAPI', `Retrieved ${comparisons.length} future odds comparisons for ${sport}`);
-      return comparisons;
-    } catch (error) {
-      logError('SportsRadarAPI', `Failed to get future odds comparisons for ${sport}:`, error);
-      return [];
-    }
+    logWarning('SportsRadarAPI', 'DEPRECATED: getFutureOddsComparisons - Use sportsgameodds-api.ts instead');
+    return [];
   }
 
   // Clear cache

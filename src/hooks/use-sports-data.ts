@@ -19,7 +19,7 @@ export function useLiveGames(sport: string, options: { autoFetch?: boolean; refr
       setLoading(true);
       setError(null);
       
-          // Get real games from SportsRadar API
+          // Get real games from SportsGameOdds API
           const freeGames = await unifiedSportsAPI.getGames(sport);
       
       // Filter for current and future games only
@@ -76,8 +76,8 @@ export function usePlayers(sport: string, teamId?: string) {
       setLoading(true);
       setError(null);
       
-          // Get players from SportsRadar API (placeholder - SportsRadar doesn't have direct player endpoint)
-          const players = []; // TODO: Implement player fetching from SportsRadar
+          // Get players from SportsGameOdds API (placeholder - SportsGameOdds doesn't have direct player endpoint)
+          const players = []; // TODO: Implement player fetching from SportsGameOdds
       
       setPlayers(players);
     } catch (err) {
@@ -111,7 +111,7 @@ export function usePlayerProps(sport: string, market?: string) {
       setLoading(true);
       setError(null);
       
-          // Get real props from SportsRadar API
+          // Get real props from SportsGameOdds API
           const freeProps = await unifiedSportsAPI.getPlayerProps(sport);
       
       // Filter for current and future games only

@@ -1,7 +1,7 @@
 // Games Service for fetching real sports data
-// Integrates with SportsDataIO API to get current week's games
+// Integrates with SportsGameOdds API to get current week's games
 
-import { sportsRadarAPI } from './sportsradar-api';
+import { sportsGameOddsAPI } from './sportsgameodds-api';
 
 export interface RealGame {
   id: string;
