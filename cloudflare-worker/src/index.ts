@@ -173,7 +173,7 @@ export async function handlePropsDebug(request: Request, env: Env) {
     const rawEvents = await fetchSportsGameOddsDay(league.toUpperCase(), "2025-10-04", env);
 
     // 2. Just dump the first match event
-    const sample = rawEvents.find(ev => ev.type === "match") || null;
+    const sample = Array.isArray(rawEvents) ? rawEvents.find(ev => ev.type === "match") || null : null;
 
     return withCORS(
       new Response(
@@ -1179,7 +1179,7 @@ export async function fetchSportsGameOddsDay(league: string, date: string, env: 
   }
 
   // 5. Return parsed JSON
-  const response = await res.json();
+  const response = await res.json() as any;
   
   // Return the data array from the response
   return response.data || [];

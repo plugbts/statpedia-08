@@ -117,7 +117,7 @@ async function handlePropsDebug(request, env) {
   const league = url.searchParams.get("league") || "nfl";
   try {
     const rawEvents = await fetchSportsGameOddsDay(league.toUpperCase(), "2025-10-04", env);
-    const sample = rawEvents.find((ev) => ev.type === "match") || null;
+    const sample = Array.isArray(rawEvents) ? rawEvents.find((ev) => ev.type === "match") || null : null;
     return withCORS(
       new Response(
         JSON.stringify(
