@@ -37,6 +37,7 @@ import { useUser } from '@/contexts/user-context';
 const Index = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('dashboard');
+  
   const { 
     user, 
     userIdentity, 

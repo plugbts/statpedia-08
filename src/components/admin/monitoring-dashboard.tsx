@@ -49,6 +49,16 @@ export const MonitoringDashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Add error boundary
+  if (error) {
+    return (
+      <div className="p-8">
+        <div className="text-red-500">Error loading monitoring dashboard: {error}</div>
+        <button onClick={() => setError(null)}>Retry</button>
+      </div>
+    );
+  }
+
   const fetchMetrics = async () => {
     try {
       setIsLoading(true);
