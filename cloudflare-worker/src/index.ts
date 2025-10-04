@@ -4,6 +4,7 @@
 
 import { withCORS, handleOptions } from "./cors";
 import { normalizeMarketType, isPlayerProp, extractPlayerInfo } from "./market-mapper";
+import { DateTime } from "luxon";
 
 export interface Env {
   SPORTSODDS_API_KEY: string;
@@ -73,6 +74,15 @@ type SGEvent = {
   };
   team_props?: any[];
   player_props?: any[];
+  markets?: Array<{
+    marketName: string;
+    playerProps?: Array<{
+      player?: { name: string };
+      line: string | number;
+      best_over: string | number;
+      best_under: string | number;
+    }>;
+  }>;
   // Legacy fields for backward compatibility
   eventID?: string;
   leagueID?: string;
@@ -622,9 +632,9 @@ function normalizeEvent(ev: SGEvent) {
   return {
     eventID: eventId,
     leagueID: leagueId,
-    start_time: toUserTime(startTime || "", "America/New_York"),
-    home_team: normalizeTeamSGO(ev.home_team) || normalizeTeam(ev.teams?.home),
-    away_team: normalizeTeamSGO(ev.away_team) || normalizeTeam(ev.teams?.away),
+    start_time: formatEventDate(ev, "America/New_York"),
+    home_team: ev.teams?.home?.names?.long || "UNK",
+    away_team: ev.teams?.away?.names?.long || "UNK",
     team_props: teamProps,
     player_props: playerProps,
   };
@@ -942,6 +952,19 @@ function parseAmerican(odds: string | number | null | undefined): number | null 
   if (!s) return null;
   const n = parseInt(s, 10);
   return Number.isFinite(n) ? n : null;
+}
+
+function formatEventDate(ev: any, tz: string = "America/New_York") {
+  // SGO uses status.startsAt for the start time
+  try {
+    const startTime = ev.status?.startsAt || ev.start_time || ev.startTime;
+    if (!startTime) return null;
+    return DateTime.fromISO(startTime, { zone: "utc" })
+      .setZone(tz) // convert to desired timezone
+      .toFormat("EEE, MMM d yyyy h:mm a");
+  } catch {
+    return null;
+  }
 }
 
 function toUserTime(utcDate: string | Date, tz: string = "America/New_York") {
