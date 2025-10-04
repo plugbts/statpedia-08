@@ -37,6 +37,11 @@ id = "8506dfcc9c964d20946e1b7ef872db7b"
 binding = "CACHE_LOCKS"
 id = "8506dfcc9c964d20946e1b7ef872db7b"
 
+# Production KV namespace for metrics
+[[env.production.kv_namespaces]]
+binding = "METRICS"
+id = "8506dfcc9c964d20946e1b7ef872db7b"
+
 [env.staging]
 name = "statpedia-player-props-staging"
 
@@ -62,4 +67,9 @@ id = "8506dfcc9c964d20946e1b7ef872db7b"
 # Staging KV namespace for cache locks
 [[env.staging.kv_namespaces]]
 binding = "CACHE_LOCKS"
+id = "8506dfcc9c964d20946e1b7ef872db7b"
+
+# Staging KV namespace for metrics
+[[env.staging.kv_namespaces]]
+binding = "METRICS"
 id = "8506dfcc9c964d20946e1b7ef872db7b"

@@ -6,6 +6,7 @@ export interface Env {
   SPORTSODDS_API_KEY: string;
   CACHE_LOCKS?: KVNamespace; // create a KV namespace for lock keys in wrangler.toml
   PURGE_TOKEN?: string; // optional secret token for cache purge endpoint
+  METRICS?: KVNamespace; // KV namespace for storing metrics counters
 }
 
 type Player = {
@@ -75,6 +76,11 @@ export default {
       return handleDebugPlayerProps(url, env);
     }
 
+    // Metrics endpoint: /metrics
+    if (url.pathname === "/metrics") {
+      return handleMetrics(url, request, env);
+    }
+
     // Purge cache endpoint: /api/cache/purge?league=nfl&date=YYYY-MM-DD
     if (url.pathname === "/api/cache/purge") {
       return handleCachePurge(url, request, env);
@@ -92,7 +98,8 @@ export default {
 };
 
 async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionContext, league: string): Promise<Response> {
-      const url = new URL(request.url);
+  const startTime = Date.now();
+  const url = new URL(request.url);
   const date = url.searchParams.get("date");
   const oddIDs = url.searchParams.get("oddIDs");
   const bookmakerID = url.searchParams.get("bookmakerID");
@@ -103,12 +110,53 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
   const cacheKey = buildCacheKey(url, league, date, oddIDs, bookmakerID);
   // Try cache
   const cached = await caches.open('default').then(cache => cache.match(cacheKey));
-  if (cached) return cached;
+  let cacheHit = false;
+  let keptProps = 0;
+  let droppedProps = 0;
+  let upstreamStatus = 200;
+  
+  if (cached) {
+    cacheHit = true;
+    const durationMs = Date.now() - startTime;
+    
+    // Log metrics for cache hit
+    console.log(JSON.stringify({
+      type: 'cache_hit',
+      league,
+      date,
+      cacheHit: true,
+      keptProps: 0, // We don't know for cache hits
+      droppedProps: 0,
+      upstreamStatus: 200,
+      durationMs
+    }));
+    
+    // Update metrics
+    await updateMetrics(env, { cacheHit: true, durationMs });
+    
+    return cached;
+  }
 
   // Fetch upstream
   const upstreamUrl = buildUpstreamUrl("/v2/events", league, date, oddIDs, bookmakerID);
   const res = await fetch(upstreamUrl, { headers: { 'x-api-key': env.SPORTSODDS_API_KEY } });
-  if (!res.ok) return json({ error: "Upstream error", status: res.status }, 502);
+  upstreamStatus = res.status;
+  
+  if (!res.ok) {
+    const durationMs = Date.now() - startTime;
+    console.log(JSON.stringify({
+      type: 'upstream_error',
+      league,
+      date,
+      cacheHit: false,
+      keptProps: 0,
+      droppedProps: 0,
+      upstreamStatus,
+      durationMs
+    }));
+    await updateMetrics(env, { cacheHit: false, upstreamStatus, durationMs });
+    return json({ error: "Upstream error", status: res.status }, 502);
+  }
 
   const data = await res.json() as any;
   const rawEvents = data?.data || [];
@@ -125,6 +173,9 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
   const normalized = events.map((ev: any) => safeNormalizeEvent(ev as SGEvent));
 
   const totalPlayerProps = normalized.reduce((a, ev) => a + (ev.player_props?.length || 0), 0);
+  const totalDroppedProps = normalized.reduce((a, ev) => a + (ev.debug_counts?.droppedPlayerProps || 0), 0);
+  keptProps = totalPlayerProps;
+  droppedProps = totalDroppedProps;
   const ttl = totalPlayerProps > 50 ? 1800 : 300;
 
   const body = {
@@ -151,6 +202,29 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
       });
 
   await caches.open('default').then(cache => cache.put(cacheKey, response.clone()));
+  
+  // Log metrics for successful request
+  const durationMs = Date.now() - startTime;
+  console.log(JSON.stringify({
+    type: 'request_success',
+    league,
+    date,
+    cacheHit: false,
+    keptProps,
+    droppedProps,
+    upstreamStatus,
+    durationMs
+  }));
+  
+  // Update metrics
+  await updateMetrics(env, { 
+    cacheHit: false, 
+    keptProps, 
+    droppedProps, 
+    upstreamStatus, 
+    durationMs 
+  });
+  
   return response;
 }
 
@@ -658,4 +732,142 @@ function debugNormalizeTeamGroup(markets: any[]) {
     line,
     books,
   };
+}
+
+// === Metrics Functions ===
+
+async function handleMetrics(url: URL, request: Request, env: Env): Promise<Response> {
+  // Optional authentication check
+  if (env.PURGE_TOKEN) {
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader || authHeader !== `Bearer ${env.PURGE_TOKEN}`) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+  }
+
+  const reset = url.searchParams.get("reset") === "true";
+  
+  try {
+    const metrics = await getMetrics(env, reset);
+    return new Response(JSON.stringify(metrics), {
+      headers: { "content-type": "application/json" }
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: "Failed to get metrics" }), {
+      status: 500,
+      headers: { "content-type": "application/json" }
+    });
+  }
+}
+
+async function getMetrics(env: Env, reset: boolean = false): Promise<any> {
+  if (!env.METRICS) {
+    // Fallback to in-memory metrics if KV not available
+    return {
+      totalKeptPlayerProps: 0,
+      totalDroppedPlayerProps: 0,
+      cacheHits: 0,
+      cacheMisses: 0,
+      upstreamStatusCounts: { "200": 0, "4xx": 0, "5xx": 0 },
+      avgResponseTimeMs: 0,
+      totalRequests: 0,
+      lastUpdated: new Date().toISOString()
+    };
+  }
+
+  const keys = [
+    'totalKeptPlayerProps',
+    'totalDroppedPlayerProps', 
+    'cacheHits',
+    'cacheMisses',
+    'upstreamStatus200',
+    'upstreamStatus4xx',
+    'upstreamStatus5xx',
+    'totalResponseTime',
+    'totalRequests'
+  ];
+
+  const values = await Promise.all(
+    keys.map(key => env.METRICS!.get(key).then(v => parseInt(v || '0', 10)))
+  );
+
+  const [
+    totalKeptPlayerProps,
+    totalDroppedPlayerProps,
+    cacheHits,
+    cacheMisses,
+    upstreamStatus200,
+    upstreamStatus4xx,
+    upstreamStatus5xx,
+    totalResponseTime,
+    totalRequests
+  ] = values;
+
+  const metrics = {
+    totalKeptPlayerProps,
+    totalDroppedPlayerProps,
+    cacheHits,
+    cacheMisses,
+    upstreamStatusCounts: {
+      "200": upstreamStatus200,
+      "4xx": upstreamStatus4xx,
+      "5xx": upstreamStatus5xx
+    },
+    avgResponseTimeMs: totalRequests > 0 ? Math.round(totalResponseTime / totalRequests) : 0,
+    totalRequests,
+    lastUpdated: new Date().toISOString()
+  };
+
+  if (reset) {
+    // Reset all counters
+    await Promise.all(keys.map(key => env.METRICS!.put(key, '0')));
+  }
+
+  return metrics;
+}
+
+async function updateMetrics(env: Env, data: {
+  cacheHit: boolean;
+  keptProps?: number;
+  droppedProps?: number;
+  upstreamStatus?: number;
+  durationMs: number;
+}): Promise<void> {
+  if (!env.METRICS) return;
+
+  const updates: Promise<void>[] = [];
+
+  // Update cache counters
+  if (data.cacheHit) {
+    updates.push(env.METRICS.put('cacheHits', (await env.METRICS.get('cacheHits').then(v => parseInt(v || '0', 10)) + 1).toString()));
+  } else {
+    updates.push(env.METRICS.put('cacheMisses', (await env.METRICS.get('cacheMisses').then(v => parseInt(v || '0', 10)) + 1).toString()));
+  }
+
+  // Update prop counters
+  if (data.keptProps !== undefined) {
+    updates.push(env.METRICS.put('totalKeptPlayerProps', (await env.METRICS.get('totalKeptPlayerProps').then(v => parseInt(v || '0', 10)) + data.keptProps).toString()));
+  }
+  
+  if (data.droppedProps !== undefined) {
+    updates.push(env.METRICS.put('totalDroppedPlayerProps', (await env.METRICS.get('totalDroppedPlayerProps').then(v => parseInt(v || '0', 10)) + data.droppedProps).toString()));
+  }
+
+  // Update upstream status counters
+  if (data.upstreamStatus !== undefined) {
+    let statusKey = 'upstreamStatus5xx';
+    if (data.upstreamStatus === 200) {
+      statusKey = 'upstreamStatus200';
+    } else if (data.upstreamStatus >= 400 && data.upstreamStatus < 500) {
+      statusKey = 'upstreamStatus4xx';
+    }
+    
+    updates.push(env.METRICS.put(statusKey, (await env.METRICS.get(statusKey).then(v => parseInt(v || '0', 10)) + 1).toString()));
+  }
+
+  // Update response time and request count
+  updates.push(env.METRICS.put('totalResponseTime', (await env.METRICS.get('totalResponseTime').then(v => parseInt(v || '0', 10)) + data.durationMs).toString()));
+  updates.push(env.METRICS.put('totalRequests', (await env.METRICS.get('totalRequests').then(v => parseInt(v || '0', 10)) + 1).toString()));
+
+  await Promise.all(updates);
 }
