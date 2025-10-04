@@ -446,10 +446,10 @@ function normalizeEventSGO(ev: any, request: any) {
 
     // Build a composite key from SGO fields
     const key = [
-      m.playerID || "",         // which player this prop belongs to
-      m.statID || "",           // unique market identifier (e.g. "defense_sacks")
-      m.periodID || "",         // full_game, 1H, 1Q, etc.
-      m.betTypeID || "",        // over/under, yes/no
+      m.playerID || "",
+      m.statID || "",
+      m.periodID || "",
+      m.betTypeID || ""
     ].join("|");
 
     (groups[key] ||= []).push(m);
@@ -468,6 +468,10 @@ function normalizeEventSGO(ev: any, request: any) {
     console.log(`Group ${key}: hasPlayer=${hasPlayer}, markets=${markets.length}`);
 
     if (hasPlayer) {
+      console.log("DEBUG player_props sample", {
+        count: ev.player_props?.length,
+        first: ev.player_props?.[0]
+      });
       const norm = normalizePlayerGroup(markets, players, ev.leagueID || "NFL");
       if (norm) {
         playerProps.push(norm);
@@ -580,62 +584,57 @@ function normalizeEvent(ev: SGEvent) {
 }
 
 function normalizePlayerGroup(markets: any[], players: Record<string, any>, league: string) {
-  // Pick base market (over or under) to anchor the group
-  const over = markets.find(m => isOverSide(m.sideID));
-  const under = markets.find(m => isUnderSide(m.sideID));
+  // Find over/under sides
+  const over = markets.find(m => m.sideID?.toLowerCase() === "over" || m.sideID?.toLowerCase() === "yes");
+  const under = markets.find(m => m.sideID?.toLowerCase() === "under" || m.sideID?.toLowerCase() === "no");
   const base = over || under;
   if (!base) return null;
 
   // Player info
   const player = base.playerID ? players[base.playerID] : undefined;
-  const playerName = player?.name || base.marketName;
+  const playerName = player?.name ?? base.playerName ?? null;
+
+  // Market type comes from statID
   const marketType = formatMarketType(base.statID, league);
 
-  // Line
-  const lineStr = firstDefined(
-    over?.bookOverUnder,
-    under?.bookOverUnder,
-    over?.fairOverUnder,
-    under?.fairOverUnder
-  );
-  const line = toNumberOrNull(lineStr);
+  // Line (use bookOverUnder or fairOverUnder)
+  const line = Number(base.bookOverUnder ?? base.fairOverUnder ?? null);
 
   // Collect books
   const books: any[] = [];
   for (const side of [over, under]) {
     if (!side) continue;
 
-    // Consensus fallback
-    if (side.bookOdds || side.bookOverUnder || side.fairOdds || side.fairOverUnder) {
+    // Consensus odds
+    if (side.bookOdds || side.bookOverUnder) {
       books.push({
         bookmaker: "consensus",
         side: side.sideID,
-        price: side.bookOdds ?? side.fairOdds ?? null,
-        line: toNumberOrNull(side.bookOverUnder ?? side.fairOverUnder),
+        price: side.bookOdds ?? null,
+        line: Number(side.bookOverUnder ?? null),
       });
     }
 
     // Per-book odds
     for (const [book, data] of Object.entries(side.byBookmaker || {})) {
-      const bookData = data as any;
-      if (!bookData.odds && !bookData.overUnder) continue;
+      if (!data.odds && !data.overUnder) continue;
       books.push({
         bookmaker: book,
         side: side.sideID,
-        price: bookData.odds ?? side.bookOdds ?? null,
-        line: toNumberOrNull(bookData.overUnder ?? side.bookOverUnder),
-        deeplink: bookData.deeplink,
+        price: data.odds ?? side.bookOdds ?? null,
+        line: Number(data.overUnder ?? side.bookOverUnder ?? null),
+        deeplink: data.deeplink,
       });
     }
   }
 
   // Best odds
-  const best_over = pickBest(books.filter(b => isOverSide(b.side)));
-  const best_under = pickBest(books.filter(b => isUnderSide(b.side)));
+  const best_over = pickBest(books.filter(b => String(b.side).toLowerCase() === "over" || b.side === "yes"));
+  const best_under = pickBest(books.filter(b => String(b.side).toLowerCase() === "under" || b.side === "no"));
 
   return {
     player_name: playerName,
-    teamID: player?.teamID ?? null,
+    teamID: player?.teamID ?? base.teamID ?? null,
     market_type: marketType,
     line,
     best_over,
