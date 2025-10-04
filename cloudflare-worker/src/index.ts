@@ -839,8 +839,34 @@ function normalizeTeamGroup(markets: MarketSide[]) {
   const over = markets.find(m => isOverSide(m.sideID));
   const under = markets.find(m => isUnderSide(m.sideID));
   
-  // Never return null unless both sides are truly missing
-  if (!over && !under) return null;
+  // Handle non-over/under bets (like away/home, even/odd, etc.)
+  if (!over && !under) {
+    // For non-over/under bets, just use the first market
+    const base = markets[0];
+    if (!base) return null;
+    
+    const marketType = formatStatID(base.statID);
+    const books = collectBooks(base);
+    
+    return {
+      market_type: marketType,
+      line: toNumberOrNull(base.bookOverUnder || base.fairOverUnder),
+      best_over: null,
+      best_under: null,
+      books,
+      oddIDs: {
+        over: base.oddID ?? null,
+        under: null,
+        opposingOver: base.opposingOddID ?? null,
+        opposingUnder: null
+      },
+      status: {
+        started: base.started ?? false,
+        ended: base.ended ?? false,
+        cancelled: base.cancelled ?? false
+      }
+    };
+  }
   
   // Use whichever side exists as base
   const base = over || under;

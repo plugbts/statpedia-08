@@ -719,8 +719,31 @@ __name(summarizePropsByMarket, "summarizePropsByMarket");
 function normalizeTeamGroup(markets) {
   const over = markets.find((m) => isOverSide(m.sideID));
   const under = markets.find((m) => isUnderSide(m.sideID));
-  if (!over && !under)
-    return null;
+  if (!over && !under) {
+    const base2 = markets[0];
+    if (!base2)
+      return null;
+    const marketType2 = formatStatID(base2.statID);
+    const books2 = collectBooks(base2);
+    return {
+      market_type: marketType2,
+      line: toNumberOrNull(base2.bookOverUnder || base2.fairOverUnder),
+      best_over: null,
+      best_under: null,
+      books: books2,
+      oddIDs: {
+        over: base2.oddID ?? null,
+        under: null,
+        opposingOver: base2.opposingOddID ?? null,
+        opposingUnder: null
+      },
+      status: {
+        started: base2.started ?? false,
+        ended: base2.ended ?? false,
+        cancelled: base2.cancelled ?? false
+      }
+    };
+  }
   const base = over || under;
   if (!base)
     return null;
