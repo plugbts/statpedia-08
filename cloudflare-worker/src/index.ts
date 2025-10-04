@@ -535,15 +535,35 @@ function normalizeEventSGO(ev: any, request: any) {
 }
 
 function normalizeProps(ev: any) {
-  return (ev.markets || []).flatMap((m: any) =>
-    (m.playerProps || []).map((p: any) => ({
-      player_name: p.player?.name || "Unknown",
-      market_type: normalizeMarketType(m.marketName), // use the universal mapper
-      line: p.line,
-      best_over: p.bestOver,
-      best_under: p.bestUnder,
-    }))
-  );
+  const props: any[] = [];
+  const odds = ev.odds || {};
+  const players = ev.players || {};
+
+  for (const [oddID, entry] of Object.entries(odds)) {
+    const marketEntry = entry as any;
+    
+    // Skip team props (statEntityID: home, away, all)
+    if (marketEntry.statEntityID === 'home' || marketEntry.statEntityID === 'away' || marketEntry.statEntityID === 'all') {
+      continue;
+    }
+    
+    // Get player name from players dictionary
+    const playerID = marketEntry.playerID || marketEntry.statEntityID;
+    const player = players[playerID];
+    const playerName = player?.name || "Unknown";
+    
+    if (playerName === "Unknown") continue; // Skip if no player found
+    
+    props.push({
+      player_name: playerName,
+      market_type: normalizeMarketType(marketEntry.statID || marketEntry.marketName),
+      line: marketEntry.bookOverUnder || marketEntry.fairOverUnder || 0,
+      best_over: marketEntry.bookOdds || marketEntry.fairOdds,
+      best_under: null, // Will be filled by opposing entry
+    });
+  }
+
+  return props;
 }
 
 function normalizeEvent(ev: SGEvent) {
@@ -558,7 +578,11 @@ function normalizeEvent(ev: SGEvent) {
   let playerProps: any[] = [];
   let teamProps: any[] = [];
 
-  if (ev.player_props && Array.isArray(ev.player_props)) {
+  if (ev.odds && Object.keys(ev.odds).length > 0) {
+    // Use new normalizeProps function to flatten odds dictionary
+    playerProps = normalizeProps(ev);
+    console.log(`Using odds dictionary: ${playerProps.length} props from ${Object.keys(ev.odds).length} market types`);
+  } else if (ev.player_props && Array.isArray(ev.player_props)) {
     // SGO already provides normalized player props
     playerProps = ev.player_props;
     console.log(`Using SGO player_props: ${playerProps.length} props`);
