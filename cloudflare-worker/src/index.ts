@@ -170,11 +170,14 @@ export default {
 };
 
 async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionContext, league: string): Promise<Response> {
-      const url = new URL(request.url);
+  return handlePropsEndpoint(request, env);
+}
+
+export async function handlePropsEndpoint(request: Request, env: Env) {
+  const url = new URL(request.url);
   const leagues = (url.searchParams.get("league") || "nfl")
     .split(",")
     .map(l => l.trim().toLowerCase());
-  const date = url.searchParams.get("date") || new Date().toISOString().split('T')[0];
   const view = url.searchParams.get("view") || "full";
   const debug = url.searchParams.has("debug");
 
@@ -182,28 +185,15 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
   const debugInfo: any = {};
 
   for (const league of leagues) {
-    // 1. Fetch raw events for the week from SportsGameOdds
-    console.log(`Fetching events for league: ${league}, date: ${date}`);
-    const rawEvents = await fetchLeagueWeek(league.toUpperCase(), new Date(date), env);
-    console.log(`Fetched ${rawEvents.length} raw events for ${league}`);
-    
-    // Debug log for raw SGO data structure
-    console.log({
-      league,
-      rawCount: rawEvents.length,
-      sample: {
-        id: rawEvents[0]?.event_id,
-        start_time: rawEvents[0]?.start_time,
-        home_team: rawEvents[0]?.home_team,
-        away_team: rawEvents[0]?.away_team,
-        sampleProp: rawEvents[0]?.player_props?.[0],
-      }
-    });
+    // 1. Fetch raw events from SportsGameOdds
+    const rawEvents = await fetchSportsGameOddsWeek(league, env);
 
-    // 2. Normalize events (normalizeEventSGO already handles player props)
+    // 2. Normalize events
     let normalized = rawEvents
       .map(ev => normalizeEventSGO(ev, request))
       .filter(Boolean);
+
+    // 3. Player props already normalized in normalizeEventSGO
 
     // 4. Prioritize + cap props per league
     normalized = capPropsPerLeague(normalized, league, 125);
@@ -584,28 +574,21 @@ function normalizeEvent(ev: SGEvent) {
 }
 
 function normalizePlayerGroup(markets: any[], players: Record<string, any>, league: string) {
-  // Find over/under sides
   const over = markets.find(m => m.sideID?.toLowerCase() === "over" || m.sideID?.toLowerCase() === "yes");
   const under = markets.find(m => m.sideID?.toLowerCase() === "under" || m.sideID?.toLowerCase() === "no");
   const base = over || under;
   if (!base) return null;
 
-  // Player info
   const player = base.playerID ? players[base.playerID] : undefined;
   const playerName = player?.name ?? base.playerName ?? null;
 
-  // Market type comes from statID
-  const marketType = formatMarketType(base.statID, league);
-
-  // Line (use bookOverUnder or fairOverUnder)
+  const marketType = base.statID; // raw statID, formatted later
   const line = Number(base.bookOverUnder ?? base.fairOverUnder ?? null);
 
-  // Collect books
   const books: any[] = [];
   for (const side of [over, under]) {
     if (!side) continue;
 
-    // Consensus odds
     if (side.bookOdds || side.bookOverUnder) {
       books.push({
         bookmaker: "consensus",
@@ -615,7 +598,6 @@ function normalizePlayerGroup(markets: any[], players: Record<string, any>, leag
       });
     }
 
-    // Per-book odds
     for (const [book, data] of Object.entries(side.byBookmaker || {})) {
       const bookData = data as any;
       if (!bookData.odds && !bookData.overUnder) continue;
@@ -629,7 +611,6 @@ function normalizePlayerGroup(markets: any[], players: Record<string, any>, leag
     }
   }
 
-  // Best odds
   const best_over = pickBest(books.filter(b => String(b.side).toLowerCase() === "over" || b.side === "yes"));
   const best_under = pickBest(books.filter(b => String(b.side).toLowerCase() === "under" || b.side === "no"));
 
@@ -1114,6 +1095,28 @@ async function fetchLeagueWeek(league: string, baseDate: Date, env: Env) {
 
   const results = await Promise.all(
     dates.map(date => fetchUpstreamProps(league, date, env))
+  );
+
+  const flatResults = results.flat();
+  console.log(`Fetched ${flatResults.length} total events across ${dates.length} days`);
+  
+  return flatResults;
+}
+
+async function fetchSportsGameOddsWeek(league: string, env: Env) {
+  const baseDate = new Date();
+  const { start, end } = getWeekRange(baseDate, 7);
+  const dates: string[] = [];
+  let d = new Date(start);
+  while (d <= new Date(end)) {
+    dates.push(d.toISOString().slice(0, 10));
+    d.setDate(d.getDate() + 1);
+  }
+
+  console.log(`Fetching ${league} props for dates: ${dates.join(', ')}`);
+
+  const results = await Promise.all(
+    dates.map(date => fetchUpstreamProps(league.toUpperCase(), date, env))
   );
 
   const flatResults = results.flat();
