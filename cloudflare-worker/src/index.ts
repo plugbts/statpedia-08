@@ -534,6 +534,18 @@ function normalizeEventSGO(ev: any, request: any) {
   };
 }
 
+function normalizeProps(ev: any) {
+  return (ev.markets || []).flatMap((m: any) =>
+    (m.playerProps || []).map((p: any) => ({
+      player_name: p.player?.name || "Unknown",
+      market_type: normalizeMarketType(m.marketName), // use the universal mapper
+      line: p.line,
+      best_over: p.bestOver,
+      best_under: p.bestUnder,
+    }))
+  );
+}
+
 function normalizeEvent(ev: SGEvent) {
   // Use SportsGameOdds schema as primary, fallback to legacy
   const eventId = ev.event_id || ev.eventID;
