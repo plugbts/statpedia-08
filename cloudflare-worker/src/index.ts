@@ -14,9 +14,17 @@ interface Env {
 const BASE_URL = "https://api.sportsgameodds.com/v2";
 
 // Types
+type Player = {
+  playerID: string;
+  teamID: string;
+  firstName: string;
+  lastName: string;
+  name: string;
+};
+
 type BookData = {
-  odds?: string;
-  overUnder?: string;
+  odds?: string;         // e.g. "+102" or "-110"
+  overUnder?: string;    // line as string
   lastUpdatedAt?: string;
   available?: boolean;
   deeplink?: string;
@@ -26,21 +34,21 @@ type MarketSide = {
   oddID: string;
   opposingOddID?: string;
   marketName: string;
-  statID: string;          // e.g. "passing_attempts"
-  statEntityID: string;    // e.g. "JOE_FLACCO_1_NFL"
-  periodID: string;        // e.g. "game"
-  betTypeID: string;       // e.g. "ou"
+  statID: string;           // e.g. "passing_attempts"
+  statEntityID: string;     // e.g. "JOE_FLACCO_1_NFL"
+  periodID: string;         // e.g. "game"
+  betTypeID: string;        // e.g. "ou"
   sideID: "over" | "under" | "yes" | "no";
-  playerID?: string;       // present for player props
+  playerID?: string;        // e.g. "JOE_FLACCO_1_NFL"
   started?: boolean;
   ended?: boolean;
   cancelled?: boolean;
   bookOddsAvailable?: boolean;
   fairOddsAvailable?: boolean;
-  fairOdds?: string;       // e.g. "+104"
-  bookOdds?: string;       // e.g. "-110"
-  fairOverUnder?: string;  // e.g. "29.5"
-  bookOverUnder?: string;  // e.g. "29.5"
+  fairOdds?: string;        // e.g. "+104"
+  bookOdds?: string;        // e.g. "-110"
+  fairOverUnder?: string;   // e.g. "29.5"
+  bookOverUnder?: string;   // e.g. "29.5"
   openFairOdds?: string;
   openBookOdds?: string;
   openFairOverUnder?: string;
@@ -49,63 +57,66 @@ type MarketSide = {
   byBookmaker?: Record<string, BookData>;
 };
 
-type SportsGameOddsEvent = {
+type SGEvent = {
   eventID: string;
-  leagueID: string;        // "NFL"
-  sportID: string;         // "FOOTBALL"
+  leagueID: string;         // "NFL"
+  sportID: string;          // "FOOTBALL"
   teams: {
     home: { names: { long: string; short: string } };
     away: { names: { long: string; short: string } };
   };
   scheduled: string;
-  odds: Record<string, MarketSide>;  // keyed by oddID
-  players: Record<string, { playerID: string; teamID: string; firstName: string; lastName: string; name: string }>;
+  odds: Record<string, MarketSide>;      // keyed by oddID
+  players: Record<string, Player>;       // keyed by playerID
 };
 
 function buildUpstreamUrl(path: string, params: URLSearchParams) {
   const url = new URL(path, BASE_URL);
   url.searchParams.set('oddsAvailable', 'true');
 
-  ['league', 'date', 'bookmakerID', 'oddIDs'].forEach(k => {
+  ['date', 'bookmakerID', 'oddIDs'].forEach(k => {
     const v = params.get(k);
     if (v) url.searchParams.set(k, v);
   });
+  
+  // Handle league parameter mapping
+  const league = params.get('league');
+  if (league) url.searchParams.set('leagueID', league);
   return url.toString();
 }
 
 // Normalization functions
-function normalizeEvent(ev: SportsGameOddsEvent) {
+export function normalizeEvent(ev: SGEvent) {
   const players = ev.players || {};
   const oddsDict = ev.odds || {};
 
-  // Group markets by statID + playerID + periodID + betTypeID
+  // Group by player/stat/period/betType using statEntityID for stability
   const groups: Record<string, MarketSide[]> = {};
   for (const oddID in oddsDict) {
     const m = oddsDict[oddID];
     const key = [
+      m.statEntityID || m.playerID || "", // prefer statEntityID
       m.statID || "",
-      m.playerID || "",     // empty means team market; we still group it
       m.periodID || "",
       m.betTypeID || "",
     ].join("|");
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(m);
+    (groups[key] ||= []).push(m);
   }
 
-  // Split into player props vs team props by presence of playerID
   const playerProps: any[] = [];
   const teamProps: any[] = [];
 
   for (const key in groups) {
     const markets = groups[key];
-    const hasPlayer = markets.some(mm => !!mm.playerID);
+    const hasPlayer = markets.some(mm => !!mm.playerID || !!mm.statEntityID?.includes("_NFL"));
 
+    // Normalize each group defensively; never return null
     if (hasPlayer) {
-      const normalized = normalizePlayerGroup(markets, players);
-      if (normalized) playerProps.push(normalized);
+      const norm = normalizePlayerGroup(markets, players);
+      if (norm) playerProps.push(norm);
     } else {
-      const normalized = normalizeTeamGroup(markets);
-      if (normalized) teamProps.push(normalized);
+      const norm = normalizeTeamGroup(markets);
+      if (norm) teamProps.push(norm);
     }
   }
 
@@ -113,163 +124,158 @@ function normalizeEvent(ev: SportsGameOddsEvent) {
     eventID: ev.eventID,
     leagueID: ev.leagueID,
     start_time: ev.scheduled,
-    home_team: ev.teams.home.names.long,
-    away_team: ev.teams.away.names.long,
+    home_team: ev.teams.home.names, // include both long/short for UI mapping
+    away_team: ev.teams.away.names,
     team_props: teamProps,
     player_props: playerProps,
   };
 }
 
-function normalizePlayerGroup(markets: MarketSide[], players: SportsGameOddsEvent["players"]) {
-  // Expect one Over and one Under side
-  const over = markets.find(m => String(m.sideID).toLowerCase() === "over" || String(m.sideID).toLowerCase() === "yes");
-  const under = markets.find(m => String(m.sideID).toLowerCase() === "under" || String(m.sideID).toLowerCase() === "no");
+function normalizePlayerGroup(markets: MarketSide[], players: Record<string, Player>) {
+  const over = markets.find(m => m.sideID === "over");
+  const under = markets.find(m => m.sideID === "under");
 
-  // Use any side present to derive base fields
+  if (!over && !under) return null; // truly invalid
+
+  // Use whichever exists as base
   const base = over || under;
-  if (!base) return null;
 
-  const player = base.playerID ? players[base.playerID] : undefined;
-  const playerName = player?.name || cleanPlayerNameFromMarketName(base.marketName);
-  const marketType = formatStatID(base.statID);
-
-  // Resolve line: prefer bookOverUnder (string), fallback to fairOverUnder
-  const lineStr = firstDefined(over?.bookOverUnder, under?.bookOverUnder, over?.fairOverUnder, under?.fairOverUnder);
-  const line = lineStr != null ? parseFloat(lineStr) : null;
-
-  // Collect all books across both sides
-  const books: { bookmaker: string; side: string; price: string; line: number | null; deeplink?: string }[] = [];
-  for (const side of [over, under]) {
-    if (!side) continue;
-    const byBook = side.byBookmaker || {};
-    for (const [book, data] of Object.entries(byBook)) {
-      const ln = firstDefined(data.overUnder, side.bookOverUnder, side.fairOverUnder);
-      books.push({
-        bookmaker: book,
-        side: String(side.sideID).toLowerCase(),
-        price: data.odds ?? side.bookOdds ?? side.fairOdds ?? "",
-        line: ln != null ? parseFloat(ln as string) : null,
-        deeplink: data.deeplink,
-      });
-    }
-  }
-
-  // Pick best odds per side
-  const best_over = pickBest(books.filter(b => b.side === "over" || b.side === "yes"));
-  const best_under = pickBest(books.filter(b => b.side === "under" || b.side === "no"));
+  const player = (base.playerID && players[base.playerID]) || undefined;
+  const books = collectBooks(over, under);
 
   return {
-    player_name: playerName,
+    player_name: player?.name ?? extractNameFromMarket(base.marketName),
     teamID: player?.teamID ?? null,
-    market_type: marketType,
-    line,
-    best_over,
-    best_under,
+    market_type: formatStatID(base.statID),
+    line: parseFloat(base.bookOverUnder ?? base.fairOverUnder ?? "0"),
+    best_over: over ? { price: over.bookOdds, bookmaker: "consensus" } : null,
+    best_under: under ? { price: under.bookOdds, bookmaker: "consensus" } : null,
     books,
-    // optional: include oddIDs for tracing
-    oddIDs: {
-      over: over?.oddID ?? null,
-      under: under?.oddID ?? null,
-      opposingOver: over?.opposingOddID ?? null,
-      opposingUnder: under?.opposingOddID ?? null,
-    },
-    status: {
-      started: !!(over?.started || under?.started),
-      ended: !!(over?.ended || under?.ended),
-      cancelled: !!(over?.cancelled || under?.cancelled),
-    },
   };
 }
 
 function normalizeTeamGroup(markets: MarketSide[]) {
-  // Team markets may have different shapes, but we can follow similar logic
-  const over = markets.find(m => String(m.sideID).toLowerCase() === "over" || String(m.sideID).toLowerCase() === "yes");
-  const under = markets.find(m => String(m.sideID).toLowerCase() === "under" || String(m.sideID).toLowerCase() === "no");
+  const over = markets.find(m => m.sideID === "over");
+  const under = markets.find(m => m.sideID === "under");
+
+  if (!over && !under) return null; // truly invalid
+
+  // Use whichever exists as base
   const base = over || under;
-  if (!base) return null;
 
-  const marketType = formatStatID(base.statID);
-  const lineStr = firstDefined(over?.bookOverUnder, under?.bookOverUnder, over?.fairOverUnder, under?.fairOverUnder);
-  const line = lineStr != null ? parseFloat(lineStr) : null;
+  const books = collectBooks(over, under);
 
-  const books: { bookmaker: string; side: string; price: string; line: number | null; deeplink?: string }[] = [];
+  return {
+    market_type: formatStatID(base.statID),
+    line: parseFloat(base.bookOverUnder ?? base.fairOverUnder ?? "0"),
+    best_over: over ? { price: over.bookOdds, bookmaker: "consensus" } : null,
+    best_under: under ? { price: under.bookOdds, bookmaker: "consensus" } : null,
+    books,
+  };
+}
+
+function collectBooks(over?: MarketSide, under?: MarketSide) {
+  const books: any[] = [];
+
   for (const side of [over, under]) {
     if (!side) continue;
-    const byBook = side.byBookmaker || {};
-    for (const [book, data] of Object.entries(byBook)) {
-      const ln = firstDefined(data.overUnder, side.bookOverUnder, side.fairOverUnder);
+
+    // Always push a "default" book using bookOdds/bookOverUnder
+    books.push({
+      bookmaker: "consensus",
+      side: side.sideID,
+      price: side.bookOdds,
+      line: parseFloat(side.bookOverUnder),
+    });
+
+    // Then add per-book odds if available
+    for (const [book, data] of Object.entries(side.byBookmaker || {})) {
       books.push({
         bookmaker: book,
-        side: String(side.sideID).toLowerCase(),
-        price: data.odds ?? side.bookOdds ?? side.fairOdds ?? "",
-        line: ln != null ? parseFloat(ln as string) : null,
+        side: side.sideID,
+        price: data.odds ?? side.bookOdds,
+        line: parseFloat(data.overUnder ?? side.bookOverUnder),
         deeplink: data.deeplink,
       });
     }
   }
-
-  const best_over = pickBest(books.filter(b => b.side === "over" || b.side === "yes"));
-  const best_under = pickBest(books.filter(b => b.side === "under" || b.side === "no"));
-
-  return {
-    market_type: marketType,
-    line,
-    best_over,
-    best_under,
-    books,
-    oddIDs: {
-      over: over?.oddID ?? null,
-      under: under?.oddID ?? null,
-      opposingOver: over?.opposingOddID ?? null,
-      opposingUnder: under?.opposingOddID ?? null,
-    },
-    status: {
-      started: !!(over?.started || under?.started),
-      ended: !!(over?.ended || under?.ended),
-      cancelled: !!(over?.cancelled || under?.cancelled),
-    },
-  };
+  return books;
 }
 
-// Helper functions
+function isOverSide(side: any) {
+  const s = String(side || "").toLowerCase();
+  return s === "over" || s === "yes";
+}
+function isUnderSide(side: any) {
+  const s = String(side || "").toLowerCase();
+  return s === "under" || s === "no";
+}
+
 function formatStatID(statID: string) {
   return (statID || "").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
-function cleanPlayerNameFromMarketName(marketName: string) {
-  // Fallback only; prefer players[playerID].name
-  // E.g. "Joe Flacco Passing Attempts Over/Under" -> "Joe Flacco"
-  return (marketName || "").replace(/\s+(Passing|Rushing|Receiving|Attempts|Yards|Touchdowns).*$/i, "");
+function extractNameFromMarket(marketName: string) {
+  // Fallback only: "Joe Flacco Passing Attempts Over/Under" -> "Joe Flacco"
+  return (marketName || "").replace(/\s+(Passing|Rushing|Receiving|Attempts|Completions|Yards|Touchdowns).*$/i, "");
 }
 
 function firstDefined<T>(...vals: (T | undefined | null)[]) {
-  for (const v of vals) {
-    if (v !== undefined && v !== null) return v;
-  }
+  for (const v of vals) if (v !== undefined && v !== null) return v;
   return undefined;
 }
-
-// Rank best American odds for bettor value:
-// - For positive odds, higher is better (e.g., +120 > +110)
-// - For negative odds, closer to zero is better (e.g., -105 > -120)
-function compareAmericanOdds(a: string, b: string) {
-  const na = parseInt(a, 10);
-  const nb = parseInt(b, 10);
-  if (isNaN(na) && isNaN(nb)) return 0;
-  if (isNaN(na)) return -1;
-  if (isNaN(nb)) return 1;
-
-  // Convert to payout multiplier for fair comparison
-  const payoutA = na > 0 ? 1 + na / 100 : 1 + 100 / Math.abs(na);
-  const payoutB = nb > 0 ? 1 + nb / 100 : 1 + 100 / Math.abs(nb);
-  return payoutA - payoutB;
+function toNumberOrNull(s?: string | null) {
+  if (s === undefined || s === null) return null;
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : null;
 }
 
+// Compare American odds by bettor payout multiplier; return best entry
 function pickBest(entries: { price: string }[]) {
   if (!entries.length) return null;
-  // Sort descending by bettor payout
-  const sorted = entries.sort((x, y) => compareAmericanOdds(x.price, y.price)).reverse();
-  return sorted[0];
+  const score = (oddsStr: string) => {
+    const v = parseInt(oddsStr, 10);
+    if (Number.isNaN(v)) return -Infinity;
+    return v > 0 ? 1 + v / 100 : 1 + 100 / Math.abs(v);
+  };
+  return entries.reduce((best, cur) => (score(cur.price) > score(best.price) ? cur : best), entries[0]);
+}
+
+function emptyGroup(markets: MarketSide[]) {
+  return {
+    market_type: "Unknown",
+    line: null,
+    best_over: null,
+    best_under: null,
+    books: [],
+    oddIDs: { over: null, under: null, opposingOver: null, opposingUnder: null },
+    status: { started: false, ended: false, cancelled: false },
+    _error: "No valid sides found",
+  };
+}
+
+function safeNormalizeEvent(ev: any) {
+  try {
+    return normalizeEvent(ev);
+  } catch (err) {
+    console.error("normalizeEvent failed", {
+      eventID: ev?.eventID,
+      leagueID: ev?.leagueID,
+      teams: ev?.teams,
+      error: String(err),
+      stack: (err as any)?.stack,
+    });
+    return {
+      eventID: ev?.eventID ?? null,
+      leagueID: ev?.leagueID ?? null,
+      start_time: ev?.scheduled ?? null,
+      home_team: ev?.teams?.home?.names ?? null,
+      away_team: ev?.teams?.away?.names ?? null,
+      team_props: [],
+      player_props: [],
+      _error: "normalizeEvent failed",
+    };
+  }
 }
 
 export default {
@@ -303,7 +309,8 @@ export default {
           });
         }
 
-        const upstreamUrl = buildUpstreamUrl('/events', searchParams);
+        const upstreamUrl = buildUpstreamUrl('/v2/events', searchParams);
+        console.log("Upstream URL:", upstreamUrl);
         const headers = new Headers({ 'x-api-key': env.SPORTSGAMEODDS_API_KEY });
 
         try {
@@ -320,21 +327,42 @@ export default {
           const data = await res.json();
 
           // Strictly filter NFL events, then normalize
-          console.log('Raw API response:', JSON.stringify(data, null, 2));
-          const rawEvents = data.data || [];
-          console.log('Raw events count:', rawEvents.length);
-          
-          const nflEvents = rawEvents.filter((ev: any) => String(ev.leagueID).toUpperCase() === "NFL");
-          console.log('NFL events count:', nflEvents.length);
-          
-          const events = nflEvents.map(normalizeEvent);
-          console.log('Normalized events count:', events.length);
+          const rawEvents = data?.data || [];
+          console.log("Upstream counts", {
+            events: rawEvents.length,
+            sampleEventID: rawEvents[0]?.eventID,
+            sampleLeagueID: rawEvents[0]?.leagueID,
+          });
 
-          // Conditional caching: shorter TTL until player props appear
-          const hasPlayerProps = events.some(ev => (ev.player_props?.length || 0) > 0);
+          const nflEvents = rawEvents.filter((ev: any) => String(ev?.leagueID || "").toUpperCase() === "NFL");
+          const normalized = nflEvents.map(safeNormalizeEvent);
+
+          const hasPlayerProps = normalized.some(ev => (ev.player_props?.length || 0) > 0);
           const ttl = hasPlayerProps ? 1800 : 300;
 
-          return new Response(JSON.stringify({ events }), {
+          console.log("Normalized counts", {
+            events: normalized.length,
+            totalPlayerProps: normalized.reduce((a, ev) => a + (ev.player_props?.length || 0), 0),
+            totalTeamProps: normalized.reduce((a, ev) => a + (ev.team_props?.length || 0), 0),
+          });
+
+          return new Response(JSON.stringify({ 
+            events: normalized,
+            debug: {
+              upstreamUrl: upstreamUrl,
+              rawCount: rawEvents.length,
+              nflCount: nflEvents.length,
+              normalizedCount: normalized.length,
+              totalPlayerProps: normalized.reduce((a, ev) => a + (ev.player_props?.length || 0), 0),
+              totalTeamProps: normalized.reduce((a, ev) => a + (ev.team_props?.length || 0), 0),
+              sampleEvent: rawEvents[0] ? {
+                eventID: rawEvents[0].eventID,
+                leagueID: rawEvents[0].leagueID,
+                oddsCount: Object.keys(rawEvents[0].odds || {}).length,
+                playersCount: Object.keys(rawEvents[0].players || {}).length
+              } : null
+            }
+          }), {
             headers: { 
               ...corsHeaders, 
               'Content-Type': 'application/json',
@@ -419,41 +447,41 @@ export default {
           if (!propData || typeof propData !== 'object') continue;
           
           const prop = propData as any;
-          
-          // Skip team-level props (all, away, home) for player props
+            
+            // Skip team-level props (all, away, home) for player props
           if (['all', 'away', 'home'].includes(prop.statEntityID?.toLowerCase())) {
-            continue;
-          }
-          
+              continue;
+            }
+            
           // Look for player props (those with statEntityID that aren't team-level)
           if (!prop.statEntityID || prop.statEntityID.length < 3) {
-            continue;
-          }
-          
+              continue;
+            }
+            
           // Skip if not over/under prop
           if (!['over', 'under'].includes(prop.sideID)) {
-            continue;
-          }
-          
+              continue;
+            }
+            
           // Parse player name from statEntityID
           const playerName = prop.statEntityID
             .replace(/_1_NFL$/, '').replace(/_1_MLB$/, '').replace(/_1_NBA$/, '').replace(/_1_NHL$/, '').replace(/_1_WNBA$/, '')
-            .replace(/_/g, ' ')
-            .split(' ')
+              .replace(/_/g, ' ')
+              .split(' ')
             .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-            .join(' ');
-          
-          // Format prop type
+              .join(' ');
+            
+            // Format prop type
           const propType = prop.statID?.replace(/_/g, ' ').replace(/\+/g, ' + ')
-            .split(' ')
+              .split(' ')
             .map((word: string) => {
-              if (word.match(/[a-z][A-Z]/)) {
-                return word.replace(/([a-z])([A-Z])/g, '$1 $2');
-              }
-              return word;
-            })
-            .join(' ')
-            .split(' ')
+                if (word.match(/[a-z][A-Z]/)) {
+                  return word.replace(/([a-z])([A-Z])/g, '$1 $2');
+                }
+                return word;
+              })
+              .join(' ')
+              .split(' ')
             .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
             .join(' ') || 'Unknown Prop';
           
@@ -511,7 +539,7 @@ export default {
 
               gameDate: event.scheduled?.split('T')[0] || new Date().toISOString().split('T')[0],
               gameTime: event.scheduled || new Date().toISOString(),
-              sport: sport,
+                  sport: sport,
 
               availableSportsbooks: availableSportsbooks,
 
@@ -522,21 +550,21 @@ export default {
               
               // Additional fields for compatibility
               allSportsbookOdds: allSportsbookOdds,
-              available: true,
+                  available: true,
               awayTeam: awayTeamFull,
               homeTeam: homeTeamFull,
               betType: 'player_prop',
               isExactAPIData: true,
-              lastUpdate: new Date().toISOString(),
+                  lastUpdate: new Date().toISOString(),
               marketName: prop.marketName || propType,
               market: prop.marketName || propType,
               marketId: prop.oddID || '',
               period: 'full_game',
               statEntity: prop.statEntityID
-            });
-          }
-        }
-        
+                });
+              }
+            }
+            
         return playerProps;
       });
 
