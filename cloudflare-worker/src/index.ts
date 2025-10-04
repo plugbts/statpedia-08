@@ -11,6 +11,29 @@ interface Env {
   MAX_PROPS_PER_REQUEST: string;
 }
 
+const BASE_URL = "https://api.sportsgameodds.com/v2";
+
+function buildUpstreamUrl(path: string, params: URLSearchParams) {
+  const url = new URL(path, BASE_URL);
+
+  // Always include oddsAvailable=true
+  url.searchParams.set("oddsAvailable", "true");
+
+  // Pass through required params
+  const league = params.get("league");
+  const date = params.get("date");
+  if (league) url.searchParams.set("league", league);
+  if (date) url.searchParams.set("date", date);
+
+  // Optional filters
+  const oddIDs = params.get("oddIDs");
+  const bookmakerID = params.get("bookmakerID");
+  if (oddIDs) url.searchParams.set("oddIDs", oddIDs);
+  if (bookmakerID) url.searchParams.set("bookmakerID", bookmakerID);
+
+  return url.toString();
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const startTime = Date.now();
@@ -42,7 +65,7 @@ export default {
           });
         }
 
-        const upstreamUrl = `https://api.sportsgameodds.com/v2/events?leagueID=${league}&date=${date}`;
+        const upstreamUrl = buildUpstreamUrl('/events', searchParams);
         const headers = new Headers({ 'x-api-key': env.SPORTSGAMEODDS_API_KEY });
 
         try {
@@ -151,7 +174,10 @@ export default {
       console.log('Fetching fresh data from API...');
 
       // Call SportsGameOdds v2/events endpoint for props
-      const apiUrl = `https://api.sportsgameodds.com/v2/events?sport=${sport}&markets=player_props`;
+      const legacyParams = new URLSearchParams();
+      legacyParams.set('sport', sport);
+      legacyParams.set('markets', 'player_props');
+      const apiUrl = buildUpstreamUrl('/events', legacyParams);
 
       const apiResponse = await fetch(apiUrl, {
         headers: {
