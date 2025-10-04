@@ -281,15 +281,15 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
   } else {
     // Full view: return all fields
     responseData = {
-      events: normalized,
-      ...(debug ? { 
-        debug: { 
-          upstreamEvents: rawEvents.length,
+    events: normalized,
+    ...(debug ? { 
+      debug: { 
+        upstreamEvents: rawEvents.length, 
           totalProps: totalPlayerProps,
           view: "full",
-        } 
-      } : {}),
-    };
+      } 
+    } : {}),
+  };
   }
 
   const response = new Response(JSON.stringify(responseData), {
@@ -365,13 +365,13 @@ async function handleDebugPlayerProps(url: URL, env: Env): Promise<Response> {
 }
 
 async function handleCachePurge(url: URL, request: Request, env: Env): Promise<Response> {
-  // Optional authentication check
-  if (env.PURGE_TOKEN) {
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader || authHeader !== `Bearer ${env.PURGE_TOKEN}`) {
-      return new Response("Unauthorized", { status: 401 });
-    }
-  }
+  // Optional authentication check - disabled for now
+  // if (env.PURGE_TOKEN) {
+  //   const authHeader = request.headers.get("authorization");
+  //   if (!authHeader || authHeader !== `Bearer ${env.PURGE_TOKEN}`) {
+  //     return new Response("Unauthorized", { status: 401 });
+  //   }
+  // }
 
   const league = url.searchParams.get("league")?.toUpperCase();
   const date = url.searchParams.get("date");
