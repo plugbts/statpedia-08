@@ -263,7 +263,7 @@ class SyncService {
 
 // Create and export the sync service instance
 export const syncService = new SyncService({
-  enableLoveableSync: true,
+  enableLoveableSync: false, // Disabled to prevent WebSocket connection errors
   enableSupabaseRealtime: true,
   syncInterval: 5000,
   maxRetries: 3,

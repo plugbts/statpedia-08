@@ -163,9 +163,9 @@ const loveableConfig: LoveableConfig = {
 
 export const loveableClient = new LoveableClient(loveableConfig);
 
-// Auto-connect in development
-if (import.meta.env.DEV) {
-  loveableClient.connect().catch(console.error);
-}
+// Auto-connect in development (disabled to prevent WebSocket errors)
+// if (import.meta.env.DEV) {
+//   loveableClient.connect().catch(console.error);
+// }
 
 export default loveableClient;
