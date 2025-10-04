@@ -231,8 +231,7 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
 
   // Shape response based on view parameter
   let responseData;
-  if (view === 'compact') {
-    // Compact view: return fewer fields, same number of props
+  if (view === "compact") {
     responseData = {
       events: normalized.map(event => ({
         eventID: event.eventID,
@@ -240,8 +239,8 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
         start_time: event.start_time,
         home_team: event.home_team,
         away_team: event.away_team,
-        player_props: event.player_props?.map(prop => {
-          const line = prop.line ?? prop.books?.[0]?.line ?? null;
+        player_props: (event.player_props || []).map(prop => {
+          const line = prop.line ?? null;
           const over = bestBySide(prop.books || [], "over");
           const under = bestBySide(prop.books || [], "under");
 
@@ -254,27 +253,31 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
             best_over_book: over?.bookmaker ?? null,
             best_under_book: under?.bookmaker ?? null,
           };
-        }) || [],
-        team_props: event.team_props?.map(prop => ({
+        }),
+        team_props: (event.team_props || []).map(prop => ({
           market_type: prop.market_type,
           line: prop.line,
           best_over: prop.best_over,
-          best_under: prop.best_under
-        })) || []
+          best_under: prop.best_under,
+        })),
       })),
-      ...(debug ? { 
-        debug: { 
-          upstreamEvents: rawEvents.length, 
-          playerPropsTotal: totalPlayerProps,
-          view: 'compact',
-          sampleEvent: normalized[0] ? {
-            eventID: normalized[0].eventID,
-            player_props_count: normalized[0].player_props?.length || 0,
-            team_props_count: normalized[0].team_props?.length || 0,
-            sample_player_prop: normalized[0].player_props?.[0] || null
-          } : null
-        } 
-      } : {})
+      ...(debug
+        ? {
+            debug: {
+              upstreamEvents: rawEvents.length,
+              playerPropsTotal: totalPlayerProps,
+              view: "compact",
+              sampleEvent: normalized[0]
+                ? {
+                    eventID: normalized[0].eventID,
+                    player_props_count: normalized[0].player_props?.length || 0,
+                    team_props_count: normalized[0].team_props?.length || 0,
+                    sample_player_prop: normalized[0].player_props?.[0] || null,
+                  }
+                : null,
+            },
+          }
+        : {}),
     };
   } else {
     // Full view: return all fields
@@ -525,7 +528,18 @@ function normalizeEvent(ev: SGEvent) {
   };
 }
 
-function normalizePlayerGroup(markets: MarketSide[], players: Record<string, Player>) {
+function normalizePlayerGroup(
+  markets: MarketSide[],
+  players: Record<string, Player>
+) {
+  // Use all identifiers to avoid collapsing distinct markets
+  const key = [
+    markets[0]?.statEntityID || "",
+    markets[0]?.statID || "",
+    markets[0]?.periodID || "",
+    markets[0]?.betTypeID || ""
+  ].join("|");
+
   const over = markets.find(m => isOverSide(m.sideID));
   const under = markets.find(m => isUnderSide(m.sideID));
   const base = over || under;
@@ -541,30 +555,30 @@ function normalizePlayerGroup(markets: MarketSide[], players: Record<string, Pla
     over?.fairOverUnder,
     under?.fairOverUnder
   );
-  const line = toNumberOrNull(lineStr);
+  const line = toNumberOrNull(lineStr); // null if missing, not 0
 
   const books: any[] = [];
 
   for (const side of [over, under]) {
     if (!side) continue;
 
-    // Always include consensus fallback
+    // Consensus fallback
     if (side.bookOdds || side.bookOverUnder || side.fairOdds || side.fairOverUnder) {
       books.push({
         bookmaker: "consensus",
         side: side.sideID,
-        price: side.bookOdds ?? side.fairOdds ?? "",
+        price: side.bookOdds ?? side.fairOdds ?? null,
         line: toNumberOrNull(side.bookOverUnder ?? side.fairOverUnder),
       });
     }
 
-    // Add per-book odds if available
+    // Per-book odds
     for (const [book, data] of Object.entries(side.byBookmaker || {})) {
       if (!data.odds && !data.overUnder) continue;
       books.push({
         bookmaker: book,
         side: side.sideID,
-        price: data.odds ?? side.bookOdds ?? "",
+        price: data.odds ?? side.bookOdds ?? null,
         line: toNumberOrNull(data.overUnder ?? side.bookOverUnder),
         deeplink: data.deeplink,
       });
