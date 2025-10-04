@@ -223,20 +223,23 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
   
   console.log(`Filtered ${events.length} events for league ${league}`);
 
-  // Normalize using legacy approach (SGO uses legacy schema)
-  let normalized = events.map((ev: any) => safeNormalizeEvent(ev as SGEvent));
+  // 2. Normalize events using SGO-only approach
+  let normalized = events
+    .map(ev => normalizeEventSGO(ev, request))
+    .filter(Boolean);
 
-  // Apply 125-prop cap per league with priority sorting
+  // 3. Cap & prioritize props per league
   normalized = capPropsPerLeague(normalized, league, 125);
 
   const totalPlayerProps = normalized.reduce((a, ev) => a + (ev.player_props?.length || 0), 0);
-  const totalDroppedProps = normalized.reduce((a, ev) => a + ((ev as any).debug_counts?.droppedPlayerProps || 0), 0);
+  console.log(`Total player props after capping: ${totalPlayerProps}`);
   keptProps = totalPlayerProps;
-  droppedProps = totalDroppedProps;
+  droppedProps = 0; // SGO normalization doesn't drop props
   const ttl = totalPlayerProps > 50 ? 1800 : 300;
 
-  // Shape response based on view parameter
-  let responseData;
+  // 4. Shape response
+  let responseData: any = { events: normalized };
+  
   if (view === "compact") {
     responseData = {
       events: normalized.map(event => ({
@@ -246,14 +249,12 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
         home_team: event.home_team,
         away_team: event.away_team,
         player_props: (event.player_props || []).map(prop => {
-          const line = prop.line ?? null;
           const over = pickBest((prop.books || []).filter(b => String(b.side).toLowerCase() === "over"));
           const under = pickBest((prop.books || []).filter(b => String(b.side).toLowerCase() === "under"));
-
           return {
             player_name: prop.player_name,
-            market_type: formatMarketType(prop.market_type, event.leagueID), // 👈 formatted label
-            line,
+            market_type: formatMarketType(prop.market_type, event.leagueID),
+            line: prop.line,
             best_over: over?.price ?? null,
             best_under: under?.price ?? null,
             best_over_book: over?.bookmaker ?? null,
@@ -261,7 +262,7 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
           };
         }),
         team_props: (event.team_props || []).map(prop => ({
-          market_type: formatMarketType(prop.market_type, event.leagueID), // 👈 formatted label
+          market_type: formatMarketType(prop.market_type, event.leagueID),
           line: prop.line,
           best_over: prop.best_over,
           best_under: prop.best_under,
@@ -271,16 +272,8 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
         ? {
             debug: {
               upstreamEvents: rawEvents.length,
-              playerPropsTotal: totalPlayerProps,
+              totalProps: totalPlayerProps,
               view: "compact",
-              sampleEvent: normalized[0]
-                ? {
-                    eventID: normalized[0].eventID,
-                    player_props_count: normalized[0].player_props?.length || 0,
-                    team_props_count: normalized[0].team_props?.length || 0,
-                    sample_player_prop: normalized[0].player_props?.[0] || null,
-                  }
-                : null,
             },
           }
         : {}),
@@ -288,21 +281,15 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
   } else {
     // Full view: return all fields
     responseData = {
-    events: normalized,
-    ...(debug ? { 
-      debug: { 
-        upstreamEvents: rawEvents.length, 
-        playerPropsTotal: totalPlayerProps,
-          view: 'full',
-        sampleEvent: normalized[0] ? {
-          eventID: normalized[0].eventID,
-          player_props_count: normalized[0].player_props?.length || 0,
-          team_props_count: normalized[0].team_props?.length || 0,
-          sample_player_prop: normalized[0].player_props?.[0] || null
-        } : null
-      } 
-      } : {})
-  };
+      events: normalized,
+      ...(debug ? { 
+        debug: { 
+          upstreamEvents: rawEvents.length,
+          totalProps: totalPlayerProps,
+          view: "full",
+        } 
+      } : {}),
+    };
   }
 
   const response = new Response(JSON.stringify(responseData), {
@@ -555,7 +542,7 @@ function normalizeEventSGO(ev: any, request: any) {
   }
   
   console.log(`Final counts: playerProps=${playerProps.length}, teamProps=${teamProps.length}`);
-
+  
   return {
     eventID: ev.eventID,
     leagueID: ev.leagueID,
