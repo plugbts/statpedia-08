@@ -213,8 +213,8 @@ class CloudflarePlayerPropsAPI {
                   id: `${prop.market_type}-${prop.player_name}`,
                   playerId: prop.player_name,
                   playerName: prop.player_name,
-                  team: event.home_team?.long || 'Unknown',
-                  opponent: event.away_team?.long || 'Unknown',
+                  team: event.home_team || 'Unknown',
+                  opponent: event.away_team || 'Unknown',
                   propType: formatMarketName(prop.market_type),
                   line: prop.line,
                   overOdds: parseOdds(prop.best_over?.price),
@@ -225,8 +225,8 @@ class CloudflarePlayerPropsAPI {
                   gameTime: event.start_time || new Date().toISOString(),
                   sport: sport,
                   availableSportsbooks: prop.books?.map((book: any) => book.bookmaker) || [],
-                  teamAbbr: event.home_team?.short || 'UNK',
-                  opponentAbbr: event.away_team?.short || 'UNK',
+                  teamAbbr: event.home_team?.split(' ').pop() || 'UNK',
+                  opponentAbbr: event.away_team?.split(' ').pop() || 'UNK',
                   gameId: event.eventID,
                   allSportsbookOdds: prop.books?.map((book: any) => ({
                     sportsbook: book.bookmaker,
@@ -234,8 +234,8 @@ class CloudflarePlayerPropsAPI {
                     lastUpdate: new Date().toISOString()
                   })) || [],
                   available: true,
-                  awayTeam: event.away_team?.long,
-                  homeTeam: event.home_team?.long,
+                  awayTeam: event.away_team,
+                  homeTeam: event.home_team,
                   betType: 'player_prop',
                   isExactAPIData: true,
                   lastUpdate: new Date().toISOString(),
@@ -248,8 +248,8 @@ class CloudflarePlayerPropsAPI {
                   bestOver: prop.best_over,
                   bestUnder: prop.best_under,
                   allBooks: prop.books,
-                  homeTeamLogo: nflTeamMap[event.home_team?.long || ''],
-                  awayTeamLogo: nflTeamMap[event.away_team?.long || '']
+                  homeTeamLogo: nflTeamMap[event.home_team || ''],
+                  awayTeamLogo: nflTeamMap[event.away_team || '']
                 });
               }
             }
