@@ -232,12 +232,7 @@ export function UserManagement() {
     
     setStats({
       totalUsers: usersData.length,
-      activeUsers: usersData.filter(u => {
-        // Consider user active if they signed in within the last 7 days
-        const lastSignIn = new Date(u.last_sign_in);
-        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-        return u.is_active && lastSignIn >= sevenDaysAgo;
-      }).length,
+      activeUsers: usersData.filter(u => u.is_active).length,
       newUsersToday: usersData.filter(u => new Date(u.created_at) >= today).length,
       premiumUsers: usersData.filter(u => u.subscription_tier !== 'free').length,
       adminUsers: usersData.filter(u => ['admin', 'owner'].includes(u.role)).length,

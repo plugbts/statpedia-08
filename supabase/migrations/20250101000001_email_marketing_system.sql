@@ -383,7 +383,7 @@ CREATE POLICY "Admins can manage email campaigns" ON email_campaigns
         EXISTS (
             SELECT 1 FROM profiles 
             WHERE id = auth.uid() 
-            AND subscription_tier IN ('admin', 'owner')
+            AND role IN ('admin', 'owner')
         )
     );
 
@@ -392,7 +392,7 @@ CREATE POLICY "Admins can view email sends" ON email_sends
         EXISTS (
             SELECT 1 FROM profiles 
             WHERE id = auth.uid() 
-            AND subscription_tier IN ('admin', 'owner')
+            AND role IN ('admin', 'owner')
         )
     );
 
@@ -401,7 +401,7 @@ CREATE POLICY "Admins can manage email templates" ON email_templates
         EXISTS (
             SELECT 1 FROM profiles 
             WHERE id = auth.uid() 
-            AND subscription_tier IN ('admin', 'owner')
+            AND role IN ('admin', 'owner')
         )
     );
 
@@ -410,6 +410,6 @@ CREATE POLICY "Admins can view email analytics" ON email_analytics
         EXISTS (
             SELECT 1 FROM profiles 
             WHERE id = auth.uid() 
-            AND subscription_tier IN ('admin', 'owner')
+            AND role IN ('admin', 'owner')
         )
     );

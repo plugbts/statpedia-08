@@ -1,16 +1,22 @@
-import React, { useState, useEffect, Suspense, lazy, memo, useCallback, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AuthPage } from '@/components/auth/auth-page';
+import { PlayerPropsTab } from '@/components/player-props/player-props-tab';
+import { StrikeoutCenter } from '@/components/strikeout-center/strikeout-center';
+import { InsightsTab } from '@/components/insights/insights-tab';
 import { MatrixBackground } from '@/components/effects/matrix-background';
 import { Navigation } from '@/components/layout/navigation';
 import { StatsOverview } from '@/components/analytics/stats-overview';
 import { PredictionCard } from '@/components/analytics/prediction-card';
 import { PreviousDayWins } from '@/components/analytics/previous-day-wins';
 import { TodaysPicksCarousel } from '@/components/analytics/todays-picks-carousel';
+import { SyncTest } from '@/components/sync/sync-test';
 import { FeatureTooltip } from '@/components/onboarding/feature-tooltip';
 import { CommentsSection } from '@/components/ui/comments-section';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, Zap, BarChart3, Settings, RefreshCw } from 'lucide-react';
+import heroImage from '@/assets/hero-analytics.jpg';
 import { supabase } from '@/integrations/supabase/client';
 import { useSportsData } from '@/hooks/use-sports-data';
 import type { User } from '@supabase/supabase-js';
@@ -19,21 +25,14 @@ import { useToast } from '@/hooks/use-toast';
 import { predictionTracker } from '@/services/prediction-tracker';
 import { gamesService } from '@/services/games-service';
 import { SeasonalVideoBackground } from '@/components/ui/seasonal-video-background';
+import { BetTrackingTab } from '@/components/bet-tracking/bet-tracking-tab';
+import { SocialTab } from '@/components/social/social-tab';
+import { MostLikely } from '@/components/mlb/most-likely';
+import { PredictionsTab } from '@/components/predictions/predictions-tab';
+import { ParlayGen } from '@/components/parlay/parlay-gen';
+import { AnalyticsTab } from '@/components/analytics/analytics-tab';
 import { HeaderBannerAd, InFeedAd, FooterBannerAd, MobileBannerAd } from '@/components/ads/ad-placements';
 import { useUser } from '@/contexts/user-context';
-
-// Lazy load heavy components
-const AuthPage = lazy(() => import('@/components/auth/auth-page').then(module => ({ default: module.AuthPage })));
-const PlayerPropsTab = lazy(() => import('@/components/player-props/player-props-tab').then(module => ({ default: module.PlayerPropsTab })));
-const StrikeoutCenter = lazy(() => import('@/components/strikeout-center/strikeout-center').then(module => ({ default: module.StrikeoutCenter })));
-const InsightsTab = lazy(() => import('@/components/insights/insights-tab').then(module => ({ default: module.InsightsTab })));
-const SyncTest = lazy(() => import('@/components/sync/sync-test').then(module => ({ default: module.SyncTest })));
-const BetTrackingTab = lazy(() => import('@/components/bet-tracking/bet-tracking-tab').then(module => ({ default: module.BetTrackingTab })));
-const SocialTab = lazy(() => import('@/components/social/social-tab').then(module => ({ default: module.SocialTab })));
-const MostLikely = lazy(() => import('@/components/mlb/most-likely').then(module => ({ default: module.MostLikely })));
-const PredictionsTab = lazy(() => import('@/components/predictions/predictions-tab').then(module => ({ default: module.PredictionsTab })));
-const ParlayGen = lazy(() => import('@/components/parlay/parlay-gen').then(module => ({ default: module.ParlayGen })));
-const AnalyticsTab = lazy(() => import('@/components/analytics/analytics-tab').then(module => ({ default: module.AnalyticsTab })));
 
 const Index = () => {
   const navigate = useNavigate();
@@ -173,7 +172,7 @@ const Index = () => {
     return filteredPredictions;
   };
 
-  const handleTabChange = useCallback((tab: string) => {
+  const handleTabChange = (tab: string) => {
     if (tab === 'admin') {
       navigate('/admin');
     } else if (tab === 'settings') {
@@ -185,22 +184,22 @@ const Index = () => {
     } else {
       setActiveTab(tab);
     }
-  }, [navigate]);
+  };
 
-  const handleSportChange = useCallback((sport: string) => {
+  const handleSportChange = (sport: string) => {
     setSelectedSport(sport);
     // Close today's picks when sport changes
     setShowTodaysPicks(false);
-  }, []);
+  };
 
-  const handleLogout = useCallback(async () => {
+  const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
       // User state is now managed by UserContext
     } catch (error) {
       console.error('Logout error:', error);
     }
-  }, []);
+  };
 
   // User state is now managed by UserContext, no need for local auth handling
 
@@ -380,20 +379,13 @@ const Index = () => {
   // User subscription and role are now managed by UserContext
 
   // Use real predictions data from sports API - prioritize realPredictions over hook data
-  const allPredictions = useMemo(() => 
-    realPredictions.length > 0 ? realPredictions : (predictions || []), 
-    [realPredictions, predictions]
-  );
+  const allPredictions = realPredictions.length > 0 ? realPredictions : (predictions || []);
   
   // Pagination logic
-  const paginationData = useMemo(() => {
-    const totalPages = Math.ceil(allPredictions.length / predictionsPerPage);
-    const startIndex = (currentPage - 1) * predictionsPerPage;
-    const endIndex = startIndex + predictionsPerPage;
-    const currentPredictions = allPredictions.slice(startIndex, endIndex);
-    
-    return { totalPages, startIndex, endIndex, currentPredictions };
-  }, [allPredictions, currentPage, predictionsPerPage]);
+  const totalPages = Math.ceil(allPredictions.length / predictionsPerPage);
+  const startIndex = (currentPage - 1) * predictionsPerPage;
+  const endIndex = startIndex + predictionsPerPage;
+  const currentPredictions = allPredictions.slice(startIndex, endIndex);
   
   // Reset to page 1 when predictions change
   useEffect(() => {
@@ -460,14 +452,8 @@ const Index = () => {
 
   if (userLoading) {
     return (
-      <div style={{ 
-        minHeight: '100vh', 
-        backgroundColor: '#0a0a0a', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center' 
-      }}>
-        <div className="animate-spin h-8 w-8 border-4 border-cyan-500 border-t-transparent rounded-full" />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
       </div>
     );
   }
@@ -620,11 +606,11 @@ const Index = () => {
       {/* Stats Overview */}
       <StatsOverview
         totalPredictions={realPredictions.length * 100} // Simulated historical count
-        winRate={predictionTracker.getAllTimeStats().winRate} // Use real win rate
-        dailyWins={predictionTracker.getPreviousDayStats().wins} // Use real daily wins
-        weeklyWins={Math.floor(predictionTracker.getPreviousDayStats().wins * 7)} // Calculate weekly wins
+        winRate={0} // Reset to 0
+        dailyWins={0} // Reset to 0
+        weeklyWins={0} // Reset to 0
         averageOdds="-108"
-        totalProfit={predictionTracker.getAllTimeStats().totalProfit} // Use real total profit
+        totalProfit={0} // Reset to 0
         todaysPredictions={realPredictions.length}
       />
 
@@ -774,7 +760,7 @@ const Index = () => {
           <div>
             <h2 className="text-2xl font-bold text-foreground">This Week's Predictions</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Showing {paginationData.startIndex + 1}-{Math.min(paginationData.endIndex, allPredictions.length)} of {allPredictions.length} predictions
+              Showing {startIndex + 1}-{Math.min(endIndex, allPredictions.length)} of {allPredictions.length} predictions
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -809,7 +795,7 @@ const Index = () => {
               <span className="text-muted-foreground">Loading live predictions...</span>
             </div>
           </div>
-        ) : paginationData.currentPredictions.length === 0 ? (
+        ) : currentPredictions.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground mb-4">No predictions available for {selectedSport.toUpperCase()}</p>
             <Button onClick={loadRealPredictions} variant="outline">
@@ -820,7 +806,7 @@ const Index = () => {
         ) : (
           <>
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-              {paginationData.currentPredictions.map((prediction, index) => (
+              {currentPredictions.map((prediction, index) => (
             <PredictionCard
                   key={prediction.id || index}
               {...prediction}
@@ -830,7 +816,7 @@ const Index = () => {
         </div>
             
             {/* Pagination Controls */}
-            {paginationData.totalPages > 1 && (
+            {totalPages > 1 && (
               <div className="flex items-center justify-center gap-2 mt-8">
                 <Button
                   variant="outline"
@@ -842,14 +828,14 @@ const Index = () => {
                 </Button>
                 
                 <div className="flex items-center gap-1">
-                  {Array.from({ length: Math.min(5, paginationData.totalPages) }, (_, i) => {
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                     let pageNum;
-                    if (paginationData.totalPages <= 5) {
+                    if (totalPages <= 5) {
                       pageNum = i + 1;
                     } else if (currentPage <= 3) {
                       pageNum = i + 1;
-                    } else if (currentPage >= paginationData.totalPages - 2) {
-                      pageNum = paginationData.totalPages - 4 + i;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
                     } else {
                       pageNum = currentPage - 2 + i;
                     }
@@ -867,15 +853,15 @@ const Index = () => {
                     );
                   })}
                   
-                  {paginationData.totalPages > 5 && currentPage < paginationData.totalPages - 2 && (
+                  {totalPages > 5 && currentPage < totalPages - 2 && (
                     <>
                       <span className="text-muted-foreground">...</span>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setCurrentPage(paginationData.totalPages)}
+                        onClick={() => setCurrentPage(totalPages)}
                       >
-                        {paginationData.totalPages}
+                        {totalPages}
                       </Button>
                     </>
                   )}
@@ -884,8 +870,8 @@ const Index = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(prev => Math.min(paginationData.totalPages, prev + 1))}
-                  disabled={currentPage === paginationData.totalPages}
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
                 >
                   Next
                 </Button>
@@ -925,40 +911,20 @@ const Index = () => {
   // Show loading spinner while checking authentication
   if (userLoading) {
     return (
-      <div style={{ 
-        minHeight: '100vh', 
-        backgroundColor: '#0a0a0a', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center' 
-      }}>
-        <div className="animate-spin h-8 w-8 border-4 border-cyan-500 border-t-transparent rounded-full" />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
       </div>
     );
   }
 
   // Show auth page for non-authenticated users
   if (!user) {
-    return (
-      <Suspense fallback={
-        <div style={{ 
-          minHeight: '100vh', 
-          backgroundColor: '#0a0a0a', 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center' 
-        }}>
-          <div className="animate-spin h-8 w-8 border-4 border-cyan-500 border-t-transparent rounded-full" />
-        </div>
-      }>
-        <AuthPage onAuthSuccess={() => {}} />
-      </Suspense>
-    );
+    return <AuthPage onAuthSuccess={() => {}} />;
   }
 
   // Show dashboard for authenticated users
   return (
-    <div className="min-h-screen bg-background relative" style={{ backgroundColor: '#0a0a0a' }}>
+    <div className="min-h-screen bg-background relative">
       <MatrixBackground />
       <Navigation 
         activeTab={activeTab} 
@@ -976,54 +942,18 @@ const Index = () => {
         <MobileBannerAd userSubscription={userSubscription} />
         
         {activeTab === 'dashboard' && renderDashboard()}
-        {activeTab === 'predictions' && (
-          <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
-            <PredictionsTab selectedSport={selectedSport} userRole={userRole} userSubscription={userSubscription} onPredictionsCountChange={setPredictionsCount} />
-          </Suspense>
-        )}
-        {activeTab === 'player-props' && (
-          <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
-            <PlayerPropsTab userSubscription={userSubscription} userRole={userRole} selectedSport={selectedSport} />
-          </Suspense>
-        )}
-        {activeTab === 'insights' && (
-          <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
-            <InsightsTab selectedSport={selectedSport} userRole={userRole} userSubscription={userSubscription} />
-          </Suspense>
-        )}
-        {activeTab === 'bet-tracking' && (
-          <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
-            <BetTrackingTab userRole={userRole} />
-          </Suspense>
-        )}
-        {activeTab === 'social' && (
-          <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
-            <SocialTab userRole={userRole} userSubscription={userSubscription} onReturnToDashboard={() => {
-              console.log('Navigating to dashboard from social tab');
-              setActiveTab('dashboard');
-            }} />
-          </Suspense>
-        )}
-        {activeTab === 'strikeout-center' && (
-          <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
-            <StrikeoutCenter />
-          </Suspense>
-        )}
-        {activeTab === 'most-likely' && (
-          <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
-            <MostLikely />
-          </Suspense>
-        )}
-        {activeTab === 'parlay-gen' && (
-          <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
-            <ParlayGen />
-          </Suspense>
-        )}
-        {activeTab === 'analytics' && (
-          <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
-            <AnalyticsTab userRole={userRole} userSubscription={userSubscription} />
-          </Suspense>
-        )}
+        {activeTab === 'predictions' && <PredictionsTab selectedSport={selectedSport} userRole={userRole} userSubscription={userSubscription} onPredictionsCountChange={setPredictionsCount} />}
+        {activeTab === 'player-props' && <PlayerPropsTab userSubscription={userSubscription} userRole={userRole} selectedSport={selectedSport} />}
+        {activeTab === 'insights' && <InsightsTab selectedSport={selectedSport} userRole={userRole} userSubscription={userSubscription} />}
+        {activeTab === 'bet-tracking' && <BetTrackingTab userRole={userRole} />}
+        {activeTab === 'social' && <SocialTab userRole={userRole} userSubscription={userSubscription} onReturnToDashboard={() => {
+          console.log('Navigating to dashboard from social tab');
+          setActiveTab('dashboard');
+        }} />}
+        {activeTab === 'strikeout-center' && <StrikeoutCenter />}
+        {activeTab === 'most-likely' && <MostLikely />}
+        {activeTab === 'parlay-gen' && <ParlayGen />}
+        {activeTab === 'analytics' && <AnalyticsTab userRole={userRole} userSubscription={userSubscription} />}
         {activeTab === 'sync-test' && renderSyncTest()}
         {activeTab !== 'dashboard' && activeTab !== 'predictions' && activeTab !== 'player-props' && activeTab !== 'insights' && activeTab !== 'bet-tracking' && activeTab !== 'social' && activeTab !== 'strikeout-center' && activeTab !== 'most-likely' && activeTab !== 'parlay-gen' && activeTab !== 'analytics' && activeTab !== 'sync-test' && (
           <div className="text-center py-16">

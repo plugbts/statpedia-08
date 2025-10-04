@@ -68,9 +68,8 @@ export const UnderdogAnalysis: React.FC<UnderdogAnalysisProps> = ({ selectedSpor
         description: `Found ${underdogData.length} high-value underdog opportunities`,
       });
     } catch (err) {
-      console.error('Error loading analysis:', err);
-      console.log('🔄 [UnderdogAnalysis] Setting error state due to analysis loading failure');
       setError('Failed to load underdog analysis');
+      console.error('Error loading analysis:', err);
     } finally {
       setIsLoading(false);
     }
@@ -305,7 +304,7 @@ export const UnderdogAnalysis: React.FC<UnderdogAnalysisProps> = ({ selectedSpor
                     </div>
                   </div>
                   <CardTitle className="text-xl">
-                    {underdog.game.awayTeam} @ {underdog.game.homeTeam}
+                    {underdog.game.homeTeam} vs {underdog.game.awayTeam}
                   </CardTitle>
                   <CardDescription className="flex items-center gap-2">
                     <MapPin className="w-3 h-3" />
@@ -329,7 +328,7 @@ export const UnderdogAnalysis: React.FC<UnderdogAnalysisProps> = ({ selectedSpor
                         {formatOdds(underdog.underdog.odds)}
                       </div>
                       <div className="text-lg text-muted-foreground">
-                        shows value as underdog vs {underdog.favorite.team} ({formatOdds(underdog.favorite.odds)})
+                        vs {underdog.favorite.team} ({formatOdds(underdog.favorite.odds)})
                       </div>
                     </div>
                     <div className="flex items-center justify-center gap-6 text-sm">

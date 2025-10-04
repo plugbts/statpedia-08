@@ -24,11 +24,26 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    
   </head>
 
   <body>
     <div id="root"></div>
+    <script>
+      // Global polyfill for process to prevent ReferenceError
+      if (typeof globalThis.process === 'undefined') {
+        globalThis.process = {
+          env: { NODE_ENV: 'development' },
+          version: 'v16.0.0',
+          versions: { node: '16.0.0' },
+          platform: 'browser',
+          browser: true
+        };
+      }
+      // Also make it available on window for compatibility
+      if (typeof window !== 'undefined' && typeof window.process === 'undefined') {
+        window.process = globalThis.process;
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

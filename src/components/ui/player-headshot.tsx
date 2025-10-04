@@ -1,4 +1,4 @@
-import React, { useState, useEffect, memo, useCallback, useMemo } from 'react';
+import React from 'react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { teamColorsService } from '@/services/team-colors-service';
 
@@ -10,7 +10,7 @@ interface PlayerHeadshotProps {
   className?: string;
 }
 
-export const PlayerHeadshot: React.FC<PlayerHeadshotProps> = memo(({
+export const PlayerHeadshot: React.FC<PlayerHeadshotProps> = ({
   playerName,
   sport,
   playerId,
@@ -19,7 +19,7 @@ export const PlayerHeadshot: React.FC<PlayerHeadshotProps> = memo(({
 }) => {
   // Generate ESPN headshot URL based on sport and player ID
   // Try both PNG and JPEG formats
-  const headshotUrls = useMemo(() => {
+  const getHeadshotUrls = () => {
     if (!playerId) return [];
     
     const sportMap: Record<string, string> = {
@@ -42,11 +42,11 @@ export const PlayerHeadshot: React.FC<PlayerHeadshotProps> = memo(({
       `https://a.espncdn.com/i/headshots/${espnSport}/players/full/${playerId}.jpg`,
       `https://a.espncdn.com/combiner/i?img=/i/headshots/${espnSport}/players/full/${playerId}.png`,
     ];
-  }, [playerId, sport]);
+  };
 
-  const getTeamAbbr = useCallback(() => {
+  const getTeamAbbr = () => {
     return teamAbbr ? teamAbbr.toUpperCase() : 'TM';
-  }, [teamAbbr]);
+  };
 
   const getInitials = () => {
     return playerName
@@ -57,17 +57,18 @@ export const PlayerHeadshot: React.FC<PlayerHeadshotProps> = memo(({
       .slice(0, 2);
   };
 
-  const [currentUrlIndex, setCurrentUrlIndex] = useState(0);
-  const [imageError, setImageError] = useState(false);
+  const headshotUrls = getHeadshotUrls();
+  const [currentUrlIndex, setCurrentUrlIndex] = React.useState(0);
+  const [imageError, setImageError] = React.useState(false);
 
-  const handleImageError = useCallback(() => {
+  const handleImageError = () => {
     // Try next URL format if available
     if (currentUrlIndex < headshotUrls.length - 1) {
       setCurrentUrlIndex(prev => prev + 1);
     } else {
       setImageError(true);
     }
-  }, [currentUrlIndex, headshotUrls.length]);
+  };
 
   return (
     <div className={`relative group ${className}`}>
@@ -114,4 +115,4 @@ export const PlayerHeadshot: React.FC<PlayerHeadshotProps> = memo(({
       </div>
     </div>
   );
-});
+};

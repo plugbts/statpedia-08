@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { BarChart3, TrendingUp, Zap, Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
+import { BarChart3, TrendingUp, Zap, Mail, Lock, User } from 'lucide-react';
 import { SubscriptionPlans } from './subscription-plans';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,8 +21,6 @@ import {
   checkRateLimit
 } from '@/utils/security';
 import { rateLimitingService } from '@/services/rate-limiting-service';
-import { backupService } from '@/services/backup-service';
-import { sessionService } from '@/services/session-service';
 
 interface AuthPageProps {
   onAuthSuccess: (user: any, subscription: string) => void;
@@ -36,8 +34,6 @@ const displayNameSchema = z.string().trim().min(1, 'Display name required').max(
 export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
   const [authMode, setAuthMode] = useState<'login' | 'signup' | 'plans'>('login');
   const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -66,61 +62,22 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
 
   const fetchProfileAndRedirect = async (user: any) => {
     try {
-      const { data: profile, error } = await supabase
+      const { data: profile } = await supabase
         .from('profiles')
         .select('subscription_tier')
         .eq('user_id', user.id)
         .maybeSingle();
 
-      if (error) {
-        console.error('Error fetching profile:', error);
-        
-        // Try to restore from backup if profile doesn't exist
-        const restored = await backupService.restoreUserData(user.id);
-        if (restored) {
-          console.log('✅ User data restored from backup');
-          onAuthSuccess(user, 'free'); // Will be updated after restoration
-          return;
-        }
-        
-        // If profiles table doesn't exist and no backup, use default subscription
-        onAuthSuccess(user, 'free');
-        return;
-      }
-
       const subscription = profile?.subscription_tier || 'free';
       onAuthSuccess(user, subscription);
     } catch (error) {
       console.error('Error fetching profile:', error);
-      
-      // Try to restore from backup as fallback
-      try {
-        const restored = await backupService.restoreUserData(user.id);
-        if (restored) {
-          console.log('✅ User data restored from backup after error');
-          onAuthSuccess(user, 'free');
-          return;
-        }
-      } catch (restoreError) {
-        console.error('Error restoring from backup:', restoreError);
-      }
-      
-      // Final fallback to free subscription
       onAuthSuccess(user, 'free');
     }
   };
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const resetRateLimit = () => {
-    rateLimitingService.resetLimit('auth:login', formData.email);
-    rateLimitingService.resetLimit('auth:signup', formData.email);
-    toast({
-      title: "Rate Limit Reset",
-      description: "Rate limit has been reset. You can try logging in again.",
-    });
   };
 
   const validateForm = () => {
@@ -239,10 +196,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
     if (!rateLimitResult.allowed) {
       toast({
         title: "Rate Limit Exceeded",
-        description: `Too many login attempts. Try again in ${rateLimitResult.retryAfter} seconds. You can also try refreshing the page to reset the rate limit.`,
+        description: `Too many attempts. Try again in ${rateLimitResult.retryAfter} seconds.`,
         variant: "destructive",
       });
-      console.log('Rate limit exceeded for:', formData.email, 'Retry after:', rateLimitResult.retryAfter, 'seconds');
       return;
     }
     
@@ -256,23 +212,16 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
         });
 
         if (error) {
-          console.error('Login error:', error);
           if (error.message.includes('Invalid login credentials')) {
             toast({
               title: "Login Failed",
-              description: "Invalid email or password. Please check your credentials and try again.",
-              variant: "destructive",
-            });
-          } else if (error.message.includes('Email not confirmed')) {
-            toast({
-              title: "Email Not Confirmed",
-              description: "Please check your email and click the confirmation link before logging in.",
+              description: "Invalid email or password",
               variant: "destructive",
             });
           } else {
             toast({
               title: "Login Failed",
-              description: `Error: ${error.message}. Please try again or contact support if the issue persists.`,
+              description: error.message,
               variant: "destructive",
             });
           }
@@ -280,10 +229,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
         }
 
         if (data.user) {
-          // Create backup of user data on successful login
-          await backupService.createUserBackup(data.user.id);
-          await backupService.createAuthBackup(data.user);
-          
           toast({
             title: "Login Successful",
             description: "Welcome back to Statpedia!",
@@ -348,10 +293,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
         }
 
         if (data.user) {
-          // Create backup of new user data
-          await backupService.createUserBackup(data.user.id);
-          await backupService.createAuthBackup(data.user);
-          
           toast({
             title: "Account Created",
             description: "Please choose your subscription plan",
@@ -372,26 +313,15 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
 
   const handleSubscriptionSuccess = async (plan: string) => {
     try {
-      const sessionResult = await sessionService.getCurrentSession();
-      let user = null;
+      const { data: { user } } = await supabase.auth.getUser();
       
-      if (!sessionResult.isValid || !sessionResult.user) {
-        // Try to recover session
-        const recoveryResult = await sessionService.handleSessionError(sessionResult.error);
-        
-        if (!recoveryResult.isValid || !recoveryResult.user) {
-          toast({
-            title: "Session Error",
-            description: "Your session has expired. Please log in again to continue.",
-            variant: "destructive",
-          });
-          return;
-        }
-        
-        // Use recovered user
-        user = recoveryResult.user;
-      } else {
-        user = sessionResult.user;
+      if (!user) {
+        toast({
+          title: "Error",
+          description: "User session not found",
+          variant: "destructive",
+        });
+        return;
       }
 
       // Update profile with subscription
@@ -438,7 +368,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
 
   if (authMode === 'plans') {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4" style={{ backgroundColor: '#0a0a0a' }}>
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="w-full max-w-6xl">
           <SubscriptionPlans 
             onSubscriptionSuccess={handleSubscriptionSuccess} 
@@ -450,7 +380,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4" style={{ backgroundColor: '#0a0a0a' }}>
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
         {/* Header */}
         <div className="text-center space-y-4">
@@ -535,25 +465,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="password"
-                  type={showPassword ? "text" : "password"}
+                  type="password"
                   placeholder="••••••••"
                   value={formData.password}
                   onChange={(e) => handleInputChange('password', e.target.value)}
-                  className="pl-10 pr-10"
+                  className="pl-10"
                 />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </Button>
               </div>
             </div>
             
@@ -564,25 +481,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
+                    type="password"
                     placeholder="••••••••"
                     value={formData.confirmPassword}
                     onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                    className="pl-10 pr-10"
+                    className="pl-10"
                   />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </Button>
                 </div>
               </div>
             )}
@@ -603,18 +507,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
             >
               {isLoading ? 'Processing...' : (authMode === 'login' ? 'Sign In' : 'Create Account')}
             </Button>
-            
-            {/* Debug: Rate Limit Reset Button (temporary) */}
-            {authMode === 'login' && formData.email && (
-              <Button 
-                onClick={resetRateLimit}
-                variant="outline"
-                size="sm"
-                className="w-full text-xs"
-              >
-                Reset Rate Limit (Debug)
-              </Button>
-            )}
           </CardContent>
         </Card>
 

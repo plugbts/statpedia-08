@@ -165,7 +165,7 @@ export const PreviousDayWins = ({
                     <SportIcon sport={win.sport as any} size="sm" />
                     <div className="text-xs">
                       <p className="font-medium text-foreground">{win.player}</p>
-                      <p className="text-muted-foreground">{win.team} @ {win.opponent}</p>
+                      <p className="text-muted-foreground">{win.team} vs {win.opponent}</p>
                     </div>
                   </div>
                   <Badge variant="default" className="bg-success text-success-foreground">

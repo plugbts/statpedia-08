@@ -1,4 +1,4 @@
-import React, { useState, useEffect, memo, useCallback, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,8 +15,6 @@ import { PlayerPropsColumnView } from './player-props-column-view';
 import { EnhancedAnalysisOverlay } from '../predictions/enhanced-analysis-overlay';
 import { PlayerPropCardAd } from '@/components/ads/ad-placements';
 import { logAPI, logState, logFilter, logSuccess, logError, logWarning, logInfo, logDebug } from '@/utils/console-logger';
-import { AdvancedPredictionDisplay } from '@/components/advanced-prediction-display';
-import { advancedPredictionService, ComprehensivePrediction } from '@/services/advanced-prediction-service';
 import { evCalculatorService } from '@/services/ev-calculator';
 
 // Utility function for compact time formatting
@@ -210,7 +208,7 @@ interface MyPick {
   addedAt: string;
 }
 
-export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = memo(({ 
+export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ 
   userSubscription, 
   userRole = 'user', 
   selectedSport 
@@ -233,10 +231,6 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = memo(({
   const [showMyPicks, setShowMyPicks] = useState(false);
   const [selectedPropForEnhancedAnalysis, setSelectedPropForEnhancedAnalysis] = useState<PlayerProp | null>(null);
   const [showEnhancedAnalysis, setShowEnhancedAnalysis] = useState(false);
-  const [selectedPropForAdvancedAnalysis, setSelectedPropForAdvancedAnalysis] = useState<PlayerProp | null>(null);
-  const [showAdvancedAnalysis, setShowAdvancedAnalysis] = useState(false);
-  const [advancedPrediction, setAdvancedPrediction] = useState<ComprehensivePrediction | null>(null);
-  const [isGeneratingAdvancedPrediction, setIsGeneratingAdvancedPrediction] = useState(false);
   const [sortBy, setSortBy] = useState<'confidence' | 'ev' | 'line' | 'player'>('confidence');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [minConfidence, setMinConfidence] = useState(0);
@@ -517,10 +511,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = memo(({
           logDebug('PlayerPropsTab', 'Backend props sample:', props.slice(0, 2));
           
           // Calculate EV for each prop
-          const propsWithEV = await Promise.all((props as unknown as APIPlayerProp[]).map(async prop => {
+          const propsWithEV = (props as unknown as APIPlayerProp[]).map(prop => {
             try {
               // Calculate EV for both over and under, use the better one
-              const overEV = await evCalculatorService.calculateAIRating({
+              const overEV = evCalculatorService.calculateAIRating({
                 id: prop.id,
                 playerName: prop.playerName,
                 propType: prop.propType,
@@ -536,7 +530,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = memo(({
                 restDays: 3
               });
               
-              const underEV = await evCalculatorService.calculateAIRating({
+              const underEV = evCalculatorService.calculateAIRating({
                 id: prop.id,
                 playerName: prop.playerName,
                 propType: prop.propType,
@@ -572,7 +566,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = memo(({
                 recommendation: 'neutral'
               };
             }
-          }));
+          });
           
           setRealProps(propsWithEV as PlayerProp[]);
           
@@ -902,47 +896,6 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = memo(({
   const handleEnhancedAnalysis = (prop: PlayerProp) => {
     setSelectedPropForEnhancedAnalysis(prop);
     setShowEnhancedAnalysis(true);
-  };
-
-  // Generate advanced prediction
-  const generateAdvancedPrediction = async (prop: PlayerProp) => {
-    try {
-      setIsGeneratingAdvancedPrediction(true);
-      setSelectedPropForAdvancedAnalysis(prop);
-      
-      const predictionRequest = {
-        playerId: prop.playerId || prop.id,
-        playerName: prop.playerName,
-        propType: prop.propType,
-        line: prop.line,
-        gameId: prop.gameId || `game_${Date.now()}`,
-        team: prop.team,
-        opponent: prop.opponent || 'Unknown',
-        gameDate: prop.gameDate || new Date().toISOString(),
-        odds: {
-          over: prop.overOdds || -110,
-          under: prop.underOdds || -110,
-        },
-      };
-      
-      const comprehensivePrediction = await advancedPredictionService.generateComprehensivePrediction(predictionRequest);
-      setAdvancedPrediction(comprehensivePrediction);
-      setShowAdvancedAnalysis(true);
-      
-      toast({
-        title: "Advanced Analysis Complete",
-        description: `Generated comprehensive prediction for ${prop.playerName}`,
-      });
-    } catch (error) {
-      console.error('Error generating advanced prediction:', error);
-      toast({
-        title: "Analysis Error",
-        description: "Failed to generate advanced prediction. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsGeneratingAdvancedPrediction(false);
-    }
   };
 
   // Get maximum line value based on sport
@@ -1432,7 +1385,6 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = memo(({
                     key={prop.id || `prop-${prop.playerId}-${prop.propType}-${index}`}
                     prop={prop as any}
                     onAnalysisClick={handleEnhancedAnalysis}
-                    onAdvancedAnalysisClick={generateAdvancedPrediction}
                     isSelected={selectedProps.includes(prop.id)}
                     onSelect={showSelection ? (propId) => {
                       setSelectedProps(prev => 
@@ -1471,7 +1423,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = memo(({
                           {pick.prop.propType} {pick.prediction} {formatNumber(pick.prop.line)}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {pick.prop.team} @ {pick.prop.opponent}
+                          {pick.prop.team} vs {pick.prop.opponent}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -1503,19 +1455,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = memo(({
             setSelectedPropForEnhancedAnalysis(null);
           }}
         />
-
-        {/* Advanced Analysis Modal */}
-        {advancedPrediction && (
-          <AdvancedPredictionDisplay
-            prediction={advancedPrediction}
-            onClose={() => {
-              setShowAdvancedAnalysis(false);
-              setAdvancedPrediction(null);
-              setSelectedPropForAdvancedAnalysis(null);
-            }}
-          />
-        )}
       </div>
     </div>
   );
-});
+};

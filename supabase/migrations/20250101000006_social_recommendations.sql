@@ -60,9 +60,9 @@ CREATE POLICY "Users can view their own interactions" ON user_interactions FOR S
 CREATE POLICY "Users can insert their own interactions" ON user_interactions FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Admins can view all interactions" ON user_interactions FOR SELECT USING (
   EXISTS (
-    SELECT 1 FROM profiles 
+    SELECT 1 FROM user_roles 
     WHERE user_id = auth.uid() 
-    AND (subscription_tier = 'admin' OR subscription_tier = 'owner')
+    AND (role = 'admin' OR role = 'owner')
   )
 );
 
@@ -71,9 +71,9 @@ CREATE POLICY "Users can view their own preferences" ON user_preferences FOR SEL
 CREATE POLICY "Users can manage their own preferences" ON user_preferences FOR ALL USING (auth.uid() = user_id);
 CREATE POLICY "Admins can view all preferences" ON user_preferences FOR SELECT USING (
   EXISTS (
-    SELECT 1 FROM profiles 
+    SELECT 1 FROM user_roles 
     WHERE user_id = auth.uid() 
-    AND (subscription_tier = 'admin' OR subscription_tier = 'owner')
+    AND (role = 'admin' OR role = 'owner')
   )
 );
 

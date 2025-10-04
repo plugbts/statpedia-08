@@ -38,18 +38,7 @@ CREATE INDEX IF NOT EXISTS idx_promo_codes_active ON promo_codes(is_active);
 CREATE INDEX IF NOT EXISTS idx_user_trials_user_id ON user_trials(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_trials_status ON user_trials(status);
 CREATE INDEX IF NOT EXISTS idx_promo_code_usage_user_id ON promo_code_usage(user_id);
--- Only create index if the column exists
-DO $$
-BEGIN
-    IF EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'promo_code_usage' 
-        AND column_name = 'promo_code'
-        AND table_schema = 'public'
-    ) THEN
-        CREATE INDEX IF NOT EXISTS idx_promo_code_usage_promo_code ON promo_code_usage(promo_code);
-    END IF;
-END $$;
+CREATE INDEX IF NOT EXISTS idx_promo_code_usage_promo_code ON promo_code_usage(promo_code);
 
 -- Enable Row Level Security
 ALTER TABLE promo_codes ENABLE ROW LEVEL SECURITY;
@@ -91,45 +80,24 @@ CREATE POLICY "Admins can manage all trials" ON user_trials
   );
 
 -- Create policies for promo_code_usage (users can read their own, admins can read all)
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies 
-        WHERE tablename = 'promo_code_usage' 
-        AND policyname = 'Users can view their own promo usage'
-    ) THEN
-        CREATE POLICY "Users can view their own promo usage" ON promo_code_usage
-          FOR SELECT USING (auth.uid() = user_id);
-    END IF;
-    
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies 
-        WHERE tablename = 'promo_code_usage' 
-        AND policyname = 'Users can create their own promo usage'
-    ) THEN
-        CREATE POLICY "Users can create their own promo usage" ON promo_code_usage
-          FOR INSERT WITH CHECK (auth.uid() = user_id);
-    END IF;
-    
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies 
-        WHERE tablename = 'promo_code_usage' 
-        AND policyname = 'Admins can view all promo usage'
-    ) THEN
-        CREATE POLICY "Admins can view all promo usage" ON promo_code_usage
-          FOR SELECT USING (
-            EXISTS (
-              SELECT 1 FROM auth.users 
-              WHERE auth.users.id = auth.uid() 
-              AND (
-                auth.users.email = 'plug@statpedia.com' 
-                OR auth.users.email LIKE '%admin%'
-                OR auth.users.email LIKE '%mod%'
-              )
-            )
-          );
-    END IF;
-END $$;
+CREATE POLICY "Users can view their own promo usage" ON promo_code_usage
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can create their own promo usage" ON promo_code_usage
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Admins can view all promo usage" ON promo_code_usage
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM auth.users 
+      WHERE auth.users.id = auth.uid() 
+      AND (
+        auth.users.email = 'plug@statpedia.com' 
+        OR auth.users.email LIKE '%admin%'
+        OR auth.users.email LIKE '%mod%'
+      )
+    )
+  );
 
 -- Insert some sample promo codes
 INSERT INTO promo_codes (code, description, discount_type, discount_value, expires_at) VALUES

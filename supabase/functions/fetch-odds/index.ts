@@ -20,13 +20,13 @@ serve(async (req) => {
     const endpoint = url.searchParams.get('endpoint') || 'sports';
     const sport = url.searchParams.get('sport') || '';
     const regions = 'us';
-    const markets = 'h2h,spreads,totals';
+    const markets = 'h2h,spreads,totals,player_props';
     
     // Date filtering - get games within next 7 days
     const now = new Date();
     const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-    const dateFrom = now.toISOString().replace(/\.\d{3}Z$/, 'Z');
-    const dateTo = weekFromNow.toISOString().replace(/\.\d{3}Z$/, 'Z');
+    const dateFrom = now.toISOString();
+    const dateTo = weekFromNow.toISOString();
 
     console.log(`Fetching from The Odds API - Endpoint: ${endpoint}, Sport: ${sport}, Date Range: ${dateFrom} to ${dateTo}`);
 

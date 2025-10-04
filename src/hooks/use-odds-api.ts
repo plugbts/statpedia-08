@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 // Season dates including playoffs/postseason - only filter if completely off-season
@@ -32,7 +32,7 @@ export const useOddsAPI = () => {
     return now >= startDate && now <= endDate;
   };
 
-  const fetchInSeasonSports = useCallback(async () => {
+  const fetchInSeasonSports = async () => {
     setLoading(true);
     setError(null);
     try {
@@ -65,9 +65,9 @@ export const useOddsAPI = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
-  const fetchOdds = useCallback(async (sport: string) => {
+  const fetchOdds = async (sport: string) => {
     setLoading(true);
     setError(null);
     try {
@@ -87,9 +87,9 @@ export const useOddsAPI = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
-  const fetchEvents = useCallback(async (sport: string) => {
+  const fetchEvents = async (sport: string) => {
     setLoading(true);
     setError(null);
     try {
@@ -109,9 +109,9 @@ export const useOddsAPI = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
-  const fetchPlayerProps = useCallback(async (sport: string, eventId: string) => {
+  const fetchPlayerProps = async (sport: string, eventId: string) => {
     setLoading(true);
     setError(null);
     try {
@@ -131,9 +131,9 @@ export const useOddsAPI = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
-  return useMemo(() => ({
+  return {
     loading,
     error,
     fetchInSeasonSports,
@@ -141,5 +141,5 @@ export const useOddsAPI = () => {
     fetchEvents,
     fetchPlayerProps,
     isSeasonActive
-  }), [loading, error, fetchInSeasonSports, fetchOdds, fetchEvents, fetchPlayerProps]);
+  };
 };

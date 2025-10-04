@@ -96,9 +96,9 @@ ALTER TABLE system_logs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins can view system logs" ON system_logs
     FOR SELECT USING (
         EXISTS (
-            SELECT 1 FROM profiles 
+            SELECT 1 FROM user_roles 
             WHERE user_id = auth.uid() 
-            AND (subscription_tier = 'admin' OR subscription_tier = 'owner')
+            AND (role = 'admin' OR role = 'owner')
         )
     );
 

@@ -2,17 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Ensure immediate background color */
-html, body {
-  background-color: #0a0a0a;
-  color: #f5f5f5;
-}
-
-html.light, html.light body {
-  background-color: #ffffff;
-  color: #0a0a0a;
-}
-
 /* Custom utilities */
 .scrollbar-hide {
   -ms-overflow-style: none;
@@ -89,22 +78,10 @@ html.light, html.light body {
 /* Sports Analytics Design System - Professional Dark Theme */
 
 @layer base {
-  /* Ensure proper initial styling to prevent black screen */
-  html, body {
-    margin: 0;
-    padding: 0;
-    min-height: 100vh;
-    background-color: hsl(220 27% 4%);
-    color: hsl(220 9% 95%);
-  }
-
   :root {
     /* Ultra-Dark Professional Theme with 3D Effects */
     --background: 220 27% 4%;
     --foreground: 220 9% 95%;
-    
-    /* Fallback background to prevent black screen */
-    background-color: #0a0a0a;
 
     /* Deep card backgrounds with 3D depth */
     --card: 220 27% 6%;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { unifiedSportsAPI } from '@/services/unified-sports-api';
 import { gamesService } from '@/services/games-service';
 import { predictionService } from '@/services/prediction-service';

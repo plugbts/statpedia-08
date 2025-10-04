@@ -30,10 +30,10 @@ FOR INSERT
 WITH CHECK (accessed_by = auth.uid());
 
 -- 2. Drop existing profiles RLS policies
-CREATE POLICY "Users can view friends' profiles" ON public.profiles;
-CREATE POLICY "Users can view own profile" ON public.profiles;
-CREATE POLICY "Users can update own profile" ON public.profiles;
-CREATE POLICY "Users can insert own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users can view friends' profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
 
 -- 3. Create restrictive RLS policies for profiles
 -- Users can only view their OWN profile

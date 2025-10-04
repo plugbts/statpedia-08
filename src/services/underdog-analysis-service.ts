@@ -98,7 +98,6 @@ class UnderdogAnalysisService {
       return validUnderdogs;
     } catch (error) {
       console.error('Error getting top underdogs:', error);
-      console.log(`🔄 [UnderdogAnalysisService] Returning empty underdogs array due to error`);
       return [];
     }
   }
@@ -368,7 +367,7 @@ class UnderdogAnalysisService {
     return Math.max(1, Math.min(10, score));
   }
 
-  // Calculate confidence score based on real data analysis
+  // Calculate confidence score
   private calculateConfidence(analysis: any, baseConfidence: number) {
     const factorConfidence = analysis.keyFactors.length > 0 ? 
       analysis.keyFactors.reduce((sum: number, factor: any) => sum + Math.abs(factor.impact), 0) / analysis.keyFactors.length : 0;
@@ -376,12 +375,7 @@ class UnderdogAnalysisService {
     const marketConfidence = analysis.marketInefficiency.confidence;
     const riskPenalty = analysis.riskFactors.length * 0.1;
 
-    // Use higher base confidence for underdog analysis (80-90% range)
-    const adjustedBaseConfidence = Math.max(0.8, Math.min(0.9, baseConfidence + 0.2));
-    
-    const finalConfidence = (adjustedBaseConfidence + factorConfidence + marketConfidence) / 3 - riskPenalty;
-    
-    return Math.max(0.3, Math.min(0.95, finalConfidence));
+    return Math.max(0.1, Math.min(0.95, (baseConfidence + factorConfidence + marketConfidence) / 3 - riskPenalty));
   }
 
   // Generate betting recommendation
@@ -483,7 +477,7 @@ class UnderdogAnalysisService {
     };
 
     return {
-      week: await this.getCurrentWeek(sport),
+      week: this.getCurrentWeek(),
       sport: sport.toUpperCase(),
       season: new Date().getFullYear().toString(),
       topUnderdogs,
@@ -493,9 +487,11 @@ class UnderdogAnalysisService {
     };
   }
 
-  private async getCurrentWeek(sport: string): Promise<number> {
-    // Use the games service to get current week from API
-    return await gamesService.getCurrentWeek(sport);
+  private getCurrentWeek(): number {
+    const now = new Date();
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const days = Math.floor((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
+    return Math.ceil((days + startOfYear.getDay() + 1) / 7);
   }
 
   private calculateMarketEfficiency(underdogs: UnderdogAnalysis[]): number {

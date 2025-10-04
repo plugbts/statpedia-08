@@ -391,6 +391,68 @@ export class BackendSportsGameOddsAPI {
     }
   }
 
+  async getRealtimeStats(): Promise<any> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`${this.baseUrl}/api-analytics?action=realtime`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+          'Authorization': `Bearer ${session.access_token}`,
+        }
+      });
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to get realtime stats');
+      }
+
+      return data.data;
+
+    } catch (error) {
+      logError('BackendSportsGameOddsAPI', 'Failed to get realtime stats:', error);
+      throw error;
+    }
+  }
+
+  async getSystemHealth(): Promise<any> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`${this.baseUrl}/api-analytics?action=health`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+          'Authorization': `Bearer ${session.access_token}`,
+        }
+      });
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to get system health');
+      }
+
+      return data.data;
+
+    } catch (error) {
+      logError('BackendSportsGameOddsAPI', 'Failed to get system health:', error);
+      throw error;
+    }
+  }
+
   // Legacy compatibility methods (for existing code)
   getUsageStats() {
     logWarning('BackendSportsGameOddsAPI', 'getUsageStats() is deprecated - use getAPIAnalytics() instead');

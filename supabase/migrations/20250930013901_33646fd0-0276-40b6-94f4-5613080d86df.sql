@@ -1,6 +1,6 @@
 -- Phase 1: Fix profiles table RLS policies
 -- Drop existing overly permissive policy
-CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles;
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
 
 -- Create restricted policies for profiles
 CREATE POLICY "Users can view own profile"
@@ -21,7 +21,7 @@ USING (
 
 -- Phase 2: Fix promo_codes table RLS policies
 -- Drop existing overly permissive policy
-CREATE POLICY "Everyone can view active promo codes" ON public.promo_codes;
+DROP POLICY IF EXISTS "Everyone can view active promo codes" ON public.promo_codes;
 
 -- Restrict promo code viewing - users should not see all details
 CREATE POLICY "Users cannot directly view promo codes"
@@ -81,7 +81,7 @@ SET search_path = ''
 AS $$
 BEGIN
   -- Only existing admins can grant admin role
-  IF NEW.subscription_tier = 'admin' OR subscription_tier = 'owner')
+  IF NEW.role = 'admin' AND NOT has_role(auth.uid(), 'admin') THEN
     RAISE EXCEPTION 'Only administrators can grant admin role';
   END IF;
   

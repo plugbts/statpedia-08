@@ -97,9 +97,8 @@ export const MoneylineProps: React.FC<MoneylinePropsProps> = ({
       const gamePredictions = await gamesService.getCurrentWeekPredictions(localSelectedSport);
       setPredictions(gamePredictions);
     } catch (err) {
-      console.error('Error loading predictions:', err);
-      console.log('🔄 [MoneylineProps] Setting error state due to prediction loading failure');
       setError('Failed to load moneyline predictions');
+      console.error('Error loading predictions:', err);
     } finally {
       setIsLoading(false);
     }
@@ -156,7 +155,7 @@ export const MoneylineProps: React.FC<MoneylinePropsProps> = ({
           <Button 
             variant="outline" 
             size="sm" 
-            onClick={loadPredictions}
+            onClick={loadGames}
             className="ml-2"
           >
             <RotateCcw className="w-4 h-4 mr-1" />
@@ -278,7 +277,7 @@ export const MoneylineProps: React.FC<MoneylinePropsProps> = ({
                       </div>
                     </div>
                     <CardTitle className="text-lg">
-                      {game.awayTeam} @ {game.homeTeam}
+                      {game.homeTeam} vs {game.awayTeam}
                     </CardTitle>
                     <CardDescription className="flex items-center gap-2">
                       <MapPin className="w-3 h-3" />

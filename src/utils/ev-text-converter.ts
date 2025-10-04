@@ -1,7 +1,7 @@
 // Utility to convert EV percentages to user-friendly text values
 
 export interface EVTextResult {
-  text: 'A+' | 'A' | 'B' | 'C' | 'Below C';
+  text: 'Bad' | 'Good' | 'Great';
   color: string;
   bgColor: string;
   borderColor: string;
@@ -13,40 +13,26 @@ export interface EVTextResult {
  * @returns Object with text, color, and styling information
  */
 export function convertEVToText(evPercentage: number): EVTextResult {
-  // Define thresholds for EV categories - updated to match new rating system
-  if (evPercentage > 5) {
+  // Define thresholds for EV categories
+  if (evPercentage >= 8) {
     return {
-      text: 'A+',
-      color: 'text-green-600',
-      bgColor: 'bg-green-600/20',
-      borderColor: 'border-green-500/30'
+      text: 'Great',
+      color: 'text-emerald-400',
+      bgColor: 'bg-emerald-600/20',
+      borderColor: 'border-emerald-500/30'
     };
-  } else if (evPercentage > 2) {
+  } else if (evPercentage >= 3) {
     return {
-      text: 'A', 
-      color: 'text-green-500',
-      bgColor: 'bg-green-500/20',
-      borderColor: 'border-green-500/30'
-    };
-  } else if (evPercentage > -2) {
-    return {
-      text: 'B',
-      color: 'text-green-400',
-      bgColor: 'bg-green-400/20',
-      borderColor: 'border-green-400/30'
-    };
-  } else if (evPercentage > -8) {
-    return {
-      text: 'C',
-      color: 'text-yellow-500',
-      bgColor: 'bg-yellow-500/20',
-      borderColor: 'border-yellow-500/30'
+      text: 'Good', 
+      color: 'text-blue-400',
+      bgColor: 'bg-blue-600/20',
+      borderColor: 'border-blue-500/30'
     };
   } else {
     return {
-      text: 'Below C',
-      color: 'text-red-500',
-      bgColor: 'bg-red-500/20',
+      text: 'Bad',
+      color: 'text-red-400', 
+      bgColor: 'bg-red-600/20',
       borderColor: 'border-red-500/30'
     };
   }
@@ -57,7 +43,7 @@ export function convertEVToText(evPercentage: number): EVTextResult {
  * @param evPercentage - The EV percentage
  * @returns Simple text string
  */
-export function getEVText(evPercentage: number): 'A+' | 'A' | 'B' | 'C' | 'Below C' {
+export function getEVText(evPercentage: number): 'Bad' | 'Good' | 'Great' {
   return convertEVToText(evPercentage).text;
 }
 

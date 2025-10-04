@@ -1,30 +1,29 @@
-import { useEffect, useState, Suspense, lazy } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Shield, Users, Ban, Gift, Activity, Mail, AlertTriangle, MessageSquare, Target, DollarSign, Lock, ArrowLeft, Terminal, TrendingUp, Cloud, Server } from "lucide-react";
+import { UserManagement } from "@/components/admin/user-management";
+import { DiscordManagement } from "@/components/admin/discord-management";
+import { PromoCodesAdmin } from "@/components/admin/promo-codes-admin";
+import { EmailCampaignsAdmin } from "@/components/admin/email-campaigns-admin";
+import { TrialAbuseAdmin } from "@/components/admin/trial-abuse-admin";
+import { AuditLogs } from "@/components/admin/audit-logs";
+import { SocialAdmin } from "@/components/admin/social-admin";
+import { PredictionsAdmin } from "@/components/admin/predictions-admin";
+import { AdManager } from "@/components/ads/ad-manager";
+import { SecurityDashboard } from "@/components/admin/security-dashboard";
+import { SyncStatus } from "@/components/sync/sync-status";
+import { DevConsole } from "@/components/admin/dev-console";
+import { CrossReferenceAnalysis } from "@/components/admin/cross-reference-analysis";
+import { ServerAPIDashboard } from "@/components/admin/server-api-dashboard";
+import { DualAIDebugger } from "@/components/admin/dual-ai-debugger";
+import { APIUsageChecker } from "@/components/debug/api-usage-checker";
+import { CloudflareR2UsagePanel } from "@/components/admin/cloudflare-r2-usage-panel";
+import { SportsGameOddsAPIUsagePanel } from "@/components/admin/sportsgameodds-api-usage-panel";
 import { useUser } from "@/contexts/user-context";
-
-// Lazy load admin components for better performance
-const UserManagement = lazy(() => import("@/components/admin/user-management").then(module => ({ default: module.UserManagement })));
-const DiscordManagement = lazy(() => import("@/components/admin/discord-management").then(module => ({ default: module.DiscordManagement })));
-const PromoCodesAdmin = lazy(() => import("@/components/admin/promo-codes-admin").then(module => ({ default: module.PromoCodesAdmin })));
-const EmailCampaignsAdmin = lazy(() => import("@/components/admin/email-campaigns-admin").then(module => ({ default: module.EmailCampaignsAdmin })));
-const TrialAbuseAdmin = lazy(() => import("@/components/admin/trial-abuse-admin").then(module => ({ default: module.TrialAbuseAdmin })));
-const AuditLogs = lazy(() => import("@/components/admin/audit-logs").then(module => ({ default: module.AuditLogs })));
-const SocialAdmin = lazy(() => import("@/components/admin/social-admin").then(module => ({ default: module.SocialAdmin })));
-const PredictionsAdmin = lazy(() => import("@/components/admin/predictions-admin").then(module => ({ default: module.PredictionsAdmin })));
-const AdManager = lazy(() => import("@/components/ads/ad-manager").then(module => ({ default: module.AdManager })));
-const SecurityDashboard = lazy(() => import("@/components/admin/security-dashboard").then(module => ({ default: module.SecurityDashboard })));
-const DevConsole = lazy(() => import("@/components/admin/dev-console").then(module => ({ default: module.DevConsole })));
-const CrossReferenceAnalysis = lazy(() => import("@/components/admin/cross-reference-analysis").then(module => ({ default: module.CrossReferenceAnalysis })));
-const ServerAPIDashboard = lazy(() => import("@/components/admin/server-api-dashboard").then(module => ({ default: module.ServerAPIDashboard })));
-const DualAIDebugger = lazy(() => import("@/components/admin/dual-ai-debugger").then(module => ({ default: module.DualAIDebugger })));
-const APIUsageChecker = lazy(() => import("@/components/debug/api-usage-checker").then(module => ({ default: module.APIUsageChecker })));
-const R2UsageMonitor = lazy(() => import("@/components/admin/r2-usage-monitor").then(module => ({ default: module.R2UsageMonitor })));
-const SportsGameOddsAPIMonitor = lazy(() => import("@/components/admin/sportsgameodds-api-monitor").then(module => ({ default: module.SportsGameOddsAPIMonitor })));
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -144,6 +143,12 @@ export default function Admin() {
                 </TabsTrigger>
               )}
               {userRole === 'owner' && (
+                <TabsTrigger value="sync" className="flex items-center gap-1 px-2 py-1 text-xs">
+                  <Activity className="h-3 w-3" />
+                  <span className="hidden sm:inline">Sync</span>
+                </TabsTrigger>
+              )}
+              {userRole === 'owner' && (
                 <TabsTrigger value="api-usage" className="flex items-center gap-1 px-2 py-1 text-xs">
                   <TrendingUp className="h-3 w-3" />
                   <span className="hidden sm:inline">API Usage</span>
@@ -168,129 +173,99 @@ export default function Admin() {
                 </TabsTrigger>
               )}
               {userRole === 'owner' && (
-                <TabsTrigger value="sportsgameodds-api" className="flex items-center gap-1 px-2 py-1 text-xs">
+                <TabsTrigger value="api-usage" className="flex items-center gap-1 px-2 py-1 text-xs">
                   <Server className="h-3 w-3" />
-                  <span className="hidden sm:inline">SportsGameOdds API</span>
+                  <span className="hidden sm:inline">API Usage</span>
                 </TabsTrigger>
               )}
             </div>
           </TabsList>
 
           <TabsContent value="users" className="space-y-2 mt-2">
-            <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
-              <UserManagement />
-            </Suspense>
+            <UserManagement />
           </TabsContent>
 
           <TabsContent value="discord" className="space-y-2 mt-2">
-            <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
-              <DiscordManagement />
-            </Suspense>
+            <DiscordManagement />
           </TabsContent>
 
           <TabsContent value="promos" className="space-y-2 mt-2">
-            <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
-              <PromoCodesAdmin />
-            </Suspense>
+            <PromoCodesAdmin />
           </TabsContent>
 
           <TabsContent value="emails" className="space-y-2 mt-2">
-            <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
-              <EmailCampaignsAdmin />
-            </Suspense>
+            <EmailCampaignsAdmin />
           </TabsContent>
 
           <TabsContent value="abuse" className="space-y-2 mt-2">
-            <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
-              <TrialAbuseAdmin />
-            </Suspense>
+            <TrialAbuseAdmin />
           </TabsContent>
 
           <TabsContent value="logs" className="space-y-2 mt-2">
-            <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
-              <AuditLogs />
-            </Suspense>
+            <AuditLogs />
           </TabsContent>
 
           <TabsContent value="social" className="space-y-2 mt-2">
-            <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
-              <SocialAdmin />
-            </Suspense>
+            <SocialAdmin />
           </TabsContent>
 
           <TabsContent value="predictions" className="space-y-2 mt-2">
-            <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
-              <PredictionsAdmin />
-            </Suspense>
+            <PredictionsAdmin />
           </TabsContent>
 
           <TabsContent value="cross-reference" className="space-y-2 mt-2">
-            <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
-              <CrossReferenceAnalysis />
-            </Suspense>
+            <CrossReferenceAnalysis />
           </TabsContent>
 
           <TabsContent value="ads" className="space-y-2 mt-2">
-            <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
-              <AdManager isAdmin={true} />
-            </Suspense>
+            <AdManager isAdmin={true} />
           </TabsContent>
 
           <TabsContent value="security" className="space-y-2 mt-2">
-            <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
-              <SecurityDashboard />
-            </Suspense>
+            <SecurityDashboard />
           </TabsContent>
 
           {userRole === 'owner' && (
             <TabsContent value="dev-console" className="space-y-2 mt-2">
-              <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
-                <DevConsole />
-              </Suspense>
+              <DevConsole />
             </TabsContent>
           )}
 
+          {userRole === 'owner' && (
+            <TabsContent value="sync" className="space-y-2 mt-2">
+              <SyncStatus showDetails={true} />
+            </TabsContent>
+          )}
 
           {userRole === 'owner' && (
             <TabsContent value="api-usage" className="space-y-2 mt-2">
-              <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
-                <APIUsageChecker />
-              </Suspense>
+              <APIUsageChecker />
             </TabsContent>
           )}
 
-          {userRole === 'owner' && (
-            <TabsContent value="server-api" className="space-y-2 mt-2">
-              <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
+            {userRole === 'owner' && (
+              <TabsContent value="server-api" className="space-y-2 mt-2">
                 <ServerAPIDashboard />
-              </Suspense>
-            </TabsContent>
-          )}
+              </TabsContent>
+            )}
 
-          {userRole === 'owner' && (
-            <TabsContent value="dual-ai" className="space-y-2 mt-2">
-              <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
+            {userRole === 'owner' && (
+              <TabsContent value="dual-ai" className="space-y-2 mt-2">
                 <DualAIDebugger />
-              </Suspense>
-            </TabsContent>
-          )}
+              </TabsContent>
+            )}
 
-          {userRole === 'owner' && (
-            <TabsContent value="r2-usage" className="space-y-2 mt-2">
-              <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
-                <R2UsageMonitor />
-              </Suspense>
-            </TabsContent>
-          )}
+            {userRole === 'owner' && (
+              <TabsContent value="r2-usage" className="space-y-2 mt-2">
+                <CloudflareR2UsagePanel />
+              </TabsContent>
+            )}
 
-          {userRole === 'owner' && (
-            <TabsContent value="sportsgameodds-api" className="space-y-2 mt-2">
-              <Suspense fallback={<div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />}>
-                <SportsGameOddsAPIMonitor />
-              </Suspense>
-            </TabsContent>
-          )}
-
+            {userRole === 'owner' && (
+              <TabsContent value="api-usage" className="space-y-2 mt-2">
+                <SportsGameOddsAPIUsagePanel />
+              </TabsContent>
+            )}
         </Tabs>
       </div>
     </div>

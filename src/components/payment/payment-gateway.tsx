@@ -9,7 +9,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CreditCard, Shield, AlertTriangle, Settings } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { sessionService } from '@/services/session-service';
 
 interface PaymentGatewayProps {
   onPaymentSuccess: (method: string, amount: number) => void;
@@ -79,12 +78,10 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
       // 5. Verify payment status
       
       // Update user's subscription tier in database
-      const sessionResult = await sessionService.getCurrentSession();
-      if (!sessionResult.isValid || !sessionResult.user) {
-        throw new Error('User session not found. Please log in again.');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
       }
-      
-      const user = sessionResult.user;
 
       const { error: updateError } = await supabase
         .from('profiles')
@@ -126,12 +123,10 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
       // TODO: Initialize PayPal SDK and process payment
       
       // Update user's subscription tier in database
-      const sessionResult = await sessionService.getCurrentSession();
-      if (!sessionResult.isValid || !sessionResult.user) {
-        throw new Error('User session not found. Please log in again.');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
       }
-      
-      const user = sessionResult.user;
 
       const { error: updateError } = await supabase
         .from('profiles')

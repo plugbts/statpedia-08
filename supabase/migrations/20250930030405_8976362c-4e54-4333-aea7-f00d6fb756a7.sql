@@ -24,7 +24,7 @@ SECURITY DEFINER
 SET search_path TO 'public'
 AS $function$
 BEGIN
-  IF NEW.subscription_tier = 'admin' OR subscription_tier = 'owner')
+  IF NEW.role = 'moderator'::public.app_role AND NOT (public.has_role(auth.uid(), 'admin'::public.app_role) OR public.has_role(auth.uid(), 'owner'::public.app_role)) THEN
     RAISE EXCEPTION 'Only administrators can grant moderator role';
   END IF;
   IF TG_OP = 'UPDATE' AND OLD.user_id = auth.uid() THEN
@@ -47,17 +47,17 @@ SET search_path TO 'public'
 AS $function$
 DECLARE target_has_owner_role BOOLEAN;
 BEGIN
-  SELECT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = NEW.user_id AND subscription_tier = 'owner')
-  IF NEW.subscription_tier = 'owner')
+  SELECT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = NEW.user_id AND role = 'owner'::public.app_role) INTO target_has_owner_role;
+  IF NEW.role = 'owner'::public.app_role AND NOT target_has_owner_role THEN
     RAISE EXCEPTION 'Owner role cannot be granted';
   END IF;
-  IF TG_OP = 'UPDATE' AND OLD.subscription_tier = 'owner')
+  IF TG_OP = 'UPDATE' AND OLD.role = 'owner'::public.app_role THEN
     RAISE EXCEPTION 'Owner role cannot be modified';
   END IF;
-  IF TG_OP = 'DELETE' AND OLD.subscription_tier = 'owner')
+  IF TG_OP = 'DELETE' AND OLD.role = 'owner'::public.app_role THEN
     RAISE EXCEPTION 'Owner role cannot be removed';
   END IF;
-  IF NEW.subscription_tier = 'admin' OR subscription_tier = 'owner')
+  IF NEW.role = 'admin'::public.app_role AND NOT public.is_owner(auth.uid()) THEN
     RAISE EXCEPTION 'Only the owner can grant admin role';
   END IF;
   RETURN NEW;
