@@ -1,5 +1,7 @@
 // src/worker.ts
 
+/// <reference types="@cloudflare/workers-types" />
+
 export interface Env {
   SPORTSODDS_API_KEY: string;
   CACHE_LOCKS?: KVNamespace; // create a KV namespace for lock keys in wrangler.toml
@@ -88,10 +90,8 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
   if (!date) return json({ error: "Missing date" }, 400);
 
   const cacheKey = buildCacheKey(url, league, date, oddIDs, bookmakerID);
-  const cache = caches.default;
-
   // Try cache
-  const cached = await cache.match(cacheKey);
+  const cached = await caches.open('default').then(cache => cache.match(cacheKey));
   if (cached) return cached;
 
   // Fetch upstream
@@ -99,7 +99,7 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
   const res = await fetch(upstreamUrl, { headers: { 'x-api-key': env.SPORTSODDS_API_KEY } });
   if (!res.ok) return json({ error: "Upstream error", status: res.status }, 502);
 
-  const data = await res.json();
+  const data = await res.json() as any;
   const rawEvents = data?.data || [];
   
   console.log(`Raw API response: ${rawEvents.length} events`);
@@ -139,7 +139,7 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
         },
       });
 
-  await cache.put(cacheKey, response.clone());
+  await caches.open('default').then(cache => cache.put(cacheKey, response.clone()));
   return response;
 }
 

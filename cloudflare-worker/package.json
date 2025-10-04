@@ -10,9 +10,9 @@
     "deploy:production": "wrangler deploy --env production"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20240117.0",
-    "wrangler": "^3.78.12",
-    "typescript": "^5.0.0"
+    "@cloudflare/workers-types": "^4.20251004.0",
+    "typescript": "^5.0.0",
+    "wrangler": "^3.78.12"
   },
   "dependencies": {
     "zod": "^3.22.4"
