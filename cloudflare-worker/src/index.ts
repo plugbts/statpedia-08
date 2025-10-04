@@ -578,11 +578,7 @@ function normalizeEvent(ev: SGEvent) {
   let playerProps: any[] = [];
   let teamProps: any[] = [];
 
-  if (ev.odds && Object.keys(ev.odds).length > 0) {
-    // Use new normalizeProps function to flatten odds dictionary
-    playerProps = normalizeProps(ev);
-    console.log(`Using odds dictionary: ${playerProps.length} props from ${Object.keys(ev.odds).length} market types`);
-  } else if (ev.player_props && Array.isArray(ev.player_props)) {
+  if (ev.player_props && Array.isArray(ev.player_props)) {
     // SGO already provides normalized player props
     playerProps = ev.player_props;
     console.log(`Using SGO player_props: ${playerProps.length} props`);
