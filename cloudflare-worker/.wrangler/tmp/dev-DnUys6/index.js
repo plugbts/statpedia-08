@@ -1,0 +1,1235 @@
+var __defProp = Object.defineProperty;
+var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
+
+// .wrangler/tmp/bundle-5HsZoB/checked-fetch.js
+var urls = /* @__PURE__ */ new Set();
+function checkURL(request, init) {
+  const url = request instanceof URL ? request : new URL(
+    (typeof request === "string" ? new Request(request, init) : request).url
+  );
+  if (url.port && url.port !== "443" && url.protocol === "https:") {
+    if (!urls.has(url.toString())) {
+      urls.add(url.toString());
+      console.warn(
+        `WARNING: known issue with \`fetch()\` requests to custom HTTPS ports in published Workers:
+ - ${url.toString()} - the custom port will be ignored when the Worker is published using the \`wrangler deploy\` command.
+`
+      );
+    }
+  }
+}
+__name(checkURL, "checkURL");
+globalThis.fetch = new Proxy(globalThis.fetch, {
+  apply(target, thisArg, argArray) {
+    const [request, init] = argArray;
+    checkURL(request, init);
+    return Reflect.apply(target, thisArg, argArray);
+  }
+});
+
+// .wrangler/tmp/bundle-5HsZoB/strip-cf-connecting-ip-header.js
+function stripCfConnectingIPHeader(input, init) {
+  const request = new Request(input, init);
+  request.headers.delete("CF-Connecting-IP");
+  return request;
+}
+__name(stripCfConnectingIPHeader, "stripCfConnectingIPHeader");
+globalThis.fetch = new Proxy(globalThis.fetch, {
+  apply(target, thisArg, argArray) {
+    return Reflect.apply(target, thisArg, [
+      stripCfConnectingIPHeader.apply(null, argArray)
+    ]);
+  }
+});
+
+// src/index.ts
+function corsHeaders(request) {
+  const origin = request.headers.get("Origin") || "*";
+  const reqHeaders = request.headers.get("Access-Control-Request-Headers") || "Content-Type, Authorization";
+  return {
+    "Access-Control-Allow-Origin": origin,
+    // echo back the origin
+    "Access-Control-Allow-Methods": "GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS",
+    "Access-Control-Allow-Headers": reqHeaders,
+    "Access-Control-Allow-Credentials": "true",
+    "Access-Control-Max-Age": "86400"
+  };
+}
+__name(corsHeaders, "corsHeaders");
+function handleOptions(request) {
+  return new Response(null, { headers: corsHeaders(request) });
+}
+__name(handleOptions, "handleOptions");
+function withCORS(resp, request) {
+  const newHeaders = new Headers(resp.headers);
+  for (const [k, v] of Object.entries(corsHeaders(request))) {
+    newHeaders.set(k, v);
+  }
+  return new Response(resp.body, { status: resp.status, headers: newHeaders });
+}
+__name(withCORS, "withCORS");
+var src_default = {
+  async fetch(request, env, ctx) {
+    if (request.method === "OPTIONS") {
+      return handleOptions(request);
+    }
+    const url = new URL(request.url);
+    let resp;
+    if (url.pathname === "/debug/player-props") {
+      resp = await handleDebugPlayerProps(url, env);
+    } else if (url.pathname === "/api/debug-raw") {
+      resp = await handlePropsDebug(request, env);
+    } else if (url.pathname === "/metrics") {
+      resp = await handleMetrics(url, request, env);
+    } else if (url.pathname === "/api/cache/purge") {
+      resp = await handleCachePurge(url, request, env);
+    } else if (url.pathname.startsWith("/api/sportradar/")) {
+      resp = await handleSportRadarProxy(url, request, env);
+    } else {
+      const match = url.pathname.match(/^\/api\/([a-z]+)\/player-props$/);
+      if (match) {
+        const league = match[1].toLowerCase();
+        resp = await handlePlayerProps(request, env, ctx, league);
+      } else {
+        resp = new Response("Not found", { status: 404 });
+      }
+    }
+    return withCORS(resp, request);
+  }
+};
+async function handlePlayerProps(request, env, ctx, league) {
+  return handlePropsEndpoint(request, env);
+}
+__name(handlePlayerProps, "handlePlayerProps");
+async function handlePropsDebug(request, env) {
+  const url = new URL(request.url);
+  const league = url.searchParams.get("league") || "nfl";
+  const rawEvents = await fetchSportsGameOddsWeek(league, env);
+  const sample = rawEvents[0] || null;
+  return new Response(
+    JSON.stringify(
+      {
+        league,
+        rawCount: rawEvents.length,
+        sampleEvent: sample
+      },
+      null,
+      2
+    ),
+    { headers: { "content-type": "application/json" } }
+  );
+}
+__name(handlePropsDebug, "handlePropsDebug");
+async function handlePropsEndpoint(request, env) {
+  try {
+    const url = new URL(request.url);
+    const leagues = (url.searchParams.get("league") || "nfl").split(",").map((l) => l.trim().toLowerCase());
+    const view = url.searchParams.get("view") || "full";
+    const debug = url.searchParams.has("debug");
+    const responseData = { events: [] };
+    const debugInfo = {};
+    for (const league of leagues) {
+      const rawEvents = await fetchSportsGameOddsWeek(league, env);
+      let normalized = rawEvents.slice(0, 10).map((ev) => normalizeEventSGO(ev, request)).filter(Boolean);
+      normalized = capPropsPerLeague(normalized, league, 125);
+      if (view === "compact") {
+        responseData.events.push(
+          ...normalized.filter((event) => event !== null).map((event) => ({
+            eventID: event.eventID,
+            leagueID: event.leagueID,
+            start_time: event.start_time,
+            home_team: event.home_team,
+            away_team: event.away_team,
+            player_props: (event.player_props || []).map((prop) => {
+              const over = pickBest((prop.books || []).filter((b) => String(b.side).toLowerCase() === "over"));
+              const under = pickBest((prop.books || []).filter((b) => String(b.side).toLowerCase() === "under"));
+              return {
+                player_name: prop.player_name,
+                market_type: formatMarketType(prop.market_type, event.leagueID),
+                line: prop.line,
+                best_over: over?.price ?? null,
+                best_under: under?.price ?? null,
+                best_over_book: over?.bookmaker ?? null,
+                best_under_book: under?.bookmaker ?? null
+              };
+            }),
+            team_props: (event.team_props || []).map((prop) => ({
+              market_type: formatMarketType(prop.market_type, event.leagueID),
+              line: prop.line,
+              best_over: prop.best_over,
+              best_under: prop.best_under
+            }))
+          }))
+        );
+      } else {
+        responseData.events.push(...normalized.filter((event) => event !== null));
+      }
+      if (debug) {
+        debugInfo[league] = {
+          upstreamEvents: rawEvents.length,
+          normalizedEvents: normalized.length,
+          totalProps: normalized.filter((e) => e !== null).reduce((a, e) => a + (e.player_props?.length || 0), 0),
+          sampleEvent: normalized[0] || null
+        };
+      }
+    }
+    if (debug)
+      responseData.debug = debugInfo;
+    return new Response(JSON.stringify(responseData), {
+      headers: { "content-type": "application/json" }
+    });
+  } catch (error) {
+    console.error("Error in handlePropsEndpoint:", error);
+    return new Response(JSON.stringify({
+      error: "Internal server error",
+      message: error instanceof Error ? error.message : "Unknown error"
+    }), {
+      status: 500,
+      headers: { "content-type": "application/json" }
+    });
+  }
+}
+__name(handlePropsEndpoint, "handlePropsEndpoint");
+async function handleDebugPlayerProps(url, env) {
+  const league = url.searchParams.get("league")?.toUpperCase();
+  const date = url.searchParams.get("date");
+  if (!league || !date)
+    return json({ error: "Missing league or date" }, 400);
+  const upstream = new URL("https://api.sportsgameodds.com/v2/events");
+  upstream.searchParams.set("leagueID", league);
+  upstream.searchParams.set("date", date);
+  upstream.searchParams.set("oddsAvailable", "true");
+  const res = await fetch(upstream.toString(), {
+    headers: { "x-api-key": env.SPORTSODDS_API_KEY }
+  });
+  if (!res.ok)
+    return json({ error: "Upstream error", status: res.status }, 502);
+  const data = await res.json();
+  const rawEvents = data?.data || [];
+  const events = rawEvents.filter((ev) => String(ev.leagueID).toUpperCase() === league);
+  const normalized = events.map(debugNormalizeEvent);
+  const totalKept = normalized.reduce((a, ev) => a + (ev.debug_counts?.keptPlayerProps || 0), 0);
+  const totalDropped = normalized.reduce((a, ev) => a + (ev.debug_counts?.droppedPlayerProps || 0), 0);
+  return json({
+    events: normalized,
+    debug: {
+      upstreamEvents: rawEvents.length,
+      normalizedEvents: normalized.length,
+      totalKeptPlayerProps: totalKept,
+      totalDroppedPlayerProps: totalDropped
+    }
+  });
+}
+__name(handleDebugPlayerProps, "handleDebugPlayerProps");
+async function handleCachePurge(url, request, env) {
+  const league = url.searchParams.get("league")?.toUpperCase();
+  const date = url.searchParams.get("date");
+  if (!league || !date) {
+    return new Response("Missing league or date", { status: 400 });
+  }
+  const cacheKey = buildCacheKey(url, league, date);
+  const cache = await caches.open("default");
+  const deleted = await cache.delete(cacheKey);
+  return new Response(
+    JSON.stringify({ message: "Cache purged", league, date, cacheKey, deleted }),
+    {
+      headers: {
+        "content-type": "application/json"
+      }
+    }
+  );
+}
+__name(handleCachePurge, "handleCachePurge");
+async function handleSportRadarProxy(url, request, env) {
+  try {
+    const sportradarPath = url.pathname.replace("/api/sportradar", "");
+    const sportradarUrl = `https://api.sportradar.com${sportradarPath}${url.search}`;
+    console.log(`Proxying SportRadar request to: ${sportradarUrl}`);
+    const response = await fetch(sportradarUrl, {
+      method: request.method,
+      headers: {
+        "Accept": "application/json",
+        "User-Agent": "Statpedia/1.0",
+        "X-API-Key": "onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D"
+        // SportRadar API key
+      }
+    });
+    if (!response.ok) {
+      console.log(`SportRadar API error: ${response.status} ${response.statusText}`);
+      return new Response(
+        JSON.stringify({ error: "SportRadar API error", status: response.status }),
+        { status: response.status, headers: { "content-type": "application/json" } }
+      );
+    }
+    const data = await response.json();
+    return new Response(JSON.stringify(data), {
+      headers: { "content-type": "application/json" }
+    });
+  } catch (error) {
+    console.log(`SportRadar proxy error:`, error);
+    return new Response(
+      JSON.stringify({ error: "Proxy error" }),
+      { status: 500, headers: { "content-type": "application/json" } }
+    );
+  }
+}
+__name(handleSportRadarProxy, "handleSportRadarProxy");
+function buildUpstreamUrl(path, league, date, oddIDs, bookmakerID) {
+  const BASE_URL = "https://api.sportsgameodds.com";
+  const url = new URL(path, BASE_URL);
+  url.searchParams.set("oddsAvailable", "true");
+  url.searchParams.set("leagueID", league);
+  url.searchParams.set("date", date);
+  if (oddIDs)
+    url.searchParams.set("oddIDs", oddIDs);
+  if (bookmakerID)
+    url.searchParams.set("bookmakerID", bookmakerID);
+  return url.toString();
+}
+__name(buildUpstreamUrl, "buildUpstreamUrl");
+function buildCacheKey(url, league, date, oddIDs, bookmakerID, view, debug) {
+  const key = new URL("https://edge-cache");
+  key.pathname = `/api/${league}/player-props`;
+  key.searchParams.set("date", date);
+  if (oddIDs)
+    key.searchParams.set("oddIDs", oddIDs);
+  if (bookmakerID)
+    key.searchParams.set("bookmakerID", bookmakerID);
+  if (view)
+    key.searchParams.set("view", view);
+  if (debug)
+    key.searchParams.set("debug", "true");
+  return key.toString();
+}
+__name(buildCacheKey, "buildCacheKey");
+function json(body, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      "content-type": "application/json"
+    }
+  });
+}
+__name(json, "json");
+function normalizeEventSGO(ev, request) {
+  const players = ev.players || {};
+  const oddsDict = ev.odds || {};
+  if (!ev.teams?.home || !ev.teams?.away) {
+    return null;
+  }
+  const groups = {};
+  for (const oddID in oddsDict) {
+    const m = oddsDict[oddID];
+    const key = [
+      m.playerID || "",
+      m.statID || "",
+      m.periodID || "",
+      m.betTypeID || ""
+    ].join("|");
+    (groups[key] ||= []).push(m);
+  }
+  const playerProps = [];
+  const teamProps = [];
+  for (const key in groups) {
+    const markets = groups[key];
+    const hasPlayer = markets.some((mm) => !!mm.playerID);
+    if (hasPlayer) {
+      const norm = normalizePlayerGroup(markets, players, ev.leagueID || "NFL");
+      if (norm) {
+        playerProps.push(norm);
+      }
+    } else {
+      const norm = normalizeTeamGroup(markets);
+      if (norm)
+        teamProps.push(norm);
+    }
+  }
+  const homeTeam = normalizeTeam(ev.teams?.home);
+  const awayTeam = normalizeTeam(ev.teams?.away);
+  return {
+    eventID: ev.eventID,
+    leagueID: ev.leagueID,
+    start_time: toUserTimeSGO(ev.info?.scheduled || ev.status?.startsAt || null, request.cf?.timezone || "America/New_York"),
+    home_team: homeTeam,
+    away_team: awayTeam,
+    team_props: teamProps,
+    player_props: playerProps
+  };
+}
+__name(normalizeEventSGO, "normalizeEventSGO");
+function normalizePlayerGroup(markets, players, league) {
+  const over = markets.find((m) => m.sideID?.toLowerCase() === "over" || m.sideID?.toLowerCase() === "yes");
+  const under = markets.find((m) => m.sideID?.toLowerCase() === "under" || m.sideID?.toLowerCase() === "no");
+  const base = over || under;
+  if (!base)
+    return null;
+  const player = base.playerID ? players[base.playerID] : void 0;
+  const playerName = player?.name ?? base.playerName ?? null;
+  const marketType = base.statID;
+  const line = Number(base.bookOverUnder ?? base.fairOverUnder ?? null);
+  const books = [];
+  for (const side of [over, under]) {
+    if (!side)
+      continue;
+    if (side.bookOdds || side.bookOverUnder) {
+      books.push({
+        bookmaker: "consensus",
+        side: side.sideID,
+        price: side.bookOdds ?? null,
+        line: Number(side.bookOverUnder ?? null)
+      });
+    }
+    for (const [book, data] of Object.entries(side.byBookmaker || {})) {
+      const bookData = data;
+      if (!bookData.odds && !bookData.overUnder)
+        continue;
+      books.push({
+        bookmaker: book,
+        side: side.sideID,
+        price: bookData.odds ?? side.bookOdds ?? null,
+        line: Number(bookData.overUnder ?? side.bookOverUnder ?? null),
+        deeplink: bookData.deeplink
+      });
+    }
+  }
+  const best_over = pickBest(books.filter((b) => String(b.side).toLowerCase() === "over" || b.side === "yes"));
+  const best_under = pickBest(books.filter((b) => String(b.side).toLowerCase() === "under" || b.side === "no"));
+  return {
+    player_name: playerName,
+    teamID: player?.teamID ?? base.teamID ?? null,
+    market_type: marketType,
+    line,
+    best_over,
+    best_under,
+    books
+  };
+}
+__name(normalizePlayerGroup, "normalizePlayerGroup");
+function normalizeTeamGroup(markets) {
+  const over = markets.find((m) => isOverSide(m.sideID));
+  const under = markets.find((m) => isUnderSide(m.sideID));
+  if (!over && !under)
+    return null;
+  const base = over || under;
+  if (!base)
+    return null;
+  const marketType = formatStatID(base.statID);
+  const lineStr = firstDefined(over?.bookOverUnder, under?.bookOverUnder, over?.fairOverUnder, under?.fairOverUnder);
+  const line = toNumberOrNull(lineStr);
+  const books = collectBooks(over, under);
+  const best_over = pickBest(books.filter((b) => b.side === "over" || b.side === "yes"));
+  const best_under = pickBest(books.filter((b) => b.side === "under" || b.side === "no"));
+  return {
+    market_type: marketType,
+    line,
+    best_over,
+    best_under,
+    books,
+    oddIDs: {
+      over: over?.oddID ?? null,
+      under: under?.oddID ?? null,
+      opposingOver: over?.opposingOddID ?? null,
+      opposingUnder: under?.opposingOddID ?? null
+    },
+    status: {
+      started: !!(over?.started || under?.started),
+      ended: !!(over?.ended || under?.ended),
+      cancelled: !!(over?.cancelled || under?.cancelled)
+    }
+  };
+}
+__name(normalizeTeamGroup, "normalizeTeamGroup");
+function collectBooks(over, under) {
+  const books = [];
+  for (const side of [over, under]) {
+    if (!side)
+      continue;
+    books.push({
+      bookmaker: "consensus",
+      side: String(side.sideID).toLowerCase(),
+      price: side.bookOdds ?? side.fairOdds ?? "",
+      line: toNumberOrNull(side.bookOverUnder ?? side.fairOverUnder),
+      deeplink: void 0
+    });
+    const byBook = side.byBookmaker || {};
+    for (const [book, data] of Object.entries(byBook)) {
+      books.push({
+        bookmaker: book,
+        side: String(side.sideID).toLowerCase(),
+        price: data.odds ?? side.bookOdds ?? side.fairOdds ?? "",
+        line: toNumberOrNull(firstDefined(side.bookOverUnder, side.fairOverUnder, data.overUnder)),
+        deeplink: data.deeplink
+      });
+    }
+  }
+  return books;
+}
+__name(collectBooks, "collectBooks");
+function isOverSide(side) {
+  const s = String(side || "").toLowerCase();
+  return s === "over" || s === "yes";
+}
+__name(isOverSide, "isOverSide");
+function isUnderSide(side) {
+  const s = String(side || "").toLowerCase();
+  return s === "under" || s === "no";
+}
+__name(isUnderSide, "isUnderSide");
+function formatStatID(statID) {
+  return (statID || "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+__name(formatStatID, "formatStatID");
+function firstDefined(...vals) {
+  for (const v of vals)
+    if (v !== void 0 && v !== null)
+      return v;
+  return void 0;
+}
+__name(firstDefined, "firstDefined");
+function toNumberOrNull(s) {
+  if (s === void 0 || s === null)
+    return null;
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : null;
+}
+__name(toNumberOrNull, "toNumberOrNull");
+function parseAmerican(odds) {
+  if (odds === null || odds === void 0)
+    return null;
+  const s = String(odds).trim();
+  if (!s)
+    return null;
+  const n = parseInt(s, 10);
+  return Number.isFinite(n) ? n : null;
+}
+__name(parseAmerican, "parseAmerican");
+function toUserTimeSGO(utcDate, tz = "America/New_York") {
+  try {
+    const d = typeof utcDate === "string" ? new Date(utcDate) : utcDate;
+    if (isNaN(d.getTime()))
+      return null;
+    return d.toLocaleString("en-US", {
+      timeZone: tz,
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit"
+    });
+  } catch {
+    return null;
+  }
+}
+__name(toUserTimeSGO, "toUserTimeSGO");
+function normalizeTeam(team) {
+  if (!team)
+    return { id: null, abbr: "UNK", name: "Unknown" };
+  return {
+    id: team.teamID ?? team.id ?? null,
+    abbr: team.names?.short ?? team.abbreviation ?? team.names?.abbr ?? team.alias ?? team.displayName ?? "UNK",
+    name: team.names?.long ?? team.names?.full ?? team.displayName ?? (team.market && team.name ? `${team.market} ${team.name}` : null) ?? team.alias ?? "Unknown"
+  };
+}
+__name(normalizeTeam, "normalizeTeam");
+var PROP_PRIORITY = {
+  nfl: [
+    "passing_yards",
+    "rushing_yards",
+    "receiving_yards",
+    "receptions",
+    "touchdowns",
+    "first_touchdown",
+    "last_touchdown"
+  ],
+  nba: [
+    "points",
+    "rebounds",
+    "assists",
+    "threes_made",
+    "steals",
+    "blocks"
+  ],
+  mlb: [
+    "hits",
+    "home_runs",
+    "rbis",
+    "strikeouts",
+    "total_bases"
+  ],
+  nhl: [
+    "goals",
+    "assists",
+    "points",
+    "shots_on_goal",
+    "saves"
+  ],
+  ncaaf: [
+    "passing_yards",
+    "rushing_yards",
+    "receiving_yards",
+    "receptions",
+    "touchdowns"
+  ]
+};
+var VIEW_MODE = "compact";
+var PERIOD_LABELS = {
+  nfl: {
+    "1q": "1st Quarter",
+    "2q": "2nd Quarter",
+    "3q": "3rd Quarter",
+    "4q": "4th Quarter",
+    "1h": "1st Half",
+    "2h": "2nd Half",
+    ot: "Overtime"
+  },
+  nba: {
+    "1q": "1st Quarter",
+    "2q": "2nd Quarter",
+    "3q": "3rd Quarter",
+    "4q": "4th Quarter",
+    "1h": "1st Half",
+    "2h": "2nd Half",
+    ot: "Overtime"
+  },
+  ncaaf: {
+    "1q": "1st Quarter",
+    "2q": "2nd Quarter",
+    "3q": "3rd Quarter",
+    "4q": "4th Quarter",
+    "1h": "1st Half",
+    "2h": "2nd Half",
+    ot: "Overtime"
+  },
+  nhl: {
+    "1p": "1st Period",
+    "2p": "2nd Period",
+    "3p": "3rd Period",
+    ot: "Overtime"
+  },
+  mlb: {
+    "1i": "1st Inning",
+    "2i": "2nd Inning",
+    "3i": "3rd Inning",
+    "4i": "4th Inning",
+    "5i": "5th Inning",
+    "6i": "6th Inning",
+    "7i": "7th Inning",
+    "8i": "8th Inning",
+    "9i": "9th Inning",
+    ei: "Extra Innings"
+  }
+};
+var MARKET_LABELS = {
+  nfl: {
+    // Offensive player props
+    passing_yards: "Passing Yards",
+    rushing_yards: "Rushing Yards",
+    receiving_yards: "Receiving Yards",
+    receptions: "Receptions",
+    touchdowns: "Touchdowns",
+    first_touchdown: "First Touchdown",
+    last_touchdown: "Last Touchdown",
+    firstTouchdown: "First Touchdown",
+    lastTouchdown: "Last Touchdown",
+    anytime_touchdown: "Anytime Touchdown",
+    passing_touchdowns: "Passing Touchdowns",
+    // Defensive player props
+    defense_sacks: "Sacks",
+    defense_interceptions: "Interceptions",
+    defense_tackles: "Tackles",
+    defense_tackles_assists: "Tackles + Assists",
+    defense_passes_defended: "Passes Defended",
+    defense_forced_fumbles: "Forced Fumbles",
+    defense_fumble_recoveries: "Fumble Recoveries",
+    // Team props
+    team_total_points: "Team Total Points",
+    team_total_touchdowns: "Team Total Touchdowns",
+    team_total_field_goals: "Team Total Field Goals",
+    team_total_sacks: "Team Total Sacks",
+    team_total_interceptions: "Team Total Interceptions"
+  },
+  nba: {
+    points: "Points",
+    rebounds: "Rebounds",
+    assists: "Assists",
+    threes_made: "3-Pointers Made",
+    steals: "Steals",
+    blocks: "Blocks",
+    // Team props
+    team_total_points: "Team Total Points",
+    team_total_rebounds: "Team Total Rebounds",
+    team_total_assists: "Team Total Assists",
+    team_total_threes: "Team Total 3-Pointers"
+  },
+  mlb: {
+    hits: "Hits",
+    home_runs: "Home Runs",
+    rbis: "RBIs",
+    strikeouts: "Strikeouts",
+    total_bases: "Total Bases",
+    // Team props
+    team_total_runs: "Team Total Runs",
+    team_total_hits: "Team Total Hits",
+    team_total_home_runs: "Team Total Home Runs"
+  },
+  nhl: {
+    goals: "Goals",
+    assists: "Assists",
+    points: "Points",
+    shots_on_goal: "Shots on Goal",
+    saves: "Saves",
+    // Team props
+    team_total_goals: "Team Total Goals",
+    team_total_shots: "Team Total Shots",
+    team_total_saves: "Team Total Saves"
+  },
+  ncaaf: {
+    passing_yards: "Passing Yards",
+    rushing_yards: "Rushing Yards",
+    receiving_yards: "Receiving Yards",
+    receptions: "Receptions",
+    touchdowns: "Touchdowns",
+    defense_sacks: "Sacks",
+    defense_interceptions: "Interceptions",
+    defense_tackles: "Tackles",
+    // Team props
+    team_total_points: "Team Total Points",
+    team_total_touchdowns: "Team Total Touchdowns"
+  }
+};
+function formatMarketType(raw, league) {
+  if (!raw)
+    return "Unknown";
+  const leagueMap = MARKET_LABELS[league.toLowerCase()] || {};
+  if (leagueMap[raw])
+    return leagueMap[raw];
+  if (raw.startsWith("team_total_")) {
+    const suffix = raw.replace("team_total_", "");
+    return "Team Total " + suffix.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  if (raw.includes("touchdown") || raw.includes("score")) {
+    return raw.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  const periodMatch = raw.match(/(.+)_([0-9]+[hqip]|[0-9]+h|ot|ei)$/i);
+  if (periodMatch) {
+    const base = periodMatch[1].replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    const periodCode = periodMatch[2].toLowerCase();
+    if (VIEW_MODE === "verbose") {
+      const leaguePeriods = PERIOD_LABELS[league.toLowerCase()] || {};
+      const label = leaguePeriods[periodCode];
+      if (label)
+        return `${base} ${label}`;
+    }
+    return `${base} ${periodCode.toUpperCase()}`;
+  }
+  return raw.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+__name(formatMarketType, "formatMarketType");
+function sortPropsByLeague(props, league) {
+  const priorities = PROP_PRIORITY[league.toLowerCase()] || [];
+  return props.sort((a, b) => {
+    const ai = priorities.indexOf(a.market_type);
+    const bi = priorities.indexOf(b.market_type);
+    if (ai !== -1 && bi !== -1)
+      return ai - bi;
+    if (ai !== -1)
+      return -1;
+    if (bi !== -1)
+      return 1;
+    return 0;
+  });
+}
+__name(sortPropsByLeague, "sortPropsByLeague");
+function capPropsPerLeague(normalizedEvents, league, maxProps = 125) {
+  let total = 0;
+  for (const event of normalizedEvents) {
+    const remaining = maxProps - total;
+    if (remaining <= 0) {
+      event.player_props = [];
+      continue;
+    }
+    const sorted = sortPropsByLeague(event.player_props || [], league);
+    event.player_props = sorted.slice(0, remaining);
+    total += event.player_props.length;
+  }
+  return normalizedEvents;
+}
+__name(capPropsPerLeague, "capPropsPerLeague");
+function getWeekRange(baseDate = /* @__PURE__ */ new Date(), days = 7) {
+  const start = new Date(baseDate);
+  const end = new Date(baseDate);
+  end.setDate(start.getDate() + (days - 1));
+  return {
+    start: start.toISOString().slice(0, 10),
+    end: end.toISOString().slice(0, 10)
+  };
+}
+__name(getWeekRange, "getWeekRange");
+async function fetchUpstreamProps(league, date, env) {
+  const upstreamUrl = buildUpstreamUrl("/v2/events", league, date);
+  const res = await fetch(upstreamUrl, { headers: { "x-api-key": env.SPORTSODDS_API_KEY } });
+  if (!res.ok) {
+    console.log(`Failed to fetch ${league} props for ${date}: ${res.status}`);
+    return [];
+  }
+  const data = await res.json();
+  return data?.data || [];
+}
+__name(fetchUpstreamProps, "fetchUpstreamProps");
+async function fetchSportsGameOddsWeek(league, env) {
+  const baseDate = /* @__PURE__ */ new Date();
+  const { start, end } = getWeekRange(baseDate, 7);
+  const dates = [];
+  let d = new Date(start);
+  while (d <= new Date(end)) {
+    dates.push(d.toISOString().slice(0, 10));
+    d.setDate(d.getDate() + 1);
+  }
+  console.log(`Fetching ${league} props for dates: ${dates.join(", ")}`);
+  const results = await Promise.all(
+    dates.map((date) => fetchUpstreamProps(league.toUpperCase(), date, env))
+  );
+  const flatResults = results.flat();
+  console.log(`Fetched ${flatResults.length} total events across ${dates.length} days`);
+  return flatResults;
+}
+__name(fetchSportsGameOddsWeek, "fetchSportsGameOddsWeek");
+function pickBest(books) {
+  const candidates = books.filter((b) => parseAmerican(b.price) !== null);
+  if (candidates.length === 0)
+    return null;
+  const best = candidates.sort((a, b) => {
+    const A = parseAmerican(a.price);
+    const B = parseAmerican(b.price);
+    if (A >= 0 && B >= 0)
+      return B - A;
+    if (A < 0 && B < 0)
+      return A - B;
+    return A >= 0 ? -1 : 1;
+  })[0];
+  return {
+    price: String(best.price),
+    bookmaker: best.bookmaker
+  };
+}
+__name(pickBest, "pickBest");
+function debugNormalizeEvent(ev) {
+  try {
+    return debugNormalizeEventInternal(ev);
+  } catch (err) {
+    return {
+      eventID: ev?.eventID,
+      leagueID: ev?.leagueID,
+      start_time: ev?.scheduled,
+      home_team: {
+        id: ev?.teams?.home?.teamID ?? ev?.teams?.home?.id ?? null,
+        abbr: ev?.teams?.home?.abbreviation ?? ev?.teams?.home?.names?.short ?? ev?.teams?.home?.names?.abbr ?? null,
+        name: ev?.teams?.home?.names?.long ?? ev?.teams?.home?.names?.full ?? null
+      },
+      away_team: {
+        id: ev?.teams?.away?.teamID ?? ev?.teams?.away?.id ?? null,
+        abbr: ev?.teams?.away?.abbreviation ?? ev?.teams?.away?.names?.short ?? ev?.teams?.away?.names?.abbr ?? null,
+        name: ev?.teams?.away?.names?.long ?? ev?.teams?.away?.names?.full ?? null
+      },
+      team_props: [],
+      player_props: [],
+      debug_counts: { keptPlayerProps: 0, droppedPlayerProps: 0 },
+      _error: String(err)
+    };
+  }
+}
+__name(debugNormalizeEvent, "debugNormalizeEvent");
+function debugNormalizeEventInternal(ev) {
+  const players = ev.players || {};
+  const oddsDict = ev.odds || {};
+  const groups = {};
+  for (const oddID in oddsDict) {
+    const m = oddsDict[oddID];
+    const key = [m.statEntityID || "", m.statID || "", m.periodID || "", m.betTypeID || ""].join("|");
+    (groups[key] ||= []).push(m);
+  }
+  let keptPlayerProps = 0;
+  let droppedPlayerProps = 0;
+  const playerProps = [];
+  const teamProps = [];
+  for (const key in groups) {
+    const markets = groups[key];
+    const hasPlayer = markets.some((mm) => !!mm.playerID);
+    if (hasPlayer) {
+      const norm = debugNormalizePlayerGroup(markets, players);
+      if (norm) {
+        playerProps.push(norm);
+        keptPlayerProps++;
+      } else {
+        droppedPlayerProps++;
+      }
+    } else {
+      const norm = debugNormalizeTeamGroup(markets);
+      if (norm)
+        teamProps.push(norm);
+    }
+  }
+  return {
+    eventID: ev.eventID,
+    leagueID: ev.leagueID,
+    start_time: ev.scheduled,
+    home_team: {
+      id: ev.teams?.home?.teamID ?? ev.teams?.home?.id ?? null,
+      abbr: ev.teams?.home?.abbreviation ?? ev.teams?.home?.names?.short ?? ev.teams?.home?.names?.abbr ?? null,
+      name: ev.teams?.home?.names?.long ?? ev.teams?.home?.names?.full ?? null
+    },
+    away_team: {
+      id: ev.teams?.away?.teamID ?? ev.teams?.away?.id ?? null,
+      abbr: ev.teams?.away?.abbreviation ?? ev.teams?.away?.names?.short ?? ev.teams?.away?.names?.abbr ?? null,
+      name: ev.teams?.away?.names?.long ?? ev.teams?.away?.names?.full ?? null
+    },
+    team_props: teamProps,
+    player_props: playerProps,
+    debug_counts: { keptPlayerProps, droppedPlayerProps }
+  };
+}
+__name(debugNormalizeEventInternal, "debugNormalizeEventInternal");
+function debugNormalizePlayerGroup(markets, players) {
+  const over = markets.find((m) => isOverSide(m.sideID));
+  const under = markets.find((m) => isUnderSide(m.sideID));
+  const base = over || under;
+  if (!base)
+    return null;
+  const player = base.playerID ? players[base.playerID] : void 0;
+  const playerName = player?.name || base.marketName;
+  const marketType = formatMarketType(base.statID, "NFL");
+  const lineStr = over?.bookOverUnder ?? under?.bookOverUnder ?? over?.fairOverUnder ?? under?.fairOverUnder ?? null;
+  const line = lineStr && isFinite(parseFloat(lineStr)) ? parseFloat(lineStr) : null;
+  const books = [];
+  for (const side of [over, under]) {
+    if (!side)
+      continue;
+    if (side.bookOdds || side.bookOverUnder || side.fairOdds || side.fairOverUnder) {
+      books.push({
+        bookmaker: "consensus",
+        side: String(side.sideID).toLowerCase(),
+        price: side.bookOdds ?? side.fairOdds ?? "",
+        line: toNumberOrNull(side.bookOverUnder ?? side.fairOverUnder)
+      });
+    }
+    for (const [book, data] of Object.entries(side.byBookmaker || {})) {
+      const bookData = data;
+      if (!bookData || !bookData.odds && !bookData.overUnder)
+        continue;
+      books.push({
+        bookmaker: book,
+        side: String(side.sideID).toLowerCase(),
+        price: bookData.odds ?? side.bookOdds ?? "",
+        line: toNumberOrNull(bookData.overUnder ?? side.bookOverUnder),
+        deeplink: bookData.deeplink
+      });
+    }
+  }
+  return {
+    player_name: playerName,
+    teamID: player?.teamID ?? null,
+    market_type: marketType,
+    line,
+    books
+  };
+}
+__name(debugNormalizePlayerGroup, "debugNormalizePlayerGroup");
+function debugNormalizeTeamGroup(markets) {
+  const over = markets.find((m) => isOverSide(m.sideID));
+  const under = markets.find((m) => isUnderSide(m.sideID));
+  const base = over || under;
+  if (!base)
+    return null;
+  const marketType = base.statID;
+  const lineStr = over?.bookOverUnder ?? under?.bookOverUnder ?? over?.fairOverUnder ?? under?.fairOverUnder ?? null;
+  const line = lineStr && isFinite(parseFloat(lineStr)) ? parseFloat(lineStr) : null;
+  const books = [];
+  for (const side of [over, under]) {
+    if (!side)
+      continue;
+    if (side.bookOdds || side.bookOverUnder || side.fairOdds || side.fairOverUnder) {
+      books.push({
+        bookmaker: "consensus",
+        side: String(side.sideID).toLowerCase(),
+        price: side.bookOdds ?? side.fairOdds ?? "",
+        line: toNumberOrNull(side.bookOverUnder ?? side.fairOverUnder)
+      });
+    }
+    for (const [book, data] of Object.entries(side.byBookmaker || {})) {
+      const bookData = data;
+      if (!bookData || !bookData.odds && !bookData.overUnder)
+        continue;
+      books.push({
+        bookmaker: book,
+        side: String(side.sideID).toLowerCase(),
+        price: bookData.odds ?? side.bookOdds ?? "",
+        line: toNumberOrNull(bookData.overUnder ?? side.bookOverUnder),
+        deeplink: bookData.deeplink
+      });
+    }
+  }
+  return {
+    market_type: marketType,
+    line,
+    books
+  };
+}
+__name(debugNormalizeTeamGroup, "debugNormalizeTeamGroup");
+async function handleMetrics(url, request, env) {
+  if (env.PURGE_TOKEN) {
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader || authHeader !== `Bearer ${env.PURGE_TOKEN}`) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+  }
+  const reset = url.searchParams.get("reset") === "true";
+  try {
+    const metrics = await getMetrics(env, reset);
+    return new Response(JSON.stringify(metrics), {
+      headers: {
+        "content-type": "application/json"
+      }
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: "Failed to get metrics" }), {
+      status: 500,
+      headers: {
+        "content-type": "application/json"
+      }
+    });
+  }
+}
+__name(handleMetrics, "handleMetrics");
+async function getMetrics(env, reset = false) {
+  if (!env.METRICS) {
+    return {
+      totalKeptPlayerProps: 0,
+      totalDroppedPlayerProps: 0,
+      cacheHits: 0,
+      cacheMisses: 0,
+      upstreamStatusCounts: { "200": 0, "4xx": 0, "5xx": 0 },
+      avgResponseTimeMs: 0,
+      totalRequests: 0,
+      lastUpdated: (/* @__PURE__ */ new Date()).toISOString()
+    };
+  }
+  const keys = [
+    "totalKeptPlayerProps",
+    "totalDroppedPlayerProps",
+    "cacheHits",
+    "cacheMisses",
+    "upstreamStatus200",
+    "upstreamStatus4xx",
+    "upstreamStatus5xx",
+    "totalResponseTime",
+    "totalRequests"
+  ];
+  const values = await Promise.all(
+    keys.map((key) => env.METRICS.get(key).then((v) => parseInt(v || "0", 10)))
+  );
+  const [
+    totalKeptPlayerProps,
+    totalDroppedPlayerProps,
+    cacheHits,
+    cacheMisses,
+    upstreamStatus200,
+    upstreamStatus4xx,
+    upstreamStatus5xx,
+    totalResponseTime,
+    totalRequests
+  ] = values;
+  const metrics = {
+    totalKeptPlayerProps,
+    totalDroppedPlayerProps,
+    cacheHits,
+    cacheMisses,
+    upstreamStatusCounts: {
+      "200": upstreamStatus200,
+      "4xx": upstreamStatus4xx,
+      "5xx": upstreamStatus5xx
+    },
+    avgResponseTimeMs: totalRequests > 0 ? Math.round(totalResponseTime / totalRequests) : 0,
+    totalRequests,
+    lastUpdated: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  if (reset) {
+    await Promise.all(keys.map((key) => env.METRICS.put(key, "0")));
+  }
+  return metrics;
+}
+__name(getMetrics, "getMetrics");
+
+// node_modules/wrangler/templates/middleware/middleware-ensure-req-body-drained.ts
+var drainBody = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx) => {
+  try {
+    return await middlewareCtx.next(request, env);
+  } finally {
+    try {
+      if (request.body !== null && !request.bodyUsed) {
+        const reader = request.body.getReader();
+        while (!(await reader.read()).done) {
+        }
+      }
+    } catch (e) {
+      console.error("Failed to drain the unused request body.", e);
+    }
+  }
+}, "drainBody");
+var middleware_ensure_req_body_drained_default = drainBody;
+
+// node_modules/wrangler/templates/middleware/middleware-miniflare3-json-error.ts
+function reduceError(e) {
+  return {
+    name: e?.name,
+    message: e?.message ?? String(e),
+    stack: e?.stack,
+    cause: e?.cause === void 0 ? void 0 : reduceError(e.cause)
+  };
+}
+__name(reduceError, "reduceError");
+var jsonError = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx) => {
+  try {
+    return await middlewareCtx.next(request, env);
+  } catch (e) {
+    const error = reduceError(e);
+    return Response.json(error, {
+      status: 500,
+      headers: { "MF-Experimental-Error-Stack": "true" }
+    });
+  }
+}, "jsonError");
+var middleware_miniflare3_json_error_default = jsonError;
+
+// .wrangler/tmp/bundle-5HsZoB/middleware-insertion-facade.js
+var __INTERNAL_WRANGLER_MIDDLEWARE__ = [
+  middleware_ensure_req_body_drained_default,
+  middleware_miniflare3_json_error_default
+];
+var middleware_insertion_facade_default = src_default;
+
+// node_modules/wrangler/templates/middleware/common.ts
+var __facade_middleware__ = [];
+function __facade_register__(...args) {
+  __facade_middleware__.push(...args.flat());
+}
+__name(__facade_register__, "__facade_register__");
+function __facade_invokeChain__(request, env, ctx, dispatch, middlewareChain) {
+  const [head, ...tail] = middlewareChain;
+  const middlewareCtx = {
+    dispatch,
+    next(newRequest, newEnv) {
+      return __facade_invokeChain__(newRequest, newEnv, ctx, dispatch, tail);
+    }
+  };
+  return head(request, env, ctx, middlewareCtx);
+}
+__name(__facade_invokeChain__, "__facade_invokeChain__");
+function __facade_invoke__(request, env, ctx, dispatch, finalMiddleware) {
+  return __facade_invokeChain__(request, env, ctx, dispatch, [
+    ...__facade_middleware__,
+    finalMiddleware
+  ]);
+}
+__name(__facade_invoke__, "__facade_invoke__");
+
+// .wrangler/tmp/bundle-5HsZoB/middleware-loader.entry.ts
+var __Facade_ScheduledController__ = class {
+  constructor(scheduledTime, cron, noRetry) {
+    this.scheduledTime = scheduledTime;
+    this.cron = cron;
+    this.#noRetry = noRetry;
+  }
+  #noRetry;
+  noRetry() {
+    if (!(this instanceof __Facade_ScheduledController__)) {
+      throw new TypeError("Illegal invocation");
+    }
+    this.#noRetry();
+  }
+};
+__name(__Facade_ScheduledController__, "__Facade_ScheduledController__");
+function wrapExportedHandler(worker) {
+  if (__INTERNAL_WRANGLER_MIDDLEWARE__ === void 0 || __INTERNAL_WRANGLER_MIDDLEWARE__.length === 0) {
+    return worker;
+  }
+  for (const middleware of __INTERNAL_WRANGLER_MIDDLEWARE__) {
+    __facade_register__(middleware);
+  }
+  const fetchDispatcher = /* @__PURE__ */ __name(function(request, env, ctx) {
+    if (worker.fetch === void 0) {
+      throw new Error("Handler does not export a fetch() function.");
+    }
+    return worker.fetch(request, env, ctx);
+  }, "fetchDispatcher");
+  return {
+    ...worker,
+    fetch(request, env, ctx) {
+      const dispatcher = /* @__PURE__ */ __name(function(type, init) {
+        if (type === "scheduled" && worker.scheduled !== void 0) {
+          const controller = new __Facade_ScheduledController__(
+            Date.now(),
+            init.cron ?? "",
+            () => {
+            }
+          );
+          return worker.scheduled(controller, env, ctx);
+        }
+      }, "dispatcher");
+      return __facade_invoke__(request, env, ctx, dispatcher, fetchDispatcher);
+    }
+  };
+}
+__name(wrapExportedHandler, "wrapExportedHandler");
+function wrapWorkerEntrypoint(klass) {
+  if (__INTERNAL_WRANGLER_MIDDLEWARE__ === void 0 || __INTERNAL_WRANGLER_MIDDLEWARE__.length === 0) {
+    return klass;
+  }
+  for (const middleware of __INTERNAL_WRANGLER_MIDDLEWARE__) {
+    __facade_register__(middleware);
+  }
+  return class extends klass {
+    #fetchDispatcher = (request, env, ctx) => {
+      this.env = env;
+      this.ctx = ctx;
+      if (super.fetch === void 0) {
+        throw new Error("Entrypoint class does not define a fetch() function.");
+      }
+      return super.fetch(request);
+    };
+    #dispatcher = (type, init) => {
+      if (type === "scheduled" && super.scheduled !== void 0) {
+        const controller = new __Facade_ScheduledController__(
+          Date.now(),
+          init.cron ?? "",
+          () => {
+          }
+        );
+        return super.scheduled(controller);
+      }
+    };
+    fetch(request) {
+      return __facade_invoke__(
+        request,
+        this.env,
+        this.ctx,
+        this.#dispatcher,
+        this.#fetchDispatcher
+      );
+    }
+  };
+}
+__name(wrapWorkerEntrypoint, "wrapWorkerEntrypoint");
+var WRAPPED_ENTRY;
+if (typeof middleware_insertion_facade_default === "object") {
+  WRAPPED_ENTRY = wrapExportedHandler(middleware_insertion_facade_default);
+} else if (typeof middleware_insertion_facade_default === "function") {
+  WRAPPED_ENTRY = wrapWorkerEntrypoint(middleware_insertion_facade_default);
+}
+var middleware_loader_entry_default = WRAPPED_ENTRY;
+export {
+  __INTERNAL_WRANGLER_MIDDLEWARE__,
+  middleware_loader_entry_default as default,
+  handlePropsDebug,
+  handlePropsEndpoint
+};
+//# sourceMappingURL=index.js.map

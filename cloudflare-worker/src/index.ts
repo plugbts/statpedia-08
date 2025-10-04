@@ -142,6 +142,10 @@ export default {
     if (url.pathname === "/debug/player-props") {
       resp = await handleDebugPlayerProps(url, env);
     }
+    // Raw debug endpoint: /api/debug-raw?league=nfl
+    else if (url.pathname === "/api/debug-raw") {
+      resp = await handlePropsDebug(request, env);
+    }
     // Metrics endpoint: /metrics
     else if (url.pathname === "/metrics") {
       resp = await handleMetrics(url, request, env);
@@ -173,6 +177,44 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
   return handlePropsEndpoint(request, env);
 }
 
+export async function handlePropsDebug(request: Request, env: Env) {
+  const url = new URL(request.url);
+  const league = url.searchParams.get("league") || "nfl";
+
+  try {
+    // 1. Fetch just ONE day to avoid hanging
+    const rawEvents = await fetchUpstreamProps(league.toUpperCase(), "2025-10-04", env);
+
+    // 2. Just dump the first event
+    const sample = rawEvents[0] || null;
+
+    return new Response(
+      JSON.stringify(
+        {
+          league,
+          rawCount: rawEvents.length,
+          sampleEvent: sample,
+        },
+        null,
+        2
+      ),
+      { headers: { "content-type": "application/json" } }
+    );
+  } catch (error) {
+    return new Response(
+      JSON.stringify(
+        {
+          error: "Debug endpoint failed",
+          message: error instanceof Error ? error.message : "Unknown error",
+        },
+        null,
+        2
+      ),
+      { headers: { "content-type": "application/json" } }
+    );
+  }
+}
+
 export async function handlePropsEndpoint(request: Request, env: Env) {
   try {
     const url = new URL(request.url);
@@ -185,64 +227,64 @@ export async function handlePropsEndpoint(request: Request, env: Env) {
     const responseData: any = { events: [] };
     const debugInfo: any = {};
 
-  for (const league of leagues) {
-    // 1. Fetch raw events from SportsGameOdds
-    const rawEvents = await fetchSportsGameOddsWeek(league, env);
+    for (const league of leagues) {
+      // 1. Fetch raw events from SportsGameOdds
+      const rawEvents = await fetchSportsGameOddsWeek(league, env);
 
-    // 2. Normalize events (limit to first 10 for performance)
-    let normalized = rawEvents
-      .slice(0, 10)
-      .map(ev => normalizeEventSGO(ev, request))
-      .filter(Boolean);
+      // 2. Normalize events (limit to first 10 for performance)
+      let normalized = rawEvents
+        .slice(0, 10)
+        .map(ev => normalizeEventSGO(ev, request))
+        .filter(Boolean);
 
-    // 3. Player props already normalized in normalizeEventSGO
+      // 3. Group and normalize player props
+      for (const event of normalized) {
+        if (event.player_props?.length) {
+          groupPlayerProps(event, league);
+        }
+      }
 
-    // 4. Prioritize + cap props per league
-    normalized = capPropsPerLeague(normalized, league, 125);
+      // 4. Prioritize + cap props per league
+      normalized = capPropsPerLeague(normalized, league, 125);
 
-    // 5. Shape response
-    if (view === "compact") {
-      responseData.events.push(
-        ...normalized.filter((event): event is NonNullable<typeof event> => event !== null).map(event => ({
-          eventID: event.eventID,
-          leagueID: event.leagueID,
-          start_time: event.start_time,
-          home_team: event.home_team,
-          away_team: event.away_team,
-          player_props: (event.player_props || []).map(prop => {
-            const over = pickBest((prop.books || []).filter(b => String(b.side).toLowerCase() === "over"));
-            const under = pickBest((prop.books || []).filter(b => String(b.side).toLowerCase() === "under"));
-            return {
-              player_name: prop.player_name,
-              market_type: formatMarketType(prop.market_type, event.leagueID),
-              line: prop.line,
-              best_over: over?.price ?? null,
-              best_under: under?.price ?? null,
-              best_over_book: over?.bookmaker ?? null,
-              best_under_book: under?.bookmaker ?? null,
-            };
-          }),
-          team_props: (event.team_props || []).map(prop => ({
-            market_type: formatMarketType(prop.market_type, event.leagueID),
-            line: prop.line,
-            best_over: prop.best_over,
-            best_under: prop.best_under,
-          })),
-        }))
-      );
-    } else {
-      responseData.events.push(...normalized.filter((event): event is NonNullable<typeof event> => event !== null));
+      // 5. Shape response
+      if (view === "compact") {
+        responseData.events.push(
+          ...normalized.filter((event): event is NonNullable<typeof event> => event !== null).map(event => ({
+            eventID: event.eventID,
+            leagueID: event.leagueID,
+            start_time: event.start_time,
+            home_team: event.home_team,
+            away_team: event.away_team,
+                    player_props: (event.player_props || []).map((prop: any) => {
+                      const over = pickBest((prop.books || []).filter((b: any) => String(b.side).toLowerCase() === "over"));
+                      const under = pickBest((prop.books || []).filter((b: any) => String(b.side).toLowerCase() === "under"));
+                      return {
+                        player_name: prop.player_name,
+                        market_type: formatMarketType(prop.market_type, event.leagueID),
+                        line: prop.line,
+                        best_over: over?.price ?? null,
+                        best_under: under?.price ?? null,
+                        best_over_book: over?.bookmaker ?? null,
+                        best_under_book: under?.bookmaker ?? null,
+                      };
+                    }),
+                    team_props: [],
+          }))
+        );
+      } else {
+        responseData.events.push(...normalized.filter((event): event is NonNullable<typeof event> => event !== null));
+      }
+
+      if (debug) {
+        debugInfo[league] = {
+          upstreamEvents: rawEvents.length,
+          normalizedEvents: normalized.length,
+          totalProps: normalized.filter((e): e is NonNullable<typeof e> => e !== null).reduce((a, e) => a + (e.player_props?.length || 0), 0),
+          sampleEvent: normalized[0] || null,
+        };
+      }
     }
-
-    if (debug) {
-      debugInfo[league] = {
-        upstreamEvents: rawEvents.length,
-        normalizedEvents: normalized.length,
-        totalProps: normalized.filter((e): e is NonNullable<typeof e> => e !== null).reduce((a, e) => a + (e.player_props?.length || 0), 0),
-        sampleEvent: normalized[0] || null,
-      };
-    }
-  }
 
     if (debug) responseData.debug = debugInfo;
 
@@ -429,62 +471,14 @@ function safeNormalizeEvent(ev: SGEvent) {
 }
 
 function normalizeEventSGO(ev: any, request: any) {
-  // SGO uses the actual schema from the API
-  const players = ev.players || {};
-  const oddsDict = ev.odds || {};
-  
-  // Handle empty days gracefully
-  if (!ev.teams?.home || !ev.teams?.away) {
-    return null;
-  }
-
-  // Group by SGO identifiers to preserve all distinct prop types
-  const groups: Record<string, any[]> = {};
-  for (const oddID in oddsDict) {
-    const m = oddsDict[oddID];
-
-    // Build a composite key from SGO fields
-    const key = [
-      m.playerID || "",
-      m.statID || "",
-      m.periodID || "",
-      m.betTypeID || ""
-    ].join("|");
-
-    (groups[key] ||= []).push(m);
-  }
-
-  const playerProps: any[] = [];
-  const teamProps: any[] = [];
-
-  for (const key in groups) {
-    const markets = groups[key];
-    // Check for playerID to determine if it's a player prop
-    const hasPlayer = markets.some(mm => !!mm.playerID);
-
-    if (hasPlayer) {
-      const norm = normalizePlayerGroup(markets, players, ev.leagueID || "NFL");
-      if (norm) {
-        playerProps.push(norm);
-      }
-    } else {
-      const norm = normalizeTeamGroup(markets);
-      if (norm) teamProps.push(norm);
-    }
-  }
-
-  // Normalize teams using the correct SGO structure
-  const homeTeam = normalizeTeam(ev.teams?.home);
-  const awayTeam = normalizeTeam(ev.teams?.away);
-  
   return {
     eventID: ev.eventID,
     leagueID: ev.leagueID,
-    start_time: toUserTimeSGO(ev.info?.scheduled || ev.status?.startsAt || null, request.cf?.timezone || "America/New_York"),
-    home_team: homeTeam,
-    away_team: awayTeam,
-    team_props: teamProps,
-    player_props: playerProps,
+    start_time: toUserTimeSGO(ev.status?.startsAt, request.cf?.timezone || "America/New_York"),
+    home_team: ev.teams?.home?.names?.long || "UNK",
+    away_team: ev.teams?.away?.names?.long || "UNK",
+    players: ev.players || {},
+    player_props: Object.values(ev.odds || {}), // flatten odds object
   };
 }
 
@@ -569,6 +563,24 @@ function normalizeEvent(ev: SGEvent) {
   };
 }
 
+function groupPlayerProps(event: any, league: string) {
+  const grouped: Record<string, any[]> = {};
+
+  for (const m of event.player_props) {
+    const key = [
+      m.playerID || "",
+      m.statID || "",
+      m.periodID || "",
+      m.betTypeID || ""
+    ].join("|");
+    (grouped[key] ||= []).push(m);
+  }
+
+  event.player_props = Object.values(grouped)
+    .map(group => normalizePlayerGroup(group, event.players, league))
+    .filter(Boolean);
+}
+
 function normalizePlayerGroup(markets: any[], players: Record<string, any>, league: string) {
   const over = markets.find(m => m.sideID?.toLowerCase() === "over" || m.sideID?.toLowerCase() === "yes");
   const under = markets.find(m => m.sideID?.toLowerCase() === "under" || m.sideID?.toLowerCase() === "no");
@@ -576,10 +588,10 @@ function normalizePlayerGroup(markets: any[], players: Record<string, any>, leag
   if (!base) return null;
 
   const player = base.playerID ? players[base.playerID] : undefined;
-  const playerName = player?.name ?? base.playerName ?? null;
+  const playerName = player?.name ?? null;
 
-  const marketType = base.statID; // raw statID, formatted later
-  const line = Number(base.bookOverUnder ?? base.fairOverUnder ?? null);
+  const marketType = base.statID;
+  const line = Number(base.bookOverUnder ?? null);
 
   const books: any[] = [];
   for (const side of [over, under]) {
@@ -612,8 +624,8 @@ function normalizePlayerGroup(markets: any[], players: Record<string, any>, leag
 
   return {
     player_name: playerName,
-    teamID: player?.teamID ?? base.teamID ?? null,
-    market_type: marketType,
+    teamID: player?.teamID ?? null,
+    market_type: formatMarketType(marketType, league),
     line,
     best_over,
     best_under,
