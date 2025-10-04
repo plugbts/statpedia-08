@@ -223,6 +223,19 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
   // Normalize
   const normalized = events.map((ev: any) => safeNormalizeEvent(ev as SGEvent));
 
+  // Apply total prop limit across all events
+  const MAX_TOTAL_PROPS = 125;
+  let totalCount = 0;
+  for (const event of normalized) {
+    const remaining = MAX_TOTAL_PROPS - totalCount;
+    if (remaining <= 0) {
+      event.player_props = [];
+      continue;
+    }
+    event.player_props = event.player_props.slice(0, remaining);
+    totalCount += event.player_props.length;
+  }
+
   const totalPlayerProps = normalized.reduce((a, ev) => a + (ev.player_props?.length || 0), 0);
   const totalDroppedProps = normalized.reduce((a, ev) => a + (ev.debug_counts?.droppedPlayerProps || 0), 0);
   keptProps = totalPlayerProps;
@@ -513,38 +526,18 @@ function normalizeEvent(ev: SGEvent) {
 
   console.log(`Returning event ${ev.eventID} with ${playerProps.length} player props and ${teamProps.length} team props`);
   
+  // Limit props per event with prioritization
+  const MAX_PROPS_PER_EVENT = 125;
+  const sortedPlayerProps = sortProps(playerProps || []);
+  
   return {
     eventID: ev.eventID,
     leagueID: ev.leagueID,
     start_time: toUserTime(ev.scheduled, "America/New_York"),
-    home_team: {
-      id: ev.teams?.home?.teamID ?? ev.teams?.home?.id ?? null,
-      abbr: ev.teams?.home?.abbreviation 
-            ?? ev.teams?.home?.names?.abbr 
-            ?? (ev.teams?.home as any)?.alias 
-            ?? (ev.teams?.home as any)?.displayName 
-            ?? "UNK",
-      name: ev.teams?.home?.names?.full 
-            ?? (ev.teams?.home as any)?.displayName 
-            ?? ((ev.teams?.home as any)?.market && (ev.teams?.home as any)?.name 
-                ? `${(ev.teams.home as any).market} ${(ev.teams.home as any).name}` 
-                : "Unknown"),
-    },
-    away_team: {
-      id: ev.teams?.away?.teamID ?? ev.teams?.away?.id ?? null,
-      abbr: ev.teams?.away?.abbreviation 
-            ?? ev.teams?.away?.names?.abbr 
-            ?? (ev.teams?.away as any)?.alias 
-            ?? (ev.teams?.away as any)?.displayName 
-            ?? "UNK",
-      name: ev.teams?.away?.names?.full 
-            ?? (ev.teams?.away as any)?.displayName 
-            ?? ((ev.teams?.away as any)?.market && (ev.teams?.away as any)?.name 
-                ? `${(ev.teams.away as any).market} ${(ev.teams.away as any).name}` 
-                : "Unknown"),
-    },
+    home_team: normalizeTeam(ev.teams?.home),
+    away_team: normalizeTeam(ev.teams?.away),
     team_props: teamProps,
-    player_props: playerProps,
+    player_props: sortedPlayerProps.slice(0, MAX_PROPS_PER_EVENT),
   };
 }
 
@@ -732,14 +725,50 @@ function parseAmerican(odds: string | number | null | undefined): number | null 
   return Number.isFinite(n) ? n : null;
 }
 
-function toUserTime(utcDate: string, tz: string = "America/New_York") {
-  return new Date(utcDate).toLocaleString("en-US", { 
-    timeZone: tz,
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit"
+function toUserTime(utcDate: string | Date, tz: string = "America/New_York") {
+  try {
+    const d = typeof utcDate === "string" ? new Date(utcDate) : utcDate;
+    if (isNaN(d.getTime())) return null; // invalid date guard
+
+    return d.toLocaleString("en-US", {
+      timeZone: tz,
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  } catch {
+    return null;
+  }
+}
+
+function normalizeTeam(team: any) {
+  if (!team) return { id: null, abbr: "UNK", name: "Unknown" };
+
+  return {
+    id: team.teamID ?? team.id ?? null,
+    abbr:
+      team.abbreviation ??
+      team.names?.abbr ??
+      team.alias ??
+      team.displayName ??
+      "UNK",
+    name:
+      team.names?.full ??
+      team.displayName ??
+      (team.market && team.name ? `${team.market} ${team.name}` : null) ??
+      team.alias ??
+      "Unknown",
+  };
+}
+
+function sortProps(props: any[]) {
+  const priority = ["passing_yards", "rushing_yards", "receptions", "touchdowns"];
+  return props.sort((a, b) => {
+    const ai = priority.indexOf(a.market_type);
+    const bi = priority.indexOf(b.market_type);
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
   });
 }
 
