@@ -18,6 +18,7 @@ import {
   Activity,
   AlertCircle,
   Play,
+  Filter,
   RotateCcw,
   DollarSign,
   Shield,
@@ -28,28 +29,86 @@ import {
   XCircle,
   Star,
   Eye,
-  Filter,
   SortAsc,
   SortDesc,
   Download,
   Share2,
   Bookmark,
   BookmarkCheck,
-  X
+  X,
+  Target,
+  ArrowRight
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { seasonService } from '@/services/season-service';
-import { unifiedSportsAPI } from '@/services/unified-sports-api';
-import { simulationService, PredictionAnalysis } from '@/services/simulation-service';
-import { crossReferenceService, CrossReferenceAnalysis } from '@/services/cross-reference-service';
-import { enhancedUnifiedSportsAPI, EnhancedPlayerProp } from '@/services/enhanced-unified-sports-api';
+import { cloudflarePlayerPropsAPI } from '@/services/cloudflare-player-props-api';
+import { evCalculatorService } from '@/services/ev-calculator';
+import { logAPI, logState, logFilter, logSuccess, logError, logWarning, logInfo, logDebug } from '@/utils/console-logger';
+import { AdvancedPredictionDisplay } from '@/components/advanced-prediction-display';
+import { advancedPredictionService, ComprehensivePrediction } from '@/services/advanced-prediction-service';
+import { EnhancedAnalysisOverlay } from './enhanced-analysis-overlay';
+import { AdvancedPredictionCard } from './advanced-prediction-card';
+import { SubscriptionOverlay } from '@/components/ui/subscription-overlay';
+import { useNavigate } from 'react-router-dom';
 
-// Extended interface for predictions with UI-specific properties
-interface PredictionWithUI extends EnhancedPlayerProp {
+// Interface for all market types
+interface MarketData {
+  id: string;
+  gameId: string;
+  sport: string;
+  marketType: 'player-prop' | 'moneyline' | 'spread' | 'total';
+  period: 'full_game' | '1st_quarter' | '1st_half';
+  
+  // Game info
+  homeTeam: string;
+  homeTeamFull: string;
+  homeTeamAbbr: string;
+  awayTeam: string;
+  awayTeamFull: string;
+  awayTeamAbbr: string;
+  gameDate: string;
+  gameTime: string;
+  
+  // Player props specific
+  playerId?: string;
+  playerName?: string;
+  team?: string;
+  teamAbbr?: string;
+  opponent?: string;
+  opponentAbbr?: string;
+  propType?: string;
+  line?: number;
+  overOdds?: number | null;
+  underOdds?: number | null;
+  
+  // Game markets specific
+  homeOdds?: number | null;
+  awayOdds?: number | null;
+  drawOdds?: number | null;
+  spread?: number;
+  total?: number;
+  
+  // Common fields
+  allSportsbookOdds?: any[];
+  availableSportsbooks?: string[];
+  available?: boolean;
+  lastUpdate?: string;
+  marketName?: string;
+  
+  // EV and analysis
+  expectedValue?: number;
+  confidence?: number;
+  aiRating?: number;
+  recommendation?: string;
+  
+  // UI specific
   isBookmarked?: boolean;
 }
-import { EnhancedAnalysisOverlay } from './enhanced-analysis-overlay';
+
+interface PredictionWithUI extends MarketData {
+  isBookmarked?: boolean;
+}
 
 interface PredictionsTabProps {
   selectedSport: string;
@@ -94,8 +153,8 @@ interface AdvancedPrediction {
     reasoning: string;
     factors: string[];
   };
-  analysis?: PredictionAnalysis;
-  crossReference?: CrossReferenceAnalysis;
+  analysis?: any;
+  crossReference?: any;
   valueRating: number;
   riskLevel: 'low' | 'medium' | 'high';
   factors: string[];
@@ -116,6 +175,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
   userSubscription = 'free',
   onPredictionsCountChange
 }) => {
+  const navigate = useNavigate();
   const [predictions, setPredictions] = useState<PredictionWithUI[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -126,12 +186,23 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
   const [filterRisk, setFilterRisk] = useState<'all' | 'low' | 'medium' | 'high'>('all');
   const [showLiveOnly, setShowLiveOnly] = useState(false);
   const [bookmarkedPredictions, setBookmarkedPredictions] = useState<Set<string>>(new Set());
+  const [propFilter, setPropFilter] = useState<string>('all');
   const [shouldShowPredictions, setShouldShowPredictions] = useState(true);
   const [offseasonMessage, setOffseasonMessage] = useState('');
   const [seasonLoading, setSeasonLoading] = useState(true);
   const [selectedPrediction, setSelectedPrediction] = useState<PredictionWithUI | null>(null);
   const [showPredictionModal, setShowPredictionModal] = useState(false);
+  const [selectedPropForAdvancedAnalysis, setSelectedPropForAdvancedAnalysis] = useState<PredictionWithUI | null>(null);
+  const [showAdvancedAnalysis, setShowAdvancedAnalysis] = useState(false);
+  const [advancedPrediction, setAdvancedPrediction] = useState<ComprehensivePrediction | null>(null);
+  const [isGeneratingAdvancedPrediction, setIsGeneratingAdvancedPrediction] = useState(false);
   const { toast } = useToast();
+
+  // Helper function to format odds
+  const formatOdds = (odds: number | null): string => {
+    if (odds === null || odds === undefined) return 'N/A';
+    return odds > 0 ? `+${odds}` : `${odds}`;
+  };
 
   const isSubscribed = userRole === 'owner' || userSubscription !== 'free';
 
@@ -183,43 +254,156 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
     setError(null);
     
     try {
-      console.log(`🔮 Loading advanced predictions for ${selectedSport}...`);
+      console.log(`🔮 Loading comprehensive predictions for ${selectedSport}...`);
       
-      // Get enhanced player props with real-time odds and ML predictions
-      const enhancedProps = await enhancedUnifiedSportsAPI.getEnhancedPlayerProps(selectedSport);
-      console.log(`📊 Retrieved ${enhancedProps.length} enhanced player props for analysis`);
+            // Fetch data from multiple market endpoints - prioritize other markets over player props
+            const endpoints = [
+              'moneyline', 
+              'spread', 
+              'total',
+              '1q-moneyline',
+              '1q-spread', 
+              '1q-total',
+              '1h-moneyline',
+              '1h-spread',
+              '1h-total',
+              'player-props', // Player props last, will be limited
+              '1q-player-props' // 1Q player props
+            ];
       
-      // Sort props by confidence (highest first) and limit to top 200
-      const sortedProps = enhancedProps
-        .sort((a, b) => (b.confidence || 0) - (a.confidence || 0))
-        .slice(0, 200);
+      const allMarkets: MarketData[] = [];
       
-      console.log(`🎯 Selected top ${sortedProps.length} props by confidence for predictions`);
+      // Fetch from each endpoint
+      for (const endpoint of endpoints) {
+        try {
+          logAPI('PredictionsTab', `Fetching ${endpoint} for ${selectedSport}`);
+          
+          const response = await fetch(`https://statpedia-player-props.statpedia.workers.dev/api/player-props?sport=${selectedSport}&endpoint=${endpoint}&forceRefresh=true`);
+          
+          if (!response.ok) {
+            logWarning('PredictionsTab', `Failed to fetch ${endpoint}: ${response.status}`);
+            continue;
+          }
+          
+          const data = await response.json();
+          
+          if (data.success && data.data) {
+            logSuccess('PredictionsTab', `Retrieved ${data.data.length} ${endpoint} markets`);
+            
+              // Limit player props to avoid overwhelming the predictions tab
+              const isPlayerPropsEndpoint = endpoint === 'player-props' || endpoint === '1q-player-props';
+              const limitedData = isPlayerPropsEndpoint ? data.data.slice(0, 6) : data.data;
+              if (isPlayerPropsEndpoint && data.data.length > 6) {
+                logInfo('PredictionsTab', `Limited ${endpoint} from ${data.data.length} to 6 to prioritize other markets`);
+              }
+            
+            // Process and add EV calculations for each market
+            const processedMarkets = await Promise.all(
+              limitedData.map(async (market: any) => {
+                try {
+                  // Calculate EV for player props
+                  if (market.marketType === 'player-prop' || market.propType) {
+                    const overEV = await evCalculatorService.calculateAIRating({
+                      id: market.id,
+                      playerName: market.playerName || 'Unknown',
+                      propType: market.propType || 'Unknown',
+                      line: market.line || 0,
+                      odds: market.overOdds?.toString() || '0',
+                      sport: market.sport || selectedSport,
+                      team: market.team || '',
+                      opponent: market.opponent || '',
+                      gameDate: market.gameDate || new Date().toISOString(),
+                      hitRate: 0.5,
+                      recentForm: 0.5,
+                      injuryStatus: 'healthy',
+                      restDays: 3
+                    });
+                    
+                    const underEV = await evCalculatorService.calculateAIRating({
+                      id: market.id,
+                      playerName: market.playerName || 'Unknown',
+                      propType: market.propType || 'Unknown',
+                      line: market.line || 0,
+                      odds: market.underOdds?.toString() || '0',
+                      sport: market.sport || selectedSport,
+                      team: market.team || '',
+                      opponent: market.opponent || '',
+                      gameDate: market.gameDate || new Date().toISOString(),
+                      hitRate: 0.5,
+                      recentForm: 0.5,
+                      injuryStatus: 'healthy',
+                      restDays: 3
+                    });
+                    
+                    const bestEV = overEV.evPercentage > underEV.evPercentage ? overEV : underEV;
+                    
+                    return {
+                      ...market,
+                      marketType: 'player-prop',
+                      expectedValue: bestEV.evPercentage / 100,
+                      confidence: bestEV.confidence / 100,
+                      aiRating: bestEV.aiRating,
+                      recommendation: bestEV.recommendation
+                    };
+                  } else {
+                    // For game markets, use simpler EV calculation
+                    const odds = market.homeOdds || market.overOdds || 0;
+                    const evPercentage = odds > 0 ? Math.min(95, Math.max(5, (Math.abs(odds) / 2))) : 50;
+                    
+                    return {
+                      ...market,
+                      expectedValue: (evPercentage - 50) / 100,
+                      confidence: evPercentage / 100,
+                      aiRating: evPercentage > 70 ? 5 : evPercentage > 60 ? 4 : 3,
+                      recommendation: evPercentage > 70 ? 'strong_bet' : evPercentage > 60 ? 'good_bet' : 'neutral'
+                    };
+                  }
+                } catch (error) {
+                  logError('PredictionsTab', `EV calculation failed for market ${market.id}:`, error);
+                  return {
+                    ...market,
+                    expectedValue: 0,
+                    confidence: 0.5,
+                    aiRating: 3,
+                    recommendation: 'neutral'
+                  };
+                }
+              })
+            );
+            
+            allMarkets.push(...processedMarkets);
+          }
+        } catch (error) {
+          logError('PredictionsTab', `Error fetching ${endpoint}:`, error);
+        }
+      }
       
-      // Convert to PredictionWithUI by adding isBookmarked property
-      const advancedPredictions: PredictionWithUI[] = sortedProps.map(prop => ({
-        ...prop,
-        isBookmarked: bookmarkedPredictions.has(prop.id)
-      }));
+      console.log(`📊 Retrieved ${allMarkets.length} total markets from all endpoints`);
 
       // Sort by confidence and value
-      const sortedPredictions = advancedPredictions.sort((a, b) => {
+      const sortedMarkets = allMarkets.sort((a, b) => {
         if (sortBy === 'confidence') {
-          return sortOrder === 'desc' ? b.confidence - a.confidence : a.confidence - b.confidence;
+          return sortOrder === 'desc' ? (b.confidence || 0) - (a.confidence || 0) : (a.confidence || 0) - (b.confidence || 0);
         } else if (sortBy === 'value') {
-          return sortOrder === 'desc' ? b.valueIndicators.expectedValue - a.valueIndicators.expectedValue : a.valueIndicators.expectedValue - b.valueIndicators.expectedValue;
+          return sortOrder === 'desc' ? (b.expectedValue || 0) - (a.expectedValue || 0) : (a.expectedValue || 0) - (b.expectedValue || 0);
         }
         return 0;
       });
 
-      setPredictions(sortedPredictions);
-      onPredictionsCountChange?.(sortedPredictions.length);
+      // Add bookmark status
+      const predictionsWithUI: PredictionWithUI[] = sortedMarkets.map(market => ({
+        ...market,
+        isBookmarked: bookmarkedPredictions.has(market.id)
+      }));
+
+      setPredictions(predictionsWithUI);
+      onPredictionsCountChange?.(predictionsWithUI.length);
       
-      console.log(`✅ Generated ${sortedPredictions.length} advanced predictions`);
+      console.log(`✅ Generated ${predictionsWithUI.length} comprehensive predictions`);
       
       toast({
-        title: 'Advanced Predictions Loaded',
-        description: `Generated ${sortedPredictions.length} detailed predictions for ${selectedSport?.toUpperCase() || 'Unknown Sport'}`,
+        title: 'Comprehensive Predictions Loaded',
+        description: `Generated ${predictionsWithUI.length} predictions across all market types for ${selectedSport?.toUpperCase() || 'Unknown Sport'}`,
       });
     } catch (error) {
       console.error('Error loading predictions:', error);
@@ -480,9 +664,68 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
     setShowPredictionModal(false);
   };
 
+  // Generate advanced prediction using our comprehensive AI system
+  const generateAdvancedPrediction = async (prediction: PredictionWithUI) => {
+    try {
+      setIsGeneratingAdvancedPrediction(true);
+      setSelectedPropForAdvancedAnalysis(prediction);
+      
+      const predictionRequest = {
+        playerId: prediction.playerId || prediction.id,
+        playerName: prediction.playerName || 'Unknown Player',
+        propType: prediction.propType || 'Unknown Prop',
+        line: prediction.line || 0,
+        gameId: prediction.gameId || `game_${Date.now()}`,
+        team: prediction.team || prediction.homeTeam || 'Unknown',
+        opponent: prediction.opponent || prediction.awayTeam || 'Unknown',
+        gameDate: prediction.gameDate || new Date().toISOString(),
+        odds: {
+          over: prediction.overOdds || -110,
+          under: prediction.underOdds || -110,
+        },
+      };
+      
+      const comprehensivePrediction = await advancedPredictionService.generateComprehensivePrediction(predictionRequest);
+      setAdvancedPrediction(comprehensivePrediction);
+      setShowAdvancedAnalysis(true);
+      
+      toast({
+        title: "Advanced AI Analysis Complete",
+        description: `Generated comprehensive prediction for ${prediction.playerName || 'this prop'}`,
+      });
+    } catch (error) {
+      console.error('Error generating advanced prediction:', error);
+      toast({
+        title: "Analysis Error",
+        description: "Failed to generate advanced prediction. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingAdvancedPrediction(false);
+    }
+  };
+
   const filteredPredictions = predictions.filter(prediction => {
-    if (filterRisk !== 'all' && prediction.riskAssessment.level !== filterRisk) return false;
-    if (showLiveOnly && !prediction.isLive) return false;
+    if (filterRisk !== 'all' && getRiskLevel(prediction) !== filterRisk) return false;
+    if (showLiveOnly && !prediction.available) return false;
+    
+    // Prop type filter
+    if (propFilter !== 'all') {
+      if (prediction.marketType === 'player-prop') {
+        const propType = prediction.propType?.toLowerCase() || '';
+        if (propFilter === 'passing' && !propType.includes('pass')) return false;
+        if (propFilter === 'rushing' && !propType.includes('rush')) return false;
+        if (propFilter === 'receiving' && !propType.includes('receiv')) return false;
+        if (propFilter === 'touchdowns' && !propType.includes('touchdown')) return false;
+        if (propFilter === 'yards' && !propType.includes('yard')) return false;
+        if (propFilter === 'completions' && !propType.includes('complet')) return false;
+        if (propFilter === 'interceptions' && !propType.includes('intercept')) return false;
+      } else {
+        // For non-player props, only show if they match the filter
+        if (propFilter !== prediction.marketType) return false;
+      }
+    }
+    
     return true;
   });
 
@@ -491,16 +734,16 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
     
     switch (sortBy) {
       case 'confidence':
-        comparison = a.confidence - b.confidence;
+        comparison = (a.confidence || 0) - (b.confidence || 0);
         break;
       case 'value':
-        comparison = a.valueIndicators.expectedValue - b.valueIndicators.expectedValue;
+        comparison = (a.expectedValue || 0) - (b.expectedValue || 0);
         break;
       case 'time':
-        comparison = new Date(a.lastUpdated).getTime() - new Date(b.lastUpdated).getTime();
+        comparison = new Date(a.lastUpdate || '').getTime() - new Date(b.lastUpdate || '').getTime();
         break;
       case 'sport':
-        comparison = a.sport.localeCompare(b.sport);
+        comparison = (a.sport || '').localeCompare(b.sport || '');
         break;
     }
     
@@ -511,6 +754,57 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
     if (confidence >= 85) return 'text-green-500';
     if (confidence >= 70) return 'text-yellow-500';
     return 'text-red-500';
+  };
+
+  const getRiskLevel = (prediction: PredictionWithUI): 'low' | 'medium' | 'high' => {
+    const confidence = prediction.confidence || 0;
+    const expectedValue = prediction.expectedValue || 0;
+    
+    if (confidence >= 0.75 && expectedValue >= 0.1) return 'low';
+    if (confidence <= 0.55 || expectedValue <= 0) return 'high';
+    return 'medium';
+  };
+
+  const generateAnalysisFactors = (prediction: PredictionWithUI): string[] => {
+    const factors: string[] = [];
+    
+    if (prediction.marketType === 'player-prop') {
+      if (prediction.confidence && prediction.confidence > 0.7) {
+        factors.push('🎯 High confidence based on player performance');
+      }
+      if (prediction.expectedValue && prediction.expectedValue > 0.05) {
+        factors.push('💰 Positive expected value opportunity');
+      }
+      if (prediction.propType?.includes('Touchdown')) {
+        factors.push('🏈 Red zone opportunity analysis');
+      }
+      if (prediction.propType?.includes('Yard')) {
+        factors.push('📏 Volume-based performance metric');
+      }
+    } else {
+      if (prediction.marketType === 'moneyline') {
+        factors.push('⚔️ Head-to-head matchup analysis');
+      }
+      if (prediction.marketType === 'spread') {
+        factors.push('📊 Point differential analysis');
+      }
+      if (prediction.marketType === 'total') {
+        factors.push('🔥 Offensive pace and scoring trends');
+      }
+      if (prediction.period !== 'full_game') {
+        factors.push(`⏰ ${prediction.period.replace('_', ' ')} specific analysis`);
+      }
+    }
+    
+    if (prediction.confidence && prediction.confidence > 0.8) {
+      factors.push('⭐ AI confidence rating: Excellent');
+    } else if (prediction.confidence && prediction.confidence > 0.6) {
+      factors.push('✅ AI confidence rating: Good');
+    } else {
+      factors.push('⚠️ AI confidence rating: Moderate');
+    }
+    
+    return factors.length > 0 ? factors : ['📈 General market analysis'];
   };
 
   const getRiskColor = (risk: string) => {
@@ -602,6 +896,27 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
             </SelectContent>
           </Select>
 
+          <Select value={propFilter} onValueChange={(value: any) => setPropFilter(value)}>
+            <SelectTrigger className="w-40">
+              <Filter className="w-4 h-4 mr-2" />
+              <SelectValue placeholder="Filter Props" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Props</SelectItem>
+              <SelectItem value="player-prop">Player Props</SelectItem>
+              <SelectItem value="moneyline">Moneyline</SelectItem>
+              <SelectItem value="spread">Spread</SelectItem>
+              <SelectItem value="total">Total</SelectItem>
+              <SelectItem value="passing">Passing Props</SelectItem>
+              <SelectItem value="rushing">Rushing Props</SelectItem>
+              <SelectItem value="receiving">Receiving Props</SelectItem>
+              <SelectItem value="touchdowns">Touchdown Props</SelectItem>
+              <SelectItem value="yards">Yard Props</SelectItem>
+              <SelectItem value="completions">Completion Props</SelectItem>
+              <SelectItem value="interceptions">Interception Props</SelectItem>
+            </SelectContent>
+          </Select>
+
           <Button
             variant={showLiveOnly ? "default" : "outline"}
             size="sm"
@@ -648,14 +963,124 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
       {isLoading && (
         <div className="text-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-4 border-primary border-t-transparent mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading advanced predictions...</p>
+          <p className="text-muted-foreground">Give us time to get you ahead of vegas!</p>
         </div>
       )}
 
       {/* Predictions Grid */}
       {!isLoading && sortedPredictions.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {sortedPredictions.map((prediction) => (
+            <div key={prediction.id} className="relative">
+              <Card className={cn(
+                "p-6 hover:shadow-card-hover transition-all duration-300 hover-scale group bg-gradient-card border-border/50 hover:border-primary/30 cursor-pointer",
+                !isSubscribed && "blur-sm"
+              )}>
+                
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    {prediction.marketType === 'player-prop' ? (
+                      <Users className="w-5 h-5 text-blue-500" />
+                    ) : prediction.marketType === 'moneyline' ? (
+                      <Target className="w-5 h-5 text-green-500" />
+                    ) : prediction.marketType === 'spread' ? (
+                      <BarChart3 className="w-5 h-5 text-purple-500" />
+                    ) : (
+                      <Activity className="w-5 h-5 text-orange-500" />
+                    )}
+                    <div>
+                      <h3 className="font-semibold text-foreground">
+                        {prediction.marketType === 'player-prop' ? (
+                          `${prediction.playerName} - ${prediction.propType} ${prediction.line}`
+                        ) : (
+                          `${prediction.homeTeamAbbr} vs ${prediction.awayTeamAbbr}`
+                        )}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        {prediction.marketType === 'player-prop' ? (
+                          `${prediction.teamAbbr} vs ${prediction.opponentAbbr}`
+                        ) : (
+                          `${prediction.marketType?.toUpperCase()} ${prediction.period !== 'full_game' ? `(${prediction.period.replace('_', ' ')})` : ''}`
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Badge variant="outline" className="bg-primary/10 text-primary">
+                      {Math.round((prediction.confidence || 0) * 100)}% confidence
+                    </Badge>
+                    {prediction.available && (
+                      <Badge variant="outline" className="bg-green-500/10 text-green-500">
+                        <Activity className="w-3 h-3 mr-1" />
+                        LIVE
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl font-bold text-foreground">
+                      {prediction.marketType === 'player-prop' ? (
+                        `${formatOdds(prediction.overOdds)} / ${formatOdds(prediction.underOdds)}`
+                      ) : (
+                        `${formatOdds(prediction.homeOdds)} / ${formatOdds(prediction.awayOdds)}`
+                      )}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      {(prediction.expectedValue || 0) > 0 ? (
+                        <TrendingUp className="w-4 h-4 text-green-500" />
+                      ) : (
+                        <TrendingDown className="w-4 h-4 text-red-500" />
+                      )}
+                      <span className={cn(
+                        "text-sm font-medium",
+                        (prediction.expectedValue || 0) > 0 ? "text-green-500" : "text-red-500"
+                      )}>
+                        {((prediction.expectedValue || 0) * 100).toFixed(1)}% EV
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-foreground">
+                      {prediction.gameDate ? new Date(prediction.gameDate).toLocaleDateString() : 'TBD'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {prediction.lastUpdate ? new Date(prediction.lastUpdate).toLocaleTimeString() : 'Unknown'}
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Advanced Analysis Button */}
+                <div className="mt-4">
+                  <Button
+                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-semibold py-2 px-3 rounded-lg text-sm transition-all duration-300 ease-out hover:shadow-lg hover:shadow-purple-500/25 border border-purple-500/50"
+                    onClick={() => generateAdvancedPrediction(prediction)}
+                  >
+                    <Brain className="h-4 w-4 mr-2" />
+                    Advanced AI Analysis
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </div>
+              </Card>
+              
+              {/* Subscription overlay for free users */}
+              <SubscriptionOverlay
+                isVisible={!isSubscribed}
+                icon={<Brain className="w-5 h-5 text-primary" />}
+                title="Premium Content"
+                description="Subscribe to view advanced predictions"
+                buttonText="Upgrade to Pro"
+                size="small"
+                onUpgrade={() => navigate('/subscription')}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Legacy card rendering - keeping for reference but not used */}
+      {false && sortedPredictions.map((prediction) => (
             <Card 
               key={prediction.id} 
               className="relative overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
@@ -683,7 +1108,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
                   <Badge variant="outline" className="text-xs">
                     {prediction.sport?.toUpperCase() || 'Unknown'}
                   </Badge>
-                  {prediction.isLive && (
+                  {prediction.available && (
                     <Badge variant="destructive" className="text-xs animate-pulse">
                       <Activity className="w-3 h-3 mr-1" />
                       LIVE
@@ -692,14 +1117,24 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
                 </div>
                 
                 <CardTitle className="text-lg">
-                  {prediction.playerName} - {prediction.propType} {prediction.line}
+                  {prediction.marketType === 'player-prop' ? (
+                    `${prediction.playerName} - ${prediction.propType} ${prediction.line}`
+                  ) : (
+                    `${prediction.homeTeamAbbr} vs ${prediction.awayTeamAbbr}`
+                  )}
                 </CardTitle>
                 
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Calendar className="w-4 h-4" />
                   {prediction.gameDate ? new Date(prediction.gameDate).toLocaleDateString() : 'TBD'}
                   <span className="mx-1">•</span>
-                  <span>{prediction.teamAbbr} vs {prediction.opponentAbbr}</span>
+                  <span>
+                    {prediction.marketType === 'player-prop' ? (
+                      `${prediction.teamAbbr} vs ${prediction.opponentAbbr}`
+                    ) : (
+                      `${prediction.marketType?.toUpperCase()} ${prediction.period !== 'full_game' ? `(${prediction.period})` : ''}`
+                    )}
+                  </span>
                 </div>
               </CardHeader>
 
@@ -709,44 +1144,47 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-sm font-medium">Confidence</span>
-                      <span className={`text-sm font-bold ${getConfidenceColor(prediction.confidence || 0)}`}>
-                        {prediction.confidence || 0}%
+                      <span className={`text-sm font-bold ${getConfidenceColor((prediction.confidence || 0) * 100)}`}>
+                        {Math.round((prediction.confidence || 0) * 100)}%
                       </span>
                     </div>
-                    <Progress value={prediction.confidence || 0} className="h-2" />
+                    <Progress value={(prediction.confidence || 0) * 100} className="h-2" />
                   </div>
                   
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-sm font-medium">Value Rating</span>
                       <span className="text-sm font-bold text-primary">
-                        {prediction.valueIndicators.expectedValue || 0}/100
+                        {Math.round((prediction.expectedValue || 0) * 100)}/100
                       </span>
                     </div>
-                    <Progress value={prediction.valueIndicators.expectedValue || 0} className="h-2" />
+                    <Progress value={Math.abs((prediction.expectedValue || 0) * 100)} className="h-2" />
                   </div>
                 </div>
 
                 {/* Risk Level */}
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Risk Level</span>
-                  <Badge className={cn("text-xs", getRiskColor(prediction.riskAssessment.level))}>
-                    {prediction.riskAssessment.level?.toUpperCase() || 'UNKNOWN'}
+                  <Badge className={cn("text-xs", getRiskColor(getRiskLevel(prediction)))}>
+                    {getRiskLevel(prediction).toUpperCase()}
                   </Badge>
                 </div>
 
                 {/* Prediction Details */}
-                {prediction.aiPrediction && (
                   <div className="space-y-2">
+                  {prediction.marketType === 'player-prop' ? (
+                    <>
                     <div className="text-sm">
                       <span className="font-medium">AI Recommendation: </span>
                       <span className={cn(
                         "font-bold",
-                        prediction.aiPrediction.recommended === 'over' 
+                          prediction.recommendation === 'strong_bet' || prediction.recommendation === 'good_bet'
                           ? "text-green-600" 
-                          : "text-red-600"
+                            : prediction.recommendation === 'avoid' || prediction.recommendation === 'strong_avoid'
+                            ? "text-red-600"
+                            : "text-yellow-600"
                       )}>
-                        {prediction.aiPrediction.recommended.toUpperCase()}
+                          {prediction.recommendation?.replace('_', ' ').toUpperCase() || 'NEUTRAL'}
                       </span>
                     </div>
                     
@@ -754,13 +1192,53 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
                       <span className="font-medium">Expected Value: </span>
                       <span className={cn(
                         "font-bold",
-                        prediction.expectedValue > 0 ? "text-green-600" : "text-red-600"
+                          (prediction.expectedValue || 0) > 0 ? "text-green-600" : "text-red-600"
                       )}>
-                        {prediction.expectedValue > 0 ? '+' : ''}{prediction.expectedValue?.toFixed(2) || 0}
+                          {(prediction.expectedValue || 0) > 0 ? '+' : ''}{((prediction.expectedValue || 0) * 100).toFixed(1)}%
                       </span>
                     </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-sm">
+                        <span className="font-medium">Market Type: </span>
+                        <span className="font-bold text-primary">
+                          {prediction.marketType?.toUpperCase()} {prediction.period !== 'full_game' ? `(${prediction.period.replace('_', ' ')})` : ''}
+                        </span>
+                      </div>
+                      
+                      {prediction.marketType === 'moneyline' && (
+                        <div className="text-sm">
+                          <span className="font-medium">Odds: </span>
+                          <span className="font-bold">
+                            {prediction.homeTeamAbbr}: {prediction.homeOdds > 0 ? '+' : ''}{prediction.homeOdds} | 
+                            {prediction.awayTeamAbbr}: {prediction.awayOdds > 0 ? '+' : ''}{prediction.awayOdds}
+                          </span>
                   </div>
                 )}
+                      
+                      {prediction.marketType === 'spread' && (
+                        <div className="text-sm">
+                          <span className="font-medium">Spread: </span>
+                          <span className="font-bold">
+                            {prediction.homeTeamAbbr}: {prediction.spread > 0 ? '+' : ''}{prediction.spread} ({prediction.homeOdds > 0 ? '+' : ''}{prediction.homeOdds}) | 
+                            {prediction.awayTeamAbbr}: {prediction.spread < 0 ? '+' : ''}{-prediction.spread} ({prediction.awayOdds > 0 ? '+' : ''}{prediction.awayOdds})
+                          </span>
+                        </div>
+                      )}
+                      
+                      {prediction.marketType === 'total' && (
+                        <div className="text-sm">
+                          <span className="font-medium">Total: </span>
+                          <span className="font-bold">
+                            {prediction.total} - Over: {prediction.overOdds > 0 ? '+' : ''}{prediction.overOdds} | 
+                            Under: {prediction.underOdds > 0 ? '+' : ''}{prediction.underOdds}
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
 
                 {/* Cross-Reference Analysis - Temporarily disabled */}
                 {/* TODO: Add cross-reference analysis to EnhancedPlayerProp interface */}
@@ -772,7 +1250,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
                 <div className="space-y-1">
                   <span className="text-sm font-medium">Analysis Factors:</span>
                   <div className="space-y-1">
-                    {(prediction.riskAssessment.factors || []).slice(0, 3).map((factor, index) => (
+                    {generateAnalysisFactors(prediction).slice(0, 3).map((factor, index) => (
                       <div key={index} className="text-xs text-muted-foreground">
                         • {factor}
                       </div>
@@ -782,13 +1260,11 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
 
                 {/* Last Updated */}
                 <div className="text-xs text-muted-foreground">
-                  Updated: {prediction.lastUpdated ? new Date(prediction.lastUpdated).toLocaleTimeString() : 'Unknown'}
+                  Updated: {prediction.lastUpdate ? new Date(prediction.lastUpdate).toLocaleTimeString() : 'Unknown'}
                 </div>
               </CardContent>
             </Card>
           ))}
-        </div>
-      )}
 
       {/* No Predictions */}
       {!isLoading && sortedPredictions.length === 0 && (
@@ -813,6 +1289,18 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
         isOpen={showPredictionModal}
         onClose={() => setShowPredictionModal(false)}
       />
+
+      {/* Advanced AI Analysis Modal */}
+      {advancedPrediction && (
+        <AdvancedPredictionDisplay
+          prediction={advancedPrediction}
+          onClose={() => {
+            setShowAdvancedAnalysis(false);
+            setAdvancedPrediction(null);
+            setSelectedPropForAdvancedAnalysis(null);
+          }}
+        />
+      )}
 
       {/* Confidence Interval Dialog - REMOVED to prevent double overlay */}
     </div>
