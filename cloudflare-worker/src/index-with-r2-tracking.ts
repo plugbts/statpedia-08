@@ -86,7 +86,7 @@ export default {
       console.log('Fetching fresh data from API...');
 
       // Fetch from SportGameOdds API
-      const apiResponse = await fetch(`https://api.sportsgameodds.com/v2/events?leagueID=${sport.toUpperCase()}&marketOddsAvailable=true&limit=${maxEvents}`, {
+      const apiResponse = await fetch(`https://api.sportsgameodds.com/v2/events?leagueID=${sport.toUpperCase()}&marketOddsAvailable=true&limit=${maxEvents}&apikey=${env.SPORTSGAMEODDS_API_KEY}`, {
         headers: {
           'X-API-Key': env.SPORTSGAMEODDS_API_KEY,
           'Content-Type': 'application/json',

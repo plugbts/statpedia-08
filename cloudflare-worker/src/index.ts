@@ -352,9 +352,12 @@ async function handleDebugPlayerProps(url: URL, env: Env): Promise<Response> {
   upstream.searchParams.set("leagueID", league);
   upstream.searchParams.set("date", date);
   upstream.searchParams.set("oddsAvailable", "true");
+  upstream.searchParams.set("apikey", env.SGO_API_KEY);
 
   const res = await fetch(upstream.toString(), {
-    headers: { 'x-api-key': env.SGO_API_KEY },
+    headers: { 
+      'X-API-Key': env.SGO_API_KEY,
+    },
   });
   if (!res.ok) return json({ error: "Upstream error", status: res.status }, 502);
 
@@ -1226,12 +1229,12 @@ export async function fetchSportsGameOddsDay(
 
   // 3. Build URL with correct endpoint format (use /events endpoint with oddsAvailable)
   const requestedYear = new Date(date).getFullYear();
-  const url = `https://api.sportsgameodds.com/v2/events?leagueID=${leagueID}&oddsAvailable=true&date=${date}`;
-  console.log(`[fetchSportsGameOddsDay] Fetching: ${url} (requestedYear: ${requestedYear})`);
+  const url = `https://api.sportsgameodds.com/v2/events?leagueID=${leagueID}&oddsAvailable=true&date=${date}&apikey=${env.SGO_API_KEY}`;
+  console.log(`[fetchSportsGameOddsDay] Fetching: ${url.replace(env.SGO_API_KEY, '[API_KEY]')} (requestedYear: ${requestedYear})`);
   const res = await fetch(url, {
     headers: {
       "accept": "application/json",
-      "x-api-key": env.SGO_API_KEY, // Use x-api-key header format
+      "X-API-Key": env.SGO_API_KEY, // Use X-API-Key header format as required by SportsGameOdds API
     },
   });
 

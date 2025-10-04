@@ -125,17 +125,18 @@ export const SportsbookIconsList: React.FC<SportsbookIconsListProps> = ({
   className = "",
   onClick
 }) => {
-  // Sort by popularity (most popular sportsbooks first)
+  // Remove duplicates and sort by popularity (most popular sportsbooks first)
+  const uniqueBooks = [...new Set(sportsbooks)];
   const popularityOrder = ['draftkings', 'fanduel', 'betmgm', 'caesars', 'pointsbet', 'bet365', 'barstool', 'betrivers', 'unibet', 'wynnbet', 'superbook', 'bovada'];
   
-  const sortedBooks = sportsbooks.sort((a, b) => {
+  const sortedBooks = uniqueBooks.sort((a, b) => {
     const aIndex = popularityOrder.indexOf(a.toLowerCase());
     const bIndex = popularityOrder.indexOf(b.toLowerCase());
     return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
   });
   
   const visibleBooks = sortedBooks.slice(0, maxVisible);
-  const remainingCount = sportsbooks.length - maxVisible;
+  const remainingCount = uniqueBooks.length - maxVisible;
 
   const handleClick = () => {
     if (onClick) {
@@ -149,7 +150,7 @@ export const SportsbookIconsList: React.FC<SportsbookIconsListProps> = ({
       onClick={handleClick}
     >
       {visibleBooks.map((book, index) => (
-        <SportsbookIcon key={book} sportsbookKey={book} />
+        <SportsbookIcon key={`${book}-${index}`} sportsbookKey={book} />
       ))}
       {remainingCount > 0 && (
         <div className="w-5 h-5 bg-gradient-to-br from-slate-500 to-slate-700 rounded-sm flex items-center justify-center text-white text-[9px] font-extrabold shadow-sm border border-slate-400/30">
