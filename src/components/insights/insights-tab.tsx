@@ -415,14 +415,6 @@ export const InsightsTab: React.FC<InsightsTabProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {/* Only show team logos for moneyline insights that involve actual team matchups */}
-          {insight.insight_type !== 'league_odds' && insight.insight_type !== 'market_trends' && (
-            <>
-              <TeamLogo teamAbbr={insight.opponent_name} sport={selectedSport} size="sm" />
-              <span className="text-sm font-medium text-muted-foreground">@</span>
-              <TeamLogo teamAbbr={insight.team_name} sport={selectedSport} size="sm" />
-            </>
-          )}
           <div className="text-right">
             <div className="flex items-center gap-2 text-sm font-medium text-foreground">
               <TeamLogo teamAbbr={insight.opponent_name} sport={selectedSport} size="sm" />
