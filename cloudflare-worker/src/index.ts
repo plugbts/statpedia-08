@@ -2,28 +2,26 @@
 
 /// <reference types="@cloudflare/workers-types" />
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*", // or restrict to your frontend domain
-  "Access-Control-Allow-Methods": "GET,HEAD,POST,OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-  "Access-Control-Max-Age": "86400",
-};
+function corsHeaders(request: Request) {
+  const origin = request.headers.get("Origin") || "*";
+  const reqHeaders = request.headers.get("Access-Control-Request-Headers") || "Content-Type, Authorization";
 
-function handleOptions(request: Request) {
-  // Make sure preflight requests succeed
-  if (
-    request.headers.get("Origin") !== null &&
-    request.headers.get("Access-Control-Request-Method") !== null
-  ) {
-    return new Response(null, { headers: corsHeaders });
-  }
-  // Standard OPTIONS response
-  return new Response(null, { headers: { Allow: "GET, HEAD, POST, OPTIONS" } });
+  return {
+    "Access-Control-Allow-Origin": origin, // echo back the origin
+    "Access-Control-Allow-Methods": "GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS",
+    "Access-Control-Allow-Headers": reqHeaders,
+    "Access-Control-Allow-Credentials": "true",
+    "Access-Control-Max-Age": "86400",
+  };
 }
 
-function withCORS(resp: Response) {
+function handleOptions(request: Request) {
+  return new Response(null, { headers: corsHeaders(request) });
+}
+
+function withCORS(resp: Response, request: Request) {
   const newHeaders = new Headers(resp.headers);
-  for (const [k, v] of Object.entries(corsHeaders)) {
+  for (const [k, v] of Object.entries(corsHeaders(request))) {
     newHeaders.set(k, v);
   }
   return new Response(resp.body, { status: resp.status, headers: newHeaders });
@@ -126,7 +124,7 @@ export default {
       }
     }
 
-    return withCORS(resp);
+    return withCORS(resp, request);
   },
 };
 
