@@ -67,237 +67,102 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
-    // Route: /api/nfl/player-props?date=YYYY-MM-DD[&bookmakerID=...][&oddIDs=...][&debug=true]
-    if (url.pathname === "/api/nfl/player-props") {
-      return handleNFLPlayerProps(request, env, ctx);
-    }
-
-    // Temporary debug route
-    if (url.pathname === "/debug") {
-      return new Response(JSON.stringify({
-        apiKey: env.SPORTSODDS_API_KEY ? "Present" : "Missing",
-        apiKeyLength: env.SPORTSODDS_API_KEY?.length || 0
-      }), {
-        headers: { "content-type": "application/json" }
-      });
-    }
-
-    // Test API call directly
-    if (url.pathname === "/test-api") {
-      const testUrl = "https://api.sportsgameodds.com/v2/events?oddsAvailable=true&leagueID=NFL&date=2025-01-31";
-      const res = await fetch(testUrl, {
-        headers: { 'x-api-key': env.SPORTSODDS_API_KEY }
-      });
-      const data = await res.json();
-      return new Response(JSON.stringify({
-        status: res.status,
-        success: data.success,
-        dataLength: data.data?.length || 0,
-        sampleEvent: data.data?.[0] ? {
-          eventID: data.data[0].eventID,
-          leagueID: data.data[0].leagueID
-        } : null
-      }), {
-        headers: { "content-type": "application/json" }
-      });
+    // Route: /api/{league}/player-props
+    const match = url.pathname.match(/^\/api\/([a-z]+)\/player-props$/);
+    if (match) {
+      const league = match[1].toUpperCase(); // e.g. NFL, NBA
+      return handlePlayerProps(request, env, ctx, league);
     }
 
     return new Response("Not found", { status: 404 });
   },
 };
 
-async function handleNFLPlayerProps(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionContext, league: string): Promise<Response> {
       const url = new URL(request.url);
-  const date = url.searchParams.get("date");
-  const oddIDs = url.searchParams.get("oddIDs"); // pass through only if client provides
-  const bookmakerID = url.searchParams.get("bookmakerID");
-  const debug = url.searchParams.get("debug") === "true";
-
-  if (!date) {
-    return json({ error: "Missing required 'date' query param (YYYY-MM-DD)" }, 400);
-  }
-
-  const cacheKey = buildCacheKey(url, { path: "/api/nfl/player-props", date, oddIDs, bookmakerID });
-  const cache = caches.default;
-
-  // Try edge cache (skip for now to debug)
-  // const cached = await cache.match(cacheKey);
-  // if (cached) {
-  //   // SWR: kick off a background refresh if the client requested freshness
-  //   if (url.searchParams.get("revalidate") === "true") {
-  //     ctx.waitUntil(refreshCache(cacheKey, url, env));
-  //   }
-  //   return cached;
-  // }
-
-  // Acquire a KV lock to avoid thundering herd on upstream
-  const lockKey = `lock:${cacheKey}`;
-  let gotLock = false;
-  if (env.CACHE_LOCKS) {
-    gotLock = await acquireLock(env.CACHE_LOCKS, lockKey, 15); // 15s lock
-    if (!gotLock) {
-      // Another request is refreshing; serve stale if available after a short wait, else fall back to fetching without lock
-      const waitMs = 300; // small backoff
-      await sleep(waitMs);
-      const cachedAfterWait = await cache.match(cacheKey);
-      if (cachedAfterWait) return cachedAfterWait;
-      // Proceed to fetch without lock if cache still empty
-    }
-  }
-
-  // Fetch upstream, normalize, cache, and release lock
-  try {
-    const upstreamUrl = buildUpstreamUrl("/v2/events", date, oddIDs, bookmakerID);
-    console.log("Upstream URL:", upstreamUrl);
-    console.log("API Key:", env.SPORTSODDS_API_KEY ? "Present" : "Missing");
-    console.log("Date param:", date);
-    console.log("OddIDs param:", oddIDs);
-    console.log("BookmakerID param:", bookmakerID);
-    const res = await fetch(upstreamUrl, {
-      headers: { 'x-api-key': env.SPORTSODDS_API_KEY },
-    });
-
-    if (!res.ok) {
-      if (env.CACHE_LOCKS) await releaseLock(env.CACHE_LOCKS, lockKey);
-      return json({ error: "Upstream error", status: res.status }, 502);
-    }
-
-    const data = (await res.json()) as { data?: any[] };
-    const rawEvents = data?.data || [];
-    console.log("Raw events count:", rawEvents.length);
-    console.log("Sample event structure:", rawEvents[0] ? Object.keys(rawEvents[0]) : "No events");
-
-    // Filter to NFL events only
-    const nflEvents = rawEvents.filter(ev => String(ev.leagueID).toUpperCase() === "NFL");
-    console.log("NFL events after filter:", nflEvents.length);
-
-    // Normalize
-    const normalized = nflEvents.map(safeNormalizeEvent);
-    console.log("Normalized events:", normalized.length);
-
-    // TTL heuristics
-    const totalPlayerProps = normalized.reduce((a, ev) => a + (ev.player_props?.length || 0), 0);
-    const ttl = totalPlayerProps > 50 ? 1800 : 300; // 30m if robust, else 5m
-    const swr = 1800; // allow stale-while-revalidate for 30m
-
-    const body = {
-      events: normalized,
-      ...(debug
-        ? {
-            debug: {
-              upstreamEvents: rawEvents.length,
-              nflEvents: nflEvents.length,
-              playerPropsTotal: totalPlayerProps,
-              sampleEvent: rawEvents[0] ? {
-                eventID: rawEvents[0].eventID,
-                leagueID: rawEvents[0].leagueID,
-                startsAt: rawEvents[0].status?.startsAt
-              } : null
-            },
-          }
-        : undefined),
-    };
-
-    const response = new Response(JSON.stringify(body), {
-      headers: {
-        "content-type": "application/json",
-        // Downstream caching hints; edge cache controls are handled by Cache API
-        "cache-control": `public, s-maxage=${ttl}, stale-while-revalidate=${swr}`,
-      },
-    });
-
-    // Put in edge cache
-    await cache.put(cacheKey, response.clone());
-
-    if (env.CACHE_LOCKS) await releaseLock(env.CACHE_LOCKS, lockKey);
-    return response;
-  } catch (err) {
-    if (env.CACHE_LOCKS) await releaseLock(env.CACHE_LOCKS, lockKey);
-    return json({ error: "Worker error", message: String(err) }, 500);
-  }
-}
-
-function buildUpstreamUrl(basePath: string, date: string, oddIDs?: string | null, bookmakerID?: string | null) {
-  const BASE_URL = "https://api.sportsgameodds.com"; // replace if different
-  const url = new URL(basePath, BASE_URL);
-
-  url.searchParams.set("oddsAvailable", "true");
-  url.searchParams.set("leagueID", "NFL");
-  url.searchParams.set("date", date);
-
-  // Only forward oddIDs if explicitly provided by client; Option A fetches all otherwise
-  if (oddIDs) url.searchParams.set("oddIDs", oddIDs);
-  if (bookmakerID) url.searchParams.set("bookmakerID", bookmakerID);
-
-  return url.toString();
-}
-
-// Stable cache key per query; include path, date, oddIDs, bookmakerID
-function buildCacheKey(url: URL, parts: { path: string; date: string; oddIDs?: string | null; bookmakerID?: string | null }) {
-  const origin = "https://edge-cache"; // synthetic origin for cache namespace
-  const key = new URL(origin);
-  key.pathname = parts.path;
-  key.searchParams.set("date", parts.date);
-  key.searchParams.set("leagueID", "NFL");
-  if (parts.oddIDs) key.searchParams.set("oddIDs", parts.oddIDs);
-  if (parts.bookmakerID) key.searchParams.set("bookmakerID", parts.bookmakerID);
-  // Prop tabs or other flags can be added to keep keys distinct
-  return key.toString();
-}
-
-// SWR background refresh task
-async function refreshCache(cacheKey: string, url: URL, env: Env) {
-  const cache = caches.default;
   const date = url.searchParams.get("date");
   const oddIDs = url.searchParams.get("oddIDs");
   const bookmakerID = url.searchParams.get("bookmakerID");
+  const debug = url.searchParams.get("debug") === "true";
 
-  if (!date) return;
+  if (!date) return json({ error: "Missing date" }, 400);
 
-  const lockKey = `lock:${cacheKey}`;
-  let gotLock = false;
-  if (env.CACHE_LOCKS) {
-    gotLock = await acquireLock(env.CACHE_LOCKS, lockKey, 15);
-    if (!gotLock) return;
-  }
+  const cacheKey = buildCacheKey(url, league, date, oddIDs, bookmakerID);
+  const cache = caches.default;
 
-  try {
-    const upstreamUrl = buildUpstreamUrl("/v2/events", date, oddIDs, bookmakerID);
-    const res = await fetch(upstreamUrl, { headers: { 'x-api-key': env.SPORTSODDS_API_KEY } });
-    if (!res.ok) return;
+  // Try cache
+  const cached = await cache.match(cacheKey);
+  if (cached) return cached;
 
-    const data = (await res.json()) as { data?: SGEvent[] };
-    const rawEvents = data?.data || [];
-    const nflEvents = rawEvents.filter(ev => String(ev.leagueID).toUpperCase() === "NFL");
-    const normalized = nflEvents.map(safeNormalizeEvent);
+  // Fetch upstream
+  const upstreamUrl = buildUpstreamUrl("/v2/events", league, date, oddIDs, bookmakerID);
+  const res = await fetch(upstreamUrl, { headers: { 'x-api-key': env.SPORTSODDS_API_KEY } });
+  if (!res.ok) return json({ error: "Upstream error", status: res.status }, 502);
 
-    const totalPlayerProps = normalized.reduce((a, ev) => a + (ev.player_props?.length || 0), 0);
-    const ttl = totalPlayerProps > 50 ? 1800 : 300;
-    const swr = 1800;
+  const data = await res.json();
+  const rawEvents = data?.data || [];
+  
+  console.log(`Raw API response: ${rawEvents.length} events`);
+  console.log(`Sample event keys:`, rawEvents[0] ? Object.keys(rawEvents[0]) : 'No events');
 
-    const response = new Response(JSON.stringify({ events: normalized }), {
-      headers: {
-        "content-type": "application/json",
-        "cache-control": `public, s-maxage=${ttl}, stale-while-revalidate=${swr}`,
-      },
-    });
+  // Filter by league
+  const events = rawEvents.filter((ev: any) => String(ev.leagueID).toUpperCase() === league);
+  
+  console.log(`Filtered ${events.length} events for league ${league}`);
 
-    await cache.put(cacheKey, response);
-  } finally {
-    if (env.CACHE_LOCKS) await releaseLock(env.CACHE_LOCKS, lockKey);
-  }
+  // Normalize
+  const normalized = events.map((ev: any) => safeNormalizeEvent(ev as SGEvent));
+
+  const totalPlayerProps = normalized.reduce((a, ev) => a + (ev.player_props?.length || 0), 0);
+  const ttl = totalPlayerProps > 50 ? 1800 : 300;
+
+  const body = {
+    events: normalized,
+    ...(debug ? { 
+      debug: { 
+        upstreamEvents: rawEvents.length, 
+        playerPropsTotal: totalPlayerProps,
+        sampleEvent: normalized[0] ? {
+          eventID: normalized[0].eventID,
+          player_props_count: normalized[0].player_props?.length || 0,
+          team_props_count: normalized[0].team_props?.length || 0,
+          sample_player_prop: normalized[0].player_props?.[0] || null
+        } : null
+      } 
+    } : {}),
+  };
+
+  const response = new Response(JSON.stringify(body), {
+        headers: {
+      "content-type": "application/json",
+      "cache-control": `public, s-maxage=${ttl}, stale-while-revalidate=1800`,
+        },
+      });
+
+  await cache.put(cacheKey, response.clone());
+  return response;
 }
 
-// KV-based lock to coalesce upstream fetches
-async function acquireLock(kv: KVNamespace, key: string, ttlSeconds: number): Promise<boolean> {
-  const existing = await kv.get(key);
-  if (existing) return false;
-  await kv.put(key, "1", { expirationTtl: ttlSeconds });
-  return true;
+function buildUpstreamUrl(path: string, league: string, date: string, oddIDs?: string | null, bookmakerID?: string | null) {
+  const BASE_URL = "https://api.sportsgameodds.com";
+  const url = new URL(path, BASE_URL);
+  url.searchParams.set("oddsAvailable", "true");
+  url.searchParams.set("leagueID", league);
+  url.searchParams.set("date", date);
+  if (oddIDs) url.searchParams.set("oddIDs", oddIDs);
+  if (bookmakerID) url.searchParams.set("bookmakerID", bookmakerID);
+  return url.toString();
 }
-async function releaseLock(kv: KVNamespace, key: string): Promise<void> {
-  await kv.delete(key);
+
+function buildCacheKey(url: URL, league: string, date: string, oddIDs?: string | null, bookmakerID?: string | null) {
+  const key = new URL("https://edge-cache");
+  key.pathname = `/api/${league}/player-props`;
+  key.searchParams.set("date", date);
+  if (oddIDs) key.searchParams.set("oddIDs", oddIDs);
+  if (bookmakerID) key.searchParams.set("bookmakerID", bookmakerID);
+  return key.toString();
 }
+
 
 // JSON helper
 function json(body: unknown, status = 200): Response {
@@ -305,10 +170,6 @@ function json(body: unknown, status = 200): Response {
     status,
     headers: { "content-type": "application/json" },
   });
-}
-
-function sleep(ms: number) {
-  return new Promise(res => setTimeout(res, ms));
 }
 
 // ===== Normalization =====
@@ -333,7 +194,8 @@ function safeNormalizeEvent(ev: SGEvent) {
 function normalizeEvent(ev: SGEvent) {
   const players = ev.players || {};
   const oddsDict = ev.odds || {};
-  console.log("Normalizing event:", ev.eventID, "with", Object.keys(oddsDict).length, "odds");
+  
+  console.log(`Normalizing event ${ev.eventID} with ${Object.keys(oddsDict).length} odds`);
 
   // Group by statEntityID + statID + periodID + betTypeID
   const groups: Record<string, MarketSide[]> = {};
@@ -342,7 +204,8 @@ function normalizeEvent(ev: SGEvent) {
     const key = [m.statEntityID || "", m.statID || "", m.periodID || "", m.betTypeID || ""].join("|");
     (groups[key] ||= []).push(m);
   }
-  console.log("Created", Object.keys(groups).length, "groups");
+  
+  console.log(`Created ${Object.keys(groups).length} groups`);
 
   const playerProps: any[] = [];
   const teamProps: any[] = [];
@@ -350,31 +213,35 @@ function normalizeEvent(ev: SGEvent) {
   for (const key in groups) {
     const markets = groups[key];
     const hasPlayer = markets.some(mm => !!mm.playerID);
-    console.log("Group", key, "has player:", hasPlayer, "markets:", markets.length);
+    
+    console.log(`Group ${key}: hasPlayer=${hasPlayer}, markets=${markets.length}`);
 
     if (hasPlayer) {
       const norm = normalizePlayerGroup(markets, players);
       if (norm) {
         playerProps.push(norm);
-        console.log("Added player prop:", norm.player_name, norm.market_type);
+        console.log(`Added player prop: ${norm.player_name} ${norm.market_type}`);
       } else {
-        console.log("Failed to normalize player group for", key);
+        console.log(`Failed to normalize player group: ${key}`);
       }
     } else {
       const norm = normalizeTeamGroup(markets);
       if (norm) teamProps.push(norm);
     }
   }
-  console.log("Final counts - player props:", playerProps.length, "team props:", teamProps.length);
+  
+  console.log(`Final counts: playerProps=${playerProps.length}, teamProps=${teamProps.length}`);
 
+  console.log(`Returning event ${ev.eventID} with ${playerProps.length} player props and ${teamProps.length} team props`);
+  
   return {
     eventID: ev.eventID,
     leagueID: ev.leagueID,
     start_time: ev.status.startsAt,
     home_team: ev.teams.home.names, // { long, short }
     away_team: ev.teams.away.names, // { long, short }
-    team_props,
-    player_props,
+    team_props: teamProps,
+    player_props: playerProps,
   };
 }
 
