@@ -70,19 +70,56 @@ type SGEvent = {
   players: Record<string, Player>;         // keyed by playerID
 };
 
+// Curated list of popular NFL player prop oddIDs
+const DEFAULT_NFL_PLAYER_PROPS = [
+  // Passing props
+  "passing_yards-PLAYER_ID-game-ou-over,passing_yards-PLAYER_ID-game-ou-under",
+  "passing_touchdowns-PLAYER_ID-game-ou-over,passing_touchdowns-PLAYER_ID-game-ou-under",
+  "passing_attempts-PLAYER_ID-game-ou-over,passing_attempts-PLAYER_ID-game-ou-under",
+  "passing_completions-PLAYER_ID-game-ou-over,passing_completions-PLAYER_ID-game-ou-under",
+  "passing_interceptions-PLAYER_ID-game-ou-over,passing_interceptions-PLAYER_ID-game-ou-under",
+  
+  // Rushing props
+  "rushing_yards-PLAYER_ID-game-ou-over,rushing_yards-PLAYER_ID-game-ou-under",
+  "rushing_attempts-PLAYER_ID-game-ou-over,rushing_attempts-PLAYER_ID-game-ou-under",
+  "rushing_touchdowns-PLAYER_ID-game-ou-over,rushing_touchdowns-PLAYER_ID-game-ou-under",
+  
+  // Receiving props
+  "receiving_yards-PLAYER_ID-game-ou-over,receiving_yards-PLAYER_ID-game-ou-under",
+  "receiving_receptions-PLAYER_ID-game-ou-over,receiving_receptions-PLAYER_ID-game-ou-under",
+  "receiving_touchdowns-PLAYER_ID-game-ou-over,receiving_touchdowns-PLAYER_ID-game-ou-under",
+  
+  // Special props
+  "first_touchdown-PLAYER_ID-game-yn-yes,first_touchdown-PLAYER_ID-game-yn-no",
+  "anytime_touchdown-PLAYER_ID-game-yn-yes,anytime_touchdown-PLAYER_ID-game-yn-no"
+].join(",");
+
 // Build upstream URL with live markets
 function buildUpstreamUrl(path: string, params: URLSearchParams) {
   const url = new URL(path, BASE_URL);
 
   url.searchParams.set("oddsAvailable", "true");
-  ["date", "oddIDs", "bookmakerID"].forEach(k => {
-    const v = params.get(k);
-    if (v) url.searchParams.set(k, v);
-  });
   
   // Handle league parameter mapping
   const league = params.get('league');
   if (league) url.searchParams.set('leagueID', league);
+  
+  // Handle date
+  const date = params.get('date');
+  if (date) url.searchParams.set('date', date);
+  
+  // Handle bookmakerID
+  const bookmakerID = params.get('bookmakerID');
+  if (bookmakerID) url.searchParams.set('bookmakerID', bookmakerID);
+  
+  // Handle oddIDs - use curated list if none provided and league is NFL
+  let oddIDs = params.get('oddIDs');
+  if (!oddIDs && league?.toUpperCase() === 'NFL') {
+    oddIDs = DEFAULT_NFL_PLAYER_PROPS;
+  }
+  if (oddIDs) {
+    url.searchParams.set('oddIDs', oddIDs);
+  }
 
   return url.toString();
 }
