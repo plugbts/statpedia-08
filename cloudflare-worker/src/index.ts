@@ -172,8 +172,8 @@ export async function handlePropsDebug(request: Request, env: Env) {
     // 1. Fetch just ONE day to avoid hanging
     const rawEvents = await fetchSportsGameOddsDay(league.toUpperCase(), "2025-10-04", env);
 
-    // 2. Just dump the first event
-    const sample = rawEvents[0] || null;
+    // 2. Just dump the first match event
+    const sample = rawEvents.find(ev => ev.type === "match") || null;
 
     return withCORS(
       new Response(
@@ -232,9 +232,10 @@ export async function handlePropsEndpoint(request: Request, env: Env) {
         continue; // Skip this league and move to the next one
       }
 
-      // 2. Normalize events (limit to first 10 for performance)
+      // 2. Normalize events (prioritize match events, limit to first 10 for performance)
       let normalized = (rawEvents || [])
-        .slice(0, 10)
+        .filter(ev => ev.type === "match") // Only process match events (real games with players)
+        .slice(0, 10) // Limit to first 10 match events for performance
         .map(ev => normalizeEventSGO(ev, request))
         .filter(Boolean);
 
@@ -475,17 +476,45 @@ function normalizeEventSGO(ev: any, request: any) {
   // DEBUG: Log odds flattening
   console.log("DEBUG odds flatten", {
     totalOdds: Object.keys(ev.odds || {}).length,
-    firstOdd: Object.values(ev.odds || {})[0]
+    firstOdd: Object.values(ev.odds || {})[0],
+    hasTeams: !!ev.teams,
+    hasProps: !!ev.props,
+    eventType: ev.type
   });
+
+  // Handle different response formats
+  let home_team = "UNK";
+  let away_team = "UNK";
+  let player_props: any[] = [];
+
+  // Check for team information in different possible locations
+  if (ev.teams?.home?.names?.long) {
+    home_team = ev.teams.home.names.long;
+  } else if (ev.teams?.home?.names?.short) {
+    home_team = ev.teams.home.names.short;
+  }
+
+  if (ev.teams?.away?.names?.long) {
+    away_team = ev.teams.away.names.long;
+  } else if (ev.teams?.away?.names?.short) {
+    away_team = ev.teams.away.names.short;
+  }
+
+  // Extract player props from odds or props
+  if (ev.odds && Object.keys(ev.odds).length > 0) {
+    player_props = Object.values(ev.odds);
+  } else if (ev.props && Object.keys(ev.props).length > 0) {
+    player_props = Object.values(ev.props);
+  }
 
   return {
     eventID: ev.eventID,
     leagueID: ev.leagueID,
     start_time: toUserTimeSGO(ev.status?.startsAt, request.cf?.timezone || "America/New_York"),
-    home_team: ev.teams?.home?.names?.long || "UNK",
-    away_team: ev.teams?.away?.names?.long || "UNK",
+    home_team: home_team,
+    away_team: away_team,
     players: ev.players || {},
-    player_props: Object.values(ev.odds || {}), // flatten odds object
+    player_props: player_props,
   };
 }
 
@@ -1111,16 +1140,36 @@ export async function fetchSportsGameOddsDay(league: string, date: string, env: 
     };
   }
 
-  // 2. Build URL
-  const url = `https://api.sportsgameodds.com/v2/${league}/games?date=${date}`;
+  // 2. Map league to sport and league IDs
+  const sportLeagueMap: { [key: string]: { sportID: string; leagueID: string } } = {
+    'nfl': { sportID: 'FOOTBALL', leagueID: 'NFL' },
+    'nba': { sportID: 'BASKETBALL', leagueID: 'NBA' },
+    'mlb': { sportID: 'BASEBALL', leagueID: 'MLB' },
+    'nhl': { sportID: 'HOCKEY', leagueID: 'NHL' },
+    'ncaaf': { sportID: 'FOOTBALL', leagueID: 'NCAA' },
+    'ncaab': { sportID: 'BASKETBALL', leagueID: 'NCAA' },
+    'epl': { sportID: 'SOCCER', leagueID: 'EPL' }
+  };
+
+  const mapping = sportLeagueMap[league.toLowerCase()];
+  if (!mapping) {
+    return {
+      error: true,
+      message: `League '${league}' mapping not found`,
+      supported: Object.keys(sportLeagueMap),
+    };
+  }
+
+  // 3. Build URL with correct endpoint format
+  const url = `https://api.sportsgameodds.com/v2/events?sportID=${mapping.sportID}&leagueID=${mapping.leagueID}&date=${date}`;
   const res = await fetch(url, {
     headers: {
       "accept": "application/json",
-      "apikey": env.SGO_API_KEY,
+      "x-api-key": env.SGO_API_KEY, // Use correct header format
     },
   });
 
-  // 3. Handle errors gracefully
+  // 4. Handle errors gracefully
   if (!res.ok) {
     return {
       error: true,
@@ -1129,8 +1178,11 @@ export async function fetchSportsGameOddsDay(league: string, date: string, env: 
     };
   }
 
-  // 4. Return parsed JSON
-  return res.json();
+  // 5. Return parsed JSON
+  const response = await res.json();
+  
+  // Return the data array from the response
+  return response.data || [];
 }
 
 async function fetchLeagueWeek(league: string, baseDate: Date, env: Env) {

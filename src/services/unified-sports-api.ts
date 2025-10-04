@@ -173,28 +173,40 @@ class UnifiedSportsAPI {
     }
   }
 
-  // Get games using SportsGameOdds API
-  async getGames(sport: string): Promise<Game[]> {
+  // Get games using SportsGameOdds API - Updated to use correct endpoint format
+  async getGames(sport: string, date?: string): Promise<Game[]> {
     try {
-      // Get games from SportsGameOdds API
-      const sgoGames = await sportsGameOddsAPI.getGames(sport);
-      logAPI('UnifiedSportsAPI', `Retrieved ${sgoGames.length} games from SportsGameOdds`);
-
-      const games: Game[] = sgoGames.map(sgoGame => ({
-        id: sgoGame.id,
-        sport: sgoGame.sport,
-        homeTeam: sgoGame.homeTeam,
-        awayTeam: sgoGame.awayTeam,
-        commenceTime: sgoGame.gameTime,
-        status: sgoGame.status,
-        homeScore: undefined, // SportsGameOdds doesn't provide live scores
+      // Use the correct endpoint format: /nfl/games?date=... instead of /sports/1/games
+      const today = date || new Date().toISOString().split('T')[0];
+      const league = sport.toLowerCase();
+      
+      logAPI('UnifiedSportsAPI', `Fetching games for ${sport} on ${today} using /${league}/games endpoint`);
+      
+      // Call the backend API endpoint that uses the correct format
+      const response = await fetch(`/api/${league}/player-props?date=${today}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      // Extract games from the events data
+      const games: Game[] = (data.events || []).map((event: any) => ({
+        id: event.eventID,
+        sport: sport.toUpperCase(),
+        homeTeam: event.home_team,
+        awayTeam: event.away_team,
+        commenceTime: event.start_time,
+        status: 'scheduled', // Default status
+        homeScore: undefined,
         awayScore: undefined,
         homeOdds: -110, // Default odds
         awayOdds: -110,
-        drawOdds: sgoGame.sport === 'SOCCER' ? -110 : undefined
+        drawOdds: sport === 'soccer' ? -110 : undefined
       }));
 
-      logSuccess('UnifiedSportsAPI', `Returning ${games.length} games for ${sport}`);
+      logSuccess('UnifiedSportsAPI', `Returning ${games.length} games for ${sport} from correct endpoint`);
       return games;
     } catch (error) {
       logError('UnifiedSportsAPI', `Failed to get games for ${sport}:`, error);
@@ -205,7 +217,7 @@ class UnifiedSportsAPI {
   // Get odds comparisons using SportsGameOdds API (for markets/odds)
   async getOddsComparisons(sport: string): Promise<OddsComparison[]> {
     try {
-      // Get games and convert to odds comparisons format
+      // Get games and convert to odds comparisons format using the updated getGames method
       const games = await this.getGames(sport);
       
       const comparisons: OddsComparison[] = games.map(game => ({
@@ -218,7 +230,7 @@ class UnifiedSportsAPI {
         lastUpdate: new Date().toISOString()
       }));
       
-      logSuccess('UnifiedSportsAPI', `Returning ${comparisons.length} odds comparisons for ${sport}`);
+      logSuccess('UnifiedSportsAPI', `Returning ${comparisons.length} odds comparisons for ${sport} from updated endpoint`);
       return comparisons;
     } catch (error) {
       logError('UnifiedSportsAPI', `Failed to get odds comparisons for ${sport}:`, error);
