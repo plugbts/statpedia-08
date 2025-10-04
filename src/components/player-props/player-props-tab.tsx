@@ -18,131 +18,9 @@ import { logAPI, logState, logFilter, logSuccess, logError, logWarning, logInfo,
 import { AdvancedPredictionDisplay } from '@/components/advanced-prediction-display';
 import { advancedPredictionService, ComprehensivePrediction } from '@/services/advanced-prediction-service';
 import { evCalculatorService } from '@/services/ev-calculator';
-import useSWR from 'swr';
-
-// NFL Team mapping for logos
-const logoByTeam: Record<string, string> = {
-  'Arizona Cardinals': 'https://a.espncdn.com/i/teamlogos/nfl/500/ari.png',
-  'Atlanta Falcons': 'https://a.espncdn.com/i/teamlogos/nfl/500/atl.png',
-  'Baltimore Ravens': 'https://a.espncdn.com/i/teamlogos/nfl/500/bal.png',
-  'Buffalo Bills': 'https://a.espncdn.com/i/teamlogos/nfl/500/buf.png',
-  'Carolina Panthers': 'https://a.espncdn.com/i/teamlogos/nfl/500/car.png',
-  'Chicago Bears': 'https://a.espncdn.com/i/teamlogos/nfl/500/chi.png',
-  'Cincinnati Bengals': 'https://a.espncdn.com/i/teamlogos/nfl/500/cin.png',
-  'Cleveland Browns': 'https://a.espncdn.com/i/teamlogos/nfl/500/cle.png',
-  'Dallas Cowboys': 'https://a.espncdn.com/i/teamlogos/nfl/500/dal.png',
-  'Denver Broncos': 'https://a.espncdn.com/i/teamlogos/nfl/500/den.png',
-  'Detroit Lions': 'https://a.espncdn.com/i/teamlogos/nfl/500/det.png',
-  'Green Bay Packers': 'https://a.espncdn.com/i/teamlogos/nfl/500/gb.png',
-  'Houston Texans': 'https://a.espncdn.com/i/teamlogos/nfl/500/hou.png',
-  'Indianapolis Colts': 'https://a.espncdn.com/i/teamlogos/nfl/500/ind.png',
-  'Jacksonville Jaguars': 'https://a.espncdn.com/i/teamlogos/nfl/500/jax.png',
-  'Kansas City Chiefs': 'https://a.espncdn.com/i/teamlogos/nfl/500/kc.png',
-  'Las Vegas Raiders': 'https://a.espncdn.com/i/teamlogos/nfl/500/lv.png',
-  'Los Angeles Chargers': 'https://a.espncdn.com/i/teamlogos/nfl/500/lac.png',
-  'Los Angeles Rams': 'https://a.espncdn.com/i/teamlogos/nfl/500/lar.png',
-  'Miami Dolphins': 'https://a.espncdn.com/i/teamlogos/nfl/500/mia.png',
-  'Minnesota Vikings': 'https://a.espncdn.com/i/teamlogos/nfl/500/min.png',
-  'New England Patriots': 'https://a.espncdn.com/i/teamlogos/nfl/500/ne.png',
-  'New Orleans Saints': 'https://a.espncdn.com/i/teamlogos/nfl/500/no.png',
-  'New York Giants': 'https://a.espncdn.com/i/teamlogos/nfl/500/nyg.png',
-  'New York Jets': 'https://a.espncdn.com/i/teamlogos/nfl/500/nyj.png',
-  'Philadelphia Eagles': 'https://a.espncdn.com/i/teamlogos/nfl/500/phi.png',
-  'Pittsburgh Steelers': 'https://a.espncdn.com/i/teamlogos/nfl/500/pit.png',
-  'San Francisco 49ers': 'https://a.espncdn.com/i/teamlogos/nfl/500/sf.png',
-  'Seattle Seahawks': 'https://a.espncdn.com/i/teamlogos/nfl/500/sea.png',
-  'Tampa Bay Buccaneers': 'https://a.espncdn.com/i/teamlogos/nfl/500/tb.png',
-  'Tennessee Titans': 'https://a.espncdn.com/i/teamlogos/nfl/500/ten.png',
-  'Washington Commanders': 'https://a.espncdn.com/i/teamlogos/nfl/500/wsh.png'
-};
-
-// Utility functions
-const todayISO = () => new Date().toISOString().split('T')[0];
-
-const formatLine = (line: number | null | undefined) => {
-  return line === null || line === undefined ? "-" : String(line);
-};
-
-const formatOdds = (odds: number | string | null | undefined) => {
-  if (odds === null || odds === undefined || String(odds).trim() === "") return "-";
-  const s = String(odds);
-  return s.startsWith("+") || s.startsWith("-") ? s : (Number(odds) > 0 ? `+${odds}` : String(odds));
-};
-
-// Utility function for compact time formatting
-const formatCompactTime = (gameTime: string, gameDate: string) => {
-  try {
-    // Handle both separate gameTime/gameDate and combined gameTime
-    let dateToFormat: Date;
-    
-    if (gameTime && gameTime.includes('T')) {
-      // gameTime is a full ISO string
-      dateToFormat = new Date(gameTime);
-    } else if (gameDate && gameTime) {
-      // Separate date and time - combine them properly
-      const combinedDateTime = gameDate.includes('T') ? gameDate : `${gameDate}T${gameTime}`;
-      dateToFormat = new Date(combinedDateTime);
-    } else if (gameDate) {
-      // Only date available
-      dateToFormat = new Date(gameDate);
-    } else {
-      return 'TBD';
-    }
-    
-    // Check if date is valid
-    if (isNaN(dateToFormat.getTime())) {
-      return 'TBD';
-    }
-    
-    // Format date as M/D (e.g., "12/25")
-    const dateStr = `${dateToFormat.getMonth() + 1}/${dateToFormat.getDate()}`;
-    
-    // Format time as H:MM AM/PM (e.g., "2:30 PM")
-    const timeStr = dateToFormat.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true 
-    });
-    
-    return `${dateStr} ${timeStr}`;
-  } catch (error) {
-    return 'TBD';
-  }
-};
 
 import { cloudflarePlayerPropsAPI } from '@/services/cloudflare-player-props-api';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-
-// TeamMatchup component for rendering team logos and @ separator
-function TeamMatchup({ event }: { event: any }) {
-  return (
-    <div className="flex items-center gap-2">
-      <img 
-        src={`/logos/${event.away_team.id}.png`} 
-        alt={event.away_team.abbr} 
-        className="h-5 w-5" 
-        onError={(e) => {
-          // Fallback to ESPN logo if local logo fails
-          const target = e.target as HTMLImageElement;
-          target.src = `https://a.espncdn.com/i/teamlogos/nfl/500/${event.away_team.id?.toLowerCase().replace(/_/g, '')}.png`;
-        }}
-      />
-      <span className="font-medium">{event.away_team.abbr || event.away_team.name}</span>
-      <span>@</span>
-      <span className="font-medium">{event.home_team.abbr || event.home_team.name}</span>
-      <img 
-        src={`/logos/${event.home_team.id}.png`} 
-        alt={event.home_team.abbr} 
-        className="h-5 w-5" 
-        onError={(e) => {
-          // Fallback to ESPN logo if local logo fails
-          const target = e.target as HTMLImageElement;
-          target.src = `https://a.espncdn.com/i/teamlogos/nfl/500/${event.home_team.id?.toLowerCase().replace(/_/g, '')}.png`;
-        }}
-      />
-    </div>
-  );
-}
 import { 
   TrendingUp, 
   Search, 
@@ -303,46 +181,6 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   // Check if user is subscribed - do this early to avoid hooks issues
   const isSubscribed = userSubscription === 'pro' || userSubscription === 'premium' || userRole === 'admin' || userRole === 'owner';
   
-  // Fetch and data plumbing with SWR
-  const [searchParamsSWR] = useSearchParams();
-  const date = searchParamsSWR.get("date") ?? todayISO();
-  const view = searchParamsSWR.get("view") ?? "compact";
-  
-  const url = `/api/nfl/player-props?date=${date}&view=${view}`;
-  
-  // SWR fetcher function
-  const fetcher = async (url: string) => {
-    const response = await fetch(`https://statpedia-player-props.statpedia.workers.dev${url}`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch player props');
-    }
-    return response.json();
-  };
-  
-  const { data, error, isLoading } = useSWR(url, fetcher, {
-    refreshInterval: 30000, // Refresh every 30 seconds
-    revalidateOnFocus: true,
-    revalidateOnReconnect: true,
-  });
-  
-  const events = data?.events ?? [];
-  const props = events.flatMap(ev => ev.player_props) ?? [];
-  
-  // Log data for debugging
-  useEffect(() => {
-    if (data) {
-      console.log('SWR Data received:', {
-        eventsCount: events.length,
-        totalProps: props.length,
-        sampleEvent: events[0],
-        sampleProps: props.slice(0, 3)
-      });
-    }
-    if (error) {
-      console.error('SWR Error:', error);
-    }
-  }, [data, error, events.length, props.length]);
-  
   // State management
   const [searchQuery, setSearchQuery] = useState('');
   const [sportFilter, setSportFilter] = useState(selectedSport || 'nfl');
@@ -350,43 +188,6 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const [selectedProps, setSelectedProps] = useState<string[]>([]);
   const [realProps, setRealProps] = useState<ConsistentPlayerProp[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
-  
-  // Update realProps when SWR data changes
-  useEffect(() => {
-    if (props && props.length > 0) {
-      // Transform the new API response format to match existing interface
-      const transformedProps = props.map((prop: any) => ({
-        id: `${prop.player_name}_${prop.market_type}_${prop.line}`,
-        playerId: prop.player_name,
-        playerName: prop.player_name,
-        team: 'Unknown', // Will be filled from event data
-        teamAbbr: 'UNK',
-        opponent: 'Unknown',
-        opponentAbbr: 'UNK',
-        gameId: 'unknown',
-        sport: 'nfl',
-        propType: prop.market_type,
-        line: prop.line,
-        overOdds: prop.best_over ? parseFloat(prop.best_over) : null,
-        underOdds: prop.best_under ? parseFloat(prop.best_under) : null,
-        gameDate: date,
-        gameTime: 'TBD',
-        confidence: 0.5,
-        expectedValue: 0,
-        aiRating: 3,
-        recommendation: 'neutral' as const,
-        // New fields from compact view
-        best_over_book: prop.best_over_book,
-        best_under_book: prop.best_under_book,
-      }));
-      
-      setRealProps(transformedProps);
-      console.log(`Transformed ${transformedProps.length} props from SWR data`);
-    } else if (props && props.length === 0) {
-      setRealProps([]);
-      console.log('No props found in SWR data');
-    }
-  }, [props, date]);
   const [showFilterDialog, setShowFilterDialog] = useState(false);
   const [myPicks, setMyPicks] = useState<MyPick[]>([]);
   const [showMyPicks, setShowMyPicks] = useState(false);
@@ -404,17 +205,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const [minLine, setMinLine] = useState(0);
   const [maxLine, setMaxLine] = useState(100);
   const [showSelection, setShowSelection] = useState(false);
-  const [viewMode, setViewMode] = useState<'column' | 'cards'>('column');
-  
-  // Handle view parameter from URL
-  useEffect(() => {
-    const viewParam = searchParams.get('view');
-    if (viewParam === 'compact') {
-      setViewMode('column');
-    } else if (viewParam === 'cards') {
-      setViewMode('cards');
-    }
-  }, [searchParams]);
+  const [viewMode, setViewMode] = useState<'column' | 'cards'>('cards');
   const [selectedSportsbook, setSelectedSportsbook] = useState<string>('all');
   const [availableSportsbooks, setAvailableSportsbooks] = useState<{ key: string; title: string; lastUpdate: string }[]>([]);
   
@@ -614,9 +405,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       try {
         // Use Cloudflare Workers API for unlimited scalability and no restrictions
         logAPI('PlayerPropsTab', `Calling Cloudflare Workers API for ${sport} player props`);
-        const viewParam = searchParams.get('view');
-        const dateParam = searchParams.get('date');
-        const props = await cloudflarePlayerPropsAPI.getPlayerProps(sport, true, dateParam || undefined, viewParam || undefined); // Force refresh for debugging
+        const props = await cloudflarePlayerPropsAPI.getPlayerProps(sport, true); // Force refresh for debugging
         logAPI('PlayerPropsTab', `Cloudflare Workers API returned ${props?.length || 0} props`);
         
         // 🔍 COMPREHENSIVE FRONTEND DEBUG LOGGING
@@ -1388,14 +1177,6 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                 <label className="text-sm font-medium text-foreground">View:</label>
                 <Select value={viewMode} onValueChange={(value: 'column' | 'cards') => {
                   setViewMode(value);
-                  // Update URL parameter
-                  const newSearchParams = new URLSearchParams(searchParams);
-                  if (value === 'column') {
-                    newSearchParams.set('view', 'compact');
-                  } else {
-                    newSearchParams.set('view', 'cards');
-                  }
-                  setSearchParams(newSearchParams);
                 }}>
                   <SelectTrigger className="w-32 bg-background/50 border-primary/20 hover:border-primary/40">
                     <SelectValue placeholder="View" />
@@ -1569,7 +1350,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         </Card>
 
         {/* Loading State */}
-        {isLoading && (
+        {isLoadingData && (
           <div className="flex items-center justify-center py-12">
             <div className="flex items-center gap-2">
               <RefreshCw className="w-5 h-5 animate-spin" />
@@ -1578,25 +1359,8 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
           </div>
         )}
 
-        {/* Error State */}
-        {error && (
-          <Card>
-            <CardContent className="p-12 text-center">
-              <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Error Loading Player Props</h3>
-              <p className="text-muted-foreground mb-4">
-                {error.message || 'Failed to load player props data'}
-              </p>
-              <Button onClick={() => window.location.reload()}>
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Retry
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
         {/* No Data State */}
-        {!isLoading && !error && mixedProps.length === 0 && (
+        {!isLoadingData && mixedProps.length === 0 && (
           <Card>
             <CardContent className="p-12 text-center">
               <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
@@ -1614,54 +1378,23 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
 
 
         {/* Player Props Content */}
-        {!isLoading && !error && mixedProps.length > 0 && (
+        {!isLoadingData && mixedProps.length > 0 && (
           <>
             {viewMode === 'column' ? (
-              <div className="space-y-6">
-                {/* Events with Team Matchups */}
-                {events.map((event: any, eventIndex: number) => (
-                  <Card key={event.eventID || eventIndex}>
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <TeamMatchup event={event} />
-                        <div className="text-sm text-muted-foreground">
-                          {event.start_time ? new Date(event.start_time).toLocaleString() : 'TBD'}
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b">
-                              <th className="text-left p-2">Player</th>
-                              <th className="text-left p-2">Market</th>
-                              <th className="text-left p-2">Line</th>
-                              <th className="text-left p-2">Over</th>
-                              <th className="text-left p-2">Under</th>
-                              <th className="text-left p-2">Over Book</th>
-                              <th className="text-left p-2">Under Book</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {event.player_props?.map((prop: any, propIndex: number) => (
-                              <tr key={`${event.eventID}_${propIndex}`} className="border-b hover:bg-muted/50">
-                                <td className="p-2 font-medium">{prop.player_name}</td>
-                                <td className="p-2 capitalize">{prop.market_type}</td>
-                                <td className="p-2">{formatLine(prop.line)}</td>
-                                <td className="p-2">{formatOdds(prop.best_over)}</td>
-                                <td className="p-2">{formatOdds(prop.best_under)}</td>
-                                <td className="p-2 text-xs text-muted-foreground">{prop.best_over_book || "-"}</td>
-                                <td className="p-2 text-xs text-muted-foreground">{prop.best_under_book || "-"}</td>
-                              </tr>
-                            )) || []}
-                          </tbody>
-                        </table>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+              <PlayerPropsColumnView 
+                props={mixedProps}
+                onAnalysisClick={handleEnhancedAnalysis}
+                onAdvancedAnalysisClick={generateAdvancedPrediction}
+                selectedProps={selectedProps}
+                onSelect={showSelection ? (propId) => {
+                  setSelectedProps(prev => 
+                    prev.includes(propId) 
+                      ? prev.filter(id => id !== propId)
+                      : [...prev, propId]
+                  );
+                } : undefined}
+                showSelection={showSelection}
+              />
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                 {mixedProps.map((prop, index) => {
