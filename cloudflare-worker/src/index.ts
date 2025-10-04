@@ -179,7 +179,7 @@ export async function handlePropsDebug(request: Request, env: Env) {
         JSON.stringify(
           {
             league,
-            rawCount: rawEvents.length,
+            rawCount: Array.isArray(rawEvents) ? rawEvents.length : 0,
             sampleEvent: sample,
           },
           null,
@@ -213,6 +213,7 @@ export async function handlePropsEndpoint(request: Request, env: Env) {
     const leagues = (url.searchParams.get("league") || "nfl")
       .split(",")
       .map(l => l.trim().toLowerCase());
+    const date = url.searchParams.get("date") || "2025-10-05";
     const view = url.searchParams.get("view") || "full";
     const debug = url.searchParams.has("debug");
 
@@ -220,11 +221,18 @@ export async function handlePropsEndpoint(request: Request, env: Env) {
     const debugInfo: any = {};
 
     for (const league of leagues) {
-      // 1. Fetch raw events from SportsGameOdds (single day for debugging)
-      const rawEvents = await fetchSportsGameOddsDay(league.toUpperCase(), "2025-10-05");
+      // 1. Fetch raw events from SportsGameOdds using date parameter
+      const rawEvents = await fetchSportsGameOddsDay(league.toUpperCase(), date);
+
+      // Check for errors in the response
+      if (isErrorResponse(rawEvents)) {
+        responseData.errors = responseData.errors || {};
+        responseData.errors[league] = rawEvents;
+        continue; // Skip this league and move to the next one
+      }
 
       // 2. Normalize events (limit to first 10 for performance)
-      let normalized = rawEvents
+      let normalized = (rawEvents || [])
         .slice(0, 10)
         .map(ev => normalizeEventSGO(ev, request))
         .filter(Boolean);
@@ -1076,14 +1084,46 @@ function getWeekRange(baseDate: Date = new Date(), days: number = 7) {
   };
 }
 
-export async function fetchSportsGameOddsDay(league: string, date: string): Promise<any[]> {
-  const url = `https://api.sportsgameodds.com/v2/${league}/games?date=${date}`;
-  const res = await fetch(url, { headers: { "accept": "application/json" } });
+const SUPPORTED_LEAGUES = new Set([
+  "nfl",
+  "nba",
+  "mlb",
+  "nhl",
+  "ncaaf",
+  "ncaab",
+  "epl"
+  // add more as needed
+]);
 
-  if (!res.ok) {
-    throw new Error(`SGO fetch failed: ${res.status} ${await res.text()}`);
+// Type guard to check if response is an error
+function isErrorResponse(response: any): response is { error: true; message: string; supported?: string[]; body?: string } {
+  return response && typeof response === 'object' && response.error === true;
+}
+
+export async function fetchSportsGameOddsDay(league: string, date: string): Promise<any[] | { error: true; message: string; supported?: string[]; body?: string }> {
+  // 1. Validate league
+  if (!SUPPORTED_LEAGUES.has(league.toLowerCase())) {
+    return {
+      error: true,
+      message: `League '${league}' not supported`,
+      supported: Array.from(SUPPORTED_LEAGUES),
+    };
   }
 
+  // 2. Build URL
+  const url = `https://api.sportsgameodds.com/v2/${league}/games?date=${date}`;
+  const res = await fetch(url, { headers: { accept: "application/json" } });
+
+  // 3. Handle errors gracefully
+  if (!res.ok) {
+    return {
+      error: true,
+      message: `SGO fetch failed: ${res.status}`,
+      body: await res.text(),
+    };
+  }
+
+  // 4. Return parsed JSON
   return res.json();
 }
 
@@ -1108,7 +1148,13 @@ async function fetchLeagueWeek(league: string, baseDate: Date, env: Env) {
   return flatResults;
 }
 
-async function fetchSportsGameOddsWeek(league: string, env: Env) {
+async function fetchSportsGameOddsWeek(league: string, date?: string) {
+  // If date is provided, fetch just that day
+  if (date) {
+    return await fetchSportsGameOddsDay(league.toUpperCase(), date);
+  }
+
+  // Otherwise fetch a week of data
   const baseDate = new Date();
   const { start, end } = getWeekRange(baseDate, 7);
   const dates: string[] = [];
@@ -1124,7 +1170,10 @@ async function fetchSportsGameOddsWeek(league: string, env: Env) {
     dates.map(date => fetchSportsGameOddsDay(league.toUpperCase(), date))
   );
 
-  const flatResults = results.flat();
+  // Filter out error responses and flatten valid results
+  const flatResults = results
+    .filter(result => !isErrorResponse(result))
+    .flat();
   console.log(`Fetched ${flatResults.length} total events across ${dates.length} days`);
   
   return flatResults;
