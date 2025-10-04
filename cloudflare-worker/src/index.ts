@@ -248,6 +248,11 @@ function normalizeEvent(ev: SGEvent) {
 function normalizePlayerGroup(markets: MarketSide[], players: Record<string, Player>) {
   const over = markets.find(m => isOverSide(m.sideID));
   const under = markets.find(m => isUnderSide(m.sideID));
+  
+  // Never return null unless both sides are truly missing
+  if (!over && !under) return null;
+  
+  // Use whichever side exists as base
   const base = over || under;
   if (!base) return null;
 
@@ -255,11 +260,14 @@ function normalizePlayerGroup(markets: MarketSide[], players: Record<string, Pla
   const playerName = player?.name || extractNameFromMarket(base.marketName);
   const marketType = formatStatID(base.statID);
 
+  // Resolve line: prefer bookOverUnder, fallback to fairOverUnder
   const lineStr = firstDefined(over?.bookOverUnder, under?.bookOverUnder, over?.fairOverUnder, under?.fairOverUnder);
   const line = toNumberOrNull(lineStr);
 
+  // Always collect books with consensus fallback
   const books = collectBooks(over, under);
 
+  // Pick best odds per side (handle single-sided markets)
   const best_over = pickBest(books.filter(b => b.side === "over" || b.side === "yes"));
   const best_under = pickBest(books.filter(b => b.side === "under" || b.side === "no"));
 
@@ -288,15 +296,24 @@ function normalizePlayerGroup(markets: MarketSide[], players: Record<string, Pla
 function normalizeTeamGroup(markets: MarketSide[]) {
   const over = markets.find(m => isOverSide(m.sideID));
   const under = markets.find(m => isUnderSide(m.sideID));
+  
+  // Never return null unless both sides are truly missing
+  if (!over && !under) return null;
+  
+  // Use whichever side exists as base
   const base = over || under;
   if (!base) return null;
 
   const marketType = formatStatID(base.statID);
+  
+  // Resolve line: prefer bookOverUnder, fallback to fairOverUnder
   const lineStr = firstDefined(over?.bookOverUnder, under?.bookOverUnder, over?.fairOverUnder, under?.fairOverUnder);
   const line = toNumberOrNull(lineStr);
 
+  // Always collect books with consensus fallback
   const books = collectBooks(over, under);
 
+  // Pick best odds per side (handle single-sided markets)
   const best_over = pickBest(books.filter(b => b.side === "over" || b.side === "yes"));
   const best_under = pickBest(books.filter(b => b.side === "under" || b.side === "no"));
 
@@ -326,17 +343,17 @@ function collectBooks(over?: MarketSide, under?: MarketSide) {
   for (const side of [over, under]) {
     if (!side) continue;
 
-    // Consensus fallback using market-level fields
-    if (side.bookOdds || side.bookOverUnder || side.fairOdds || side.fairOverUnder) {
-      books.push({
-        bookmaker: "consensus",
-        side: String(side.sideID).toLowerCase(),
-        price: side.bookOdds ?? side.fairOdds ?? "",
-        line: toNumberOrNull(side.bookOverUnder ?? side.fairOverUnder),
-        deeplink: undefined,
-      });
-    }
+    // Always push a "consensus" book using bookOdds/bookOverUnder as fallback
+    // This ensures we always have at least one book entry, even if byBookmaker is empty
+    books.push({
+      bookmaker: "consensus",
+      side: String(side.sideID).toLowerCase(),
+      price: side.bookOdds ?? side.fairOdds ?? "",
+      line: toNumberOrNull(side.bookOverUnder ?? side.fairOverUnder),
+      deeplink: undefined,
+    });
 
+    // Then add per-book odds if available
     const byBook = side.byBookmaker || {};
     for (const [book, data] of Object.entries(byBook)) {
       books.push({
@@ -345,9 +362,9 @@ function collectBooks(over?: MarketSide, under?: MarketSide) {
         price: data.odds ?? side.bookOdds ?? side.fairOdds ?? "",
         line: toNumberOrNull(firstDefined(side.bookOverUnder, side.fairOverUnder, data.overUnder)),
         deeplink: data.deeplink,
-                });
-              }
-            }
+      });
+    }
+  }
             
   return books;
 }
