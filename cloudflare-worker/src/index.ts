@@ -174,22 +174,24 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
 }
 
 export async function handlePropsEndpoint(request: Request, env: Env) {
-  const url = new URL(request.url);
-  const leagues = (url.searchParams.get("league") || "nfl")
-    .split(",")
-    .map(l => l.trim().toLowerCase());
-  const view = url.searchParams.get("view") || "full";
-  const debug = url.searchParams.has("debug");
+  try {
+    const url = new URL(request.url);
+    const leagues = (url.searchParams.get("league") || "nfl")
+      .split(",")
+      .map(l => l.trim().toLowerCase());
+    const view = url.searchParams.get("view") || "full";
+    const debug = url.searchParams.has("debug");
 
-  const responseData: any = { events: [] };
-  const debugInfo: any = {};
+    const responseData: any = { events: [] };
+    const debugInfo: any = {};
 
   for (const league of leagues) {
     // 1. Fetch raw events from SportsGameOdds
     const rawEvents = await fetchSportsGameOddsWeek(league, env);
 
-    // 2. Normalize events
+    // 2. Normalize events (limit to first 10 for performance)
     let normalized = rawEvents
+      .slice(0, 10)
       .map(ev => normalizeEventSGO(ev, request))
       .filter(Boolean);
 
@@ -242,11 +244,21 @@ export async function handlePropsEndpoint(request: Request, env: Env) {
     }
   }
 
-  if (debug) responseData.debug = debugInfo;
+    if (debug) responseData.debug = debugInfo;
 
-  return new Response(JSON.stringify(responseData), {
-    headers: { "content-type": "application/json" },
-  });
+    return new Response(JSON.stringify(responseData), {
+      headers: { "content-type": "application/json" },
+    });
+  } catch (error) {
+    console.error("Error in handlePropsEndpoint:", error);
+    return new Response(JSON.stringify({ 
+      error: "Internal server error", 
+      message: error instanceof Error ? error.message : "Unknown error" 
+    }), {
+      status: 500,
+      headers: { "content-type": "application/json" },
+    });
+  }
 }
 
 async function handleDebugPlayerProps(url: URL, env: Env): Promise<Response> {
@@ -421,11 +433,8 @@ function normalizeEventSGO(ev: any, request: any) {
   const players = ev.players || {};
   const oddsDict = ev.odds || {};
   
-  console.log(`Normalizing SGO event ${ev.eventID} with ${Object.keys(oddsDict).length} odds`);
-
   // Handle empty days gracefully
   if (!ev.teams?.home || !ev.teams?.away) {
-    console.log("Skipping invalid event", ev.eventID, "missing teams");
     return null;
   }
 
@@ -444,8 +453,6 @@ function normalizeEventSGO(ev: any, request: any) {
 
     (groups[key] ||= []).push(m);
   }
-  
-  console.log(`Created ${Object.keys(groups).length} groups`);
 
   const playerProps: any[] = [];
   const teamProps: any[] = [];
@@ -454,28 +461,17 @@ function normalizeEventSGO(ev: any, request: any) {
     const markets = groups[key];
     // Check for playerID to determine if it's a player prop
     const hasPlayer = markets.some(mm => !!mm.playerID);
-    
-    console.log(`Group ${key}: hasPlayer=${hasPlayer}, markets=${markets.length}`);
 
     if (hasPlayer) {
-      console.log("DEBUG player_props sample", {
-        count: ev.player_props?.length,
-        first: ev.player_props?.[0]
-      });
       const norm = normalizePlayerGroup(markets, players, ev.leagueID || "NFL");
       if (norm) {
         playerProps.push(norm);
-        console.log(`Added player prop: ${norm.player_name} ${norm.market_type}`);
-      } else {
-        console.log(`Failed to normalize player group: ${key}`);
       }
     } else {
       const norm = normalizeTeamGroup(markets);
       if (norm) teamProps.push(norm);
     }
   }
-  
-  console.log(`Final counts: playerProps=${playerProps.length}, teamProps=${teamProps.length}`);
 
   // Normalize teams using the correct SGO structure
   const homeTeam = normalizeTeam(ev.teams?.home);
