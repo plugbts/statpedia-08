@@ -186,6 +186,19 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
     console.log(`Fetching events for league: ${league}, date: ${date}`);
     const rawEvents = await fetchLeagueWeek(league.toUpperCase(), new Date(date), env);
     console.log(`Fetched ${rawEvents.length} raw events for ${league}`);
+    
+    // Debug log for raw SGO data structure
+    console.log({
+      league,
+      rawCount: rawEvents.length,
+      sample: {
+        id: rawEvents[0]?.event_id,
+        start_time: rawEvents[0]?.start_time,
+        home_team: rawEvents[0]?.home_team,
+        away_team: rawEvents[0]?.away_team,
+        sampleProp: rawEvents[0]?.player_props?.[0],
+      }
+    });
 
     // 2. Normalize events (normalizeEventSGO already handles player props)
     let normalized = rawEvents
@@ -414,7 +427,7 @@ function safeNormalizeEvent(ev: SGEvent) {
 }
 
 function normalizeEventSGO(ev: any, request: any) {
-  // SGO uses legacy schema, so we need to normalize it
+  // SGO uses the actual schema from the API
   const players = ev.players || {};
   const oddsDict = ev.odds || {};
   
@@ -431,7 +444,7 @@ function normalizeEventSGO(ev: any, request: any) {
   for (const oddID in oddsDict) {
     const m = oddsDict[oddID];
 
-    // Build a composite key from SGO legacy fields (same as debug endpoint)
+    // Build a composite key from SGO fields
     const key = [
       m.statEntityID || "",     // which player/team this prop belongs to
       m.statID || "",           // unique market identifier
@@ -449,7 +462,7 @@ function normalizeEventSGO(ev: any, request: any) {
 
   for (const key in groups) {
     const markets = groups[key];
-    // Use same logic as debug endpoint: check for playerID
+    // Check for playerID to determine if it's a player prop
     const hasPlayer = markets.some(mm => !!mm.playerID);
     
     console.log(`Group ${key}: hasPlayer=${hasPlayer}, markets=${markets.length}`);
@@ -470,13 +483,14 @@ function normalizeEventSGO(ev: any, request: any) {
   
   console.log(`Final counts: playerProps=${playerProps.length}, teamProps=${teamProps.length}`);
 
+  // Normalize teams using the correct SGO structure
   const homeTeam = normalizeTeam(ev.teams?.home);
   const awayTeam = normalizeTeam(ev.teams?.away);
   
   return {
     eventID: ev.eventID,
     leagueID: ev.leagueID,
-    start_time: toUserTimeSGO(ev.info?.scheduled || ev.status?.startsAt, request.cf?.timezone || "America/New_York"),
+    start_time: toUserTimeSGO(ev.info?.scheduled || ev.status?.startsAt || null, request.cf?.timezone || "America/New_York"),
     home_team: homeTeam,
     away_team: awayTeam,
     team_props: teamProps,
@@ -784,8 +798,8 @@ function normalizeTeam(team: any) {
   return {
     id: team.teamID ?? team.id ?? null,
     abbr:
-      team.abbreviation ??
       team.names?.short ??
+      team.abbreviation ??
       team.names?.abbr ??
       team.alias ??
       team.displayName ??
