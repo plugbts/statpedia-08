@@ -1,7 +1,7 @@
 var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
-// .wrangler/tmp/bundle-BkiM0u/checked-fetch.js
+// .wrangler/tmp/bundle-lrihwI/checked-fetch.js
 var urls = /* @__PURE__ */ new Set();
 function checkURL(request, init) {
   const url = request instanceof URL ? request : new URL(
@@ -27,7 +27,7 @@ globalThis.fetch = new Proxy(globalThis.fetch, {
   }
 });
 
-// .wrangler/tmp/bundle-BkiM0u/strip-cf-connecting-ip-header.js
+// .wrangler/tmp/bundle-lrihwI/strip-cf-connecting-ip-header.js
 function stripCfConnectingIPHeader(input, init) {
   const request = new Request(input, init);
   request.headers.delete("CF-Connecting-IP");
@@ -116,7 +116,7 @@ async function handlePropsDebug(request, env) {
   const url = new URL(request.url);
   const league = url.searchParams.get("league") || "nfl";
   try {
-    const rawEvents = await fetchSportsGameOddsDay(league.toUpperCase(), "2025-10-04");
+    const rawEvents = await fetchSportsGameOddsDay(league.toUpperCase(), "2025-10-04", env);
     const sample = rawEvents[0] || null;
     return withCORS(
       new Response(
@@ -161,7 +161,7 @@ async function handlePropsEndpoint(request, env) {
     const responseData = { events: [] };
     const debugInfo = {};
     for (const league of leagues) {
-      const rawEvents = await fetchSportsGameOddsDay(league.toUpperCase(), date);
+      const rawEvents = await fetchSportsGameOddsDay(league.toUpperCase(), date, env);
       if (isErrorResponse(rawEvents)) {
         responseData.errors = responseData.errors || {};
         responseData.errors[league] = rawEvents;
@@ -726,7 +726,7 @@ function isErrorResponse(response) {
   return response && typeof response === "object" && response.error === true;
 }
 __name(isErrorResponse, "isErrorResponse");
-async function fetchSportsGameOddsDay(league, date) {
+async function fetchSportsGameOddsDay(league, date, env) {
   if (!SUPPORTED_LEAGUES.has(league.toLowerCase())) {
     return {
       error: true,
@@ -735,7 +735,12 @@ async function fetchSportsGameOddsDay(league, date) {
     };
   }
   const url = `https://api.sportsgameodds.com/v2/${league}/games?date=${date}`;
-  const res = await fetch(url, { headers: { accept: "application/json" } });
+  const res = await fetch(url, {
+    headers: {
+      "accept": "application/json",
+      "apikey": env.SGO_API_KEY
+    }
+  });
   if (!res.ok) {
     return {
       error: true,
@@ -1058,7 +1063,7 @@ var jsonError = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx)
 }, "jsonError");
 var middleware_miniflare3_json_error_default = jsonError;
 
-// .wrangler/tmp/bundle-BkiM0u/middleware-insertion-facade.js
+// .wrangler/tmp/bundle-lrihwI/middleware-insertion-facade.js
 var __INTERNAL_WRANGLER_MIDDLEWARE__ = [
   middleware_ensure_req_body_drained_default,
   middleware_miniflare3_json_error_default
@@ -1090,7 +1095,7 @@ function __facade_invoke__(request, env, ctx, dispatch, finalMiddleware) {
 }
 __name(__facade_invoke__, "__facade_invoke__");
 
-// .wrangler/tmp/bundle-BkiM0u/middleware-loader.entry.ts
+// .wrangler/tmp/bundle-lrihwI/middleware-loader.entry.ts
 var __Facade_ScheduledController__ = class {
   constructor(scheduledTime, cron, noRetry) {
     this.scheduledTime = scheduledTime;

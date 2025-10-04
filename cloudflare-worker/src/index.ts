@@ -6,6 +6,7 @@ import { withCORS, handleOptions } from "./cors";
 
 export interface Env {
   SPORTSODDS_API_KEY: string;
+  SGO_API_KEY: string;
   CACHE_LOCKS?: KVNamespace; // create a KV namespace for lock keys in wrangler.toml
   PURGE_TOKEN?: string; // optional secret token for cache purge endpoint
   METRICS?: KVNamespace; // KV namespace for storing metrics counters
@@ -169,7 +170,7 @@ export async function handlePropsDebug(request: Request, env: Env) {
 
   try {
     // 1. Fetch just ONE day to avoid hanging
-    const rawEvents = await fetchSportsGameOddsDay(league.toUpperCase(), "2025-10-04");
+    const rawEvents = await fetchSportsGameOddsDay(league.toUpperCase(), "2025-10-04", env);
 
     // 2. Just dump the first event
     const sample = rawEvents[0] || null;
@@ -222,7 +223,7 @@ export async function handlePropsEndpoint(request: Request, env: Env) {
 
     for (const league of leagues) {
       // 1. Fetch raw events from SportsGameOdds using date parameter
-      const rawEvents = await fetchSportsGameOddsDay(league.toUpperCase(), date);
+      const rawEvents = await fetchSportsGameOddsDay(league.toUpperCase(), date, env);
 
       // Check for errors in the response
       if (isErrorResponse(rawEvents)) {
@@ -1100,7 +1101,7 @@ function isErrorResponse(response: any): response is { error: true; message: str
   return response && typeof response === 'object' && response.error === true;
 }
 
-export async function fetchSportsGameOddsDay(league: string, date: string): Promise<any[] | { error: true; message: string; supported?: string[]; body?: string }> {
+export async function fetchSportsGameOddsDay(league: string, date: string, env: Env): Promise<any[] | { error: true; message: string; supported?: string[]; body?: string }> {
   // 1. Validate league
   if (!SUPPORTED_LEAGUES.has(league.toLowerCase())) {
     return {
@@ -1112,7 +1113,12 @@ export async function fetchSportsGameOddsDay(league: string, date: string): Prom
 
   // 2. Build URL
   const url = `https://api.sportsgameodds.com/v2/${league}/games?date=${date}`;
-  const res = await fetch(url, { headers: { accept: "application/json" } });
+  const res = await fetch(url, {
+    headers: {
+      "accept": "application/json",
+      "apikey": env.SGO_API_KEY,
+    },
+  });
 
   // 3. Handle errors gracefully
   if (!res.ok) {
@@ -1139,7 +1145,7 @@ async function fetchLeagueWeek(league: string, baseDate: Date, env: Env) {
   console.log(`Fetching ${league} props for dates: ${dates.join(', ')}`);
 
   const results = await Promise.all(
-    dates.map(date => fetchSportsGameOddsDay(league, date))
+    dates.map(date => fetchSportsGameOddsDay(league, date, env))
   );
 
   const flatResults = results.flat();
@@ -1148,10 +1154,10 @@ async function fetchLeagueWeek(league: string, baseDate: Date, env: Env) {
   return flatResults;
 }
 
-async function fetchSportsGameOddsWeek(league: string, date?: string) {
+async function fetchSportsGameOddsWeek(league: string, date: string | undefined, env: Env) {
   // If date is provided, fetch just that day
   if (date) {
-    return await fetchSportsGameOddsDay(league.toUpperCase(), date);
+    return await fetchSportsGameOddsDay(league.toUpperCase(), date, env);
   }
 
   // Otherwise fetch a week of data
@@ -1167,7 +1173,7 @@ async function fetchSportsGameOddsWeek(league: string, date?: string) {
   console.log(`Fetching ${league} props for dates: ${dates.join(', ')}`);
 
   const results = await Promise.all(
-    dates.map(date => fetchSportsGameOddsDay(league.toUpperCase(), date))
+    dates.map(date => fetchSportsGameOddsDay(league.toUpperCase(), date, env))
   );
 
   // Filter out error responses and flatten valid results

@@ -9,6 +9,7 @@ workers_dev = true
 # Global configuration (will be inherited by all environments)
 [vars]
 SPORTSODDS_API_KEY = "d5dc1f00bc42133550bc1605dd8f457f"
+SGO_API_KEY = "your-real-api-key-here"
 
 [env.production]
 name = "statpedia-player-props"
@@ -16,6 +17,7 @@ name = "statpedia-player-props"
 # Production environment variables
 [env.production.vars]
 SPORTSODDS_API_KEY = "d5dc1f00bc42133550bc1605dd8f457f"
+SGO_API_KEY = "your-real-api-key-here"
 CACHE_TTL_SECONDS = "300"
 MAX_EVENTS_PER_REQUEST = "100"
 MAX_PROPS_PER_REQUEST = "500"
@@ -48,6 +50,7 @@ name = "statpedia-player-props-staging"
 # Staging environment variables
 [env.staging.vars]
 SPORTSODDS_API_KEY = "d5dc1f00bc42133550bc1605dd8f457f"
+SGO_API_KEY = "your-real-api-key-here"
 CACHE_TTL_SECONDS = "300"
 MAX_EVENTS_PER_REQUEST = "100"
 MAX_PROPS_PER_REQUEST = "500"
