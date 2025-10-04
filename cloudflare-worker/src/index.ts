@@ -169,7 +169,7 @@ export async function handlePropsDebug(request: Request, env: Env) {
 
   try {
     // 1. Fetch just ONE day to avoid hanging
-    const rawEvents = await fetchUpstreamProps(league.toUpperCase(), "2025-10-04", env);
+    const rawEvents = await fetchSportsGameOddsDay(league.toUpperCase(), "2025-10-04");
 
     // 2. Just dump the first event
     const sample = rawEvents[0] || null;
@@ -221,7 +221,7 @@ export async function handlePropsEndpoint(request: Request, env: Env) {
 
     for (const league of leagues) {
       // 1. Fetch raw events from SportsGameOdds (single day for debugging)
-      const rawEvents = await fetchUpstreamProps(league.toUpperCase(), "2025-10-05", env);
+      const rawEvents = await fetchSportsGameOddsDay(league.toUpperCase(), "2025-10-05");
 
       // 2. Normalize events (limit to first 10 for performance)
       let normalized = rawEvents
@@ -1076,17 +1076,15 @@ function getWeekRange(baseDate: Date = new Date(), days: number = 7) {
   };
 }
 
-async function fetchUpstreamProps(league: string, date: string, env: Env) {
-  const upstreamUrl = buildUpstreamUrl("/v2/events", league, date);
-  const res = await fetch(upstreamUrl, { headers: { 'x-api-key': env.SPORTSODDS_API_KEY } });
-  
+export async function fetchSportsGameOddsDay(league: string, date: string): Promise<any[]> {
+  const url = `https://api.sportsgameodds.com/v2/${league}/games?date=${date}`;
+  const res = await fetch(url, { headers: { "accept": "application/json" } });
+
   if (!res.ok) {
-    console.log(`Failed to fetch ${league} props for ${date}: ${res.status}`);
-    return [];
+    throw new Error(`SGO fetch failed: ${res.status} ${await res.text()}`);
   }
-  
-  const data = await res.json() as any;
-  return data?.data || [];
+
+  return res.json();
 }
 
 async function fetchLeagueWeek(league: string, baseDate: Date, env: Env) {
@@ -1101,7 +1099,7 @@ async function fetchLeagueWeek(league: string, baseDate: Date, env: Env) {
   console.log(`Fetching ${league} props for dates: ${dates.join(', ')}`);
 
   const results = await Promise.all(
-    dates.map(date => fetchUpstreamProps(league, date, env))
+    dates.map(date => fetchSportsGameOddsDay(league, date))
   );
 
   const flatResults = results.flat();
@@ -1123,7 +1121,7 @@ async function fetchSportsGameOddsWeek(league: string, env: Env) {
   console.log(`Fetching ${league} props for dates: ${dates.join(', ')}`);
 
   const results = await Promise.all(
-    dates.map(date => fetchUpstreamProps(league.toUpperCase(), date, env))
+    dates.map(date => fetchSportsGameOddsDay(league.toUpperCase(), date))
   );
 
   const flatResults = results.flat();
