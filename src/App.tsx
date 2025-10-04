@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useSync } from "@/hooks/use-sync";
 import { useEmailCron } from "@/hooks/use-email-cron";
 import Index from "./pages/Index";
-import Admin from "./pages/Admin";
+import { Admin } from "./pages/Admin";
 import PredictionDetail from "./pages/PredictionDetail";
 import { Settings } from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -17,191 +17,48 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      retry: 1,
+    },
+  },
+});
 
-// Settings Wrapper Component
 const SettingsWrapper = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [userRole, setUserRole] = useState('user');
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Load theme preference on app start
-    const savedTheme = localStorage.getItem('statpedia-theme');
-    if (savedTheme) {
-      const html = document.documentElement;
-      if (savedTheme === 'light') {
-        html.classList.remove('dark');
-        html.classList.add('light');
-      } else {
-        html.classList.remove('light');
-        html.classList.add('dark');
-      }
-    }
-
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user);
-        // Determine user role based on email or metadata
-        const email = session.user.email;
-        if (email === 'plug@statpedia.com') {
-          setUserRole('owner');
-        } else if (email?.includes('admin')) {
-          setUserRole('admin');
-        } else if (email?.includes('mod')) {
-          setUserRole('mod');
-        } else {
-          setUserRole('user');
-        }
-      }
-      setIsLoading(false);
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setUser(session.user);
-        // Determine user role
-        const email = session.user.email;
-        if (email === 'plug@statpedia.com') {
-          setUserRole('owner');
-        } else if (email?.includes('admin')) {
-          setUserRole('admin');
-        } else if (email?.includes('mod')) {
-          setUserRole('mod');
-        } else {
-          setUserRole('user');
-        }
-      } else {
-        setUser(null);
-        setUserRole('user');
-      }
-      setIsLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    };
+    getUser();
   }, []);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  return <Settings user={user} userRole={userRole} />;
+  return <Settings user={user} />;
 };
 
-// Support Center Wrapper Component
 const SupportCenterWrapper = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [userRole, setUserRole] = useState('user');
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user);
-        // Determine user role based on email or metadata
-        const email = session.user.email;
-        if (email === 'plug@statpedia.com') {
-          setUserRole('owner');
-        } else if (email?.includes('admin')) {
-          setUserRole('admin');
-        } else if (email?.includes('mod')) {
-          setUserRole('mod');
-        } else {
-          setUserRole('user');
-        }
-      }
-      setIsLoading(false);
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setUser(session.user);
-        // Determine user role
-        const email = session.user.email;
-        if (email === 'plug@statpedia.com') {
-          setUserRole('owner');
-        } else if (email?.includes('admin')) {
-          setUserRole('admin');
-        } else if (email?.includes('mod')) {
-          setUserRole('mod');
-        } else {
-          setUserRole('user');
-        }
-      } else {
-        setUser(null);
-        setUserRole('user');
-      }
-      setIsLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    };
+    getUser();
   }, []);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  return (
-    <SupportCenter 
-      userRole={userRole}
-      userEmail={user?.email || ''}
-      userName={user?.user_metadata?.display_name || user?.email?.split('@')[0] || ''}
-    />
-  );
+  return <SupportCenter user={user} />;
 };
 
-// Sync Provider Component
-const SyncProvider = ({ children }: { children: React.ReactNode }) => {
-  const sync = useSync({
-    enableLoveableSync: true,
-    enableSupabaseRealtime: true,
-    onSyncSuccess: (event) => {
-      console.log('Sync successful:', event);
-    },
-    onSyncError: (error) => {
-      console.error('Sync error:', error);
-    },
-    tables: [
-      {
-        table: 'profiles',
-        onInsert: (payload) => console.log('Profile created:', payload),
-        onUpdate: (payload) => console.log('Profile updated:', payload),
-        onDelete: (payload) => console.log('Profile deleted:', payload),
-      },
-      {
-        table: 'bet_tracking',
-        onInsert: (payload) => console.log('Bet created:', payload),
-        onUpdate: (payload) => console.log('Bet updated:', payload),
-        onDelete: (payload) => console.log('Bet deleted:', payload),
-      },
-    ],
-  });
-
-  // Initialize email cron service
+const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const sync = useSync();
   const emailCron = useEmailCron();
 
-  // Log sync status
-  console.log('Sync Status:', {
-    isFullyConnected: sync.isFullyConnected,
-    isLoveableConnected: sync.isLoveableConnected,
-    isSupabaseConnected: sync.isSupabaseConnected,
-    lastSync: sync.lastSync,
-    error: sync.error,
-  });
-
-  // Log email cron status
+  console.log('Sync Status:', sync.status);
   console.log('Email Cron Status:', emailCron.status);
 
   return <>{children}</>;
