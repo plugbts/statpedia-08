@@ -470,11 +470,11 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <div className="w-12 h-12 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-slate-200 font-bold text-lg shadow-2xl border border-slate-600">
-                {prop.playerName.split(' ').map(n => n[0]).join('')}
+                {prop.playerName ? prop.playerName.split(' ').map(n => n[0]).join('') : '?'}
               </div>
               <div>
                 <DialogTitle className="text-xl font-bold text-slate-100">
-                  {prop.playerName} - {prop.propType}
+                  {prop.playerName || 'Unknown Player'} - {prop.propType}
                 </DialogTitle>
                 <div className="flex items-center space-x-4 text-slate-300 mt-2">
                   <div className="flex items-center space-x-2">

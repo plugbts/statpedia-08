@@ -344,18 +344,18 @@ export function PlayerPropsColumnView({
                           const target = e.target as HTMLImageElement;
                           target.style.display = 'none';
                           const parent = target.parentElement;
-                          if (parent) {
+                          if (parent && prop.playerName) {
                             parent.innerHTML = prop.playerName.split(' ').map(n => n[0]).join('');
                           }
                         }}
                       />
                     ) : (
-                      prop.playerName.split(' ').map(n => n[0]).join('')
+                      prop.playerName ? prop.playerName.split(' ').map(n => n[0]).join('') : '?'
                     )}
                   </div>
                   <div className="text-center min-w-0 flex-1">
                     <div className="font-semibold text-slate-100 text-sm">
-                      {prop.playerName}
+                      {prop.playerName || 'Unknown Player'}
                     </div>
                     <div className="text-xs text-slate-400 mt-1">
                       {prop.teamAbbr} vs {prop.opponentAbbr}
