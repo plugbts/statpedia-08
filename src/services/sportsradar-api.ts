@@ -15,7 +15,7 @@ const SPORTRADAR_API_KEYS = {
   ODDS_COMPARISONS_FUTURE: 'onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D'
 };
 
-const SPORTRADAR_BASE_URL = 'https://api.sportradar.com';
+const SPORTRADAR_BASE_URL = 'https://statpedia-player-props.statpedia.workers.dev/api/sportradar';
 
 // Cache configuration
 const CACHE_DURATION = {

@@ -134,6 +134,10 @@ export default {
     else if (url.pathname === "/api/cache/purge") {
       resp = await handleCachePurge(url, request, env);
     }
+    // SportRadar proxy endpoint: /api/sportradar/*
+    else if (url.pathname.startsWith("/api/sportradar/")) {
+      resp = await handleSportRadarProxy(url, request, env);
+    }
     // Route: /api/{league}/player-props
     else {
     const match = url.pathname.match(/^\/api\/([a-z]+)\/player-props$/);
@@ -381,6 +385,45 @@ async function handleCachePurge(url: URL, request: Request, env: Env): Promise<R
       } 
     }
   );
+}
+
+async function handleSportRadarProxy(url: URL, request: Request, env: Env) {
+  try {
+    // Extract the SportRadar endpoint from the URL
+    const sportradarPath = url.pathname.replace("/api/sportradar", "");
+    const sportradarUrl = `https://api.sportradar.com${sportradarPath}${url.search}`;
+    
+    console.log(`Proxying SportRadar request to: ${sportradarUrl}`);
+    
+    // Forward the request to SportRadar
+    const response = await fetch(sportradarUrl, {
+      method: request.method,
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'Statpedia/1.0',
+        'X-API-Key': 'onLEN0JXRxK7h3OmgCSPOnbkgVvodnrIx1lD4M4D' // SportRadar API key
+      }
+    });
+
+    if (!response.ok) {
+      console.log(`SportRadar API error: ${response.status} ${response.statusText}`);
+      return new Response(
+        JSON.stringify({ error: "SportRadar API error", status: response.status }),
+        { status: response.status, headers: { "content-type": "application/json" } }
+      );
+    }
+
+    const data = await response.json();
+    return new Response(JSON.stringify(data), {
+      headers: { "content-type": "application/json" }
+    });
+  } catch (error) {
+    console.log(`SportRadar proxy error:`, error);
+    return new Response(
+      JSON.stringify({ error: "Proxy error" }),
+      { status: 500, headers: { "content-type": "application/json" } }
+    );
+  }
 }
 
 function buildUpstreamUrl(path: string, league: string, date: string, oddIDs?: string | null, bookmakerID?: string | null) {
