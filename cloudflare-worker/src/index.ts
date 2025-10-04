@@ -223,8 +223,8 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
   
   console.log(`Filtered ${events.length} events for league ${league}`);
 
-  // Normalize using SGO-only approach
-  let normalized = events.map((ev: any) => normalizeEventSGO(ev, request));
+  // Normalize using legacy approach (SGO uses legacy schema)
+  let normalized = events.map((ev: any) => safeNormalizeEvent(ev as SGEvent));
 
   // Apply 125-prop cap per league with priority sorting
   normalized = capPropsPerLeague(normalized, league, 125);
@@ -507,27 +507,63 @@ function safeNormalizeEvent(ev: SGEvent) {
 }
 
 function normalizeEventSGO(ev: any, request: any) {
+  // SGO uses legacy schema, so we need to normalize it
+  const players = ev.players || {};
+  const oddsDict = ev.odds || {};
+  
+  console.log(`Normalizing SGO event ${ev.eventID} with ${Object.keys(oddsDict).length} odds`);
+
+  // Group by SGO identifiers to preserve all distinct prop types
+  const groups: Record<string, any[]> = {};
+  for (const oddID in oddsDict) {
+    const m = oddsDict[oddID];
+
+    // Build a composite key from SGO legacy fields
+    const key = [
+      m.statEntityID || "",     // which player/team this prop belongs to
+      m.statID || "",           // unique market identifier
+      m.periodID || "",         // full_game, 1H, 1Q, etc.
+      m.betTypeID || "",        // over/under, yes/no
+    ].join("|");
+
+    (groups[key] ||= []).push(m);
+  }
+  
+  console.log(`Created ${Object.keys(groups).length} groups`);
+
+  const playerProps: any[] = [];
+  const teamProps: any[] = [];
+
+  for (const key in groups) {
+    const markets = groups[key];
+    const hasPlayer = markets.some(mm => !!mm.playerID);
+    
+    console.log(`Group ${key}: hasPlayer=${hasPlayer}, markets=${markets.length}`);
+
+    if (hasPlayer) {
+      const norm = normalizePlayerGroup(markets, players, ev.leagueID || "NFL");
+      if (norm) {
+        playerProps.push(norm);
+        console.log(`Added player prop: ${norm.player_name} ${norm.market_type}`);
+      } else {
+        console.log(`Failed to normalize player group: ${key}`);
+      }
+    } else {
+      const norm = normalizeTeamGroup(markets);
+      if (norm) teamProps.push(norm);
+    }
+  }
+  
+  console.log(`Final counts: playerProps=${playerProps.length}, teamProps=${teamProps.length}`);
+
   return {
-    eventID: ev.event_id,              // SGO's event identifier
-    leagueID: ev.league_id,            // SGO's league identifier
-    start_time: toUserTimeSGO(ev.start_time, request.cf?.timezone || "America/New_York"),
-    home_team: normalizeTeamSGO(ev.home_team),
-    away_team: normalizeTeamSGO(ev.away_team),
-    team_props: (ev.team_props || []).map(tp => ({
-      market_type: tp.market_type,
-      line: tp.line,
-      best_over: tp.best_over,
-      best_under: tp.best_under,
-    })),
-    player_props: (ev.player_props || []).map(pp => ({
-      player_name: pp.player_name,
-      teamID: pp.team_id ?? null,
-      market_type: pp.market_type,
-      line: pp.line,
-      best_over: pp.best_over,
-      best_under: pp.best_under,
-      books: pp.books || [],
-    })),
+    eventID: ev.eventID,
+    leagueID: ev.leagueID,
+    start_time: toUserTimeSGO(ev.info?.scheduled || ev.status?.startsAt, request.cf?.timezone || "America/New_York"),
+    home_team: normalizeTeamSGO(ev.teams?.home) || normalizeTeam(ev.teams?.home),
+    away_team: normalizeTeamSGO(ev.teams?.away) || normalizeTeam(ev.teams?.away),
+    team_props: teamProps,
+    player_props: playerProps,
   };
 }
 
@@ -614,22 +650,22 @@ function normalizeEvent(ev: SGEvent) {
 
 function normalizePlayerGroup(markets: any[], players: Record<string, any>, league: string) {
   // Pick base market (over or under) to anchor the group
-  const over = markets.find(m => m.side?.toLowerCase() === "over" || m.side?.toLowerCase() === "yes");
-  const under = markets.find(m => m.side?.toLowerCase() === "under" || m.side?.toLowerCase() === "no");
+  const over = markets.find(m => isOverSide(m.sideID));
+  const under = markets.find(m => isUnderSide(m.sideID));
   const base = over || under;
   if (!base) return null;
 
   // Player info
-  const player = base.player_id ? players[base.player_id] : undefined;
-  const playerName = player?.name ?? base.player_name ?? null;
-
-  // Market type comes directly from SGO
-  const marketType = formatMarketType(base.market_type, league);
+  const player = base.playerID ? players[base.playerID] : undefined;
+  const playerName = player?.name || base.marketName;
+  const marketType = formatMarketType(base.statID, league);
 
   // Line
   const lineStr = firstDefined(
-    over?.line,
-    under?.line
+    over?.bookOverUnder,
+    under?.bookOverUnder,
+    over?.fairOverUnder,
+    under?.fairOverUnder
   );
   const line = toNumberOrNull(lineStr);
 
@@ -639,36 +675,36 @@ function normalizePlayerGroup(markets: any[], players: Record<string, any>, leag
     if (!side) continue;
 
     // Consensus fallback
-    if (side.odds || side.line) {
+    if (side.bookOdds || side.bookOverUnder || side.fairOdds || side.fairOverUnder) {
       books.push({
         bookmaker: "consensus",
-        side: side.side,
-        price: side.odds ?? null,
-        line: toNumberOrNull(side.line),
+        side: side.sideID,
+        price: side.bookOdds ?? side.fairOdds ?? null,
+        line: toNumberOrNull(side.bookOverUnder ?? side.fairOverUnder),
       });
     }
 
     // Per-book odds
     for (const [book, data] of Object.entries(side.byBookmaker || {})) {
       const bookData = data as any;
-      if (!bookData.odds && !bookData.line) continue;
+      if (!bookData.odds && !bookData.overUnder) continue;
       books.push({
         bookmaker: book,
-        side: side.side,
-        price: bookData.odds ?? side.odds ?? null,
-        line: toNumberOrNull(bookData.line ?? side.line),
+        side: side.sideID,
+        price: bookData.odds ?? side.bookOdds ?? null,
+        line: toNumberOrNull(bookData.overUnder ?? side.bookOverUnder),
         deeplink: bookData.deeplink,
       });
     }
   }
 
   // Best odds
-  const best_over = pickBest(books.filter(b => String(b.side).toLowerCase() === "over" || b.side === "yes"));
-  const best_under = pickBest(books.filter(b => String(b.side).toLowerCase() === "under" || b.side === "no"));
+  const best_over = pickBest(books.filter(b => isOverSide(b.side)));
+  const best_under = pickBest(books.filter(b => isUnderSide(b.side)));
 
   return {
     player_name: playerName,
-    teamID: player?.teamID ?? base.team_id ?? null,
+    teamID: player?.teamID ?? null,
     market_type: marketType,
     line,
     best_over,
