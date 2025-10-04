@@ -753,6 +753,7 @@ export const DetailedInsightsOverlay = ({
         insights.push(`⚡ Momentum factor: Recent form suggests strong home performance`);
       }
     }
+    }
     
     return insights;
   };
