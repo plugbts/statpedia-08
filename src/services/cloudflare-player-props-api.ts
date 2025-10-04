@@ -53,16 +53,29 @@ class CloudflarePlayerPropsAPI {
    * - Global edge caching
    */
   async getPlayerProps(sport: string = 'nfl', forceRefresh: boolean = false): Promise<PlayerProp[]> {
+    const params: any = { sport: sport.toLowerCase() };
+
+    if (forceRefresh) {
+      params.force_refresh = 'true';
+    }
+
+    const response = await this.makeRequest('', params);
+    return response.data || [];
+  }
+
+  /**
+   * Make request to Cloudflare Workers API
+   */
+  private async makeRequest(endpoint: string, params: Record<string, string> = {}): Promise<any> {
     try {
-      console.log(`🚀 Fetching player props from Cloudflare Workers: ${sport}${forceRefresh ? ' (force refresh)' : ''}`);
+      console.log(`🚀 Fetching player props from Cloudflare Workers: ${params.sport}${params.force_refresh ? ' (force refresh)' : ''}`);
       
       const url = new URL(`${this.baseUrl}/api/player-props`);
-      url.searchParams.append('sport', sport);
-      url.searchParams.append('endpoint', 'player-props');
       
-      if (forceRefresh) {
-        url.searchParams.append('force_refresh', 'true');
-      }
+      // Add parameters
+      Object.entries(params).forEach(([key, value]) => {
+        url.searchParams.append(key, value);
+      });
 
       const startTime = Date.now();
       
@@ -83,7 +96,7 @@ class CloudflarePlayerPropsAPI {
         
         // Fallback to Supabase Edge Function
         console.log('🔄 Falling back to Supabase Edge Function...');
-        return this.getPlayerPropsFromSupabase(sport, forceRefresh);
+        return this.getPlayerPropsFromSupabase(params.sport, params.force_refresh === 'true');
       }
 
       const data: APIResponse = await response.json();
@@ -101,10 +114,10 @@ class CloudflarePlayerPropsAPI {
         
         // Fallback to Supabase Edge Function
         console.log('🔄 Falling back to Supabase Edge Function...');
-        return this.getPlayerPropsFromSupabase(sport, forceRefresh);
+        return this.getPlayerPropsFromSupabase(params.sport, params.force_refresh === 'true');
       }
 
-      return data.data || [];
+      return data;
       
     } catch (error) {
       console.error('❌ Cloudflare Workers API error:', error);
@@ -112,7 +125,7 @@ class CloudflarePlayerPropsAPI {
       
       // Fallback to Supabase Edge Function
       try {
-        return await this.getPlayerPropsFromSupabase(sport, forceRefresh);
+        return await this.getPlayerPropsFromSupabase(params.sport, params.force_refresh === 'true');
       } catch (fallbackError) {
         console.error('❌ Supabase fallback also failed:', fallbackError);
         throw fallbackError;
