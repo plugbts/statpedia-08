@@ -19,6 +19,83 @@ import { AdvancedPredictionDisplay } from '@/components/advanced-prediction-disp
 import { advancedPredictionService, ComprehensivePrediction } from '@/services/advanced-prediction-service';
 import { evCalculatorService } from '@/services/ev-calculator';
 
+// NFL Team mapping for logos
+const logoByTeam: Record<string, string> = {
+  'Arizona Cardinals': 'https://a.espncdn.com/i/teamlogos/nfl/500/ari.png',
+  'Atlanta Falcons': 'https://a.espncdn.com/i/teamlogos/nfl/500/atl.png',
+  'Baltimore Ravens': 'https://a.espncdn.com/i/teamlogos/nfl/500/bal.png',
+  'Buffalo Bills': 'https://a.espncdn.com/i/teamlogos/nfl/500/buf.png',
+  'Carolina Panthers': 'https://a.espncdn.com/i/teamlogos/nfl/500/car.png',
+  'Chicago Bears': 'https://a.espncdn.com/i/teamlogos/nfl/500/chi.png',
+  'Cincinnati Bengals': 'https://a.espncdn.com/i/teamlogos/nfl/500/cin.png',
+  'Cleveland Browns': 'https://a.espncdn.com/i/teamlogos/nfl/500/cle.png',
+  'Dallas Cowboys': 'https://a.espncdn.com/i/teamlogos/nfl/500/dal.png',
+  'Denver Broncos': 'https://a.espncdn.com/i/teamlogos/nfl/500/den.png',
+  'Detroit Lions': 'https://a.espncdn.com/i/teamlogos/nfl/500/det.png',
+  'Green Bay Packers': 'https://a.espncdn.com/i/teamlogos/nfl/500/gb.png',
+  'Houston Texans': 'https://a.espncdn.com/i/teamlogos/nfl/500/hou.png',
+  'Indianapolis Colts': 'https://a.espncdn.com/i/teamlogos/nfl/500/ind.png',
+  'Jacksonville Jaguars': 'https://a.espncdn.com/i/teamlogos/nfl/500/jax.png',
+  'Kansas City Chiefs': 'https://a.espncdn.com/i/teamlogos/nfl/500/kc.png',
+  'Las Vegas Raiders': 'https://a.espncdn.com/i/teamlogos/nfl/500/lv.png',
+  'Los Angeles Chargers': 'https://a.espncdn.com/i/teamlogos/nfl/500/lac.png',
+  'Los Angeles Rams': 'https://a.espncdn.com/i/teamlogos/nfl/500/lar.png',
+  'Miami Dolphins': 'https://a.espncdn.com/i/teamlogos/nfl/500/mia.png',
+  'Minnesota Vikings': 'https://a.espncdn.com/i/teamlogos/nfl/500/min.png',
+  'New England Patriots': 'https://a.espncdn.com/i/teamlogos/nfl/500/ne.png',
+  'New Orleans Saints': 'https://a.espncdn.com/i/teamlogos/nfl/500/no.png',
+  'New York Giants': 'https://a.espncdn.com/i/teamlogos/nfl/500/nyg.png',
+  'New York Jets': 'https://a.espncdn.com/i/teamlogos/nfl/500/nyj.png',
+  'Philadelphia Eagles': 'https://a.espncdn.com/i/teamlogos/nfl/500/phi.png',
+  'Pittsburgh Steelers': 'https://a.espncdn.com/i/teamlogos/nfl/500/pit.png',
+  'San Francisco 49ers': 'https://a.espncdn.com/i/teamlogos/nfl/500/sf.png',
+  'Seattle Seahawks': 'https://a.espncdn.com/i/teamlogos/nfl/500/sea.png',
+  'Tampa Bay Buccaneers': 'https://a.espncdn.com/i/teamlogos/nfl/500/tb.png',
+  'Tennessee Titans': 'https://a.espncdn.com/i/teamlogos/nfl/500/ten.png',
+  'Washington Commanders': 'https://a.espncdn.com/i/teamlogos/nfl/500/wsh.png'
+};
+
+// Utility function for compact time formatting
+const formatCompactTime = (gameTime: string, gameDate: string) => {
+  try {
+    // Handle both separate gameTime/gameDate and combined gameTime
+    let dateToFormat: Date;
+    
+    if (gameTime && gameTime.includes('T')) {
+      // gameTime is a full ISO string
+      dateToFormat = new Date(gameTime);
+    } else if (gameDate && gameTime) {
+      // Separate date and time - combine them properly
+      const combinedDateTime = gameDate.includes('T') ? gameDate : `${gameDate}T${gameTime}`;
+      dateToFormat = new Date(combinedDateTime);
+    } else if (gameDate) {
+      // Only date available
+      dateToFormat = new Date(gameDate);
+    } else {
+      return 'TBD';
+    }
+    
+    // Check if date is valid
+    if (isNaN(dateToFormat.getTime())) {
+      return 'TBD';
+    }
+    
+    // Format date as M/D (e.g., "12/25")
+    const dateStr = `${dateToFormat.getMonth() + 1}/${dateToFormat.getDate()}`;
+    
+    // Format time as H:MM AM/PM (e.g., "2:30 PM")
+    const timeStr = dateToFormat.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+    
+    return `${dateStr} ${timeStr}`;
+  } catch (error) {
+    return 'TBD';
+  }
+};
+
 import { cloudflarePlayerPropsAPI } from '@/services/cloudflare-player-props-api';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
@@ -205,7 +282,17 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const [minLine, setMinLine] = useState(0);
   const [maxLine, setMaxLine] = useState(100);
   const [showSelection, setShowSelection] = useState(false);
-  const [viewMode, setViewMode] = useState<'column' | 'cards'>('cards');
+  const [viewMode, setViewMode] = useState<'column' | 'cards'>('column');
+  
+  // Handle view parameter from URL
+  useEffect(() => {
+    const viewParam = searchParams.get('view');
+    if (viewParam === 'compact') {
+      setViewMode('column');
+    } else if (viewParam === 'cards') {
+      setViewMode('cards');
+    }
+  }, [searchParams]);
   const [selectedSportsbook, setSelectedSportsbook] = useState<string>('all');
   const [availableSportsbooks, setAvailableSportsbooks] = useState<{ key: string; title: string; lastUpdate: string }[]>([]);
   
@@ -405,7 +492,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       try {
         // Use Cloudflare Workers API for unlimited scalability and no restrictions
         logAPI('PlayerPropsTab', `Calling Cloudflare Workers API for ${sport} player props`);
-        const props = await cloudflarePlayerPropsAPI.getPlayerProps(sport, true); // Force refresh for debugging
+        const viewParam = searchParams.get('view');
+        const dateParam = searchParams.get('date');
+        const props = await cloudflarePlayerPropsAPI.getPlayerProps(sport, true, dateParam || undefined, viewParam || undefined); // Force refresh for debugging
         logAPI('PlayerPropsTab', `Cloudflare Workers API returned ${props?.length || 0} props`);
         
         // 🔍 COMPREHENSIVE FRONTEND DEBUG LOGGING
@@ -1177,6 +1266,14 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                 <label className="text-sm font-medium text-foreground">View:</label>
                 <Select value={viewMode} onValueChange={(value: 'column' | 'cards') => {
                   setViewMode(value);
+                  // Update URL parameter
+                  const newSearchParams = new URLSearchParams(searchParams);
+                  if (value === 'column') {
+                    newSearchParams.set('view', 'compact');
+                  } else {
+                    newSearchParams.set('view', 'cards');
+                  }
+                  setSearchParams(newSearchParams);
                 }}>
                   <SelectTrigger className="w-32 bg-background/50 border-primary/20 hover:border-primary/40">
                     <SelectValue placeholder="View" />
@@ -1381,19 +1478,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         {!isLoadingData && mixedProps.length > 0 && (
           <>
             {viewMode === 'column' ? (
-              <PlayerPropsColumnView 
-                props={mixedProps}
-                onAnalysisClick={handleEnhancedAnalysis}
-                onAdvancedAnalysisClick={generateAdvancedPrediction}
-                selectedProps={selectedProps}
-                onSelect={showSelection ? (propId) => {
-                  setSelectedProps(prev => 
-                    prev.includes(propId) 
-                      ? prev.filter(id => id !== propId)
-                      : [...prev, propId]
-                  );
-                } : undefined}
-                showSelection={showSelection}
+              <PlayerPropsColumnView
+                props={mixedProps as any}
+                selectedSport={sportFilter}
+                onAnalysisClick={handleEnhancedAnalysis as any}
+                isLoading={isLoadingData}
               />
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
