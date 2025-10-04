@@ -2,6 +2,33 @@
 
 /// <reference types="@cloudflare/workers-types" />
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*", // or restrict to your frontend domain
+  "Access-Control-Allow-Methods": "GET,HEAD,POST,OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Max-Age": "86400",
+};
+
+function handleOptions(request: Request) {
+  // Make sure preflight requests succeed
+  if (
+    request.headers.get("Origin") !== null &&
+    request.headers.get("Access-Control-Request-Method") !== null
+  ) {
+    return new Response(null, { headers: corsHeaders });
+  }
+  // Standard OPTIONS response
+  return new Response(null, { headers: { Allow: "GET, HEAD, POST, OPTIONS" } });
+}
+
+function withCORS(resp: Response) {
+  const newHeaders = new Headers(resp.headers);
+  for (const [k, v] of Object.entries(corsHeaders)) {
+    newHeaders.set(k, v);
+  }
+  return new Response(resp.body, { status: resp.status, headers: newHeaders });
+}
+
 export interface Env {
   SPORTSODDS_API_KEY: string;
   CACHE_LOCKS?: KVNamespace; // create a KV namespace for lock keys in wrangler.toml
@@ -69,44 +96,37 @@ type SGEvent = {
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const url = new URL(request.url);
-
-    // Handle CORS preflight requests
     if (request.method === "OPTIONS") {
-      return new Response(null, {
-        status: 200,
-        headers: {
-          "access-control-allow-origin": "*",
-          "access-control-allow-methods": "GET, POST, OPTIONS",
-          "access-control-allow-headers": "Content-Type, Authorization",
-          "access-control-max-age": "86400",
-        },
-      });
+      return handleOptions(request);
     }
+
+    const url = new URL(request.url);
+    let resp: Response;
 
     // Debug endpoint: /debug/player-props?league=nfl&date=YYYY-MM-DD
     if (url.pathname === "/debug/player-props") {
-      return handleDebugPlayerProps(url, env);
+      resp = await handleDebugPlayerProps(url, env);
     }
-
     // Metrics endpoint: /metrics
-    if (url.pathname === "/metrics") {
-      return handleMetrics(url, request, env);
+    else if (url.pathname === "/metrics") {
+      resp = await handleMetrics(url, request, env);
     }
-
     // Purge cache endpoint: /api/cache/purge?league=nfl&date=YYYY-MM-DD
-    if (url.pathname === "/api/cache/purge") {
-      return handleCachePurge(url, request, env);
+    else if (url.pathname === "/api/cache/purge") {
+      resp = await handleCachePurge(url, request, env);
     }
-
     // Route: /api/{league}/player-props
-    const match = url.pathname.match(/^\/api\/([a-z]+)\/player-props$/);
-    if (match) {
-      const league = match[1].toUpperCase(); // e.g. NFL, NBA
-      return handlePlayerProps(request, env, ctx, league);
+    else {
+      const match = url.pathname.match(/^\/api\/([a-z]+)\/player-props$/);
+      if (match) {
+        const league = match[1].toUpperCase(); // e.g. NFL, NBA
+        resp = await handlePlayerProps(request, env, ctx, league);
+      } else {
+        resp = new Response("Not found", { status: 404 });
+      }
     }
 
-    return new Response("Not found", { status: 404 });
+    return withCORS(resp);
   },
 };
 
@@ -253,9 +273,6 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
         headers: {
       "content-type": "application/json",
       "cache-control": `public, s-maxage=${ttl}, stale-while-revalidate=1800`,
-      "access-control-allow-origin": "*",
-      "access-control-allow-methods": "GET, POST, OPTIONS",
-      "access-control-allow-headers": "Content-Type, Authorization",
         },
       });
 
@@ -347,10 +364,7 @@ async function handleCachePurge(url: URL, request: Request, env: Env): Promise<R
     JSON.stringify({ message: "Cache purged", league, date, cacheKey, deleted }),
     { 
       headers: { 
-        "content-type": "application/json",
-        "access-control-allow-origin": "*",
-        "access-control-allow-methods": "GET, POST, OPTIONS",
-        "access-control-allow-headers": "Content-Type, Authorization"
+        "content-type": "application/json"
       } 
     }
   );
@@ -385,10 +399,7 @@ function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { 
-      "content-type": "application/json",
-      "access-control-allow-origin": "*",
-      "access-control-allow-methods": "GET, POST, OPTIONS",
-      "access-control-allow-headers": "Content-Type, Authorization"
+      "content-type": "application/json"
     },
   });
 }
@@ -823,20 +834,14 @@ async function handleMetrics(url: URL, request: Request, env: Env): Promise<Resp
     const metrics = await getMetrics(env, reset);
     return new Response(JSON.stringify(metrics), {
       headers: { 
-        "content-type": "application/json",
-        "access-control-allow-origin": "*",
-        "access-control-allow-methods": "GET, POST, OPTIONS",
-        "access-control-allow-headers": "Content-Type, Authorization"
+        "content-type": "application/json"
       }
     });
   } catch (error) {
     return new Response(JSON.stringify({ error: "Failed to get metrics" }), {
       status: 500,
       headers: { 
-        "content-type": "application/json",
-        "access-control-allow-origin": "*",
-        "access-control-allow-methods": "GET, POST, OPTIONS",
-        "access-control-allow-headers": "Content-Type, Authorization"
+        "content-type": "application/json"
       }
     });
   }
