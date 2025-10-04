@@ -99,7 +99,7 @@ class CloudflarePlayerPropsAPI {
    * - Full data processing
    * - Global edge caching
    */
-  async getPlayerProps(sport: string = 'nfl', forceRefresh: boolean = false): Promise<PlayerProp[]> {
+  async getPlayerProps(sport: string = 'nfl', forceRefresh: boolean = false, date?: string, view?: string): Promise<PlayerProp[]> {
     try {
       console.log(`🚀 Fetching player props from new /api/{league}/player-props endpoint: ${sport}${forceRefresh ? ' (force refresh)' : ''}`);
       
@@ -108,7 +108,11 @@ class CloudflarePlayerPropsAPI {
       const league = sport.toLowerCase();
       
       const url = new URL(`${this.baseUrl}/api/${league}/player-props`);
-      url.searchParams.append('date', today);
+      url.searchParams.append('date', date || today);
+      
+      if (view) {
+        url.searchParams.append('view', view);
+      }
       
       if (forceRefresh) {
         url.searchParams.append('force_refresh', 'true');

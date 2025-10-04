@@ -492,7 +492,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       try {
         // Use Cloudflare Workers API for unlimited scalability and no restrictions
         logAPI('PlayerPropsTab', `Calling Cloudflare Workers API for ${sport} player props`);
-        const props = await cloudflarePlayerPropsAPI.getPlayerProps(sport, true); // Force refresh for debugging
+        const viewParam = searchParams.get('view');
+        const dateParam = searchParams.get('date');
+        const props = await cloudflarePlayerPropsAPI.getPlayerProps(sport, true, dateParam || undefined, viewParam || undefined); // Force refresh for debugging
         logAPI('PlayerPropsTab', `Cloudflare Workers API returned ${props?.length || 0} props`);
         
         // 🔍 COMPREHENSIVE FRONTEND DEBUG LOGGING
