@@ -241,8 +241,8 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
         away_team: event.away_team,
         player_props: (event.player_props || []).map(prop => {
           const line = prop.line ?? null;
-          const over = bestBySide(prop.books || [], "over");
-          const under = bestBySide(prop.books || [], "under");
+          const over = pickBest(prop.books.filter(b => String(b.side).toLowerCase() === "over"));
+          const under = pickBest(prop.books.filter(b => String(b.side).toLowerCase() === "under"));
 
           return {
             player_name: prop.player_name,
@@ -712,28 +712,31 @@ function parseAmerican(odds: string | number | null | undefined): number | null 
   return Number.isFinite(n) ? n : null;
 }
 
-function bestBySide(books: any[], side: "over" | "under") {
-  const candidates = books.filter(b => String(b.side).toLowerCase() === side && parseAmerican(b.price) !== null);
+/**
+ * Pick the best American odds from a list of book offers.
+ * - For positive odds: higher is better (+250 is better than +200).
+ * - For negative odds: closer to zero is better (-110 is better than -150).
+ */
+function pickBest(books: { price: string | number | null; bookmaker?: string }[]): { price: string; bookmaker?: string } | null {
+  const candidates = books.filter(b => parseAmerican(b.price) !== null);
   if (candidates.length === 0) return null;
-  // For American odds: maximize positive odds, minimize absolute value for negatives.
-  return candidates.sort((a, b) => {
+
+  const best = candidates.sort((a, b) => {
     const A = parseAmerican(a.price)!;
     const B = parseAmerican(b.price)!;
-    // Higher is better for positive; for negatives, closer to zero is better.
-    const scoreA = A >= 0 ? A : -A; // adjust if you prefer strict American comparison
-    const scoreB = B >= 0 ? B : -B;
-    return scoreB - scoreA;
-  })[0];
-}
 
-function pickBest(entries: { price: string }[]) {
-  if (!entries.length) return null;
-  const score = (oddsStr: string) => {
-    const v = parseInt(oddsStr, 10);
-    if (Number.isNaN(v)) return -Infinity;
-    return v > 0 ? 1 + v / 100 : 1 + 100 / Math.abs(v);
+    // Positive odds: maximize
+    if (A >= 0 && B >= 0) return B - A;
+    // Negative odds: closer to zero is better
+    if (A < 0 && B < 0) return A - B;
+    // Mixed: prefer the positive odds
+    return A >= 0 ? -1 : 1;
+  })[0];
+
+  return {
+    price: String(best.price),
+    bookmaker: best.bookmaker
   };
-  return entries.reduce((best, cur) => (score(cur.price) > score(best.price) ? cur : best), entries[0]);
 }
 
 // === Debug Normalization Functions ===
