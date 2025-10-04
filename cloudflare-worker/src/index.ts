@@ -630,19 +630,64 @@ function normalizePlayerGroup(markets: any[], players: Record<string, any>, leag
   if (!base) return null;
 
   const player = base.playerID ? players[base.playerID] : undefined;
-  const playerName = player?.name ?? null;
+  let playerName = player?.name ?? null;
+  
+  // Try to extract player name from oddID if player not found
+  if (!playerName && base.oddID) {
+    const oddIdParts = base.oddID.split('-');
+    if (oddIdParts.length >= 2) {
+      const potentialPlayerID = oddIdParts[1];
+      if (potentialPlayerID && players[potentialPlayerID]) {
+        playerName = players[potentialPlayerID].name;
+      }
+    }
+  }
+  
+  // Final fallback - try to extract from statEntityID
+  if (!playerName && base.statEntityID && base.statEntityID !== 'side1' && base.statEntityID !== 'side2') {
+    if (players[base.statEntityID]) {
+      playerName = players[base.statEntityID].name;
+    }
+  }
 
   const allBooks = [...collectBooks(over), ...collectBooks(under)];
   
+  // Get team ID with fallback logic
+  let teamID = player?.teamID ?? null;
+  if (!teamID && playerName && base.oddID) {
+    const oddIdParts = base.oddID.split('-');
+    if (oddIdParts.length >= 2) {
+      const potentialPlayerID = oddIdParts[1];
+      if (potentialPlayerID && players[potentialPlayerID]) {
+        teamID = players[potentialPlayerID].teamID;
+      }
+    }
+  }
+  if (!teamID && base.statEntityID && base.statEntityID !== 'side1' && base.statEntityID !== 'side2') {
+    if (players[base.statEntityID]) {
+      teamID = players[base.statEntityID].teamID;
+    }
+  }
+
   const result = {
     player_name: playerName,
-    teamID: player?.teamID ?? null,
+    teamID: teamID,
     market_type: formatMarketType(base.statID, league),
     line: Number(base.bookOverUnder ?? null),
     best_over: pickBest(allBooks.filter(b => b.side === "over")),
     best_under: pickBest(allBooks.filter(b => b.side === "under")),
     books: allBooks,
   };
+
+  // Skip props without player names as they're not useful
+  if (!playerName) {
+    console.log("DEBUG: Skipping prop without player name", {
+      oddID: base.oddID,
+      statEntityID: base.statEntityID,
+      statID: base.statID
+    });
+    return null;
+  }
 
   // DEBUG: Log player group normalization
   console.log("DEBUG player group", {

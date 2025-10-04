@@ -394,17 +394,54 @@ function normalizePlayerGroup(markets, players, league) {
   if (!base)
     return null;
   const player = base.playerID ? players[base.playerID] : void 0;
-  const playerName = player?.name ?? null;
+  let playerName = player?.name ?? null;
+  if (!playerName && base.oddID) {
+    const oddIdParts = base.oddID.split("-");
+    if (oddIdParts.length >= 2) {
+      const potentialPlayerID = oddIdParts[1];
+      if (potentialPlayerID && players[potentialPlayerID]) {
+        playerName = players[potentialPlayerID].name;
+      }
+    }
+  }
+  if (!playerName && base.statEntityID && base.statEntityID !== "side1" && base.statEntityID !== "side2") {
+    if (players[base.statEntityID]) {
+      playerName = players[base.statEntityID].name;
+    }
+  }
   const allBooks = [...collectBooks(over), ...collectBooks(under)];
+  let teamID = player?.teamID ?? null;
+  if (!teamID && playerName && base.oddID) {
+    const oddIdParts = base.oddID.split("-");
+    if (oddIdParts.length >= 2) {
+      const potentialPlayerID = oddIdParts[1];
+      if (potentialPlayerID && players[potentialPlayerID]) {
+        teamID = players[potentialPlayerID].teamID;
+      }
+    }
+  }
+  if (!teamID && base.statEntityID && base.statEntityID !== "side1" && base.statEntityID !== "side2") {
+    if (players[base.statEntityID]) {
+      teamID = players[base.statEntityID].teamID;
+    }
+  }
   const result = {
     player_name: playerName,
-    teamID: player?.teamID ?? null,
+    teamID,
     market_type: formatMarketType(base.statID, league),
     line: Number(base.bookOverUnder ?? null),
     best_over: pickBest(allBooks.filter((b) => b.side === "over")),
     best_under: pickBest(allBooks.filter((b) => b.side === "under")),
     books: allBooks
   };
+  if (!playerName) {
+    console.log("DEBUG: Skipping prop without player name", {
+      oddID: base.oddID,
+      statEntityID: base.statEntityID,
+      statID: base.statID
+    });
+    return null;
+  }
   console.log("DEBUG player group", {
     playerName,
     marketType: result.market_type,
