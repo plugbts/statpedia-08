@@ -223,8 +223,8 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
   
   console.log(`Filtered ${events.length} events for league ${league}`);
 
-  // Normalize
-  let normalized = events.map((ev: any) => safeNormalizeEvent(ev as SGEvent));
+  // Normalize using SGO-only approach
+  let normalized = events.map((ev: any) => normalizeEventSGO(ev, request));
 
   // Apply 125-prop cap per league with priority sorting
   normalized = capPropsPerLeague(normalized, league, 125);
@@ -247,12 +247,12 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
         away_team: event.away_team,
         player_props: (event.player_props || []).map(prop => {
           const line = prop.line ?? null;
-          const over = pickBest(prop.books.filter(b => String(b.side).toLowerCase() === "over"));
-          const under = pickBest(prop.books.filter(b => String(b.side).toLowerCase() === "under"));
+          const over = pickBest((prop.books || []).filter(b => String(b.side).toLowerCase() === "over"));
+          const under = pickBest((prop.books || []).filter(b => String(b.side).toLowerCase() === "under"));
 
           return {
             player_name: prop.player_name,
-            market_type: prop.market_type,
+            market_type: formatMarketType(prop.market_type, event.leagueID), // 👈 formatted label
             line,
             best_over: over?.price ?? null,
             best_under: under?.price ?? null,
@@ -261,7 +261,7 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
           };
         }),
         team_props: (event.team_props || []).map(prop => ({
-          market_type: prop.market_type,
+          market_type: formatMarketType(prop.market_type, event.leagueID), // 👈 formatted label
           line: prop.line,
           best_over: prop.best_over,
           best_under: prop.best_under,
@@ -506,6 +506,31 @@ function safeNormalizeEvent(ev: SGEvent) {
   }
 }
 
+function normalizeEventSGO(ev: any, request: any) {
+  return {
+    eventID: ev.event_id,              // SGO's event identifier
+    leagueID: ev.league_id,            // SGO's league identifier
+    start_time: toUserTimeSGO(ev.start_time, request.cf?.timezone || "America/New_York"),
+    home_team: normalizeTeamSGO(ev.home_team),
+    away_team: normalizeTeamSGO(ev.away_team),
+    team_props: (ev.team_props || []).map(tp => ({
+      market_type: tp.market_type,
+      line: tp.line,
+      best_over: tp.best_over,
+      best_under: tp.best_under,
+    })),
+    player_props: (ev.player_props || []).map(pp => ({
+      player_name: pp.player_name,
+      teamID: pp.team_id ?? null,
+      market_type: pp.market_type,
+      line: pp.line,
+      best_over: pp.best_over,
+      best_under: pp.best_under,
+      books: pp.books || [],
+    })),
+  };
+}
+
 function normalizeEvent(ev: SGEvent) {
   // Use SportsGameOdds schema as primary, fallback to legacy
   const eventId = ev.event_id || ev.eventID;
@@ -528,18 +553,18 @@ function normalizeEvent(ev: SGEvent) {
   const players = ev.players || {};
   const oddsDict = ev.odds || {};
   
-    // Group by all identifiers to preserve every distinct prop type
-  const groups: Record<string, MarketSide[]> = {};
+    // Group by SGO identifiers to preserve all distinct prop types
+    const groups: Record<string, any[]> = {};
   for (const oddID in oddsDict) {
     const m = oddsDict[oddID];
 
+      // Build a composite key from SGO fields
       const key = [
-        m.statEntityID || "",   // player/team entity
-        m.statID || "",         // stat type (yards, TDs, etc.)
-        m.periodID || "",       // game period (full game, 1H, etc.)
-        m.betTypeID || "",      // bet type (over/under, yes/no, etc.)
-        (m as any).marketTypeID || "",   // market type (first TD, last TD, anytime TD, etc.)
-        (m as any).marketID || ""        // unique market ID if provided
+        (m as any).player_id || "",     // which player/team this prop belongs to
+        (m as any).market_id || "",     // unique market identifier
+        (m as any).market_type || "",   // e.g. passing_yards, rushing_yards, points
+        (m as any).period || "",        // full_game, 1H, 1Q, etc.
+        (m as any).bet_type || "",      // over/under, yes/no
       ].join("|");
 
     (groups[key] ||= []).push(m);
@@ -554,7 +579,7 @@ function normalizeEvent(ev: SGEvent) {
     console.log(`Group ${key}: hasPlayer=${hasPlayer}, markets=${markets.length}`);
 
     if (hasPlayer) {
-      const norm = normalizePlayerGroup(markets, players);
+        const norm = normalizePlayerGroup(markets, players, leagueId || "NFL");
       if (norm) {
         playerProps.push(norm);
         console.log(`Added player prop: ${norm.player_name} ${norm.market_type}`);
@@ -587,69 +612,63 @@ function normalizeEvent(ev: SGEvent) {
   };
 }
 
-function normalizePlayerGroup(
-  markets: MarketSide[],
-  players: Record<string, Player>
-) {
-  // Use all identifiers to avoid collapsing distinct markets
-  const key = [
-    markets[0]?.statEntityID || "",
-    markets[0]?.statID || "",
-    markets[0]?.periodID || "",
-    markets[0]?.betTypeID || ""
-  ].join("|");
-
-  const over = markets.find(m => isOverSide(m.sideID));
-  const under = markets.find(m => isUnderSide(m.sideID));
+function normalizePlayerGroup(markets: any[], players: Record<string, any>, league: string) {
+  // Pick base market (over or under) to anchor the group
+  const over = markets.find(m => m.side?.toLowerCase() === "over" || m.side?.toLowerCase() === "yes");
+  const under = markets.find(m => m.side?.toLowerCase() === "under" || m.side?.toLowerCase() === "no");
   const base = over || under;
   if (!base) return null;
 
-  const player = base.playerID ? players[base.playerID] : undefined;
-  const playerName = player?.name || extractNameFromMarket(base.marketName);
-  const marketType = formatStatID(base.statID);
+  // Player info
+  const player = base.player_id ? players[base.player_id] : undefined;
+  const playerName = player?.name ?? base.player_name ?? null;
 
+  // Market type comes directly from SGO
+  const marketType = formatMarketType(base.market_type, league);
+
+  // Line
   const lineStr = firstDefined(
-    over?.bookOverUnder,
-    under?.bookOverUnder,
-    over?.fairOverUnder,
-    under?.fairOverUnder
+    over?.line,
+    under?.line
   );
-  const line = toNumberOrNull(lineStr); // null if missing, not 0
+  const line = toNumberOrNull(lineStr);
 
+  // Collect books
   const books: any[] = [];
-
   for (const side of [over, under]) {
     if (!side) continue;
 
     // Consensus fallback
-    if (side.bookOdds || side.bookOverUnder || side.fairOdds || side.fairOverUnder) {
+    if (side.odds || side.line) {
       books.push({
         bookmaker: "consensus",
-        side: side.sideID,
-        price: side.bookOdds ?? side.fairOdds ?? null,
-        line: toNumberOrNull(side.bookOverUnder ?? side.fairOverUnder),
+        side: side.side,
+        price: side.odds ?? null,
+        line: toNumberOrNull(side.line),
       });
     }
 
     // Per-book odds
     for (const [book, data] of Object.entries(side.byBookmaker || {})) {
-      if (!data.odds && !data.overUnder) continue;
+      const bookData = data as any;
+      if (!bookData.odds && !bookData.line) continue;
       books.push({
         bookmaker: book,
-        side: side.sideID,
-        price: data.odds ?? side.bookOdds ?? null,
-        line: toNumberOrNull(data.overUnder ?? side.bookOverUnder),
-        deeplink: data.deeplink,
+        side: side.side,
+        price: bookData.odds ?? side.odds ?? null,
+        line: toNumberOrNull(bookData.line ?? side.line),
+        deeplink: bookData.deeplink,
       });
     }
   }
 
-  const best_over = pickBest(books.filter(b => b.side === "over" || b.side === "yes"));
-  const best_under = pickBest(books.filter(b => b.side === "under" || b.side === "no"));
+  // Best odds
+  const best_over = pickBest(books.filter(b => String(b.side).toLowerCase() === "over" || b.side === "yes"));
+  const best_under = pickBest(books.filter(b => String(b.side).toLowerCase() === "under" || b.side === "no"));
 
   return {
     player_name: playerName,
-    teamID: player?.teamID ?? null,
+    teamID: player?.teamID ?? base.team_id ?? null,
     market_type: marketType,
     line,
     best_over,
@@ -789,6 +808,23 @@ function toUserTime(utcDate: string | Date, tz: string = "America/New_York") {
   }
 }
 
+function toUserTimeSGO(utcDate: string | Date, tz: string = "America/New_York") {
+  try {
+    const d = typeof utcDate === "string" ? new Date(utcDate) : utcDate;
+    if (isNaN(d.getTime())) return null;
+    return d.toLocaleString("en-US", {
+      timeZone: tz,
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  } catch {
+    return null;
+  }
+}
+
 function normalizeTeam(team: any) {
   if (!team) return { id: null, abbr: "UNK", name: "Unknown" };
 
@@ -810,12 +846,13 @@ function normalizeTeam(team: any) {
 }
 
 function normalizeTeamSGO(team: any) {
-  if (!team) return { id: null, abbr: "UNK", name: "Unknown" };
+  if (!team) return { id: null, abbr: "UNK", name: "TBD" };
 
   return {
     id: team.id ?? null,
-    abbr: team.abbreviation ?? "UNK",
-    name: team.name ?? "Unknown",
+    abbr: team.abbreviation ?? team.alias ?? team.short_name ?? "UNK",
+    name: team.name ?? team.full_name ?? team.display_name ?? "TBD",
+    logo: team.logo ?? null,
   };
 }
 
@@ -860,6 +897,55 @@ const PROP_PRIORITY: Record<string, string[]> = {
     "touchdowns",
   ],
 };
+
+// League-aware market type labels
+const MARKET_LABELS: Record<string, Record<string, string>> = {
+  nfl: {
+    passing_yards: "Passing Yards",
+    rushing_yards: "Rushing Yards",
+    receiving_yards: "Receiving Yards",
+    receptions: "Receptions",
+    touchdowns: "Touchdowns",
+    first_touchdown: "First Touchdown",
+    last_touchdown: "Last Touchdown",
+    anytime_touchdown: "Anytime Touchdown",
+  },
+  nba: {
+    points: "Points",
+    rebounds: "Rebounds",
+    assists: "Assists",
+    threes_made: "3-Pointers Made",
+    steals: "Steals",
+    blocks: "Blocks",
+  },
+  mlb: {
+    hits: "Hits",
+    home_runs: "Home Runs",
+    rbis: "RBIs",
+    strikeouts: "Strikeouts",
+    total_bases: "Total Bases",
+  },
+  nhl: {
+    goals: "Goals",
+    assists: "Assists",
+    points: "Points",
+    shots_on_goal: "Shots on Goal",
+    saves: "Saves",
+  },
+  ncaaf: {
+    passing_yards: "Passing Yards",
+    rushing_yards: "Rushing Yards",
+    receiving_yards: "Receiving Yards",
+    receptions: "Receptions",
+    touchdowns: "Touchdowns",
+  },
+};
+
+function formatMarketType(raw: string, league: string): string {
+  if (!raw) return "Unknown";
+  const leagueMap = MARKET_LABELS[league.toLowerCase()] || {};
+  return leagueMap[raw] || raw.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
 
 function sortPropsByLeague(props: any[], league: string) {
   const priorities = PROP_PRIORITY[league.toLowerCase()] || [];
