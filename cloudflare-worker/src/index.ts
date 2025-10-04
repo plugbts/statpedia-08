@@ -161,7 +161,7 @@ export default {
 };
 
 async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionContext, league: string): Promise<Response> {
-  return handlePropsEndpoint(request, env);
+  return handlePropsEndpoint(request, env, league);
 }
 
 export async function handlePropsDebug(request: Request, env: Env) {
@@ -170,8 +170,13 @@ export async function handlePropsDebug(request: Request, env: Env) {
 
   try {
     // 1. Fetch just ONE day to avoid hanging
-    const rawEvents = await fetchSportsGameOddsDay(league.toUpperCase(), "2025-10-04", env);
+    const result = await fetchSportsGameOddsDay(league.toUpperCase(), "2025-10-04", env);
+    
+    if (isErrorResponse(result)) {
+      return json({ error: result.message }, 400);
+    }
 
+    const rawEvents = result.events;
     // 2. Just dump the first match event
     const sample = Array.isArray(rawEvents) ? rawEvents.find(ev => ev.type === "match") || null : null;
 
@@ -208,10 +213,10 @@ export async function handlePropsDebug(request: Request, env: Env) {
   }
 }
 
-export async function handlePropsEndpoint(request: Request, env: Env) {
+export async function handlePropsEndpoint(request: Request, env: Env, league?: string) {
   try {
     const url = new URL(request.url);
-    const leagues = (url.searchParams.get("league") || "nfl")
+    const leagues = league ? [league.toLowerCase()] : (url.searchParams.get("league") || "nfl")
       .split(",")
       .map(l => l.trim().toLowerCase());
     const date = url.searchParams.get("date") || "2025-10-05";
@@ -223,14 +228,16 @@ export async function handlePropsEndpoint(request: Request, env: Env) {
 
     for (const league of leagues) {
       // 1. Fetch raw events from SportsGameOdds using date parameter
-      const rawEvents = await fetchSportsGameOddsDay(league.toUpperCase(), date, env);
+      const result = await fetchSportsGameOddsDay(league.toUpperCase(), date, env);
 
       // Check for errors in the response
-      if (isErrorResponse(rawEvents)) {
+      if (isErrorResponse(result)) {
         responseData.errors = responseData.errors || {};
-        responseData.errors[league] = rawEvents;
+        responseData.errors[league] = result;
         continue; // Skip this league and move to the next one
       }
+
+      const rawEvents = result.events;
 
       // 2. Normalize events (prioritize match events, limit to first 10 for performance)
       let normalized = (rawEvents || [])
@@ -1181,7 +1188,11 @@ function isErrorResponse(response: any): response is { error: true; message: str
   return response && typeof response === 'object' && response.error === true;
 }
 
-export async function fetchSportsGameOddsDay(league: string, date: string, env: Env): Promise<any[] | { error: true; message: string; supported?: string[]; body?: string }> {
+export async function fetchSportsGameOddsDay(
+  league: string,
+  date: string,
+  env: Env
+): Promise<{ events: any[] } | { error: true; message: string; supported?: string[]; body?: string }> {
   // 1. Validate league
   if (!SUPPORTED_LEAGUES.has(league.toLowerCase())) {
     return {
@@ -1191,29 +1202,31 @@ export async function fetchSportsGameOddsDay(league: string, date: string, env: 
     };
   }
 
-  // 2. Map league to sport and league IDs
-  const sportLeagueMap: { [key: string]: { sportID: string; leagueID: string } } = {
-    'nfl': { sportID: 'FOOTBALL', leagueID: 'NFL' },
-    'nba': { sportID: 'BASKETBALL', leagueID: 'NBA' },
-    'mlb': { sportID: 'BASEBALL', leagueID: 'MLB' },
-    'nhl': { sportID: 'HOCKEY', leagueID: 'NHL' },
-    'ncaaf': { sportID: 'FOOTBALL', leagueID: 'NCAA' },
-    'ncaab': { sportID: 'BASKETBALL', leagueID: 'NCAA' },
-    'epl': { sportID: 'SOCCER', leagueID: 'EPL' }
+  // 2. Map league to league ID
+  const LEAGUE_IDS: Record<string, string> = {
+    nfl: "NFL",
+    nba: "NBA",
+    mlb: "MLB",
+    nhl: "NHL",
+    ncaaf: "NCAAF",
+    ncaab: "NCAAB",
+    epl: "EPL",
+    // add more as needed
   };
 
-  const mapping = sportLeagueMap[league.toLowerCase()];
-  if (!mapping) {
+  const leagueID = LEAGUE_IDS[league.toLowerCase()];
+  if (!leagueID) {
     return {
       error: true,
-      message: `League '${league}' mapping not found`,
-      supported: Object.keys(sportLeagueMap),
+      message: `Unsupported league '${league}'. Supported: ${Object.keys(
+        LEAGUE_IDS
+      ).join(", ")}`,
     };
   }
 
   // 3. Build URL with correct endpoint format (use /events endpoint with oddsAvailable)
   const requestedYear = new Date(date).getFullYear();
-  const url = `https://api.sportsgameodds.com/v2/events?leagueID=${mapping.leagueID}&oddsAvailable=true&date=${date}`;
+  const url = `https://api.sportsgameodds.com/v2/events?leagueID=${leagueID}&oddsAvailable=true&date=${date}`;
   console.log(`[fetchSportsGameOddsDay] Fetching: ${url} (requestedYear: ${requestedYear})`);
   const res = await fetch(url, {
     headers: {
@@ -1249,7 +1262,7 @@ export async function fetchSportsGameOddsDay(league: string, date: string, env: 
   
   console.log(`[fetchSportsGameOddsDay] Filtered to ${events.length} events for year ${requestedYear}`);
   
-  return events;
+  return { events };
 }
 
 async function fetchLeagueWeek(league: string, baseDate: Date, env: Env) {
@@ -1267,7 +1280,10 @@ async function fetchLeagueWeek(league: string, baseDate: Date, env: Env) {
     dates.map(date => fetchSportsGameOddsDay(league, date, env))
   );
 
-  const flatResults = results.flat();
+  const flatResults = results
+    .filter(result => !isErrorResponse(result))
+    .map(result => (result as { events: any[] }).events)
+    .flat();
   console.log(`Fetched ${flatResults.length} total events across ${dates.length} days`);
   
   return flatResults;
@@ -1276,7 +1292,11 @@ async function fetchLeagueWeek(league: string, baseDate: Date, env: Env) {
 async function fetchSportsGameOddsWeek(league: string, date: string | undefined, env: Env) {
   // If date is provided, fetch just that day
   if (date) {
-    return await fetchSportsGameOddsDay(league.toUpperCase(), date, env);
+    const result = await fetchSportsGameOddsDay(league.toUpperCase(), date, env);
+    if (isErrorResponse(result)) {
+      return [];
+    }
+    return result.events;
   }
 
   // Otherwise fetch a week of data
@@ -1298,6 +1318,7 @@ async function fetchSportsGameOddsWeek(league: string, date: string | undefined,
   // Filter out error responses and flatten valid results
   const flatResults = results
     .filter(result => !isErrorResponse(result))
+    .map(result => (result as { events: any[] }).events)
     .flat();
   console.log(`Fetched ${flatResults.length} total events across ${dates.length} days`);
   

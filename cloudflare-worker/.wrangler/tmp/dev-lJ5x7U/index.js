@@ -109,14 +109,18 @@ var src_default = {
   }
 };
 async function handlePlayerProps(request, env, ctx, league) {
-  return handlePropsEndpoint(request, env);
+  return handlePropsEndpoint(request, env, league);
 }
 __name(handlePlayerProps, "handlePlayerProps");
 async function handlePropsDebug(request, env) {
   const url = new URL(request.url);
   const league = url.searchParams.get("league") || "nfl";
   try {
-    const rawEvents = await fetchSportsGameOddsDay(league.toUpperCase(), "2025-10-04", env);
+    const result = await fetchSportsGameOddsDay(league.toUpperCase(), "2025-10-04", env);
+    if (isErrorResponse(result)) {
+      return json({ error: result.message }, 400);
+    }
+    const rawEvents = result.events;
     const sample = Array.isArray(rawEvents) ? rawEvents.find((ev) => ev.type === "match") || null : null;
     return withCORS(
       new Response(
@@ -151,43 +155,44 @@ async function handlePropsDebug(request, env) {
   }
 }
 __name(handlePropsDebug, "handlePropsDebug");
-async function handlePropsEndpoint(request, env) {
+async function handlePropsEndpoint(request, env, league) {
   try {
     const url = new URL(request.url);
-    const leagues = (url.searchParams.get("league") || "nfl").split(",").map((l) => l.trim().toLowerCase());
+    const leagues = league ? [league.toLowerCase()] : (url.searchParams.get("league") || "nfl").split(",").map((l) => l.trim().toLowerCase());
     const date = url.searchParams.get("date") || "2025-10-05";
     const view = url.searchParams.get("view") || "full";
     const debug = url.searchParams.has("debug");
     const responseData = { events: [] };
     const debugInfo = {};
-    for (const league of leagues) {
-      const rawEvents = await fetchSportsGameOddsDay(league.toUpperCase(), date, env);
-      if (isErrorResponse(rawEvents)) {
+    for (const league2 of leagues) {
+      const result = await fetchSportsGameOddsDay(league2.toUpperCase(), date, env);
+      if (isErrorResponse(result)) {
         responseData.errors = responseData.errors || {};
-        responseData.errors[league] = rawEvents;
+        responseData.errors[league2] = result;
         continue;
       }
+      const rawEvents = result.events;
       let normalized = (rawEvents || []).filter((ev) => ev.type === "match").slice(0, 10).map((ev) => normalizeEventSGO(ev, request)).filter((ev) => ev !== null && ev !== void 0);
       console.log("DEBUG event normalization", {
-        league,
+        league: league2,
         rawEventsCount: rawEvents.length,
         normalizedCount: normalized.length,
         firstEventPropsCount: normalized[0]?.player_props?.length || 0
       });
       for (const event of normalized) {
         if (event.player_props?.length) {
-          groupPlayerProps(event, league);
+          groupPlayerProps(event, league2);
           if (debug) {
             console.log("DEBUG prop summary", {
               eventID: event.eventID,
               home: event.home_team,
               away: event.away_team,
-              counts: summarizePropsByMarket(event, league)
+              counts: summarizePropsByMarket(event, league2)
             });
           }
         }
       }
-      normalized = capPropsPerLeague(normalized, league, 125);
+      normalized = capPropsPerLeague(normalized, league2, 125);
       if (view === "compact") {
         responseData.events.push(
           ...normalized.filter((event) => event !== null).map((event) => ({
@@ -216,7 +221,7 @@ async function handlePropsEndpoint(request, env) {
         responseData.events.push(...normalized.filter((event) => event !== null));
       }
       if (debug) {
-        debugInfo[league] = {
+        debugInfo[league2] = {
           upstreamEvents: rawEvents.length,
           normalizedEvents: normalized.length,
           totalProps: normalized.filter((e) => e !== null).reduce((a, e) => a + (e.player_props?.length || 0), 0),
@@ -795,25 +800,27 @@ async function fetchSportsGameOddsDay(league, date, env) {
       supported: Array.from(SUPPORTED_LEAGUES)
     };
   }
-  const sportLeagueMap = {
-    "nfl": { sportID: "FOOTBALL", leagueID: "NFL" },
-    "nba": { sportID: "BASKETBALL", leagueID: "NBA" },
-    "mlb": { sportID: "BASEBALL", leagueID: "MLB" },
-    "nhl": { sportID: "HOCKEY", leagueID: "NHL" },
-    "ncaaf": { sportID: "FOOTBALL", leagueID: "NCAA" },
-    "ncaab": { sportID: "BASKETBALL", leagueID: "NCAA" },
-    "epl": { sportID: "SOCCER", leagueID: "EPL" }
+  const LEAGUE_IDS = {
+    nfl: "NFL",
+    nba: "NBA",
+    mlb: "MLB",
+    nhl: "NHL",
+    ncaaf: "NCAAF",
+    ncaab: "NCAAB",
+    epl: "EPL"
+    // add more as needed
   };
-  const mapping = sportLeagueMap[league.toLowerCase()];
-  if (!mapping) {
+  const leagueID = LEAGUE_IDS[league.toLowerCase()];
+  if (!leagueID) {
     return {
       error: true,
-      message: `League '${league}' mapping not found`,
-      supported: Object.keys(sportLeagueMap)
+      message: `Unsupported league '${league}'. Supported: ${Object.keys(
+        LEAGUE_IDS
+      ).join(", ")}`
     };
   }
   const requestedYear = new Date(date).getFullYear();
-  const url = `https://api.sportsgameodds.com/v2/events?leagueID=${mapping.leagueID}&oddsAvailable=true&date=${date}`;
+  const url = `https://api.sportsgameodds.com/v2/events?leagueID=${leagueID}&oddsAvailable=true&date=${date}`;
   console.log(`[fetchSportsGameOddsDay] Fetching: ${url} (requestedYear: ${requestedYear})`);
   const res = await fetch(url, {
     headers: {
@@ -841,7 +848,7 @@ async function fetchSportsGameOddsDay(league, date, env) {
     return isCorrectYear;
   });
   console.log(`[fetchSportsGameOddsDay] Filtered to ${events.length} events for year ${requestedYear}`);
-  return events;
+  return { events };
 }
 __name(fetchSportsGameOddsDay, "fetchSportsGameOddsDay");
 function pickBest(books) {
