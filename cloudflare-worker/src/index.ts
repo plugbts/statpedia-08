@@ -526,10 +526,6 @@ function normalizeEvent(ev: SGEvent) {
 
   console.log(`Returning event ${ev.eventID} with ${playerProps.length} player props and ${teamProps.length} team props`);
   
-  // Limit props per event with prioritization
-  const MAX_PROPS_PER_EVENT = 125;
-  const sortedPlayerProps = sortProps(playerProps || []);
-  
   return {
     eventID: ev.eventID,
     leagueID: ev.leagueID,
@@ -537,7 +533,7 @@ function normalizeEvent(ev: SGEvent) {
     home_team: normalizeTeam(ev.teams?.home),
     away_team: normalizeTeam(ev.teams?.away),
     team_props: teamProps,
-    player_props: sortedPlayerProps.slice(0, MAX_PROPS_PER_EVENT),
+    player_props: playerProps,
   };
 }
 
