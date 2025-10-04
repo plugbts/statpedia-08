@@ -446,8 +446,8 @@ function normalizeEventSGO(ev: any, request: any) {
 
     // Build a composite key from SGO fields
     const key = [
-      m.statEntityID || "",     // which player/team this prop belongs to
-      m.statID || "",           // unique market identifier
+      m.playerID || "",         // which player this prop belongs to
+      m.statID || "",           // unique market identifier (e.g. "defense_sacks")
       m.periodID || "",         // full_game, 1H, 1Q, etc.
       m.betTypeID || "",        // over/under, yes/no
     ].join("|");
@@ -867,9 +867,63 @@ const PROP_PRIORITY: Record<string, string[]> = {
   ],
 };
 
+// Global config for label formatting
+const VIEW_MODE: "compact" | "verbose" = "compact"; 
+// Change to "verbose" for full labels like "1st Quarter"
+
+// Period labels for different leagues
+const PERIOD_LABELS: Record<string, Record<string, string>> = {
+  nfl: {
+    "1q": "1st Quarter",
+    "2q": "2nd Quarter",
+    "3q": "3rd Quarter",
+    "4q": "4th Quarter",
+    "1h": "1st Half",
+    "2h": "2nd Half",
+    ot: "Overtime",
+  },
+  nba: {
+    "1q": "1st Quarter",
+    "2q": "2nd Quarter",
+    "3q": "3rd Quarter",
+    "4q": "4th Quarter",
+    "1h": "1st Half",
+    "2h": "2nd Half",
+    ot: "Overtime",
+  },
+  ncaaf: {
+    "1q": "1st Quarter",
+    "2q": "2nd Quarter",
+    "3q": "3rd Quarter",
+    "4q": "4th Quarter",
+    "1h": "1st Half",
+    "2h": "2nd Half",
+    ot: "Overtime",
+  },
+  nhl: {
+    "1p": "1st Period",
+    "2p": "2nd Period",
+    "3p": "3rd Period",
+    ot: "Overtime",
+  },
+  mlb: {
+    "1i": "1st Inning",
+    "2i": "2nd Inning",
+    "3i": "3rd Inning",
+    "4i": "4th Inning",
+    "5i": "5th Inning",
+    "6i": "6th Inning",
+    "7i": "7th Inning",
+    "8i": "8th Inning",
+    "9i": "9th Inning",
+    ei: "Extra Innings",
+  },
+};
+
 // League-aware market type labels
 const MARKET_LABELS: Record<string, Record<string, string>> = {
   nfl: {
+    // Offensive player props
     passing_yards: "Passing Yards",
     rushing_yards: "Rushing Yards",
     receiving_yards: "Receiving Yards",
@@ -877,7 +931,26 @@ const MARKET_LABELS: Record<string, Record<string, string>> = {
     touchdowns: "Touchdowns",
     first_touchdown: "First Touchdown",
     last_touchdown: "Last Touchdown",
+    firstTouchdown: "First Touchdown",
+    lastTouchdown: "Last Touchdown",
     anytime_touchdown: "Anytime Touchdown",
+    passing_touchdowns: "Passing Touchdowns",
+
+    // Defensive player props
+    defense_sacks: "Sacks",
+    defense_interceptions: "Interceptions",
+    defense_tackles: "Tackles",
+    defense_tackles_assists: "Tackles + Assists",
+    defense_passes_defended: "Passes Defended",
+    defense_forced_fumbles: "Forced Fumbles",
+    defense_fumble_recoveries: "Fumble Recoveries",
+
+    // Team props
+    team_total_points: "Team Total Points",
+    team_total_touchdowns: "Team Total Touchdowns",
+    team_total_field_goals: "Team Total Field Goals",
+    team_total_sacks: "Team Total Sacks",
+    team_total_interceptions: "Team Total Interceptions",
   },
   nba: {
     points: "Points",
@@ -886,6 +959,12 @@ const MARKET_LABELS: Record<string, Record<string, string>> = {
     threes_made: "3-Pointers Made",
     steals: "Steals",
     blocks: "Blocks",
+
+    // Team props
+    team_total_points: "Team Total Points",
+    team_total_rebounds: "Team Total Rebounds",
+    team_total_assists: "Team Total Assists",
+    team_total_threes: "Team Total 3-Pointers",
   },
   mlb: {
     hits: "Hits",
@@ -893,6 +972,11 @@ const MARKET_LABELS: Record<string, Record<string, string>> = {
     rbis: "RBIs",
     strikeouts: "Strikeouts",
     total_bases: "Total Bases",
+
+    // Team props
+    team_total_runs: "Team Total Runs",
+    team_total_hits: "Team Total Hits",
+    team_total_home_runs: "Team Total Home Runs",
   },
   nhl: {
     goals: "Goals",
@@ -900,6 +984,11 @@ const MARKET_LABELS: Record<string, Record<string, string>> = {
     points: "Points",
     shots_on_goal: "Shots on Goal",
     saves: "Saves",
+
+    // Team props
+    team_total_goals: "Team Total Goals",
+    team_total_shots: "Team Total Shots",
+    team_total_saves: "Team Total Saves",
   },
   ncaaf: {
     passing_yards: "Passing Yards",
@@ -907,13 +996,50 @@ const MARKET_LABELS: Record<string, Record<string, string>> = {
     receiving_yards: "Receiving Yards",
     receptions: "Receptions",
     touchdowns: "Touchdowns",
+    defense_sacks: "Sacks",
+    defense_interceptions: "Interceptions",
+    defense_tackles: "Tackles",
+
+    // Team props
+    team_total_points: "Team Total Points",
+    team_total_touchdowns: "Team Total Touchdowns",
   },
 };
 
 function formatMarketType(raw: string, league: string): string {
   if (!raw) return "Unknown";
+
   const leagueMap = MARKET_LABELS[league.toLowerCase()] || {};
-  return leagueMap[raw] || raw.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  if (leagueMap[raw]) return leagueMap[raw];
+
+  // Team total fallback
+  if (raw.startsWith("team_total_")) {
+    const suffix = raw.replace("team_total_", "");
+    return "Team Total " + suffix.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  // Touchdown/score fallback
+  if (raw.includes("touchdown") || raw.includes("score")) {
+    return raw.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  // Period-based fallback
+  const periodMatch = raw.match(/(.+)_([0-9]+[hqip]|[0-9]+h|ot|ei)$/i);
+  if (periodMatch) {
+    const base = periodMatch[1].replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+    const periodCode = periodMatch[2].toLowerCase();
+
+    if (VIEW_MODE === "verbose") {
+      const leaguePeriods = PERIOD_LABELS[league.toLowerCase()] || {};
+      const label = leaguePeriods[periodCode];
+      if (label) return `${base} ${label}`;
+    }
+
+    return `${base} ${periodCode.toUpperCase()}`;
+  }
+
+  // Default fallback
+  return raw.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
 function sortPropsByLeague(props: any[], league: string) {
@@ -1114,7 +1240,7 @@ function debugNormalizePlayerGroup(markets: any[], players: Record<string, any>)
 
   const player = base.playerID ? players[base.playerID] : undefined;
   const playerName = player?.name || base.marketName;
-  const marketType = base.statID;
+  const marketType = formatMarketType(base.statID, "NFL");
 
   const lineStr =
     over?.bookOverUnder ?? under?.bookOverUnder ?? over?.fairOverUnder ?? under?.fairOverUnder ?? null;
