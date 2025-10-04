@@ -15,22 +15,12 @@ const BASE_URL = "https://api.sportsgameodds.com/v2";
 
 function buildUpstreamUrl(path: string, params: URLSearchParams) {
   const url = new URL(path, BASE_URL);
+  url.searchParams.set('oddsAvailable', 'true');
 
-  // Always include oddsAvailable=true
-  url.searchParams.set("oddsAvailable", "true");
-
-  // Pass through required params
-  const league = params.get("league");
-  const date = params.get("date");
-  if (league) url.searchParams.set("league", league);
-  if (date) url.searchParams.set("date", date);
-
-  // Optional filters
-  const oddIDs = params.get("oddIDs");
-  const bookmakerID = params.get("bookmakerID");
-  if (oddIDs) url.searchParams.set("oddIDs", oddIDs);
-  if (bookmakerID) url.searchParams.set("bookmakerID", bookmakerID);
-
+  ['league', 'date', 'bookmakerID', 'oddIDs'].forEach(k => {
+    const v = params.get(k);
+    if (v) url.searchParams.set(k, v);
+  });
   return url.toString();
 }
 
@@ -81,59 +71,74 @@ export default {
           }
           const data = await res.json();
 
-          const events = (data.data || []).map((ev: any) => {
-            // Extract team and player props from odds
-            const teamProps: any[] = [];
-            const playerProps: any[] = [];
-            
-            for (const [propKey, propData] of Object.entries(ev.odds || {})) {
-              if (!propData || typeof propData !== 'object') continue;
-              
-              const prop = propData as any;
-              
-              // Team props (all, away, home)
-              if (['all', 'away', 'home'].includes(prop.statEntityID?.toLowerCase())) {
-                teamProps.push({
-                  id: prop.oddID,
-                  type: prop.marketName || prop.statID,
-                  statEntityID: prop.statEntityID,
-                  sideID: prop.sideID,
-                  line: prop.byBookmaker ? Object.values(prop.byBookmaker)[0]?.overUnder || 0 : 0,
-                  odds: prop.byBookmaker ? Object.values(prop.byBookmaker)[0]?.odds || 0 : 0,
-                  bookmakers: prop.byBookmaker || {}
-                });
-              } else if (prop.statEntityID && prop.statEntityID.length > 3) {
-                // Player props (individual players)
-                const playerName = prop.statEntityID
-                  .replace(/_1_NFL$/, '').replace(/_1_MLB$/, '').replace(/_1_NBA$/, '').replace(/_1_NHL$/, '').replace(/_1_WNBA$/, '')
-                  .replace(/_/g, ' ')
-                  .split(' ')
-                  .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-                  .join(' ');
-                
-                playerProps.push({
-                  id: prop.oddID,
-                  type: prop.marketName || prop.statID,
-                  player_name: playerName,
-                  statEntityID: prop.statEntityID,
-                  sideID: prop.sideID,
-                  line: prop.byBookmaker ? Object.values(prop.byBookmaker)[0]?.overUnder || 0 : 0,
-                  odds: prop.byBookmaker ? Object.values(prop.byBookmaker)[0]?.odds || 0 : 0,
-                  bookmakers: prop.byBookmaker || {}
-                });
-              }
-            }
+          // Inside /api/odds handler, after fetching upstream
+          const events = (data.data || [])
+            .filter((ev: any) => String(ev.leagueID || ev.league).toUpperCase() === 'NFL')
+            .map((ev: any) => {
+              const markets = Array.isArray(ev.markets) ? ev.markets : [];
+
+              const teamProps = markets.filter((m: any) => !m.player_name);
+              const playerProps = markets.filter((m: any) => !!m.player_name);
+
+              return {
+                id: ev.eventID,
+                league: ev.leagueID || ev.league,
+                start_time: ev.scheduled,
+                home_team: ev.teams?.home?.names?.long || ev.teams?.home?.names?.short,
+                away_team: ev.teams?.away?.names?.long || ev.teams?.away?.names?.short,
+                team_props: teamProps.map(normalizeMarket),
+                player_props: playerProps.map(normalizeMarket),
+              };
+            });
+
+          // Helper: normalize any market into a consistent shape
+          function normalizeMarket(m: any) {
+            // Expected shape assumptions:
+            // - m.type: market type (e.g., 'passing_yards', 'anytime_touchdown')
+            // - m.line: primary market line
+            // - m.outcomes: [{ side: 'over'|'under'|'yes'|'no', price, bookmaker, line? }, ...]
+            // - m.player_name?: player
+            // - m.team?: team
+            const outcomes = Array.isArray(m.outcomes) ? m.outcomes : [];
+
+            // Select best odds across books for each side
+            const best = selectBestOutcomes(outcomes);
 
             return {
-              id: ev.eventID,
-              league: ev.leagueID || league,
-              start_time: ev.scheduled,
-              home_team: ev.teams?.home?.names?.long || ev.teams?.home?.names?.short,
-              away_team: ev.teams?.away?.names?.long || ev.teams?.away?.names?.short,
-              team_props: teamProps,
-              player_props: playerProps,
+              market_type: m.type,
+              player_name: m.player_name || null,
+              team: m.team || null,
+              line: resolveLine(m, outcomes),
+              best_over: best.over,   // { price, bookmaker, line }
+              best_under: best.under, // { price, bookmaker, line }
+              books: outcomes.map(o => ({
+                bookmaker: o.bookmaker,
+                side: o.side,
+                price: o.price,
+                line: o.line ?? m.line ?? null,
+              })),
             };
-          });
+          }
+
+          function resolveLine(m: any, outcomes: any[]) {
+            // Prefer explicit outcome line; fallback to market-level line
+            const lineFromOutcome = outcomes.find(o => o.line != null)?.line;
+            return lineFromOutcome ?? m.line ?? null;
+          }
+
+          function selectBestOutcomes(outcomes: any[]) {
+            // Best odds for OVER: highest positive or closest to zero negative (max price)
+            const overCandidates = outcomes.filter(o => ['over', 'yes'].includes(String(o.side).toLowerCase()));
+            const underCandidates = outcomes.filter(o => ['under', 'no'].includes(String(o.side).toLowerCase()));
+
+            const bestOver = overCandidates.sort((a, b) => (b.price ?? -Infinity) - (a.price ?? -Infinity))[0] || null;
+            const bestUnder = underCandidates.sort((a, b) => (b.price ?? -Infinity) - (a.price ?? -Infinity))[0] || null;
+
+            return {
+              over: bestOver ? { price: bestOver.price, bookmaker: bestOver.bookmaker, line: bestOver.line ?? null } : null,
+              under: bestUnder ? { price: bestUnder.price, bookmaker: bestUnder.bookmaker, line: bestUnder.line ?? null } : null,
+            };
+          }
 
           return new Response(JSON.stringify({ events }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
