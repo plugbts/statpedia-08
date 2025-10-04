@@ -53,6 +53,123 @@ class CloudflarePlayerPropsAPI {
    * - Global edge caching
    */
   async getPlayerProps(sport: string = 'nfl', forceRefresh: boolean = false): Promise<PlayerProp[]> {
+    try {
+      console.log(`🚀 Fetching player props from new /api/odds endpoint: ${sport}${forceRefresh ? ' (force refresh)' : ''}`);
+      
+      // Use the new /api/odds endpoint with proper parameters
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+      const league = sport.toUpperCase();
+      
+      const url = new URL(`${this.baseUrl}/api/odds`);
+      url.searchParams.append('league', league);
+      url.searchParams.append('date', today);
+      url.searchParams.append('bookmakerID', 'fanduel'); // Use FanDuel for real player props
+      
+      if (forceRefresh) {
+        url.searchParams.append('force_refresh', 'true');
+      }
+
+      const startTime = Date.now();
+      
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const responseTime = Date.now() - startTime;
+      
+      console.log(`📊 New /api/odds response: ${response.status} (${responseTime}ms)`);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.warn(`⚠️ New /api/odds endpoint failed: ${response.status} - ${errorData.error || 'Unknown error'}`);
+        
+        // Fallback to legacy endpoint
+        console.log('🔄 Falling back to legacy /api/player-props endpoint...');
+        return this.getPlayerPropsFromLegacy(sport, forceRefresh);
+      }
+
+      const data = await response.json();
+      
+      console.log(`✅ Player props loaded from new endpoint:`, {
+        totalEvents: data.events?.length || 0,
+        totalPlayerProps: data.events?.reduce((sum: number, event: any) => sum + (event.player_props?.length || 0), 0) || 0
+      });
+
+      // Transform the new format to the expected PlayerProp format
+      const playerProps: PlayerProp[] = [];
+      
+      if (data.events) {
+        for (const event of data.events) {
+          if (event.player_props) {
+            for (const prop of event.player_props) {
+              // Only include props with actual odds
+              if (prop.odds && prop.odds !== '0' && prop.odds !== 0) {
+                playerProps.push({
+                  id: prop.id,
+                  playerId: prop.statEntityID,
+                  playerName: prop.player_name,
+                  team: event.home_team || 'Unknown',
+                  opponent: event.away_team || 'Unknown',
+                  propType: prop.type,
+                  line: prop.line || 0,
+                  overOdds: prop.sideID === 'over' ? parseFloat(prop.odds.toString().replace('+', '')) : null,
+                  underOdds: prop.sideID === 'under' ? parseFloat(prop.odds.toString().replace('+', '')) : null,
+                  confidence: 0.5, // Default fallback
+                  expectedValue: 0, // Default fallback
+                  gameDate: event.start_time?.split('T')[0] || today,
+                  gameTime: event.start_time || new Date().toISOString(),
+                  sport: sport,
+                  availableSportsbooks: Object.keys(prop.bookmakers || {}),
+                  teamAbbr: event.home_team?.split(' ').pop() || 'UNK',
+                  opponentAbbr: event.away_team?.split(' ').pop() || 'UNK',
+                  gameId: event.id,
+                  allSportsbookOdds: Object.entries(prop.bookmakers || {}).map(([bookmaker, data]: [string, any]) => ({
+                    sportsbook: bookmaker,
+                    odds: parseFloat(data.odds?.toString().replace('+', '') || '0'),
+                    lastUpdate: data.lastUpdatedAt || new Date().toISOString()
+                  })),
+                  available: true,
+                  awayTeam: event.away_team,
+                  homeTeam: event.home_team,
+                  betType: 'player_prop',
+                  isExactAPIData: true,
+                  lastUpdate: new Date().toISOString(),
+                  marketName: prop.type,
+                  market: prop.type,
+                  marketId: prop.id,
+                  period: 'full_game',
+                  statEntity: prop.statEntityID
+                });
+              }
+            }
+          }
+        }
+      }
+
+      console.log(`✅ Transformed ${playerProps.length} player props from new endpoint`);
+      return playerProps;
+      
+    } catch (error) {
+      console.error('❌ New /api/odds endpoint error:', error);
+      console.log('🔄 Falling back to legacy /api/player-props endpoint...');
+      
+      // Fallback to legacy endpoint
+      try {
+        return await this.getPlayerPropsFromLegacy(sport, forceRefresh);
+      } catch (fallbackError) {
+        console.error('❌ Legacy fallback also failed:', fallbackError);
+        throw fallbackError;
+      }
+    }
+  }
+
+  /**
+   * Legacy method to get player props from old /api/player-props endpoint
+   */
+  private async getPlayerPropsFromLegacy(sport: string = 'nfl', forceRefresh: boolean = false): Promise<PlayerProp[]> {
     const params: any = { sport: sport.toLowerCase() };
 
     if (forceRefresh) {
