@@ -136,9 +136,9 @@ export default {
     }
     // Route: /api/{league}/player-props
     else {
-      const match = url.pathname.match(/^\/api\/([a-z]+)\/player-props$/);
-      if (match) {
-        const league = match[1].toUpperCase(); // e.g. NFL, NBA
+    const match = url.pathname.match(/^\/api\/([a-z]+)\/player-props$/);
+    if (match) {
+      const league = match[1].toUpperCase(); // e.g. NFL, NBA
         resp = await handlePlayerProps(request, env, ctx, league);
       } else {
         resp = new Response("Not found", { status: 404 });
@@ -151,7 +151,7 @@ export default {
 
 async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionContext, league: string): Promise<Response> {
   const startTime = Date.now();
-  const url = new URL(request.url);
+      const url = new URL(request.url);
   const date = url.searchParams.get("date") || new Date().toISOString().split('T')[0]; // Default to today
   const oddIDs = url.searchParams.get("oddIDs");
   const bookmakerID = url.searchParams.get("bookmakerID");
@@ -282,21 +282,21 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
   } else {
     // Full view: return all fields
     responseData = {
-      events: normalized,
-      ...(debug ? { 
-        debug: { 
-          upstreamEvents: rawEvents.length, 
-          playerPropsTotal: totalPlayerProps,
+    events: normalized,
+    ...(debug ? { 
+      debug: { 
+        upstreamEvents: rawEvents.length, 
+        playerPropsTotal: totalPlayerProps,
           view: 'full',
-          sampleEvent: normalized[0] ? {
-            eventID: normalized[0].eventID,
-            player_props_count: normalized[0].player_props?.length || 0,
-            team_props_count: normalized[0].team_props?.length || 0,
-            sample_player_prop: normalized[0].player_props?.[0] || null
-          } : null
-        } 
+        sampleEvent: normalized[0] ? {
+          eventID: normalized[0].eventID,
+          player_props_count: normalized[0].player_props?.length || 0,
+          team_props_count: normalized[0].team_props?.length || 0,
+          sample_player_prop: normalized[0].player_props?.[0] || null
+        } : null
+      } 
       } : {})
-    };
+  };
   }
 
   const response = new Response(JSON.stringify(responseData), {
@@ -467,16 +467,20 @@ function normalizeEvent(ev: SGEvent) {
   
   console.log(`Normalizing event ${ev.eventID} with ${Object.keys(oddsDict).length} odds`);
 
-  // Group by statEntityID + statID + periodID + betTypeID to preserve all prop types
+  // Group by all identifiers to preserve every distinct prop type
   const groups: Record<string, MarketSide[]> = {};
   for (const oddID in oddsDict) {
     const m = oddsDict[oddID];
+
     const key = [
-      m.statEntityID || "",
-      m.statID || "",
-      m.periodID || "",
-      m.betTypeID || ""
+      m.statEntityID || "",   // player/team entity
+      m.statID || "",         // stat type (yards, TDs, etc.)
+      m.periodID || "",       // game period (full game, 1H, etc.)
+      m.betTypeID || "",      // bet type (over/under, yes/no, etc.)
+      (m as any).marketTypeID || "",   // market type (first TD, last TD, anytime TD, etc.)
+      (m as any).marketID || ""        // unique market ID if provided
     ].join("|");
+
     (groups[key] ||= []).push(m);
   }
   
@@ -512,16 +516,32 @@ function normalizeEvent(ev: SGEvent) {
   return {
     eventID: ev.eventID,
     leagueID: ev.leagueID,
-    start_time: ev.scheduled,
+    start_time: toUserTime(ev.scheduled, "America/New_York"),
     home_team: {
       id: ev.teams?.home?.teamID ?? ev.teams?.home?.id ?? null,
-      abbr: ev.teams?.home?.abbreviation ?? ev.teams?.home?.names?.abbr ?? null,
-      name: ev.teams?.home?.names?.full ?? null,
+      abbr: ev.teams?.home?.abbreviation 
+            ?? ev.teams?.home?.names?.abbr 
+            ?? (ev.teams?.home as any)?.alias 
+            ?? (ev.teams?.home as any)?.displayName 
+            ?? "UNK",
+      name: ev.teams?.home?.names?.full 
+            ?? (ev.teams?.home as any)?.displayName 
+            ?? ((ev.teams?.home as any)?.market && (ev.teams?.home as any)?.name 
+                ? `${(ev.teams.home as any).market} ${(ev.teams.home as any).name}` 
+                : "Unknown"),
     },
     away_team: {
       id: ev.teams?.away?.teamID ?? ev.teams?.away?.id ?? null,
-      abbr: ev.teams?.away?.abbreviation ?? ev.teams?.away?.names?.abbr ?? null,
-      name: ev.teams?.away?.names?.full ?? null,
+      abbr: ev.teams?.away?.abbreviation 
+            ?? ev.teams?.away?.names?.abbr 
+            ?? (ev.teams?.away as any)?.alias 
+            ?? (ev.teams?.away as any)?.displayName 
+            ?? "UNK",
+      name: ev.teams?.away?.names?.full 
+            ?? (ev.teams?.away as any)?.displayName 
+            ?? ((ev.teams?.away as any)?.market && (ev.teams?.away as any)?.name 
+                ? `${(ev.teams.away as any).market} ${(ev.teams.away as any).name}` 
+                : "Unknown"),
     },
     team_props: teamProps,
     player_props: playerProps,
@@ -710,6 +730,17 @@ function parseAmerican(odds: string | number | null | undefined): number | null 
   if (!s) return null;
   const n = parseInt(s, 10);
   return Number.isFinite(n) ? n : null;
+}
+
+function toUserTime(utcDate: string, tz: string = "America/New_York") {
+  return new Date(utcDate).toLocaleString("en-US", { 
+    timeZone: tz,
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  });
 }
 
 /**
