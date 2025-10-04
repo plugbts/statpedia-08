@@ -156,6 +156,10 @@ export default {
         }
       );
     }
+    // Debug endpoint: /debug/event-structure?league=nfl&date=YYYY-MM-DD
+    else if (url.pathname === "/debug/event-structure") {
+      resp = await handleEventStructureDebug(url, env);
+    }
     // Route: /api/{league}/player-props
     else {
     const match = url.pathname.match(/^\/api\/([a-z]+)\/player-props$/);
@@ -349,6 +353,48 @@ export async function handlePropsEndpoint(request: Request, env: Env, league?: s
   }
 }
 
+async function handleEventStructureDebug(url: URL, env: Env): Promise<Response> {
+  const league = url.searchParams.get("league")?.toUpperCase();
+  const date = url.searchParams.get("date");
+  if (!league || !date) return json({ error: "Missing league or date" }, 400);
+
+  try {
+    const result = await fetchSportsGameOddsDay(league, date, env);
+    
+    if (isErrorResponse(result)) {
+      return json({ error: result.message }, 400);
+    }
+
+    const events = result.events;
+    const debugInfo = events.map(ev => {
+      const home = ev.teams?.home?.names?.long || "UNK";
+      const away = ev.teams?.away?.names?.long || "UNK";
+      const oddsKeys = Object.keys(ev.odds || {});
+      
+      return {
+        eventID: ev.eventID,
+        matchup: `${away} @ ${home}`,
+        startTime: ev.startTime || ev.status?.startsAt,
+        oddsCount: oddsKeys.length,
+        oddsKeys: oddsKeys.slice(0, 10), // Show first 10 for brevity
+        allOddsKeys: oddsKeys // Full list
+      };
+    });
+
+    return json({
+      league,
+      date,
+      events: debugInfo,
+      totalEvents: events.length
+    });
+  } catch (error) {
+    return json({ 
+      error: "Debug endpoint failed",
+      message: error instanceof Error ? error.message : "Unknown error"
+    }, 500);
+  }
+}
+
 async function handleDebugPlayerProps(url: URL, env: Env): Promise<Response> {
   const league = url.searchParams.get("league")?.toUpperCase();
   const date = url.searchParams.get("date");
@@ -534,6 +580,18 @@ function normalizeEventSGO(ev: any, request: any) {
   };
 }
 
+function debugEvent(ev: any) {
+  const home = ev.teams?.home?.names?.long || "UNK";
+  const away = ev.teams?.away?.names?.long || "UNK";
+  const oddsKeys = Object.keys(ev.odds || {});
+
+  console.log("Event Debug:");
+  console.log(`  EventID: ${ev.eventID}`);
+  console.log(`  Matchup: ${away} @ ${home}`);
+  console.log(`  Start:   ${ev.startTime}`);
+  console.log(`  Props:   ${oddsKeys.join(", ")}`);
+}
+
 function normalizeProps(ev: any) {
   const props: any[] = [];
   const odds = ev.odds || {};
@@ -573,6 +631,9 @@ function normalizeEvent(ev: SGEvent) {
   const startTime = ev.start_time || ev.scheduled;
   
   console.log(`Normalizing event ${eventId} with SGO schema`);
+  
+  // Debug the raw event structure
+  debugEvent(ev);
 
   // Use SGO's pre-normalized props if available, otherwise fall back to legacy normalization
   let playerProps: any[] = [];
