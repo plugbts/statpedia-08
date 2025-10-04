@@ -188,29 +188,9 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
     return cached;
   }
 
-  // Fetch upstream
-  const upstreamUrl = buildUpstreamUrl("/v2/events", league, date, oddIDs, bookmakerID);
-  const res = await fetch(upstreamUrl, { headers: { 'x-api-key': env.SPORTSODDS_API_KEY } });
-  upstreamStatus = res.status;
-  
-  if (!res.ok) {
-    const durationMs = Date.now() - startTime;
-    console.log(JSON.stringify({
-      type: 'upstream_error',
-      league,
-      date,
-      cacheHit: false,
-      keptProps: 0,
-      droppedProps: 0,
-      upstreamStatus,
-      durationMs
-    }));
-    await updateMetrics(env, { cacheHit: false, upstreamStatus, durationMs });
-    return json({ error: "Upstream error", status: res.status }, 502);
-  }
-
-  const data = await res.json() as any;
-  const rawEvents = data?.data || [];
+  // Fetch upstream - get full week of events
+  const requestedDate = new Date(date);
+  const rawEvents = await fetchLeagueWeek(league, requestedDate, env);
   
   console.log(`Raw API response: ${rawEvents.length} events`);
   console.log(`Sample event keys:`, rawEvents[0] ? Object.keys(rawEvents[0]) : 'No events');
@@ -237,7 +217,7 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
   }
 
   const totalPlayerProps = normalized.reduce((a, ev) => a + (ev.player_props?.length || 0), 0);
-  const totalDroppedProps = normalized.reduce((a, ev) => a + (ev.debug_counts?.droppedPlayerProps || 0), 0);
+  const totalDroppedProps = normalized.reduce((a, ev) => a + ((ev as any).debug_counts?.droppedPlayerProps || 0), 0);
   keptProps = totalPlayerProps;
   droppedProps = totalDroppedProps;
   const ttl = totalPlayerProps > 50 ? 1800 : 300;
@@ -766,6 +746,50 @@ function sortProps(props: any[]) {
     const bi = priority.indexOf(b.market_type);
     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
   });
+}
+
+function getWeekRange(baseDate: Date = new Date(), days: number = 7) {
+  const start = new Date(baseDate);
+  const end = new Date(baseDate);
+  end.setDate(start.getDate() + (days - 1));
+  return {
+    start: start.toISOString().slice(0, 10),
+    end: end.toISOString().slice(0, 10),
+  };
+}
+
+async function fetchUpstreamProps(league: string, date: string, env: Env) {
+  const upstreamUrl = buildUpstreamUrl("/v2/events", league, date);
+  const res = await fetch(upstreamUrl, { headers: { 'x-api-key': env.SPORTSODDS_API_KEY } });
+  
+  if (!res.ok) {
+    console.log(`Failed to fetch ${league} props for ${date}: ${res.status}`);
+    return [];
+  }
+  
+  const data = await res.json() as any;
+  return data?.data || [];
+}
+
+async function fetchLeagueWeek(league: string, baseDate: Date, env: Env) {
+  const { start, end } = getWeekRange(baseDate, 7);
+  const dates: string[] = [];
+  let d = new Date(start);
+  while (d <= new Date(end)) {
+    dates.push(d.toISOString().slice(0, 10));
+    d.setDate(d.getDate() + 1);
+  }
+
+  console.log(`Fetching ${league} props for dates: ${dates.join(', ')}`);
+
+  const results = await Promise.all(
+    dates.map(date => fetchUpstreamProps(league, date, env))
+  );
+
+  const flatResults = results.flat();
+  console.log(`Fetched ${flatResults.length} total events across ${dates.length} days`);
+  
+  return flatResults;
 }
 
 /**
