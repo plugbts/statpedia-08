@@ -118,6 +118,46 @@ export function PlayerPropsColumnView({
     return `${(value * 100).toFixed(1)}%`;
   };
 
+  // Format prop type names with proper spacing and line breaks
+  const formatPropType = (propType: string): string => {
+    // Add spaces before capital letters and handle common patterns
+    let formatted = propType
+      .replace(/([a-z])([A-Z])/g, '$1 $2') // Add space before capital letters
+      .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2') // Add space between consecutive capitals
+      .replace(/\b(First|Last|Passing|Rushing|Receiving|Defense|Kicking|Field|Extra|Total|Combined|Longest|Attempts|Completions|Interceptions|Sacks|Tackles|Touchdowns|Yards|Receptions|Points|Made|Kicks)\b/g, (match) => {
+        // Capitalize common words
+        return match.charAt(0).toUpperCase() + match.slice(1).toLowerCase();
+      });
+
+    return formatted;
+  };
+
+  // Check if text should wrap to multiple lines
+  const shouldWrapText = (text: string, maxLength: number = 12): boolean => {
+    return text.length > maxLength;
+  };
+
+  // Split text into multiple lines if needed
+  const splitTextIntoLines = (text: string, maxLength: number = 12): string[] => {
+    if (text.length <= maxLength) return [text];
+    
+    const words = text.split(' ');
+    const lines: string[] = [];
+    let currentLine = '';
+    
+    for (const word of words) {
+      if ((currentLine + ' ' + word).length <= maxLength) {
+        currentLine = currentLine ? currentLine + ' ' + word : word;
+      } else {
+        if (currentLine) lines.push(currentLine);
+        currentLine = word;
+      }
+    }
+    
+    if (currentLine) lines.push(currentLine);
+    return lines;
+  };
+
   // Filter and sort props
   const filteredAndSortedProps = props
     .filter(prop => {
@@ -324,9 +364,18 @@ export function PlayerPropsColumnView({
                 </div>
 
                 {/* Prop Type */}
-                <div className="col-span-2 text-center">
-                  <div className="text-sm font-medium text-slate-200 animate-pulse-glow">
-                    {prop.propType}
+                <div className="col-span-2 text-center flex flex-col items-center justify-center">
+                  <div className="text-sm font-medium text-slate-200 animate-pulse-glow leading-tight">
+                    {(() => {
+                      const formattedPropType = formatPropType(prop.propType);
+                      const lines = splitTextIntoLines(formattedPropType, 12);
+                      
+                      return lines.map((line, index) => (
+                        <div key={index} className="block">
+                          {line}
+                        </div>
+                      ));
+                    })()}
                   </div>
                   <div className="text-xs text-slate-400 mt-1">
                     {new Date(prop.gameDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} {new Date(prop.gameTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
