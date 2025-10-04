@@ -203,8 +203,8 @@ async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionConte
   // Normalize
   let normalized = events.map((ev: any) => safeNormalizeEvent(ev as SGEvent));
 
-  // Apply 125-prop cap per league
-  normalized = capPropsPerLeague(normalized, 125);
+  // Apply 125-prop cap per league with priority sorting
+  normalized = capPropsPerLeague(normalized, league, 125);
 
   const totalPlayerProps = normalized.reduce((a, ev) => a + (ev.player_props?.length || 0), 0);
   const totalDroppedProps = normalized.reduce((a, ev) => a + ((ev as any).debug_counts?.droppedPlayerProps || 0), 0);
@@ -729,16 +729,65 @@ function normalizeTeam(team: any) {
   };
 }
 
-function sortProps(props: any[]) {
-  const priority = ["passing_yards", "rushing_yards", "receptions", "touchdowns"];
+// Priority order: lower index = higher priority
+const PROP_PRIORITY: Record<string, string[]> = {
+  nfl: [
+    "passing_yards",
+    "rushing_yards",
+    "receiving_yards",
+    "receptions",
+    "touchdowns",
+    "first_touchdown",
+    "last_touchdown",
+  ],
+  nba: [
+    "points",
+    "rebounds",
+    "assists",
+    "threes_made",
+    "steals",
+    "blocks",
+  ],
+  mlb: [
+    "hits",
+    "home_runs",
+    "rbis",
+    "strikeouts",
+    "total_bases",
+  ],
+  nhl: [
+    "goals",
+    "assists",
+    "points",
+    "shots_on_goal",
+    "saves",
+  ],
+  ncaaf: [
+    "passing_yards",
+    "rushing_yards",
+    "receiving_yards",
+    "receptions",
+    "touchdowns",
+  ],
+};
+
+function sortPropsByLeague(props: any[], league: string) {
+  const priorities = PROP_PRIORITY[league.toLowerCase()] || [];
   return props.sort((a, b) => {
-    const ai = priority.indexOf(a.market_type);
-    const bi = priority.indexOf(b.market_type);
-    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    const ai = priorities.indexOf(a.market_type);
+    const bi = priorities.indexOf(b.market_type);
+
+    // If both are in the priority list, sort by index
+    if (ai !== -1 && bi !== -1) return ai - bi;
+    // If only one is in the list, that one comes first
+    if (ai !== -1) return -1;
+    if (bi !== -1) return 1;
+    // Otherwise, leave them as-is
+    return 0;
   });
 }
 
-function capPropsPerLeague(normalizedEvents: any[], maxProps: number = 125) {
+function capPropsPerLeague(normalizedEvents: any[], league: string, maxProps: number = 125) {
   let total = 0;
 
   for (const event of normalizedEvents) {
@@ -747,8 +796,11 @@ function capPropsPerLeague(normalizedEvents: any[], maxProps: number = 125) {
       event.player_props = [];
       continue;
     }
-    // Slice this event's props down to what's left
-    event.player_props = (event.player_props || []).slice(0, remaining);
+
+    // Sort props by league priority before slicing
+    const sorted = sortPropsByLeague(event.player_props || [], league);
+    event.player_props = sorted.slice(0, remaining);
+
     total += event.player_props.length;
   }
 
