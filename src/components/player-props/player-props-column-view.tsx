@@ -178,6 +178,11 @@ export function PlayerPropsColumnView({
 
   // Format American odds with .5 and .0 intervals only
   const formatAmericanOdds = (odds: number): string => {
+    // Handle pickem props (odds very close to 0)
+    if (Math.abs(odds) < 5) {
+      return 'PK'; // Pickem
+    }
+    
     // Round to nearest .5 or .0 interval
     const rounded = Math.round(odds * 2) / 2;
     

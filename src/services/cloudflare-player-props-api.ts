@@ -256,8 +256,8 @@ class CloudflarePlayerPropsAPI {
                 // Helper function to parse odds string to number
                 const parseOdds = (oddsStr: string | null): number | null => {
                   if (!oddsStr) return null;
-                  const cleanStr = oddsStr.replace(/[+]/g, '');
-                  const num = parseFloat(cleanStr);
+                  // Don't remove + sign, just parse as-is
+                  const num = parseFloat(oddsStr);
                   return isNaN(num) ? null : num;
                 };
 

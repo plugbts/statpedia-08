@@ -33,7 +33,7 @@ function getPriority(marketType: string): number {
   // Kicking next
   if (m.includes("field goal") || m.includes("kicking")) return 2;
 
-  // Defense later
+  // Defense props are filtered out, but keep this for completeness
   if (m.includes("defense") || m.includes("tackle") || m.includes("sack") || m.includes("interception")) return 4;
 
   // Middle default
@@ -928,6 +928,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
 
   // Format American odds with .5 and .0 intervals only
   const formatAmericanOdds = (odds: number): string => {
+    // Handle pickem props (odds very close to 0)
+    if (Math.abs(odds) < 5) {
+      return 'PK'; // Pickem
+    }
+    
     // Round to nearest .5 or .0 interval
     const rounded = Math.round(odds * 2) / 2;
     
@@ -1077,16 +1082,41 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     // Copy to avoid mutating upstream
     const arr = [...mixedProps];
 
-    // Apply NFL guard at sort-time to avoid skew from other sports
-    const nflOnly = arr.filter(p => !p.sport || String(p.sport).toLowerCase() === "nfl");
+    // Apply NFL guard and filter out defensive and kicking props
+    const nflOnly = arr.filter(p => {
+      // Must be NFL
+      if (p.sport && String(p.sport).toLowerCase() !== "nfl") return false;
+      
+      // Filter out defensive and kicking props
+      const marketType = (p.market_type || p.propType || "").toLowerCase();
+      if (marketType.includes("defense") || 
+          marketType.includes("sack") || 
+          marketType.includes("tackle") || 
+          marketType.includes("interception") ||
+          marketType.includes("field goal") ||
+          marketType.includes("kicking") ||
+          marketType.includes("extra point")) {
+        return false;
+      }
+      
+      return true;
+    });
 
-    // Sort with stable tie-breakers
+    // Sort by Statpedia rating first (highest to lowest), then by priority
     nflOnly.sort((a, b) => {
+      // First: Sort by Statpedia rating (highest first)
+      const aRating = statpediaRatingService.calculateRating(a, 'both');
+      const bRating = statpediaRatingService.calculateRating(b, 'both');
+      if (aRating.overall !== bRating.overall) {
+        return bRating.overall - aRating.overall; // Higher rating first
+      }
+
+      // Second: Use priority for tie-breakers
       const pa = getPriority(a.market_type || a.propType);
       const pb = getPriority(b.market_type || b.propType);
       if (pa !== pb) return pa - pb;
 
-      // Tie-break within offense types
+      // Third: Tie-break within offense types
       const sa = offenseSubOrder(a.market_type || a.propType);
       const sb = offenseSubOrder(b.market_type || b.propType);
       if (sa !== sb) return sa - sb;
