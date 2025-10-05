@@ -553,6 +553,9 @@ async function fetchWithAPIKey(url: string, env: Env, options: RequestInit = {},
   const headers = {
     "accept": "application/json",
     "X-API-Key": apiKey,
+    "API-Key": apiKey,
+    "x-api-key": apiKey,
+    "apikey": apiKey,
     ...options.headers,
   };
   
@@ -578,7 +581,7 @@ function buildUpstreamUrl(path: string, league: string, date: string, oddIDs?: s
   url.searchParams.set("oddsAvailable", "true");
   url.searchParams.set("leagueID", league);
   url.searchParams.set("date", date);
-  url.searchParams.set("apikey", ""); // Will be set by fetchWithAPIKey
+  url.searchParams.set("apikey", env.SGO_API_KEY); // Add API key as URL param too
   // Only add oddIDs if explicitly provided by client
   if (oddIDs) url.searchParams.set("oddIDs", oddIDs);
   if (bookmakerID) url.searchParams.set("bookmakerID", bookmakerID);
@@ -730,6 +733,10 @@ function normalizeEvent(ev: SGEvent) {
     const oddsDict = ev.odds || {};
     const playerPropsMap = new Map<string, any>();
     
+    // Debug: log first few odds entries to see structure
+    const oddsEntries = Object.entries(oddsDict).slice(0, 3);
+    console.log(`DEBUG: First 3 odds entries:`, oddsEntries.map(([key, value]) => ({ key, valueKeys: Object.keys(value as any) })));
+    
     // Parse odds entries with format: "statType-PLAYER_NAME-game-side"
     for (const oddID in oddsDict) {
       const oddsEntry = oddsDict[oddID];
@@ -790,7 +797,8 @@ function normalizeEvent(ev: SGEvent) {
       
       // Debug log to see what we're working with
       if (propKey.includes('JOE FLACCO') && statType === 'passing_touchdowns') {
-        console.log(`DEBUG odds entry for ${oddID}:`, oddsData);
+        console.log(`DEBUG odds entry for ${oddID}:`, JSON.stringify(oddsData, null, 2));
+        console.log(`DEBUG odds entry keys:`, Object.keys(oddsData));
       }
       
       // Try different possible field names for line
