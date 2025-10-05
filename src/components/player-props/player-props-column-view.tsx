@@ -177,9 +177,11 @@ export function PlayerPropsColumnView({
       let bValue = 0;
 
       switch (sortBy) {
-        case 'confidence':
-          aValue = a.confidence || 0;
-          bValue = b.confidence || 0;
+        case 'statpediaRating':
+          const aRating = statpediaRatingService.calculateRating(a, overUnderFilter);
+          const bRating = statpediaRatingService.calculateRating(b, overUnderFilter);
+          aValue = aRating.overall;
+          bValue = bRating.overall;
           break;
         case 'expectedValue':
           aValue = a.expectedValue || 0;
@@ -297,7 +299,7 @@ export function PlayerPropsColumnView({
             </SelectTrigger>
             <SelectContent className="bg-slate-800 border-slate-600">
               <SelectItem value="api" className="text-slate-200">Order</SelectItem>
-              <SelectItem value="confidence" className="text-slate-200">Confidence</SelectItem>
+              <SelectItem value="statpediaRating" className="text-slate-200">Statpedia Rating</SelectItem>
               <SelectItem value="expectedValue" className="text-slate-200">Expected Value</SelectItem>
               <SelectItem value="line" className="text-slate-200">Line</SelectItem>
               <SelectItem value="overOdds" className="text-slate-200">Over Odds</SelectItem>

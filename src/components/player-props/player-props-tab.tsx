@@ -18,6 +18,7 @@ import { logAPI, logState, logFilter, logSuccess, logError, logWarning, logInfo,
 import { AdvancedPredictionDisplay } from '@/components/advanced-prediction-display';
 import { advancedPredictionService, ComprehensivePrediction } from '@/services/advanced-prediction-service';
 import { evCalculatorService } from '@/services/ev-calculator';
+import { statpediaRatingService } from '@/services/statpedia-rating-service';
 
 // NFL Team mapping for logos
 const logoByTeam: Record<string, string> = {
@@ -277,7 +278,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const [showAdvancedAnalysis, setShowAdvancedAnalysis] = useState(false);
   const [advancedPrediction, setAdvancedPrediction] = useState<ComprehensivePrediction | null>(null);
   const [isGeneratingAdvancedPrediction, setIsGeneratingAdvancedPrediction] = useState(false);
-  const [sortBy, setSortBy] = useState<'confidence' | 'ev' | 'line' | 'player' | 'api'>('api');
+  const [sortBy, setSortBy] = useState<'statpediaRating' | 'ev' | 'line' | 'player' | 'api'>('api');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [minConfidence, setMinConfidence] = useState(0);
   const [minEV, setMinEV] = useState(0);
@@ -766,9 +767,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       let aValue: any, bValue: any;
       
       switch (sortBy) {
-        case 'confidence':
-          aValue = a.confidence || 0;
-          bValue = b.confidence || 0;
+        case 'statpediaRating':
+          const aRating = statpediaRatingService.calculateRating(a, overUnderFilter);
+          const bRating = statpediaRatingService.calculateRating(b, overUnderFilter);
+          aValue = aRating.overall;
+          bValue = bRating.overall;
           break;
         case 'ev':
           aValue = a.expectedValue || 0;
@@ -1144,35 +1147,6 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                 </Select>
               </div>
 
-              {/* Sort */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground flex items-center gap-1">
-                  <ArrowUpDown className="w-4 h-4" />
-                  Sort By
-                </label>
-                <div className="flex gap-1">
-                  <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
-                    <SelectTrigger className="flex-1 bg-background/50 border-primary/20 hover:border-primary/40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="api">Order</SelectItem>
-                      <SelectItem value="confidence">Confidence</SelectItem>
-                      <SelectItem value="ev">Expected Value</SelectItem>
-                      <SelectItem value="line">Line</SelectItem>
-                      <SelectItem value="player">Player</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                    className="px-2 bg-background/50 border-primary/20 hover:border-primary/40"
-                  >
-                    {sortOrder === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
-                  </Button>
-                </div>
-              </div>
             </div>
 
             {/* Search and View Mode */}
