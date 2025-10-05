@@ -308,16 +308,21 @@ export function PlayerPropsColumnView({
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-slate-100">Player Props - {selectedSport.toUpperCase()}</h2>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
+              <Target className="w-4 h-4 text-primary-foreground" />
+            </div>
+            <h2 className="text-2xl font-bold text-foreground">Player Props - {selectedSport.toUpperCase()}</h2>
+          </div>
           <div className="flex items-center space-x-4">
-            <div className="h-10 w-32 bg-slate-800/60 rounded-lg animate-pulse" />
-            <div className="h-10 w-24 bg-slate-800/60 rounded-lg animate-pulse" />
-            <div className="h-10 w-20 bg-slate-800/60 rounded-lg animate-pulse" />
+            <div className="h-10 w-32 bg-card/60 rounded-lg animate-pulse" />
+            <div className="h-10 w-24 bg-card/60 rounded-lg animate-pulse" />
+            <div className="h-10 w-20 bg-card/60 rounded-lg animate-pulse" />
           </div>
         </div>
         <div className="space-y-3">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="h-16 bg-slate-800/60 rounded-lg animate-pulse" />
+            <div key={i} className="h-16 bg-card/60 rounded-lg animate-pulse" />
           ))}
         </div>
       </div>
@@ -328,38 +333,43 @@ export function PlayerPropsColumnView({
     <div className="space-y-6">
       {/* Header with Controls */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <h2 className="text-2xl font-bold text-slate-100">
-          Player Props - {selectedSport.toUpperCase()}
-        </h2>
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
+            <Target className="w-4 h-4 text-primary-foreground" />
+          </div>
+          <h2 className="text-2xl font-bold text-foreground">
+            Player Props - {selectedSport.toUpperCase()}
+          </h2>
+        </div>
         
         <div className="flex flex-wrap items-center gap-3">
           {/* Filter Dropdown */}
           <Select value={filterBy} onValueChange={setFilterBy}>
-            <SelectTrigger className="w-40 bg-slate-800/60 border-slate-600/60 text-slate-200">
+            <SelectTrigger className="w-40 bg-card border-border/50 text-foreground hover:border-primary/30 transition-colors">
               <Filter className="h-4 w-4 mr-2" />
               <SelectValue placeholder="Filter" />
             </SelectTrigger>
-            <SelectContent className="bg-slate-800 border-slate-600">
-              <SelectItem value="all" className="text-slate-200">All Props</SelectItem>
-              <SelectItem value="over" className="text-slate-200">Over Picks</SelectItem>
-              <SelectItem value="under" className="text-slate-200">Under Picks</SelectItem>
-              <SelectItem value="high-confidence" className="text-slate-200">High Confidence</SelectItem>
+            <SelectContent className="bg-card border-border">
+              <SelectItem value="all" className="text-foreground">All Props</SelectItem>
+              <SelectItem value="over" className="text-foreground">Over Picks</SelectItem>
+              <SelectItem value="under" className="text-foreground">Under Picks</SelectItem>
+              <SelectItem value="high-confidence" className="text-foreground">High Confidence</SelectItem>
             </SelectContent>
           </Select>
 
           {/* Sort Dropdown */}
           <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-40 bg-slate-800/60 border-slate-600/60 text-slate-200">
+            <SelectTrigger className="w-40 bg-card border-border/50 text-foreground hover:border-primary/30 transition-colors">
               <SortAsc className="h-4 w-4 mr-2" />
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
-            <SelectContent className="bg-slate-800 border-slate-600">
-              <SelectItem value="api" className="text-slate-200">Order</SelectItem>
-              <SelectItem value="statpediaRating" className="text-slate-200">Statpedia Rating</SelectItem>
-              <SelectItem value="expectedValue" className="text-slate-200">Expected Value</SelectItem>
-              <SelectItem value="line" className="text-slate-200">Line</SelectItem>
-              <SelectItem value="overOdds" className="text-slate-200">Over Odds</SelectItem>
-              <SelectItem value="playerName" className="text-slate-200">Player Name</SelectItem>
+            <SelectContent className="bg-card border-border">
+              <SelectItem value="api" className="text-foreground">Order</SelectItem>
+              <SelectItem value="statpediaRating" className="text-foreground">Statpedia Rating</SelectItem>
+              <SelectItem value="expectedValue" className="text-foreground">Expected Value</SelectItem>
+              <SelectItem value="line" className="text-foreground">Line</SelectItem>
+              <SelectItem value="overOdds" className="text-foreground">Over Odds</SelectItem>
+              <SelectItem value="playerName" className="text-foreground">Player Name</SelectItem>
             </SelectContent>
           </Select>
 
@@ -368,7 +378,7 @@ export function PlayerPropsColumnView({
             variant="outline"
             size="sm"
             onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-            className="bg-slate-800/60 border-slate-600/60 text-slate-200 hover:bg-slate-700/60"
+            className="bg-card border-border/50 text-foreground hover:bg-accent hover:border-primary/30 transition-colors"
           >
             {sortOrder === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
           </Button>
@@ -376,31 +386,58 @@ export function PlayerPropsColumnView({
       </div>
 
       {/* Column Headers */}
-      <div className="grid grid-cols-12 gap-4 px-4 py-2 bg-slate-900/60 rounded-lg border border-slate-700/60">
-        <div className="col-span-2 text-sm font-semibold text-slate-300">Player</div>
-        <div className="col-span-2 text-sm font-semibold text-slate-300">Prop</div>
-        <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">Line</div>
-        <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">Over</div>
-        <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">Under</div>
-        <div className="col-span-2 text-sm font-semibold text-slate-300 text-center">Sportsbooks</div>
-        <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">EV</div>
-        <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">Statpedia Rating</div>
-        <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">Action</div>
+      <div className="grid grid-cols-12 gap-4 px-4 py-3 bg-gradient-card border border-border/50 rounded-lg">
+        <div className="col-span-2 text-sm font-semibold text-foreground flex items-center gap-2">
+          <Users className="w-4 h-4" />
+          Player
+        </div>
+        <div className="col-span-2 text-sm font-semibold text-foreground flex items-center gap-2">
+          <Target className="w-4 h-4" />
+          Prop
+        </div>
+        <div className="col-span-1 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
+          <BarChart3 className="w-4 h-4" />
+          Line
+        </div>
+        <div className="col-span-1 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
+          <TrendingUp className="w-4 h-4 text-green-500" />
+          Over
+        </div>
+        <div className="col-span-1 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
+          <TrendingDown className="w-4 h-4 text-red-500" />
+          Under
+        </div>
+        <div className="col-span-2 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
+          <Activity className="w-4 h-4" />
+          Sportsbooks
+        </div>
+        <div className="col-span-1 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
+          <Zap className="w-4 h-4" />
+          EV
+        </div>
+        <div className="col-span-1 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
+          <Star className="w-4 h-4" />
+          Rating
+        </div>
+        <div className="col-span-1 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
+          <Sparkles className="w-4 h-4" />
+          Action
+        </div>
       </div>
 
       {/* Props List */}
-      <div className="space-y-2">
+      <div className="space-y-3">
         {filteredAndSortedProps.map((prop, index) => (
           <Card
             key={prop.id || `prop-${prop.playerId}-${prop.propType}-${index}`}
-            className="bg-slate-900/60 border-slate-700/60 hover:bg-slate-800/60 transition-colors duration-200 cursor-pointer group"
+            className="bg-gradient-card border-border/50 hover:border-primary/30 hover:shadow-card-hover transition-all duration-300 cursor-pointer group hover:scale-[1.01]"
             onClick={() => handlePropClick(prop)}
           >
             <CardContent className="p-4">
               <div className="grid grid-cols-12 gap-4 items-center">
                 {/* Player Info */}
                 <div className="col-span-2 flex items-center justify-center space-x-3">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-slate-200 font-bold text-sm overflow-hidden flex-shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 flex items-center justify-center text-foreground font-bold text-sm overflow-hidden flex-shrink-0">
                     {prop.headshotUrl ? (
                       <img 
                         src={prop.headshotUrl} 
@@ -421,10 +458,10 @@ export function PlayerPropsColumnView({
                     )}
                   </div>
                   <div className="text-center min-w-0 flex-1">
-                    <div className="font-semibold text-slate-100 text-sm">
+                    <div className="font-semibold text-foreground text-sm">
                       {prop.playerName || 'Unknown Player'}
                     </div>
-                    <div className="text-xs text-slate-400 mt-1 flex items-center justify-center gap-1">
+                    <div className="text-xs text-muted-foreground mt-1 flex items-center justify-center gap-1">
                       {prop.awayTeamLogo && (
                         <img src={prop.awayTeamLogo} alt={prop.opponentAbbr} className="h-4 w-4" />
                       )}
@@ -440,7 +477,7 @@ export function PlayerPropsColumnView({
 
                 {/* Prop Type */}
                 <div className="col-span-2 text-center flex flex-col items-center justify-center">
-                  <div className="text-sm font-medium text-slate-200 animate-pulse-glow leading-tight">
+                  <div className="text-sm font-medium text-foreground leading-tight">
                     {(() => {
                       const formattedPropType = formatPropType(prop.propType);
                       const lines = splitTextIntoLines(formattedPropType, 12);
@@ -452,28 +489,29 @@ export function PlayerPropsColumnView({
                       ));
                     })()}
                   </div>
-                  <div className="text-xs text-slate-400 mt-1">
+                  <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
                     {new Date(prop.gameDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} {new Date(prop.gameTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
                   </div>
                 </div>
 
                 {/* Line */}
                 <div className="col-span-1 text-center">
-                  <div className="text-lg font-bold text-slate-100">
+                  <div className="text-lg font-bold text-foreground">
                     {formatNumber(prop.line, 1)}
                   </div>
                 </div>
 
                 {/* Over Odds */}
                 <div className="col-span-1 text-center">
-                  <div className="text-sm font-semibold text-green-300">
+                  <div className="text-sm font-semibold text-green-500">
                     {formatOdds(prop.overOdds)}
                   </div>
                 </div>
 
                 {/* Under Odds */}
                 <div className="col-span-1 text-center">
-                  <div className="text-sm font-semibold text-red-300">
+                  <div className="text-sm font-semibold text-red-500">
                     {formatOdds(prop.underOdds)}
                   </div>
                 </div>
@@ -498,12 +536,12 @@ export function PlayerPropsColumnView({
                           setShowSportsbookOverlay(true);
                         }}
                       />
-                      <div className="text-xs text-slate-400">
+                      <div className="text-xs text-muted-foreground">
                         {prop.availableSportsbooks.length} book{prop.availableSportsbooks.length !== 1 ? 's' : ''}
                       </div>
                     </div>
                   ) : (
-                    <span className="text-xs text-slate-500">No data</span>
+                    <span className="text-xs text-muted-foreground">No data</span>
                   )}
                 </div>
 
@@ -514,7 +552,7 @@ export function PlayerPropsColumnView({
                       {convertEVToText(prop.expectedValue * 100).text}
                     </Badge>
                   ) : (
-                    <span className="text-sm text-slate-500">N/A</span>
+                    <span className="text-sm text-muted-foreground">N/A</span>
                   )}
                 </div>
 
@@ -533,7 +571,7 @@ export function PlayerPropsColumnView({
                           {getRatingIcon(rating)}
                           <span className="ml-1">{rating.overall}</span>
                         </Badge>
-                        <div className="text-xs text-slate-400 font-semibold">
+                        <div className="text-xs text-muted-foreground font-semibold">
                           {rating.grade}
                         </div>
                       </div>
@@ -546,7 +584,7 @@ export function PlayerPropsColumnView({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-slate-400 hover:text-slate-200 hover:bg-slate-700/60 opacity-0 group-hover:opacity-100 transition-all duration-200"
+                    className="text-muted-foreground hover:text-foreground hover:bg-accent opacity-0 group-hover:opacity-100 transition-all duration-200"
                     onClick={(e) => {
                       e.stopPropagation();
                       handlePropClick(prop);
@@ -564,8 +602,8 @@ export function PlayerPropsColumnView({
       {/* Empty State */}
       {filteredAndSortedProps.length === 0 && (
         <div className="text-center py-12">
-          <div className="text-slate-400 text-lg mb-2">No props found</div>
-          <div className="text-slate-500 text-sm">Try adjusting your filters or check back later</div>
+          <div className="text-muted-foreground text-lg mb-2">No props found</div>
+          <div className="text-muted-foreground/70 text-sm">Try adjusting your filters or check back later</div>
         </div>
       )}
 

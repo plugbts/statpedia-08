@@ -1088,7 +1088,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         </div>
 
         {/* Enhanced Filters */}
-        <Card className="border-2 border-primary/20 bg-gradient-to-r from-primary/5 to-secondary/5">
+        <Card className="bg-gradient-card border-border/50 hover:border-primary/30 transition-all duration-300">
           <CardContent className="p-6">
             {/* Filter Presets */}
             <div className="mb-6">
@@ -1143,17 +1143,17 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                   setSportFilter(value);
                   loadPlayerProps(value);
                 }}>
-                  <SelectTrigger className="w-full bg-background/50 border-primary/20 hover:border-primary/40">
+                  <SelectTrigger className="w-full bg-card border-border/50 hover:border-primary/30 transition-colors">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="nfl">🏈 NFL</SelectItem>
-                    <SelectItem value="nba">🏀 NBA</SelectItem>
-                    <SelectItem value="mlb">⚾ MLB</SelectItem>
-                    <SelectItem value="nhl">🏒 NHL</SelectItem>
-                    <SelectItem value="college-basketball">🏀 CBB</SelectItem>
-                    <SelectItem value="college-football">🏈 CFB</SelectItem>
-                    <SelectItem value="wnba">🏀 WNBA</SelectItem>
+                    <SelectItem value="nfl">NFL</SelectItem>
+                    <SelectItem value="nba">NBA</SelectItem>
+                    <SelectItem value="mlb">MLB</SelectItem>
+                    <SelectItem value="nhl">NHL</SelectItem>
+                    <SelectItem value="college-basketball">CBB</SelectItem>
+                    <SelectItem value="college-football">CFB</SelectItem>
+                    <SelectItem value="wnba">WNBA</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1167,7 +1167,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                 <Select value={selectedSportsbook} onValueChange={(value) => {
                   setSelectedSportsbook(value);
                 }}>
-                  <SelectTrigger className="w-full bg-background/50 border-primary/20 hover:border-primary/40">
+                  <SelectTrigger className="w-full bg-card border-border/50 hover:border-primary/30 transition-colors">
                     <SelectValue placeholder="Select Sportsbook" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1187,7 +1187,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                   Prop Type
                 </label>
                 <Select value={propTypeFilter} onValueChange={setPropTypeFilter}>
-                  <SelectTrigger className="w-full bg-background/50 border-primary/20 hover:border-primary/40">
+                  <SelectTrigger className="w-full bg-card border-border/50 hover:border-primary/30 transition-colors">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1206,7 +1206,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                   Over/Under
                 </label>
                 <Select value={overUnderFilter} onValueChange={(value: 'over' | 'under' | 'both') => setOverUnderFilter(value)}>
-                  <SelectTrigger className="w-full bg-background/50 border-primary/20 hover:border-primary/40">
+                  <SelectTrigger className="w-full bg-card border-border/50 hover:border-primary/30 transition-colors">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1229,7 +1229,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                     placeholder="Search players, teams, props..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 bg-background/50 border-primary/20 hover:border-primary/40 focus:border-primary/60"
+                    className="pl-10 bg-card border-border/50 hover:border-primary/30 focus:border-primary/60 transition-colors"
                   />
                 </div>
               </div>
@@ -1248,12 +1248,12 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                   }
                   setSearchParams(newSearchParams);
                 }}>
-                  <SelectTrigger className="w-32 bg-background/50 border-primary/20 hover:border-primary/40">
+                  <SelectTrigger className="w-32 bg-card border-border/50 hover:border-primary/30 transition-colors">
                     <SelectValue placeholder="View" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="column">📊 Compact</SelectItem>
-                    <SelectItem value="cards">🎴 Cards</SelectItem>
+                    <SelectItem value="column">Compact</SelectItem>
+                    <SelectItem value="cards">Cards</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1261,7 +1261,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
               {/* Advanced Filters Toggle */}
               <Dialog open={showFilterDialog} onOpenChange={setShowFilterDialog}>
                 <DialogTrigger asChild>
-                  <Button variant="outline" className="bg-background/50 border-primary/20 hover:border-primary/40">
+                  <Button variant="outline" className="bg-card border-border/50 hover:border-primary/30 transition-colors">
                     <Filter className="w-4 h-4 mr-2" />
                     Advanced Filters
                   </Button>
