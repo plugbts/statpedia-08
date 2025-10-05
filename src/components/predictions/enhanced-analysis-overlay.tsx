@@ -50,6 +50,7 @@ import { cn } from '@/lib/utils';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { AskStatpedia } from './ask-statpedia';
 import { consistentPropsService } from '@/services/consistent-props-service';
+import { StreakService } from '@/services/streak-service';
 import { statpediaRatingService } from '@/services/statpedia-rating-service';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -579,12 +580,15 @@ const generateEnhancedGameHistory = (prediction: EnhancedPrediction | AdvancedPr
 };
 
 // Generate enhanced performance metrics
-const generatePerformanceMetrics = (gameHistory: GameHistoryEntry[]): PerformanceMetrics => {
+const generatePerformanceMetrics = (gameHistory: GameHistoryEntry[], prediction: EnhancedPrediction | AdvancedPrediction): PerformanceMetrics => {
   const recentGames = gameHistory.slice(0, 5);
   const hitRate = recentGames.filter(g => g.hit).length / recentGames.length;
   
+  // Use StreakService for consistent streak calculation
+  const streakData = StreakService.calculateStreak(hitRate, hitRate, 10);
+  
   return {
-    currentStreak: Math.floor(Math.random() * 5) + 1,
+    currentStreak: streakData.currentStreak,
     longestStreak: Math.floor(Math.random() * 8) + 3,
     recentForm: hitRate > 0.7 ? 'hot' : hitRate < 0.4 ? 'cold' : 'average',
     consistency: 0.7 + Math.random() * 0.2,
@@ -935,10 +939,22 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
 
   // Enhanced data generation
   const enhancedData = useMemo(() => {
-    if (!prediction) return null;
+    if (!prediction) {
+      console.log('EnhancedAnalysisOverlay: No prediction provided');
+      return null;
+    }
+    
+    console.log('EnhancedAnalysisOverlay: Processing prediction:', {
+      id: prediction.id,
+      playerName: prediction.playerName,
+      confidence: prediction.confidence,
+      expectedValue: prediction.expectedValue,
+      hasConfidence: 'confidence' in prediction,
+      hasExpectedValue: 'expectedValue' in prediction
+    });
     
     const gameHistory = generateEnhancedGameHistory(prediction);
-    const performanceMetrics = generatePerformanceMetrics(gameHistory);
+    const performanceMetrics = generatePerformanceMetrics(gameHistory, prediction);
     
     // Calculate risk level based on AI confidence and hit probability
     const aiConfidence = prediction.aiPrediction?.confidence || prediction.confidence || 0.5;
@@ -1021,7 +1037,7 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
     if (updatedEnhancedData) {
       // Recalculate enhanced data for the new prop
       const gameHistory = generateEnhancedGameHistory(updatedEnhancedData);
-      const performanceMetrics = generatePerformanceMetrics(gameHistory);
+      const performanceMetrics = generatePerformanceMetrics(gameHistory, updatedEnhancedData);
       
       // Calculate risk level based on AI confidence and hit probability
       const aiConfidence = updatedEnhancedData.aiPrediction?.confidence || updatedEnhancedData.confidence || 0.5;
@@ -1060,8 +1076,15 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
   const currentData = finalEnhancedData;
 
   if (!prediction || !enhancedData) {
+    console.log('EnhancedAnalysisOverlay: Not rendering - prediction:', !!prediction, 'enhancedData:', !!enhancedData);
     return null;
   }
+  
+  console.log('EnhancedAnalysisOverlay: Rendering with data:', {
+    predictionId: prediction.id,
+    playerName: prediction.playerName,
+    hasEnhancedData: !!enhancedData
+  });
 
   const handleVote = (vote: 'over' | 'under') => {
     if (hasVoted) return;
