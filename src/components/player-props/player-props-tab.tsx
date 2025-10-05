@@ -467,6 +467,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const [selectedProps, setSelectedProps] = useState<string[]>([]);
   const [realProps, setRealProps] = useState<ConsistentPlayerProp[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMoreProps, setHasMoreProps] = useState(true);
+  const [totalProps, setTotalProps] = useState(0);
+  const [pageSize] = useState(50);
   const [showFilterDialog, setShowFilterDialog] = useState(false);
   const [myPicks, setMyPicks] = useState<MyPick[]>([]);
   const [showMyPicks, setShowMyPicks] = useState(false);
@@ -680,40 +685,56 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     }
   };
 
-    // Load player props from Fixed API Service - WORKING SOLUTION
-    const loadPlayerProps = async (sport: string) => {
+    // Load player props with pagination - WORKING SOLUTION
+    const loadPlayerProps = async (sport: string, page: number = 1, append: boolean = false) => {
       if (!sport) {
         logWarning('PlayerPropsTab', 'No sport provided to loadPlayerProps');
         return;
       }
       
-      logState('PlayerPropsTab', `Starting to load player props for ${sport}`);
+      logState('PlayerPropsTab', `Starting to load player props for ${sport} (page ${page})`);
       logState('PlayerPropsTab', `Force refresh at ${new Date().toISOString()}`);
       logDebug('PlayerPropsTab', `Current realProps length before load: ${realProps.length}`);
-      setIsLoadingData(true);
       
-      // Force clear any cached data
-      setRealProps([]);
+      if (page === 1) {
+        setIsLoadingData(true);
+        setRealProps([]); // Clear data for first page
+      } else {
+        setIsLoadingMore(true);
+      }
       
       try {
-        // Use Cloudflare Workers API for unlimited scalability and no restrictions
-        logAPI('PlayerPropsTab', `Calling Cloudflare Workers API for ${sport} player props`);
+        // Use Cloudflare Workers API with pagination
+        logAPI('PlayerPropsTab', `Calling Cloudflare Workers API for ${sport} player props (page ${page})`);
         const viewParam = searchParams.get('view');
         const dateParam = searchParams.get('date');
-        const props = await cloudflarePlayerPropsAPI.getPlayerProps(sport, true, dateParam || undefined, viewParam || undefined); // Force refresh for debugging
-        logAPI('PlayerPropsTab', `Cloudflare Workers API returned ${props?.length || 0} props`);
+        const result = await cloudflarePlayerPropsAPI.getPlayerPropsPaginated(
+          sport, 
+          page, 
+          pageSize, 
+          true, // Force refresh for debugging
+          dateParam || undefined, 
+          viewParam || undefined
+        );
+        
+        logAPI('PlayerPropsTab', `Cloudflare Workers API returned ${result.props?.length || 0} props (${result.total} total)`);
+        
+        // Update pagination state
+        setCurrentPage(page);
+        setHasMoreProps(result.hasMore);
+        setTotalProps(result.total);
         
         // 🔍 COMPREHENSIVE FRONTEND DEBUG LOGGING
-        if (props && props.length > 0) {
-          console.log(`\n🎯 FRONTEND PLAYER PROPS ANALYSIS:`);
-          console.log(`📊 Total Props Received: ${props.length}`);
+        if (result.props && result.props.length > 0) {
+          console.log(`\n🎯 FRONTEND PLAYER PROPS ANALYSIS (Page ${page}):`);
+          console.log(`📊 Props Received: ${result.props.length} (${result.total} total)`);
           console.log(`📝 First 10 Props (Priority Order):`);
-          props.slice(0, 10).forEach((prop, index) => {
+          result.props.slice(0, 10).forEach((prop, index) => {
             console.log(`${index + 1}. ${prop.propType} - ${prop.playerName}`);
           });
           
           // Analyze the first prop in detail
-          const firstProp = (props as unknown as APIPlayerProp[])[0];
+          const firstProp = (result.props as unknown as APIPlayerProp[])[0];
           console.log(`\n🔍 DETAILED FIRST PROP ANALYSIS:`);
           console.log(`📋 All Keys:`, Object.keys(firstProp));
           console.log(`🏠 Team Data:`, {
@@ -738,44 +759,17 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
             sport: firstProp.sport
           });
           
-          // Check for UNK issues
-          const unkProps = (props as unknown as APIPlayerProp[]).filter(prop => 
-            prop.team === 'UNK' || 
-            prop.opponent === 'UNK' || 
-            prop.teamAbbr === 'UNK' || 
-            prop.opponentAbbr === 'UNK'
-          );
-          console.log(`⚠️ UNK Issues Found: ${unkProps.length} props have UNK values`);
-          if (unkProps.length > 0) {
-            console.log(`🚨 UNK Props Sample:`, unkProps.slice(0, 3));
-          }
-          
-          // Check for identical odds issues
-          const identicalOddsProps = props.filter(prop => 
-            prop.overOdds === prop.underOdds && prop.overOdds !== null
-          );
-          console.log(`⚠️ Identical Odds Issues: ${identicalOddsProps.length} props have identical over/under odds`);
-          if (identicalOddsProps.length > 0) {
-            console.log(`🚨 Identical Odds Sample:`, identicalOddsProps.slice(0, 3));
-          }
-          
-          // Check for missing game data
-          const missingGameData = (props as unknown as APIPlayerProp[]).filter(prop => 
-            !prop.gameId || !prop.gameDate || prop.gameDate === 'Invalid Date'
-          );
-          console.log(`⚠️ Missing Game Data: ${missingGameData.length} props have missing game info`);
-          
           logDebug('PlayerPropsTab', `Comprehensive analysis complete. Check console for full details.`);
         } else {
           logError('PlayerPropsTab', 'NO PROPS RETURNED FROM API');
         }
         
-        if (props && Array.isArray(props) && props.length > 0) {
-          logSuccess('PlayerPropsTab', `Setting ${props.length} server-side cached props for ${sport}`);
-          logDebug('PlayerPropsTab', 'Backend props sample:', props.slice(0, 2));
+        if (result.props && Array.isArray(result.props) && result.props.length > 0) {
+          logSuccess('PlayerPropsTab', `Setting ${result.props.length} server-side cached props for ${sport} (page ${page})`);
+          logDebug('PlayerPropsTab', 'Backend props sample:', result.props.slice(0, 2));
           
           // Calculate EV for each prop while preserving original order
-          const propsWithEV = await Promise.all((props as unknown as APIPlayerProp[]).map(async (prop, index) => {
+          const propsWithEV = await Promise.all((result.props as unknown as APIPlayerProp[]).map(async (prop, index) => {
             try {
               // Calculate EV for both over and under, use the better one
               const overEV = await evCalculatorService.calculateAIRating({
@@ -843,13 +837,20 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
             console.log(`${index + 1}. ${prop.propType} - ${prop.playerName} (originalIndex: ${prop.originalIndex})`);
           });
           
-          setRealProps(sortedPropsWithEV as PlayerProp[]);
+          // Append or replace props based on pagination
+          if (page === 1) {
+            setRealProps(sortedPropsWithEV as PlayerProp[]);
+          } else {
+            setRealProps(prev => [...prev, ...sortedPropsWithEV as PlayerProp[]]);
+          }
           
           // Log success to console (visible in dev console)
-          logSuccess('PlayerPropsTab', `Player Props Loaded: Found ${props.length} server-side cached props for ${sport.toUpperCase()} with exact sportsbook odds`);
+          logSuccess('PlayerPropsTab', `Player Props Loaded: Found ${result.props.length} server-side cached props for ${sport.toUpperCase()} (page ${page}/${Math.ceil(result.total / pageSize)}) with exact sportsbook odds`);
         } else {
-          logWarning('PlayerPropsTab', 'Backend API returned no valid props', props);
-          setRealProps([]);
+          logWarning('PlayerPropsTab', 'Backend API returned no valid props', result.props);
+          if (page === 1) {
+            setRealProps([]);
+          }
           toast({
             title: "No Data",
             description: `No player props available for ${sport.toUpperCase()}`,
@@ -869,11 +870,20 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
           description: `Failed to load player props: ${error.message}`,
           variant: "destructive",
         });
-        setRealProps([]);
+        if (page === 1) {
+          setRealProps([]);
+        }
       } finally {
         setIsLoadingData(false);
-        logState('PlayerPropsTab', `Finished loading player props for ${sport}`);
+        setIsLoadingMore(false);
+        logState('PlayerPropsTab', `Finished loading player props for ${sport} (page ${page})`);
       }
+    };
+
+    // Load more props (for pagination)
+    const loadMoreProps = async () => {
+      if (!hasMoreProps || isLoadingMore) return;
+      await loadPlayerProps(sportFilter, currentPage + 1, true);
     };
 
   // Format numbers to be compact with .5 and .0 intervals for lines
@@ -1751,6 +1761,38 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
               </div>
             )}
           </>
+        )}
+
+        {/* Load More Button */}
+        {!isLoadingData && hasMoreProps && (
+          <div className="flex justify-center py-6">
+            <Button
+              onClick={loadMoreProps}
+              disabled={isLoadingMore}
+              variant="outline"
+              className="bg-card border-border/50 hover:border-primary/30 transition-colors"
+            >
+              {isLoadingMore ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Loading More...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Load More Props ({totalProps - realProps.length} remaining)
+                </>
+              )}
+            </Button>
+          </div>
+        )}
+
+        {/* Pagination Info */}
+        {!isLoadingData && realProps.length > 0 && (
+          <div className="text-center py-4 text-sm text-muted-foreground">
+            Showing {realProps.length} of {totalProps} props
+            {hasMoreProps && ` • ${totalProps - realProps.length} more available`}
+          </div>
         )}
 
         {/* My Picks Dialog */}

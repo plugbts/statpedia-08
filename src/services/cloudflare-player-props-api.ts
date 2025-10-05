@@ -95,13 +95,20 @@ class CloudflarePlayerPropsAPI {
   }
 
   /**
-   * Get player props with NO RESTRICTIONS
-   * - No size limits
-   * - No timeout restrictions  
-   * - Full data processing
+   * Get player props with pagination and league scoping
+   * - Paginated results (25-50 per page)
+   * - League-scoped requests
+   * - Deduplication and normalization
    * - Global edge caching
    */
-  async getPlayerProps(sport: string = 'nfl', forceRefresh: boolean = false, date?: string, view?: string): Promise<PlayerProp[]> {
+  async getPlayerProps(
+    sport: string = 'nfl', 
+    forceRefresh: boolean = false, 
+    date?: string, 
+    view?: string,
+    page: number = 1,
+    pageSize: number = 50
+  ): Promise<{ props: PlayerProp[]; total: number; hasMore: boolean; page: number; pageSize: number }> {
     try {
       console.log(`🚀 Fetching player props from new /api/{league}/player-props endpoint: ${sport}${forceRefresh ? ' (force refresh)' : ''}`);
       
@@ -111,6 +118,8 @@ class CloudflarePlayerPropsAPI {
       
       const url = new URL(`${this.baseUrl}/api/${league}/player-props`);
       url.searchParams.append('date', date || today);
+      url.searchParams.append('page', page.toString());
+      url.searchParams.append('page_size', pageSize.toString());
       
       if (view) {
         url.searchParams.append('view', view);
@@ -141,7 +150,8 @@ class CloudflarePlayerPropsAPI {
         
         // Fallback to legacy endpoint
         console.log('🔄 Falling back to legacy /api/player-props endpoint...');
-        return this.getPlayerPropsFromLegacy(sport, forceRefresh);
+        const legacyProps = await this.getPlayerPropsFromLegacy(sport, forceRefresh);
+        return this.paginateProps(legacyProps, page, pageSize);
       }
 
       const data = await response.json();
@@ -187,7 +197,29 @@ class CloudflarePlayerPropsAPI {
         'Washington Commanders': 'https://a.espncdn.com/i/teamlogos/nfl/500/wsh.png'
       };
 
-      // Helper function to format market names
+      // Helper function to normalize prop types for deduplication
+      const normalizePropType = (propType: string): string => {
+        if (!propType) return '';
+        
+        return propType
+          .toLowerCase()
+          .replace(/[^a-z0-9\s]/g, '') // Remove special characters
+          .replace(/\s+/g, ' ') // Normalize whitespace
+          .trim()
+          // Handle common variations
+          .replace(/\bpass\b/g, 'passing')
+          .replace(/\brush\b/g, 'rushing')
+          .replace(/\brec\b/g, 'receiving')
+          .replace(/\btd\b/g, 'touchdown')
+          .replace(/\byard\b/g, 'yards')
+          .replace(/\batt\b/g, 'attempts')
+          .replace(/\bcomp\b/g, 'completions')
+          .replace(/\bint\b/g, 'interceptions')
+          .replace(/\bfg\b/g, 'field goal')
+          .replace(/\bxp\b/g, 'extra point');
+      };
+
+      // Helper function to format market names for display
       const formatMarketName = (marketType: string): string => {
         return marketType
           .replace(/_/g, ' ')
@@ -246,8 +278,9 @@ class CloudflarePlayerPropsAPI {
         return abbrMap[teamName] || teamName.split(' ').pop() || 'UNK';
       };
 
-      // Transform the new format to the expected PlayerProp format
+      // Transform the new format to the expected PlayerProp format with deduplication
       const playerProps: PlayerProp[] = [];
+      const propMap = new Map<string, PlayerProp>(); // For deduplication
       
       if (data.events) {
         for (const event of data.events) {
@@ -286,7 +319,11 @@ class CloudflarePlayerPropsAPI {
                   opponentTeam = event.away_team;
                 }
 
-                playerProps.push({
+                // Create deduplication key
+                const normalizedPropType = normalizePropType(prop.market_type);
+                const dedupeKey = `${prop.player_name}-${normalizedPropType}-${playerTeam}-${opponentTeam}`;
+                
+                const newProp: PlayerProp = {
                   id: `${prop.market_type}-${prop.player_name}`,
                   playerId: prop.player_name,
                   playerName: prop.player_name,
@@ -330,7 +367,45 @@ class CloudflarePlayerPropsAPI {
                   // Assign logos based on player's team
                   homeTeamLogo: nflTeamMap[playerTeam],
                   awayTeamLogo: nflTeamMap[opponentTeam]
-                });
+                };
+
+                // Check for duplicates and merge if found
+                if (propMap.has(dedupeKey)) {
+                  const existingProp = propMap.get(dedupeKey)!;
+                  
+                  // Merge sportsbooks and odds
+                  const mergedSportsbooks = [...new Set([
+                    ...(existingProp.availableSportsbooks || []),
+                    ...(newProp.availableSportsbooks || [])
+                  ])];
+                  
+                  const mergedOdds = [
+                    ...(existingProp.allSportsbookOdds || []),
+                    ...(newProp.allSportsbookOdds || [])
+                  ];
+
+                  // Update existing prop with merged data
+                  existingProp.availableSportsbooks = mergedSportsbooks;
+                  existingProp.allSportsbookOdds = mergedOdds;
+                  
+                  // Keep the better odds (closer to -110)
+                  const existingOverOdds = existingProp.overOdds || 0;
+                  const newOverOdds = newProp.overOdds || 0;
+                  const existingUnderOdds = existingProp.underOdds || 0;
+                  const newUnderOdds = newProp.underOdds || 0;
+                  
+                  // Choose odds closer to -110 (better value)
+                  if (Math.abs(existingOverOdds + 110) > Math.abs(newOverOdds + 110)) {
+                    existingProp.overOdds = newOverOdds;
+                  }
+                  if (Math.abs(existingUnderOdds + 110) > Math.abs(newUnderOdds + 110)) {
+                    existingProp.underOdds = newUnderOdds;
+                  }
+                } else {
+                  // Add new prop to map and array
+                  propMap.set(dedupeKey, newProp);
+                  playerProps.push(newProp);
+                }
               }
             }
           }
@@ -338,7 +413,9 @@ class CloudflarePlayerPropsAPI {
       }
 
       console.log(`✅ Transformed ${playerProps.length} player props from new endpoint`);
-      return playerProps;
+      
+      // Apply pagination to the deduplicated props
+      return this.paginateProps(playerProps, page, pageSize);
       
     } catch (error) {
       console.error('❌ New /api/{league}/player-props endpoint error:', error);
@@ -346,12 +423,30 @@ class CloudflarePlayerPropsAPI {
       
       // Fallback to legacy endpoint
       try {
-        return await this.getPlayerPropsFromLegacy(sport, forceRefresh);
+        const legacyProps = await this.getPlayerPropsFromLegacy(sport, forceRefresh);
+        return this.paginateProps(legacyProps, page, pageSize);
       } catch (fallbackError) {
         console.error('❌ Legacy fallback also failed:', fallbackError);
         throw fallbackError;
       }
     }
+  }
+
+  /**
+   * Paginate props array
+   */
+  private paginateProps(props: PlayerProp[], page: number, pageSize: number): { props: PlayerProp[]; total: number; hasMore: boolean; page: number; pageSize: number } {
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const paginatedProps = props.slice(startIndex, endIndex);
+    
+    return {
+      props: paginatedProps,
+      total: props.length,
+      hasMore: endIndex < props.length,
+      page,
+      pageSize
+    };
   }
 
   /**
@@ -489,17 +584,33 @@ class CloudflarePlayerPropsAPI {
   }
 
   /**
-   * Get cached player props (faster response)
+   * Get cached player props (faster response) - backward compatibility
    */
   async getCachedPlayerProps(sport: string = 'nfl'): Promise<PlayerProp[]> {
-    return this.getPlayerProps(sport, false);
+    const result = await this.getPlayerProps(sport, false);
+    return result.props;
   }
 
   /**
-   * Force refresh player props (bypass cache)
+   * Force refresh player props (bypass cache) - backward compatibility
    */
   async refreshPlayerProps(sport: string = 'nfl'): Promise<PlayerProp[]> {
-    return this.getPlayerProps(sport, true);
+    const result = await this.getPlayerProps(sport, true);
+    return result.props;
+  }
+
+  /**
+   * Get player props with pagination (new method)
+   */
+  async getPlayerPropsPaginated(
+    sport: string = 'nfl',
+    page: number = 1,
+    pageSize: number = 50,
+    forceRefresh: boolean = false,
+    date?: string,
+    view?: string
+  ): Promise<{ props: PlayerProp[]; total: number; hasMore: boolean; page: number; pageSize: number }> {
+    return this.getPlayerProps(sport, forceRefresh, date, view, page, pageSize);
   }
 
   /**
@@ -512,8 +623,8 @@ class CloudflarePlayerPropsAPI {
     // Fetch all sports in parallel (no rate limiting!)
     const promises = sports.map(async (sport) => {
       try {
-        const props = await this.getPlayerProps(sport);
-        results[sport] = props;
+        const result = await this.getPlayerProps(sport);
+        results[sport] = result.props;
       } catch (error) {
         console.warn(`Failed to fetch ${sport} props:`, error);
         results[sport] = [];
