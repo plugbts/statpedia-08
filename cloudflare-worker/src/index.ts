@@ -216,8 +216,22 @@ export default {
         if (isErrorResponse(result)) {
           resp = json({ error: result.message }, 400);
         } else {
-          // Transform to legacy format - only include props with odds
-          const legacyProps = result.events.flatMap((event: any) => 
+          // Normalize the raw events using the same logic as the main endpoint
+          const normalizedEvents = result.events
+            .filter((ev: any) => ev && !ev.error)
+            .map((ev: any) => {
+              try {
+                const normalizedEvent = normalizeEventSGO(ev, request);
+                return normalizedEvent;
+              } catch (error) {
+                console.error(`Error normalizing event ${ev.eventID}:`, error);
+                return null;
+              }
+            })
+            .filter((ev: any) => ev !== null);
+
+          // Transform normalized events to legacy format - only include props with odds
+          const legacyProps = normalizedEvents.flatMap((event: any) => 
             event.player_props?.filter((prop: any) => prop.best_over || prop.best_under).map((prop: any) => ({
               id: `${event.eventID}-${prop.player_name}-${prop.market_type}`.replace(/\s+/g, '-').toLowerCase(),
               playerName: formatPlayerName(prop.player_name),
@@ -341,41 +355,20 @@ export async function handlePropsEndpoint(request: Request, env: Env, league?: s
         .slice(0, 10) // Limit to first 10 match events for performance
         .map(ev => {
           try {
-            console.log(`DEBUG: About to normalize event ${ev.eventID}`);
             const result = normalizeEventSGO(ev, request);
-            console.log(`DEBUG: Normalized event ${ev.eventID}, result:`, {
-              eventID: result?.eventID,
-              home_team: result?.home_team,
-              away_team: result?.away_team,
-              matchup: result?.matchup,
-              player_props_count: result?.player_props?.length || 0
-            });
             return result;
           } catch (error) {
-            console.error(`DEBUG: Error normalizing event ${ev.eventID}:`, error);
+            console.error(`Error normalizing event ${ev.eventID}:`, error);
             return null;
           }
         })
         .filter(ev => ev !== null && ev !== undefined); // Filter out null/undefined from error responses
 
-      // DEBUG: Log event normalization
-      console.log("DEBUG event normalization", {
-        league,
-        rawEventsCount: rawEvents.length,
-        normalizedCount: normalized.length,
-        firstEventPropsCount: normalized[0]?.player_props?.length || 0
-      });
+      // Event normalization completed
 
       // 3. Player props are already normalized by normalizeEvent, no need to group again
       for (const event of normalized) {
-        if (debug && event.player_props?.length) {
-          console.log("DEBUG prop summary", {
-            eventID: event.eventID,
-            home: event.home_team,
-            away: event.away_team,
-            counts: summarizePropsByMarket(event, league)
-          });
-        }
+        // Props processed
       }
 
       // 4. Prioritize + cap props per league
@@ -423,11 +416,7 @@ export async function handlePropsEndpoint(request: Request, env: Env, league?: s
     if (debug) responseData.debug = debugInfo;
 
     // DEBUG: Log final response structure
-    console.log("DEBUG final response", {
-      eventsCount: responseData.events.length,
-      firstEventPropsCount: responseData.events[0]?.player_props?.length || 0,
-      sampleProp: responseData.events[0]?.player_props?.[0] || null
-    });
+    // Response prepared
 
     return withCORS(
       new Response(JSON.stringify(responseData), {
@@ -787,14 +776,14 @@ function safeNormalizeEvent(ev: SGEvent) {
 function normalizeEventSGO(ev: any, request: any) {
   // Guard against error responses
   if (ev && typeof ev === 'object' && ev.error === true) {
-    console.log("DEBUG: Skipping error response in normalizer", ev.message);
+    // console.log("DEBUG: Skipping error response in normalizer", ev.message);
     return null;
   }
 
   // Use the existing normalizeEvent function which handles SGO schema properly
   const normalized = normalizeEvent(ev);
   
-  console.log(`DEBUG normalizeEventSGO: eventID=${ev.eventID}, player_props=${normalized.player_props?.length || 0}, team_props=${normalized.team_props?.length || 0}`);
+  // console.log(`DEBUG normalizeEventSGO: eventID=${ev.eventID}, player_props=${normalized.player_props?.length || 0}, team_props=${normalized.team_props?.length || 0}`);
   
   return {
     eventID: normalized.eventID,
@@ -802,6 +791,9 @@ function normalizeEventSGO(ev: any, request: any) {
     start_time: normalized.start_time,
     home_team: normalized.home_team,
     away_team: normalized.away_team,
+    matchup: normalized.matchup,
+    home_logo: normalized.home_logo,
+    away_logo: normalized.away_logo,
     players: ev.players || {},
     player_props: normalized.player_props,
     team_props: normalized.team_props,
@@ -813,11 +805,11 @@ function debugEvent(ev: any) {
   const away = ev.teams?.away?.names?.long || "UNK";
   const oddsKeys = Object.keys(ev.odds || {});
 
-  console.log("Event Debug:");
-  console.log(`  EventID: ${ev.eventID}`);
-  console.log(`  Matchup: ${away} @ ${home}`);
-  console.log(`  Start:   ${ev.startTime}`);
-  console.log(`  Props:   ${oddsKeys.join(", ")}`);
+  // console.log("Event Debug:");
+  // console.log(`  EventID: ${ev.eventID}`);
+  // console.log(`  Matchup: ${away} @ ${home}`);
+  // console.log(`  Start:   ${ev.startTime}`);
+  // console.log(`  Props:   ${oddsKeys.join(", ")}`);
 }
 
 function normalizeProps(ev: any) {
@@ -854,14 +846,14 @@ function normalizeProps(ev: any) {
 
 function normalizeEvent(ev: SGEvent) {
   try {
-    console.log(`🔥 NORMALIZE EVENT CALLED: ${ev.eventID}`);
+    // console.log(`🔥 NORMALIZE EVENT CALLED: ${ev.eventID}`);
     
     // Use SportsGameOdds schema as primary, fallback to legacy
     const eventId = ev.event_id || ev.eventID;
   const leagueId = ev.league_id || ev.leagueID;
   const startTime = ev.start_time || ev.scheduled;
   
-  console.log(`Normalizing event ${eventId} with SGO schema`);
+  // console.log(`Normalizing event ${eventId} with SGO schema`);
   
   // Debug the raw event structure
   debugEvent(ev);
@@ -872,17 +864,15 @@ function normalizeEvent(ev: SGEvent) {
   if (ev.player_props && Array.isArray(ev.player_props)) {
     // SGO already provides normalized player props
     playerProps = ev.player_props;
-    console.log(`Using SGO player_props: ${playerProps.length} props`);
+    // console.log(`Using SGO player_props: ${playerProps.length} props`);
   } else if (ev.odds) {
     // Parse the current SGO API format
-    console.log(`Parsing SGO API format with ${Object.keys(ev.odds).length} odds entries`);
+        // Parsing SGO API format
     
     const oddsDict = ev.odds || {};
     const playerPropsMap = new Map<string, any>();
     
-    // Debug: log first few odds entries to see structure
-    const oddsEntries = Object.entries(oddsDict).slice(0, 3);
-    console.log(`DEBUG: First 3 odds entries:`, oddsEntries.map(([key, value]) => ({ key, valueKeys: Object.keys(value as any) })));
+    // Process odds entries
     
     // Parse odds entries with format: "statType-PLAYER_NAME-game-side"
     for (const oddID in oddsDict) {
@@ -990,15 +980,15 @@ function normalizeEvent(ev: SGEvent) {
       return 0;
     });
     
-    console.log(`Extracted ${playerProps.length} player props from SGO format`);
+        // Extracted player props from SGO format
   }
   
   // Initialize teamProps as empty array since we're focusing on player props
   const teamProps: any[] = [];
   
-  console.log(`Final counts: playerProps=${playerProps.length}, teamProps=${teamProps.length}`);
+  // console.log(`Final counts: playerProps=${playerProps.length}, teamProps=${teamProps.length}`);
 
-  console.log(`Returning event ${eventId} with ${playerProps.length} player props and ${teamProps.length} team props`);
+  // console.log(`Returning event ${eventId} with ${playerProps.length} player props and ${teamProps.length} team props`);
   
   // Use legacy SGO format: ev.teams.home.names.long and ev.teams.away.names.long
   const homeTeamName = ev.teams?.home?.names?.long || "UNK";
@@ -1011,8 +1001,8 @@ function normalizeEvent(ev: SGEvent) {
   const homeLogoPath = `/logos/${homeAbbr}.png`;
   const awayLogoPath = `/logos/${awayAbbr}.png`;
   
-  console.log(`🔥 MATCHUP CONSTRUCTION: "${matchupString}"`);
-  console.log(`🔥 LOGOS: home="${homeLogoPath}", away="${awayLogoPath}"`);
+  // console.log(`🔥 MATCHUP CONSTRUCTION: "${matchupString}"`);
+  // console.log(`🔥 LOGOS: home="${homeLogoPath}", away="${awayLogoPath}"`);
   
   return {
     eventID: eventId,
@@ -1046,10 +1036,7 @@ function groupPlayerProps(event: any, league: string) {
   }
 
   // DEBUG: Log grouped props
-  console.log("DEBUG grouped props", {
-    groups: Object.keys(grouped).length,
-    sample: Object.values(grouped)[0]
-  });
+  // Props grouped
 
   event.player_props = Object.values(grouped)
     .map(group => normalizePlayerGroup(group, event.players, league))
@@ -1095,11 +1082,7 @@ function normalizePlayerGroup(markets: any[], players: Record<string, any>, leag
 
   // If we still don't have a player name, this might be a team prop that was misclassified
   if (!playerName) {
-    console.log("DEBUG: Skipping prop without player name", {
-      oddID: base.oddID,
-      statEntityID: base.statEntityID,
-      statID: base.statID
-    });
+    // Skipping prop without player name
     return null;
   }
 
@@ -1134,23 +1117,12 @@ function normalizePlayerGroup(markets: any[], players: Record<string, any>, leag
 
   // Skip props without player names as they're not useful
   if (!playerName) {
-    console.log("DEBUG: Skipping prop without player name", {
-      oddID: base.oddID,
-      statEntityID: base.statEntityID,
-      statID: base.statID
-    });
+    // Skipping prop without player name
     return null;
   }
 
   // DEBUG: Log player group normalization
-  console.log("DEBUG player group", {
-    playerName,
-    marketType: result.market_type,
-    line: result.line,
-    booksCount: allBooks.length,
-    bestOver: result.best_over,
-    bestUnder: result.best_under
-  });
+  // Player group processed
 
   return result;
 }
@@ -1724,7 +1696,7 @@ export async function fetchSportsGameOddsDay(
   // 3. Build URL with correct endpoint format (use /events endpoint with oddsAvailable)
   const requestedYear = new Date(date).getFullYear();
   const url = `https://api.sportsgameodds.com/v2/events?leagueID=${leagueID}&date=${date}&oddsAvailable=true&oddsType=playerprops`;
-  console.log(`[fetchSportsGameOddsDay] Fetching: ${url.replace(env.SGO_API_KEY, '[API_KEY]')} (requestedYear: ${requestedYear})`);
+  // console.log(`[fetchSportsGameOddsDay] Fetching: ${url.replace(env.SGO_API_KEY, '[API_KEY]')} (requestedYear: ${requestedYear})`);
   const res = await fetchSGO(url, env);
 
   // 4. Handle errors gracefully
@@ -1740,37 +1712,30 @@ export async function fetchSportsGameOddsDay(
   const raw = await res.json() as any;
   const rawEvents = raw.data || raw.events || raw; // SGO wraps in { data: [...] }
   
-  console.log(`[fetchSportsGameOddsDay] Raw response keys:`, Object.keys(raw));
-  console.log(`[fetchSportsGameOddsDay] Raw events count:`, rawEvents.length);
-  if (rawEvents.length > 0) {
-    console.log(`[fetchSportsGameOddsDay] First event keys:`, Object.keys(rawEvents[0]));
-  }
+  // console.log(`[fetchSportsGameOddsDay] Raw events count: ${rawEvents.length}`);
   
   // 6. Filter out events that don't match the requested year
   const events = rawEvents.filter((ev: any) => {
     // Try multiple possible date fields
     const startTime = ev.status?.startsAt || ev.startTime || ev.startsAt;
     if (!startTime) {
-      console.log(`[fetchSportsGameOddsDay] Event ${ev.eventID} has no start time, skipping`);
+      // console.log(`[fetchSportsGameOddsDay] Event ${ev.eventID} has no start time, skipping`);
       return false;
     }
     
     const evYear = new Date(startTime).getFullYear();
     const isCorrectYear = evYear === requestedYear;
     
-    console.log(`[fetchSportsGameOddsDay] Event: startTime=${startTime}, evYear=${evYear}, requestedYear=${requestedYear}, match=${isCorrectYear}`);
+    // console.log(`[fetchSportsGameOddsDay] Event: startTime=${startTime}, evYear=${evYear}, requestedYear=${requestedYear}, match=${isCorrectYear}`);
     
     return isCorrectYear;
   });
   
-  console.log(`[fetchSportsGameOddsDay] Filtered to ${events.length} events for year ${requestedYear}`);
+  // console.log(`[fetchSportsGameOddsDay] Filtered to ${events.length} events for year ${requestedYear}`);
   
   // Debug: Log event details and available prop categories
-  events.forEach((ev: any) => {
-    console.log("EventID:", ev.eventID);
-    console.log("Teams:", ev.teams?.away?.names?.long, "@", ev.teams?.home?.names?.long);
-    console.log("Available prop categories:", Object.keys(ev.odds || {}));
-  });
+  // Reduced logging to avoid CPU limits
+  // console.log(`Found ${events.length} events for ${league} on ${date}`);
   
   return { events };
 }
@@ -1784,7 +1749,7 @@ async function fetchLeagueWeek(league: string, baseDate: Date, env: Env) {
     d.setDate(d.getDate() + 1);
   }
 
-  console.log(`Fetching ${league} props for dates: ${dates.join(', ')}`);
+  // console.log(`Fetching ${league} props for dates: ${dates.join(', ')}`);
 
   const results = await Promise.all(
     dates.map(date => fetchSportsGameOddsDay(league, date, env))
@@ -1794,7 +1759,7 @@ async function fetchLeagueWeek(league: string, baseDate: Date, env: Env) {
     .filter(result => !isErrorResponse(result))
     .map(result => (result as { events: any[] }).events)
     .flat();
-  console.log(`Fetched ${flatResults.length} total events across ${dates.length} days`);
+  // console.log(`Fetched ${flatResults.length} total events across ${dates.length} days`);
   
   return flatResults;
 }
@@ -1819,7 +1784,7 @@ async function fetchSportsGameOddsWeek(league: string, date: string | undefined,
     d.setDate(d.getDate() + 1);
   }
 
-  console.log(`Fetching ${league} props for dates: ${dates.join(', ')}`);
+  // console.log(`Fetching ${league} props for dates: ${dates.join(', ')}`);
 
   const results = await Promise.all(
     dates.map(date => fetchSportsGameOddsDay(league.toUpperCase(), date, env))
@@ -1830,7 +1795,7 @@ async function fetchSportsGameOddsWeek(league: string, date: string | undefined,
     .filter(result => !isErrorResponse(result))
     .map(result => (result as { events: any[] }).events)
     .flat();
-  console.log(`Fetched ${flatResults.length} total events across ${dates.length} days`);
+  // console.log(`Fetched ${flatResults.length} total events across ${dates.length} days`);
   
   return flatResults;
 }
