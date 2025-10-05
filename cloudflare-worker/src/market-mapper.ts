@@ -4,8 +4,8 @@
 // Known friendly labels for common markets
 const MARKET_ALIASES: Record<string, string> = {
   // Passing markets
-  "Passing Yards": "Passing Yards",
-  "passing_yards": "Passing Yards",
+  "Passing Yards": "Passing + Rush Yards",
+  "passing_yards": "Passing + Rush Yards",
   "Passing Attempts": "Passing Attempts", 
   "passing_attempts": "Passing Attempts",
   "Passing Completions": "Passing Completions",
@@ -16,8 +16,8 @@ const MARKET_ALIASES: Record<string, string> = {
   "passing_interceptions": "Passing INTs",
 
   // Rushing markets
-  "Rushing Yards": "Rushing Yards",
-  "rushing_yards": "Rushing Yards", 
+  "Rushing Yards": "Rushing + Rec Yards",
+  "rushing_yards": "Rushing + Rec Yards", 
   "Rushing Attempts": "Rushing Attempts",
   "rushing_attempts": "Rushing Attempts",
   "Rushing Touchdowns": "Rushing TDs",
