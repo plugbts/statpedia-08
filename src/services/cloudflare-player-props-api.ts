@@ -217,20 +217,20 @@ class CloudflarePlayerPropsAPI {
                   opponent: event.away_team || 'Unknown',
                   propType: formatMarketName(prop.market_type),
                   line: prop.line,
-                  overOdds: parseOdds(prop.best_over?.price),
-                  underOdds: parseOdds(prop.best_under?.price),
+                  overOdds: parseOdds(prop.best_over),
+                  underOdds: parseOdds(prop.best_under),
                   confidence: 0.5, // Default fallback
                   expectedValue: 0, // Default fallback
                   gameDate: event.start_time?.split('T')[0] || today,
                   gameTime: event.start_time || new Date().toISOString(),
                   sport: sport,
-                  availableSportsbooks: prop.books?.map((book: any) => book.bookmaker) || [],
+                  availableSportsbooks: prop.books || [],
                   teamAbbr: event.home_team?.split(' ').pop() || 'UNK',
                   opponentAbbr: event.away_team?.split(' ').pop() || 'UNK',
                   gameId: event.eventID,
-                  allSportsbookOdds: prop.books?.map((book: any) => ({
-                    sportsbook: book.bookmaker,
-                    odds: parseOdds(book.price) || 0,
+                  allSportsbookOdds: prop.books?.map((bookName: string) => ({
+                    sportsbook: bookName,
+                    odds: parseOdds(prop.best_over) || 0,
                     lastUpdate: new Date().toISOString()
                   })) || [],
                   available: true,
