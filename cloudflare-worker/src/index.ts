@@ -945,18 +945,23 @@ function normalizeEvent(ev: SGEvent) {
   console.log(`Returning event ${eventId} with ${playerProps.length} player props and ${teamProps.length} team props`);
   
   // Add matchup data with logos - use the team names we already have
+  console.log(`DEBUG: Raw event team data:`, { home_team: ev.home_team, away_team: ev.away_team, teams: ev.teams });
+  
+  const homeTeamName = typeof ev.home_team === 'string' ? ev.home_team : ev.home_team?.name || ev.teams?.home?.names?.long || "UNK";
+  const awayTeamName = typeof ev.away_team === 'string' ? ev.away_team : ev.away_team?.name || ev.teams?.away?.names?.long || "UNK";
+  
   const matchup = {
-    matchup: `${ev.away_team || "UNK"} @ ${ev.home_team || "UNK"}`,
-    home_logo: `/logos/${extractTeamAbbr(ev.home_team || "UNK")}.png`,
-    away_logo: `/logos/${extractTeamAbbr(ev.away_team || "UNK")}.png`,
+    matchup: `${awayTeamName} @ ${homeTeamName}`,
+    home_logo: `/logos/${extractTeamAbbr(homeTeamName)}.png`,
+    away_logo: `/logos/${extractTeamAbbr(awayTeamName)}.png`,
   };
   
   return {
     eventID: eventId,
     leagueID: leagueId,
     start_time: formatEventDate(ev, "America/New_York"),
-    home_team: ev.teams?.home?.names?.long || "UNK",
-    away_team: ev.teams?.away?.names?.long || "UNK",
+    home_team: homeTeamName,
+    away_team: awayTeamName,
     matchup: matchup.matchup,
     home_logo: matchup.home_logo,
     away_logo: matchup.away_logo,
