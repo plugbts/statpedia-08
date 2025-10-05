@@ -57,12 +57,6 @@ const computeRating = (prop: any, mode: "over" | "under"): number => {
   return rating.overall;
 };
 
-  // Set slate props for normalization before computing ratings
-  React.useEffect(() => {
-    if (mixedProps && mixedProps.length > 0) {
-      statpediaRatingService.setSlateProps(mixedProps);
-    }
-  }, [mixedProps]);
 
   // Compute both over and under ratings for a prop
   const computeDualRatings = (prop: any) => {
@@ -1035,6 +1029,13 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
 
   // Use sorted props (PropFinder-style for 'api' sort, traditional for others)
   const mixedProps = sortedProps;
+
+  // Set slate props for normalization before computing ratings
+  React.useEffect(() => {
+    if (mixedProps && mixedProps.length > 0) {
+      statpediaRatingService.setSlateProps(mixedProps);
+    }
+  }, [mixedProps]);
 
   // Final ordering with stable tie-breakers using useMemo
   const orderedProps = React.useMemo(() => {
