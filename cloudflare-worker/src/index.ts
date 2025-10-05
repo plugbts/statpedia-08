@@ -277,9 +277,9 @@ export default {
     }
     // Route: /api/{league}/player-props
     else {
-    const match = url.pathname.match(/^\/api\/([a-z]+)\/player-props$/);
-    if (match) {
-      const league = match[1].toLowerCase(); // e.g. nfl, nba
+      const match = url.pathname.match(/^\/api\/([a-z]+)\/player-props$/);
+      if (match) {
+        const league = match[1].toLowerCase(); // e.g. nfl, nba
         resp = await handlePlayerProps(request, env, ctx, league);
       } else {
         resp = withCORS(new Response("Not found", { status: 404 }), request.headers.get("Origin") || "*");
