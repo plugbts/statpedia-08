@@ -20,6 +20,7 @@ import { teamColorsService } from '@/services/team-colors-service';
 import { convertEVToText, getEVBadgeClasses } from '@/utils/ev-text-converter';
 import { SportsbookOverlay } from '@/components/ui/sportsbook-overlay';
 import { statpediaRatingService, StatpediaRating } from '@/services/statpedia-rating-service';
+import { formatAmericanOdds } from '@/utils/odds-utils';
 
 interface SportsbookOdds {
   sportsbook: string;
@@ -158,24 +159,7 @@ export function PlayerPropCard3D({
     return numericValue.toFixed(decimals);
   };
 
-  // Format American odds with .5 and .0 intervals only
-  const formatAmericanOdds = (odds: number): string => {
-    // Handle pickem props (odds very close to 0)
-    if (Math.abs(odds) < 5) {
-      return 'PK'; // Pickem
-    }
-    
-    // Round to nearest .5 or .0 interval
-    const rounded = Math.round(odds * 2) / 2;
-    
-    // Format as American odds
-    if (rounded > 0) {
-      return `+${Math.round(rounded)}`;
-    } else {
-      return `${Math.round(rounded)}`;
-    }
-  };
-
+  // Use shared odds utility for formatting
   const formatOdds = (odds: number | string | null): string => {
     if (odds === null || odds === undefined) return 'N/A';
     

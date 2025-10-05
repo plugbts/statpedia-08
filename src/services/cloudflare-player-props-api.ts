@@ -16,6 +16,7 @@ interface PlayerProp {
   overOdds: number | null;
   underOdds: number | null;
   sportsbooks?: string[];
+  position?: string;
   gameDate: string;
   gameTime?: string;
   sport?: string;
@@ -296,6 +297,7 @@ class CloudflarePlayerPropsAPI {
                   underOdds: parseOdds(prop.best_under),
                   confidence: 0.5, // Default fallback
                   expectedValue: 0, // Default fallback
+                  position: prop.position || 'N/A', // Use position from API
                   gameDate: event.start_time?.split('T')[0] || today,
                   gameTime: event.start_time || new Date().toISOString(),
                   sport: sport,

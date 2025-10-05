@@ -29,6 +29,7 @@ export interface StatpediaRating {
 export class StatpediaRatingService {
   private slateProps: any[] = [];
   private slateNormalization: { min: number; max: number } | null = null;
+  private slateStats: { [mode: string]: { min: number; max: number } } = {};
   
   /**
    * Set the slate of props for normalization
@@ -36,50 +37,110 @@ export class StatpediaRatingService {
   setSlateProps(props: any[]): void {
     this.slateProps = props;
     this.calculateSlateNormalization();
+    this.calculateSlateStats();
   }
-  
+
   /**
-   * Calculate comprehensive Statpedia Rating for a player prop
+   * Calculate slate statistics for per-mode normalization
    */
-  calculateRating(prop: any, overUnderContext: 'over' | 'under' | 'both' = 'both'): StatpediaRating {
-    const factors: StatpediaRatingFactors = {
-      hitRateScore: this.calculateHitRateScore(prop),
-      projectionGapScore: this.calculateProjectionGapScore(prop, overUnderContext),
-      aiPredictionScore: this.calculateAIPredictionScore(prop, overUnderContext),
-      opponentScore: this.calculateOpponentScore(prop),
+  private calculateSlateStats(): void {
+    if (this.slateProps.length === 0) {
+      this.slateStats = { over: { min: 0, max: 100 }, under: { min: 0, max: 100 } };
+      return;
+    }
+
+    // Calculate composite scores for over and under modes
+    const overComposites = this.slateProps.map(prop => this.preComposite(prop, 'over'));
+    const underComposites = this.slateProps.map(prop => this.preComposite(prop, 'under'));
+
+    this.slateStats = {
+      over: { 
+        min: Math.min(...overComposites), 
+        max: Math.max(...overComposites) 
+      },
+      under: { 
+        min: Math.min(...underComposites), 
+        max: Math.max(...underComposites) 
+      }
+    };
+
+    logInfo('StatpediaRating', `Slate stats - Over: ${this.slateStats.over.min.toFixed(2)}-${this.slateStats.over.max.toFixed(2)}, Under: ${this.slateStats.under.min.toFixed(2)}-${this.slateStats.under.max.toFixed(2)}`);
+  }
+
+  /**
+   * Pre-compute composite score without normalization/boosts
+   */
+  private preComposite(prop: any, mode: 'over' | 'under'): number {
+    const factors = {
+      hitRateScore: this.calculateHitRateScore(prop, mode),
+      projectionGapScore: this.calculateProjectionGapScore(prop, mode),
+      aiPredictionScore: this.calculateAIPredictionScore(prop, mode),
+      opponentScore: this.calculateOpponentScore(prop, mode),
       marketConfidenceScore: this.calculateMarketConfidenceScore(prop),
       recencyScore: this.calculateRecencyScore(prop)
     };
 
-    // Blend multiple factors with weights
-    const compositeScore = 
-      (0.30 * factors.hitRateScore) +
-      (0.20 * factors.projectionGapScore) +
-      (0.20 * factors.aiPredictionScore) +
-      (0.15 * factors.opponentScore) +
-      (0.10 * factors.marketConfidenceScore) +
-      (0.05 * factors.recencyScore);
+    return (0.35 * this.safeScore(factors.hitRateScore)) +
+           (0.25 * this.safeScore(factors.projectionGapScore)) +
+           (0.15 * this.safeScore(factors.aiPredictionScore)) +
+           (0.15 * this.safeScore(factors.opponentScore)) +
+           (0.07 * this.safeScore(factors.marketConfidenceScore)) +
+           (0.03 * this.safeScore(factors.recencyScore));
+  }
+  
+  /**
+   * Calculate comprehensive Statpedia Rating for a player prop
+   * New side-aware composite with per-mode slate normalization
+   */
+  calculateRating(prop: any, overUnderContext: 'over' | 'under' | 'both' = 'both'): StatpediaRating {
+    // Compute factor scores (existing factor functions are reused)
+    const factors: StatpediaRatingFactors = {
+      hitRateScore: this.calculateHitRateScore(prop, overUnderContext),               // side-aware if possible
+      projectionGapScore: this.calculateProjectionGapScore(prop, overUnderContext),   // side-aware gap
+      aiPredictionScore: this.calculateAIPredictionScore(prop, overUnderContext),     // side-aware model delta
+      opponentScore: this.calculateOpponentScore(prop, overUnderContext),             // flip for Under if needed
+      marketConfidenceScore: this.calculateMarketConfidenceScore(prop),
+      recencyScore: this.calculateRecencyScore(prop)
+    };
 
-    // Normalize to slate (40-95 range)
-    const normalizedScore = this.normalizeToSlate(compositeScore);
-    
-    // Cap volatility and boost consensus
-    const finalScore = this.applyCapsAndBoosts(normalizedScore, prop);
+    // Rebalanced weights:
+    // - Hit rate and projection gap should lead
+    // - AI prediction supports gap but shouldn't dominate
+    // - Opponent and market confidence provide context
+    // - Recency is a small nudge
+    const compositeScore =
+      (0.35 * this.safeScore(factors.hitRateScore)) +
+      (0.25 * this.safeScore(factors.projectionGapScore)) +
+      (0.15 * this.safeScore(factors.aiPredictionScore)) +
+      (0.15 * this.safeScore(factors.opponentScore)) +
+      (0.07 * this.safeScore(factors.marketConfidenceScore)) +
+      (0.03 * this.safeScore(factors.recencyScore));
+
+    // Normalize to mode-specific slate into 40–95 band.
+    // IMPORTANT: normalize using the distribution of current slate scores for the selected mode.
+    const normalizedScore = this.normalizeToSlateMode(compositeScore, overUnderContext, { min: 40, max: 95 });
+
+    // Apply bounded boosts/penalties WITHOUT shrinking the spread:
+    // - Volatility penalty (reduce up to 7 points)
+    // - Consensus boost (increase up to 5 points)
+    const adjustedScore = this.applyBoundedAdjustments(normalizedScore, prop);
+
+    const final = Math.round(this.clamp(adjustedScore, 40, 95));
 
     const rating: StatpediaRating = {
-      overall: Math.round(finalScore),
-      grade: this.getGrade(finalScore),
-      color: this.getColor(finalScore),
-      confidence: this.getConfidenceLevel(finalScore, factors),
+      overall: final,
+      grade: this.getGrade(final),                     // updated thresholds below
+      color: this.getColor(final),                     // keep your existing color function
+      confidence: this.getConfidenceLevel(final, factors),
       factors,
       reasoning: this.generateReasoning(factors, prop),
       breakdown: {
-        hitRate: Math.round(factors.hitRateScore),
-        projectionGap: Math.round(factors.projectionGapScore),
-        aiPrediction: Math.round(factors.aiPredictionScore),
-        opponent: Math.round(factors.opponentScore),
-        marketConfidence: Math.round(factors.marketConfidenceScore),
-        recency: Math.round(factors.recencyScore)
+        hitRate: Math.round(this.safeScore(factors.hitRateScore)),
+        projectionGap: Math.round(this.safeScore(factors.projectionGapScore)),
+        aiPrediction: Math.round(this.safeScore(factors.aiPredictionScore)),
+        opponent: Math.round(this.safeScore(factors.opponentScore)),
+        marketConfidence: Math.round(this.safeScore(factors.marketConfidenceScore)),
+        recency: Math.round(this.safeScore(factors.recencyScore))
       }
     };
 
@@ -193,7 +254,7 @@ export class StatpediaRatingService {
    * Hit Rate Score (0-100 points, 35% weight)
    * Based on player's historical performance on this prop type
    */
-  private calculateHitRateScore(prop: any): number {
+  private calculateHitRateScore(prop: any, overUnderContext: 'over' | 'under' | 'both' = 'both'): number {
     // Use confidence as proxy for hit rate if available
     const baseConfidence = prop.confidence || 0.5;
     let score = baseConfidence * 100;
@@ -279,93 +340,43 @@ export class StatpediaRatingService {
   }
 
   /**
-   * Projection Gap Score (0-100 points, 20% weight)
+   * Projection Gap Score (0-100 points, 25% weight)
    * Analyzes the gap between our projection and the line
+   * Side-aware: favors Over for positive gap, Under for negative gap
    */
   private calculateProjectionGapScore(prop: any, overUnderContext: 'over' | 'under' | 'both' = 'both'): number {
-    if (!prop.overOdds || !prop.underOdds) return 50; // Neutral if missing odds
+    const projection = Number(prop.projection ?? prop.modelProjection ?? 0);
+    const line = Number(prop.line ?? 0);
+    const gap = projection - line; // + favors Over, - favors Under
 
-    const overImplied = this.americanOddsToImpliedProbability(prop.overOdds);
-    const underImplied = this.americanOddsToImpliedProbability(prop.underOdds);
-    const totalImplied = overImplied + underImplied;
+    // Magnitude is useful; direction matters with side:
+    const mag = Math.abs(gap);
+    const base = this.scale(mag, 0.5, 15, 20, 100); // small gap -> 20, large -> 100
+
+    if (overUnderContext === 'both') return base;
     
-    // Calculate market efficiency (closer to 100% = more efficient)
-    const efficiency = totalImplied;
-    let score = 50; // Base score
-
-    // Better value when market is less efficient (more juice/vig)
-    if (efficiency > 1.15) score -= 20; // High vig = bad value
-    else if (efficiency > 1.10) score -= 10;
-    else if (efficiency < 1.05) score += 20; // Low vig = good value
-    else if (efficiency < 1.08) score += 10;
-
-    // Factor in odds range (extreme odds can be valuable)
-    const avgOdds = (Math.abs(prop.overOdds) + Math.abs(prop.underOdds)) / 2;
-    if (avgOdds > 200) score += 15; // Plus odds often have value
-    else if (avgOdds < 110) score -= 10; // Heavy favorites less value
-
-    // Context-aware odds value scoring
-    if (overUnderContext !== 'both') {
-      const targetOdds = overUnderContext === 'over' ? prop.overOdds : prop.underOdds;
-      const targetImplied = this.americanOddsToImpliedProbability(targetOdds);
-      
-      // Better value for the selected over/under
-      if (targetImplied < 0.45) score += 15; // Good value on underdog
-      else if (targetImplied > 0.65) score -= 10; // Poor value on heavy favorite
-    }
-
-    // Expected Value bonus
-    if (prop.expectedValue > 0.05) score += 20;
-    else if (prop.expectedValue > 0.02) score += 10;
-    else if (prop.expectedValue < -0.05) score -= 15;
-
-    return Math.max(0, Math.min(100, score));
+    const directionalBonus = this.clamp(this.scale(gap, -20, 20, -10, 10), -10, 10);
+    // Over: positive gap should get a small boost; Under: negative gap gets a boost
+    return this.clamp(overUnderContext === 'over' ? (base + Math.max(0, directionalBonus)) : (base + Math.max(0, -directionalBonus)), 0, 100);
   }
 
   /**
    * Opponent Score (0-100 points, 15% weight)
    * Based on opponent's defensive strength against this prop type
+   * Side-aware: strong defense benefits Under, weak defense benefits Over
    */
-  private calculateOpponentScore(prop: any): number {
-    let score = 50; // Neutral base
-
-    // Use opponent abbreviation to determine defensive strength
-    const opponent = prop.opponentAbbr || prop.opponent;
+  private calculateOpponentScore(prop: any, overUnderContext: 'over' | 'under' | 'both' = 'both'): number {
+    const rank = Number(prop.opponentRank ?? 16); // 1=best defense, 32=worst
+    const base = this.scale(32 - rank, 0, 31, 20, 100); // worse defense -> higher score
+    if (overUnderContext === 'both') return this.clamp(base, 0, 100);
     
-    // Simple opponent strength mapping (can be enhanced with real data)
-    const opponentStrength: Record<string, number> = {
-      // Strong defenses (lower scores for offensive props)
-      'BUF': 30, 'SF': 35, 'DAL': 40, 'PHI': 40, 'MIA': 45,
-      // Average defenses
-      'KC': 50, 'GB': 50, 'LAR': 50, 'TB': 50, 'NO': 50,
-      // Weak defenses (higher scores for offensive props)
-      'CAR': 70, 'ARI': 65, 'CHI': 60, 'NYG': 60, 'WAS': 60
-    };
-
-    if (opponent && opponentStrength[opponent]) {
-      score = opponentStrength[opponent];
-    }
-
-    // Adjust based on prop type
-    if (prop.propType?.toLowerCase().includes('passing')) {
-      // For passing props, consider pass defense
-      if (opponent === 'BUF' || opponent === 'SF') score -= 10;
-      else if (opponent === 'CAR' || opponent === 'ARI') score += 10;
-    } else if (prop.propType?.toLowerCase().includes('rushing')) {
-      // For rushing props, consider run defense
-      if (opponent === 'SF' || opponent === 'DAL') score -= 10;
-      else if (opponent === 'CAR' || opponent === 'CHI') score += 10;
-    } else if (prop.propType?.toLowerCase().includes('receiving')) {
-      // For receiving props, consider pass defense
-      if (opponent === 'BUF' || opponent === 'PHI') score -= 10;
-      else if (opponent === 'ARI' || opponent === 'WAS') score += 10;
-    }
-
-    return Math.max(0, Math.min(100, score));
+    // Under: strong defense should be helpful -> invert around midpoint
+    const inverted = 100 - base;
+    return this.clamp(overUnderContext === 'under' ? inverted : base, 0, 100);
   }
 
   /**
-   * Market Confidence Score (0-100 points, 15% weight)
+   * Market Confidence Score (0-100 points, 7% weight)
    * Based on market consensus and data quality
    */
   private calculateMarketConfidenceScore(prop: any): number {
@@ -414,7 +425,7 @@ export class StatpediaRatingService {
   }
 
   /**
-   * Recency Score (0-100 points, 10% weight)
+   * Recency Score (0-100 points, 3% weight)
    * Player's recent performance and trends
    */
   private calculateRecencyScore(prop: any): number {
@@ -482,22 +493,78 @@ export class StatpediaRatingService {
   }
 
   /**
+   * Helper functions for the new rating system
+   */
+  private clamp(n: number, min: number, max: number): number {
+    return Math.max(min, Math.min(max, n));
+  }
+
+  private safeScore(n: number): number {
+    // Ensure factor scores remain in 0..100
+    if (!Number.isFinite(n)) return 50;
+    return this.clamp(n, 0, 100);
+  }
+
+  /**
+   * Normalize to slate per mode (Over/Under), mapping min..max raw composite to 40..95.
+   */
+  private normalizeToSlateMode(rawComposite: number, mode: 'over' | 'under' | 'both', band: { min: number; max: number } = { min: 40, max: 95 }): number {
+    // Acquire slate distribution for the current mode from a precomputed context
+    const stats = this.slateStats?.[mode === 'both' ? 'over' : mode] || { min: rawComposite, max: rawComposite };
+    const min = Number.isFinite(stats.min) ? stats.min : rawComposite;
+    const max = Number.isFinite(stats.max) ? stats.max : rawComposite;
+
+    if (max <= min) return band.min + (band.max - band.min) * 0.5; // flat slate fallback -> midpoint
+
+    // Linear map rawComposite into [band.min, band.max]
+    const scaled = band.min + ((rawComposite - min) / (max - min)) * (band.max - band.min);
+    return this.clamp(scaled, band.min, band.max);
+  }
+
+  /**
+   * Bounded adjustments: small, capped, and independent of slate min/max so we keep the spread intact.
+   */
+  private applyBoundedAdjustments(score: number, prop: any): number {
+    const vol = Number(prop.stdDev ?? prop.volatility ?? 0);
+    const books = Number(prop.sportsbooks ?? prop.bookCount ?? prop.availableSportsbooks?.length ?? 0);
+    const consensus = Number(prop.consensusSpread ?? 0.05); // stdev across lines/prices
+
+    // Volatility penalty: up to -7 points
+    const volPenalty = this.clamp(this.scale(vol, 10, 60, 0, 7), 0, 7);
+
+    // Consensus boost: up to +5 points (more books + tighter market)
+    const booksBoost = this.scale(books, 1, 8, 0, 3);           // 0..3
+    const tightnessBoost = this.scale(1 / Math.max(consensus, 0.01), 10, 200, 0, 2); // 0..2
+    const consensusBoost = this.clamp(booksBoost + tightnessBoost, 0, 5);
+
+    return score - volPenalty + consensusBoost;
+  }
+
+  /**
+   * Generic scaler (maps x from [inMin,inMax] to [outMin,outMax])
+   */
+  private scale(x: number, inMin: number, inMax: number, outMin: number, outMax: number): number {
+    if (!Number.isFinite(x) || inMax === inMin) return (outMin + outMax) / 2;
+    const t = (x - inMin) / (inMax - inMin);
+    return outMin + this.clamp(t, 0, 1) * (outMax - outMin);
+  }
+
+  /**
    * Get letter grade based on overall score (40-95 range)
-   * Updated for slate-relative rating system
+   * Updated for industry-consistent thresholds
    */
   private getGrade(score: number): StatpediaRating['grade'] {
-    if (score >= 90) return 'A+';
-    if (score >= 85) return 'A';
-    if (score >= 80) return 'A-';
-    if (score >= 75) return 'B+';
-    if (score >= 70) return 'B';
-    if (score >= 65) return 'B-';
-    if (score >= 60) return 'C+';
-    if (score >= 55) return 'C';
-    if (score >= 50) return 'C-';
-    if (score >= 45) return 'D+';
-    if (score >= 42) return 'D';
-    if (score >= 40) return 'D-';
+    if (score >= 93) return 'A+';
+    if (score >= 90) return 'A';
+    if (score >= 87) return 'A-';
+    if (score >= 83) return 'B+';
+    if (score >= 80) return 'B';
+    if (score >= 77) return 'B-';
+    if (score >= 73) return 'C+';
+    if (score >= 70) return 'C';
+    if (score >= 67) return 'C-';
+    if (score >= 63) return 'D+';
+    if (score >= 60) return 'D';
     return 'F';
   }
 

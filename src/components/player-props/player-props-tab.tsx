@@ -19,6 +19,7 @@ import { AdvancedPredictionDisplay } from '@/components/advanced-prediction-disp
 import { advancedPredictionService, ComprehensivePrediction } from '@/services/advanced-prediction-service';
 import { evCalculatorService } from '@/services/ev-calculator';
 import { statpediaRatingService } from '@/services/statpedia-rating-service';
+import { formatAmericanOdds } from '@/utils/odds-utils';
 
 // League-aware priority helpers for consistent ordering
 function getPriority(marketType: string): number {
@@ -50,48 +51,26 @@ function offenseSubOrder(marketType: string): number {
 }
 
 // PropFinder-style dual rating system
+// Use the new Statpedia rating system
 const computeRating = (prop: any, mode: "over" | "under"): number => {
-  // Base factors
-  const hitRate = prop.hitRate || 0.5;
-  const ev = prop.expectedValue || 0;
-  const line = prop.line || 0;
-  const confidence = prop.confidence || 0.5;
-  
-  // Market confidence (based on available sportsbooks)
-  const sportsbookCount = prop.availableSportsbooks?.length || 1;
-  const marketConfidence = Math.min(1, sportsbookCount / 5); // Normalize to 0-1
-  
-  // AI prediction alignment (boost if AI agrees with mode)
-  const aiAlignment = prop.aiPrediction?.recommended === mode ? 1.2 : 0.8;
-  
-  // EV factor (higher EV = better rating)
-  const evFactor = Math.max(0, Math.min(1, (ev + 0.1) / 0.3)); // Normalize EV to 0-1
-  
-  // Hit rate factor
-  const hitRateFactor = Math.max(0, Math.min(1, hitRate));
-  
-  // Confidence factor
-  const confidenceFactor = Math.max(0, Math.min(1, confidence));
-  
-  // Combine factors with weights
-  const rawRating = (
-    (0.35 * evFactor) +
-    (0.25 * hitRateFactor) +
-    (0.20 * confidenceFactor) +
-    (0.15 * marketConfidence) +
-    (0.05 * aiAlignment)
-  ) * 100;
-  
-  return Math.round(rawRating);
+  const rating = statpediaRatingService.calculateRating(prop, mode);
+  return rating.overall;
 };
 
-// Compute both over and under ratings for a prop
-const computeDualRatings = (prop: any) => {
-  return {
-    rating_over_raw: computeRating(prop, "over"),
-    rating_under_raw: computeRating(prop, "under")
+  // Set slate props for normalization before computing ratings
+  React.useEffect(() => {
+    if (mixedProps && mixedProps.length > 0) {
+      statpediaRatingService.setSlateProps(mixedProps);
+    }
+  }, [mixedProps]);
+
+  // Compute both over and under ratings for a prop
+  const computeDualRatings = (prop: any) => {
+    return {
+      rating_over_raw: computeRating(prop, "over"),
+      rating_under_raw: computeRating(prop, "under")
+    };
   };
-};
 
 // Normalize ratings across the slate (PropFinder-style)
 const normalizeSlateRatings = (props: any[], mode: "over" | "under") => {
@@ -926,25 +905,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     }
   };
 
-  // Format American odds with .5 and .0 intervals only
-  const formatAmericanOdds = (odds: number): string => {
-    // Handle pickem props (odds very close to 0)
-    if (Math.abs(odds) < 5) {
-      return 'PK'; // Pickem
-    }
-    
-    // Round to nearest .5 or .0 interval
-    const rounded = Math.round(odds * 2) / 2;
-    
-    // Format as American odds
-    if (rounded > 0) {
-      return `+${Math.round(rounded)}`;
-    } else {
-      return `${Math.round(rounded)}`;
-    }
-  };
-
-  // Format odds (legacy function - keeping for compatibility)
+  // Use shared odds utility for formatting
   const formatOdds = (odds: number): string => {
     return formatAmericanOdds(odds);
   };
@@ -1281,8 +1242,23 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     }
   };
 
-  // Get unique prop types for filter
-  const propTypes = Array.from(new Set(mixedProps.map(prop => prop.propType))).sort();
+  // Get unique prop types for filter (exclude defense and kicking for NFL)
+  const propTypes = Array.from(new Set(mixedProps.map(prop => prop.propType)))
+    .filter(propType => {
+      // Filter out defense and kicking props for NFL
+      if (sportFilter.toLowerCase() === 'nfl') {
+        const lowerType = propType.toLowerCase();
+        return !lowerType.includes('defense') && 
+               !lowerType.includes('sack') && 
+               !lowerType.includes('tackle') && 
+               !lowerType.includes('interception') &&
+               !lowerType.includes('field goal') &&
+               !lowerType.includes('kicking') &&
+               !lowerType.includes('extra point');
+      }
+      return true;
+    })
+    .sort();
 
   if (!isSubscribed) {
     return (
