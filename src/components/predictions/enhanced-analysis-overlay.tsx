@@ -831,6 +831,70 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
   const [activeFeature, setActiveFeature] = useState<string | null>(null);
   const [featureData, setFeatureData] = useState<any>(null);
   const [updatedEnhancedData, setUpdatedEnhancedData] = useState<EnhancedPrediction | null>(null);
+  
+  // Prop selector state
+  const [availableProps, setAvailableProps] = useState<any[]>([]);
+  const [selectedPropId, setSelectedPropId] = useState<string | null>(null);
+  const [isLoadingProps, setIsLoadingProps] = useState(false);
+
+  // Fetch all props for the current player
+  const fetchPlayerProps = useCallback(async () => {
+    if (!prediction?.playerId || !prediction?.sport) return;
+    
+    setIsLoadingProps(true);
+    try {
+      const response = await fetch(`/api/${prediction.sport}/player-props?playerId=${prediction.playerId}&date=${prediction.gameDate}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data && Array.isArray(data)) {
+          setAvailableProps(data);
+          // Set current prop as selected if not already set
+          if (!selectedPropId) {
+            const currentProp = data.find(prop => 
+              prop.propType === prediction.propType && 
+              prop.line === prediction.line
+            );
+            if (currentProp) {
+              setSelectedPropId(currentProp.id);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch player props:', error);
+    } finally {
+      setIsLoadingProps(false);
+    }
+  }, [prediction?.playerId, prediction?.sport, prediction?.gameDate, prediction?.propType, prediction?.line, selectedPropId]);
+
+  // Load props when overlay opens
+  useEffect(() => {
+    if (isOpen && prediction) {
+      fetchPlayerProps();
+    }
+  }, [isOpen, prediction, fetchPlayerProps]);
+
+  // Handle prop selection change
+  const handlePropChange = useCallback((propId: string) => {
+    const selectedProp = availableProps.find(prop => prop.id === propId);
+    if (selectedProp) {
+      setSelectedPropId(propId);
+      // Update the prediction data with the new prop
+      const updatedPrediction = {
+        ...prediction,
+        id: selectedProp.id,
+        propType: selectedProp.propType,
+        line: selectedProp.line,
+        overOdds: selectedProp.overOdds,
+        underOdds: selectedProp.underOdds,
+        expectedValue: selectedProp.expectedValue,
+        confidence: selectedProp.confidence,
+        aiPrediction: selectedProp.aiPrediction
+      };
+      // This will trigger a re-render with the new prop data
+      setUpdatedEnhancedData(updatedPrediction as EnhancedPrediction);
+    }
+  }, [availableProps, prediction]);
 
   // Format American odds with proper NaN and null handling
   const formatAmericanOdds = (odds: number | string | undefined | null): string => {
@@ -955,8 +1019,48 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
     return null;
   }
 
+  // Recalculate enhanced data when prop changes
+  const finalEnhancedData = useMemo(() => {
+    if (updatedEnhancedData) {
+      // Recalculate enhanced data for the new prop
+      const gameHistory = generateEnhancedGameHistory(updatedEnhancedData);
+      const performanceMetrics = generatePerformanceMetrics(gameHistory);
+      
+      // Calculate risk level based on AI confidence and hit probability
+      const aiConfidence = updatedEnhancedData.aiPrediction?.confidence || updatedEnhancedData.confidence || 0.5;
+      const hitRate = updatedEnhancedData.seasonStats?.hitRate || 0.5;
+      const calculatedRiskLevel = calculateRiskLevel(aiConfidence, hitRate);
+      
+      return {
+        ...updatedEnhancedData,
+        riskLevel: calculatedRiskLevel,
+        gameHistory,
+        performanceMetrics,
+        advancedStats: {
+          homeAwaySplit: {
+            home: { average: 12.5, hitRate: 0.68, games: 8 },
+            away: { average: 10.2, hitRate: 0.55, games: 7 },
+          },
+          opponentStrength: {
+            strong: { average: 9.8, hitRate: 0.45, games: 6 },
+            weak: { average: 13.2, hitRate: 0.78, games: 9 },
+          },
+          restDays: {
+            short: { average: 8.5, hitRate: 0.42, games: 5 },
+            long: { average: 12.8, hitRate: 0.71, games: 10 },
+          },
+          situational: {
+            playoff: { average: 11.5, hitRate: 0.65, games: 4 },
+            regular: { average: 11.2, hitRate: 0.62, games: 11 },
+          },
+        }
+      } as EnhancedPrediction;
+    }
+    return enhancedData;
+  }, [updatedEnhancedData, enhancedData]);
+
   // Use updated data if available, otherwise use original enhanced data
-  const currentData = updatedEnhancedData || enhancedData;
+  const currentData = finalEnhancedData;
 
   const handleVote = (vote: 'over' | 'under') => {
     if (hasVoted) return;
@@ -1177,6 +1281,43 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
             </div>
           </div>
         </DialogHeader>
+
+        {/* Prop Selector */}
+        {availableProps.length > 1 && (
+          <div className="mb-6 p-4 bg-gradient-to-r from-gray-800/50 to-black/50 border border-purple-500/20 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Target className="w-5 h-5 text-purple-400" />
+                <span className="text-white font-medium">Select Prop to Analyze:</span>
+              </div>
+              <Select 
+                value={selectedPropId || ''} 
+                onValueChange={handlePropChange}
+                disabled={isLoadingProps}
+              >
+                <SelectTrigger className="w-80 bg-gradient-to-r from-gray-700/50 to-gray-800/50 border border-purple-500/30 text-white hover:border-purple-400/50 transition-all duration-300">
+                  <SelectValue placeholder={isLoadingProps ? "Loading props..." : "Choose a prop"} />
+                </SelectTrigger>
+                <SelectContent className="bg-gradient-to-br from-gray-800 to-black border border-purple-500/30 max-h-60">
+                  {availableProps.map((prop) => (
+                    <SelectItem 
+                      key={prop.id} 
+                      value={prop.id}
+                      className="text-white hover:bg-purple-600/20 focus:bg-purple-600/20 transition-all duration-300"
+                    >
+                      <div className="flex flex-col">
+                        <span className="font-medium">{prop.propType}</span>
+                        <span className="text-sm text-gray-300">
+                          Line: {prop.line} • Over: {formatAmericanOdds(prop.overOdds)} • Under: {formatAmericanOdds(prop.underOdds)}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
 
         {/* Energetic Tabs with Soul */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
