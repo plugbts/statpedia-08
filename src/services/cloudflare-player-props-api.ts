@@ -192,6 +192,56 @@ class CloudflarePlayerPropsAPI {
           .join(' ');
       };
 
+      // Helper function to get team name from teamID
+      const getTeamNameFromTeamID = (teamID: string): string => {
+        if (!teamID) return 'Unknown';
+        // Convert "CLEVELAND_BROWNS_NFL" to "Cleveland Browns"
+        return teamID
+          .replace(/_NFL$/, '')
+          .split('_')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .join(' ');
+      };
+
+      // Helper function to get team abbreviation from team name
+      const getTeamAbbr = (teamName: string): string => {
+        const abbrMap: Record<string, string> = {
+          'Arizona Cardinals': 'ARI',
+          'Atlanta Falcons': 'ATL',
+          'Baltimore Ravens': 'BAL',
+          'Buffalo Bills': 'BUF',
+          'Carolina Panthers': 'CAR',
+          'Chicago Bears': 'CHI',
+          'Cincinnati Bengals': 'CIN',
+          'Cleveland Browns': 'CLE',
+          'Dallas Cowboys': 'DAL',
+          'Denver Broncos': 'DEN',
+          'Detroit Lions': 'DET',
+          'Green Bay Packers': 'GB',
+          'Houston Texans': 'HOU',
+          'Indianapolis Colts': 'IND',
+          'Jacksonville Jaguars': 'JAX',
+          'Kansas City Chiefs': 'KC',
+          'Las Vegas Raiders': 'LV',
+          'Los Angeles Chargers': 'LAC',
+          'Los Angeles Rams': 'LAR',
+          'Miami Dolphins': 'MIA',
+          'Minnesota Vikings': 'MIN',
+          'New England Patriots': 'NE',
+          'New Orleans Saints': 'NO',
+          'New York Giants': 'NYG',
+          'New York Jets': 'NYJ',
+          'Philadelphia Eagles': 'PHI',
+          'Pittsburgh Steelers': 'PIT',
+          'San Francisco 49ers': 'SF',
+          'Seattle Seahawks': 'SEA',
+          'Tampa Bay Buccaneers': 'TB',
+          'Tennessee Titans': 'TEN',
+          'Washington Commanders': 'WSH'
+        };
+        return abbrMap[teamName] || teamName.split(' ').pop() || 'UNK';
+      };
+
       // Transform the new format to the expected PlayerProp format
       const playerProps: PlayerProp[] = [];
       
@@ -209,12 +259,20 @@ class CloudflarePlayerPropsAPI {
                   return isNaN(num) ? null : num;
                 };
 
+                // Find the player's team from the players object
+                const playerKey = Object.keys(event.players || {}).find(key => 
+                  event.players[key].name === prop.player_name
+                );
+                const player = playerKey ? event.players[playerKey] : null;
+                const playerTeam = player ? getTeamNameFromTeamID(player.teamID) : 'Unknown';
+                const opponentTeam = playerTeam === event.home_team ? event.away_team : event.home_team;
+
                 playerProps.push({
                   id: `${prop.market_type}-${prop.player_name}`,
                   playerId: prop.player_name,
                   playerName: prop.player_name,
-                  team: event.home_team || 'Unknown',
-                  opponent: event.away_team || 'Unknown',
+                  team: playerTeam,
+                  opponent: opponentTeam || 'Unknown',
                   propType: formatMarketName(prop.market_type),
                   line: prop.line,
                   overOdds: parseOdds(prop.best_over),
@@ -225,8 +283,8 @@ class CloudflarePlayerPropsAPI {
                   gameTime: event.start_time || new Date().toISOString(),
                   sport: sport,
                   availableSportsbooks: prop.books || [],
-                  teamAbbr: event.home_team?.split(' ').pop() || 'UNK',
-                  opponentAbbr: event.away_team?.split(' ').pop() || 'UNK',
+                  teamAbbr: getTeamAbbr(playerTeam),
+                  opponentAbbr: getTeamAbbr(opponentTeam || 'Unknown'),
                   gameId: event.eventID,
                   allSportsbookOdds: prop.books?.map((bookName: string) => ({
                     sportsbook: bookName,

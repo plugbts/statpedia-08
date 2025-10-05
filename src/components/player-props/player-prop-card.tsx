@@ -52,6 +52,11 @@ interface PlayerPropCardProps {
   isSubscribed: boolean;
   isSelected: boolean;
   onToggleSelect: () => void;
+  // Team logos and abbreviations
+  teamAbbr?: string;
+  opponentAbbr?: string;
+  homeTeamLogo?: string;
+  awayTeamLogo?: string;
 }
 
 export const PlayerPropCard: React.FC<PlayerPropCardProps> = ({
@@ -179,7 +184,17 @@ export const PlayerPropCard: React.FC<PlayerPropCardProps> = ({
                 <SportIcon sport={sport} className="h-6 w-6" />
                 <CardTitle className="text-lg">{playerName}</CardTitle>
               </div>
-              <CardDescription className="mt-1">{team} vs {opponent}</CardDescription>
+              <CardDescription className="mt-1 flex items-center justify-center gap-1">
+                {awayTeamLogo && (
+                  <img src={awayTeamLogo} alt={opponentAbbr || opponent} className="h-4 w-4" />
+                )}
+                <span>{opponentAbbr || opponent}</span>
+                <span>@</span>
+                <span>{teamAbbr || team}</span>
+                {homeTeamLogo && (
+                  <img src={homeTeamLogo} alt={teamAbbr || team} className="h-4 w-4" />
+                )}
+              </CardDescription>
             </div>
           </div>
           

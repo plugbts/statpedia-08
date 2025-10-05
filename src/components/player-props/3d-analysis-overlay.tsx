@@ -62,6 +62,9 @@ interface PlayerProp {
     reasoning: string;
     factors: string[];
   };
+  // Team logos
+  homeTeamLogo?: string;
+  awayTeamLogo?: string;
 }
 
 interface AnalysisOverlayProps {
@@ -479,7 +482,17 @@ export function AnalysisOverlay3D({ prop, isOpen, onClose }: AnalysisOverlayProp
                 <div className="flex items-center space-x-4 text-slate-300 mt-2">
                   <div className="flex items-center space-x-2">
                     <Users className="h-4 w-4" />
-                    <span className="font-semibold">{prop.teamAbbr} vs {prop.opponentAbbr}</span>
+                    <div className="flex items-center gap-1">
+                      {prop.awayTeamLogo && (
+                        <img src={prop.awayTeamLogo} alt={prop.opponentAbbr} className="h-4 w-4" />
+                      )}
+                      <span className="font-semibold">{prop.opponentAbbr}</span>
+                      <span>@</span>
+                      <span className="font-semibold">{prop.teamAbbr}</span>
+                      {prop.homeTeamLogo && (
+                        <img src={prop.homeTeamLogo} alt={prop.teamAbbr} className="h-4 w-4" />
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Calendar className="h-4 w-4" />

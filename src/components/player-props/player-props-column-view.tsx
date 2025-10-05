@@ -58,6 +58,9 @@ interface PlayerProp {
     gamesPlayed: number;
     hitRate: number;
   };
+  // Team logos
+  homeTeamLogo?: string;
+  awayTeamLogo?: string;
 }
 
 interface PlayerPropsColumnViewProps {
@@ -73,7 +76,7 @@ export function PlayerPropsColumnView({
   onAnalysisClick,
   isLoading = false 
 }: PlayerPropsColumnViewProps) {
-  const [sortBy, setSortBy] = useState('confidence');
+  const [sortBy, setSortBy] = useState('api');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filterBy, setFilterBy] = useState('all');
   const [showSportsbookOverlay, setShowSportsbookOverlay] = useState(false);
@@ -192,6 +195,9 @@ export function PlayerPropsColumnView({
           aValue = a.playerName.localeCompare(b.playerName);
           bValue = 0;
           break;
+        case 'api':
+          // Preserve API order (offense → kicking → defense → touchdowns)
+          return 0;
         default:
           aValue = a.confidence || 0;
           bValue = b.confidence || 0;
@@ -288,6 +294,7 @@ export function PlayerPropsColumnView({
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent className="bg-slate-800 border-slate-600">
+              <SelectItem value="api" className="text-slate-200">API Order</SelectItem>
               <SelectItem value="confidence" className="text-slate-200">Confidence</SelectItem>
               <SelectItem value="expectedValue" className="text-slate-200">Expected Value</SelectItem>
               <SelectItem value="line" className="text-slate-200">Line</SelectItem>
@@ -357,8 +364,16 @@ export function PlayerPropsColumnView({
                     <div className="font-semibold text-slate-100 text-sm">
                       {prop.playerName || 'Unknown Player'}
                     </div>
-                    <div className="text-xs text-slate-400 mt-1">
-                      {prop.teamAbbr} vs {prop.opponentAbbr}
+                    <div className="text-xs text-slate-400 mt-1 flex items-center justify-center gap-1">
+                      {prop.awayTeamLogo && (
+                        <img src={prop.awayTeamLogo} alt={prop.opponentAbbr} className="h-4 w-4" />
+                      )}
+                      <span>{prop.opponentAbbr}</span>
+                      <span>@</span>
+                      <span>{prop.teamAbbr}</span>
+                      {prop.homeTeamLogo && (
+                        <img src={prop.homeTeamLogo} alt={prop.teamAbbr} className="h-4 w-4" />
+                      )}
                     </div>
                   </div>
                 </div>

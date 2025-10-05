@@ -236,6 +236,9 @@ interface PlayerProp {
   keyInsights?: string[];
   confidenceFactors?: any[];
   marketId?: string;
+  // Team logos
+  homeTeamLogo?: string;
+  awayTeamLogo?: string;
 }
 
 interface MyPick {
@@ -274,7 +277,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const [showAdvancedAnalysis, setShowAdvancedAnalysis] = useState(false);
   const [advancedPrediction, setAdvancedPrediction] = useState<ComprehensivePrediction | null>(null);
   const [isGeneratingAdvancedPrediction, setIsGeneratingAdvancedPrediction] = useState(false);
-  const [sortBy, setSortBy] = useState<'confidence' | 'ev' | 'line' | 'player'>('confidence');
+  const [sortBy, setSortBy] = useState<'confidence' | 'ev' | 'line' | 'player' | 'api'>('api');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [minConfidence, setMinConfidence] = useState(0);
   const [minEV, setMinEV] = useState(0);
@@ -770,6 +773,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
           aValue = a.playerName;
           bValue = b.playerName;
           break;
+        case 'api':
+          // Preserve API order (offense → kicking → defense → touchdowns)
+          return 0;
         default:
           return 0;
       }
@@ -1228,6 +1234,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="api">API Order</SelectItem>
                       <SelectItem value="confidence">Confidence</SelectItem>
                       <SelectItem value="ev">Expected Value</SelectItem>
                       <SelectItem value="line">Line</SelectItem>
@@ -1559,8 +1566,16 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                         <p className="text-sm text-muted-foreground">
                           {pick.prop.propType} {pick.prediction} {formatNumber(pick.prop.line)}
                         </p>
-                        <p className="text-xs text-muted-foreground">
-                          {pick.prop.team} vs {pick.prop.opponent}
+                        <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                          {pick.prop.awayTeamLogo && (
+                            <img src={pick.prop.awayTeamLogo} alt={pick.prop.opponentAbbr} className="h-3 w-3" />
+                          )}
+                          <span>{pick.prop.opponentAbbr}</span>
+                          <span>@</span>
+                          <span>{pick.prop.teamAbbr}</span>
+                          {pick.prop.homeTeamLogo && (
+                            <img src={pick.prop.homeTeamLogo} alt={pick.prop.teamAbbr} className="h-3 w-3" />
+                          )}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
