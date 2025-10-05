@@ -291,7 +291,7 @@ export default {
       resp = withCORS(new Response("Internal Server Error", { status: 500 }), request.headers.get("Origin") || "*");
     }
 
-    return withCORS(resp, request.headers.get("Origin") || "*");
+    return resp;
     } catch (error) {
       // Fallback error response with CORS headers
       console.error("Unhandled error in worker:", error);
