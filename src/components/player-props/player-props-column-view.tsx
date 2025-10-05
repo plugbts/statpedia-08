@@ -440,7 +440,7 @@ export function PlayerPropsColumnView({
         </div>
            <div className="col-span-1 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
              <Star className="w-4 h-4" />
-             PropFinder
+             Statpedia Rating
            </div>
         <div className="col-span-1 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
           <Sparkles className="w-4 h-4" />
@@ -564,10 +564,10 @@ export function PlayerPropsColumnView({
                   )}
                 </div>
 
-                {/* PropFinder Rating */}
+                {/* Statpedia Rating */}
                 <div className="col-span-1 text-center">
                   {(() => {
-                    // Use PropFinder-style rating if available, fallback to Statpedia
+                    // Use Statpedia rating
                     const propFinderRating = overUnderFilter === 'over' 
                       ? (prop.rating_over_normalized || prop.rating_over_raw)
                       : (prop.rating_under_normalized || prop.rating_under_raw);

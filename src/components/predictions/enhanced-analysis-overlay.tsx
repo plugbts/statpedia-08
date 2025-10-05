@@ -1320,8 +1320,8 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
         )}
 
         {/* Energetic Tabs with Soul */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 mt-2">
-          <TabsList className="grid w-full grid-cols-7 bg-gradient-to-r from-gray-800/80 via-black/80 to-gray-800/80 border-2 border-purple-500/30 rounded-xl p-4 shadow-lg shadow-purple-500/20 mb-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 mt-4">
+          <TabsList className="grid w-full grid-cols-7 bg-gradient-to-r from-gray-800/80 via-black/80 to-gray-800/80 border-2 border-purple-500/30 rounded-xl p-6 shadow-lg shadow-purple-500/20 mb-6 mx-auto max-w-4xl">
             <TabsTrigger 
               value="overview" 
               className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/50 transition-all duration-300 hover:scale-105 text-xs px-2 py-1"
@@ -1903,10 +1903,12 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                       <div className="bg-slate-700/30 p-2 rounded">
                         <div className="text-slate-400">Usage Rate</div>
                         <div className="text-white font-semibold">24.5%</div>
+                        <div className="text-slate-500 text-xs mt-1">% of team's plays when player is on field</div>
                       </div>
                       <div className="bg-slate-700/30 p-2 rounded">
                         <div className="text-slate-400">Pace Factor</div>
                         <div className="text-white font-semibold">102.3</div>
+                        <div className="text-slate-500 text-xs mt-1">Team's pace vs league average (100 = average)</div>
                       </div>
                     </div>
                   </div>
@@ -1937,7 +1939,7 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                       <div className="bg-slate-700/30 p-3 rounded-lg">
                         <div className="text-slate-400">Games Played</div>
                         <div className="text-white font-semibold text-lg">
-                          {enhancedData.seasonStats?.gamesPlayed || 8}
+                          {Math.min(enhancedData.seasonStats?.gamesPlayed || 5, 5)}
                         </div>
                         <div className="text-slate-400 text-xs">
                           This season
