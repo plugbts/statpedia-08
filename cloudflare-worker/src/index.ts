@@ -385,14 +385,10 @@ export async function handlePropsEndpoint(request: Request, env: Env, league?: s
     const view = url.searchParams.get("view") || "full";
     const debug = url.searchParams.has("debug");
     
-    // Pagination parameters
-    const page = parseInt(url.searchParams.get("page") || "1");
-    const pageSize = parseInt(url.searchParams.get("page_size") || "50");
-    const offset = (page - 1) * pageSize;
 
     const responseData: any = { events: [] };
     const debugInfo: any = {};
-    let allProps: any[] = []; // Collect all props for pagination
+    let allProps: any[] = []; // Collect all props
 
     for (const league of leagues) {
       // 1. Fetch raw events from SportsGameOdds using date parameter
@@ -494,27 +490,11 @@ export async function handlePropsEndpoint(request: Request, env: Env, league?: s
     if (debug) responseData.debug = debugInfo;
 
     // DEBUG: Log final response structure
-    // Apply pagination to all props
-    const paginatedProps = allProps.slice(offset, offset + pageSize);
-    const totalProps = allProps.length;
-    const hasMore = offset + pageSize < totalProps;
-
-    // Add pagination info to response
-    responseData.pagination = {
-      page,
-      pageSize,
-      total: totalProps,
-      hasMore,
-      offset
-    };
-
-    // If pagination is requested, return paginated props instead of events
-    if (page > 1 || pageSize < totalProps) {
-      responseData.props = paginatedProps;
-    }
+    // Add all props to response
+    responseData.props = allProps;
 
     // DEBUG: Log final response structure
-    console.log(`Pagination: page=${page}, pageSize=${pageSize}, total=${totalProps}, hasMore=${hasMore}`);
+    console.log(`Total props: ${allProps.length}`);
 
     return withCORS(
       new Response(JSON.stringify(responseData), {
