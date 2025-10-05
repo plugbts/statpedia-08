@@ -105,10 +105,8 @@ class CloudflarePlayerPropsAPI {
     sport: string = 'nfl', 
     forceRefresh: boolean = false, 
     date?: string, 
-    view?: string,
-    page: number = 1,
-    pageSize: number = 50
-  ): Promise<{ props: PlayerProp[]; total: number; hasMore: boolean; page: number; pageSize: number }> {
+    view?: string
+  ): Promise<PlayerProp[]> {
     try {
       console.log(`🚀 Fetching player props from new /api/{league}/player-props endpoint: ${sport}${forceRefresh ? ' (force refresh)' : ''}`);
       
@@ -118,8 +116,6 @@ class CloudflarePlayerPropsAPI {
       
       const url = new URL(`${this.baseUrl}/api/${league}/player-props`);
       url.searchParams.append('date', date || today);
-      url.searchParams.append('page', page.toString());
-      url.searchParams.append('page_size', pageSize.toString());
       
       if (view) {
         url.searchParams.append('view', view);
@@ -151,7 +147,7 @@ class CloudflarePlayerPropsAPI {
         // Fallback to legacy endpoint
         console.log('🔄 Falling back to legacy /api/player-props endpoint...');
         const legacyProps = await this.getPlayerPropsFromLegacy(sport, forceRefresh);
-        return this.paginateProps(legacyProps, page, pageSize);
+        return legacyProps;
       }
 
       const data = await response.json();
@@ -415,7 +411,7 @@ class CloudflarePlayerPropsAPI {
       console.log(`✅ Transformed ${playerProps.length} player props from new endpoint`);
       
       // Apply pagination to the deduplicated props
-      return this.paginateProps(playerProps, page, pageSize);
+      return playerProps;
       
     } catch (error) {
       console.error('❌ New /api/{league}/player-props endpoint error:', error);
@@ -424,7 +420,7 @@ class CloudflarePlayerPropsAPI {
       // Fallback to legacy endpoint
       try {
         const legacyProps = await this.getPlayerPropsFromLegacy(sport, forceRefresh);
-        return this.paginateProps(legacyProps, page, pageSize);
+        return legacyProps;
       } catch (fallbackError) {
         console.error('❌ Legacy fallback also failed:', fallbackError);
         throw fallbackError;
@@ -587,16 +583,14 @@ class CloudflarePlayerPropsAPI {
    * Get cached player props (faster response) - backward compatibility
    */
   async getCachedPlayerProps(sport: string = 'nfl'): Promise<PlayerProp[]> {
-    const result = await this.getPlayerProps(sport, false);
-    return result.props;
+    return await this.getPlayerProps(sport, false);
   }
 
   /**
    * Force refresh player props (bypass cache) - backward compatibility
    */
   async refreshPlayerProps(sport: string = 'nfl'): Promise<PlayerProp[]> {
-    const result = await this.getPlayerProps(sport, true);
-    return result.props;
+    return await this.getPlayerProps(sport, true);
   }
 
   /**
@@ -610,7 +604,8 @@ class CloudflarePlayerPropsAPI {
     date?: string,
     view?: string
   ): Promise<{ props: PlayerProp[]; total: number; hasMore: boolean; page: number; pageSize: number }> {
-    return this.getPlayerProps(sport, forceRefresh, date, view, page, pageSize);
+    const allProps = await this.getPlayerProps(sport, forceRefresh, date, view);
+    return this.paginateProps(allProps, page, pageSize);
   }
 
   /**
@@ -624,7 +619,7 @@ class CloudflarePlayerPropsAPI {
     const promises = sports.map(async (sport) => {
       try {
         const result = await this.getPlayerProps(sport);
-        results[sport] = result.props;
+        results[sport] = result;
       } catch (error) {
         console.warn(`Failed to fetch ${sport} props:`, error);
         results[sport] = [];
