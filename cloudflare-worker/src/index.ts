@@ -388,7 +388,7 @@ export async function handlePropsEndpoint(request: Request, env: Env, league?: s
                       const under = pickBest((prop.books || []).filter((b: any) => String(b.side).toLowerCase() === "under"));
                       return {
                         player_name: prop.player_name,
-                        market_type: formatMarketType(prop.market_type, event.leagueID || "NFL"),
+                        market_type: formatMarketTypeWithLeague(prop.market_type, event.leagueID || "NFL"),
                         line: prop.line,
                         best_over: over?.price ?? null,
                         best_under: under?.price ?? null,
@@ -553,15 +553,6 @@ async function handleCachePurge(url: URL, request: Request, env: Env): Promise<R
 // DEPRECATED: SportRadar proxy function - removed
 // All SportRadar functionality has been migrated to SportsGameOdds API
 
-// Helper function to format player names consistently
-function formatPlayerName(name: string): string {
-  if (!name) return "Unknown";
-  return name
-    .toLowerCase()
-    .split(" ")
-    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
 
 // Helper function to normalize matchup with logos
 function normalizeMatchup(ev: any) {
@@ -624,63 +615,76 @@ function extractTeamAbbr(teamName: string): string {
 
 // PROP_PRIORITY mapping for proper sorting
 const PROP_PRIORITY: Record<string, number> = {
-  // Offensive stats first (0-9)
-  'passing': 1,
-  'rushing': 2,
-  'receiving': 3,
-  'passing_yards': 1,
-  'rushing_yards': 2,
-  'receiving_yards': 3,
-  'passing_attempts': 1,
-  'rushing_attempts': 2,
-  'receptions': 3,
-  'passing_completions': 1,
-  'passing_touchdowns': 1,
-  'rushing_touchdowns': 2,
-  'receiving_touchdowns': 3,
-  'passing_ints': 1,
-  'passing_longestcompletion': 1,
-  'rushing_longestrush': 2,
-  'receiving_longestreception': 3,
-  
-  // Kicking next (10-19)
-  'kicking': 10,
-  'fieldgoals': 11,
-  'extrapoints': 12,
-  'field_goals': 11,
-  'extra_points': 12,
-  'kicking_total_points': 10,
-  
-  // Touchdowns after offense/kicking (20-29)
-  'touchdowns': 20,
-  
-  // Defense last (30+)
-  'defense': 30,
-  'tackles': 31,
-  'sacks': 32,
-  'interceptions': 33,
-  'defense_combinedtackles': 31,
-  'defense_assistedtackles': 31,
-  'defense_sacks': 32,
-  'defense_interceptions': 33,
+  "Passing Yards": 1,
+  "Passing Attempts": 1,
+  "Passing Completions": 1,
+  "Passing Touchdowns": 1,
+  "Rushing Yards": 1,
+  "Rushing Attempts": 1,
+  "Rushing + Rec Yards": 1,
+  "Receiving Yards": 1,
+  "Receiving Receptions": 1,
+  "Receiving Touchdowns": 1,
+
+  "Field Goals Made": 2,
+  "Kicking Points": 2,
+  "Longest Field Goal": 2,
+
+  "Touchdowns": 3,
+
+  "Defense Sacks": 4,
+  "Defense Interceptions": 4,
+  "Tackles": 4,
+  "Tackles + Assists": 4,
 };
 
 // Helper function to prioritize props using PROP_PRIORITY
 function prioritizeProps(props: any[]): any[] {
   return props.sort((a, b) => {
-    const aType = a.market_type.toLowerCase();
-    const bType = b.market_type.toLowerCase();
-    
-    // Get priority for each prop type
-    const aPriority = Object.keys(PROP_PRIORITY).find(key => aType.includes(key)) 
-      ? PROP_PRIORITY[Object.keys(PROP_PRIORITY).find(key => aType.includes(key))!] 
-      : 99; // Default priority for unmapped markets
-    
-    const bPriority = Object.keys(PROP_PRIORITY).find(key => bType.includes(key)) 
-      ? PROP_PRIORITY[Object.keys(PROP_PRIORITY).find(key => bType.includes(key))!] 
-      : 99;
-    
-    return aPriority - bPriority;
+    const pa = PROP_PRIORITY[a.market_type] ?? (/\btouchdown\b/i.test(a.market_type) ? 3 : 99);
+    const pb = PROP_PRIORITY[b.market_type] ?? (/\btouchdown\b/i.test(b.market_type) ? 3 : 99);
+    return pa - pb;
+  });
+}
+
+// Helper function to format player names
+function formatPlayerName(name: string): string {
+  if (!name) return "Unknown";
+  return name
+    .toLowerCase()
+    .split(" ")
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+// Helper function to format market types
+function formatMarketType(raw: string): string {
+  if (!raw) return "Unknown";
+  return raw
+    .replace("Rushing+ReceivingYards", "Rushing + Rec Yards")
+    .replace("PassingLongestCompletion", "Passing Longest Completion")
+    .replace("LongestRush", "Longest Rush")
+    .replace("LongestReception", "Longest Reception")
+    .trim();
+}
+
+// Helper function to filter out backup quarterbacks
+function filterQuarterbacks(props: any[]) {
+  const qbs = props.filter(p => /Passing/i.test(p.market_type));
+  if (qbs.length <= 1) return props;
+
+  const grouped = qbs.reduce((acc, p) => {
+    acc[p.player_name] = (acc[p.player_name] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const starter = Object.entries(grouped).sort((a, b) => (b[1] as number) - (a[1] as number))[0][0];
+
+  return props.filter(p => {
+    if (/Passing/i.test(p.market_type)) {
+      return p.player_name === starter;
+    }
+    return true;
   });
 }
 
@@ -833,7 +837,7 @@ function normalizeProps(ev: any) {
     if (playerName === "Unknown") continue; // Skip if no player found
     
     props.push({
-      player_name: playerName,
+      player_name: formatPlayerName(playerName),
       market_type: normalizeMarketType(marketEntry.statID || marketEntry.marketName),
       line: marketEntry.bookOverUnder || marketEntry.fairOverUnder || 0,
       best_over: marketEntry.bookOdds || marketEntry.fairOdds,
@@ -925,7 +929,7 @@ function normalizeEvent(ev: SGEvent) {
       if (!playerPropsMap.has(propKey)) {
         playerPropsMap.set(propKey, {
           player_name: cleanPlayerName,
-          market_type: normalizeMarketType(statType),
+          market_type: formatMarketType(normalizeMarketType(statType)),
           line: 0, // Will be set from the odds data
           best_over: null,
           best_under: null,
@@ -956,6 +960,11 @@ function normalizeEvent(ev: SGEvent) {
       } else {
         prop.books = [];
       }
+      
+      // Set sportsbooks count using the new logic
+      prop.sportsbooks = Array.isArray(oddsData.books)
+        ? oddsData.books.length
+        : (oddsData.bookCount ?? 0);
 
       // Extract odds from multiple possible formats (SGO legacy format)
       if (direction === 'over') {
@@ -967,18 +976,14 @@ function normalizeEvent(ev: SGEvent) {
       }
     }
     
-    // Convert map to array
+    // Convert map to array and apply all processing
     playerProps = Array.from(playerPropsMap.values());
     
-    // Push "Touchdowns" props to the very end
-    playerProps.sort((a, b) => {
-      const aIsTouchdown = a.market_type.toLowerCase().includes('touchdown');
-      const bIsTouchdown = b.market_type.toLowerCase().includes('touchdown');
-      
-      if (aIsTouchdown && !bIsTouchdown) return 1;
-      if (!aIsTouchdown && bIsTouchdown) return -1;
-      return 0;
-    });
+    // Apply quarterback filtering
+    playerProps = filterQuarterbacks(playerProps);
+    
+    // Apply priority sorting
+    playerProps = prioritizeProps(playerProps);
     
         // Extracted player props from SGO format
   }
@@ -1038,9 +1043,17 @@ function groupPlayerProps(event: any, league: string) {
   // DEBUG: Log grouped props
   // Props grouped
 
-  event.player_props = Object.values(grouped)
+  let playerProps = Object.values(grouped)
     .map(group => normalizePlayerGroup(group, event.players, league))
     .filter(Boolean);
+  
+  // Apply quarterback filtering
+  playerProps = filterQuarterbacks(playerProps);
+  
+  // Apply priority sorting
+  playerProps = prioritizeProps(playerProps);
+  
+  event.player_props = playerProps;
 }
 
 function normalizePlayerGroup(markets: any[], players: Record<string, any>, league: string) {
@@ -1106,9 +1119,9 @@ function normalizePlayerGroup(markets: any[], players: Record<string, any>, leag
   }
 
   const result = {
-    player_name: playerName,
+    player_name: formatPlayerName(playerName),
     teamID: teamID,
-    market_type: formatMarketType(base.statID, league),
+    market_type: formatMarketTypeWithLeague(base.statID, league),
     line: Number(base.bookOverUnder ?? null),
     best_over: pickBest(allBooks.filter(b => b.side === "over")),
     best_under: pickBest(allBooks.filter(b => b.side === "under")),
@@ -1212,7 +1225,7 @@ function summarizePropsByMarket(event: any, league: string) {
   const counts: Record<string, number> = {};
 
   for (const prop of event.player_props || []) {
-    const label = formatMarketType(prop.market_type || prop.statID, league);
+    const label = formatMarketTypeWithLeague(prop.market_type || prop.statID, league);
     counts[label] = (counts[label] || 0) + 1;
   }
 
@@ -1590,7 +1603,7 @@ const MARKET_LABELS: Record<string, Record<string, string>> = {
   },
 };
 
-function formatMarketType(raw: string, league: string): string {
+function formatMarketTypeWithLeague(raw: string, league: string): string {
   // Use the new market mapper for consistent formatting
   return normalizeMarketType(raw);
 }
@@ -1918,7 +1931,7 @@ function debugNormalizePlayerGroup(markets: any[], players: Record<string, any>)
 
   const player = base.playerID ? players[base.playerID] : undefined;
   const playerName = player?.name || base.marketName;
-  const marketType = formatMarketType(base.statID, "NFL");
+  const marketType = formatMarketTypeWithLeague(base.statID, "NFL");
 
   const lineStr =
     over?.bookOverUnder ?? under?.bookOverUnder ?? over?.fairOverUnder ?? under?.fairOverUnder ?? null;
@@ -1955,9 +1968,9 @@ function debugNormalizePlayerGroup(markets: any[], players: Record<string, any>)
 
   // If absolutely no odds entries, still return the prop with minimal info (real player + market + line)
   return {
-    player_name: playerName,
+    player_name: formatPlayerName(playerName),
     teamID: player?.teamID ?? null,
-    market_type: marketType,
+    market_type: formatMarketType(marketType),
     line,
     books,
   };
