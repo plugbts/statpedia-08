@@ -428,60 +428,55 @@ export function PlayerPropCard3D({
 
               {/* Additional Info - Compact */}
               <div className="space-y-2">
-
-          {/* Sportsbook Source */}
-          {prop.sportsbookSource && (
-            <div className="mb-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Data Source</span>
-                <Badge variant="outline" className="text-xs">
-                  {prop.sportsbookSource}
-                </Badge>
-              </div>
-              {prop.lastOddsUpdate && (
-                <div className="text-xs text-slate-400 mt-1">
-                  Updated: {new Date(prop.lastOddsUpdate).toLocaleTimeString()}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Team Odds Context */}
-          {prop.teamOddsContext && prop.teamOddsContext.hasTeamOdds && (
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Team Odds Available</span>
-                <Badge variant="secondary" className="text-xs">
-                  {prop.teamOddsContext.sportsbooks.length} Sportsbooks
-                </Badge>
-              </div>
-              <div className="text-xs text-slate-400">
-                {prop.teamOddsContext.homeTeam} vs {prop.teamOddsContext.awayTeam}
-              </div>
-            </div>
-          )}
-
-
-                    {/* Expected Value */}
-                    {prop.expectedValue !== undefined && (
-                      <div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-slate-500 uppercase font-semibold">Expected Value</span>
-                          <Badge className={`text-xs font-bold ${getEVBadgeClasses(prop.expectedValue * 100).combined}`}>
-                            <Zap className="h-3 w-3 mr-1" />
-                            {convertEVToText(prop.expectedValue * 100).text}
-                          </Badge>
-                        </div>
+                {/* Sportsbook Source */}
+                {prop.sportsbookSource && (
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Data Source</span>
+                      <Badge variant="outline" className="text-xs">
+                        {prop.sportsbookSource}
+                      </Badge>
+                    </div>
+                    {prop.lastOddsUpdate && (
+                      <div className="text-xs text-slate-400 mt-1">
+                        Updated: {new Date(prop.lastOddsUpdate).toLocaleTimeString()}
                       </div>
                     )}
+                  </div>
+                )}
 
-
-                    {/* Game Info */}
-                    <div className="text-center pt-2 border-t border-slate-700/50">
-                      <div className="text-xs text-slate-500 font-semibold">
-                        {new Date(prop.gameDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • {new Date(prop.gameTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
-                      </div>
+                {/* Team Odds Context */}
+                {prop.teamOddsContext && prop.teamOddsContext.hasTeamOdds && (
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Team Odds Available</span>
+                      <Badge variant="secondary" className="text-xs">
+                        {prop.teamOddsContext.sportsbooks.length} Sportsbooks
+                      </Badge>
                     </div>
+                    <div className="text-xs text-slate-400">
+                      {prop.teamOddsContext.homeTeam} vs {prop.teamOddsContext.awayTeam}
+                    </div>
+                  </div>
+                )}
+
+                {/* Expected Value */}
+                {prop.expectedValue !== undefined && (
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-slate-500 uppercase font-semibold">Expected Value</span>
+                      <Badge className={`text-xs font-bold ${getEVBadgeClasses(prop.expectedValue * 100).combined}`}>
+                        <Zap className="h-3 w-3 mr-1" />
+                        {convertEVToText(prop.expectedValue * 100).text}
+                      </Badge>
+                    </div>
+                  </div>
+                )}
+
+                {/* Game Info */}
+                <div className="text-center pt-2 border-t border-slate-700/50">
+                  <div className="text-xs text-slate-500 font-semibold">
+                    {new Date(prop.gameDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • {new Date(prop.gameTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
                   </div>
                 </div>
               </div>
