@@ -493,7 +493,7 @@ async function handleEventStructureDebug(url: URL, env: Env, request: Request): 
     return json({ 
       error: "Debug endpoint failed",
       message: error instanceof Error ? error.message : "Unknown error"
-    }, 500);
+    }, 500, request);
   }
 }
 
