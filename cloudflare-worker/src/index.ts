@@ -212,12 +212,10 @@ export default {
       const league = leagueMap[sport] || 'NFL';
       
       try {
-        console.log(`Legacy endpoint: league=${league}, date=${date}, sport=${sport}`);
         const result = await fetchSportsGameOddsDay(league, date, env);
         if (isErrorResponse(result)) {
           resp = json({ error: result.message }, 400);
         } else {
-          console.log(`Legacy endpoint: Found ${result.events.length} events`);
           // Transform to legacy format - only include props with odds
           const legacyProps = result.events.flatMap((event: any) => 
             event.player_props?.filter((prop: any) => prop.best_over || prop.best_under).map((prop: any) => ({
