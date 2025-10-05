@@ -1170,14 +1170,16 @@ function safeNormalizeEvent(ev: SGEvent) {
 function normalizeEventSGO(ev: any, request: any) {
   // Guard against error responses
   if (ev && typeof ev === 'object' && ev.error === true) {
-    // console.log("DEBUG: Skipping error response in normalizer", ev.message);
+    console.log("DEBUG: Skipping error response in normalizer", ev.message);
     return null;
   }
+
+  console.log(`DEBUG normalizeEventSGO: eventID=${ev.eventID}, has player_props=${!!ev.player_props}, has players=${!!ev.players}`);
 
   // Use the existing normalizeEvent function which handles SGO schema properly
   const normalized = normalizeEvent(ev);
   
-  // console.log(`DEBUG normalizeEventSGO: eventID=${ev.eventID}, player_props=${normalized.player_props?.length || 0}, team_props=${normalized.team_props?.length || 0}`);
+  console.log(`DEBUG normalizeEventSGO: eventID=${ev.eventID}, player_props=${normalized.player_props?.length || 0}, team_props=${normalized.team_props?.length || 0}`);
   
   return {
     eventID: normalized.eventID,
@@ -1240,7 +1242,7 @@ function normalizeProps(ev: any) {
 
 function normalizeEvent(ev: SGEvent) {
   try {
-    // console.log(`🔥 NORMALIZE EVENT CALLED: ${ev.eventID}`);
+    console.log(`🔥 NORMALIZE EVENT CALLED: ${ev.eventID}`);
     
     // Use SportsGameOdds schema as primary, fallback to legacy
     const eventId = ev.event_id || ev.eventID;
@@ -1255,17 +1257,23 @@ function normalizeEvent(ev: SGEvent) {
   // Use SGO's pre-normalized props if available, otherwise fall back to legacy normalization
   let playerProps: any[] = [];
 
+  console.log(`DEBUG: Event ${ev.eventID} - has player_props: ${!!ev.player_props}, has players: ${!!ev.players}`);
+  console.log(`DEBUG: player_props type: ${typeof ev.player_props}, isArray: ${Array.isArray(ev.player_props)}`);
+  console.log(`DEBUG: Event keys:`, Object.keys(ev).slice(0, 10));
+
   if (ev.player_props && Array.isArray(ev.player_props)) {
     // SGO already provides normalized player props, but we need to add player_id and position
-    playerProps = ev.player_props.map((prop: any) => {
+    console.log(`DEBUG: Processing ${ev.player_props.length} player props for event ${ev.eventID}`);
+    console.log(`DEBUG: Players object keys:`, Object.keys(ev.players || {}).slice(0, 5));
+    
+    playerProps = ev.player_props.map((prop: any, index: number) => {
       // Find the player in the players object
       const playerName = prop.player_name;
       const player = Object.values(ev.players || {}).find((p: any) => p.name === playerName) as any;
       
       // Debug logging for first few props
-      if (Math.random() < 0.1) {
-        console.log(`DEBUG: playerName=${playerName}, found player=${!!player}, playerID=${player?.playerID}`);
-        console.log(`DEBUG: Available players:`, Object.keys(ev.players || {}).slice(0, 5));
+      if (index < 3) {
+        console.log(`DEBUG: [${index}] playerName=${playerName}, found player=${!!player}, playerID=${player?.playerID}`);
       }
       
       return {
