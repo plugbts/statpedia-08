@@ -78,6 +78,11 @@ interface PlayerProp {
     hasTeamOdds: boolean;
     sportsbooks: string[];
   };
+  // Statpedia rating fields
+  rating_over_raw?: number;
+  rating_over_normalized?: number;
+  rating_under_raw?: number;
+  rating_under_normalized?: number;
 }
 
 interface PlayerPropCardProps {
@@ -360,21 +365,28 @@ export function PlayerPropCard3D({
               
               {/* AI Prediction & Form - Inline */}
               <div className="flex items-center justify-center space-x-1 flex-wrap gap-1">
-                {prop.aiPrediction && (
-                  <div className={cn(
-                    "flex items-center space-x-1 px-2 py-1 rounded text-xs font-semibold",
-                    prop.aiPrediction.recommended === 'over' 
-                      ? "bg-green-600/20 text-green-300"
-                      : "bg-red-600/20 text-red-300"
-                  )}>
-                    {prop.aiPrediction.recommended === 'over' ? (
-                      <TrendingUp className="h-3 w-3" />
-                    ) : (
-                      <TrendingDown className="h-3 w-3" />
-                    )}
-                    <span className="uppercase text-xs">{prop.aiPrediction.recommended}</span>
-                  </div>
-                )}
+                {prop.aiPrediction && (() => {
+                  // Determine which side has higher Statpedia rating
+                  const overRating = prop.rating_over_normalized || prop.rating_over_raw || 0;
+                  const underRating = prop.rating_under_normalized || prop.rating_under_raw || 0;
+                  const higherRatingSide = overRating > underRating ? 'over' : 'under';
+                  
+                  return (
+                    <div className={cn(
+                      "flex items-center space-x-1 px-2 py-1 rounded text-xs font-semibold",
+                      higherRatingSide === 'over' 
+                        ? "bg-green-600/20 text-green-300"
+                        : "bg-red-600/20 text-red-300"
+                    )}>
+                      {higherRatingSide === 'over' ? (
+                        <TrendingUp className="h-3 w-3" />
+                      ) : (
+                        <TrendingDown className="h-3 w-3" />
+                      )}
+                      <span className="uppercase text-xs">{higherRatingSide} ^ AI Prediction</span>
+                    </div>
+                  );
+                })()}
                 
                 {prop.recentForm && (
                   <div className="flex items-center space-x-1 px-2 py-1 rounded text-xs font-semibold bg-slate-800/60 text-slate-200">

@@ -1576,7 +1576,7 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                         ) : (
                           <ArrowDown className="w-4 h-4 mr-2" />
                         )}
-                        {recommended === 'over' ? 'OVER' : 'UNDER'} AI PREDICTION
+                        {recommended === 'over' ? 'OVER' : 'UNDER'} ^ AI PREDICTION
                       </Badge>
                     );
                   })()}
