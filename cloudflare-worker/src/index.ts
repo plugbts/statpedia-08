@@ -1445,7 +1445,7 @@ export async function fetchSportsGameOddsDay(
 
   // 3. Build URL with correct endpoint format (use /events endpoint with oddsAvailable)
   const requestedYear = new Date(date).getFullYear();
-  const url = `https://api.sportsgameodds.com/v2/events?leagueID=${leagueID}&oddsAvailable=true&date=${date}`;
+  const url = `https://api.sportsgameodds.com/v2/events?leagueID=${leagueID}&date=${date}&oddsAvailable=true&oddsType=playerprops`;
   console.log(`[fetchSportsGameOddsDay] Fetching: ${url.replace(env.SGO_API_KEY, '[API_KEY]')} (requestedYear: ${requestedYear})`);
   const res = await fetchSGO(url, env);
 
@@ -1475,6 +1475,13 @@ export async function fetchSportsGameOddsDay(
   });
   
   console.log(`[fetchSportsGameOddsDay] Filtered to ${events.length} events for year ${requestedYear}`);
+  
+  // Debug: Log event details and available prop categories
+  events.forEach((ev: any) => {
+    console.log("EventID:", ev.eventID);
+    console.log("Teams:", ev.teams?.away?.names?.long, "@", ev.teams?.home?.names?.long);
+    console.log("Available prop categories:", Object.keys(ev.odds || {}));
+  });
   
   return { events };
 }
