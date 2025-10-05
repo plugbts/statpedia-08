@@ -585,7 +585,7 @@ async function handleCachePurge(url: URL, request: Request, env: Env): Promise<R
         } 
       }
     ),
-    "*"
+    request.headers.get("Origin") || "*"
   );
 }
 
