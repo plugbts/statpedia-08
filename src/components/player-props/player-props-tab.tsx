@@ -560,7 +560,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         if (props && props.length > 0) {
           console.log(`\n🎯 FRONTEND PLAYER PROPS ANALYSIS:`);
           console.log(`📊 Total Props Received: ${props.length}`);
-          console.log(`📝 First 3 Props (Full Objects):`, props.slice(0, 3));
+          console.log(`📝 First 10 Props (Priority Order):`);
+          props.slice(0, 10).forEach((prop, index) => {
+            console.log(`${index + 1}. ${prop.propType} - ${prop.playerName}`);
+          });
           
           // Analyze the first prop in detail
           const firstProp = (props as unknown as APIPlayerProp[])[0];
@@ -624,8 +627,8 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
           logSuccess('PlayerPropsTab', `Setting ${props.length} server-side cached props for ${sport}`);
           logDebug('PlayerPropsTab', 'Backend props sample:', props.slice(0, 2));
           
-          // Calculate EV for each prop
-          const propsWithEV = await Promise.all((props as unknown as APIPlayerProp[]).map(async prop => {
+          // Calculate EV for each prop while preserving original order
+          const propsWithEV = await Promise.all((props as unknown as APIPlayerProp[]).map(async (prop, index) => {
             try {
               // Calculate EV for both over and under, use the better one
               const overEV = await evCalculatorService.calculateAIRating({
@@ -668,7 +671,8 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                 expectedValue: bestEV.evPercentage / 100, // Convert to decimal
                 confidence: bestEV.confidence / 100, // Convert to decimal
                 aiRating: bestEV.aiRating,
-                recommendation: bestEV.recommendation
+                recommendation: bestEV.recommendation,
+                originalIndex: index // Preserve original order
               };
             } catch (error) {
               console.warn('EV calculation failed for prop:', prop.playerName, error);
@@ -677,12 +681,22 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                 expectedValue: 0,
                 confidence: 0.5,
                 aiRating: 3,
-                recommendation: 'neutral'
+                recommendation: 'neutral',
+                originalIndex: index // Preserve original order
               };
             }
           }));
           
-          setRealProps(propsWithEV as PlayerProp[]);
+          // Sort by original index to preserve API order
+          const sortedPropsWithEV = propsWithEV.sort((a, b) => (a.originalIndex || 0) - (b.originalIndex || 0));
+          
+          // Debug: Log the first 10 props to verify order
+          console.log('🎯 PRIORITY ORDER DEBUG - First 10 props after EV calculation:');
+          sortedPropsWithEV.slice(0, 10).forEach((prop, index) => {
+            console.log(`${index + 1}. ${prop.propType} - ${prop.playerName} (originalIndex: ${prop.originalIndex})`);
+          });
+          
+          setRealProps(sortedPropsWithEV as PlayerProp[]);
           
           // Log success to console (visible in dev console)
           logSuccess('PlayerPropsTab', `Player Props Loaded: Found ${props.length} server-side cached props for ${sport.toUpperCase()} with exact sportsbook odds`);
