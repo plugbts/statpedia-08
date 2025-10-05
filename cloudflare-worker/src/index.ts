@@ -687,6 +687,63 @@ function calculateCompositeRating(prop: any): number {
   return Math.round(compositeScore);
 }
 
+// Helper function to get prop priority with normalized matching
+function getPropPriority(marketType: string): number {
+  if (!marketType) return 99;
+  
+  const normalized = marketType.toLowerCase().trim();
+  
+  // Direct match in PROP_PRIORITY
+  if (PROP_PRIORITY[marketType]) {
+    return PROP_PRIORITY[marketType];
+  }
+  
+  // Broad touchdown detection (regardless of exact wording)
+  if (normalized.includes('touchdown')) {
+    return 3;
+  }
+  
+  // Offensive props (passing, rushing, receiving)
+  if (normalized.includes('passing') || normalized.includes('rushing') || normalized.includes('receiving')) {
+    return 1;
+  }
+  
+  // Kicking props
+  if (normalized.includes('field goal') || normalized.includes('kicking') || normalized.includes('extra point')) {
+    return 2;
+  }
+  
+  // Defense props
+  if (normalized.includes('defense') || normalized.includes('sack') || normalized.includes('tackle') || normalized.includes('interception')) {
+    return 4;
+  }
+  
+  // Default to low priority
+  return 99;
+}
+
+// Helper function to get offensive sub-order for tie-breaking
+function getOffensiveSubOrder(marketType: string): number {
+  if (!marketType) return 3;
+  
+  const normalized = marketType.toLowerCase();
+  
+  // Passing props first
+  if (normalized.includes('passing')) return 1;
+  
+  // Rushing props second
+  if (normalized.includes('rushing')) return 2;
+  
+  // Receiving props third
+  if (normalized.includes('receiving')) return 3;
+  
+  // Other offensive props
+  if (normalized.includes('points') || normalized.includes('goals') || normalized.includes('assists')) return 4;
+  
+  // Non-offensive props
+  return 5;
+}
+
 // Helper function to prioritize props using PropFinder-style ordering
 function prioritizeProps(props: any[]): any[] {
   return props.sort((a, b) => {
@@ -705,11 +762,34 @@ function prioritizeProps(props: any[]): any[] {
     if (aIsOffensive && !bIsOffensive) return -1;
     if (!aIsOffensive && bIsOffensive) return 1;
     
-    // Third: Within same category, use original PROP_PRIORITY
-    const pa = PROP_PRIORITY[a.market_type] ?? (/\btouchdown\b/i.test(a.market_type) ? 3 : 99);
-    const pb = PROP_PRIORITY[b.market_type] ?? (/\btouchdown\b/i.test(b.market_type) ? 3 : 99);
+    // Third: Within same category, use normalized priority
+    const aPriority = getPropPriority(a.market_type);
+    const bPriority = getPropPriority(b.market_type);
     
-    return pa - pb;
+    if (aPriority !== bPriority) {
+      return aPriority - bPriority;
+    }
+    
+    // Fourth: Tie-breaker for offensive props (passing → rushing → receiving)
+    if (aIsOffensive && bIsOffensive) {
+      const aSubOrder = getOffensiveSubOrder(a.market_type);
+      const bSubOrder = getOffensiveSubOrder(b.market_type);
+      
+      if (aSubOrder !== bSubOrder) {
+        return aSubOrder - bSubOrder;
+      }
+    }
+    
+    // Fifth: Alphabetical by market type
+    const aMarket = a.market_type.toLowerCase();
+    const bMarket = b.market_type.toLowerCase();
+    
+    if (aMarket !== bMarket) {
+      return aMarket.localeCompare(bMarket);
+    }
+    
+    // Sixth: Alphabetical by player name
+    return a.player_name.localeCompare(b.player_name);
   });
 }
 
