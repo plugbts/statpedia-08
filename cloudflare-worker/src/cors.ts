@@ -2,17 +2,20 @@
 export function withCORS(resp: Response, origin: string = "*"): Response {
   const headers = new Headers(resp.headers);
   
-  // Define allowed origins
+  // Define allowed origins - comprehensive list for all environments
   const allowedOrigins = [
     "https://170e7fa8-3f2c-4d31-94b1-17786919492c.lovableproject.com",
     "https://statpedia.vercel.app",
     "https://statpedia.com",
     "http://localhost:3000",
     "http://localhost:5173",
-    "https://localhost:5173"
+    "https://localhost:5173",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+    "https://127.0.0.1:5173"
   ];
   
-  // Check if the origin is in our allowed list
+  // Get the actual request origin
   const requestOrigin = origin && origin !== "*" ? origin : null;
   let allowedOrigin = "*";
   
@@ -25,12 +28,23 @@ export function withCORS(resp: Response, origin: string = "*"): Response {
     else if (requestOrigin.endsWith('.lovableproject.com') || requestOrigin.endsWith('.lovable.app')) {
       allowedOrigin = requestOrigin;
     }
+    // Check if it's a localhost variant
+    else if (requestOrigin.startsWith('http://localhost:') || requestOrigin.startsWith('https://localhost:') ||
+             requestOrigin.startsWith('http://127.0.0.1:') || requestOrigin.startsWith('https://127.0.0.1:')) {
+      allowedOrigin = requestOrigin;
+    }
+    // Check if it's a Vercel preview deployment
+    else if (requestOrigin.includes('.vercel.app')) {
+      allowedOrigin = requestOrigin;
+    }
   }
   
+  // Always set CORS headers - this ensures they're never missing
   headers.set("Access-Control-Allow-Origin", allowedOrigin);
-  headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-API-Key");
+  headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH");
+  headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-API-Key, Accept, Origin, User-Agent, DNT, Cache-Control, X-Mx-ReqToken, Keep-Alive, X-Requested-With, If-Modified-Since");
   headers.set("Access-Control-Max-Age", "86400"); // Cache preflight for 24 hours
+  headers.set("Access-Control-Expose-Headers", "Content-Length, Content-Type, Date, Server, Transfer-Encoding");
   
   // Only set credentials to true if not using wildcard origin
   if (allowedOrigin !== "*") {
@@ -42,17 +56,20 @@ export function withCORS(resp: Response, origin: string = "*"): Response {
 
 // Preflight handler
 export function handleOptions(request: Request, origin: string = "*"): Response {
-  // Define allowed origins
+  // Define allowed origins - comprehensive list for all environments
   const allowedOrigins = [
     "https://170e7fa8-3f2c-4d31-94b1-17786919492c.lovableproject.com",
     "https://statpedia.vercel.app",
     "https://statpedia.com",
     "http://localhost:3000",
     "http://localhost:5173",
-    "https://localhost:5173"
+    "https://localhost:5173",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+    "https://127.0.0.1:5173"
   ];
   
-  // Check if the origin is in our allowed list
+  // Get the actual request origin
   const requestOrigin = origin && origin !== "*" ? origin : null;
   let allowedOrigin = "*";
   
@@ -65,13 +82,24 @@ export function handleOptions(request: Request, origin: string = "*"): Response 
     else if (requestOrigin.endsWith('.lovableproject.com') || requestOrigin.endsWith('.lovable.app')) {
       allowedOrigin = requestOrigin;
     }
+    // Check if it's a localhost variant
+    else if (requestOrigin.startsWith('http://localhost:') || requestOrigin.startsWith('https://localhost:') ||
+             requestOrigin.startsWith('http://127.0.0.1:') || requestOrigin.startsWith('https://127.0.0.1:')) {
+      allowedOrigin = requestOrigin;
+    }
+    // Check if it's a Vercel preview deployment
+    else if (requestOrigin.includes('.vercel.app')) {
+      allowedOrigin = requestOrigin;
+    }
   }
   
+  // Always set CORS headers - this ensures they're never missing
   const headers: Record<string, string> = {
     "Access-Control-Allow-Origin": allowedOrigin,
-    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, X-API-Key",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, X-API-Key, Accept, Origin, User-Agent, DNT, Cache-Control, X-Mx-ReqToken, Keep-Alive, X-Requested-With, If-Modified-Since",
     "Access-Control-Max-Age": "86400", // Cache preflight for 24 hours
+    "Access-Control-Expose-Headers": "Content-Length, Content-Type, Date, Server, Transfer-Encoding",
   };
   
   // Only set credentials to true if not using wildcard origin

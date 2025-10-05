@@ -121,12 +121,16 @@ type SGEvent = {
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    // Always handle OPTIONS requests first for CORS preflight
     if (request.method === "OPTIONS") {
       return handleOptions(request, request.headers.get("Origin") || "*");
     }
 
     const url = new URL(request.url);
     let resp: Response;
+
+    // Ensure we always have a response - fallback for any unhandled cases
+    try {
 
     // Debug endpoint: /debug/player-props?league=nfl&date=YYYY-MM-DD
     if (url.pathname === "/debug/player-props") {
@@ -282,7 +286,26 @@ export default {
       }
     }
 
+    // Ensure we always have a response with CORS headers
+    if (!resp) {
+      resp = withCORS(new Response("Internal Server Error", { status: 500 }), request.headers.get("Origin") || "*");
+    }
+
     return withCORS(resp, request.headers.get("Origin") || "*");
+    } catch (error) {
+      // Fallback error response with CORS headers
+      console.error("Unhandled error in worker:", error);
+      return withCORS(
+        new Response(JSON.stringify({ 
+          error: "Internal Server Error", 
+          message: error instanceof Error ? error.message : "Unknown error" 
+        }), { 
+          status: 500,
+          headers: { "content-type": "application/json" }
+        }), 
+        request.headers.get("Origin") || "*"
+      );
+    }
   },
 };
 
