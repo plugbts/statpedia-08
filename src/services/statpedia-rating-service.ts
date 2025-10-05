@@ -554,17 +554,11 @@ export class StatpediaRatingService {
    * Updated thresholds: 95-90=A, 89-80=B, 79-70=C, 69-60=D, 59&lower=F
    */
   private getGrade(score: number): StatpediaRating['grade'] {
-    if (score >= 95) return 'A+';
+    if (score >= 95) return 'A';
     if (score >= 90) return 'A';
-    if (score >= 89) return 'A-';
-    if (score >= 80) return 'B+';
-    if (score >= 79) return 'B';
-    if (score >= 70) return 'B-';
-    if (score >= 69) return 'C+';
-    if (score >= 60) return 'C';
-    if (score >= 59) return 'C-';
-    if (score >= 50) return 'D+';
-    if (score >= 40) return 'D';
+    if (score >= 80) return 'B';
+    if (score >= 70) return 'C';
+    if (score >= 60) return 'D';
     return 'F';
   }
 
