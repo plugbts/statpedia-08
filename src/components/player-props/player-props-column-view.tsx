@@ -438,7 +438,7 @@ export function PlayerPropsColumnView({
           <Target className="w-3 h-3" />
           Pos • Team
         </div>
-        <div className="col-span-2 text-xs font-semibold text-foreground flex items-center gap-1">
+        <div className="col-span-2 text-xs font-semibold text-foreground text-center flex items-center justify-center gap-1">
           <Target className="w-3 h-3" />
           Prop
         </div>
@@ -530,9 +530,6 @@ export function PlayerPropsColumnView({
 
                 {/* Prop Type */}
                 <div className="col-span-2 text-center flex flex-col items-center justify-center">
-                  <div className="text-xs font-semibold text-muted-foreground mb-1 text-center w-full">
-                    Prop
-                  </div>
                   <div className="text-sm font-medium text-foreground leading-tight text-center">
                     {(() => {
                       const formattedPropType = formatPropType(prop.propType);
