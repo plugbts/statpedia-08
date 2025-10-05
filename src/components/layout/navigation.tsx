@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { SportIcon } from '@/components/ui/sport-icon';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { NotificationBell } from '@/components/notifications/notification-bell';
+// import { NotificationBell } from '@/components/notifications/notification-bell'; // Temporarily disabled
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart3, Target, TrendingUp, Calendar, Settings, Wifi, LogOut, MoreVertical, Zap, Brain, Play, Pause, CreditCard, MessageCircle, Wallet, Users, X, Crown, Star, Lock, Sparkles, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -99,7 +99,7 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
     { id: 'player-props', label: 'Player Props', icon: <TrendingUp className="w-4 h-4" />, badge: 'NEW' },
     { id: 'insights', label: 'Insights', icon: <Brain className="w-4 h-4" />, badge: 'HOT' },
     { id: 'bet-tracking', label: 'Bet Tracking', icon: <Wallet className="w-4 h-4" />, badge: 'NEW' },
-    { id: 'social', label: 'Social', icon: <Users className="w-4 h-4" />, badge: 'NEW' },
+    // { id: 'social', label: 'Social', icon: <Users className="w-4 h-4" />, badge: 'NEW' }, // Temporarily disabled
     { id: 'plans', label: 'Plans', icon: <CreditCard className="w-4 h-4" /> },
   ];
 
@@ -277,8 +277,8 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
               )}
             </Button>
 
-            {/* Notification Bell */}
-            <NotificationBell userId={userIdentity?.email || ''} />
+            {/* Notification Bell - Temporarily disabled */}
+            {/* <NotificationBell userId={userIdentity?.email || ''} /> */}
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

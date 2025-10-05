@@ -26,7 +26,7 @@ import { predictionTracker } from '@/services/prediction-tracker';
 import { gamesService } from '@/services/games-service';
 import { SeasonalVideoBackground } from '@/components/ui/seasonal-video-background';
 import { BetTrackingTab } from '@/components/bet-tracking/bet-tracking-tab';
-import { SocialTab } from '@/components/social/social-tab';
+// import { SocialTab } from '@/components/social/social-tab'; // Temporarily disabled
 import { MostLikely } from '@/components/mlb/most-likely';
 import { PredictionsTab } from '@/components/predictions/predictions-tab';
 import { ParlayGen } from '@/components/parlay/parlay-gen';
@@ -947,10 +947,11 @@ const Index = () => {
         {activeTab === 'player-props' && <PlayerPropsTab userSubscription={userSubscription} userRole={userRole} selectedSport={selectedSport} />}
         {activeTab === 'insights' && <InsightsTab selectedSport={selectedSport} userRole={userRole} userSubscription={userSubscription} />}
         {activeTab === 'bet-tracking' && <BetTrackingTab userRole={userRole} />}
-        {activeTab === 'social' && <SocialTab userRole={userRole} userSubscription={userSubscription} onReturnToDashboard={() => {
+        {/* Social tab temporarily disabled */}
+        {/* {activeTab === 'social' && <SocialTab userRole={userRole} userSubscription={userSubscription} onReturnToDashboard={() => {
           console.log('Navigating to dashboard from social tab');
           setActiveTab('dashboard');
-        }} />}
+        }} />} */}
         {activeTab === 'strikeout-center' && <StrikeoutCenter />}
         {activeTab === 'most-likely' && <MostLikely />}
         {activeTab === 'parlay-gen' && <ParlayGen />}
