@@ -20,7 +20,7 @@ import { teamColorsService } from '@/services/team-colors-service';
 import { convertEVToText, getEVBadgeClasses } from '@/utils/ev-text-converter';
 import { SportsbookOverlay } from '@/components/ui/sportsbook-overlay';
 import { statpediaRatingService, StatpediaRating } from '@/services/statpedia-rating-service';
-import { formatAmericanOdds, toAmericanOdds } from '@/utils/odds-utils';
+import { toAmericanOdds, getOddsColorClass } from '@/utils/odds';
 import { getPlayerHeadshot, getPlayerInitials } from '@/utils/headshots';
 import { StreakService } from '@/services/streak-service';
 
@@ -36,7 +36,9 @@ interface SportsbookOdds {
 interface PlayerProp {
   id: string;
   playerId: string;
+  player_id?: string;
   playerName: string;
+  player_name?: string;
   team: string;
   teamAbbr: string;
   opponent: string;
@@ -47,6 +49,9 @@ interface PlayerProp {
   line: number;
   overOdds: number;
   underOdds: number;
+  best_over?: string;
+  best_under?: string;
+  position?: string;
   // Multiple sportsbook odds
   allSportsbookOdds?: SportsbookOdds[];
   // NEW: Available sportsbooks for this prop
@@ -400,14 +405,14 @@ export function PlayerPropCard3D({
               <div className="grid grid-cols-2 gap-2">
                 <div className="text-center bg-slate-800/30 rounded p-2">
                   <div className="text-xs text-slate-500 uppercase font-semibold">Over</div>
-                  <div className="text-sm font-bold text-green-300">
-                    {formatOdds(prop.overOdds)}
+                  <div className={`text-sm font-bold ${getOddsColorClass(prop.best_over || prop.overOdds)}`}>
+                    {toAmericanOdds(prop.best_over || prop.overOdds)}
                   </div>
                 </div>
                 <div className="text-center bg-slate-800/30 rounded p-2">
                   <div className="text-xs text-slate-500 uppercase font-semibold">Under</div>
-                  <div className="text-sm font-bold text-red-300">
-                    {formatOdds(prop.underOdds)}
+                  <div className={`text-sm font-bold ${getOddsColorClass(prop.best_under || prop.underOdds)}`}>
+                    {toAmericanOdds(prop.best_under || prop.underOdds)}
                   </div>
                 </div>
               </div>

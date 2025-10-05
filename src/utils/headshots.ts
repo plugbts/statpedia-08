@@ -1,54 +1,125 @@
 /**
- * Hybrid league-aware player headshot utilities
- * Returns ESPN CDN URLs for major leagues, custom CDN for others
+ * Player headshot utilities
  */
 
-export function getPlayerHeadshot(league: string, playerId?: string | number): string | null {
-  if (!playerId) return null;
-  const id = String(playerId);
+/**
+ * Get player headshot URL based on league and player ID
+ * @param league - League abbreviation (nfl, nba, mlb, nhl, wnba, ufc, tennis)
+ * @param playerId - Player ID
+ * @returns Headshot URL or null if not available
+ */
+export function getPlayerHeadshot(league: string, playerId: string | number | null | undefined): string | null {
+  if (!league || !playerId) {
+    return null;
+  }
+
   const leagueLower = league.toLowerCase();
-  
-  // Major leagues - use ESPN CDN
-  switch (leagueLower) {
-    case "nfl": 
-      return `https://a.espncdn.com/i/headshots/nfl/players/full/${id}.png`;
-    case "nba": 
-      return `https://a.espncdn.com/i/headshots/nba/players/full/${id}.png`;
-    case "mlb": 
-      return `https://a.espncdn.com/i/headshots/mlb/players/full/${id}.png`;
-    case "nhl": 
-      return `https://a.espncdn.com/i/headshots/nhl/players/full/${id}.png`;
-    
-    // Other leagues - use custom CDN bucket
-    case "wnba":
-    case "ufc":
-    case "tennis":
-    case "mma":
-    case "boxing":
-    case "soccer":
-    case "premier league":
-    case "la liga":
-    case "serie a":
-    case "bundesliga":
-    case "ligue 1":
-    case "champions league":
-      return `https://cdn.statpedia.com/headshots/${leagueLower}/${id}.png`;
-    
-    default: 
-      return null;
+  const id = String(playerId);
+
+  // Major leagues with ESPN CDN
+  if (['nfl', 'nba', 'mlb', 'nhl'].includes(leagueLower)) {
+    // ESPN CDN format: https://a.espncdn.com/i/headshots/{sport}/500/{id}.png
+    const sportMap: Record<string, string> = {
+      'nfl': 'nfl',
+      'nba': 'nba', 
+      'mlb': 'mlb',
+      'nhl': 'nhl'
+    };
+
+    const sport = sportMap[leagueLower];
+    if (sport) {
+      return `https://a.espncdn.com/i/headshots/${sport}/500/${id}.png`;
+    }
+  }
+
+  // Other leagues with custom CDN
+  if (['wnba', 'ufc', 'tennis'].includes(leagueLower)) {
+    return `https://cdn.yourapp.com/headshots/${leagueLower}/${id}.png`;
+  }
+
+  // Fallback for unknown leagues
+  return null;
+}
+
+/**
+ * Get player initials from name
+ * @param name - Player name
+ * @returns Initials string
+ */
+export function getPlayerInitials(name: string | null | undefined): string {
+  if (!name) {
+    return '?';
+  }
+
+  const parts = name.trim().split(' ');
+  if (parts.length === 1) {
+    return parts[0].charAt(0).toUpperCase();
+  }
+
+  return parts
+    .slice(0, 2)
+    .map(part => part.charAt(0).toUpperCase())
+    .join('');
+}
+
+/**
+ * Get fallback avatar URL for player
+ * @param league - League abbreviation
+ * @param playerId - Player ID
+ * @param name - Player name
+ * @returns Avatar URL or null
+ */
+export function getPlayerAvatar(league: string, playerId: string | number | null | undefined, name?: string): string | null {
+  // Try headshot first
+  const headshot = getPlayerHeadshot(league, playerId);
+  if (headshot) {
+    return headshot;
+  }
+
+  // Fallback to initials-based avatar
+  if (name) {
+    const initials = getPlayerInitials(name);
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=random&color=fff&size=200`;
+  }
+
+  return null;
+}
+
+/**
+ * Check if a headshot URL is valid (not 404)
+ * @param url - Headshot URL
+ * @returns Promise<boolean>
+ */
+export async function isValidHeadshot(url: string): Promise<boolean> {
+  try {
+    const response = await fetch(url, { method: 'HEAD' });
+    return response.ok;
+  } catch {
+    return false;
   }
 }
 
 /**
- * Get player initials as fallback when headshot is not available
+ * Get player headshot with fallback validation
+ * @param league - League abbreviation
+ * @param playerId - Player ID
+ * @param name - Player name for fallback
+ * @returns Promise<string | null>
  */
-export function getPlayerInitials(playerName: string): string {
-  if (!playerName) return '?';
+export async function getValidPlayerHeadshot(
+  league: string, 
+  playerId: string | number | null | undefined, 
+  name?: string
+): Promise<string | null> {
+  const headshot = getPlayerHeadshot(league, playerId);
   
-  const words = playerName.trim().split(/\s+/);
-  if (words.length === 1) {
-    return words[0].charAt(0).toUpperCase();
+  if (headshot) {
+    const isValid = await isValidHeadshot(headshot);
+    if (isValid) {
+      return headshot;
+    }
   }
-  
-  return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase();
+
+  // Return fallback avatar
+  return getPlayerAvatar(league, playerId, name);
 }

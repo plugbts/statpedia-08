@@ -799,6 +799,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
               
               return {
                 ...prop,
+                // Add missing fields from entry.player and entry.team
+                player_id: prop.playerId || '',
+                player_name: prop.playerName || '',
+                position: prop.position || '—',
+                team: prop.team || '',
                 expectedValue: bestEV.evPercentage / 100, // Convert to decimal
                 confidence: bestEV.confidence / 100, // Convert to decimal
                 aiRating: bestEV.aiRating,

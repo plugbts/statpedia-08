@@ -31,7 +31,7 @@ import { convertEVToText, getEVBadgeClasses } from '@/utils/ev-text-converter';
 import { SportsbookIconsList } from '@/components/ui/sportsbook-icons';
 import { SportsbookOverlay } from '@/components/ui/sportsbook-overlay';
 import { statpediaRatingService, StatpediaRating } from '@/services/statpedia-rating-service';
-import { formatAmericanOdds, toAmericanOdds } from '@/utils/odds-utils';
+import { toAmericanOdds, getOddsColorClass } from '@/utils/odds';
 import { getPlayerHeadshot, getPlayerInitials } from '@/utils/headshots';
 import { StreakService } from '@/services/streak-service';
 
@@ -89,7 +89,9 @@ const getPropCategory = (market: string): string => {
 interface PlayerProp {
   id: string;
   playerId: string;
+  player_id?: string;
   playerName: string;
+  player_name?: string;
   team: string;
   teamAbbr: string;
   opponent: string;
@@ -100,6 +102,9 @@ interface PlayerProp {
   line: number;
   overOdds: number;
   underOdds: number;
+  best_over?: string;
+  best_under?: string;
+  position?: string;
   gameDate: string;
   gameTime: string;
   confidence?: number;
@@ -140,10 +145,7 @@ interface PlayerProp {
   // Team logos
   homeTeamLogo?: string;
   awayTeamLogo?: string;
-  // Position (derived from prop type or player data)
-  position?: string;
   // Additional properties for streak and rating calculations
-  player_id?: string | number;
   hitRate?: number;
   gamesTracked?: number;
   rating_over_normalized?: number;
@@ -196,8 +198,7 @@ export function PlayerPropsColumnView({
   // Use shared odds utility for formatting
   const formatOdds = (odds: number): string => {
     // Convert to American odds first, then format
-    const americanOdds = toAmericanOdds(odds);
-    return formatAmericanOdds(americanOdds);
+    return toAmericanOdds(odds);
   };
 
   // Debug logging for first 10 props
@@ -639,9 +640,9 @@ export function PlayerPropsColumnView({
                     overUnderFilter === 'under' ? 'text-red-500' : 
                     'text-foreground'
                   }`}>
-                    {overUnderFilter === 'over' ? formatOdds(prop.overOdds) :
-                     overUnderFilter === 'under' ? formatOdds(prop.underOdds) :
-                     formatOdds(prop.overOdds)}
+                    {overUnderFilter === 'over' ? toAmericanOdds(prop.best_over || prop.overOdds) :
+                     overUnderFilter === 'under' ? toAmericanOdds(prop.best_under || prop.underOdds) :
+                     toAmericanOdds(prop.best_over || prop.overOdds)}
                   </div>
                 </div>
 
