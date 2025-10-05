@@ -12,6 +12,7 @@ export interface Env {
   CACHE_LOCKS?: KVNamespace; // create a KV namespace for lock keys in wrangler.toml
   PURGE_TOKEN?: string; // optional secret token for cache purge endpoint
   METRICS?: KVNamespace; // KV namespace for storing metrics counters
+  PLAYER_PROPS_CACHE?: KVNamespace; // KV namespace for per-event player props caching
 }
 
 type Player = {
@@ -163,7 +164,7 @@ export default {
     // Debug endpoint to show what prop types are available
     else if (url.pathname === "/api/debug-props") {
       const league = url.searchParams.get("league")?.toUpperCase() || "NFL";
-      const date = url.searchParams.get("date") || "2025-10-05";
+      const date = url.searchParams.get("date") || new Date().toISOString().split('T')[0];
       
       try {
         const result = await fetchSportsGameOddsDay(league, date, env);
@@ -193,6 +194,18 @@ export default {
         }
       } catch (error) {
         resp = json({ error: "Failed to fetch data", details: error instanceof Error ? error.message : "Unknown error" }, 500);
+      }
+    }
+    // Per-event endpoint for granular caching
+    else if (url.pathname === "/api/nfl/player-props/event") {
+      const eventID = url.searchParams.get("eventID");
+      const limit = parseInt(url.searchParams.get("limit") || "50");
+      const offset = parseInt(url.searchParams.get("offset") || "0");
+      
+      if (!eventID) {
+        resp = json({ error: "eventID parameter required" }, 400);
+      } else {
+        resp = await handleEventProps(eventID, limit, offset, env);
       }
     }
     // Legacy endpoint: /api/player-props (for backward compatibility)
@@ -280,7 +293,7 @@ export async function handlePropsDebug(request: Request, env: Env) {
 
   try {
     // 1. Fetch just ONE day to avoid hanging
-    const result = await fetchSportsGameOddsDay(league.toUpperCase(), "2025-10-04", env);
+    const result = await fetchSportsGameOddsDay(league.toUpperCase(), new Date().toISOString().split('T')[0], env);
     
     if (isErrorResponse(result)) {
       return json({ error: result.message }, 400);
@@ -329,7 +342,7 @@ export async function handlePropsEndpoint(request: Request, env: Env, league?: s
     const leagues = league ? [league.toLowerCase()] : (url.searchParams.get("league") || "nfl")
       .split(",")
       .map(l => l.trim().toLowerCase());
-    const date = url.searchParams.get("date") || "2025-10-05";
+    const date = url.searchParams.get("date") || new Date().toISOString().split('T')[0];
     const view = url.searchParams.get("view") || "full";
     const debug = url.searchParams.has("debug");
 
@@ -371,7 +384,7 @@ export async function handlePropsEndpoint(request: Request, env: Env, league?: s
         // Props processed
       }
 
-      // 4. Prioritize + cap props per league
+      // 4. Prioritize + cap props per league (125 props per event)
       normalized = capPropsPerLeague(normalized, league, 125);
 
       // 5. Shape response
@@ -1619,21 +1632,146 @@ function sortPropsByLeague(props: any[], league: string) {
   });
 }
 
-function capPropsPerLeague(normalizedEvents: any[], league: string, maxProps: number = 125) {
-  let total = 0;
+function sortPropsByPriority(props: any[], league: string): any[] {
+  // Define core props that should always be included (first 20-30 props)
+  const coreProps = [
+    'passing yards', 'passing touchdowns', 'passing attempts', 'passing completions', 'passing interceptions',
+    'rushing yards', 'rushing touchdowns', 'rushing attempts',
+    'receiving yards', 'receiving touchdowns', 'receiving receptions',
+    'defense sacks', 'defense interceptions', 'defense combined tackles',
+    'field goals made', 'kicking total points', 'extra points kicks made'
+  ];
 
-  for (const event of normalizedEvents) {
-    const remaining = maxProps - total;
-    if (remaining <= 0) {
-      event.player_props = [];
-      continue;
+  return props.sort((a, b) => {
+    const aMarket = a.market_type?.toLowerCase() || '';
+    const bMarket = b.market_type?.toLowerCase() || '';
+    
+    // First priority: Core props
+    const aIsCore = coreProps.some(core => aMarket.includes(core.toLowerCase()));
+    const bIsCore = coreProps.some(core => bMarket.includes(core.toLowerCase()));
+    
+    if (aIsCore && !bIsCore) return -1;
+    if (!aIsCore && bIsCore) return 1;
+    
+    // Second priority: Category order (offense → kicking → defense → touchdowns)
+    const aCategory = getPropCategory(aMarket);
+    const bCategory = getPropCategory(bMarket);
+    
+    if (aCategory !== bCategory) {
+      const categoryOrder = ['offense', 'kicking', 'defense', 'touchdowns', 'other'];
+      return categoryOrder.indexOf(aCategory) - categoryOrder.indexOf(bCategory);
+    }
+    
+    // Third priority: Within category, sort by market type
+    return aMarket.localeCompare(bMarket);
+  });
+}
+
+function getPropCategory(market: string): string {
+  const lowerMarket = market.toLowerCase();
+  
+  // Offense props (passing, rushing, receiving)
+  if (lowerMarket.includes('passing') || lowerMarket.includes('rushing') || lowerMarket.includes('receiving')) {
+    return 'offense';
+  }
+  
+  // Kicking props
+  if (lowerMarket.includes('field goal') || lowerMarket.includes('kicking') || lowerMarket.includes('extra point')) {
+    return 'kicking';
+  }
+  
+  // Defense props
+  if (lowerMarket.includes('defense') || lowerMarket.includes('sack') || lowerMarket.includes('tackle') || lowerMarket.includes('interception')) {
+    return 'defense';
+  }
+  
+  // Touchdown props (should be last)
+  if (lowerMarket.includes('touchdown') || lowerMarket.includes('first touchdown') || lowerMarket.includes('last touchdown')) {
+    return 'touchdowns';
+  }
+  
+  return 'other';
+}
+
+
+async function handleEventProps(eventID: string, limit: number, offset: number, env: Env) {
+  try {
+    // Check cache first
+    const cacheKey = `event-props:${eventID}:${limit}:${offset}`;
+    const cached = env.PLAYER_PROPS_CACHE ? await env.PLAYER_PROPS_CACHE.get(cacheKey) : null;
+    
+    if (cached) {
+      try {
+        return json(JSON.parse(cached));
+      } catch (e) {
+        // Cache corrupted, continue to fetch fresh data
+      }
     }
 
-    // Sort props by league priority before slicing
-    const sorted = sortPropsByLeague(event.player_props || [], league);
-    event.player_props = sorted.slice(0, remaining);
+    // Fetch the specific event data using the same normalization as main endpoint
+    const date = new Date().toISOString().split('T')[0];
+    const result = await fetchSportsGameOddsDay("NFL", date, env);
+    
+    if (isErrorResponse(result)) {
+      return json({ error: result.message }, 400);
+    }
 
-    total += event.player_props.length;
+    // Normalize events using the same logic as main endpoint
+    const normalized = result.events
+      .map((ev: any) => normalizeEventSGO(ev, { league: "NFL", date }))
+      .filter((event): event is NonNullable<typeof event> => event !== null);
+
+    // Find the specific event
+    const event = normalized.find((ev: any) => ev.eventID === eventID);
+    
+    if (!event) {
+      return json({ error: "Event not found" }, 404);
+    }
+
+    // Apply priority sorting and pagination
+    const sortedProps = sortPropsByPriority(event.player_props || [], "NFL");
+    const paginatedProps = sortedProps.slice(offset, offset + limit);
+    
+    const response = {
+      eventID: event.eventID,
+      home_team: event.home_team,
+      away_team: event.away_team,
+      matchup: event.matchup,
+      start_time: event.start_time,
+      home_logo: event.home_logo,
+      away_logo: event.away_logo,
+      player_props: paginatedProps,
+      pagination: {
+        limit,
+        offset,
+        total: sortedProps.length,
+        hasMore: offset + limit < sortedProps.length
+      }
+    };
+
+    // Cache the response for 5 minutes
+    if (env.PLAYER_PROPS_CACHE) {
+      await env.PLAYER_PROPS_CACHE.put(cacheKey, JSON.stringify(response), {
+        expirationTtl: 300
+      });
+    }
+
+    return json(response);
+  } catch (error) {
+    return json({ error: "Failed to fetch event props", details: error instanceof Error ? error.message : "Unknown error" }, 500);
+  }
+}
+
+function capPropsPerLeague(normalizedEvents: any[], league: string, maxPropsPerEvent: number = 125) {
+  // Cap props per event with priority: offense → kicking → defense → touchdowns
+  for (const event of normalizedEvents) {
+    if (event.player_props && event.player_props.length > 0) {
+      // Sort props by priority order: offense → kicking → defense → touchdowns
+      const sortedProps = sortPropsByPriority(event.player_props, league);
+      
+      // Take only the top maxPropsPerEvent for this event
+      event.player_props = sortedProps.slice(0, maxPropsPerEvent);
+    }
   }
 
   return normalizedEvents;
@@ -1722,22 +1860,8 @@ export async function fetchSportsGameOddsDay(
   
   // console.log(`[fetchSportsGameOddsDay] Raw events count: ${rawEvents.length}`);
   
-  // 6. Filter out events that don't match the requested year
-  const events = rawEvents.filter((ev: any) => {
-    // Try multiple possible date fields
-    const startTime = ev.status?.startsAt || ev.startTime || ev.startsAt;
-    if (!startTime) {
-      // console.log(`[fetchSportsGameOddsDay] Event ${ev.eventID} has no start time, skipping`);
-      return false;
-    }
-    
-    const evYear = new Date(startTime).getFullYear();
-    const isCorrectYear = evYear === requestedYear;
-    
-    // console.log(`[fetchSportsGameOddsDay] Event: startTime=${startTime}, evYear=${evYear}, requestedYear=${requestedYear}, match=${isCorrectYear}`);
-    
-    return isCorrectYear;
-  });
+  // 6. Return all events (API may return events from different years)
+  const events = rawEvents;
   
   // console.log(`[fetchSportsGameOddsDay] Filtered to ${events.length} events for year ${requestedYear}`);
   
