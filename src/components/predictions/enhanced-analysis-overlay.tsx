@@ -890,9 +890,43 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
       } as EnhancedPrediction;
     }
     
+    // Calculate expected value if not present
+    let calculatedExpectedValue = prediction.expectedValue;
+    if (!calculatedExpectedValue || calculatedExpectedValue === 0) {
+      // Calculate EV based on odds and confidence
+      const overOdds = prediction.overOdds || 0;
+      const underOdds = prediction.underOdds || 0;
+      const confidence = prediction.confidence || 0.5;
+      
+      if (overOdds !== 0 && underOdds !== 0) {
+        // Calculate implied probabilities
+        const overImpliedProb = Math.abs(overOdds) / (Math.abs(overOdds) + 100);
+        const underImpliedProb = Math.abs(underOdds) / (Math.abs(underOdds) + 100);
+        
+        // Use confidence as true probability estimate
+        const trueOverProb = confidence;
+        const trueUnderProb = 1 - confidence;
+        
+        // Calculate decimal odds
+        const overDecimalOdds = overOdds > 0 ? (overOdds / 100) + 1 : (100 / Math.abs(overOdds)) + 1;
+        const underDecimalOdds = underOdds > 0 ? (underOdds / 100) + 1 : (100 / Math.abs(underOdds)) + 1;
+        
+        // Calculate EV for both sides
+        const overEV = (trueOverProb * (overDecimalOdds - 1)) - ((1 - trueOverProb) * 1);
+        const underEV = (trueUnderProb * (underDecimalOdds - 1)) - ((1 - trueUnderProb) * 1);
+        
+        // Take the better EV
+        calculatedExpectedValue = Math.max(overEV, underEV) * 100; // Convert to percentage
+      } else {
+        // Fallback calculation
+        calculatedExpectedValue = (confidence - 0.5) * 20; // Simple confidence-based EV
+      }
+    }
+
     // Convert AdvancedPrediction to EnhancedPrediction
     return {
       ...prediction,
+      expectedValue: calculatedExpectedValue,
       riskLevel: calculatedRiskLevel,
       gameHistory,
       performanceMetrics,
@@ -1199,8 +1233,8 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
           </TabsList>
 
           {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-6 mt-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <TabsContent value="overview" className="space-y-4 mt-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* Key Metrics */}
               <Card className="bg-gradient-to-br from-gray-800/80 to-black/80 border-2 border-purple-500/30 shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 transition-all duration-300">
                 <CardHeader>
@@ -1209,30 +1243,30 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                     Key Metrics
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex justify-between items-center p-3 bg-gradient-to-r from-purple-600/10 to-pink-600/10 rounded-lg border border-purple-500/20">
-                    <span className="text-gray-300 font-medium">Confidence</span>
-                    <Badge className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-0 shadow-lg shadow-blue-500/50 animate-pulse">
+                <CardContent className="space-y-3">
+                  <div className="flex justify-between items-center p-2 bg-gradient-to-r from-purple-600/10 to-pink-600/10 rounded-lg border border-purple-500/20">
+                    <span className="text-gray-300 text-sm font-medium">Confidence</span>
+                    <Badge className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-0 shadow-lg shadow-blue-500/50 animate-pulse text-xs px-2 py-1">
                       {Math.round(currentData.confidence * 100)}%
                     </Badge>
                   </div>
-                  <div className="flex justify-between items-center p-3 bg-gradient-to-r from-green-600/10 to-emerald-600/10 rounded-lg border border-green-500/20">
-                    <span className="text-gray-300 font-medium">Expected Value</span>
+                  <div className="flex justify-between items-center p-2 bg-gradient-to-r from-green-600/10 to-emerald-600/10 rounded-lg border border-green-500/20">
+                    <span className="text-gray-300 text-sm font-medium">Expected Value</span>
                     <Badge className={cn(
-                      "border-0 shadow-lg transition-all duration-300",
+                      "border-0 shadow-lg text-xs px-2 py-1",
                       currentData.expectedValue > 0 
-                        ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-emerald-500/50 animate-pulse"
-                        : "bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-red-500/50 animate-pulse"
+                        ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-emerald-500/50"
+                        : "bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-red-500/50"
                     )}>
                       {currentData.expectedValue > 0 ? '+' : ''}{Math.round(currentData.expectedValue)}%
                     </Badge>
                   </div>
                   
                   {/* Line Adjustment Interface */}
-                  <div className="pt-4 border-t border-purple-500/30">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-gray-300 text-sm font-medium">Adjust Line</span>
-                      <div className="flex items-center gap-2">
+                  <div className="pt-3 border-t border-purple-500/30">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-gray-300 text-xs font-medium">Adjust Line</span>
+                      <div className="flex items-center gap-1">
                         <Button
                           size="sm"
                           variant="outline"
@@ -1241,11 +1275,11 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                             handleLineAdjustment(currentLine - 0.5);
                           }}
                           disabled={isUpdatingOdds}
-                          className="text-purple-400 border-purple-500/50 hover:bg-purple-600/20 hover:border-purple-400 transition-all duration-300"
+                          className="text-purple-400 border-purple-500/50 hover:bg-purple-600/20 hover:border-purple-400 transition-all duration-300 h-6 w-6 p-0"
                         >
-                          <Minus className="w-3 h-3" />
+                          <Minus className="w-2 h-2" />
                         </Button>
-                        <span className="text-white font-bold min-w-[60px] text-center bg-gradient-to-r from-purple-600/20 to-pink-600/20 px-3 py-1 rounded-lg border border-purple-500/30">
+                        <span className="text-white font-bold min-w-[50px] text-center bg-gradient-to-r from-purple-600/20 to-pink-600/20 px-2 py-1 rounded text-xs border border-purple-500/30">
                           {adjustedLine !== null ? adjustedLine : currentData.line}
                         </span>
                         <Button
@@ -1256,51 +1290,51 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                             handleLineAdjustment(currentLine + 0.5);
                           }}
                           disabled={isUpdatingOdds}
-                          className="text-purple-400 border-purple-500/50 hover:bg-purple-600/20 hover:border-purple-400 transition-all duration-300"
+                          className="text-purple-400 border-purple-500/50 hover:bg-purple-600/20 hover:border-purple-400 transition-all duration-300 h-6 w-6 p-0"
                         >
-                          <Plus className="w-3 h-3" />
+                          <Plus className="w-2 h-2" />
                         </Button>
                         {adjustedLine !== null && (
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={resetLineAdjustment}
-                            className="text-purple-400 hover:text-white hover:bg-purple-600/20 transition-all duration-300"
+                            className="text-purple-400 hover:text-white hover:bg-purple-600/20 transition-all duration-300 h-6 w-6 p-0"
                           >
-                            <RotateCcw className="w-3 h-3" />
+                            <RotateCcw className="w-2 h-2" />
                           </Button>
                         )}
                       </div>
                     </div>
                     
                     {adjustedOdds && (
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div className="bg-gradient-to-r from-emerald-600/10 to-green-600/10 rounded-lg p-3 border border-emerald-500/20">
-                          <div className="text-gray-300 font-medium">Over</div>
-                          <div className="text-emerald-400 font-bold text-lg">{formatAmericanOdds(adjustedOdds.over)}</div>
+                      <div className="grid grid-cols-2 gap-1 text-xs">
+                        <div className="bg-gradient-to-r from-emerald-600/10 to-green-600/10 rounded p-2 border border-emerald-500/20">
+                          <div className="text-gray-300 text-xs">Over</div>
+                          <div className="text-emerald-400 font-bold text-sm">{formatAmericanOdds(adjustedOdds.over)}</div>
                         </div>
-                        <div className="bg-gradient-to-r from-red-600/10 to-rose-600/10 rounded-lg p-3 border border-red-500/20">
-                          <div className="text-gray-300 font-medium">Under</div>
-                          <div className="text-red-400 font-bold text-lg">{formatAmericanOdds(adjustedOdds.under)}</div>
+                        <div className="bg-gradient-to-r from-red-600/10 to-rose-600/10 rounded p-2 border border-red-500/20">
+                          <div className="text-gray-300 text-xs">Under</div>
+                          <div className="text-red-400 font-bold text-sm">{formatAmericanOdds(adjustedOdds.under)}</div>
                         </div>
                       </div>
                     )}
                     
                     {isUpdatingOdds && (
-                      <div className="text-center text-purple-400 text-xs mt-2 flex items-center justify-center gap-2">
-                        <RotateCcw className="w-3 h-3 animate-spin" />
+                      <div className="text-center text-purple-400 text-xs mt-1 flex items-center justify-center gap-1">
+                        <RotateCcw className="w-2 h-2 animate-spin" />
                         Updating odds...
                       </div>
                     )}
                   </div>
-                  <div className="flex justify-between items-center p-3 bg-gradient-to-r from-orange-600/10 to-yellow-600/10 rounded-lg border border-orange-500/20">
-                    <span className="text-gray-300 font-medium">Risk Level</span>
+                  <div className="flex justify-between items-center p-2 bg-gradient-to-r from-orange-600/10 to-yellow-600/10 rounded-lg border border-orange-500/20">
+                    <span className="text-gray-300 text-sm font-medium">Risk Level</span>
                     <Badge className={cn(
-                      "border-0 shadow-lg transition-all duration-300",
-                      currentData.riskLevel === 'low' ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-emerald-500/50 animate-pulse" :
-                      currentData.riskLevel === 'medium' ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-yellow-500/50 animate-pulse" :
-                      "bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-red-500/50 animate-pulse"
-                    )}>
+                      "border-0 shadow-lg transition-all duration-300 text-xs px-2 py-1",
+                      currentData.riskLevel === 'low' ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-emerald-500/50" :
+                      currentData.riskLevel === 'medium' ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-yellow-500/50" :
+                      "bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-red-500/50"
+                    )} style={{ animation: 'pulse 3s ease-in-out infinite' }}>
                       {currentData.riskLevel?.toUpperCase() || 'UNKNOWN'}
                     </Badge>
                   </div>
@@ -1315,15 +1349,15 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                     Performance
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex justify-between items-center p-3 bg-gradient-to-r from-emerald-600/10 to-green-600/10 rounded-lg border border-emerald-500/20">
-                    <span className="text-gray-300 font-medium">Current Streak</span>
-                    <span className="text-white font-bold text-lg bg-gradient-to-r from-emerald-500 to-green-500 bg-clip-text text-transparent">{enhancedData.performanceMetrics?.currentStreak || 0}</span>
+                <CardContent className="space-y-3">
+                  <div className="flex justify-between items-center p-2 bg-gradient-to-r from-emerald-600/10 to-green-600/10 rounded-lg border border-emerald-500/20">
+                    <span className="text-gray-300 text-sm font-medium">Current Streak</span>
+                    <span className="text-white font-bold text-sm bg-gradient-to-r from-emerald-500 to-green-500 bg-clip-text text-transparent">{enhancedData.performanceMetrics?.currentStreak || 0}</span>
                   </div>
-                  <div className="flex justify-between items-center p-3 bg-gradient-to-r from-blue-600/10 to-cyan-600/10 rounded-lg border border-blue-500/20">
-                    <span className="text-gray-300 font-medium">Recent Form</span>
+                  <div className="flex justify-between items-center p-2 bg-gradient-to-r from-blue-600/10 to-cyan-600/10 rounded-lg border border-blue-500/20">
+                    <span className="text-gray-300 text-sm font-medium">Recent Form</span>
                     <Badge className={cn(
-                      "border-0 shadow-lg transition-all duration-300",
+                      "border-0 shadow-lg transition-all duration-300 text-xs px-2 py-1",
                       enhancedData.performanceMetrics?.recentForm === 'hot' ? "bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-red-500/50 animate-pulse" :
                       enhancedData.performanceMetrics?.recentForm === 'cold' ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-blue-500/50 animate-pulse" :
                       "bg-gradient-to-r from-gray-500 to-slate-500 text-white shadow-gray-500/50"
@@ -1331,14 +1365,14 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                       {enhancedData.performanceMetrics?.recentForm?.toUpperCase() || 'AVERAGE'}
                     </Badge>
                   </div>
-                  <div className="flex justify-between items-center p-3 bg-gradient-to-r from-purple-600/10 to-pink-600/10 rounded-lg border border-purple-500/20">
-                    <span className="text-gray-300 font-medium">Consistency</span>
+                  <div className="flex justify-between items-center p-2 bg-gradient-to-r from-purple-600/10 to-pink-600/10 rounded-lg border border-purple-500/20">
+                    <span className="text-gray-300 text-sm font-medium">Consistency</span>
                     <div className="flex items-center gap-2">
                       <Progress 
                         value={(enhancedData.performanceMetrics?.consistency || 0) * 100} 
-                        className="w-20 h-2 bg-gray-700"
+                        className="w-16 h-2 bg-gray-700"
                       />
-                      <span className="text-white font-bold text-sm">
+                      <span className="text-white font-bold text-xs">
                         {Math.round((enhancedData.performanceMetrics?.consistency || 0) * 100)}%
                       </span>
                     </div>
@@ -1354,25 +1388,25 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                   AI Prediction
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3">
                 <div className="flex items-center justify-center">
                   <Badge className={cn(
-                    "text-xl px-6 py-3 border-0 shadow-lg transition-all duration-300 animate-pulse",
+                    "text-lg px-4 py-2 border-0 shadow-lg transition-all duration-300 animate-pulse",
                     currentData.aiPrediction?.recommended === 'over' 
                       ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-emerald-500/50"
                       : "bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-red-500/50"
                   )}>
                     {currentData.aiPrediction?.recommended === 'over' ? (
-                      <ArrowUp className="w-5 h-5 mr-2" />
+                      <ArrowUp className="w-4 h-4 mr-2" />
                     ) : (
-                      <ArrowDown className="w-5 h-5 mr-2" />
+                      <ArrowDown className="w-4 h-4 mr-2" />
                     )}
                     {currentData.aiPrediction?.recommended === 'over' ? 'OVER' : 'UNDER'} AI PREDICTION
                   </Badge>
                 </div>
-                <div className="text-center p-4 bg-gradient-to-r from-purple-600/10 to-pink-600/10 rounded-lg border border-purple-500/20">
-                  <p className="text-gray-300 text-sm font-medium mb-2">Confidence</p>
-                  <p className="text-white font-bold text-2xl bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                <div className="text-center p-3 bg-gradient-to-r from-purple-600/10 to-pink-600/10 rounded-lg border border-purple-500/20">
+                  <p className="text-gray-300 text-xs font-medium mb-1">Confidence</p>
+                  <p className="text-white font-bold text-xl bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
                     {Math.round((currentData.aiPrediction?.confidence || currentData.confidence || 0) * 100)}%
                   </p>
                 </div>

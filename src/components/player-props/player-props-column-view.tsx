@@ -386,10 +386,18 @@ export function PlayerPropsColumnView({
       </div>
 
       {/* Column Headers */}
-      <div className="grid grid-cols-12 gap-4 px-4 py-3 bg-gradient-card border border-border/50 rounded-lg">
+      <div className="grid grid-cols-14 gap-4 px-4 py-3 bg-gradient-card border border-border/50 rounded-lg">
         <div className="col-span-2 text-sm font-semibold text-foreground flex items-center gap-2">
           <Users className="w-4 h-4" />
           Player
+        </div>
+        <div className="col-span-1 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
+          <Target className="w-4 h-4" />
+          Pos
+        </div>
+        <div className="col-span-1 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
+          <Users className="w-4 h-4" />
+          Team
         </div>
         <div className="col-span-2 text-sm font-semibold text-foreground flex items-center gap-2">
           <Target className="w-4 h-4" />
@@ -401,11 +409,7 @@ export function PlayerPropsColumnView({
         </div>
         <div className="col-span-1 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
           <TrendingUp className="w-4 h-4 text-green-500" />
-          Over
-        </div>
-        <div className="col-span-1 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
-          <TrendingDown className="w-4 h-4 text-red-500" />
-          Under
+          Odds
         </div>
         <div className="col-span-2 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
           <Activity className="w-4 h-4" />
@@ -434,7 +438,7 @@ export function PlayerPropsColumnView({
             onClick={() => handlePropClick(prop)}
           >
             <CardContent className="p-4">
-              <div className="grid grid-cols-12 gap-4 items-center">
+              <div className="grid grid-cols-14 gap-4 items-center">
                 {/* Player Info */}
                 <div className="col-span-2 flex items-center justify-center space-x-3">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 flex items-center justify-center text-foreground font-bold text-sm overflow-hidden flex-shrink-0">
@@ -475,6 +479,20 @@ export function PlayerPropsColumnView({
                   </div>
                 </div>
 
+                {/* Position */}
+                <div className="col-span-1 text-center">
+                  <div className="text-sm font-medium text-foreground">
+                    {prop.position || 'N/A'}
+                  </div>
+                </div>
+
+                {/* Team */}
+                <div className="col-span-1 text-center">
+                  <div className="text-sm font-medium text-foreground">
+                    {prop.team || 'N/A'}
+                  </div>
+                </div>
+
                 {/* Prop Type */}
                 <div className="col-span-2 text-center flex flex-col items-center justify-center">
                   <div className="text-sm font-medium text-foreground leading-tight">
@@ -502,17 +520,16 @@ export function PlayerPropsColumnView({
                   </div>
                 </div>
 
-                {/* Over Odds */}
+                {/* Odds (context-aware) */}
                 <div className="col-span-1 text-center">
-                  <div className="text-sm font-semibold text-green-500">
-                    {formatOdds(prop.overOdds)}
-                  </div>
-                </div>
-
-                {/* Under Odds */}
-                <div className="col-span-1 text-center">
-                  <div className="text-sm font-semibold text-red-500">
-                    {formatOdds(prop.underOdds)}
+                  <div className={`text-sm font-semibold ${
+                    overUnderFilter === 'over' ? 'text-green-500' : 
+                    overUnderFilter === 'under' ? 'text-red-500' : 
+                    'text-foreground'
+                  }`}>
+                    {overUnderFilter === 'over' ? formatOdds(prop.overOdds) :
+                     overUnderFilter === 'under' ? formatOdds(prop.underOdds) :
+                     formatOdds(prop.overOdds)}
                   </div>
                 </div>
 
