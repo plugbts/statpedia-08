@@ -1029,6 +1029,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         return sortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
       }
       
+      // For Statpedia Rating, always show highest first (descending)
+      if (sortBy === 'statpediaRating') {
+        return bValue - aValue; // Higher ratings first
+      }
+      
       return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
     });
   }
