@@ -8,7 +8,8 @@ export function withCORS(resp: Response, origin: string = "*"): Response {
     "https://statpedia.vercel.app",
     "https://statpedia.com",
     "http://localhost:3000",
-    "http://localhost:5173"
+    "http://localhost:5173",
+    "https://localhost:5173"
   ];
   
   // Check if the origin is in our allowed list
@@ -20,15 +21,16 @@ export function withCORS(resp: Response, origin: string = "*"): Response {
     if (allowedOrigins.includes(requestOrigin)) {
       allowedOrigin = requestOrigin;
     }
-    // Check if it's a Lovable subdomain
-    else if (requestOrigin.endsWith('.lovableproject.com')) {
+    // Check if it's a Lovable subdomain (handles both lovableproject.com and lovable.app)
+    else if (requestOrigin.endsWith('.lovableproject.com') || requestOrigin.endsWith('.lovable.app')) {
       allowedOrigin = requestOrigin;
     }
   }
   
   headers.set("Access-Control-Allow-Origin", allowedOrigin);
-  headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+  headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-API-Key");
+  headers.set("Access-Control-Max-Age", "86400"); // Cache preflight for 24 hours
   
   // Only set credentials to true if not using wildcard origin
   if (allowedOrigin !== "*") {
@@ -46,7 +48,8 @@ export function handleOptions(request: Request, origin: string = "*"): Response 
     "https://statpedia.vercel.app",
     "https://statpedia.com",
     "http://localhost:3000",
-    "http://localhost:5173"
+    "http://localhost:5173",
+    "https://localhost:5173"
   ];
   
   // Check if the origin is in our allowed list
@@ -58,16 +61,17 @@ export function handleOptions(request: Request, origin: string = "*"): Response 
     if (allowedOrigins.includes(requestOrigin)) {
       allowedOrigin = requestOrigin;
     }
-    // Check if it's a Lovable subdomain
-    else if (requestOrigin.endsWith('.lovableproject.com')) {
+    // Check if it's a Lovable subdomain (handles both lovableproject.com and lovable.app)
+    else if (requestOrigin.endsWith('.lovableproject.com') || requestOrigin.endsWith('.lovable.app')) {
       allowedOrigin = requestOrigin;
     }
   }
   
   const headers: Record<string, string> = {
     "Access-Control-Allow-Origin": allowedOrigin,
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, X-API-Key",
+    "Access-Control-Max-Age": "86400", // Cache preflight for 24 hours
   };
   
   // Only set credentials to true if not using wildcard origin
