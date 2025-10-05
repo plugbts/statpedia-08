@@ -838,6 +838,64 @@ function formatPlayerName(name: string): string {
     .join(" ");
 }
 
+// Helper function to get player position based on name
+function getPlayerPosition(playerName: string): string {
+  if (!playerName) return 'N/A';
+  
+  const name = playerName.toLowerCase();
+  
+  // Known player positions
+  const knownPositions: { [key: string]: string } = {
+    // Quarterbacks
+    'josh allen': 'QB', 'patrick mahomes': 'QB', 'joe burrow': 'QB', 'dak prescott': 'QB',
+    'lamar jackson': 'QB', 'aaron rodgers': 'QB', 'russell wilson': 'QB', 'justin herbert': 'QB',
+    'trevor lawrence': 'QB', 'tua tagovailoa': 'QB', 'jalen hurts': 'QB', 'kyler murray': 'QB',
+    'derek carr': 'QB', 'matthew stafford': 'QB', 'kirk cousins': 'QB', 'ryan tannehill': 'QB',
+    'jimmy garoppolo': 'QB', 'geno smith': 'QB', 'baker mayfield': 'QB', 'jared goff': 'QB',
+    'bryce young': 'QB', 'anthony richardson': 'QB', 'c.j. stroud': 'QB', 'jaxon dart': 'QB',
+    
+    // Running Backs
+    'nick chubb': 'RB', 'derrick henry': 'RB', 'austin ekeler': 'RB', 'christian mccaffrey': 'RB',
+    'saquon barkley': 'RB', 'josh jacobs': 'RB', 'dalvin cook': 'RB', 'alvin kamara': 'RB',
+    'jonathan taylor': 'RB', 'aaron jones': 'RB', 'joe mixon': 'RB', 'ezekiel elliott': 'RB',
+    'leonard fournette': 'RB', 'david montgomery': 'RB', 'james conner': 'RB', 'miles sanders': 'RB',
+    'raheem mostert': 'RB', 'tony pollard': 'RB', 'bijan robinson': 'RB', 'joshua kelley': 'RB',
+    
+    // Wide Receivers
+    'tyreek hill': 'WR', 'davante adams': 'WR', 'cooper kupp': 'WR', 'stefon diggs': 'WR',
+    'justin jefferson': 'WR', 'aj brown': 'WR', 'mike evans': 'WR', 'keenan allen': 'WR',
+    'amari cooper': 'WR', 'terry mclaurin': 'WR', 'd.k. metcalf': 'WR', 'mike williams': 'WR',
+    'brandin cooks': 'WR', 'courtland sutton': 'WR', 'diontae johnson': 'WR', 'chris godwin': 'WR',
+    'michael pittman': 'WR', 'cee dee lamb': 'WR', 'jaylen waddle': 'WR', 'deebo samuel': 'WR',
+    'calvin ridley': 'WR', 'marquise brown': 'WR', 'jerry jeudy': 'WR', 'gabriel davis': 'WR',
+    
+    // Tight Ends
+    'travis kelce': 'TE', 'mark andrews': 'TE', 'george kittle': 'TE', 'darren waller': 'TE',
+    'kyle pitts': 'TE', 't.j. hockenson': 'TE', 'dallas goedert': 'TE', 'evan engram': 'TE',
+    'pat freiermuth': 'TE', 'cole kmet': 'TE', 'dawson knox': 'TE', 'tyler higbee': 'TE',
+    'zach ertz': 'TE', 'noah fant': 'TE', 'irv smith': 'TE', 'logan thomas': 'TE',
+  };
+  
+  // Check for exact match first
+  if (knownPositions[name]) {
+    return knownPositions[name];
+  }
+  
+  // Check for partial matches (in case of nicknames or variations)
+  for (const [knownName, position] of Object.entries(knownPositions)) {
+    if (name.includes(knownName) || knownName.includes(name)) {
+      return position;
+    }
+  }
+  
+  // Default fallback based on common name patterns
+  if (name.includes('jr') || name.includes('sr') || name.includes('iii')) {
+    return 'N/A'; // Skip generational suffixes
+  }
+  
+  return 'N/A';
+}
+
 // Helper function to format market types
 function formatMarketType(raw: string): string {
   if (!raw) return "Unknown";
@@ -1319,14 +1377,16 @@ function normalizePlayerGroup(markets: any[], players: Record<string, any>, leag
     teamID: teamID,
     market_type: formatMarketTypeWithLeague(base.statID, league),
     line: Number(base.bookOverUnder ?? null),
-    best_over: pickBest(allBooks.filter(b => b.side === "over")),
-    best_under: pickBest(allBooks.filter(b => b.side === "under")),
+    best_over: pickBest(allBooks.filter(b => b.side === "over"))?.price ?? null,
+    best_under: pickBest(allBooks.filter(b => b.side === "under"))?.price ?? null,
     books: allBooks,
     // Add player stats for EV calculations
     hitRate: hitRate,
     recentForm: recentForm,
     injuryStatus: injuryStatus,
     restDays: restDays,
+    // Add position based on player name
+    position: getPlayerPosition(playerName),
   };
 
   // Skip props without player names as they're not useful
@@ -1560,8 +1620,8 @@ function normalizeTeamGroup(markets: MarketSide[]) {
   const books = [...collectBooks(over), ...collectBooks(under)];
 
   // Pick best odds per side (handle single-sided markets)
-  const best_over = pickBest(books.filter(b => b.side === "over" || b.side === "yes"));
-  const best_under = pickBest(books.filter(b => b.side === "under" || b.side === "no"));
+  const best_over = pickBest(books.filter(b => b.side === "over" || b.side === "yes"))?.price ?? null;
+  const best_under = pickBest(books.filter(b => b.side === "under" || b.side === "no"))?.price ?? null;
 
   return {
     market_type: marketType,
