@@ -552,10 +552,7 @@ async function handleCachePurge(url: URL, request: Request, env: Env): Promise<R
 async function fetchWithAPIKey(url: string, env: Env, options: RequestInit = {}, apiKey: string = env.SGO_API_KEY): Promise<Response> {
   const headers = {
     "accept": "application/json",
-    "X-API-Key": apiKey,
-    "API-Key": apiKey,
-    "x-api-key": apiKey,
-    "apikey": apiKey,
+    "X-Api-Key": apiKey, // Use the correct header format for SGO API
     ...options.headers,
   };
   
@@ -581,7 +578,7 @@ function buildUpstreamUrl(path: string, league: string, date: string, oddIDs?: s
   url.searchParams.set("oddsAvailable", "true");
   url.searchParams.set("leagueID", league);
   url.searchParams.set("date", date);
-  url.searchParams.set("apikey", env.SGO_API_KEY); // Add API key as URL param too
+  // API key is sent via X-Api-Key header
   // Only add oddIDs if explicitly provided by client
   if (oddIDs) url.searchParams.set("oddIDs", oddIDs);
   if (bookmakerID) url.searchParams.set("bookmakerID", bookmakerID);
@@ -801,24 +798,30 @@ function normalizeEvent(ev: SGEvent) {
         console.log(`DEBUG odds entry keys:`, Object.keys(oddsData));
       }
       
-      // Try different possible field names for line
-      if (oddsData.line !== undefined) {
-        prop.line = oddsData.line;
-      } else if (oddsData.price !== undefined) {
-        prop.line = oddsData.price;
-      } else if (oddsData.overUnder !== undefined) {
-        prop.line = oddsData.overUnder;
+      // Extract line from bookOverUnder or fairOverUnder
+      if (oddsData.bookOverUnder !== undefined) {
+        prop.line = parseFloat(oddsData.bookOverUnder);
+      } else if (oddsData.fairOverUnder !== undefined) {
+        prop.line = parseFloat(oddsData.fairOverUnder);
       }
       
-      // Try different possible field names for odds
-      const oddsValue = oddsData.odds || oddsData.price || oddsData.decimal || oddsData.american;
-      
-      if (direction === 'over' && oddsValue !== undefined) {
-        prop.best_over = oddsValue;
-        prop.over_odds = oddsValue;
-      } else if (direction === 'under' && oddsValue !== undefined) {
-        prop.best_under = oddsValue;
-        prop.under_odds = oddsValue;
+      // Extract odds from bookOdds or fairOdds
+      if (direction === 'over') {
+        if (oddsData.bookOdds !== undefined) {
+          prop.best_over = oddsData.bookOdds;
+          prop.over_odds = oddsData.bookOdds;
+        } else if (oddsData.fairOdds !== undefined) {
+          prop.best_over = oddsData.fairOdds;
+          prop.over_odds = oddsData.fairOdds;
+        }
+      } else if (direction === 'under') {
+        if (oddsData.bookOdds !== undefined) {
+          prop.best_under = oddsData.bookOdds;
+          prop.under_odds = oddsData.bookOdds;
+        } else if (oddsData.fairOdds !== undefined) {
+          prop.best_under = oddsData.fairOdds;
+          prop.under_odds = oddsData.fairOdds;
+        }
       }
     }
     
