@@ -121,7 +121,7 @@ type SGEvent = {
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     if (request.method === "OPTIONS") {
-      return handleOptions(request);
+      return handleOptions(request, request.headers.get("Origin") || "*");
     }
 
     const url = new URL(request.url);
