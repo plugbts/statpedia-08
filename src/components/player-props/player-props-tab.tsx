@@ -20,6 +20,35 @@ import { advancedPredictionService, ComprehensivePrediction } from '@/services/a
 import { evCalculatorService } from '@/services/ev-calculator';
 import { statpediaRatingService } from '@/services/statpedia-rating-service';
 
+// League-aware priority helpers for consistent ordering
+function getPriority(marketType: string): number {
+  const m = (marketType || "").toLowerCase();
+
+  // Always last
+  if (m.includes("touchdown")) return 99;
+
+  // Offense first
+  if (m.includes("passing") || m.includes("rushing") || m.includes("receiving")) return 1;
+
+  // Kicking next
+  if (m.includes("field goal") || m.includes("kicking")) return 2;
+
+  // Defense later
+  if (m.includes("defense") || m.includes("tackle") || m.includes("sack") || m.includes("interception")) return 4;
+
+  // Middle default
+  return 50;
+}
+
+// Tie-breaker within offense: Passing -> Rushing -> Receiving
+function offenseSubOrder(marketType: string): number {
+  const m = (marketType || "").toLowerCase();
+  if (m.includes("passing")) return 1;
+  if (m.includes("rushing")) return 2;
+  if (m.includes("receiving")) return 3;
+  return 9;
+}
+
 // PropFinder-style dual rating system
 const computeRating = (prop: any, mode: "over" | "under"): number => {
   // Base factors
@@ -1041,6 +1070,42 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   // Use sorted props (PropFinder-style for 'api' sort, traditional for others)
   const mixedProps = sortedProps;
 
+  // Final ordering with stable tie-breakers using useMemo
+  const orderedProps = React.useMemo(() => {
+    if (!mixedProps || mixedProps.length === 0) return [];
+
+    // Copy to avoid mutating upstream
+    const arr = [...mixedProps];
+
+    // Apply NFL guard at sort-time to avoid skew from other sports
+    const nflOnly = arr.filter(p => !p.sport || String(p.sport).toLowerCase() === "nfl");
+
+    // Sort with stable tie-breakers
+    nflOnly.sort((a, b) => {
+      const pa = getPriority(a.market_type || a.propType);
+      const pb = getPriority(b.market_type || b.propType);
+      if (pa !== pb) return pa - pb;
+
+      // Tie-break within offense types
+      const sa = offenseSubOrder(a.market_type || a.propType);
+      const sb = offenseSubOrder(b.market_type || b.propType);
+      if (sa !== sb) return sa - sb;
+
+      // Final stable fallbacks
+      const mt = String(a.market_type || a.propType || "").localeCompare(String(b.market_type || b.propType || ""));
+      if (mt !== 0) return mt;
+
+      return String(a.player_name || a.playerName || a.player || "").localeCompare(String(b.player_name || b.playerName || b.player || ""));
+    });
+
+    // Debug logging (remove after confirming)
+    nflOnly.slice(0, 10).forEach(p => {
+      console.debug("[ORDERED]", p.market_type || p.propType, p.player_name || p.playerName, getPriority(p.market_type || p.propType));
+    });
+
+    return nflOnly;
+  }, [mixedProps]);
+
   logFilter('PlayerPropsTab', `Final filteredProps length: ${filteredProps.length}`);
   logFilter('PlayerPropsTab', `Props length: ${mixedProps.length}`);
   
@@ -1617,61 +1682,19 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
 
 
         {/* Player Props Content */}
-        {!isLoadingData && mixedProps.length > 0 && (
+        {!isLoadingData && orderedProps.length > 0 && (
           <>
-            {(() => {
-              // Explicitly sort props by priority before rendering
-              const orderedProps = [...mixedProps].sort((a, b) => {
-                // First: Prioritize offensive props
-                const aIsOffensive = isOffensiveProp(a.propType);
-                const bIsOffensive = isOffensiveProp(b.propType);
-                
-                if (aIsOffensive && !bIsOffensive) return -1;
-                if (!aIsOffensive && bIsOffensive) return 1;
-                
-                // Second: Within same category, use normalized priority
-                const aPriority = getPropPriorityNormalized(a.propType);
-                const bPriority = getPropPriorityNormalized(b.propType);
-                
-                if (aPriority !== bPriority) {
-                  return aPriority - bPriority;
-                }
-                
-                // Third: Tie-breaker for offensive props (passing → rushing → receiving)
-                if (aIsOffensive && bIsOffensive) {
-                  const aSubOrder = getOffensiveSubOrder(a.propType);
-                  const bSubOrder = getOffensiveSubOrder(b.propType);
-                  
-                  if (aSubOrder !== bSubOrder) {
-                    return aSubOrder - bSubOrder;
-                  }
-                }
-                
-                // Fourth: Alphabetical by prop type
-                const aPropType = a.propType.toLowerCase();
-                const bPropType = b.propType.toLowerCase();
-                
-                if (aPropType !== bPropType) {
-                  return aPropType.localeCompare(bPropType);
-                }
-                
-                // Fifth: Alphabetical by player name
-                return a.playerName.localeCompare(b.playerName);
-              });
-              
-              return (
-                <>
-                  {viewMode === 'column' ? (
-                    <PlayerPropsColumnView
-                      props={orderedProps as any}
-                      selectedSport={sportFilter}
-                      onAnalysisClick={handleEnhancedAnalysis as any}
-                      isLoading={isLoadingData}
-                      overUnderFilter={overUnderFilter}
-                    />
-                  ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                      {orderedProps.map((prop, index) => {
+            {viewMode === 'column' ? (
+              <PlayerPropsColumnView
+                props={orderedProps as any}
+                selectedSport={sportFilter}
+                onAnalysisClick={handleEnhancedAnalysis as any}
+                isLoading={isLoadingData}
+                overUnderFilter={overUnderFilter}
+              />
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                {orderedProps.map((prop, index) => {
                   // Guard at UI: Skip rendering if not NFL
                   if (prop.sport && prop.sport.toLowerCase() !== 'nfl') {
                     return null;
@@ -1718,12 +1741,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                       </CardContent>
                     </Card>
                   );
-                      })}
-                    </div>
-                  )}
-                </>
-              );
-            })()}
+                })}
+              </div>
+            )}
           </>
         )}
 

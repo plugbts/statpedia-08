@@ -250,61 +250,59 @@ export function PlayerPropsColumnView({
     return 'N/A';
   };
 
-  // Filter and sort props
-  const filteredAndSortedProps = props
-    .filter(prop => {
-      if (filterBy === 'all') return true;
-      if (filterBy === 'over') return prop.aiPrediction?.recommended === 'over';
-      if (filterBy === 'under') return prop.aiPrediction?.recommended === 'under';
-      if (filterBy === 'high-confidence') return (prop.confidence || 0) > 0.7;
-      return true;
-    })
-    .sort((a, b) => {
-      let aValue = 0;
-      let bValue = 0;
+  // Filter props (preserve order unless explicitly sorting)
+  const filteredProps = props.filter(prop => {
+    if (filterBy === 'all') return true;
+    if (filterBy === 'over') return prop.aiPrediction?.recommended === 'over';
+    if (filterBy === 'under') return prop.aiPrediction?.recommended === 'under';
+    if (filterBy === 'high-confidence') return (prop.confidence || 0) > 0.7;
+    return true;
+  });
 
-      switch (sortBy) {
-        case 'statpediaRating':
-          const aRating = statpediaRatingService.calculateRating(a, overUnderFilter);
-          const bRating = statpediaRatingService.calculateRating(b, overUnderFilter);
-          aValue = aRating.overall;
-          bValue = bRating.overall;
-          break;
-        case 'expectedValue':
-          aValue = a.expectedValue || 0;
-          bValue = b.expectedValue || 0;
-          break;
-        case 'line':
-          aValue = a.line;
-          bValue = b.line;
-          break;
-        case 'overOdds':
-          aValue = a.overOdds;
-          bValue = b.overOdds;
-          break;
-        case 'playerName':
-          aValue = a.playerName.localeCompare(b.playerName);
-          bValue = 0;
-          break;
-        case 'api':
-          // Preserve API order (offense → kicking → defense → touchdowns)
-          return 0;
-        case 'order':
-          // Sort by prop priority order
-          const aPriority = getPropPriority(a.propType);
-          const bPriority = getPropPriority(b.propType);
-          return aPriority - bPriority;
-        default:
-          aValue = a.confidence || 0;
-          bValue = b.confidence || 0;
-      }
+  // Only sort if not using 'api' sort (which preserves the parent's ordering)
+  const filteredAndSortedProps = sortBy === 'api' ? filteredProps : filteredProps.sort((a, b) => {
+    let aValue = 0;
+    let bValue = 0;
 
-      if (sortBy === 'playerName') {
-        return sortOrder === 'asc' ? aValue : -aValue;
-      }
+    switch (sortBy) {
+      case 'statpediaRating':
+        const aRating = statpediaRatingService.calculateRating(a, overUnderFilter);
+        const bRating = statpediaRatingService.calculateRating(b, overUnderFilter);
+        aValue = aRating.overall;
+        bValue = bRating.overall;
+        break;
+      case 'expectedValue':
+        aValue = a.expectedValue || 0;
+        bValue = b.expectedValue || 0;
+        break;
+      case 'line':
+        aValue = a.line;
+        bValue = b.line;
+        break;
+      case 'overOdds':
+        aValue = a.overOdds;
+        bValue = b.overOdds;
+        break;
+      case 'playerName':
+        aValue = a.playerName.localeCompare(b.playerName);
+        bValue = 0;
+        break;
+      case 'order':
+        // Sort by prop priority order
+        const aPriority = getPropPriority(a.propType);
+        const bPriority = getPropPriority(b.propType);
+        return aPriority - bPriority;
+      default:
+        aValue = a.confidence || 0;
+        bValue = b.confidence || 0;
+    }
 
-      return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
-    });
+    if (sortBy === 'playerName') {
+      return sortOrder === 'asc' ? aValue : -aValue;
+    }
+
+    return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+  });
 
   const handlePropClick = (prop: PlayerProp) => {
     // Parent component handles the overlay
