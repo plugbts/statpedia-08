@@ -385,7 +385,38 @@ export async function handlePropsEndpoint(request: Request, env: Env, league?: s
     const view = url.searchParams.get("view") || "full";
     const debug = url.searchParams.has("debug");
     
+    // Set a timeout to prevent worker from hanging
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Worker timeout')), 25000); // 25 second timeout
+    });
+    
+    const workPromise = processPlayerProps(leagues, date, view, debug, request, env);
+    
+    // Race between work and timeout
+    const responseData = await Promise.race([workPromise, timeoutPromise]);
+    
+    return withCORS(
+      new Response(JSON.stringify(responseData), {
+        headers: { "content-type": "application/json" },
+      }),
+      request.headers.get("Origin") || "*"
+    );
+  } catch (error) {
+    console.error("Error in handlePropsEndpoint:", error);
+    return withCORS(
+      new Response(JSON.stringify({ 
+        error: "Internal server error", 
+        message: error instanceof Error ? error.message : "Unknown error" 
+      }), {
+        status: 500,
+        headers: { "content-type": "application/json" },
+      }),
+      request.headers.get("Origin") || "*"
+    );
+  }
+}
 
+async function processPlayerProps(leagues: string[], date: string, view: string, debug: boolean, request: Request, env: Env) {
     const responseData: any = { events: [] };
     const debugInfo: any = {};
     let allProps: any[] = []; // Collect all props
@@ -403,10 +434,10 @@ export async function handlePropsEndpoint(request: Request, env: Env, league?: s
 
       const rawEvents = result.events;
 
-      // 2. Normalize events (prioritize match events, limit to first 10 for performance)
+      // 2. Normalize events (prioritize match events, limit to first 5 for performance)
       let normalized = (rawEvents || [])
         .filter(ev => ev.type === "match") // Only process match events (real games with players)
-        .slice(0, 10) // Limit to first 10 match events for performance
+        .slice(0, 5) // Limit to first 5 match events for performance
         .map(ev => {
           try {
             const result = normalizeEventSGO(ev, request);
@@ -496,25 +527,7 @@ export async function handlePropsEndpoint(request: Request, env: Env, league?: s
     // DEBUG: Log final response structure
     console.log(`Total props: ${allProps.length}`);
 
-    return withCORS(
-      new Response(JSON.stringify(responseData), {
-        headers: { "content-type": "application/json" },
-      }),
-      request.headers.get("Origin") || "*"
-    );
-  } catch (error) {
-    console.error("Error in handlePropsEndpoint:", error);
-    return withCORS(
-      new Response(JSON.stringify({ 
-        error: "Internal server error", 
-        message: error instanceof Error ? error.message : "Unknown error" 
-      }), {
-        status: 500,
-        headers: { "content-type": "application/json" },
-      }),
-      request.headers.get("Origin") || "*"
-    );
-  }
+    return responseData;
 }
 
 async function handleEventStructureDebug(url: URL, env: Env, request: Request): Promise<Response> {
