@@ -339,7 +339,23 @@ export async function handlePropsEndpoint(request: Request, env: Env, league?: s
       let normalized = (rawEvents || [])
         .filter(ev => ev.type === "match") // Only process match events (real games with players)
         .slice(0, 10) // Limit to first 10 match events for performance
-        .map(ev => normalizeEventSGO(ev, request))
+        .map(ev => {
+          try {
+            console.log(`DEBUG: About to normalize event ${ev.eventID}`);
+            const result = normalizeEventSGO(ev, request);
+            console.log(`DEBUG: Normalized event ${ev.eventID}, result:`, {
+              eventID: result?.eventID,
+              home_team: result?.home_team,
+              away_team: result?.away_team,
+              matchup: result?.matchup,
+              player_props_count: result?.player_props?.length || 0
+            });
+            return result;
+          } catch (error) {
+            console.error(`DEBUG: Error normalizing event ${ev.eventID}:`, error);
+            return null;
+          }
+        })
         .filter(ev => ev !== null && ev !== undefined); // Filter out null/undefined from error responses
 
       // DEBUG: Log event normalization
@@ -837,8 +853,11 @@ function normalizeProps(ev: any) {
 }
 
 function normalizeEvent(ev: SGEvent) {
-  // Use SportsGameOdds schema as primary, fallback to legacy
-  const eventId = ev.event_id || ev.eventID;
+  try {
+    console.log(`🔥 NORMALIZE EVENT CALLED: ${ev.eventID}`);
+    
+    // Use SportsGameOdds schema as primary, fallback to legacy
+    const eventId = ev.event_id || ev.eventID;
   const leagueId = ev.league_id || ev.leagueID;
   const startTime = ev.start_time || ev.scheduled;
   
@@ -981,23 +1000,19 @@ function normalizeEvent(ev: SGEvent) {
 
   console.log(`Returning event ${eventId} with ${playerProps.length} player props and ${teamProps.length} team props`);
   
-  // Add matchup data with logos - use legacy SGO format
-  console.log(`DEBUG: Raw event team data:`, { 
-    eventID: ev.eventID,
-    teams: ev.teams,
-    odds: Object.keys(ev.odds || {}),
-    sampleEntry: Object.values(ev.odds || {})[0]
-  });
-  
   // Use legacy SGO format: ev.teams.home.names.long and ev.teams.away.names.long
   const homeTeamName = ev.teams?.home?.names?.long || "UNK";
   const awayTeamName = ev.teams?.away?.names?.long || "UNK";
   
-  const matchup = {
-    matchup: `${awayTeamName} @ ${homeTeamName}`,
-    home_logo: `/logos/${extractTeamAbbr(homeTeamName)}.png`,
-    away_logo: `/logos/${extractTeamAbbr(awayTeamName)}.png`,
-  };
+  const homeAbbr = extractTeamAbbr(homeTeamName);
+  const awayAbbr = extractTeamAbbr(awayTeamName);
+  
+  const matchupString = `${awayTeamName} @ ${homeTeamName}`;
+  const homeLogoPath = `/logos/${homeAbbr}.png`;
+  const awayLogoPath = `/logos/${awayAbbr}.png`;
+  
+  console.log(`🔥 MATCHUP CONSTRUCTION: "${matchupString}"`);
+  console.log(`🔥 LOGOS: home="${homeLogoPath}", away="${awayLogoPath}"`);
   
   return {
     eventID: eventId,
@@ -1005,12 +1020,16 @@ function normalizeEvent(ev: SGEvent) {
     start_time: formatEventDate(ev, "America/New_York"),
     home_team: homeTeamName,
     away_team: awayTeamName,
-    matchup: matchup.matchup,
-    home_logo: matchup.home_logo,
-    away_logo: matchup.away_logo,
+    matchup: matchupString,
+    home_logo: homeLogoPath,
+    away_logo: awayLogoPath,
     team_props: teamProps,
     player_props: prioritizeProps(playerProps),
   };
+  } catch (error) {
+    console.error(`🔥 ERROR in normalizeEvent for ${ev.eventID}:`, error);
+    throw error;
+  }
 }
 
 function groupPlayerProps(event: any, league: string) {
