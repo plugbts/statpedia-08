@@ -20,7 +20,7 @@ import { teamColorsService } from '@/services/team-colors-service';
 import { convertEVToText, getEVBadgeClasses } from '@/utils/ev-text-converter';
 import { SportsbookOverlay } from '@/components/ui/sportsbook-overlay';
 import { statpediaRatingService, StatpediaRating } from '@/services/statpedia-rating-service';
-import { formatAmericanOdds } from '@/utils/odds-utils';
+import { formatAmericanOdds, toAmericanOdds } from '@/utils/odds-utils';
 import { getPlayerHeadshot, getPlayerInitials } from '@/utils/headshots';
 
 interface SportsbookOdds {
@@ -167,7 +167,9 @@ export function PlayerPropCard3D({
     const numericOdds = typeof odds === 'string' ? parseInt(odds) : odds;
     if (isNaN(numericOdds)) return 'N/A';
     
-    return formatAmericanOdds(numericOdds);
+    // Convert to American odds first, then format
+    const americanOdds = toAmericanOdds(numericOdds);
+    return formatAmericanOdds(americanOdds);
   };
 
   const getConfidenceColor = (confidence: number): string => {
@@ -304,7 +306,7 @@ export function PlayerPropCard3D({
                     {prop.playerName}
                   </h3>
                   <div className="flex items-center space-x-2 text-xs text-slate-400">
-                    <span className="font-semibold text-slate-200">{prop.teamAbbr}</span>
+                    <span className="font-semibold text-slate-200">{prop.position || 'N/A'} • {prop.teamAbbr}</span>
                     <span className="text-slate-500">vs</span>
                     <span className="font-semibold text-slate-200">{prop.opponentAbbr}</span>
                   </div>

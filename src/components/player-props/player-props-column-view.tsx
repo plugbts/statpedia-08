@@ -27,7 +27,7 @@ import { convertEVToText, getEVBadgeClasses } from '@/utils/ev-text-converter';
 import { SportsbookIconsList } from '@/components/ui/sportsbook-icons';
 import { SportsbookOverlay } from '@/components/ui/sportsbook-overlay';
 import { statpediaRatingService, StatpediaRating } from '@/services/statpedia-rating-service';
-import { formatAmericanOdds } from '@/utils/odds-utils';
+import { formatAmericanOdds, toAmericanOdds } from '@/utils/odds-utils';
 import { getPlayerHeadshot, getPlayerInitials } from '@/utils/headshots';
 
 // Prop priority mapping (matches Cloudflare Worker logic)
@@ -180,7 +180,9 @@ export function PlayerPropsColumnView({
 
   // Use shared odds utility for formatting
   const formatOdds = (odds: number): string => {
-    return formatAmericanOdds(odds);
+    // Convert to American odds first, then format
+    const americanOdds = toAmericanOdds(odds);
+    return formatAmericanOdds(americanOdds);
   };
 
   const formatPercentage = (value: number): string => {
@@ -415,13 +417,9 @@ export function PlayerPropsColumnView({
           <Users className="w-4 h-4" />
           Player
         </div>
-        <div className="col-span-1 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
+        <div className="col-span-2 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
           <Target className="w-4 h-4" />
-          Pos
-        </div>
-        <div className="col-span-1 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
-          <Users className="w-4 h-4" />
-          Team
+          Pos • Team
         </div>
         <div className="col-span-2 text-sm font-semibold text-foreground flex items-center gap-2">
           <Target className="w-4 h-4" />
@@ -502,17 +500,10 @@ export function PlayerPropsColumnView({
                   </div>
                 </div>
 
-                {/* Position */}
-                <div className="col-span-1 text-center">
+                {/* Position & Team */}
+                <div className="col-span-2 text-center">
                   <div className="text-sm font-medium text-foreground">
-                    {prop.position || getPositionFromPropType(prop.propType)}
-                  </div>
-                </div>
-
-                {/* Team */}
-                <div className="col-span-1 text-center">
-                  <div className="text-sm font-medium text-foreground">
-                    {prop.teamAbbr || 'N/A'}
+                    {prop.position || getPositionFromPropType(prop.propType)} • {prop.teamAbbr || 'N/A'}
                   </div>
                 </div>
 
