@@ -554,19 +554,19 @@ async function handleCachePurge(url: URL, request: Request, env: Env): Promise<R
 // All SportRadar functionality has been migrated to SportsGameOdds API
 
 
-// Helper function to normalize matchup with logos
-function normalizeMatchup(ev: any) {
-  const homeName = ev.home_team || ev.teams?.home?.names?.long || "UNK";
-  const awayName = ev.away_team || ev.teams?.away?.names?.long || "UNK";
+// Helper function to normalize matchup with logos (legacy schema)
+function normalizeMatchup(ev: any, league: string) {
+  const homeName = ev.teams?.home?.names?.long || "UNK";
+  const awayName = ev.teams?.away?.names?.long || "UNK";
+  const homeKey = ev.teams?.home?.abbreviation || ev.teams?.home?.id || extractTeamAbbr(homeName);
+  const awayKey = ev.teams?.away?.abbreviation || ev.teams?.away?.id || extractTeamAbbr(awayName);
   
-  // Extract team abbreviations from team names
-  const homeAbbr = extractTeamAbbr(homeName);
-  const awayAbbr = extractTeamAbbr(awayName);
-
   return {
-    matchup: `${awayName} @ ${homeName}`,
-    home_logo: `/logos/${homeAbbr}.png`,
-    away_logo: `/logos/${awayAbbr}.png`,
+    away_team: awayName,
+    home_team: homeName,
+    matchup_compact: `${awayKey} @ ${homeKey}`,
+    away_logo: resolveLogo(league, awayKey),
+    home_logo: resolveLogo(league, homeKey),
   };
 }
 
@@ -652,7 +652,7 @@ function formatPlayerName(name: string): string {
   if (!name) return "Unknown";
   return name
     .toLowerCase()
-    .split(" ")
+    .split(/\s+/)
     .map(w => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
 }
@@ -666,6 +666,11 @@ function formatMarketType(raw: string): string {
     .replace("LongestRush", "Longest Rush")
     .replace("LongestReception", "Longest Reception")
     .trim();
+}
+
+// Helper function to resolve team logos
+function resolveLogo(league: string, teamKey: string): string {
+  return `/logos/${league}/${teamKey}.png`;
 }
 
 // Helper function to filter out backup quarterbacks
@@ -996,28 +1001,18 @@ function normalizeEvent(ev: SGEvent) {
   // console.log(`Returning event ${eventId} with ${playerProps.length} player props and ${teamProps.length} team props`);
   
   // Use legacy SGO format: ev.teams.home.names.long and ev.teams.away.names.long
-  const homeTeamName = ev.teams?.home?.names?.long || "UNK";
-  const awayTeamName = ev.teams?.away?.names?.long || "UNK";
-  
-  const homeAbbr = extractTeamAbbr(homeTeamName);
-  const awayAbbr = extractTeamAbbr(awayTeamName);
-  
-  const matchupString = `${awayTeamName} @ ${homeTeamName}`;
-  const homeLogoPath = `/logos/${homeAbbr}.png`;
-  const awayLogoPath = `/logos/${awayAbbr}.png`;
-  
-  // console.log(`🔥 MATCHUP CONSTRUCTION: "${matchupString}"`);
-  // console.log(`🔥 LOGOS: home="${homeLogoPath}", away="${awayLogoPath}"`);
+  // Use the new normalizeMatchup function with legacy schema
+  const matchup = normalizeMatchup(ev, leagueId || "NFL");
   
   return {
     eventID: eventId,
     leagueID: leagueId,
     start_time: formatEventDate(ev, "America/New_York"),
-    home_team: homeTeamName,
-    away_team: awayTeamName,
-    matchup: matchupString,
-    home_logo: homeLogoPath,
-    away_logo: awayLogoPath,
+    home_team: matchup.home_team,
+    away_team: matchup.away_team,
+    matchup: matchup.matchup_compact,
+    home_logo: matchup.home_logo,
+    away_logo: matchup.away_logo,
     team_props: teamProps,
     player_props: prioritizeProps(playerProps),
   };
