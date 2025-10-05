@@ -1057,7 +1057,7 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
       } as EnhancedPrediction;
     }
     return enhancedData;
-  }, [updatedEnhancedData, enhancedData]);
+  }, [updatedEnhancedData, prediction]);
 
   // Use updated data if available, otherwise use original enhanced data
   const currentData = finalEnhancedData;
