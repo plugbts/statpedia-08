@@ -106,8 +106,8 @@ export class StreakService {
     switch (streakType) {
       case 'hot': return 'text-green-400';
       case 'warm': return 'text-yellow-400';
-      case 'neutral': return 'text-slate-300';
-      default: return 'text-slate-300';
+      case 'neutral': return 'text-white';
+      default: return 'text-white';
     }
   }
   
