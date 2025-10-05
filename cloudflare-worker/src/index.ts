@@ -195,6 +195,52 @@ export default {
         resp = json({ error: "Failed to fetch data", details: error instanceof Error ? error.message : "Unknown error" }, 500);
       }
     }
+    // Legacy endpoint: /api/player-props (for backward compatibility)
+    else if (url.pathname === "/api/player-props") {
+      const sport = url.searchParams.get("sport")?.toLowerCase() || "nfl";
+      const forceRefresh = url.searchParams.get("force_refresh") === "true";
+      const date = url.searchParams.get("date") || new Date().toISOString().split('T')[0];
+      
+      // Map sport to league
+      const leagueMap: Record<string, string> = {
+        'nfl': 'NFL',
+        'nba': 'NBA',
+        'mlb': 'MLB',
+        'nhl': 'NHL'
+      };
+      
+      const league = leagueMap[sport] || 'NFL';
+      
+      try {
+        const result = await fetchSportsGameOddsDay(league, date, env);
+        if (isErrorResponse(result)) {
+          resp = json({ error: result.message }, 400);
+        } else {
+          // Transform to legacy format
+          const legacyProps = result.events.flatMap((event: any) => 
+            event.player_props?.map((prop: any) => ({
+              id: `${event.eventID}-${prop.player_name}-${prop.market_type}`.replace(/\s+/g, '-').toLowerCase(),
+              playerName: prop.player_name,
+              propType: prop.market_type,
+              line: prop.line,
+              overOdds: prop.best_over,
+              underOdds: prop.best_under,
+              gameDate: event.start_time,
+              gameTime: event.start_time,
+              sport: sport,
+              team: event.home_team || 'Unknown',
+              opponent: event.away_team || 'Unknown',
+              teamAbbr: event.home_team?.split(' ').pop() || 'UNK',
+              opponentAbbr: event.away_team?.split(' ').pop() || 'UNK'
+            })) || []
+          );
+          
+          resp = json(legacyProps);
+        }
+      } catch (error) {
+        resp = json({ error: "Failed to fetch data", details: error instanceof Error ? error.message : "Unknown error" }, 500);
+      }
+    }
     // Route: /api/{league}/player-props
     else {
     const match = url.pathname.match(/^\/api\/([a-z]+)\/player-props$/);
@@ -694,14 +740,27 @@ function normalizeEvent(ev: SGEvent) {
       }
       
       // Parse the oddID to extract stat type, player name, period, and side
+      // Format: "statType-PLAYER_NAME-period-side-direction"
+      // Example: "passing_touchdowns-JOE_FLACCO_1_NFL-game-ou-over"
       const parts = oddID.split('-');
-      if (parts.length < 4) continue;
+      if (parts.length < 5) continue;
+      
+      // Find where the player name ends (it contains underscores)
+      let playerNameEnd = -1;
+      for (let i = 1; i < parts.length; i++) {
+        if (parts[i].includes('_') && parts[i].includes('NFL')) {
+          playerNameEnd = i;
+          break;
+        }
+      }
+      
+      if (playerNameEnd === -1) continue;
       
       const statType = parts[0]; // e.g., "passing_yards", "receiving_yards"
-      const playerName = parts[1]; // e.g., "JOE_FLACCO_1_NFL"
-      const period = parts[2]; // e.g., "game", "1h", "1q"
-      const side = parts[3]; // e.g., "ou", "yn"
-      const direction = parts[4]; // e.g., "over", "under", "yes", "no"
+      const playerName = parts.slice(1, playerNameEnd + 1).join('-'); // e.g., "JOE_FLACCO_1_NFL"
+      const period = parts[playerNameEnd + 1]; // e.g., "game", "1h", "1q"
+      const side = parts[playerNameEnd + 2]; // e.g., "ou", "yn"
+      const direction = parts[playerNameEnd + 3]; // e.g., "over", "under", "yes", "no"
       
       // Skip if not a player prop or if it's not the right format
       if (!playerName.includes('_') || period !== 'game') continue;
