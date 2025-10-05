@@ -50,6 +50,7 @@ import { cn } from '@/lib/utils';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { AskStatpedia } from './ask-statpedia';
 import { consistentPropsService } from '@/services/consistent-props-service';
+import { statpediaRatingService } from '@/services/statpedia-rating-service';
 import { useToast } from '@/hooks/use-toast';
 import { 
   LineChart as RechartsLineChart, 
@@ -1531,24 +1532,41 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-center justify-center">
-                  <Badge className={cn(
-                    "text-lg px-4 py-2 border-0 shadow-lg transition-all duration-300 animate-pulse",
-                    currentData.aiPrediction?.recommended === 'over' 
-                      ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-emerald-500/50"
-                      : "bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-red-500/50"
-                  )}>
-                    {currentData.aiPrediction?.recommended === 'over' ? (
-                      <ArrowUp className="w-4 h-4 mr-2" />
-                    ) : (
-                      <ArrowDown className="w-4 h-4 mr-2" />
-                    )}
-                    {currentData.aiPrediction?.recommended === 'over' ? 'OVER' : 'UNDER'} AI PREDICTION
-                  </Badge>
+                  {(() => {
+                    // Calculate ratings for both over and under
+                    const overRating = statpediaRatingService.calculateRating(currentData, 'over');
+                    const underRating = statpediaRatingService.calculateRating(currentData, 'under');
+                    
+                    // Determine recommendation based on which rating is higher
+                    const recommended = overRating.overall > underRating.overall ? 'over' : 'under';
+                    const confidence = Math.max(overRating.overall, underRating.overall);
+                    
+                    return (
+                      <Badge className={cn(
+                        "text-lg px-4 py-2 border-0 shadow-lg transition-all duration-300 animate-pulse",
+                        recommended === 'over' 
+                          ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-emerald-500/50"
+                          : "bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-red-500/50"
+                      )}>
+                        {recommended === 'over' ? (
+                          <ArrowUp className="w-4 h-4 mr-2" />
+                        ) : (
+                          <ArrowDown className="w-4 h-4 mr-2" />
+                        )}
+                        {recommended === 'over' ? 'OVER' : 'UNDER'} AI PREDICTION
+                      </Badge>
+                    );
+                  })()}
                 </div>
                 <div className="text-center p-3 bg-gradient-to-r from-purple-600/10 to-pink-600/10 rounded-lg border border-purple-500/20">
                   <p className="text-gray-300 text-xs font-medium mb-1">Confidence</p>
                   <p className="text-white font-bold text-xl bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                    {Math.round((currentData.aiPrediction?.confidence || currentData.confidence || 0) * 100)}%
+                    {(() => {
+                      const overRating = statpediaRatingService.calculateRating(currentData, 'over');
+                      const underRating = statpediaRatingService.calculateRating(currentData, 'under');
+                      const confidence = Math.max(overRating.overall, underRating.overall);
+                      return Math.round(confidence);
+                    })()}%
                   </p>
                 </div>
                 
