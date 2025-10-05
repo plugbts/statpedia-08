@@ -439,7 +439,6 @@ export function PlayerPropsColumnView({
           {/* Games Dropdown */}
           <Select value={selectedGame} onValueChange={setSelectedGame}>
             <SelectTrigger className="w-48 bg-card border-border/50 text-foreground hover:border-primary/30 transition-colors">
-              <Gamepad2 className="h-4 w-4 mr-2" />
               <SelectValue placeholder="Select Game" />
             </SelectTrigger>
             <SelectContent className="bg-card border-border">
@@ -457,7 +456,7 @@ export function PlayerPropsColumnView({
             <Switch
               checked={showAlternativeLines}
               onCheckedChange={setShowAlternativeLines}
-              className="data-[state=checked]:bg-primary"
+              className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-white"
             />
             <label className="text-sm font-medium text-foreground cursor-pointer">
               Show Alternative Lines
