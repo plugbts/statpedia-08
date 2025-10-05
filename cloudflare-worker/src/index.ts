@@ -747,22 +747,14 @@ function getOffensiveSubOrder(marketType: string): number {
 // Helper function to prioritize props using PropFinder-style ordering
 function prioritizeProps(props: any[]): any[] {
   return props.sort((a, b) => {
-    // First: Sort by composite rating (highest first)
-    const aRating = calculateCompositeRating(a);
-    const bRating = calculateCompositeRating(b);
-    
-    if (aRating !== bRating) {
-      return bRating - aRating; // Higher rating first
-    }
-    
-    // Second: Within same rating, prioritize offensive props
+    // First: Prioritize offensive props
     const aIsOffensive = isOffensiveProp(a.market_type);
     const bIsOffensive = isOffensiveProp(b.market_type);
     
     if (aIsOffensive && !bIsOffensive) return -1;
     if (!aIsOffensive && bIsOffensive) return 1;
     
-    // Third: Within same category, use normalized priority
+    // Second: Within same category (both offensive or both non-offensive), use normalized priority
     const aPriority = getPropPriority(a.market_type);
     const bPriority = getPropPriority(b.market_type);
     
@@ -770,7 +762,7 @@ function prioritizeProps(props: any[]): any[] {
       return aPriority - bPriority;
     }
     
-    // Fourth: Tie-breaker for offensive props (passing → rushing → receiving)
+    // Third: Tie-breaker for offensive props (passing → rushing → receiving)
     if (aIsOffensive && bIsOffensive) {
       const aSubOrder = getOffensiveSubOrder(a.market_type);
       const bSubOrder = getOffensiveSubOrder(b.market_type);
@@ -778,6 +770,14 @@ function prioritizeProps(props: any[]): any[] {
       if (aSubOrder !== bSubOrder) {
         return aSubOrder - bSubOrder;
       }
+    }
+    
+    // Fourth: Use composite rating as tie-breaker
+    const aRating = calculateCompositeRating(a);
+    const bRating = calculateCompositeRating(b);
+    
+    if (aRating !== bRating) {
+      return bRating - aRating; // Higher rating first
     }
     
     // Fifth: Alphabetical by market type

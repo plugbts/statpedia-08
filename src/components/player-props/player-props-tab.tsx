@@ -948,23 +948,15 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
           bValue = b.playerName;
           break;
         case 'api':
-          // PropFinder-style ordering: composite rating first, then offensive props
-          const aCompositeRating = calculateCompositeRating(a);
-          const bCompositeRating = calculateCompositeRating(b);
-          
-          // First: Sort by composite rating (highest first)
-          if (aCompositeRating !== bCompositeRating) {
-            return bCompositeRating - aCompositeRating;
-          }
-          
-          // Second: Within same rating, prioritize offensive props
+          // PropFinder-style ordering: offensive props first, then composite rating
           const aIsOffensive = isOffensiveProp(a.propType);
           const bIsOffensive = isOffensiveProp(b.propType);
           
+          // First: Prioritize offensive props
           if (aIsOffensive && !bIsOffensive) return -1;
           if (!aIsOffensive && bIsOffensive) return 1;
           
-          // Third: Within same category, use normalized priority
+          // Second: Within same category (both offensive or both non-offensive), use normalized priority
           const aApiPriority = getPropPriorityNormalized(a.propType);
           const bApiPriority = getPropPriorityNormalized(b.propType);
           
@@ -972,7 +964,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
             return aApiPriority - bApiPriority;
           }
           
-          // Fourth: Tie-breaker for offensive props (passing → rushing → receiving)
+          // Third: Tie-breaker for offensive props (passing → rushing → receiving)
           if (aIsOffensive && bIsOffensive) {
             const aSubOrder = getOffensiveSubOrder(a.propType);
             const bSubOrder = getOffensiveSubOrder(b.propType);
@@ -980,6 +972,14 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
             if (aSubOrder !== bSubOrder) {
               return aSubOrder - bSubOrder;
             }
+          }
+          
+          // Fourth: Use composite rating as tie-breaker
+          const aCompositeRating = calculateCompositeRating(a);
+          const bCompositeRating = calculateCompositeRating(b);
+          
+          if (aCompositeRating !== bCompositeRating) {
+            return bCompositeRating - aCompositeRating;
           }
           
           // Fifth: Alphabetical by prop type
