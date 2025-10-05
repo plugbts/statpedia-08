@@ -978,6 +978,8 @@ function getPlayerPosition(playerName: string): string {
     'derek carr': 'QB', 'matthew stafford': 'QB', 'kirk cousins': 'QB', 'ryan tannehill': 'QB',
     'jimmy garoppolo': 'QB', 'geno smith': 'QB', 'baker mayfield': 'QB', 'jared goff': 'QB',
     'bryce young': 'QB', 'anthony richardson': 'QB', 'c.j. stroud': 'QB', 'jaxon dart': 'QB',
+    'carson wentz': 'QB', 'joe flacco': 'QB', 'sam darnold': 'QB', 'tyrod taylor': 'QB',
+    'jacoby brissett': 'QB', 'mason rudolph': 'QB', 'jameis winston': 'QB', 'marcus mariota': 'QB',
     
     // Running Backs
     'nick chubb': 'RB', 'derrick henry': 'RB', 'austin ekeler': 'RB', 'christian mccaffrey': 'RB',
@@ -985,6 +987,8 @@ function getPlayerPosition(playerName: string): string {
     'jonathan taylor': 'RB', 'aaron jones': 'RB', 'joe mixon': 'RB', 'ezekiel elliott': 'RB',
     'leonard fournette': 'RB', 'david montgomery': 'RB', 'james conner': 'RB', 'miles sanders': 'RB',
     'raheem mostert': 'RB', 'tony pollard': 'RB', 'bijan robinson': 'RB', 'joshua kelley': 'RB',
+    'dylan sampson': 'RB', 'harold fannin': 'RB', 'kareem hunt': 'RB', 'jerome ford': 'RB',
+    'pierre strong': 'RB', 'john kelly': 'RB', 'dameon pierce': 'RB', 'devin singletary': 'RB',
     
     // Wide Receivers
     'tyreek hill': 'WR', 'davante adams': 'WR', 'cooper kupp': 'WR', 'stefon diggs': 'WR',
@@ -993,12 +997,15 @@ function getPlayerPosition(playerName: string): string {
     'brandin cooks': 'WR', 'courtland sutton': 'WR', 'diontae johnson': 'WR', 'chris godwin': 'WR',
     'michael pittman': 'WR', 'cee dee lamb': 'WR', 'jaylen waddle': 'WR', 'deebo samuel': 'WR',
     'calvin ridley': 'WR', 'marquise brown': 'WR', 'jerry jeudy': 'WR', 'gabriel davis': 'WR',
+    'adam thielen': 'WR', 'andre szmyt': 'WR', 'ben yurosek': 'WR',
+    'elijah moore': 'WR', 'cedric tillman': 'WR', 'marquise goodwin': 'WR', 'jameson williams': 'WR',
     
     // Tight Ends
     'travis kelce': 'TE', 'mark andrews': 'TE', 'george kittle': 'TE', 'darren waller': 'TE',
     'kyle pitts': 'TE', 't.j. hockenson': 'TE', 'dallas goedert': 'TE', 'evan engram': 'TE',
     'pat freiermuth': 'TE', 'cole kmet': 'TE', 'dawson knox': 'TE', 'tyler higbee': 'TE',
     'zach ertz': 'TE', 'noah fant': 'TE', 'irv smith': 'TE', 'logan thomas': 'TE',
+    'david njoku': 'TE', 'harrison bryant': 'TE', 'jordan akins': 'TE', 'johnny mundt': 'TE',
   };
   
   // Check for exact match first
@@ -1015,10 +1022,24 @@ function getPlayerPosition(playerName: string): string {
   
   // Default fallback based on common name patterns
   if (name.includes('jr') || name.includes('sr') || name.includes('iii')) {
-    return 'N/A'; // Skip generational suffixes
+    return '—'; // Skip generational suffixes
   }
   
-  return 'N/A';
+  // Try to infer position from name patterns (very basic)
+  if (name.includes('wentz') || name.includes('flacco') || name.includes('darnold')) {
+    return 'QB';
+  }
+  if (name.includes('sampson') || name.includes('fannin') || name.includes('hunt')) {
+    return 'RB';
+  }
+  if (name.includes('thielen') || name.includes('jeudy') || name.includes('moore')) {
+    return 'WR';
+  }
+  if (name.includes('njoku') || name.includes('bryant') || name.includes('akins')) {
+    return 'TE';
+  }
+  
+  return '—';
 }
 
 // Helper function to format market types
@@ -1235,8 +1256,24 @@ function normalizeEvent(ev: SGEvent) {
   let playerProps: any[] = [];
 
   if (ev.player_props && Array.isArray(ev.player_props)) {
-    // SGO already provides normalized player props
-    playerProps = ev.player_props;
+    // SGO already provides normalized player props, but we need to add player_id and position
+    playerProps = ev.player_props.map((prop: any) => {
+      // Find the player in the players object
+      const playerName = prop.player_name;
+      const player = Object.values(ev.players || {}).find((p: any) => p.name === playerName) as any;
+      
+      // Debug logging for first few props
+      if (Math.random() < 0.1) {
+        console.log(`DEBUG: playerName=${playerName}, found player=${!!player}, playerID=${player?.playerID}`);
+        console.log(`DEBUG: Available players:`, Object.keys(ev.players || {}).slice(0, 5));
+      }
+      
+      return {
+        ...prop,
+        player_id: player?.playerID || null,
+        position: getPlayerPosition(playerName),
+      };
+    });
     // console.log(`Using SGO player_props: ${playerProps.length} props`);
   } else if (ev.odds) {
     // Parse the current SGO API format
@@ -1506,7 +1543,7 @@ function normalizePlayerGroup(markets: any[], players: Record<string, any>, leag
 
   const result = {
     player_name: formatPlayerName(playerName),
-    player_id: player?.id || player?.playerId || base.statEntityID || null,
+    player_id: player?.playerID || base.statEntityID || null,
     teamID: teamID,
     market_type: formatMarketTypeWithLeague(base.statID, league),
     line: Number(base.bookOverUnder ?? null),
