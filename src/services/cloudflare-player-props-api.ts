@@ -144,10 +144,8 @@ class CloudflarePlayerPropsAPI {
         const errorData = await response.json();
         console.warn(`⚠️ New /api/${league}/player-props endpoint failed: ${response.status} - ${errorData.error || 'Unknown error'}`);
         
-        // Fallback to legacy endpoint
-        console.log('🔄 Falling back to legacy /api/player-props endpoint...');
-        const legacyProps = await this.getPlayerPropsFromLegacy(sport, forceRefresh);
-        return legacyProps;
+        // Don't fallback to legacy endpoint - it has CORS issues
+        throw new Error(`API request failed: ${response.status} - ${errorData.error || 'Unknown error'}`);
       }
 
       const data = await response.json();
@@ -415,16 +413,9 @@ class CloudflarePlayerPropsAPI {
       
     } catch (error) {
       console.error('❌ New /api/{league}/player-props endpoint error:', error);
-      console.log('🔄 Falling back to legacy /api/player-props endpoint...');
       
-      // Fallback to legacy endpoint
-      try {
-        const legacyProps = await this.getPlayerPropsFromLegacy(sport, forceRefresh);
-        return legacyProps;
-      } catch (fallbackError) {
-        console.error('❌ Legacy fallback also failed:', fallbackError);
-        throw fallbackError;
-      }
+      // Don't fallback to legacy endpoint - it has CORS issues
+      throw error;
     }
   }
 
@@ -492,9 +483,8 @@ class CloudflarePlayerPropsAPI {
         const errorData = await response.json();
         console.warn(`⚠️ Cloudflare Workers API failed: ${response.status} - ${errorData.error || 'Unknown error'}`);
         
-        // Fallback to Supabase Edge Function
-        console.log('🔄 Falling back to Supabase Edge Function...');
-        return this.getPlayerPropsFromSupabase(params.sport, params.force_refresh === 'true');
+        // Don't fallback to Supabase - it has its own issues
+        throw new Error(`API request failed: ${response.status} - ${errorData.error || 'Unknown error'}`);
       }
 
       const data: APIResponse = await response.json();
@@ -510,24 +500,17 @@ class CloudflarePlayerPropsAPI {
       if (!data.success) {
         console.warn(`⚠️ Cloudflare Workers API returned success: false - ${data.error || 'Unknown error'}`);
         
-        // Fallback to Supabase Edge Function
-        console.log('🔄 Falling back to Supabase Edge Function...');
-        return this.getPlayerPropsFromSupabase(params.sport, params.force_refresh === 'true');
+        // Don't fallback to Supabase - it has its own issues
+        throw new Error(`API returned success: false - ${data.error || 'Unknown error'}`);
       }
 
       return data;
       
     } catch (error) {
       console.error('❌ Cloudflare Workers API error:', error);
-      console.log('🔄 Falling back to Supabase Edge Function...');
       
-      // Fallback to Supabase Edge Function
-      try {
-        return await this.getPlayerPropsFromSupabase(params.sport, params.force_refresh === 'true');
-      } catch (fallbackError) {
-        console.error('❌ Supabase fallback also failed:', fallbackError);
-        throw fallbackError;
-      }
+      // Don't fallback to Supabase - it has its own issues
+      throw error;
     }
   }
 
