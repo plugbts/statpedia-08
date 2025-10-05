@@ -617,33 +617,65 @@ function extractTeamAbbr(teamName: string): string {
   return teamMap[teamName] || teamName.split(' ').pop() || 'UNK';
 }
 
-// Helper function to prioritize props (offense first, defense last)
-function prioritizeProps(props: any[]): any[] {
-  const priorityOrder = [
-    'passing', 'rushing', 'receiving', // Offensive stats first
-    'kicking', 'fieldgoals', 'extrapoints', // Kicking next
-    'touchdowns', // Touchdowns before defense
-    'defense', 'tackles', 'sacks', 'interceptions' // Defense last
-  ];
+// PROP_PRIORITY mapping for proper sorting
+const PROP_PRIORITY: Record<string, number> = {
+  // Offensive stats first (0-9)
+  'passing': 1,
+  'rushing': 2,
+  'receiving': 3,
+  'passing_yards': 1,
+  'rushing_yards': 2,
+  'receiving_yards': 3,
+  'passing_attempts': 1,
+  'rushing_attempts': 2,
+  'receptions': 3,
+  'passing_completions': 1,
+  'passing_touchdowns': 1,
+  'rushing_touchdowns': 2,
+  'receiving_touchdowns': 3,
+  'passing_ints': 1,
+  'passing_longestcompletion': 1,
+  'rushing_longestrush': 2,
+  'receiving_longestreception': 3,
+  
+  // Kicking next (10-19)
+  'kicking': 10,
+  'fieldgoals': 11,
+  'extrapoints': 12,
+  'field_goals': 11,
+  'extra_points': 12,
+  'kicking_total_points': 10,
+  
+  // Touchdowns after offense/kicking (20-29)
+  'touchdowns': 20,
+  
+  // Defense last (30+)
+  'defense': 30,
+  'tackles': 31,
+  'sacks': 32,
+  'interceptions': 33,
+  'defense_combinedtackles': 31,
+  'defense_assistedtackles': 31,
+  'defense_sacks': 32,
+  'defense_interceptions': 33,
+};
 
+// Helper function to prioritize props using PROP_PRIORITY
+function prioritizeProps(props: any[]): any[] {
   return props.sort((a, b) => {
     const aType = a.market_type.toLowerCase();
     const bType = b.market_type.toLowerCase();
     
-    const aPriority = priorityOrder.findIndex(p => aType.includes(p));
-    const bPriority = priorityOrder.findIndex(p => bType.includes(p));
+    // Get priority for each prop type
+    const aPriority = Object.keys(PROP_PRIORITY).find(key => aType.includes(key)) 
+      ? PROP_PRIORITY[Object.keys(PROP_PRIORITY).find(key => aType.includes(key))!] 
+      : 99; // Default priority for unmapped markets
     
-    // If both found in priority order, sort by priority
-    if (aPriority !== -1 && bPriority !== -1) {
-      return aPriority - bPriority;
-    }
+    const bPriority = Object.keys(PROP_PRIORITY).find(key => bType.includes(key)) 
+      ? PROP_PRIORITY[Object.keys(PROP_PRIORITY).find(key => bType.includes(key))!] 
+      : 99;
     
-    // If only one found, prioritize it
-    if (aPriority !== -1) return -1;
-    if (bPriority !== -1) return 1;
-    
-    // Otherwise, maintain original order
-    return 0;
+    return aPriority - bPriority;
   });
 }
 
@@ -842,8 +874,9 @@ function normalizeEvent(ev: SGEvent) {
         continue;
       }
       
-      // Skip exotic touchdown markets that clutter the list
-      if (oddID.includes('First Touchdown') || oddID.includes('Last Touchdown')) {
+      // Skip exotic touchdown markets that clutter the list (case-insensitive)
+      const marketKey = oddID.toLowerCase();
+      if (marketKey.includes('first touchdown') || marketKey.includes('last touchdown')) {
         continue;
       }
       
@@ -906,18 +939,22 @@ function normalizeEvent(ev: SGEvent) {
         prop.line = parseFloat(oddsData.fairOverUnder);
       }
       
-      // Extract odds from bookOdds or fairOdds (SGO legacy format)
-      if (direction === 'over') {
-        prop.best_over = oddsData.bookOdds ?? oddsData.fairOdds ?? null;
-        prop.over_odds = oddsData.bookOdds ?? oddsData.fairOdds ?? null;
-      } else if (direction === 'under') {
-        prop.best_under = oddsData.bookOdds ?? oddsData.fairOdds ?? null;
-        prop.under_odds = oddsData.bookOdds ?? oddsData.fairOdds ?? null;
-      }
-      
-      // Map sportsbooks count from byBookmaker field
+      // Map sportsbooks and odds - handle both direct and nested formats
       if (oddsData.byBookmaker && typeof oddsData.byBookmaker === 'object') {
         prop.books = Object.keys(oddsData.byBookmaker);
+      } else if (oddsData.books) {
+        prop.books = Array.isArray(oddsData.books) ? oddsData.books : [oddsData.books];
+      } else {
+        prop.books = [];
+      }
+
+      // Extract odds from multiple possible formats (SGO legacy format)
+      if (direction === 'over') {
+        prop.best_over = oddsData.bookOdds ?? oddsData.fairOdds ?? oddsData.over ?? oddsData.prices?.over ?? null;
+        prop.over_odds = oddsData.bookOdds ?? oddsData.fairOdds ?? oddsData.over ?? oddsData.prices?.over ?? null;
+      } else if (direction === 'under') {
+        prop.best_under = oddsData.bookOdds ?? oddsData.fairOdds ?? oddsData.under ?? oddsData.prices?.under ?? null;
+        prop.under_odds = oddsData.bookOdds ?? oddsData.fairOdds ?? oddsData.under ?? oddsData.prices?.under ?? null;
       }
     }
     
@@ -944,11 +981,17 @@ function normalizeEvent(ev: SGEvent) {
 
   console.log(`Returning event ${eventId} with ${playerProps.length} player props and ${teamProps.length} team props`);
   
-  // Add matchup data with logos - use the team names we already have
-  console.log(`DEBUG: Raw event team data:`, { home_team: ev.home_team, away_team: ev.away_team, teams: ev.teams });
+  // Add matchup data with logos - use legacy SGO format
+  console.log(`DEBUG: Raw event team data:`, { 
+    eventID: ev.eventID,
+    teams: ev.teams,
+    odds: Object.keys(ev.odds || {}),
+    sampleEntry: Object.values(ev.odds || {})[0]
+  });
   
-  const homeTeamName = typeof ev.home_team === 'string' ? ev.home_team : ev.home_team?.name || ev.teams?.home?.names?.long || "UNK";
-  const awayTeamName = typeof ev.away_team === 'string' ? ev.away_team : ev.away_team?.name || ev.teams?.away?.names?.long || "UNK";
+  // Use legacy SGO format: ev.teams.home.names.long and ev.teams.away.names.long
+  const homeTeamName = ev.teams?.home?.names?.long || "UNK";
+  const awayTeamName = ev.teams?.away?.names?.long || "UNK";
   
   const matchup = {
     matchup: `${awayTeamName} @ ${homeTeamName}`,
@@ -1376,7 +1419,7 @@ function normalizeTeamSGO(team: any) {
 }
 
 // Priority order: lower index = higher priority
-const PROP_PRIORITY: Record<string, string[]> = {
+const LEGACY_PROP_PRIORITY: Record<string, string[]> = {
   nfl: [
     "passing_yards",
     "rushing_yards",
@@ -1562,7 +1605,7 @@ function formatMarketType(raw: string, league: string): string {
 }
 
 function sortPropsByLeague(props: any[], league: string) {
-  const priorities = PROP_PRIORITY[league.toLowerCase()] || [];
+  const priorities = LEGACY_PROP_PRIORITY[league.toLowerCase()] || [];
   return props.sort((a, b) => {
     const ai = priorities.indexOf(a.market_type);
     const bi = priorities.indexOf(b.market_type);
