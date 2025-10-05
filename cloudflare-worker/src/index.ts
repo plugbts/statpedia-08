@@ -743,6 +743,11 @@ function normalizeEvent(ev: SGEvent) {
         continue;
       }
       
+      // Skip exotic touchdown markets that clutter the list
+      if (oddID.includes('First Touchdown') || oddID.includes('Last Touchdown')) {
+        continue;
+      }
+      
       // Parse the oddID to extract stat type, player name, period, and side
       // Format: "statType-PLAYER_NAME-period-side-direction"
       // Example: "passing_touchdowns-JOE_FLACCO_1_NFL-game-ou-over"
@@ -792,11 +797,7 @@ function normalizeEvent(ev: SGEvent) {
       // Set the line and odds based on the entry
       const oddsData = oddsEntry as any; // Cast to any to access properties
       
-      // Debug log to see what we're working with
-      if (propKey.includes('JOE FLACCO') && statType === 'passing_touchdowns') {
-        console.log(`DEBUG odds entry for ${oddID}:`, JSON.stringify(oddsData, null, 2));
-        console.log(`DEBUG odds entry keys:`, Object.keys(oddsData));
-      }
+      // Debug logging removed to prevent issues
       
       // Extract line from bookOverUnder or fairOverUnder
       if (oddsData.bookOverUnder !== undefined) {
@@ -805,28 +806,34 @@ function normalizeEvent(ev: SGEvent) {
         prop.line = parseFloat(oddsData.fairOverUnder);
       }
       
-      // Extract odds from bookOdds or fairOdds
+      // Extract odds from bookOdds or fairOdds (SGO legacy format)
       if (direction === 'over') {
-        if (oddsData.bookOdds !== undefined) {
-          prop.best_over = oddsData.bookOdds;
-          prop.over_odds = oddsData.bookOdds;
-        } else if (oddsData.fairOdds !== undefined) {
-          prop.best_over = oddsData.fairOdds;
-          prop.over_odds = oddsData.fairOdds;
-        }
+        prop.best_over = oddsData.bookOdds ?? oddsData.fairOdds ?? null;
+        prop.over_odds = oddsData.bookOdds ?? oddsData.fairOdds ?? null;
       } else if (direction === 'under') {
-        if (oddsData.bookOdds !== undefined) {
-          prop.best_under = oddsData.bookOdds;
-          prop.under_odds = oddsData.bookOdds;
-        } else if (oddsData.fairOdds !== undefined) {
-          prop.best_under = oddsData.fairOdds;
-          prop.under_odds = oddsData.fairOdds;
-        }
+        prop.best_under = oddsData.bookOdds ?? oddsData.fairOdds ?? null;
+        prop.under_odds = oddsData.bookOdds ?? oddsData.fairOdds ?? null;
+      }
+      
+      // Map sportsbooks count from byBookmaker field
+      if (oddsData.byBookmaker && typeof oddsData.byBookmaker === 'object') {
+        prop.books = Object.keys(oddsData.byBookmaker);
       }
     }
     
     // Convert map to array
     playerProps = Array.from(playerPropsMap.values());
+    
+    // Push "Touchdowns" props to the very end
+    playerProps.sort((a, b) => {
+      const aIsTouchdown = a.market_type.toLowerCase().includes('touchdown');
+      const bIsTouchdown = b.market_type.toLowerCase().includes('touchdown');
+      
+      if (aIsTouchdown && !bIsTouchdown) return 1;
+      if (!aIsTouchdown && bIsTouchdown) return -1;
+      return 0;
+    });
+    
     console.log(`Extracted ${playerProps.length} player props from SGO format`);
   }
   
