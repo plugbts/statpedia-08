@@ -672,107 +672,82 @@ function normalizeEvent(ev: SGEvent) {
 
   // Use SGO's pre-normalized props if available, otherwise fall back to legacy normalization
   let playerProps: any[] = [];
-  let teamProps: any[] = [];
 
   if (ev.player_props && Array.isArray(ev.player_props)) {
     // SGO already provides normalized player props
     playerProps = ev.player_props;
     console.log(`Using SGO player_props: ${playerProps.length} props`);
   } else if (ev.odds) {
-    // Fallback to legacy normalization for backward compatibility
-    console.log(`Falling back to legacy normalization`);
-  const players = ev.players || {};
-  const oddsDict = ev.odds || {};
-  
-  // Group by SGO identifiers to preserve all distinct prop types
-  const groups: Record<string, any[]> = {};
-  for (const oddID in oddsDict) {
-    const m = oddsDict[oddID];
-
-      // Build a composite key from SGO fields
-      // Use the actual SGO schema fields
-      const key = [
-        (m as any).playerID || (m as any).statEntityID || "",     // which player/team this prop belongs to
-        (m as any).statID || "",     // market type identifier
-        (m as any).sideID || "",     // over/under side
-        (m as any).periodID || "",   // period (full_game, 1H, etc.)
-        (m as any).marketID || "",   // unique market identifier
-      ].join("|");
-
-    (groups[key] ||= []).push(m);
-  }
-  
-  // Debug: log sample market data and count player vs team markets
-  const sampleOddID = Object.keys(oddsDict)[0];
-  if (sampleOddID) {
-    console.log("DEBUG: Sample market data", {
-      oddID: sampleOddID,
-      market: oddsDict[sampleOddID]
-    });
-  }
-  
-  // Count markets with player IDs vs team IDs
-  let playerMarketCount = 0;
-  let teamMarketCount = 0;
-  for (const oddID in oddsDict) {
-    const m = oddsDict[oddID];
-    if (m.playerID) {
-      playerMarketCount++;
-    } else if (m.statEntityID === 'all' || m.statEntityID === 'side1' || m.statEntityID === 'side2') {
-      teamMarketCount++;
-    }
-  }
-  console.log(`DEBUG: Market counts - Player markets: ${playerMarketCount}, Team markets: ${teamMarketCount}`);
-  
-  console.log(`Created ${Object.keys(groups).length} groups`);
-
-  for (const key in groups) {
-    const markets = groups[key];
-    // Check if this is a player prop or team prop
-    // Team props have statEntityID of 'all', 'side1', 'side2', or no playerID
-    const hasPlayer = markets.some(mm => {
-      // If it has a playerID, it's definitely a player prop
-      if (mm.playerID) return true;
-      
-      // If statEntityID is 'all', 'side1', 'side2', it's a team prop
-      if (mm.statEntityID === 'all' || mm.statEntityID === 'side1' || mm.statEntityID === 'side2') {
-        return false;
-      }
-      
-      // If statEntityID exists and is not a team identifier, it might be a player prop
-      if (mm.statEntityID && players[mm.statEntityID]) {
-        return true;
-      }
-      
-      return false;
-    });
+    // Parse the current SGO API format
+    console.log(`Parsing SGO API format with ${Object.keys(ev.odds).length} odds entries`);
     
-    console.log(`Group ${key}: hasPlayer=${hasPlayer}, markets=${markets.length}`);
-
-    if (hasPlayer) {
-        const norm = normalizePlayerGroup(markets, players, leagueId || "NFL");
-      if (norm) {
-        playerProps.push(norm);
-        console.log(`Added player prop: ${norm.player_name} ${norm.market_type}`);
-      } else {
-        console.log(`Failed to normalize player group: ${key}`);
+    const oddsDict = ev.odds || {};
+    const playerPropsMap = new Map<string, any>();
+    
+    // Parse odds entries with format: "statType-PLAYER_NAME-game-side"
+    for (const oddID in oddsDict) {
+      const oddsEntry = oddsDict[oddID];
+      
+      // Skip non-player props (team props, game totals, etc.)
+      if (!oddID.includes('-') || oddID.startsWith('points-')) {
+        continue;
       }
-    } else {
-      console.log(`Processing team prop group: ${key}`);
-      const norm = normalizeTeamGroup(markets);
-      if (norm) {
-        teamProps.push(norm);
-        console.log(`Added team prop: ${norm.market_type}`);
-      } else {
-        console.log(`Failed to normalize team group: ${key}`);
+      
+      // Parse the oddID to extract stat type, player name, period, and side
+      const parts = oddID.split('-');
+      if (parts.length < 4) continue;
+      
+      const statType = parts[0]; // e.g., "passing_yards", "receiving_yards"
+      const playerName = parts[1]; // e.g., "JOE_FLACCO_1_NFL"
+      const period = parts[2]; // e.g., "game", "1h", "1q"
+      const side = parts[3]; // e.g., "ou", "yn"
+      const direction = parts[4]; // e.g., "over", "under", "yes", "no"
+      
+      // Skip if not a player prop or if it's not the right format
+      if (!playerName.includes('_') || period !== 'game') continue;
+      
+      // Create a clean player name from the SGO format
+      const cleanPlayerName = playerName.replace(/_/g, ' ').replace(/\s+\d+\s+NFL/, '');
+      
+      // Create a unique key for this player+stat combination
+      const propKey = `${cleanPlayerName}|${statType}`;
+      
+      if (!playerPropsMap.has(propKey)) {
+        playerPropsMap.set(propKey, {
+          player_name: cleanPlayerName,
+          market_type: normalizeMarketType(statType),
+          line: 0, // Will be set from the odds data
+          best_over: null,
+          best_under: null,
+          over_odds: null,
+          under_odds: null
+        });
       }
+      
+      const prop = playerPropsMap.get(propKey)!;
+      
+      // Set the line and odds based on the entry
+      const oddsData = oddsEntry as any; // Cast to any to access properties
+      if (oddsData.line !== undefined) {
+        prop.line = oddsData.line;
+      }
+      
+      if (direction === 'over' && oddsData.odds !== undefined) {
+        prop.best_over = oddsData.odds;
+        prop.over_odds = oddsData.odds;
+      } else if (direction === 'under' && oddsData.odds !== undefined) {
+        prop.best_under = oddsData.odds;
+        prop.under_odds = oddsData.odds;
       }
     }
+    
+    // Convert map to array
+    playerProps = Array.from(playerPropsMap.values());
+    console.log(`Extracted ${playerProps.length} player props from SGO format`);
   }
-
-  if (ev.team_props && Array.isArray(ev.team_props)) {
-    teamProps = ev.team_props;
-  }
+  
+  // Initialize teamProps as empty array since we're focusing on player props
+  const teamProps: any[] = [];
   
   console.log(`Final counts: playerProps=${playerProps.length}, teamProps=${teamProps.length}`);
 
