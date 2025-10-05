@@ -1462,10 +1462,21 @@ export async function fetchSportsGameOddsDay(
   const raw = await res.json() as any;
   const rawEvents = raw.data || raw.events || raw; // SGO wraps in { data: [...] }
   
+  console.log(`[fetchSportsGameOddsDay] Raw response keys:`, Object.keys(raw));
+  console.log(`[fetchSportsGameOddsDay] Raw events count:`, rawEvents.length);
+  if (rawEvents.length > 0) {
+    console.log(`[fetchSportsGameOddsDay] First event keys:`, Object.keys(rawEvents[0]));
+  }
+  
   // 6. Filter out events that don't match the requested year
   const events = rawEvents.filter((ev: any) => {
-    const startTime = ev.status?.startsAt; // API uses status.startsAt
-    if (!startTime) return false;
+    // Try multiple possible date fields
+    const startTime = ev.status?.startsAt || ev.startTime || ev.startsAt;
+    if (!startTime) {
+      console.log(`[fetchSportsGameOddsDay] Event ${ev.eventID} has no start time, skipping`);
+      return false;
+    }
+    
     const evYear = new Date(startTime).getFullYear();
     const isCorrectYear = evYear === requestedYear;
     
