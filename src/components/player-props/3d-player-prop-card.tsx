@@ -172,6 +172,13 @@ export function PlayerPropCard3D({
     return formatAmericanOdds(americanOdds);
   };
 
+  // Debug logging for first 10 props
+  React.useEffect(() => {
+    if (prop && Math.random() < 0.1) { // Log ~10% of props for debugging
+      console.debug("[PROP]", prop.playerName, prop.position, prop.overOdds, prop.underOdds, prop.player_id);
+    }
+  }, [prop]);
+
   const getConfidenceColor = (confidence: number): string => {
     if (confidence >= 0.8) return 'text-green-400';
     if (confidence >= 0.6) return 'text-yellow-400';
@@ -274,11 +281,11 @@ export function PlayerPropCard3D({
           <div className="absolute inset-0 bg-gradient-to-r from-slate-600/5 via-gray-600/4 to-slate-600/5 opacity-0 group-hover:opacity-100 blur-xl transition-all duration-500" />
           
           {/* Card Content */}
-          <CardContent className="relative z-10 p-4 h-full flex flex-col">
+          <CardContent className="relative z-10 p-3 h-full flex flex-col">
             {/* Compact Header */}
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center space-x-3 flex-1">
-                <div className={`w-8 h-8 rounded-full ${teamColorsService.getTeamGradient(prop.teamAbbr, prop.sport)} flex items-center justify-center text-white font-bold text-xs shadow-lg border-2 ${teamColorsService.getTeamBorder(prop.teamAbbr, prop.sport)} overflow-hidden flex-shrink-0`}>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center space-x-2 flex-1">
+                <div className={`w-7 h-7 rounded-full ${teamColorsService.getTeamGradient(prop.teamAbbr, prop.sport)} flex items-center justify-center text-white font-bold text-xs shadow-lg border-2 ${teamColorsService.getTeamBorder(prop.teamAbbr, prop.sport)} overflow-hidden flex-shrink-0`}>
                   {(() => {
                     const headshotUrl = getPlayerHeadshot(prop.sport || 'nfl', prop.player_id);
                     if (headshotUrl) {
@@ -302,11 +309,11 @@ export function PlayerPropCard3D({
                   })()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-slate-100 text-base leading-tight tracking-tight truncate">
+                  <h3 className="font-bold text-slate-100 text-sm leading-tight tracking-tight truncate">
                     {prop.playerName}
                   </h3>
-                  <div className="flex items-center space-x-2 text-xs text-slate-400">
-                    <span className="font-semibold text-slate-200">{prop.position || 'N/A'} • {prop.teamAbbr}</span>
+                  <div className="flex items-center space-x-1 text-xs text-slate-400">
+                    <span className="font-semibold text-slate-200">{prop.position || '—'} • {prop.teamAbbr}</span>
                     <span className="text-slate-500">vs</span>
                     <span className="font-semibold text-slate-200">{prop.opponentAbbr}</span>
                   </div>
@@ -314,10 +321,10 @@ export function PlayerPropCard3D({
               </div>
               
               {/* Compact Statpedia Rating */}
-              <div className="flex items-center space-x-2 flex-shrink-0">
+              <div className="flex items-center space-x-1 flex-shrink-0">
                 <Badge 
                   className={cn(
-                    "px-2 py-1 text-xs font-bold border",
+                    "px-1.5 py-0.5 text-xs font-bold border",
                     getRatingColor(statpediaRating)
                   )}
                 >
@@ -330,80 +337,70 @@ export function PlayerPropCard3D({
               </div>
             </div>
 
-            {/* Main Content Area - Horizontal Layout */}
-            <div className="flex-1 flex space-x-3 min-h-0 overflow-hidden">
-              {/* Left Section - Prop & Odds */}
-              <div className="flex-1 min-w-0 space-y-2">
-                {/* Prop Details - Compact */}
-                <div className="space-y-2">
-                  {/* Centered Prop Name - Similar to Column View */}
-                  <div className="text-center space-y-1">
-                    <div className="text-slate-400 text-xs font-semibold tracking-wide uppercase leading-tight">
-                      {prop.propType.length > 12 ? (
-                        <div className="space-y-0.5">
-                          {prop.propType.split(' ').map((word, index) => (
-                            <div key={index}>{word}</div>
-                          ))}
-                        </div>
-                      ) : (
-                        prop.propType
-                      )}
+            {/* Main Content Area - Simplified Layout */}
+            <div className="flex-1 flex flex-col space-y-2">
+              {/* Prop Details - Centered */}
+              <div className="text-center space-y-1">
+                <div className="text-slate-400 text-xs font-semibold tracking-wide uppercase leading-tight">
+                  {prop.propType.length > 15 ? (
+                    <div className="space-y-0.5">
+                      {prop.propType.split(' ').map((word, index) => (
+                        <div key={index}>{word}</div>
+                      ))}
                     </div>
-                    <div className="text-slate-100 text-lg font-bold tracking-tight">
-                      {formatNumber(prop.line)}
-                    </div>
-                  </div>
-                  
-                  {/* AI Prediction & Form - Inline */}
-                  <div className="flex items-center space-x-1 flex-wrap gap-1">
-                    {prop.aiPrediction && (
-                      <div className={cn(
-                        "flex items-center space-x-1 px-1.5 py-0.5 rounded text-xs font-semibold",
-                        prop.aiPrediction.recommended === 'over' 
-                          ? "bg-green-600/20 text-green-300"
-                          : "bg-red-600/20 text-red-300"
-                      )}>
-                        {prop.aiPrediction.recommended === 'over' ? (
-                          <TrendingUp className="h-2.5 w-2.5" />
-                        ) : (
-                          <TrendingDown className="h-2.5 w-2.5" />
-                        )}
-                        <span className="uppercase text-xs">{prop.aiPrediction.recommended}</span>
-                      </div>
-                    )}
-                    
-                    {prop.recentForm && (
-                      <div className="flex items-center space-x-1 px-1.5 py-0.5 rounded text-xs font-semibold bg-slate-800/60 text-slate-200">
-                        {getFormIcon(prop.recentForm)}
-                        <span className="uppercase text-xs">{prop.recentForm}</span>
-                      </div>
-                    )}
-                  </div>
+                  ) : (
+                    prop.propType
+                  )}
                 </div>
-
-                {/* Odds Display - Ultra Compact */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="text-center bg-slate-800/30 rounded p-1.5">
-                    <div className="text-xs text-slate-500 uppercase font-semibold">Over</div>
-                    <div className="text-sm font-bold text-green-300">
-                      {formatOdds(prop.overOdds)}
-                    </div>
-                  </div>
-                  <div className="text-center bg-slate-800/30 rounded p-1.5">
-                    <div className="text-xs text-slate-500 uppercase font-semibold">Under</div>
-                    <div className="text-sm font-bold text-red-300">
-                      {formatOdds(prop.underOdds)}
-                    </div>
-                  </div>
+                <div className="text-slate-100 text-lg font-bold tracking-tight">
+                  {formatNumber(prop.line)}
                 </div>
-
-                {/* Sportsbooks - Ultra Compact */}
+              </div>
+              
+              {/* AI Prediction & Form - Inline */}
+              <div className="flex items-center justify-center space-x-1 flex-wrap gap-1">
+                {prop.aiPrediction && (
+                  <div className={cn(
+                    "flex items-center space-x-1 px-2 py-1 rounded text-xs font-semibold",
+                    prop.aiPrediction.recommended === 'over' 
+                      ? "bg-green-600/20 text-green-300"
+                      : "bg-red-600/20 text-red-300"
+                  )}>
+                    {prop.aiPrediction.recommended === 'over' ? (
+                      <TrendingUp className="h-3 w-3" />
+                    ) : (
+                      <TrendingDown className="h-3 w-3" />
+                    )}
+                    <span className="uppercase text-xs">{prop.aiPrediction.recommended}</span>
+                  </div>
+                )}
+                
+                {prop.recentForm && (
+                  <div className="flex items-center space-x-1 px-2 py-1 rounded text-xs font-semibold bg-slate-800/60 text-slate-200">
+                    {getFormIcon(prop.recentForm)}
+                    <span className="uppercase text-xs">{prop.recentForm}</span>
+                  </div>
+                )}
               </div>
 
-              {/* Right Section - Scrollable Details */}
-              <div className="w-48 flex-shrink-0">
-                <div className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800">
-                  <div className="space-y-3 pr-2">
+              {/* Odds Display - Compact */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="text-center bg-slate-800/30 rounded p-2">
+                  <div className="text-xs text-slate-500 uppercase font-semibold">Over</div>
+                  <div className="text-sm font-bold text-green-300">
+                    {formatOdds(prop.overOdds)}
+                  </div>
+                </div>
+                <div className="text-center bg-slate-800/30 rounded p-2">
+                  <div className="text-xs text-slate-500 uppercase font-semibold">Under</div>
+                  <div className="text-sm font-bold text-red-300">
+                    {formatOdds(prop.underOdds)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Additional Info - Compact */}
+              <div className="space-y-2">
 
           {/* Sportsbook Source */}
           {prop.sportsbookSource && (
@@ -437,46 +434,6 @@ export function PlayerPropCard3D({
             </div>
           )}
 
-                    {/* Rating Breakdown */}
-                    <div>
-                      <div className="text-xs text-slate-500 uppercase font-semibold mb-2">Statpedia Rating Breakdown</div>
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-slate-400">AI Prediction:</span>
-                          <span className="text-slate-200 font-semibold">{Math.round(statpediaRating.factors.aiPredictionScore)}/25</span>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                          <span className="text-slate-400">Odds Value:</span>
-                          <span className="text-slate-200 font-semibold">{Math.round(statpediaRating.factors.oddsValueScore)}/25</span>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                          <span className="text-slate-400">Data Quality:</span>
-                          <span className="text-slate-200 font-semibold">{Math.round(statpediaRating.factors.confidenceScore)}/20</span>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                          <span className="text-slate-400">Recent Form:</span>
-                          <span className="text-slate-200 font-semibold">{Math.round(statpediaRating.factors.recentFormScore)}/15</span>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                          <span className="text-slate-400">Market Consensus:</span>
-                          <span className="text-slate-200 font-semibold">{Math.round(statpediaRating.factors.marketConsensusScore)}/15</span>
-                        </div>
-                      </div>
-                      
-                      <div className="flex justify-between pt-2 mt-2 border-t border-slate-700/50">
-                        <span className="text-xs text-slate-500 uppercase font-semibold">Confidence:</span>
-                        <Badge 
-                          className={cn(
-                            "text-xs px-1 py-0.5",
-                            statpediaRating.confidence === 'High' ? 'bg-green-500/20 text-green-400' :
-                            statpediaRating.confidence === 'Medium' ? 'bg-yellow-500/20 text-yellow-400' :
-                            'bg-red-500/20 text-red-400'
-                          )}
-                        >
-                          {statpediaRating.confidence}
-                        </Badge>
-                      </div>
-                    </div>
 
                     {/* Expected Value */}
                     {prop.expectedValue !== undefined && (
@@ -491,43 +448,6 @@ export function PlayerPropCard3D({
                       </div>
                     )}
 
-                    {/* All Sportsbook Odds */}
-                    {prop.allSportsbookOdds && prop.allSportsbookOdds.length > 1 && (
-                      <div>
-                        <div className="text-xs text-slate-500 uppercase font-semibold mb-2">All Sportsbooks</div>
-                        <div className="space-y-1">
-                          {/* Regular Sportsbooks with Odds */}
-                          {prop.allSportsbookOdds
-                            .filter(odds => !odds.isPickEm)
-                            .slice(0, 6)
-                            .map((odds, index) => (
-                            <div key={index} className="flex items-center justify-between text-xs bg-slate-800/30 rounded px-2 py-1">
-                              <span className="text-slate-300 font-medium text-xs">{odds.sportsbook}</span>
-                              <div className="flex items-center space-x-2">
-                                <span className="text-green-300 font-semibold">{formatOdds(odds.overOdds)}</span>
-                                <span className="text-slate-400">|</span>
-                                <span className="text-red-300 font-semibold">{formatOdds(odds.underOdds)}</span>
-                              </div>
-                            </div>
-                          ))}
-                          
-                          {/* Pick'em Sportsbooks */}
-                          {prop.allSportsbookOdds
-                            .filter(odds => odds.isPickEm)
-                            .map((odds, index) => (
-                            <div key={`pickem-${index}`} className="flex items-center justify-between text-xs bg-blue-900/30 rounded px-2 py-1 border border-blue-700/30">
-                              <div className="flex items-center space-x-1">
-                                <span className="text-blue-300 font-medium text-xs">{odds.sportsbook}</span>
-                                <span className="text-blue-400 text-xs">(Pick'em)</span>
-                              </div>
-                              <div className="text-blue-300 font-semibold text-xs">
-                                Pick Over/Under
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
 
                     {/* Game Info */}
                     <div className="text-center pt-2 border-t border-slate-700/50">

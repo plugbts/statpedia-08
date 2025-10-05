@@ -185,6 +185,14 @@ export function PlayerPropsColumnView({
     return formatAmericanOdds(americanOdds);
   };
 
+  // Debug logging for first 10 props
+  React.useEffect(() => {
+    if (props && props.length > 0 && Math.random() < 0.1) { // Log ~10% of props for debugging
+      const firstProp = props[0];
+      console.debug("[PROP]", firstProp.playerName, firstProp.position, firstProp.overOdds, firstProp.underOdds, firstProp.player_id);
+    }
+  }, [props]);
+
   const formatPercentage = (value: number): string => {
     return `${(value * 100).toFixed(1)}%`;
   };
@@ -503,7 +511,7 @@ export function PlayerPropsColumnView({
                 {/* Position & Team */}
                 <div className="col-span-2 text-center">
                   <div className="text-sm font-medium text-foreground">
-                    {prop.position || getPositionFromPropType(prop.propType)} • {prop.teamAbbr || 'N/A'}
+                    {prop.position || '—'} • {prop.teamAbbr || '—'}
                   </div>
                 </div>
 
