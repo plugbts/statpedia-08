@@ -435,9 +435,12 @@ async function processPlayerProps(leagues: string[], date: string, view: string,
       const rawEvents = result.events;
 
       // 2. Normalize events (prioritize match events, limit to first 5 for performance)
-      let normalized = (rawEvents || [])
+      const events = (rawEvents || [])
         .filter(ev => ev.type === "match") // Only process match events (real games with players)
-        .slice(0, 5) // Limit to first 5 match events for performance
+        .slice(0, 5); // Limit to first 5 match events for performance
+
+      // Process events
+      const normalized = events
         .map(ev => {
           try {
             const result = normalizeEventSGO(ev, request);
@@ -457,10 +460,10 @@ async function processPlayerProps(leagues: string[], date: string, view: string,
       }
 
       // 4. Prioritize + cap props per league (80 props per event)
-      normalized = capPropsPerLeague(normalized, league, 80);
+      const processedNormalized = capPropsPerLeague(normalized, league, 80);
 
       // 5. Collect all props for pagination
-      const validEvents = normalized.filter((event): event is NonNullable<typeof event> => event !== null);
+      const validEvents = processedNormalized.filter((event): event is NonNullable<typeof event> => event !== null);
       
       for (const event of validEvents) {
         if (event.player_props) {
@@ -1003,12 +1006,20 @@ function getTeamAbbreviation(city: string, team: string): string {
   return teamMap[city] || city.substring(0, 3).toUpperCase();
 }
 
+// Cache for player positions to avoid repeated API calls
+const playerPositionCache = new Map<string, string>();
+
 function getPlayerPosition(playerName: string): string {
-  if (!playerName) return 'N/A';
+  if (!playerName) return '—';
+  
+  // Check cache first
+  if (playerPositionCache.has(playerName)) {
+    return playerPositionCache.get(playerName)!;
+  }
   
   const name = playerName.toLowerCase();
   
-  // Known player positions
+  // Comprehensive NFL player position database
   const knownPositions: { [key: string]: string } = {
     // Quarterbacks
     'josh allen': 'QB', 'patrick mahomes': 'QB', 'joe burrow': 'QB', 'dak prescott': 'QB',
@@ -1016,9 +1027,10 @@ function getPlayerPosition(playerName: string): string {
     'trevor lawrence': 'QB', 'tua tagovailoa': 'QB', 'jalen hurts': 'QB', 'kyler murray': 'QB',
     'derek carr': 'QB', 'matthew stafford': 'QB', 'kirk cousins': 'QB', 'ryan tannehill': 'QB',
     'jimmy garoppolo': 'QB', 'geno smith': 'QB', 'baker mayfield': 'QB', 'jared goff': 'QB',
-    'bryce young': 'QB', 'anthony richardson': 'QB', 'c.j. stroud': 'QB', 'jaxon dart': 'QB',
-    'carson wentz': 'QB', 'joe flacco': 'QB', 'sam darnold': 'QB', 'tyrod taylor': 'QB',
-    'jacoby brissett': 'QB', 'mason rudolph': 'QB', 'jameis winston': 'QB', 'marcus mariota': 'QB',
+    'bryce young': 'QB', 'anthony richardson': 'QB', 'c.j. stroud': 'QB', 'carson wentz': 'QB',
+    'joe flacco': 'QB', 'sam darnold': 'QB', 'tyrod taylor': 'QB', 'jacoby brissett': 'QB',
+    'mason rudolph': 'QB', 'jameis winston': 'QB', 'marcus mariota': 'QB', 'jordan love': 'QB',
+    'deshaun watson': 'QB', 'kenny pickett': 'QB', 'will levis': 'QB', 'aidan o\'connell': 'QB',
     
     // Running Backs
     'nick chubb': 'RB', 'derrick henry': 'RB', 'austin ekeler': 'RB', 'christian mccaffrey': 'RB',
@@ -1028,6 +1040,8 @@ function getPlayerPosition(playerName: string): string {
     'raheem mostert': 'RB', 'tony pollard': 'RB', 'bijan robinson': 'RB', 'joshua kelley': 'RB',
     'dylan sampson': 'RB', 'harold fannin': 'RB', 'kareem hunt': 'RB', 'jerome ford': 'RB',
     'pierre strong': 'RB', 'john kelly': 'RB', 'dameon pierce': 'RB', 'devin singletary': 'RB',
+    'james cook': 'RB', 'breece hall': 'RB', 'kenneth walker': 'RB', 'rhamondre stevenson': 'RB',
+    'isiah pacheco': 'RB',
     
     // Wide Receivers
     'tyreek hill': 'WR', 'davante adams': 'WR', 'cooper kupp': 'WR', 'stefon diggs': 'WR',
@@ -1036,48 +1050,66 @@ function getPlayerPosition(playerName: string): string {
     'brandin cooks': 'WR', 'courtland sutton': 'WR', 'diontae johnson': 'WR', 'chris godwin': 'WR',
     'michael pittman': 'WR', 'cee dee lamb': 'WR', 'jaylen waddle': 'WR', 'deebo samuel': 'WR',
     'calvin ridley': 'WR', 'marquise brown': 'WR', 'jerry jeudy': 'WR', 'gabriel davis': 'WR',
-    'adam thielen': 'WR', 'andre szmyt': 'WR', 'ben yurosek': 'WR',
-    'elijah moore': 'WR', 'cedric tillman': 'WR', 'marquise goodwin': 'WR', 'jameson williams': 'WR',
+    'adam thielen': 'WR', 'andre szmyt': 'WR', 'ben yurosek': 'WR', 'elijah moore': 'WR',
+    'cedric tillman': 'WR', 'marquise goodwin': 'WR', 'jameson williams': 'WR', 'jalen nailor': 'WR',
+    'jamari thrash': 'WR', 'jordan addison': 'WR', 'jordan mason': 'WR', 'tj hockenson': 'TE',
+    'david njoku': 'TE', 'jordan akins': 'TE',
     
     // Tight Ends
     'travis kelce': 'TE', 'mark andrews': 'TE', 'george kittle': 'TE', 'darren waller': 'TE',
     'kyle pitts': 'TE', 't.j. hockenson': 'TE', 'dallas goedert': 'TE', 'evan engram': 'TE',
     'pat freiermuth': 'TE', 'cole kmet': 'TE', 'dawson knox': 'TE', 'tyler higbee': 'TE',
     'zach ertz': 'TE', 'noah fant': 'TE', 'irv smith': 'TE', 'logan thomas': 'TE',
-    'david njoku': 'TE', 'harrison bryant': 'TE', 'jordan akins': 'TE', 'johnny mundt': 'TE',
+    'harrison bryant': 'TE', 'johnny mundt': 'TE',
+    
+    // Defensive Players
+    'myles garrett': 'DE', 'tj watt': 'LB', 'aaron donald': 'DT', 'nick bosa': 'DE',
+    'micah parsons': 'LB', 'derwin james': 'S', 'jalen ramsey': 'CB', 'xavien howard': 'CB',
+    'jalen mills': 'CB', 'marcus peters': 'CB', 'stephon gilmore': 'CB', 'darius slay': 'CB',
+    
+    // Kickers
+    'justin tucker': 'K', 'harrison butker': 'K', 'daniel carlson': 'K', 'jason myers': 'K',
+    'younghoe koo': 'K', 'brandon mcmanus': 'K', 'matt gay': 'K', 'evan mcpherson': 'K',
   };
   
   // Check for exact match first
   if (knownPositions[name]) {
+    playerPositionCache.set(playerName, knownPositions[name]);
     return knownPositions[name];
   }
   
   // Check for partial matches (in case of nicknames or variations)
   for (const [knownName, position] of Object.entries(knownPositions)) {
     if (name.includes(knownName) || knownName.includes(name)) {
+      playerPositionCache.set(playerName, position);
       return position;
     }
   }
   
-  // Default fallback based on common name patterns
-  if (name.includes('jr') || name.includes('sr') || name.includes('iii')) {
-    return '—'; // Skip generational suffixes
-  }
-  
   // Try to infer position from name patterns (very basic)
-  if (name.includes('wentz') || name.includes('flacco') || name.includes('darnold')) {
+  if (name.includes('wentz') || name.includes('flacco') || name.includes('darnold') || 
+      name.includes('allen') || name.includes('mahomes') || name.includes('burrow')) {
+    playerPositionCache.set(playerName, 'QB');
     return 'QB';
   }
-  if (name.includes('sampson') || name.includes('fannin') || name.includes('hunt')) {
+  if (name.includes('sampson') || name.includes('fannin') || name.includes('hunt') || 
+      name.includes('chubb') || name.includes('henry') || name.includes('ekeler')) {
+    playerPositionCache.set(playerName, 'RB');
     return 'RB';
   }
-  if (name.includes('thielen') || name.includes('jeudy') || name.includes('moore')) {
+  if (name.includes('thielen') || name.includes('jeudy') || name.includes('moore') || 
+      name.includes('hill') || name.includes('adams') || name.includes('kupp')) {
+    playerPositionCache.set(playerName, 'WR');
     return 'WR';
   }
-  if (name.includes('njoku') || name.includes('bryant') || name.includes('akins')) {
+  if (name.includes('njoku') || name.includes('bryant') || name.includes('akins') || 
+      name.includes('hockenson') || name.includes('kelce') || name.includes('andrews')) {
+    playerPositionCache.set(playerName, 'TE');
     return 'TE';
   }
   
+  // Default fallback
+  playerPositionCache.set(playerName, '—');
   return '—';
 }
 
@@ -1453,7 +1485,7 @@ function normalizeEvent(ev: SGEvent) {
     const player = Object.values(ev.players || {}).find((p: any) => p.name === playerName) as any;
     
     // Convert teamID to abbreviation (e.g., "CLEVELAND_BROWNS_NFL" -> "CLE")
-    let teamAbbr = null;
+    let teamAbbr: string | null = null;
     if (player?.teamID) {
       const teamParts = player.teamID.split('_');
       if (teamParts.length >= 2) {
