@@ -22,10 +22,10 @@ export class StatpediaRatingService {
   /**
    * Calculate comprehensive Statpedia Rating for a player prop
    */
-  calculateRating(prop: any): StatpediaRating {
+  calculateRating(prop: any, overUnderContext: 'over' | 'under' | 'both' = 'both'): StatpediaRating {
     const factors: StatpediaRatingFactors = {
-      aiPredictionScore: this.calculateAIPredictionScore(prop),
-      oddsValueScore: this.calculateOddsValueScore(prop),
+      aiPredictionScore: this.calculateAIPredictionScore(prop, overUnderContext),
+      oddsValueScore: this.calculateOddsValueScore(prop, overUnderContext),
       confidenceScore: this.calculateConfidenceScore(prop),
       recentFormScore: this.calculateRecentFormScore(prop),
       marketConsensusScore: this.calculateMarketConsensusScore(prop)
@@ -57,11 +57,23 @@ export class StatpediaRatingService {
    * AI Prediction Score (0-25 points)
    * Factors in AI recommendation confidence and alignment
    */
-  private calculateAIPredictionScore(prop: any): number {
+  private calculateAIPredictionScore(prop: any, overUnderContext: 'over' | 'under' | 'both' = 'both'): number {
     if (!prop.aiPrediction) return 12; // Neutral if no AI prediction
 
     const baseConfidence = prop.aiPrediction.confidence || 0.5;
     let score = baseConfidence * 20; // 0-20 base points
+
+    // Context-aware scoring based on over/under filter
+    if (overUnderContext !== 'both') {
+      const aiRecommendation = prop.aiPrediction.recommended;
+      
+      // If AI recommendation matches the filter context, boost the score
+      if (aiRecommendation === overUnderContext) {
+        score += 3; // Bonus for alignment
+      } else {
+        score -= 5; // Penalty for misalignment
+      }
+    }
 
     // Bonus points for strong AI confidence
     if (baseConfidence >= 0.8) score += 5;
@@ -78,7 +90,7 @@ export class StatpediaRatingService {
    * Odds Value Score (0-25 points)
    * Analyzes if the odds provide good value based on implied probability
    */
-  private calculateOddsValueScore(prop: any): number {
+  private calculateOddsValueScore(prop: any, overUnderContext: 'over' | 'under' | 'both' = 'both'): number {
     if (!prop.overOdds || !prop.underOdds) return 10; // Neutral if missing odds
 
     const overImplied = this.americanOddsToImpliedProbability(prop.overOdds);
@@ -99,6 +111,16 @@ export class StatpediaRatingService {
     const avgOdds = (Math.abs(prop.overOdds) + Math.abs(prop.underOdds)) / 2;
     if (avgOdds > 200) score += 3; // Plus odds often have value
     else if (avgOdds < 110) score -= 2; // Heavy favorites less value
+
+    // Context-aware odds value scoring
+    if (overUnderContext !== 'both') {
+      const targetOdds = overUnderContext === 'over' ? prop.overOdds : prop.underOdds;
+      const targetImplied = this.americanOddsToImpliedProbability(targetOdds);
+      
+      // Better value for the selected over/under
+      if (targetImplied < 0.45) score += 3; // Good value on underdog
+      else if (targetImplied > 0.65) score -= 2; // Poor value on heavy favorite
+    }
 
     // Expected Value bonus
     if (prop.expectedValue > 0.05) score += 5;
@@ -251,8 +273,8 @@ export class StatpediaRatingService {
    * Get color coding based on score
    */
   private getColor(score: number): StatpediaRating['color'] {
-    if (score >= 65) return 'green';
-    if (score >= 45) return 'yellow';
+    if (score >= 79) return 'green';
+    if (score >= 61) return 'yellow';
     return 'red';
   }
 
@@ -262,8 +284,8 @@ export class StatpediaRatingService {
   private getConfidenceLevel(score: number, factors: StatpediaRatingFactors): StatpediaRating['confidence'] {
     const highFactors = Object.values(factors).filter(f => f >= (f === factors.aiPredictionScore ? 18 : f === factors.oddsValueScore ? 18 : f === factors.confidenceScore ? 14 : f === factors.recentFormScore ? 10 : 10));
     
-    if (score >= 70 && highFactors.length >= 3) return 'High';
-    if (score >= 55 && highFactors.length >= 2) return 'Medium';
+    if (score >= 79 && highFactors.length >= 3) return 'High';
+    if (score >= 61 && highFactors.length >= 2) return 'Medium';
     return 'Low';
   }
 

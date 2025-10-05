@@ -84,6 +84,7 @@ interface PlayerPropCardProps {
   isSelected?: boolean;
   onSelect?: (propId: string) => void;
   showSelection?: boolean;
+  overUnderFilter?: 'over' | 'under' | 'both';
 }
 
 export function PlayerPropCard3D({ 
@@ -92,7 +93,8 @@ export function PlayerPropCard3D({
   onAdvancedAnalysisClick,
   isSelected = false, 
   onSelect, 
-  showSelection = false 
+  showSelection = false,
+  overUnderFilter = 'both'
 }: PlayerPropCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -101,8 +103,8 @@ export function PlayerPropCard3D({
 
   // Calculate Statpedia Rating
   const statpediaRating: StatpediaRating = React.useMemo(() => {
-    return statpediaRatingService.calculateRating(prop);
-  }, [prop]);
+    return statpediaRatingService.calculateRating(prop, overUnderFilter);
+  }, [prop, overUnderFilter]);
 
   // Debug logging for received prop data
   React.useEffect(() => {
@@ -216,8 +218,8 @@ export function PlayerPropCard3D({
   };
 
   const getRatingIcon = (rating: StatpediaRating) => {
-    if (rating.overall >= 75) return <Star className="h-3 w-3" />;
-    if (rating.overall >= 55) return <Target className="h-3 w-3" />;
+    if (rating.overall >= 79) return <Star className="h-3 w-3" />;
+    if (rating.overall >= 61) return <Target className="h-3 w-3" />;
     return <BarChart3 className="h-3 w-3" />;
   };
 

@@ -68,13 +68,15 @@ interface PlayerPropsColumnViewProps {
   selectedSport: string;
   onAnalysisClick?: (prop: PlayerProp) => void;
   isLoading?: boolean;
+  overUnderFilter?: 'over' | 'under' | 'both';
 }
 
 export function PlayerPropsColumnView({ 
   props, 
   selectedSport, 
   onAnalysisClick,
-  isLoading = false 
+  isLoading = false,
+  overUnderFilter = 'both'
 }: PlayerPropsColumnViewProps) {
   const [sortBy, setSortBy] = useState('api');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -239,8 +241,8 @@ export function PlayerPropsColumnView({
   };
 
   const getRatingIcon = (rating: StatpediaRating) => {
-    if (rating.overall >= 75) return <Star className="h-3 w-3" />;
-    if (rating.overall >= 55) return <Target className="h-3 w-3" />;
+    if (rating.overall >= 79) return <Star className="h-3 w-3" />;
+    if (rating.overall >= 61) return <Target className="h-3 w-3" />;
     return <BarChart3 className="h-3 w-3" />;
   };
 
@@ -461,7 +463,7 @@ export function PlayerPropsColumnView({
                 {/* Statpedia Rating */}
                 <div className="col-span-1 text-center">
                   {(() => {
-                    const rating = statpediaRatingService.calculateRating(prop);
+                    const rating = statpediaRatingService.calculateRating(prop, overUnderFilter);
                     return (
                       <div className="flex flex-col items-center space-y-1">
                         <Badge 

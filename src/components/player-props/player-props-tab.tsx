@@ -286,6 +286,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const [maxLine, setMaxLine] = useState(100);
   const [showSelection, setShowSelection] = useState(false);
   const [viewMode, setViewMode] = useState<'column' | 'cards'>('column');
+  const [overUnderFilter, setOverUnderFilter] = useState<'over' | 'under' | 'both'>('over');
   
   // Handle view parameter from URL
   useEffect(() => {
@@ -327,6 +328,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         setPropTypeFilter(filters.propTypeFilter || 'all');
         setSortBy(filters.sortBy || 'api');
         setSortOrder(filters.sortOrder || 'desc');
+        setOverUnderFilter(filters.overUnderFilter || 'over');
         setSelectedSportsbook(filters.selectedSportsbook || 'all');
         setMinOdds(filters.minOdds || -175);
         setMaxOdds(filters.maxOdds || 500);
@@ -349,6 +351,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       propTypeFilter,
       sortBy,
       sortOrder,
+      overUnderFilter,
       selectedSportsbook,
       minOdds,
       maxOdds,
@@ -368,6 +371,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     setPropTypeFilter('all');
     setSortBy('api');
     setSortOrder('desc');
+    setOverUnderFilter('over');
     setSelectedSportsbook('all');
     setSearchQuery('');
     setMinOdds(-175);
@@ -745,7 +749,12 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         ((overOdds >= minOdds && overOdds <= maxOdds) || 
          (underOdds >= minOdds && underOdds <= maxOdds));
       
-      const passes = matchesSearch && matchesPropType && matchesConfidence && matchesEV && matchesPositiveEV && matchesLine && matchesOddsRange;
+      // Over/Under filter
+      const matchesOverUnder = overUnderFilter === 'both' || 
+        (overUnderFilter === 'over' && overOdds > 0) || 
+        (overUnderFilter === 'under' && underOdds > 0);
+      
+      const passes = matchesSearch && matchesPropType && matchesConfidence && matchesEV && matchesPositiveEV && matchesLine && matchesOddsRange && matchesOverUnder;
       
       if (!passes && realProps.length < 10) {
         logFilter('PlayerPropsTab', `Prop ${prop.playerName} filtered out: search=${matchesSearch}, type=${matchesPropType}, confidence=${matchesConfidence}, ev=${matchesEV}, positiveEV=${matchesPositiveEV}, line=${matchesLine}`);
@@ -1222,6 +1231,24 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                 </Select>
               </div>
 
+              {/* Over/Under Filter */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground flex items-center gap-1">
+                  <TrendingUp className="w-4 h-4" />
+                  Over/Under
+                </label>
+                <Select value={overUnderFilter} onValueChange={(value: 'over' | 'under' | 'both') => setOverUnderFilter(value)}>
+                  <SelectTrigger className="w-full bg-background/50 border-primary/20 hover:border-primary/40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="over">Over Only</SelectItem>
+                    <SelectItem value="under">Under Only</SelectItem>
+                    <SelectItem value="both">Both</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Sort */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground flex items-center gap-1">
@@ -1490,6 +1517,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                 selectedSport={sportFilter}
                 onAnalysisClick={handleEnhancedAnalysis as any}
                 isLoading={isLoadingData}
+                overUnderFilter={overUnderFilter}
               />
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -1535,6 +1563,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                             );
                           } : undefined}
                           showSelection={showSelection}
+                          overUnderFilter={overUnderFilter}
                         />
                       </CardContent>
                     </Card>
