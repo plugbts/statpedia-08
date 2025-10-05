@@ -81,37 +81,60 @@ const getPropCategory = (market: string): string => {
 
 interface PlayerProp {
   id: string;
-  playerId: number;
+  playerId: string;
   playerName: string;
+  team: string;
   teamAbbr: string;
+  opponent: string;
   opponentAbbr: string;
+  gameId: string;
+  sport: string;
   propType: string;
   line: number;
   overOdds: number;
   underOdds: number;
-  headshotUrl?: string;
+  gameDate: string;
+  gameTime: string;
   confidence?: number;
   expectedValue?: number;
-  // NEW: Available sportsbooks for this prop
-  availableSportsbooks?: string[];
+  aiRating?: number;
+  recommendation?: 'strong_bet' | 'good_bet' | 'neutral' | 'avoid' | 'strong_avoid';
+  recentForm?: string;
+  last5Games?: number[];
+  seasonStats?: {
+    average: number;
+    median: number;
+    gamesPlayed: number;
+    hitRate: number;
+    last5Games: number[];
+    seasonHigh: number;
+    seasonLow: number;
+  };
   aiPrediction?: {
     recommended: 'over' | 'under';
     confidence: number;
     reasoning: string;
     factors: string[];
   };
-  recentForm?: 'hot' | 'cold' | 'average';
-  gameDate: string;
-  gameTime: string;
-  last5Games?: number[];
-  seasonStats?: {
-    average: number;
-    gamesPlayed: number;
-    hitRate: number;
-  };
+  // Additional properties for consistency
+  headshotUrl?: string;
+  valueRating?: number;
+  riskLevel?: 'low' | 'medium' | 'high';
+  factors?: string[];
+  lastUpdated?: Date;
+  isLive?: boolean;
+  isBookmarked?: boolean;
+  advancedReasoning?: string;
+  injuryImpact?: string;
+  weatherImpact?: string;
+  matchupAnalysis?: string;
+  // NEW: Available sportsbooks for this prop
+  availableSportsbooks?: string[];
   // Team logos
   homeTeamLogo?: string;
   awayTeamLogo?: string;
+  // Position (derived from prop type or player data)
+  position?: string;
 }
 
 interface PlayerPropsColumnViewProps {
@@ -212,6 +235,19 @@ export function PlayerPropsColumnView({
     
     if (currentLine) lines.push(currentLine);
     return lines;
+  };
+
+  // Derive position from prop type
+  const getPositionFromPropType = (propType: string): string => {
+    const lowerPropType = propType.toLowerCase();
+    
+    if (lowerPropType.includes('passing')) return 'QB';
+    if (lowerPropType.includes('rushing')) return 'RB';
+    if (lowerPropType.includes('receiving')) return 'WR';
+    if (lowerPropType.includes('field goal') || lowerPropType.includes('kicking')) return 'K';
+    if (lowerPropType.includes('defense') || lowerPropType.includes('sack') || lowerPropType.includes('tackle')) return 'DEF';
+    
+    return 'N/A';
   };
 
   // Filter and sort props
@@ -482,14 +518,14 @@ export function PlayerPropsColumnView({
                 {/* Position */}
                 <div className="col-span-1 text-center">
                   <div className="text-sm font-medium text-foreground">
-                    {prop.position || 'N/A'}
+                    {prop.position || getPositionFromPropType(prop.propType)}
                   </div>
                 </div>
 
                 {/* Team */}
                 <div className="col-span-1 text-center">
                   <div className="text-sm font-medium text-foreground">
-                    {prop.team || 'N/A'}
+                    {prop.teamAbbr || 'N/A'}
                   </div>
                 </div>
 
