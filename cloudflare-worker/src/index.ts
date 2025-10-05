@@ -384,7 +384,7 @@ export async function handlePropsEndpoint(request: Request, env: Env, league?: s
     const date = url.searchParams.get("date") || new Date().toISOString().split('T')[0];
     const view = url.searchParams.get("view") || "full";
     const debug = url.searchParams.has("debug");
-    
+
     // Set a timeout to prevent worker from hanging
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => reject(new Error('Worker timeout')), 25000); // 25 second timeout
@@ -440,17 +440,17 @@ async function processPlayerProps(leagues: string[], date: string, view: string,
         .slice(0, 5); // Limit to first 5 match events for performance
 
       // Process events
-      const normalized = events
-        .map(ev => {
+      const normalized = (await Promise.all(
+        events.map(async ev => {
           try {
-            const result = normalizeEventSGO(ev, request);
+            const result = await normalizeEventSGO(ev, request);
             return result;
           } catch (error) {
             console.error(`Error normalizing event ${ev.eventID}:`, error);
             return null;
           }
         })
-        .filter(ev => ev !== null && ev !== undefined); // Filter out null/undefined from error responses
+      )).filter(ev => ev !== null && ev !== undefined); // Filter out null/undefined from error responses
 
       // Event normalization completed
 
@@ -1009,107 +1009,234 @@ function getTeamAbbreviation(city: string, team: string): string {
 // Cache for player positions to avoid repeated API calls
 const playerPositionCache = new Map<string, string>();
 
-function getPlayerPosition(playerName: string): string {
+// Official league API endpoints for 2025
+const LEAGUE_APIS = {
+  nfl: {
+    primary: 'https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/athletes',
+    fallback: 'https://api.nfl.com/v1/players'
+  },
+  nba: {
+    primary: 'https://stats.nba.com/stats/commonallplayers',
+    fallback: 'https://api.nba.com/v1/players'
+  },
+  mlb: {
+    primary: 'https://statsapi.mlb.com/api/v1/people',
+    fallback: 'https://api.mlb.com/v1/players'
+  },
+  nhl: {
+    primary: 'https://statsapi.web.nhl.com/api/v1/people',
+    fallback: 'https://api.nhl.com/v1/players'
+  },
+  wnba: {
+    primary: 'https://stats.wnba.com/stats/commonallplayers',
+    fallback: 'https://api.wnba.com/v1/players'
+  }
+};
+
+async function getPlayerPosition(playerName: string, league: string = 'nfl'): Promise<string> {
   if (!playerName) return '—';
   
+  const cacheKey = `${league}:${playerName}`;
+  
   // Check cache first
-  if (playerPositionCache.has(playerName)) {
-    return playerPositionCache.get(playerName)!;
+  if (playerPositionCache.has(cacheKey)) {
+    return playerPositionCache.get(cacheKey)!;
   }
   
-  const name = playerName.toLowerCase();
+  // Try official API first (with timeout)
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+    
+    const position = await fetchPlayerPositionFromAPI(playerName, league, controller.signal);
+    clearTimeout(timeoutId);
+    
+    if (position !== '—') {
+      playerPositionCache.set(cacheKey, position);
+      return position;
+    }
+  } catch (error) {
+    console.log(`Official API failed for ${playerName} (${league}):`, error);
+  }
   
-  // Comprehensive NFL player position database
-  const knownPositions: { [key: string]: string } = {
-    // Quarterbacks
-    'josh allen': 'QB', 'patrick mahomes': 'QB', 'joe burrow': 'QB', 'dak prescott': 'QB',
-    'lamar jackson': 'QB', 'aaron rodgers': 'QB', 'russell wilson': 'QB', 'justin herbert': 'QB',
-    'trevor lawrence': 'QB', 'tua tagovailoa': 'QB', 'jalen hurts': 'QB', 'kyler murray': 'QB',
-    'derek carr': 'QB', 'matthew stafford': 'QB', 'kirk cousins': 'QB', 'ryan tannehill': 'QB',
-    'jimmy garoppolo': 'QB', 'geno smith': 'QB', 'baker mayfield': 'QB', 'jared goff': 'QB',
-    'bryce young': 'QB', 'anthony richardson': 'QB', 'c.j. stroud': 'QB', 'carson wentz': 'QB',
-    'joe flacco': 'QB', 'sam darnold': 'QB', 'tyrod taylor': 'QB', 'jacoby brissett': 'QB',
-    'mason rudolph': 'QB', 'jameis winston': 'QB', 'marcus mariota': 'QB', 'jordan love': 'QB',
-    'deshaun watson': 'QB', 'kenny pickett': 'QB', 'will levis': 'QB', 'aidan o\'connell': 'QB',
-    
-    // Running Backs
-    'nick chubb': 'RB', 'derrick henry': 'RB', 'austin ekeler': 'RB', 'christian mccaffrey': 'RB',
-    'saquon barkley': 'RB', 'josh jacobs': 'RB', 'dalvin cook': 'RB', 'alvin kamara': 'RB',
-    'jonathan taylor': 'RB', 'aaron jones': 'RB', 'joe mixon': 'RB', 'ezekiel elliott': 'RB',
-    'leonard fournette': 'RB', 'david montgomery': 'RB', 'james conner': 'RB', 'miles sanders': 'RB',
-    'raheem mostert': 'RB', 'tony pollard': 'RB', 'bijan robinson': 'RB', 'joshua kelley': 'RB',
-    'dylan sampson': 'RB', 'harold fannin': 'RB', 'kareem hunt': 'RB', 'jerome ford': 'RB',
-    'pierre strong': 'RB', 'john kelly': 'RB', 'dameon pierce': 'RB', 'devin singletary': 'RB',
-    'james cook': 'RB', 'breece hall': 'RB', 'kenneth walker': 'RB', 'rhamondre stevenson': 'RB',
-    'isiah pacheco': 'RB',
-    
-    // Wide Receivers
-    'tyreek hill': 'WR', 'davante adams': 'WR', 'cooper kupp': 'WR', 'stefon diggs': 'WR',
-    'justin jefferson': 'WR', 'aj brown': 'WR', 'mike evans': 'WR', 'keenan allen': 'WR',
-    'amari cooper': 'WR', 'terry mclaurin': 'WR', 'd.k. metcalf': 'WR', 'mike williams': 'WR',
-    'brandin cooks': 'WR', 'courtland sutton': 'WR', 'diontae johnson': 'WR', 'chris godwin': 'WR',
-    'michael pittman': 'WR', 'cee dee lamb': 'WR', 'jaylen waddle': 'WR', 'deebo samuel': 'WR',
-    'calvin ridley': 'WR', 'marquise brown': 'WR', 'jerry jeudy': 'WR', 'gabriel davis': 'WR',
-    'adam thielen': 'WR', 'andre szmyt': 'WR', 'ben yurosek': 'WR', 'elijah moore': 'WR',
-    'cedric tillman': 'WR', 'marquise goodwin': 'WR', 'jameson williams': 'WR', 'jalen nailor': 'WR',
-    'jamari thrash': 'WR', 'jordan addison': 'WR', 'jordan mason': 'WR', 'tj hockenson': 'TE',
-    'david njoku': 'TE', 'jordan akins': 'TE',
-    
-    // Tight Ends
-    'travis kelce': 'TE', 'mark andrews': 'TE', 'george kittle': 'TE', 'darren waller': 'TE',
-    'kyle pitts': 'TE', 't.j. hockenson': 'TE', 'dallas goedert': 'TE', 'evan engram': 'TE',
-    'pat freiermuth': 'TE', 'cole kmet': 'TE', 'dawson knox': 'TE', 'tyler higbee': 'TE',
-    'zach ertz': 'TE', 'noah fant': 'TE', 'irv smith': 'TE', 'logan thomas': 'TE',
-    'harrison bryant': 'TE', 'johnny mundt': 'TE',
-    
-    // Defensive Players
-    'myles garrett': 'DE', 'tj watt': 'LB', 'aaron donald': 'DT', 'nick bosa': 'DE',
-    'micah parsons': 'LB', 'derwin james': 'S', 'jalen ramsey': 'CB', 'xavien howard': 'CB',
-    'jalen mills': 'CB', 'marcus peters': 'CB', 'stephon gilmore': 'CB', 'darius slay': 'CB',
-    
-    // Kickers
-    'justin tucker': 'K', 'harrison butker': 'K', 'daniel carlson': 'K', 'jason myers': 'K',
-    'younghoe koo': 'K', 'brandon mcmanus': 'K', 'matt gay': 'K', 'evan mcpherson': 'K',
+  // Fallback to comprehensive 2025 position database
+  const fallbackPosition = get2025PositionDatabase(playerName, league);
+  playerPositionCache.set(cacheKey, fallbackPosition);
+  return fallbackPosition;
+}
+
+async function fetchPlayerPositionFromAPI(playerName: string, league: string, signal?: AbortSignal): Promise<string> {
+  const leagueConfig = LEAGUE_APIS[league as keyof typeof LEAGUE_APIS];
+  if (!leagueConfig) {
+    throw new Error(`Unsupported league: ${league}`);
+  }
+  
+  // Try primary API first
+  try {
+    const position = await tryAPI(leagueConfig.primary, playerName, league, signal);
+    if (position !== '—') return position;
+  } catch (error) {
+    console.log(`Primary API failed for ${league}:`, error);
+  }
+  
+  // Try fallback API
+  try {
+    const position = await tryAPI(leagueConfig.fallback, playerName, league, signal);
+    if (position !== '—') return position;
+  } catch (error) {
+    console.log(`Fallback API failed for ${league}:`, error);
+  }
+  
+  return '—';
+}
+
+async function tryAPI(url: string, playerName: string, league: string, signal?: AbortSignal): Promise<string> {
+  const headers: Record<string, string> = {
+    'Accept': 'application/json',
+    'User-Agent': 'Statpedia/1.0'
   };
   
-  // Check for exact match first
-  if (knownPositions[name]) {
-    playerPositionCache.set(playerName, knownPositions[name]);
-    return knownPositions[name];
+  // Build search URL based on API type
+  let searchUrl = url;
+  if (url.includes('stats.wnba.com')) {
+    // WNBA Stats API
+    searchUrl = `${url}?LeagueID=10&Season=2025&IsOnlyCurrentSeason=1`;
+  } else if (url.includes('stats.nba.com')) {
+    // NBA Stats API
+    searchUrl = `${url}?LeagueID=00&Season=2024-25&IsOnlyCurrentSeason=1`;
+  } else if (url.includes('statsapi.mlb.com')) {
+    // MLB Stats API
+    searchUrl = `${url}?season=2025`;
+  } else if (url.includes('statsapi.web.nhl.com')) {
+    // NHL Stats API
+    searchUrl = `${url}?season=20242025`;
+  } else if (url.includes('sports.core.api.espn.com')) {
+    // ESPN API - search by name
+    searchUrl = `${url}?search=${encodeURIComponent(playerName)}`;
   }
   
-  // Check for partial matches (in case of nicknames or variations)
-  for (const [knownName, position] of Object.entries(knownPositions)) {
-    if (name.includes(knownName) || knownName.includes(name)) {
-      playerPositionCache.set(playerName, position);
-      return position;
+  const response = await fetch(searchUrl, { headers });
+  
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status}`);
+  }
+  
+  const data = await response.json();
+  
+  // Parse response based on API type
+  if (url.includes('stats.wnba.com') || url.includes('stats.nba.com')) {
+    return parseNBAWNBAStats(data, playerName, league);
+  } else if (url.includes('statsapi.mlb.com')) {
+    return parseMLBStats(data, playerName);
+  } else if (url.includes('statsapi.web.nhl.com')) {
+    return parseNHLStats(data, playerName);
+  } else if (url.includes('sports.core.api.espn.com')) {
+    return parseESPNStats(data, playerName);
+  }
+  
+  return '—';
+}
+
+
+function parseNBAWNBAStats(data: any, playerName: string, league: string): string {
+  if (!data.resultSets || !data.resultSets[0]) return '—';
+  
+  const players = data.resultSets[0].rowSet || [];
+  const name = playerName.toLowerCase();
+  
+  const player = players.find((p: any) => {
+    const fullName = p[2]?.toLowerCase() || ''; // Display name is usually at index 2
+    return fullName === name || fullName.includes(name) || name.includes(fullName);
+  });
+  
+  if (player && player[14]) { // Position is usually at index 14
+    return player[14];
+  }
+  
+  return '—';
+}
+
+function parseMLBStats(data: any, playerName: string): string {
+  if (!data.people || !Array.isArray(data.people)) return '—';
+  
+  const name = playerName.toLowerCase();
+  const player = data.people.find((p: any) => {
+    const fullName = `${p.firstName || ''} ${p.lastName || ''}`.toLowerCase();
+    return fullName === name || fullName.includes(name) || name.includes(fullName);
+  });
+  
+  if (player && player.primaryPosition) {
+    return player.primaryPosition.abbreviation || player.primaryPosition.name;
+  }
+  
+  return '—';
+}
+
+function parseNHLStats(data: any, playerName: string): string {
+  if (!data.people || !Array.isArray(data.people)) return '—';
+  
+  const name = playerName.toLowerCase();
+  const player = data.people.find((p: any) => {
+    const fullName = `${p.firstName || ''} ${p.lastName || ''}`.toLowerCase();
+    return fullName === name || fullName.includes(name) || name.includes(fullName);
+  });
+  
+  if (player && player.primaryPosition) {
+    return player.primaryPosition.abbreviation || player.primaryPosition.name;
+  }
+  
+  return '—';
+}
+
+function parseESPNStats(data: any, playerName: string): string {
+  if (!data.items || !Array.isArray(data.items)) return '—';
+  
+  const name = playerName.toLowerCase();
+  const player = data.items.find((p: any) => {
+    const fullName = p.displayName?.toLowerCase() || '';
+    return fullName === name || fullName.includes(name) || name.includes(fullName);
+  });
+  
+  if (player && player.position) {
+    return player.position.abbreviation || player.position.displayName;
+  }
+  
+  return '—';
+}
+
+function getFallbackPosition(playerName: string, league: string): string {
+  const name = playerName.toLowerCase();
+  
+  // Basic pattern matching as last resort
+  if (league === 'nfl') {
+    if (name.includes('wentz') || name.includes('flacco') || name.includes('allen') || name.includes('mahomes')) {
+      return 'QB';
+    }
+    if (name.includes('chubb') || name.includes('henry') || name.includes('ekeler') || name.includes('ford')) {
+      return 'RB';
+    }
+    if (name.includes('hill') || name.includes('adams') || name.includes('jeudy') || name.includes('thielen')) {
+      return 'WR';
+    }
+    if (name.includes('kelce') || name.includes('andrews') || name.includes('njoku') || name.includes('hockenson')) {
+      return 'TE';
+    }
+  } else if (league === 'nba') {
+    if (name.includes('james') || name.includes('curry') || name.includes('durant') || name.includes('doncic')) {
+      return 'F';
+    }
+    if (name.includes('embiid') || name.includes('jokic') || name.includes('adams') || name.includes('gobert')) {
+      return 'C';
+    }
+  } else if (league === 'mlb') {
+    if (name.includes('trout') || name.includes('betts') || name.includes('judge') || name.includes('acuna')) {
+      return 'OF';
+    }
+    if (name.includes('freeman') || name.includes('goldschmidt') || name.includes('alonso')) {
+      return '1B';
     }
   }
   
-  // Try to infer position from name patterns (very basic)
-  if (name.includes('wentz') || name.includes('flacco') || name.includes('darnold') || 
-      name.includes('allen') || name.includes('mahomes') || name.includes('burrow')) {
-    playerPositionCache.set(playerName, 'QB');
-    return 'QB';
-  }
-  if (name.includes('sampson') || name.includes('fannin') || name.includes('hunt') || 
-      name.includes('chubb') || name.includes('henry') || name.includes('ekeler')) {
-    playerPositionCache.set(playerName, 'RB');
-    return 'RB';
-  }
-  if (name.includes('thielen') || name.includes('jeudy') || name.includes('moore') || 
-      name.includes('hill') || name.includes('adams') || name.includes('kupp')) {
-    playerPositionCache.set(playerName, 'WR');
-    return 'WR';
-  }
-  if (name.includes('njoku') || name.includes('bryant') || name.includes('akins') || 
-      name.includes('hockenson') || name.includes('kelce') || name.includes('andrews')) {
-    playerPositionCache.set(playerName, 'TE');
-    return 'TE';
-  }
-  
-  // Default fallback
-  playerPositionCache.set(playerName, '—');
   return '—';
 }
 
@@ -1238,7 +1365,7 @@ function safeNormalizeEvent(ev: SGEvent) {
   }
 }
 
-function normalizeEventSGO(ev: any, request: any) {
+async function normalizeEventSGO(ev: any, request: any) {
   // Guard against error responses
   if (ev && typeof ev === 'object' && ev.error === true) {
     console.log("DEBUG: Skipping error response in normalizer", ev.message);
@@ -1248,7 +1375,7 @@ function normalizeEventSGO(ev: any, request: any) {
   console.log(`DEBUG normalizeEventSGO: eventID=${ev.eventID}, has player_props=${!!ev.player_props}, has players=${!!ev.players}`);
 
   // Use the existing normalizeEvent function which handles SGO schema properly
-  const normalized = normalizeEvent(ev);
+  const normalized = await normalizeEvent(ev);
   
   console.log(`DEBUG normalizeEventSGO: eventID=${ev.eventID}, player_props=${normalized.player_props?.length || 0}, team_props=${normalized.team_props?.length || 0}`);
   
@@ -1311,7 +1438,7 @@ function normalizeProps(ev: any) {
   return props;
 }
 
-function normalizeEvent(ev: SGEvent) {
+async function normalizeEvent(ev: SGEvent) {
   try {
     console.log(`🔥 NORMALIZE EVENT CALLED: ${ev.eventID}`);
     
@@ -1337,7 +1464,7 @@ function normalizeEvent(ev: SGEvent) {
     console.log(`DEBUG: Processing ${ev.player_props.length} player props for event ${ev.eventID}`);
     console.log(`DEBUG: Players object keys:`, Object.keys(ev.players || {}).slice(0, 5));
     
-    playerProps = ev.player_props.map((prop: any, index: number) => {
+    playerProps = await Promise.all(ev.player_props.map(async (prop: any, index: number) => {
       // Find the player in the players object
       const playerName = prop.player_name;
       const player = Object.values(ev.players || {}).find((p: any) => p.name === playerName) as any;
@@ -1350,9 +1477,9 @@ function normalizeEvent(ev: SGEvent) {
       return {
         ...prop,
         player_id: player?.playerID || null,
-        position: getPlayerPosition(playerName),
+        position: '—',
       };
-    });
+    }));
     // console.log(`Using SGO player_props: ${playerProps.length} props`);
   } else if (ev.odds) {
     // Parse the current SGO API format
@@ -1480,7 +1607,7 @@ function normalizeEvent(ev: SGEvent) {
 
   // Add player_id, position, and team abbreviation to all player props
   console.log(`DEBUG: Adding player_id, position, and team to ${playerProps.length} props`);
-  playerProps = playerProps.map((prop: any) => {
+  playerProps = await Promise.all(playerProps.map(async (prop: any) => {
     const playerName = prop.player_name;
     const player = Object.values(ev.players || {}).find((p: any) => p.name === playerName) as any;
     
@@ -1499,10 +1626,10 @@ function normalizeEvent(ev: SGEvent) {
     return {
       ...prop,
       player_id: player?.playerID || null,
-      position: getPlayerPosition(playerName),
+      position: await getPlayerPosition(playerName, 'nfl'),
       teamAbbr: teamAbbr,
     };
-  });
+  }));
 
   // console.log(`Returning event ${eventId} with ${playerProps.length} player props and ${teamProps.length} team props`);
   
@@ -1528,7 +1655,7 @@ function normalizeEvent(ev: SGEvent) {
   }
 }
 
-function groupPlayerProps(event: any, league: string) {
+async function groupPlayerProps(event: any, league: string) {
   const grouped: Record<string, any[]> = {};
 
   for (const m of event.player_props) {
@@ -1544,9 +1671,9 @@ function groupPlayerProps(event: any, league: string) {
   // DEBUG: Log grouped props
   // Props grouped
 
-  let playerProps = Object.values(grouped)
-    .map(group => normalizePlayerGroup(group, event.players, league))
-    .filter(Boolean);
+  let playerProps = (await Promise.all(
+    Object.values(grouped).map(group => normalizePlayerGroup(group, event.players, league))
+  )).filter(Boolean);
   
   // Apply quarterback filtering
   playerProps = filterQuarterbacks(playerProps);
@@ -1557,7 +1684,7 @@ function groupPlayerProps(event: any, league: string) {
   event.player_props = playerProps;
 }
 
-function normalizePlayerGroup(markets: any[], players: Record<string, any>, league: string) {
+async function normalizePlayerGroup(markets: any[], players: Record<string, any>, league: string) {
   const over = markets.find(m => m.sideID?.toLowerCase() === "over" || m.sideID?.toLowerCase() === "yes");
   const under = markets.find(m => m.sideID?.toLowerCase() === "under" || m.sideID?.toLowerCase() === "no");
   const base = over || under;
@@ -1661,7 +1788,7 @@ function normalizePlayerGroup(markets: any[], players: Record<string, any>, leag
     injuryStatus: injuryStatus,
     restDays: restDays,
     // Add position based on player name
-    position: getPlayerPosition(playerName),
+    position: '—',
   };
 
   // Skip props without player names as they're not useful
@@ -2325,9 +2452,9 @@ async function handleEventProps(eventID: string, limit: number, offset: number, 
     }
 
     // Normalize events using the same logic as main endpoint
-    const normalized = result.events
-      .map((ev: any) => normalizeEventSGO(ev, { league: "NFL", date }))
-      .filter((event): event is NonNullable<typeof event> => event !== null);
+    const normalized = (await Promise.all(
+      result.events.map((ev: any) => normalizeEventSGO(ev, { league: "NFL", date }))
+    )).filter((event): event is NonNullable<typeof event> => event !== null);
 
     // Find the specific event
     const event = normalized.find((ev: any) => ev.eventID === eventID);

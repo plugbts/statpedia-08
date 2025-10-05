@@ -324,7 +324,7 @@ export function PlayerPropCard3D({
                     {prop.playerName}
                   </h3>
                   <div className="flex items-center space-x-1 text-xs text-slate-400">
-                    <span className="font-semibold text-slate-200">{prop.position || '—'} • {prop.teamAbbr}</span>
+                    <span className="font-semibold text-slate-200">{prop.teamAbbr}</span>
                     <span className="text-slate-500">vs</span>
                     <span className="font-semibold text-slate-200">{prop.opponentAbbr}</span>
                   </div>

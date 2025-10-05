@@ -514,7 +514,7 @@ export function PlayerPropsColumnView({
         </div>
         <div className="col-span-1 text-xs font-semibold text-foreground text-center flex items-center justify-center gap-1">
           <Target className="w-3 h-3" />
-          Pos • Team
+          Team
         </div>
         <div className="col-span-2 text-xs font-semibold text-foreground text-center flex items-center justify-center gap-1">
           <Target className="w-3 h-3" />
@@ -599,12 +599,12 @@ export function PlayerPropsColumnView({
                   </div>
                 </div>
 
-                {/* Position & Team */}
-                <div className="col-span-1 text-center">
-                  <div className="text-xs font-medium text-foreground">
-                    {prop.position || '—'} • {prop.teamAbbr || '—'}
-                  </div>
-                </div>
+                {/* Team */}
+       <div className="col-span-1 text-center">
+         <div className="text-xs font-medium text-foreground">
+           {prop.teamAbbr || '—'}
+         </div>
+       </div>
 
                 {/* Prop Type */}
                 <div className="col-span-2 text-center flex flex-col items-center justify-center">
