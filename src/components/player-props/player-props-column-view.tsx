@@ -296,7 +296,7 @@ export function PlayerPropsColumnView({
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent className="bg-slate-800 border-slate-600">
-              <SelectItem value="api" className="text-slate-200">API Order</SelectItem>
+              <SelectItem value="api" className="text-slate-200">Order</SelectItem>
               <SelectItem value="confidence" className="text-slate-200">Confidence</SelectItem>
               <SelectItem value="expectedValue" className="text-slate-200">Expected Value</SelectItem>
               <SelectItem value="line" className="text-slate-200">Line</SelectItem>
