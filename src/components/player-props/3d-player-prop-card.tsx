@@ -21,6 +21,7 @@ import { convertEVToText, getEVBadgeClasses } from '@/utils/ev-text-converter';
 import { SportsbookOverlay } from '@/components/ui/sportsbook-overlay';
 import { statpediaRatingService, StatpediaRating } from '@/services/statpedia-rating-service';
 import { formatAmericanOdds } from '@/utils/odds-utils';
+import { getPlayerHeadshot, getPlayerInitials } from '@/utils/headshots';
 
 interface SportsbookOdds {
   sportsbook: string;
@@ -276,23 +277,27 @@ export function PlayerPropCard3D({
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center space-x-3 flex-1">
                 <div className={`w-8 h-8 rounded-full ${teamColorsService.getTeamGradient(prop.teamAbbr, prop.sport)} flex items-center justify-center text-white font-bold text-xs shadow-lg border-2 ${teamColorsService.getTeamBorder(prop.teamAbbr, prop.sport)} overflow-hidden flex-shrink-0`}>
-                  {prop.headshotUrl ? (
-                    <img 
-                      src={prop.headshotUrl} 
-                      alt={prop.playerName}
-                      className="w-full h-full object-cover rounded-full"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = 'none';
-                        const parent = target.parentElement;
-                        if (parent) {
-                          parent.innerHTML = prop.teamAbbr.toUpperCase();
-                        }
-                      }}
-                    />
-                  ) : (
-                    prop.teamAbbr.toUpperCase()
-                  )}
+                  {(() => {
+                    const headshotUrl = getPlayerHeadshot(prop.sport || 'nfl', prop.player_id);
+                    if (headshotUrl) {
+                      return (
+                        <img 
+                          src={headshotUrl} 
+                          alt={prop.playerName}
+                          className="w-full h-full object-cover rounded-full"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            const parent = target.parentElement;
+                            if (parent) {
+                              parent.innerHTML = getPlayerInitials(prop.playerName);
+                            }
+                          }}
+                        />
+                      );
+                    }
+                    return getPlayerInitials(prop.playerName);
+                  })()}
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="font-bold text-slate-100 text-base leading-tight tracking-tight truncate">

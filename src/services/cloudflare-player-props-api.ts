@@ -9,6 +9,7 @@ interface PlayerProp {
   id?: string;
   playerId?: string;
   playerName: string;
+  player_id?: string | number; // Added player_id field for headshots
   team?: string;
   opponent?: string;
   propType: string;
@@ -289,6 +290,7 @@ class CloudflarePlayerPropsAPI {
                   id: `${prop.market_type}-${prop.player_name}`,
                   playerId: prop.player_name,
                   playerName: prop.player_name,
+                  player_id: prop.player_id, // Add player_id for headshots
                   team: playerTeam,
                   opponent: opponentTeam || 'Unknown',
                   propType: formatMarketName(prop.market_type),

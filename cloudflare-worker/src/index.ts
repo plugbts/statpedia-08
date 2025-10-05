@@ -1454,6 +1454,7 @@ function normalizePlayerGroup(markets: any[], players: Record<string, any>, leag
 
   const result = {
     player_name: formatPlayerName(playerName),
+    player_id: player?.id || player?.playerId || base.statEntityID || null,
     teamID: teamID,
     market_type: formatMarketTypeWithLeague(base.statID, league),
     line: Number(base.bookOverUnder ?? null),
