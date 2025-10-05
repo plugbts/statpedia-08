@@ -654,13 +654,75 @@ const PROP_PRIORITY: Record<string, number> = {
   "Tackles + Assists": 4,
 };
 
-// Helper function to prioritize props using PROP_PRIORITY
+// Helper function to calculate composite rating for PropFinder-style ordering
+function calculateCompositeRating(prop: any): number {
+  // Base score from hit rate (0-100)
+  const hitRateScore = Math.min(100, Math.max(0, (prop.hit_rate || 50) * 2));
+  
+  // Projection gap score (value vs market line)
+  const projectionGapScore = 50; // Default neutral, can be enhanced with actual projection data
+  
+  // Market confidence score (based on available sportsbooks)
+  const sportsbookCount = prop.available_sportsbooks?.length || 1;
+  const marketConfidenceScore = Math.min(100, sportsbookCount * 20);
+  
+  // Opponent score (defensive strength - simplified)
+  const opponentScore = 50; // Default neutral, can be enhanced with defensive data
+  
+  // Recency score (recent form)
+  const recencyScore = 50; // Default neutral, can be enhanced with recent performance
+  
+  // AI prediction score (if available)
+  const aiScore = prop.ai_prediction?.confidence ? prop.ai_prediction.confidence * 100 : 50;
+  
+  // Blend factors with weights (matching frontend Statpedia rating system)
+  const compositeScore = 
+    (0.30 * hitRateScore) +
+    (0.20 * projectionGapScore) +
+    (0.20 * aiScore) +
+    (0.15 * opponentScore) +
+    (0.10 * marketConfidenceScore) +
+    (0.05 * recencyScore);
+  
+  return Math.round(compositeScore);
+}
+
+// Helper function to prioritize props using PropFinder-style ordering
 function prioritizeProps(props: any[]): any[] {
   return props.sort((a, b) => {
+    // First: Sort by composite rating (highest first)
+    const aRating = calculateCompositeRating(a);
+    const bRating = calculateCompositeRating(b);
+    
+    if (aRating !== bRating) {
+      return bRating - aRating; // Higher rating first
+    }
+    
+    // Second: Within same rating, prioritize offensive props
+    const aIsOffensive = isOffensiveProp(a.market_type);
+    const bIsOffensive = isOffensiveProp(b.market_type);
+    
+    if (aIsOffensive && !bIsOffensive) return -1;
+    if (!aIsOffensive && bIsOffensive) return 1;
+    
+    // Third: Within same category, use original PROP_PRIORITY
     const pa = PROP_PRIORITY[a.market_type] ?? (/\btouchdown\b/i.test(a.market_type) ? 3 : 99);
     const pb = PROP_PRIORITY[b.market_type] ?? (/\btouchdown\b/i.test(b.market_type) ? 3 : 99);
+    
     return pa - pb;
   });
+}
+
+// Helper function to determine if a prop is offensive
+function isOffensiveProp(marketType: string): boolean {
+  if (!marketType) return false;
+  const lowerMarket = marketType.toLowerCase();
+  return lowerMarket.includes('passing') || 
+         lowerMarket.includes('rushing') || 
+         lowerMarket.includes('receiving') ||
+         lowerMarket.includes('points') ||
+         lowerMarket.includes('goals') ||
+         lowerMarket.includes('assists');
 }
 
 // Helper function to format player names
