@@ -130,7 +130,7 @@ export default {
 
     // Debug endpoint: /debug/player-props?league=nfl&date=YYYY-MM-DD
     if (url.pathname === "/debug/player-props") {
-      resp = await handleDebugPlayerProps(url, env);
+      resp = await handleDebugPlayerProps(url, env, request);
     }
     // Raw debug endpoint: /api/debug-raw?league=nfl
     else if (url.pathname === "/api/debug-raw") {
@@ -146,20 +146,23 @@ export default {
     }
     // DEPRECATED: SportRadar proxy endpoint: /api/sportradar/*
     else if (url.pathname.startsWith("/api/sportradar/")) {
-      resp = new Response(
-        JSON.stringify({ 
-          error: "SportRadar API has been deprecated. Please use SportsGameOdds API instead.",
-          migration: "Use /api/{league}/player-props endpoint instead"
-        }), 
-        { 
-          status: 410, // Gone
-          headers: { "content-type": "application/json" } 
-        }
+      resp = withCORS(
+        new Response(
+          JSON.stringify({ 
+            error: "SportRadar API has been deprecated. Please use SportsGameOdds API instead.",
+            migration: "Use /api/{league}/player-props endpoint instead"
+          }), 
+          { 
+            status: 410, // Gone
+            headers: { "content-type": "application/json" } 
+          }
+        ),
+        request.headers.get("Origin") || "*"
       );
     }
     // Debug endpoint: /debug/event-structure?league=nfl&date=YYYY-MM-DD
     else if (url.pathname === "/debug/event-structure") {
-      resp = await handleEventStructureDebug(url, env);
+      resp = await handleEventStructureDebug(url, env, request);
     }
     // Debug endpoint to show what prop types are available
     else if (url.pathname === "/api/debug-props") {
@@ -169,7 +172,7 @@ export default {
       try {
         const result = await fetchSportsGameOddsDay(league, date, env);
         if (isErrorResponse(result)) {
-          resp = json({ error: result.message }, 400);
+          resp = json({ error: result.message }, 400, request);
         } else {
           const allPropTypes = new Set<string>();
           result.events.forEach((ev: any) => {
@@ -193,7 +196,7 @@ export default {
           });
         }
       } catch (error) {
-        resp = json({ error: "Failed to fetch data", details: error instanceof Error ? error.message : "Unknown error" }, 500);
+        resp = json({ error: "Failed to fetch data", details: error instanceof Error ? error.message : "Unknown error" }, 500, request);
       }
     }
     // Per-event endpoint for granular caching
@@ -203,9 +206,9 @@ export default {
       const offset = parseInt(url.searchParams.get("offset") || "0");
       
       if (!eventID) {
-        resp = json({ error: "eventID parameter required" }, 400);
+        resp = json({ error: "eventID parameter required" }, 400, request);
       } else {
-        resp = await handleEventProps(eventID, limit, offset, env);
+        resp = await handleEventProps(eventID, limit, offset, env, request);
       }
     }
     // Legacy endpoint: /api/player-props (for backward compatibility)
@@ -227,7 +230,7 @@ export default {
       try {
         const result = await fetchSportsGameOddsDay(league, date, env);
         if (isErrorResponse(result)) {
-          resp = json({ error: result.message }, 400);
+          resp = json({ error: result.message }, 400, request);
         } else {
           // Normalize the raw events using the same logic as the main endpoint
           const normalizedEvents = result.events
@@ -262,10 +265,10 @@ export default {
             })) || []
           );
           
-          resp = json(legacyProps);
+          resp = json(legacyProps, 200, request);
         }
       } catch (error) {
-        resp = json({ error: "Failed to fetch data", details: error instanceof Error ? error.message : "Unknown error" }, 500);
+        resp = json({ error: "Failed to fetch data", details: error instanceof Error ? error.message : "Unknown error" }, 500, request);
       }
     }
     // Route: /api/{league}/player-props
@@ -296,7 +299,7 @@ export async function handlePropsDebug(request: Request, env: Env) {
     const result = await fetchSportsGameOddsDay(league.toUpperCase(), new Date().toISOString().split('T')[0], env);
     
     if (isErrorResponse(result)) {
-      return json({ error: result.message }, 400);
+      return json({ error: result.message }, 400, request);
     }
 
     const rawEvents = result.events;
@@ -316,7 +319,7 @@ export async function handlePropsDebug(request: Request, env: Env) {
         ),
         { headers: { "content-type": "application/json" } }
       ),
-      "*"
+      request.headers.get("Origin") || "*"
     );
   } catch (error) {
     return withCORS(
@@ -331,7 +334,7 @@ export async function handlePropsDebug(request: Request, env: Env) {
         ),
         { headers: { "content-type": "application/json" } }
       ),
-      "*"
+      request.headers.get("Origin") || "*"
     );
   }
 }
@@ -452,16 +455,16 @@ export async function handlePropsEndpoint(request: Request, env: Env, league?: s
   }
 }
 
-async function handleEventStructureDebug(url: URL, env: Env): Promise<Response> {
+async function handleEventStructureDebug(url: URL, env: Env, request: Request): Promise<Response> {
   const league = url.searchParams.get("league")?.toUpperCase();
   const date = url.searchParams.get("date");
-  if (!league || !date) return json({ error: "Missing league or date" }, 400);
+  if (!league || !date) return json({ error: "Missing league or date" }, 400, request);
 
   try {
     const result = await fetchSportsGameOddsDay(league, date, env);
     
     if (isErrorResponse(result)) {
-      return json({ error: result.message }, 400);
+      return json({ error: result.message }, 400, request);
     }
 
     const events = result.events;
@@ -494,10 +497,10 @@ async function handleEventStructureDebug(url: URL, env: Env): Promise<Response> 
   }
 }
 
-async function handleDebugPlayerProps(url: URL, env: Env): Promise<Response> {
+async function handleDebugPlayerProps(url: URL, env: Env, request: Request): Promise<Response> {
   const league = url.searchParams.get("league")?.toUpperCase();
   const date = url.searchParams.get("date");
-  if (!league || !date) return json({ error: "Missing league or date" }, 400);
+  if (!league || !date) return json({ error: "Missing league or date" }, 400, request);
 
   // Upstream: real data only
   const upstream = new URL("https://api.sportsgameodds.com/v2/events");
@@ -507,7 +510,7 @@ async function handleDebugPlayerProps(url: URL, env: Env): Promise<Response> {
   // API key is sent via X-API-Key header in fetchSGO
 
   const res = await fetchSGO(upstream.toString(), env);
-  if (!res.ok) return json({ error: "Upstream error", status: res.status }, 502);
+  if (!res.ok) return json({ error: "Upstream error", status: res.status }, 502, request);
 
   const data = await res.json() as any;
   const rawEvents = data?.data || [];
@@ -528,7 +531,7 @@ async function handleDebugPlayerProps(url: URL, env: Env): Promise<Response> {
       totalKeptPlayerProps: totalKept,
       totalDroppedPlayerProps: totalDropped,
     },
-  });
+  }, 200, request);
 }
 
 async function handleCachePurge(url: URL, request: Request, env: Env): Promise<Response> {
@@ -756,7 +759,7 @@ function buildCacheKey(url: URL, league: string, date: string, oddIDs?: string |
 
 
 // JSON helper
-function json(body: unknown, status = 200): Response {
+function json(body: unknown, status = 200, request?: Request): Response {
   return withCORS(
     new Response(JSON.stringify(body), {
       status,
@@ -764,7 +767,7 @@ function json(body: unknown, status = 200): Response {
         "content-type": "application/json"
       },
     }),
-    "*"
+    request?.headers.get("Origin") || "*"
   );
 }
 
@@ -1694,7 +1697,7 @@ function getPropCategory(market: string): string {
 }
 
 
-async function handleEventProps(eventID: string, limit: number, offset: number, env: Env) {
+async function handleEventProps(eventID: string, limit: number, offset: number, env: Env, request: Request) {
   try {
     // Check cache first
     const cacheKey = `event-props:${eventID}:${limit}:${offset}`;
@@ -1702,7 +1705,7 @@ async function handleEventProps(eventID: string, limit: number, offset: number, 
     
     if (cached) {
       try {
-        return json(JSON.parse(cached));
+        return json(JSON.parse(cached), 200, request);
       } catch (e) {
         // Cache corrupted, continue to fetch fresh data
       }
@@ -1713,7 +1716,7 @@ async function handleEventProps(eventID: string, limit: number, offset: number, 
     const result = await fetchSportsGameOddsDay("NFL", date, env);
     
     if (isErrorResponse(result)) {
-      return json({ error: result.message }, 400);
+      return json({ error: result.message }, 400, request);
     }
 
     // Normalize events using the same logic as main endpoint
@@ -1725,7 +1728,7 @@ async function handleEventProps(eventID: string, limit: number, offset: number, 
     const event = normalized.find((ev: any) => ev.eventID === eventID);
     
     if (!event) {
-      return json({ error: "Event not found" }, 404);
+      return json({ error: "Event not found" }, 404, request);
     }
 
     // Apply priority sorting and pagination
@@ -1756,9 +1759,9 @@ async function handleEventProps(eventID: string, limit: number, offset: number, 
       });
     }
 
-    return json(response);
+    return json(response, 200, request);
   } catch (error) {
-    return json({ error: "Failed to fetch event props", details: error instanceof Error ? error.message : "Unknown error" }, 500);
+    return json({ error: "Failed to fetch event props", details: error instanceof Error ? error.message : "Unknown error" }, 500, request);
   }
 }
 
@@ -2161,7 +2164,7 @@ async function handleMetrics(url: URL, request: Request, env: Env): Promise<Resp
           "content-type": "application/json"
         }
       }),
-      "*"
+      request.headers.get("Origin") || "*"
     );
   } catch (error) {
     return withCORS(
@@ -2171,7 +2174,7 @@ async function handleMetrics(url: URL, request: Request, env: Env): Promise<Resp
           "content-type": "application/json"
         }
       }),
-      "*"
+      request.headers.get("Origin") || "*"
     );
   }
 }
