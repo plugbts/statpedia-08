@@ -1,13 +1,15 @@
 /**
- * League-aware player headshot utilities
- * Returns ESPN headshot URLs for supported leagues
+ * Hybrid league-aware player headshot utilities
+ * Returns ESPN CDN URLs for major leagues, custom CDN for others
  */
 
 export function getPlayerHeadshot(league: string, playerId?: string | number): string | null {
   if (!playerId) return null;
   const id = String(playerId);
+  const leagueLower = league.toLowerCase();
   
-  switch (league.toLowerCase()) {
+  // Major leagues - use ESPN CDN
+  switch (leagueLower) {
     case "nfl": 
       return `https://a.espncdn.com/i/headshots/nfl/players/full/${id}.png`;
     case "nba": 
@@ -16,6 +18,22 @@ export function getPlayerHeadshot(league: string, playerId?: string | number): s
       return `https://a.espncdn.com/i/headshots/mlb/players/full/${id}.png`;
     case "nhl": 
       return `https://a.espncdn.com/i/headshots/nhl/players/full/${id}.png`;
+    
+    // Other leagues - use custom CDN bucket
+    case "wnba":
+    case "ufc":
+    case "tennis":
+    case "mma":
+    case "boxing":
+    case "soccer":
+    case "premier league":
+    case "la liga":
+    case "serie a":
+    case "bundesliga":
+    case "ligue 1":
+    case "champions league":
+      return `https://cdn.statpedia.com/headshots/${leagueLower}/${id}.png`;
+    
     default: 
       return null;
   }

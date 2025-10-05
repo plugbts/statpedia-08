@@ -28,6 +28,7 @@ import { SportsbookIconsList } from '@/components/ui/sportsbook-icons';
 import { SportsbookOverlay } from '@/components/ui/sportsbook-overlay';
 import { statpediaRatingService, StatpediaRating } from '@/services/statpedia-rating-service';
 import { formatAmericanOdds } from '@/utils/odds-utils';
+import { getPlayerHeadshot, getPlayerInitials } from '@/utils/headshots';
 
 // Prop priority mapping (matches Cloudflare Worker logic)
 const getPropPriority = (propType: string): number => {
@@ -461,24 +462,27 @@ export function PlayerPropsColumnView({
                 {/* Player Info */}
                 <div className="col-span-3 flex items-center justify-center space-x-3">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 flex items-center justify-center text-foreground font-bold text-sm overflow-hidden flex-shrink-0">
-                    {prop.headshotUrl ? (
-                      <img 
-                        src={prop.headshotUrl} 
-                        alt={prop.playerName}
-                        className="w-full h-full object-cover rounded-full"
-                        onError={(e) => {
-                          // Fallback to initials if image fails to load
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = 'none';
-                          const parent = target.parentElement;
-                          if (parent && prop.playerName) {
-                            parent.innerHTML = prop.playerName.split(' ').map(n => n[0]).join('');
-                          }
-                        }}
-                      />
-                    ) : (
-                      prop.playerName ? prop.playerName.split(' ').map(n => n[0]).join('') : '?'
-                    )}
+                    {(() => {
+                      const headshotUrl = getPlayerHeadshot(prop.sport || 'nfl', prop.player_id);
+                      if (headshotUrl) {
+                        return (
+                          <img 
+                            src={headshotUrl} 
+                            alt={prop.playerName}
+                            className="w-full h-full object-cover rounded-full"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const parent = target.parentElement;
+                              if (parent) {
+                                parent.innerHTML = getPlayerInitials(prop.playerName);
+                              }
+                            }}
+                          />
+                        );
+                      }
+                      return getPlayerInitials(prop.playerName);
+                    })()}
                   </div>
                   <div className="text-center min-w-0 flex-1">
                     <div className="font-semibold text-foreground text-sm">
