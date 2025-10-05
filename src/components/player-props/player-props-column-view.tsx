@@ -577,7 +577,7 @@ export function PlayerPropsColumnView({
                     // Generate a realistic hit streak based on player name and prop type
                     const streak = Math.floor(Math.random() * 7) + 1; // 1-7 games
                     const isHot = streak >= 4;
-                    const isCold = streak <= 2;
+                    const isWarming = streak <= 2;
                     
                     return (
                       <div className="flex flex-col items-center space-y-1">
@@ -585,7 +585,7 @@ export function PlayerPropsColumnView({
                           className={cn(
                             "text-xs font-bold border px-2 py-1",
                             isHot ? "bg-green-500/20 text-green-400 border-green-500/40" :
-                            isCold ? "bg-red-500/20 text-red-400 border-red-500/40" :
+                            isWarming ? "bg-blue-500/20 text-blue-400 border-blue-500/40" :
                             "bg-yellow-500/20 text-yellow-400 border-yellow-500/40"
                           )}
                         >
@@ -593,7 +593,7 @@ export function PlayerPropsColumnView({
                           <span className="ml-1">{streak}</span>
                         </Badge>
                         <div className="text-xs text-muted-foreground font-semibold">
-                          {isHot ? 'HOT' : isCold ? 'COLD' : 'WARM'}
+                          {isHot ? 'HOT' : isWarming ? 'WARMING' : 'WARM'}
                         </div>
                       </div>
                     );

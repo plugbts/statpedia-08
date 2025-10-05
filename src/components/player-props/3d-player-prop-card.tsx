@@ -405,21 +405,21 @@ export function PlayerPropCard3D({
                   // Generate a realistic hit streak based on player name and prop type
                   const streak = Math.floor(Math.random() * 7) + 1; // 1-7 games
                   const isHot = streak >= 4;
-                  const isCold = streak <= 2;
+                  const isWarming = streak <= 2;
                   
                   return (
                     <div className="flex items-center justify-center space-x-2">
                       <div className={cn(
                         "flex items-center space-x-1 px-2 py-1 rounded text-xs font-semibold",
                         isHot ? "bg-green-600/20 text-green-300" :
-                        isCold ? "bg-red-600/20 text-red-300" :
+                        isWarming ? "bg-blue-600/20 text-blue-300" :
                         "bg-yellow-600/20 text-yellow-300"
                       )}>
                         <Activity className="h-3 w-3" />
                         <span className="uppercase text-xs">{streak} Game Streak</span>
                       </div>
                       <div className="text-xs text-slate-400 font-semibold">
-                        {isHot ? 'HOT' : isCold ? 'COLD' : 'WARM'}
+                        {isHot ? 'HOT' : isWarming ? 'WARMING' : 'WARM'}
                       </div>
                     </div>
                   );
