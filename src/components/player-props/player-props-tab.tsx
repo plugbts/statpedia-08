@@ -787,10 +787,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                 team: prop.team || '',
                 opponent: prop.opponent || '',
                 gameDate: prop.gameDate || new Date().toISOString(),
-                hitRate: 0.5, // Default 50% hit rate
-                recentForm: 0.5, // Default 50% recent form
-                injuryStatus: 'healthy',
-                restDays: 3
+                hitRate: prop.seasonStats?.hitRate || prop.hitRate || 0.5,
+                recentForm: prop.recentForm || 0.5,
+                injuryStatus: prop.injuryStatus || 'healthy',
+                restDays: prop.restDays || 3
               });
               
               const underEV = await evCalculatorService.calculateAIRating({
@@ -803,10 +803,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                 team: prop.team || '',
                 opponent: prop.opponent || '',
                 gameDate: prop.gameDate || new Date().toISOString(),
-                hitRate: 0.5,
-                recentForm: 0.5,
-                injuryStatus: 'healthy',
-                restDays: 3
+                hitRate: prop.seasonStats?.hitRate || prop.hitRate || 0.5,
+                recentForm: prop.recentForm || 0.5,
+                injuryStatus: prop.injuryStatus || 'healthy',
+                restDays: prop.restDays || 3
               });
               
               // Use the better EV (higher percentage)
