@@ -1300,14 +1300,17 @@ function normalizePlayerGroup(markets: any[], players: Record<string, any>, leag
   const injuryStatus = generateInjuryStatus(playerName);
   const restDays = generateRestDays();
 
-  // Filter out defensive props for NFL
+  // Filter out defensive and kicking props for NFL
   if (league.toLowerCase() === 'nfl') {
     const marketType = base.statID?.toLowerCase() || '';
     if (marketType.includes('defense') || 
         marketType.includes('sack') || 
         marketType.includes('tackle') || 
-        marketType.includes('interception')) {
-      return null; // Skip defensive props
+        marketType.includes('interception') ||
+        marketType.includes('field goal') ||
+        marketType.includes('kicking') ||
+        marketType.includes('extra point')) {
+      return null; // Skip defensive and kicking props
     }
   }
 
