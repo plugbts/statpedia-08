@@ -1282,8 +1282,8 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
           </div>
         </DialogHeader>
 
-        {/* Prop Selector */}
-        {availableProps.length > 1 && (
+        {/* Prop Selector - Always show if we have props data */}
+        {(availableProps.length > 0 || isLoadingProps) && (
           <div className="mb-6 p-4 bg-gradient-to-r from-gray-800/50 to-black/50 border border-purple-500/20 rounded-lg">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -1291,12 +1291,12 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                 <span className="text-white font-medium">Select Prop to Analyze:</span>
               </div>
               <Select 
-                value={selectedPropId || ''} 
+                value={selectedPropId || prediction.id || ''} 
                 onValueChange={handlePropChange}
-                disabled={isLoadingProps}
+                disabled={isLoadingProps || availableProps.length === 0}
               >
                 <SelectTrigger className="w-80 bg-gradient-to-r from-gray-700/50 to-gray-800/50 border border-purple-500/30 text-white hover:border-purple-400/50 transition-all duration-300">
-                  <SelectValue placeholder={isLoadingProps ? "Loading props..." : "Choose a prop"} />
+                  <SelectValue placeholder={isLoadingProps ? "Loading props..." : availableProps.length === 0 ? "No props available" : "Choose a prop"} />
                 </SelectTrigger>
                 <SelectContent className="bg-gradient-to-br from-gray-800 to-black border border-purple-500/30 max-h-60">
                   {availableProps.map((prop) => (
@@ -1320,8 +1320,8 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
         )}
 
         {/* Energetic Tabs with Soul */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
-          <TabsList className="grid w-full grid-cols-7 bg-gradient-to-r from-gray-800/80 via-black/80 to-gray-800/80 border-2 border-purple-500/30 rounded-xl p-2 shadow-lg shadow-purple-500/20">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 mt-2">
+          <TabsList className="grid w-full grid-cols-7 bg-gradient-to-r from-gray-800/80 via-black/80 to-gray-800/80 border-2 border-purple-500/30 rounded-xl p-3 shadow-lg shadow-purple-500/20 mb-4">
             <TabsTrigger 
               value="overview" 
               className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/50 transition-all duration-300 hover:scale-105"
