@@ -20,6 +20,57 @@ import { advancedPredictionService, ComprehensivePrediction } from '@/services/a
 import { evCalculatorService } from '@/services/ev-calculator';
 import { statpediaRatingService } from '@/services/statpedia-rating-service';
 
+// Prop priority mapping (matches Cloudflare Worker logic)
+const getPropPriority = (propType: string): number => {
+  const lowerPropType = propType.toLowerCase();
+  
+  // Core props (highest priority)
+  const coreProps = [
+    'passing yards', 'passing touchdowns', 'passing attempts', 'passing completions', 'passing interceptions',
+    'rushing yards', 'rushing touchdowns', 'rushing attempts',
+    'receiving yards', 'receiving touchdowns', 'receiving receptions',
+    'defense sacks', 'defense interceptions', 'defense combined tackles',
+    'field goals made', 'kicking total points', 'extra points kicks made'
+  ];
+  
+  // Check if it's a core prop
+  const isCore = coreProps.some(core => lowerPropType.includes(core.toLowerCase()));
+  if (isCore) return 1;
+  
+  // Category-based priority
+  const category = getPropCategory(lowerPropType);
+  const categoryOrder = ['offense', 'kicking', 'defense', 'touchdowns', 'other'];
+  const categoryPriority = categoryOrder.indexOf(category) + 2; // +2 because core props are 1
+  
+  return categoryPriority;
+};
+
+const getPropCategory = (market: string): string => {
+  const lowerMarket = market.toLowerCase();
+  
+  // Offense props (passing, rushing, receiving)
+  if (lowerMarket.includes('passing') || lowerMarket.includes('rushing') || lowerMarket.includes('receiving')) {
+    return 'offense';
+  }
+  
+  // Kicking props
+  if (lowerMarket.includes('field goal') || lowerMarket.includes('kicking') || lowerMarket.includes('extra point')) {
+    return 'kicking';
+  }
+  
+  // Defense props
+  if (lowerMarket.includes('defense') || lowerMarket.includes('sack') || lowerMarket.includes('tackle') || lowerMarket.includes('interception')) {
+    return 'defense';
+  }
+  
+  // Touchdown props (should be last)
+  if (lowerMarket.includes('touchdown') || lowerMarket.includes('first touchdown') || lowerMarket.includes('last touchdown')) {
+    return 'touchdowns';
+  }
+  
+  return 'other';
+};
+
 // NFL Team mapping for logos
 const logoByTeam: Record<string, string> = {
   'Arizona Cardinals': 'https://a.espncdn.com/i/teamlogos/nfl/500/ari.png',
@@ -278,7 +329,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const [showAdvancedAnalysis, setShowAdvancedAnalysis] = useState(false);
   const [advancedPrediction, setAdvancedPrediction] = useState<ComprehensivePrediction | null>(null);
   const [isGeneratingAdvancedPrediction, setIsGeneratingAdvancedPrediction] = useState(false);
-  const [sortBy, setSortBy] = useState<'statpediaRating' | 'ev' | 'line' | 'player' | 'api'>('api');
+  const [sortBy, setSortBy] = useState<'statpediaRating' | 'ev' | 'line' | 'player' | 'api' | 'order'>('api');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [minConfidence, setMinConfidence] = useState(0);
   const [minEV, setMinEV] = useState(0);
@@ -788,6 +839,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         case 'api':
           // Preserve API order (offense → kicking → defense → touchdowns)
           return 0;
+        case 'order':
+          // Sort by prop priority order
+          const aPriority = getPropPriority(a.propType);
+          const bPriority = getPropPriority(b.propType);
+          return aPriority - bPriority;
         default:
           return 0;
       }

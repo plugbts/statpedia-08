@@ -1335,13 +1335,13 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                     ) : (
                       <ArrowDown className="w-4 h-4 mr-2" />
                     )}
-                    {currentData.aiPrediction?.recommended?.toUpperCase() || 'OVER'}
+                    {currentData.aiPrediction?.recommended === 'over' ? 'OVER' : 'UNDER'} AI PREDICTION
                   </Badge>
                 </div>
                 <div className="text-center">
                   <p className="text-slate-400 text-sm">Confidence</p>
                   <p className="text-white font-bold">
-                    {Math.round((currentData.aiPrediction?.confidence || 0) * 100)}%
+                    {Math.round((currentData.aiPrediction?.confidence || currentData.confidence || 0) * 100)}%
                   </p>
                 </div>
                 

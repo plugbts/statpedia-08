@@ -10,7 +10,7 @@ export interface StatpediaRatingFactors {
 
 export interface StatpediaRating {
   overall: number;                // 0-100
-  grade: 'A+' | 'A' | 'B+' | 'B' | 'C+' | 'C' | 'D' | 'F';
+  grade: 'A+' | 'A' | 'A-' | 'B+' | 'B' | 'B-' | 'C+' | 'C' | 'C-' | 'D+' | 'D' | 'D-' | 'F';
   color: 'green' | 'yellow' | 'red';
   confidence: 'High' | 'Medium' | 'Low';
   factors: StatpediaRatingFactors;
@@ -257,15 +257,21 @@ export class StatpediaRatingService {
 
   /**
    * Get letter grade based on overall score
+   * Updated to use realistic grading scale (A+ = 97-100, A = 93-96, etc.)
    */
   private getGrade(score: number): StatpediaRating['grade'] {
-    if (score >= 85) return 'A+';
-    if (score >= 75) return 'A';
-    if (score >= 65) return 'B+';
-    if (score >= 55) return 'B';
-    if (score >= 45) return 'C+';
-    if (score >= 35) return 'C';
-    if (score >= 25) return 'D';
+    if (score >= 97) return 'A+';
+    if (score >= 93) return 'A';
+    if (score >= 90) return 'A-';
+    if (score >= 87) return 'B+';
+    if (score >= 83) return 'B';
+    if (score >= 80) return 'B-';
+    if (score >= 77) return 'C+';
+    if (score >= 73) return 'C';
+    if (score >= 70) return 'C-';
+    if (score >= 67) return 'D+';
+    if (score >= 63) return 'D';
+    if (score >= 60) return 'D-';
     return 'F';
   }
 

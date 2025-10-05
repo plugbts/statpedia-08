@@ -275,7 +275,7 @@ export default {
       const league = match[1].toLowerCase(); // e.g. nfl, nba
         resp = await handlePlayerProps(request, env, ctx, league);
       } else {
-        resp = withCORS(new Response("Not found", { status: 404 }), "*");
+        resp = withCORS(new Response("Not found", { status: 404 }), request.headers.get("Origin") || "*");
       }
     }
 
@@ -435,7 +435,7 @@ export async function handlePropsEndpoint(request: Request, env: Env, league?: s
       new Response(JSON.stringify(responseData), {
         headers: { "content-type": "application/json" },
       }),
-      "*"
+      request.headers.get("Origin") || "*"
     );
   } catch (error) {
     console.error("Error in handlePropsEndpoint:", error);
@@ -447,7 +447,7 @@ export async function handlePropsEndpoint(request: Request, env: Env, league?: s
         status: 500,
         headers: { "content-type": "application/json" },
       }),
-      "*"
+      request.headers.get("Origin") || "*"
     );
   }
 }
@@ -543,7 +543,7 @@ async function handleCachePurge(url: URL, request: Request, env: Env): Promise<R
   const league = url.searchParams.get("league")?.toUpperCase();
   const date = url.searchParams.get("date");
   if (!league || !date) {
-    return withCORS(new Response("Missing league or date", { status: 400 }), "*");
+    return withCORS(new Response("Missing league or date", { status: 400 }), request.headers.get("Origin") || "*");
   }
 
   const cacheKey = buildCacheKey(url, league, date);
@@ -2147,7 +2147,7 @@ async function handleMetrics(url: URL, request: Request, env: Env): Promise<Resp
   if (env.PURGE_TOKEN) {
     const authHeader = request.headers.get("authorization");
     if (!authHeader || authHeader !== `Bearer ${env.PURGE_TOKEN}`) {
-      return withCORS(new Response("Unauthorized", { status: 401 }), "*");
+      return withCORS(new Response("Unauthorized", { status: 401 }), request.headers.get("Origin") || "*");
     }
   }
 
