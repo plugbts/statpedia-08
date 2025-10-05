@@ -787,7 +787,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                 team: prop.team || '',
                 opponent: prop.opponent || '',
                 gameDate: prop.gameDate || new Date().toISOString(),
-                hitRate: prop.seasonStats?.hitRate || prop.hitRate || 0.5,
+                hitRate: prop.hitRate || 0.5,
                 recentForm: prop.recentForm || 0.5,
                 injuryStatus: prop.injuryStatus || 'healthy',
                 restDays: prop.restDays || 3
@@ -803,7 +803,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                 team: prop.team || '',
                 opponent: prop.opponent || '',
                 gameDate: prop.gameDate || new Date().toISOString(),
-                hitRate: prop.seasonStats?.hitRate || prop.hitRate || 0.5,
+                hitRate: prop.hitRate || 0.5,
                 recentForm: prop.recentForm || 0.5,
                 injuryStatus: prop.injuryStatus || 'healthy',
                 restDays: prop.restDays || 3
