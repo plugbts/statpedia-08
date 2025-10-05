@@ -160,6 +160,41 @@ export default {
     else if (url.pathname === "/debug/event-structure") {
       resp = await handleEventStructureDebug(url, env);
     }
+    // Debug endpoint to show what prop types are available
+    else if (url.pathname === "/api/debug-props") {
+      const league = url.searchParams.get("league")?.toUpperCase() || "NFL";
+      const date = url.searchParams.get("date") || "2025-10-05";
+      
+      try {
+        const result = await fetchSportsGameOddsDay(league, date, env);
+        if (isErrorResponse(result)) {
+          resp = json({ error: result.message }, 400);
+        } else {
+          const allPropTypes = new Set<string>();
+          result.events.forEach((ev: any) => {
+            ev.player_props?.forEach((prop: any) => {
+              allPropTypes.add(prop.market_type);
+            });
+          });
+          
+          resp = json({
+            message: "Available prop types",
+            date,
+            league,
+            totalEvents: result.events.length,
+            allPropTypes: Array.from(allPropTypes).sort(),
+            sampleEvent: result.events[0] ? {
+              home_team: result.events[0].home_team,
+              away_team: result.events[0].away_team,
+              propCount: result.events[0].player_props?.length || 0,
+              sampleProps: result.events[0].player_props?.slice(0, 5).map((p: any) => p.market_type) || []
+            } : null
+          });
+        }
+      } catch (error) {
+        resp = json({ error: "Failed to fetch data", details: error instanceof Error ? error.message : "Unknown error" }, 500);
+      }
+    }
     // Route: /api/{league}/player-props
     else {
     const match = url.pathname.match(/^\/api\/([a-z]+)\/player-props$/);
