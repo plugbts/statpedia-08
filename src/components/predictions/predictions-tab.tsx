@@ -278,7 +278,9 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
         try {
           logAPI('PredictionsTab', `Fetching ${endpoint} for ${selectedSport}`);
           
-          const response = await fetch(`https://statpedia-player-props.statpedia.workers.dev/api/player-props?sport=${selectedSport}&endpoint=${endpoint}&forceRefresh=true`);
+          const response = await fetch(`https://statpedia-player-props.statpedia.workers.dev/api/player-props?sport=${selectedSport}&endpoint=${endpoint}&forceRefresh=true`, {
+            method: 'GET',
+          });
           
           if (!response.ok) {
             logWarning('PredictionsTab', `Failed to fetch ${endpoint}: ${response.status}`);
