@@ -856,7 +856,7 @@ function normalizeEvent(ev: SGEvent) {
   // console.log(`Normalizing event ${eventId} with SGO schema`);
   
   // Debug the raw event structure
-  debugEvent(ev);
+  // debugEvent(ev);
 
   // Use SGO's pre-normalized props if available, otherwise fall back to legacy normalization
   let playerProps: any[] = [];
