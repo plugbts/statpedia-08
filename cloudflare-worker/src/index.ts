@@ -121,9 +121,19 @@ type SGEvent = {
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    // Debug logging
+    const origin = request.headers.get("Origin");
+    console.log("Worker Request:", { 
+      method: request.method, 
+      url: request.url, 
+      origin,
+      pathname: new URL(request.url).pathname 
+    });
+
     // Always handle OPTIONS requests first for CORS preflight
     if (request.method === "OPTIONS") {
-      return handleOptions(request, request.headers.get("Origin") || "*");
+      console.log("Handling OPTIONS request");
+      return handleOptions(request, origin || "*");
     }
 
     const url = new URL(request.url);
@@ -217,6 +227,7 @@ export default {
     }
     // Legacy endpoint: /api/player-props (for backward compatibility)
     else if (url.pathname === "/api/player-props") {
+      console.log("Handling /api/player-props endpoint");
       const sport = url.searchParams.get("sport")?.toLowerCase() || "nfl";
       const forceRefresh = url.searchParams.get("force_refresh") === "true";
       const date = url.searchParams.get("date") || new Date().toISOString().split('T')[0];
@@ -279,9 +290,11 @@ export default {
     else {
       const match = url.pathname.match(/^\/api\/([a-z]+)\/player-props$/);
       if (match) {
+        console.log("Handling /api/{league}/player-props endpoint", match[1]);
         const league = match[1].toLowerCase(); // e.g. nfl, nba
         resp = await handlePlayerProps(request, env, ctx, league);
       } else {
+        console.log("No route match found, returning 404");
         resp = withCORS(new Response("Not found", { status: 404 }), request.headers.get("Origin") || "*");
       }
     }

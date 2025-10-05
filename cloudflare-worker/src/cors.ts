@@ -19,23 +19,32 @@ export function withCORS(resp: Response, origin: string = "*"): Response {
   const requestOrigin = origin && origin !== "*" ? origin : null;
   let allowedOrigin = "*";
   
+  // Debug logging
+  console.log("CORS Debug:", { requestOrigin, origin, allowedOrigins });
+  
   if (requestOrigin) {
     // Check exact match first
     if (allowedOrigins.includes(requestOrigin)) {
       allowedOrigin = requestOrigin;
+      console.log("CORS: Exact match found", requestOrigin);
     }
     // Check if it's a Lovable subdomain (handles both lovableproject.com and lovable.app)
     else if (requestOrigin.endsWith('.lovableproject.com') || requestOrigin.endsWith('.lovable.app')) {
       allowedOrigin = requestOrigin;
+      console.log("CORS: Lovable subdomain match", requestOrigin);
     }
     // Check if it's a localhost variant
     else if (requestOrigin.startsWith('http://localhost:') || requestOrigin.startsWith('https://localhost:') ||
              requestOrigin.startsWith('http://127.0.0.1:') || requestOrigin.startsWith('https://127.0.0.1:')) {
       allowedOrigin = requestOrigin;
+      console.log("CORS: Localhost match", requestOrigin);
     }
     // Check if it's a Vercel preview deployment
     else if (requestOrigin.includes('.vercel.app')) {
       allowedOrigin = requestOrigin;
+      console.log("CORS: Vercel match", requestOrigin);
+    } else {
+      console.log("CORS: No match found, using wildcard", requestOrigin);
     }
   }
   
@@ -50,6 +59,8 @@ export function withCORS(resp: Response, origin: string = "*"): Response {
   if (allowedOrigin !== "*") {
     headers.set("Access-Control-Allow-Credentials", "true");
   }
+  
+  console.log("CORS: Final headers set", { allowedOrigin, hasOrigin: headers.has("Access-Control-Allow-Origin") });
   
   return new Response(resp.body, { ...resp, headers });
 }
