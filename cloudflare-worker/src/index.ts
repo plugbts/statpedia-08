@@ -384,9 +384,15 @@ export async function handlePropsEndpoint(request: Request, env: Env, league?: s
     const date = url.searchParams.get("date") || new Date().toISOString().split('T')[0];
     const view = url.searchParams.get("view") || "full";
     const debug = url.searchParams.has("debug");
+    
+    // Pagination parameters
+    const page = parseInt(url.searchParams.get("page") || "1");
+    const pageSize = parseInt(url.searchParams.get("page_size") || "50");
+    const offset = (page - 1) * pageSize;
 
     const responseData: any = { events: [] };
     const debugInfo: any = {};
+    let allProps: any[] = []; // Collect all props for pagination
 
     for (const league of leagues) {
       // 1. Fetch raw events from SportsGameOdds using date parameter
@@ -426,10 +432,30 @@ export async function handlePropsEndpoint(request: Request, env: Env, league?: s
       // 4. Prioritize + cap props per league (80 props per event)
       normalized = capPropsPerLeague(normalized, league, 80);
 
-      // 5. Shape response
+      // 5. Collect all props for pagination
+      const validEvents = normalized.filter((event): event is NonNullable<typeof event> => event !== null);
+      
+      for (const event of validEvents) {
+        if (event.player_props) {
+          for (const prop of event.player_props) {
+            allProps.push({
+              ...prop,
+              eventID: event.eventID,
+              leagueID: event.leagueID,
+              start_time: event.start_time,
+              home_team: event.home_team,
+              away_team: event.away_team,
+              home_logo: event.home_logo,
+              away_logo: event.away_logo,
+            });
+          }
+        }
+      }
+
+      // 6. Shape response (keep original structure for backward compatibility)
       if (view === "compact") {
         responseData.events.push(
-          ...normalized.filter((event): event is NonNullable<typeof event> => event !== null).map(event => ({
+          ...validEvents.map(event => ({
             eventID: event.eventID,
             leagueID: event.leagueID,
             start_time: event.start_time,
@@ -452,7 +478,7 @@ export async function handlePropsEndpoint(request: Request, env: Env, league?: s
           }))
         );
       } else {
-        responseData.events.push(...normalized.filter((event): event is NonNullable<typeof event> => event !== null));
+        responseData.events.push(...validEvents);
       }
 
       if (debug) {
@@ -468,7 +494,27 @@ export async function handlePropsEndpoint(request: Request, env: Env, league?: s
     if (debug) responseData.debug = debugInfo;
 
     // DEBUG: Log final response structure
-    // Response prepared
+    // Apply pagination to all props
+    const paginatedProps = allProps.slice(offset, offset + pageSize);
+    const totalProps = allProps.length;
+    const hasMore = offset + pageSize < totalProps;
+
+    // Add pagination info to response
+    responseData.pagination = {
+      page,
+      pageSize,
+      total: totalProps,
+      hasMore,
+      offset
+    };
+
+    // If pagination is requested, return paginated props instead of events
+    if (page > 1 || pageSize < totalProps) {
+      responseData.props = paginatedProps;
+    }
+
+    // DEBUG: Log final response structure
+    console.log(`Pagination: page=${page}, pageSize=${pageSize}, total=${totalProps}, hasMore=${hasMore}`);
 
     return withCORS(
       new Response(JSON.stringify(responseData), {
