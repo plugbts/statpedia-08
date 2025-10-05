@@ -1015,10 +1015,6 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
     } as EnhancedPrediction;
   }, [prediction]);
 
-  if (!prediction || !enhancedData) {
-    return null;
-  }
-
   // Recalculate enhanced data when prop changes
   const finalEnhancedData = useMemo(() => {
     if (updatedEnhancedData) {
@@ -1061,6 +1057,10 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
 
   // Use updated data if available, otherwise use original enhanced data
   const currentData = finalEnhancedData;
+
+  if (!prediction || !enhancedData) {
+    return null;
+  }
 
   const handleVote = (vote: 'over' | 'under') => {
     if (hasVoted) return;

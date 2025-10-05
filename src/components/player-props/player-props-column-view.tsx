@@ -422,8 +422,8 @@ export function PlayerPropsColumnView({
       </div>
 
       {/* Column Headers */}
-      <div className="grid grid-cols-14 gap-4 px-4 py-3 bg-gradient-card border border-border/50 rounded-lg">
-        <div className="col-span-2 text-sm font-semibold text-foreground flex items-center gap-2">
+      <div className="grid grid-cols-12 gap-4 px-4 py-3 bg-gradient-card border border-border/50 rounded-lg">
+        <div className="col-span-3 text-sm font-semibold text-foreground flex items-center gap-2">
           <Users className="w-4 h-4" />
           Player
         </div>
@@ -446,10 +446,6 @@ export function PlayerPropsColumnView({
         <div className="col-span-1 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
           <TrendingUp className="w-4 h-4 text-green-500" />
           Odds
-        </div>
-        <div className="col-span-2 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
-          <Activity className="w-4 h-4" />
-          Sportsbooks
         </div>
         <div className="col-span-1 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
           <Zap className="w-4 h-4" />
@@ -474,9 +470,9 @@ export function PlayerPropsColumnView({
             onClick={() => handlePropClick(prop)}
           >
             <CardContent className="p-4">
-              <div className="grid grid-cols-14 gap-4 items-center">
+              <div className="grid grid-cols-12 gap-4 items-center">
                 {/* Player Info */}
-                <div className="col-span-2 flex items-center justify-center space-x-3">
+                <div className="col-span-3 flex items-center justify-center space-x-3">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 flex items-center justify-center text-foreground font-bold text-sm overflow-hidden flex-shrink-0">
                     {prop.headshotUrl ? (
                       <img 
@@ -569,34 +565,6 @@ export function PlayerPropsColumnView({
                   </div>
                 </div>
 
-                {/* Available Sportsbooks */}
-                <div className="col-span-2 text-center">
-                  {prop.availableSportsbooks && prop.availableSportsbooks.length > 0 ? (
-                    <div className="flex flex-col items-center space-y-1">
-                      <SportsbookIconsList 
-                        sportsbooks={prop.availableSportsbooks} 
-                        maxVisible={3}
-                        className="justify-center"
-                        onClick={() => {
-                          setSelectedPropSportsbooks({
-                            sportsbooks: prop.availableSportsbooks,
-                            propInfo: {
-                              playerName: prop.playerName,
-                              propType: prop.propType,
-                              line: prop.line
-                            }
-                          });
-                          setShowSportsbookOverlay(true);
-                        }}
-                      />
-                      <div className="text-xs text-muted-foreground">
-                        {prop.availableSportsbooks.length} book{prop.availableSportsbooks.length !== 1 ? 's' : ''}
-                      </div>
-                    </div>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">No data</span>
-                  )}
-                </div>
 
                 {/* Expected Value */}
                 <div className="col-span-1 text-center">
