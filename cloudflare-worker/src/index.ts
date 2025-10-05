@@ -838,6 +838,79 @@ function formatPlayerName(name: string): string {
     .join(" ");
 }
 
+// Odds utilities for converting between different odds formats
+function decimalToAmerican(decimal: number): number {
+  if (!decimal || decimal <= 1) return 0;
+  return decimal >= 2
+    ? Math.round((decimal - 1) * 100)        // e.g., 2.50 -> +150
+    : Math.round(-100 / (decimal - 1));      // e.g., 1.74 -> -135
+}
+
+function probToAmerican(prob: number): number {
+  if (!prob || prob <= 0 || prob >= 1) return 0;
+  const dec = 1 / prob;
+  return decimalToAmerican(dec);
+}
+
+function toAmericanOdds(input: number | string): number {
+  if (input == null) return 0;
+  const val = typeof input === "string" ? parseFloat(input) : input;
+
+  // If value looks like an American price already (e.g., -115 or +120), return it
+  if (Number.isFinite(val) && Math.abs(val) >= 100) return Math.round(val);
+
+  // If value looks like decimal (1.01–10), convert
+  if (val > 1 && val < 10) return decimalToAmerican(val);
+
+  // If value looks like probability (0.01–0.99), convert
+  if (val > 0 && val < 1) return probToAmerican(val);
+
+  // Fallback
+  return Math.round(val);
+}
+
+function pickBestAmerican(prices: number[]): number {
+  const american = prices.map(toAmericanOdds).filter(n => Number.isFinite(n) && n !== 0);
+  if (american.length === 0) return 0;
+
+  const positives = american.filter(n => n > 0);
+  if (positives.length > 0) {
+    return Math.max(...positives);  // e.g., +120 beats +105
+  }
+  // No positive: pick the least negative (closest to 0), e.g., -105 beats -130
+  return positives.length === 0 ? Math.max(...american) : Math.max(...positives);
+}
+
+// Map best prices from sportsbook data
+function mapBestPrices(entry: any) {
+  const collectedOver: number[] = [];
+  const collectedUnder: number[] = [];
+
+  // Collect from a unified set of possible fields
+  const directOver = entry.over ?? entry.prices?.over;
+  const directUnder = entry.under ?? entry.prices?.under;
+  if (directOver != null) collectedOver.push(directOver);
+  if (directUnder != null) collectedUnder.push(directUnder);
+
+  if (Array.isArray(entry.books)) {
+    for (const b of entry.books) {
+      if (b?.overPrice != null) collectedOver.push(b.overPrice);
+      if (b?.underPrice != null) collectedUnder.push(b.underPrice);
+      if (b?.overDecimal != null) collectedOver.push(b.overDecimal);
+      if (b?.underDecimal != null) collectedUnder.push(b.underDecimal);
+      if (b?.overProb != null) collectedOver.push(b.overProb);
+      if (b?.underProb != null) collectedUnder.push(b.underProb);
+    }
+  }
+
+  const best_over = pickBestAmerican(collectedOver);
+  const best_under = pickBestAmerican(collectedUnder);
+
+  const sportsbooks = Array.isArray(entry.books) ? entry.books.length : (entry.bookCount ?? 0);
+
+  return { best_over, best_under, sportsbooks };
+}
+
 // Helper function to get player position based on name
 function getPlayerPosition(playerName: string): string {
   if (!playerName) return 'N/A';
@@ -1372,13 +1445,20 @@ function normalizePlayerGroup(markets: any[], players: Record<string, any>, leag
     }
   }
 
+  // Use new odds utilities to get best prices
+  const overPrices = allBooks.filter(b => b.side === "over").map(b => b.price).filter(p => p != null);
+  const underPrices = allBooks.filter(b => b.side === "under").map(b => b.price).filter(p => p != null);
+  
+  const best_over = overPrices.length > 0 ? pickBestAmerican(overPrices) : null;
+  const best_under = underPrices.length > 0 ? pickBestAmerican(underPrices) : null;
+
   const result = {
     player_name: formatPlayerName(playerName),
     teamID: teamID,
     market_type: formatMarketTypeWithLeague(base.statID, league),
     line: Number(base.bookOverUnder ?? null),
-    best_over: pickBest(allBooks.filter(b => b.side === "over"))?.price ?? null,
-    best_under: pickBest(allBooks.filter(b => b.side === "under"))?.price ?? null,
+    best_over: best_over,
+    best_under: best_under,
     books: allBooks,
     // Add player stats for EV calculations
     hitRate: hitRate,
