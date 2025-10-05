@@ -420,7 +420,7 @@ export function PlayerPropsColumnView({
       </div>
 
       {/* Column Headers */}
-      <div className="grid grid-cols-12 gap-4 px-4 py-3 bg-gradient-card border border-border/50 rounded-lg">
+      <div className="grid grid-cols-14 gap-2 px-3 py-2 bg-gradient-card border border-border/50 rounded-lg">
         <div className="col-span-3 text-sm font-semibold text-foreground flex items-center gap-2">
           <Users className="w-4 h-4" />
           Player
@@ -449,10 +449,10 @@ export function PlayerPropsColumnView({
           <Activity className="w-4 h-4" />
           Streak
         </div>
-           <div className="col-span-1 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
-             <Star className="w-4 h-4" />
-             Statpedia Rating
-           </div>
+        <div className="col-span-1 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
+          <Star className="w-4 h-4" />
+          Rating
+        </div>
         <div className="col-span-1 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
           <Sparkles className="w-4 h-4" />
           Action
@@ -467,8 +467,8 @@ export function PlayerPropsColumnView({
             className="bg-gradient-card border-border/50 hover:border-primary/30 hover:shadow-card-hover transition-all duration-300 cursor-pointer group hover:scale-[1.01]"
             onClick={() => handlePropClick(prop)}
           >
-            <CardContent className="p-4">
-              <div className="grid grid-cols-12 gap-4 items-center">
+            <CardContent className="p-3">
+              <div className="grid grid-cols-14 gap-2 items-center">
                 {/* Player Info */}
                 <div className="col-span-3 flex items-center justify-center space-x-3">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 flex items-center justify-center text-foreground font-bold text-sm overflow-hidden flex-shrink-0">
