@@ -671,10 +671,10 @@ export function PlayerPropsColumnView({
                     return (
                       <div className="flex flex-col items-center space-y-1">
                         <Badge className={cn("text-xs font-bold border px-2 py-1", display.bgColor)}>
-                          <Activity className="h-3 w-3" />
-                          <span className="ml-1">{display.count}</span>
+                          <Activity className="h-3 w-3 text-white" />
+                          <span className="ml-1 text-white">{display.count}</span>
                         </Badge>
-                        <div className="text-xs font-semibold" style={{ color: display.isNeutral ? '#cbd5e1' : undefined }}>
+                        <div className="text-xs font-semibold text-white">
                           {display.label}
                         </div>
                       </div>
