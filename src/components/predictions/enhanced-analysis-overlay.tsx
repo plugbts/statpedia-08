@@ -1321,8 +1321,8 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
         )}
 
         {/* Energetic Tabs with Soul */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 mt-2">
-          <TabsList className="grid w-full grid-cols-7 bg-gradient-to-r from-gray-800/80 via-black/80 to-gray-800/80 border-2 border-purple-500/30 rounded-xl p-4 shadow-lg shadow-purple-500/20 mb-4 mx-auto max-w-4xl">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 mt-8">
+          <TabsList className="grid w-full grid-cols-7 bg-gradient-to-r from-gray-800/80 via-black/80 to-gray-800/80 border-2 border-purple-500/30 rounded-xl p-6 shadow-lg shadow-purple-500/20 mb-8 mx-auto max-w-4xl">
             <TabsTrigger 
               value="overview" 
               className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/50 transition-all duration-300 hover:scale-105 text-xs px-2 py-1"
