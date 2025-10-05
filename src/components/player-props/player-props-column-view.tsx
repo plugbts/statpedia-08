@@ -530,22 +530,22 @@ export function PlayerPropsColumnView({
 
                 {/* Prop Type */}
                 <div className="col-span-2 text-center flex flex-col items-center justify-center">
-                  <div className="text-xs font-semibold text-muted-foreground mb-1">
+                  <div className="text-xs font-semibold text-muted-foreground mb-1 text-center w-full">
                     Prop
                   </div>
-                  <div className="text-sm font-medium text-foreground leading-tight">
+                  <div className="text-sm font-medium text-foreground leading-tight text-center">
                     {(() => {
                       const formattedPropType = formatPropType(prop.propType);
                       const lines = splitTextIntoLines(formattedPropType, 12);
                       
                       return lines.map((line, index) => (
-                        <div key={index} className="block">
+                        <div key={index} className="block text-center">
                           {line}
                         </div>
                       ));
                     })()}
                   </div>
-                  <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                  <div className="text-xs text-muted-foreground mt-1 flex items-center justify-center gap-1">
                     <Calendar className="w-3 h-3" />
                     {new Date(prop.gameDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} {new Date(prop.gameTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
                   </div>
