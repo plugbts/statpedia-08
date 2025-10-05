@@ -787,16 +787,30 @@ function normalizeEvent(ev: SGEvent) {
       
       // Set the line and odds based on the entry
       const oddsData = oddsEntry as any; // Cast to any to access properties
-      if (oddsData.line !== undefined) {
-        prop.line = oddsData.line;
+      
+      // Debug log to see what we're working with
+      if (propKey.includes('JOE FLACCO') && statType === 'passing_touchdowns') {
+        console.log(`DEBUG odds entry for ${oddID}:`, oddsData);
       }
       
-      if (direction === 'over' && oddsData.odds !== undefined) {
-        prop.best_over = oddsData.odds;
-        prop.over_odds = oddsData.odds;
-      } else if (direction === 'under' && oddsData.odds !== undefined) {
-        prop.best_under = oddsData.odds;
-        prop.under_odds = oddsData.odds;
+      // Try different possible field names for line
+      if (oddsData.line !== undefined) {
+        prop.line = oddsData.line;
+      } else if (oddsData.price !== undefined) {
+        prop.line = oddsData.price;
+      } else if (oddsData.overUnder !== undefined) {
+        prop.line = oddsData.overUnder;
+      }
+      
+      // Try different possible field names for odds
+      const oddsValue = oddsData.odds || oddsData.price || oddsData.decimal || oddsData.american;
+      
+      if (direction === 'over' && oddsValue !== undefined) {
+        prop.best_over = oddsValue;
+        prop.over_odds = oddsValue;
+      } else if (direction === 'under' && oddsValue !== undefined) {
+        prop.best_under = oddsValue;
+        prop.under_odds = oddsValue;
       }
     }
     
