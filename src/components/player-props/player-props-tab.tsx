@@ -325,7 +325,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         setMinLine(filters.minLine || 0);
         setMaxLine(filters.maxLine || getMaxLineForSport(sportFilter));
         setPropTypeFilter(filters.propTypeFilter || 'all');
-        setSortBy(filters.sortBy || 'confidence');
+        setSortBy(filters.sortBy || 'api');
         setSortOrder(filters.sortOrder || 'desc');
         setSelectedSportsbook(filters.selectedSportsbook || 'all');
         setMinOdds(filters.minOdds || -175);
@@ -366,7 +366,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     setMinLine(0);
     setMaxLine(getMaxLineForSport(sportFilter));
     setPropTypeFilter('all');
-    setSortBy('confidence');
+    setSortBy('api');
     setSortOrder('desc');
     setSelectedSportsbook('all');
     setSearchQuery('');

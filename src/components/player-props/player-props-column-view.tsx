@@ -239,8 +239,8 @@ export function PlayerPropsColumnView({
   };
 
   const getRatingIcon = (rating: StatpediaRating) => {
-    if (rating.overall >= 80) return <Star className="h-3 w-3" />;
-    if (rating.overall >= 65) return <Target className="h-3 w-3" />;
+    if (rating.overall >= 75) return <Star className="h-3 w-3" />;
+    if (rating.overall >= 55) return <Target className="h-3 w-3" />;
     return <BarChart3 className="h-3 w-3" />;
   };
 
@@ -324,7 +324,7 @@ export function PlayerPropsColumnView({
         <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">Under</div>
         <div className="col-span-2 text-sm font-semibold text-slate-300 text-center">Sportsbooks</div>
         <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">EV</div>
-        <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">Rating</div>
+        <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">Statpedia Rating</div>
         <div className="col-span-1 text-sm font-semibold text-slate-300 text-center">Action</div>
       </div>
 

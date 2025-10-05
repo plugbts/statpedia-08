@@ -216,8 +216,8 @@ export function PlayerPropCard3D({
   };
 
   const getRatingIcon = (rating: StatpediaRating) => {
-    if (rating.overall >= 80) return <Star className="h-3 w-3" />;
-    if (rating.overall >= 65) return <Target className="h-3 w-3" />;
+    if (rating.overall >= 75) return <Star className="h-3 w-3" />;
+    if (rating.overall >= 55) return <Target className="h-3 w-3" />;
     return <BarChart3 className="h-3 w-3" />;
   };
 
@@ -441,7 +441,7 @@ export function PlayerPropCard3D({
 
                     {/* Rating Breakdown */}
                     <div>
-                      <div className="text-xs text-slate-500 uppercase font-semibold mb-2">Rating Breakdown</div>
+                      <div className="text-xs text-slate-500 uppercase font-semibold mb-2">Statpedia Rating Breakdown</div>
                       <div className="space-y-1">
                         <div className="flex justify-between text-xs">
                           <span className="text-slate-400">AI Prediction:</span>

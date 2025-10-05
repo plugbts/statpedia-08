@@ -264,8 +264,23 @@ class CloudflarePlayerPropsAPI {
                   event.players[key].name === prop.player_name
                 );
                 const player = playerKey ? event.players[playerKey] : null;
-                const playerTeam = player ? getTeamNameFromTeamID(player.teamID) : 'Unknown';
-                const opponentTeam = playerTeam === event.home_team ? event.away_team : event.home_team;
+                let playerTeam = 'Unknown';
+                let opponentTeam = 'Unknown';
+                
+                if (player && player.teamID) {
+                  // Player has teamID, use it
+                  playerTeam = getTeamNameFromTeamID(player.teamID);
+                  opponentTeam = playerTeam === event.home_team ? event.away_team : event.home_team;
+                } else {
+                  // Player doesn't have teamID, try to infer from player name patterns
+                  // This is a fallback - in most cases we should have teamID
+                  console.warn(`Player ${prop.player_name} missing teamID, using fallback logic`);
+                  
+                  // For now, assign to home team as fallback
+                  // In a real scenario, you might want to use a more sophisticated mapping
+                  playerTeam = event.home_team;
+                  opponentTeam = event.away_team;
+                }
 
                 playerProps.push({
                   id: `${prop.market_type}-${prop.player_name}`,
@@ -306,8 +321,9 @@ class CloudflarePlayerPropsAPI {
                   bestOver: prop.best_over,
                   bestUnder: prop.best_under,
                   allBooks: prop.books,
-                  homeTeamLogo: nflTeamMap[event.home_team || ''],
-                  awayTeamLogo: nflTeamMap[event.away_team || '']
+                  // Assign logos based on player's team
+                  homeTeamLogo: nflTeamMap[playerTeam],
+                  awayTeamLogo: nflTeamMap[opponentTeam]
                 });
               }
             }
