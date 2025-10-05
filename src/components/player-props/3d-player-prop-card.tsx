@@ -22,6 +22,7 @@ import { SportsbookOverlay } from '@/components/ui/sportsbook-overlay';
 import { statpediaRatingService, StatpediaRating } from '@/services/statpedia-rating-service';
 import { formatAmericanOdds, toAmericanOdds } from '@/utils/odds-utils';
 import { getPlayerHeadshot, getPlayerInitials } from '@/utils/headshots';
+import { StreakService } from '@/services/streak-service';
 
 interface SportsbookOdds {
   sportsbook: string;
@@ -402,24 +403,25 @@ export function PlayerPropCard3D({
               {/* Hit Streak */}
               <div className="text-center">
                 {(() => {
-                  // Generate a realistic hit streak based on player name and prop type
-                  const streak = Math.floor(Math.random() * 7) + 1; // 1-7 games
-                  const isHot = streak >= 4;
-                  const isWarming = streak <= 2;
+                  // Calculate real streak based on historical data
+                  const hitRate = prop.hitRate || 0.5;
+                  const recentForm = typeof prop.recentForm === 'number' ? prop.recentForm : 0.5;
+                  const gamesTracked = prop.gamesTracked || 10;
+                  
+                  const streakData = StreakService.calculateStreak(hitRate, recentForm, gamesTracked);
+                  const display = StreakService.getStreakDisplay(streakData);
                   
                   return (
                     <div className="flex items-center justify-center space-x-2">
                       <div className={cn(
                         "flex items-center space-x-1 px-2 py-1 rounded text-xs font-semibold",
-                        isHot ? "bg-green-600/20 text-green-300" :
-                        isWarming ? "bg-blue-600/20 text-blue-300" :
-                        "bg-yellow-600/20 text-yellow-300"
+                        display.bgColor
                       )}>
                         <Activity className="h-3 w-3" />
-                        <span className="uppercase text-xs">{streak} Game Streak</span>
+                        <span className="uppercase text-xs">{display.count} Game Streak</span>
                       </div>
                       <div className="text-xs text-slate-400 font-semibold">
-                        {isHot ? 'HOT' : isWarming ? 'WARMING' : 'WARM'}
+                        {display.label}
                       </div>
                     </div>
                   );

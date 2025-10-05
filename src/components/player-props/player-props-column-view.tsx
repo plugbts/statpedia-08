@@ -29,6 +29,7 @@ import { SportsbookOverlay } from '@/components/ui/sportsbook-overlay';
 import { statpediaRatingService, StatpediaRating } from '@/services/statpedia-rating-service';
 import { formatAmericanOdds, toAmericanOdds } from '@/utils/odds-utils';
 import { getPlayerHeadshot, getPlayerInitials } from '@/utils/headshots';
+import { StreakService } from '@/services/streak-service';
 
 // Prop priority mapping (matches Cloudflare Worker logic)
 const getPropPriority = (propType: string): number => {
@@ -574,26 +575,22 @@ export function PlayerPropsColumnView({
                 {/* Hit Streak */}
                 <div className="col-span-1 text-center">
                   {(() => {
-                    // Generate a realistic hit streak based on player name and prop type
-                    const streak = Math.floor(Math.random() * 7) + 1; // 1-7 games
-                    const isHot = streak >= 4;
-                    const isWarming = streak <= 2;
+                    // Calculate real streak based on historical data
+                    const hitRate = prop.hitRate || 0.5;
+                    const recentForm = typeof prop.recentForm === 'number' ? prop.recentForm : 0.5;
+                    const gamesTracked = prop.gamesTracked || 10;
+                    
+                    const streakData = StreakService.calculateStreak(hitRate, recentForm, gamesTracked);
+                    const display = StreakService.getStreakDisplay(streakData);
                     
                     return (
                       <div className="flex flex-col items-center space-y-1">
-                        <Badge 
-                          className={cn(
-                            "text-xs font-bold border px-2 py-1",
-                            isHot ? "bg-green-500/20 text-green-400 border-green-500/40" :
-                            isWarming ? "bg-blue-500/20 text-blue-400 border-blue-500/40" :
-                            "bg-yellow-500/20 text-yellow-400 border-yellow-500/40"
-                          )}
-                        >
+                        <Badge className={cn("text-xs font-bold border px-2 py-1", display.bgColor)}>
                           <Activity className="h-3 w-3" />
-                          <span className="ml-1">{streak}</span>
+                          <span className="ml-1">{display.count}</span>
                         </Badge>
                         <div className="text-xs text-muted-foreground font-semibold">
-                          {isHot ? 'HOT' : isWarming ? 'WARMING' : 'WARM'}
+                          {display.label}
                         </div>
                       </div>
                     );
