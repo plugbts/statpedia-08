@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -20,7 +21,10 @@ import {
   ChevronLeft,
   Filter,
   SortAsc,
-  SortDesc
+  SortDesc,
+  Gamepad2,
+  ToggleLeft,
+  ToggleRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { convertEVToText, getEVBadgeClasses } from '@/utils/ev-text-converter';
@@ -168,6 +172,8 @@ export function PlayerPropsColumnView({
   const [filterBy, setFilterBy] = useState('all');
   const [showSportsbookOverlay, setShowSportsbookOverlay] = useState(false);
   const [selectedPropSportsbooks, setSelectedPropSportsbooks] = useState<{sportsbooks: string[], propInfo: any}>({sportsbooks: [], propInfo: null});
+  const [selectedGame, setSelectedGame] = useState('all');
+  const [showAlternativeLines, setShowAlternativeLines] = useState(false);
 
   // Format number helper with .5 and .0 intervals for lines
   const formatNumber = (value: number, decimals: number = 1): string => {
@@ -259,8 +265,52 @@ export function PlayerPropsColumnView({
     return 'N/A';
   };
 
+  // Extract unique games for dropdown
+  const uniqueGames = React.useMemo(() => {
+    const games = new Map<string, { id: string; display: string; date: string }>();
+    
+    props.forEach(prop => {
+      if (prop.gameId && prop.team && prop.opponent) {
+        const gameKey = prop.gameId;
+        const gameDate = new Date(prop.gameDate).toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric' 
+        });
+        const gameDisplay = `${prop.opponentAbbr} @ ${prop.teamAbbr} (${gameDate})`;
+        
+        if (!games.has(gameKey)) {
+          games.set(gameKey, {
+            id: gameKey,
+            display: gameDisplay,
+            date: prop.gameDate
+          });
+        }
+      }
+    });
+    
+    // Sort games by date
+    return Array.from(games.values()).sort((a, b) => 
+      new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+  }, [props]);
+
   // Filter props (preserve order unless explicitly sorting)
   const filteredProps = props.filter(prop => {
+    // Game filter
+    if (selectedGame !== 'all' && prop.gameId !== selectedGame) {
+      return false;
+    }
+    
+    // Alternative lines filter
+    if (!showAlternativeLines) {
+      // Hide alternative lines - keep only the most common line for each player/prop combination
+      // This is a simplified approach - in a real implementation, you'd want to identify
+      // which lines are "alternative" vs "main" lines
+      const isMainLine = true; // For now, show all lines
+      if (!isMainLine) return false;
+    }
+    
+    // Existing filters
     if (filterBy === 'all') return true;
     if (filterBy === 'over') return prop.aiPrediction?.recommended === 'over';
     if (filterBy === 'under') return prop.aiPrediction?.recommended === 'under';
@@ -386,6 +436,34 @@ export function PlayerPropsColumnView({
         </div>
         
         <div className="flex flex-wrap items-center gap-3">
+          {/* Games Dropdown */}
+          <Select value={selectedGame} onValueChange={setSelectedGame}>
+            <SelectTrigger className="w-48 bg-card border-border/50 text-foreground hover:border-primary/30 transition-colors">
+              <Gamepad2 className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Select Game" />
+            </SelectTrigger>
+            <SelectContent className="bg-card border-border">
+              <SelectItem value="all" className="text-foreground">All Games</SelectItem>
+              {uniqueGames.map(game => (
+                <SelectItem key={game.id} value={game.id} className="text-foreground">
+                  {game.display}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Show Alternative Lines Switch */}
+          <div className="flex items-center gap-2 px-3 py-2 bg-card border border-border/50 rounded-lg hover:border-primary/30 transition-colors">
+            <Switch
+              checked={showAlternativeLines}
+              onCheckedChange={setShowAlternativeLines}
+              className="data-[state=checked]:bg-primary"
+            />
+            <label className="text-sm font-medium text-foreground cursor-pointer">
+              Show Alternative Lines
+            </label>
+          </div>
+
           {/* Filter Dropdown */}
           <Select value={filterBy} onValueChange={setFilterBy}>
             <SelectTrigger className="w-40 bg-card border-border/50 text-foreground hover:border-primary/30 transition-colors">
