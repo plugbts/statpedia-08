@@ -134,7 +134,7 @@ class CloudflarePlayerPropsAPI {
       const response = await fetch(url.toString(), {
         method: 'GET',
         mode: 'cors',
-        credentials: 'omit',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -482,7 +482,7 @@ class CloudflarePlayerPropsAPI {
       const response = await fetch(url.toString(), {
         method: 'GET',
         mode: 'cors',
-        credentials: 'omit',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
