@@ -965,11 +965,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
           if (!aIsOffensive && bIsOffensive) return 1;
           
           // Third: Within same category, use normalized priority
-          const aPriority = getPropPriorityNormalized(a.propType);
-          const bPriority = getPropPriorityNormalized(b.propType);
+          const aApiPriority = getPropPriorityNormalized(a.propType);
+          const bApiPriority = getPropPriorityNormalized(b.propType);
           
-          if (aPriority !== bPriority) {
-            return aPriority - bPriority;
+          if (aApiPriority !== bApiPriority) {
+            return aApiPriority - bApiPriority;
           }
           
           // Fourth: Tie-breaker for offensive props (passing → rushing → receiving)
