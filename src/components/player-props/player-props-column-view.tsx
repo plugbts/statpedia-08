@@ -451,10 +451,10 @@ export function PlayerPropsColumnView({
           <Zap className="w-4 h-4" />
           EV
         </div>
-        <div className="col-span-1 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
-          <Star className="w-4 h-4" />
-          Rating
-        </div>
+           <div className="col-span-1 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
+             <Star className="w-4 h-4" />
+             PropFinder
+           </div>
         <div className="col-span-1 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
           <Sparkles className="w-4 h-4" />
           Action
@@ -577,9 +577,36 @@ export function PlayerPropsColumnView({
                   )}
                 </div>
 
-                {/* Statpedia Rating */}
+                {/* PropFinder Rating */}
                 <div className="col-span-1 text-center">
                   {(() => {
+                    // Use PropFinder-style rating if available, fallback to Statpedia
+                    const propFinderRating = overUnderFilter === 'over' 
+                      ? (prop.rating_over_normalized || prop.rating_over_raw)
+                      : (prop.rating_under_normalized || prop.rating_under_raw);
+                    
+                    if (propFinderRating) {
+                      return (
+                        <div className="flex flex-col items-center space-y-1">
+                          <Badge 
+                            className={cn(
+                              "text-xs font-bold border px-2 py-1",
+                              propFinderRating >= 80 ? "bg-green-500/20 text-green-400 border-green-500/40" :
+                              propFinderRating >= 60 ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/40" :
+                              "bg-red-500/20 text-red-400 border-red-500/40"
+                            )}
+                          >
+                            <Star className="h-3 w-3" />
+                            <span className="ml-1">{propFinderRating}</span>
+                          </Badge>
+                          <div className="text-xs text-muted-foreground font-semibold">
+                            {propFinderRating >= 80 ? 'A' : propFinderRating >= 60 ? 'B' : 'C'}
+                          </div>
+                        </div>
+                      );
+                    }
+                    
+                    // Fallback to Statpedia rating
                     const rating = statpediaRatingService.calculateRating(prop, overUnderFilter);
                     return (
                       <div className="flex flex-col items-center space-y-1">

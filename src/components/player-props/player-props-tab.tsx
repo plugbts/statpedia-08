@@ -20,37 +20,86 @@ import { advancedPredictionService, ComprehensivePrediction } from '@/services/a
 import { evCalculatorService } from '@/services/ev-calculator';
 import { statpediaRatingService } from '@/services/statpedia-rating-service';
 
-// Helper function to calculate composite rating for PropFinder-style ordering
-const calculateCompositeRating = (prop: any): number => {
-  // Base score from hit rate (0-100)
-  const hitRateScore = Math.min(100, Math.max(0, (prop.hitRate || 50) * 2));
+// PropFinder-style dual rating system
+const computeRating = (prop: any, mode: "over" | "under"): number => {
+  // Base factors
+  const hitRate = prop.hitRate || 0.5;
+  const ev = prop.expectedValue || 0;
+  const line = prop.line || 0;
+  const confidence = prop.confidence || 0.5;
   
-  // Projection gap score (value vs market line)
-  const projectionGapScore = 50; // Default neutral, can be enhanced with actual projection data
-  
-  // Market confidence score (based on available sportsbooks)
+  // Market confidence (based on available sportsbooks)
   const sportsbookCount = prop.availableSportsbooks?.length || 1;
-  const marketConfidenceScore = Math.min(100, sportsbookCount * 20);
+  const marketConfidence = Math.min(1, sportsbookCount / 5); // Normalize to 0-1
   
-  // Opponent score (defensive strength - simplified)
-  const opponentScore = 50; // Default neutral, can be enhanced with defensive data
+  // AI prediction alignment (boost if AI agrees with mode)
+  const aiAlignment = prop.aiPrediction?.recommended === mode ? 1.2 : 0.8;
   
-  // Recency score (recent form)
-  const recencyScore = 50; // Default neutral, can be enhanced with recent performance
+  // EV factor (higher EV = better rating)
+  const evFactor = Math.max(0, Math.min(1, (ev + 0.1) / 0.3)); // Normalize EV to 0-1
   
-  // AI prediction score (if available)
-  const aiScore = prop.aiPrediction?.confidence ? prop.aiPrediction.confidence * 100 : 50;
+  // Hit rate factor
+  const hitRateFactor = Math.max(0, Math.min(1, hitRate));
   
-  // Blend factors with weights (matching backend and Statpedia rating system)
-  const compositeScore = 
-    (0.30 * hitRateScore) +
-    (0.20 * projectionGapScore) +
-    (0.20 * aiScore) +
-    (0.15 * opponentScore) +
-    (0.10 * marketConfidenceScore) +
-    (0.05 * recencyScore);
+  // Confidence factor
+  const confidenceFactor = Math.max(0, Math.min(1, confidence));
   
-  return Math.round(compositeScore);
+  // Combine factors with weights
+  const rawRating = (
+    (0.35 * evFactor) +
+    (0.25 * hitRateFactor) +
+    (0.20 * confidenceFactor) +
+    (0.15 * marketConfidence) +
+    (0.05 * aiAlignment)
+  ) * 100;
+  
+  return Math.round(rawRating);
+};
+
+// Compute both over and under ratings for a prop
+const computeDualRatings = (prop: any) => {
+  return {
+    rating_over_raw: computeRating(prop, "over"),
+    rating_under_raw: computeRating(prop, "under")
+  };
+};
+
+// Normalize ratings across the slate (PropFinder-style)
+const normalizeSlateRatings = (props: any[], mode: "over" | "under") => {
+  const ratings = props.map(prop => 
+    mode === "over" ? prop.rating_over_raw : prop.rating_under_raw
+  );
+  
+  const minRating = Math.min(...ratings);
+  const maxRating = Math.max(...ratings);
+  const range = maxRating - minRating;
+  
+  // Target range: 40-95 (never 100 to maintain credibility)
+  const targetMin = 40;
+  const targetMax = 95;
+  const targetRange = targetMax - targetMin;
+  
+  return props.map(prop => {
+    const rawRating = mode === "over" ? prop.rating_over_raw : prop.rating_under_raw;
+    
+    // Normalize to 0-1, then scale to target range
+    const normalized = range > 0 ? (rawRating - minRating) / range : 0.5;
+    const scaledRating = targetMin + (normalized * targetRange);
+    
+    return {
+      ...prop,
+      [`rating_${mode}_normalized`]: Math.round(scaledRating)
+    };
+  });
+};
+
+// Sort props by mode-specific rating
+const sortPropsByMode = (props: any[], mode: "over" | "under") => {
+  return [...props].sort((a, b) => {
+    const ra = a[`rating_${mode}_normalized`] || 0;
+    const rb = b[`rating_${mode}_normalized`] || 0;
+    return rb - ra; // Highest first
+  });
 };
 
 // Helper function to get prop priority with normalized matching (matches backend)
@@ -892,8 +941,14 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     logWarning('PlayerPropsTab', 'No realProps available');
   }
 
+  // PropFinder-style dual rating system
+  const propsWithRatings = realProps.map(prop => ({
+    ...prop,
+    ...computeDualRatings(prop)
+  }));
+
   // Simplified filtering - much less restrictive
-  const filteredProps = realProps
+  const filteredProps = propsWithRatings
     .filter(prop => {
       const matchesSearch = searchQuery === '' || 
                            prop.playerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -924,8 +979,21 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       }
       
       return passes;
-    })
-    .sort((a, b) => {
+    });
+
+  // PropFinder-style sorting: normalize entire slate first, then sort
+  let sortedProps = filteredProps;
+  
+  if (sortBy === 'api') {
+    // Normalize the entire slate for the current mode
+    const mode = overUnderFilter === 'over' ? 'over' : 'under';
+    const normalizedProps = normalizeSlateRatings(filteredProps, mode);
+    
+    // Sort by normalized rating
+    sortedProps = sortPropsByMode(normalizedProps, mode);
+  } else {
+    // Use traditional sorting for other modes
+    sortedProps = filteredProps.sort((a, b) => {
       let aValue: any, bValue: any;
       
       switch (sortBy) {
@@ -947,58 +1015,14 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
           aValue = a.playerName;
           bValue = b.playerName;
           break;
-        case 'api':
-          // PropFinder-style ordering: offensive props first, then composite rating
-          const aIsOffensive = isOffensiveProp(a.propType);
-          const bIsOffensive = isOffensiveProp(b.propType);
-          
-          // First: Prioritize offensive props
-          if (aIsOffensive && !bIsOffensive) return -1;
-          if (!aIsOffensive && bIsOffensive) return 1;
-          
-          // Second: Within same category (both offensive or both non-offensive), use normalized priority
-          const aApiPriority = getPropPriorityNormalized(a.propType);
-          const bApiPriority = getPropPriorityNormalized(b.propType);
-          
-          if (aApiPriority !== bApiPriority) {
-            return aApiPriority - bApiPriority;
-          }
-          
-          // Third: Tie-breaker for offensive props (passing → rushing → receiving)
-          if (aIsOffensive && bIsOffensive) {
-            const aSubOrder = getOffensiveSubOrder(a.propType);
-            const bSubOrder = getOffensiveSubOrder(b.propType);
-            
-            if (aSubOrder !== bSubOrder) {
-              return aSubOrder - bSubOrder;
-            }
-          }
-          
-          // Fourth: Use composite rating as tie-breaker
-          const aCompositeRating = calculateCompositeRating(a);
-          const bCompositeRating = calculateCompositeRating(b);
-          
-          if (aCompositeRating !== bCompositeRating) {
-            return bCompositeRating - aCompositeRating;
-          }
-          
-          // Fifth: Alphabetical by prop type
-          const aPropType = a.propType.toLowerCase();
-          const bPropType = b.propType.toLowerCase();
-          
-          if (aPropType !== bPropType) {
-            return aPropType.localeCompare(bPropType);
-          }
-          
-          // Sixth: Alphabetical by player name
-          return a.playerName.localeCompare(b.playerName);
         case 'order':
           // Sort by prop priority order
           const aOrderPriority = getPropPriority(a.propType);
           const bOrderPriority = getPropPriority(b.propType);
           return aOrderPriority - bOrderPriority;
         default:
-          return 0;
+          aValue = a.confidence || 0;
+          bValue = b.confidence || 0;
       }
       
       if (sortBy === 'player') {
@@ -1007,9 +1031,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       
       return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
     });
+  }
 
-  // Use API priority system - no smart mixing
-  const mixedProps = filteredProps;
+  // Use sorted props (PropFinder-style for 'api' sort, traditional for others)
+  const mixedProps = sortedProps;
 
   logFilter('PlayerPropsTab', `Final filteredProps length: ${filteredProps.length}`);
   logFilter('PlayerPropsTab', `Props length: ${mixedProps.length}`);
