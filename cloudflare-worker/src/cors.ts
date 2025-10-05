@@ -2,8 +2,21 @@
 export function withCORS(resp: Response, origin: string = "*"): Response {
   const headers = new Headers(resp.headers);
   
-  // Always set the origin header - use the provided origin or fallback to *
-  const allowedOrigin = origin || "*";
+  // Define allowed origins
+  const allowedOrigins = [
+    "https://170e7fa8-3f2c-4d31-94b1-17786919492c.lovableproject.com",
+    "https://statpedia.vercel.app",
+    "https://statpedia.com",
+    "http://localhost:3000",
+    "http://localhost:5173"
+  ];
+  
+  // Check if the origin is in our allowed list
+  const requestOrigin = origin && origin !== "*" ? origin : null;
+  const allowedOrigin = requestOrigin && allowedOrigins.includes(requestOrigin) 
+    ? requestOrigin 
+    : "*";
+  
   headers.set("Access-Control-Allow-Origin", allowedOrigin);
   headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
@@ -19,7 +32,21 @@ export function withCORS(resp: Response, origin: string = "*"): Response {
 // Preflight handler
 export function handleOptions(request: Request, origin: string = "*"): Response {
   if (request.method === "OPTIONS") {
-    const allowedOrigin = origin || "*";
+    // Define allowed origins
+    const allowedOrigins = [
+      "https://170e7fa8-3f2c-4d31-94b1-17786919492c.lovableproject.com",
+      "https://statpedia.vercel.app",
+      "https://statpedia.com",
+      "http://localhost:3000",
+      "http://localhost:5173"
+    ];
+    
+    // Check if the origin is in our allowed list
+    const requestOrigin = origin && origin !== "*" ? origin : null;
+    const allowedOrigin = requestOrigin && allowedOrigins.includes(requestOrigin) 
+      ? requestOrigin 
+      : "*";
+    
     const headers: Record<string, string> = {
       "Access-Control-Allow-Origin": allowedOrigin,
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
