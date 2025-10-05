@@ -964,6 +964,45 @@ function mapBestPrices(entry: any) {
 }
 
 // Helper function to get player position based on name
+function getTeamAbbreviation(city: string, team: string): string {
+  const teamMap: { [key: string]: string } = {
+    'CLEVELAND': 'CLE',
+    'MINNESOTA': 'MIN',
+    'NEW_YORK': 'NY',
+    'LOS_ANGELES': 'LA',
+    'SAN_FRANCISCO': 'SF',
+    'GREEN_BAY': 'GB',
+    'NEW_ENGLAND': 'NE',
+    'TAMPA_BAY': 'TB',
+    'KANSAS_CITY': 'KC',
+    'LAS_VEGAS': 'LV',
+    'NEW_ORLEANS': 'NO',
+    'SAN_DIEGO': 'SD',
+    'ST_LOUIS': 'STL',
+    'JACKSONVILLE': 'JAX',
+    'CAROLINA': 'CAR',
+    'ARIZONA': 'ARI',
+    'ATLANTA': 'ATL',
+    'BALTIMORE': 'BAL',
+    'BUFFALO': 'BUF',
+    'CHICAGO': 'CHI',
+    'CINCINNATI': 'CIN',
+    'DALLAS': 'DAL',
+    'DENVER': 'DEN',
+    'DETROIT': 'DET',
+    'HOUSTON': 'HOU',
+    'INDIANAPOLIS': 'IND',
+    'MIAMI': 'MIA',
+    'PHILADELPHIA': 'PHI',
+    'PITTSBURGH': 'PIT',
+    'SEATTLE': 'SEA',
+    'TENNESSEE': 'TEN',
+    'WASHINGTON': 'WAS',
+  };
+  
+  return teamMap[city] || city.substring(0, 3).toUpperCase();
+}
+
 function getPlayerPosition(playerName: string): string {
   if (!playerName) return 'N/A';
   
@@ -1406,6 +1445,32 @@ function normalizeEvent(ev: SGEvent) {
   const teamProps: any[] = [];
   
   // console.log(`Final counts: playerProps=${playerProps.length}, teamProps=${teamProps.length}`);
+
+  // Add player_id, position, and team abbreviation to all player props
+  console.log(`DEBUG: Adding player_id, position, and team to ${playerProps.length} props`);
+  playerProps = playerProps.map((prop: any) => {
+    const playerName = prop.player_name;
+    const player = Object.values(ev.players || {}).find((p: any) => p.name === playerName) as any;
+    
+    // Convert teamID to abbreviation (e.g., "CLEVELAND_BROWNS_NFL" -> "CLE")
+    let teamAbbr = null;
+    if (player?.teamID) {
+      const teamParts = player.teamID.split('_');
+      if (teamParts.length >= 2) {
+        // Extract city and team name, then get abbreviation
+        const city = teamParts[0];
+        const team = teamParts[1];
+        teamAbbr = getTeamAbbreviation(city, team);
+      }
+    }
+    
+    return {
+      ...prop,
+      player_id: player?.playerID || null,
+      position: getPlayerPosition(playerName),
+      teamAbbr: teamAbbr,
+    };
+  });
 
   // console.log(`Returning event ${eventId} with ${playerProps.length} player props and ${teamProps.length} team props`);
   
