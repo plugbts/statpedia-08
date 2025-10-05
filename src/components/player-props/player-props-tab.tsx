@@ -57,14 +57,13 @@ const computeRating = (prop: any, mode: "over" | "under"): number => {
   return rating.overall;
 };
 
-
-  // Compute both over and under ratings for a prop
-  const computeDualRatings = (prop: any) => {
-    return {
-      rating_over_raw: computeRating(prop, "over"),
-      rating_under_raw: computeRating(prop, "under")
-    };
+// Compute both over and under ratings for a prop
+const computeDualRatings = (prop: any) => {
+  return {
+    rating_over_raw: computeRating(prop, "over"),
+    rating_under_raw: computeRating(prop, "under")
   };
+};
 
 // Normalize ratings across the slate (PropFinder-style)
 const normalizeSlateRatings = (props: any[], mode: "over" | "under") => {
