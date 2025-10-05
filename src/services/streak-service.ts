@@ -106,8 +106,8 @@ export class StreakService {
     switch (streakType) {
       case 'hot': return 'text-green-400';
       case 'warm': return 'text-yellow-400';
-      case 'neutral': return 'text-gray-400';
-      default: return 'text-gray-400';
+      case 'neutral': return 'text-slate-300';
+      default: return 'text-slate-300';
     }
   }
   
@@ -118,8 +118,8 @@ export class StreakService {
     switch (streakType) {
       case 'hot': return 'bg-green-500/20 border-green-500/40';
       case 'warm': return 'bg-yellow-500/20 border-yellow-500/40';
-      case 'neutral': return 'bg-gray-500/20 border-gray-500/40';
-      default: return 'bg-gray-500/20 border-gray-500/40';
+      case 'neutral': return 'bg-slate-500/30 border-slate-500/50';
+      default: return 'bg-slate-500/30 border-slate-500/50';
     }
   }
 }

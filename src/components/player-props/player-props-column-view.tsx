@@ -564,11 +564,11 @@ export function PlayerPropsColumnView({
                 {/* Expected Value */}
                 <div className="col-span-1 text-center">
                   {prop.expectedValue ? (
-                    <Badge className={`text-xs font-bold border ${getEVBadgeClasses(prop.expectedValue * 100).combined}`}>
+                    <Badge className={`text-xs font-bold border px-2 py-1 ${getEVBadgeClasses(prop.expectedValue * 100).combined}`}>
                       {convertEVToText(prop.expectedValue * 100).text}
                     </Badge>
                   ) : (
-                    <span className="text-sm text-muted-foreground">N/A</span>
+                    <span className="text-xs text-muted-foreground">N/A</span>
                   )}
                 </div>
 
@@ -589,7 +589,7 @@ export function PlayerPropsColumnView({
                           <Activity className="h-3 w-3" />
                           <span className="ml-1">{display.count}</span>
                         </Badge>
-                        <div className="text-xs text-muted-foreground font-semibold">
+                        <div className="text-xs font-semibold" style={{ color: display.isNeutral ? '#cbd5e1' : undefined }}>
                           {display.label}
                         </div>
                       </div>
@@ -619,7 +619,7 @@ export function PlayerPropsColumnView({
                             <Star className="h-3 w-3" />
                             <span className="ml-1">{propFinderRating}</span>
                           </Badge>
-                          <div className="text-xs text-muted-foreground font-semibold">
+                          <div className="text-xs font-semibold text-muted-foreground">
                             {propFinderRating >= 80 ? 'A' : propFinderRating >= 60 ? 'B' : 'C'}
                           </div>
                         </div>
