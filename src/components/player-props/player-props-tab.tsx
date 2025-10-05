@@ -994,9 +994,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
           return a.playerName.localeCompare(b.playerName);
         case 'order':
           // Sort by prop priority order
-          const aPriority = getPropPriority(a.propType);
-          const bPriority = getPropPriority(b.propType);
-          return aPriority - bPriority;
+          const aOrderPriority = getPropPriority(a.propType);
+          const bOrderPriority = getPropPriority(b.propType);
+          return aOrderPriority - bOrderPriority;
         default:
           return 0;
       }
