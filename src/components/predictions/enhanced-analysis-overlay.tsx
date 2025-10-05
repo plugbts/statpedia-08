@@ -1321,54 +1321,54 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
 
         {/* Energetic Tabs with Soul */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 mt-2">
-          <TabsList className="grid w-full grid-cols-7 bg-gradient-to-r from-gray-800/80 via-black/80 to-gray-800/80 border-2 border-purple-500/30 rounded-xl p-3 shadow-lg shadow-purple-500/20 mb-4">
+          <TabsList className="grid w-full grid-cols-7 bg-gradient-to-r from-gray-800/80 via-black/80 to-gray-800/80 border-2 border-purple-500/30 rounded-xl p-4 shadow-lg shadow-purple-500/20 mb-4">
             <TabsTrigger 
               value="overview" 
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/50 transition-all duration-300 hover:scale-105"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/50 transition-all duration-300 hover:scale-105 text-xs px-2 py-1"
             >
-              <Eye className="w-4 h-4 mr-2" />
+              <Eye className="w-3 h-3 mr-1" />
               Overview
             </TabsTrigger>
             <TabsTrigger 
               value="performance" 
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-cyan-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/50 transition-all duration-300 hover:scale-105"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-cyan-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/50 transition-all duration-300 hover:scale-105 text-xs px-2 py-1"
             >
-              <LineChart className="w-4 h-4 mr-2" />
+              <LineChart className="w-3 h-3 mr-1" />
               Performance
             </TabsTrigger>
             <TabsTrigger 
               value="trends" 
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-600 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-green-500/50 transition-all duration-300 hover:scale-105"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-600 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-green-500/50 transition-all duration-300 hover:scale-105 text-xs px-2 py-1"
             >
-              <TrendingUp className="w-4 h-4 mr-2" />
+              <TrendingUp className="w-3 h-3 mr-1" />
               Trends
             </TabsTrigger>
             <TabsTrigger 
               value="vote" 
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-600 data-[state=active]:to-red-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-orange-500/50 transition-all duration-300 hover:scale-105"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-600 data-[state=active]:to-red-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-orange-500/50 transition-all duration-300 hover:scale-105 text-xs px-2 py-1"
             >
-              <Target className="w-4 h-4 mr-2" />
+              <Target className="w-3 h-3 mr-1" />
               Vote
             </TabsTrigger>
             <TabsTrigger 
               value="advanced" 
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-500/50 transition-all duration-300 hover:scale-105"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-500/50 transition-all duration-300 hover:scale-105 text-xs px-2 py-1"
             >
-              <Brain className="w-4 h-4 mr-2" />
+              <Brain className="w-3 h-3 mr-1" />
               Advanced
             </TabsTrigger>
             <TabsTrigger 
               value="features" 
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-pink-600 data-[state=active]:to-rose-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-pink-500/50 transition-all duration-300 hover:scale-105"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-pink-600 data-[state=active]:to-rose-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-pink-500/50 transition-all duration-300 hover:scale-105 text-xs px-2 py-1"
             >
-              <Settings className="w-4 h-4 mr-2" />
+              <Settings className="w-3 h-3 mr-1" />
               Features
             </TabsTrigger>
             <TabsTrigger 
               value="ask-statpedia" 
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-600 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-cyan-500/50 transition-all duration-300 hover:scale-105"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-600 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-cyan-500/50 transition-all duration-300 hover:scale-105 text-xs px-2 py-1"
             >
-              <BrainCircuit className="w-4 h-4 mr-2" />
+              <BrainCircuit className="w-3 h-3 mr-1" />
               Ask AI
             </TabsTrigger>
           </TabsList>
@@ -1907,6 +1907,192 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                       <div className="bg-slate-700/30 p-2 rounded">
                         <div className="text-slate-400">Pace Factor</div>
                         <div className="text-white font-semibold">102.3</div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Player Average Stats */}
+              <Card className="bg-slate-800/50 border-slate-700">
+                <CardHeader>
+                  <CardTitle className="text-slate-200 flex items-center gap-2">
+                    <BarChart className="w-5 h-5 text-cyan-400" />
+                    Player Average Stats
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    <h4 className="text-slate-300 font-semibold">Season Averages</h4>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="bg-slate-700/30 p-3 rounded-lg">
+                        <div className="text-slate-400">Current Season</div>
+                        <div className="text-white font-semibold text-lg">
+                          {enhancedData.seasonStats?.average?.toFixed(1) || '12.5'}
+                        </div>
+                        <div className="text-slate-400 text-xs">
+                          {enhancedData.propType} per game
+                        </div>
+                      </div>
+                      <div className="bg-slate-700/30 p-3 rounded-lg">
+                        <div className="text-slate-400">Games Played</div>
+                        <div className="text-white font-semibold text-lg">
+                          {enhancedData.seasonStats?.gamesPlayed || 8}
+                        </div>
+                        <div className="text-slate-400 text-xs">
+                          This season
+                        </div>
+                      </div>
+                      <div className="bg-slate-700/30 p-3 rounded-lg">
+                        <div className="text-slate-400">Season High</div>
+                        <div className="text-white font-semibold text-lg">
+                          {enhancedData.seasonStats?.seasonHigh || '18.2'}
+                        </div>
+                        <div className="text-slate-400 text-xs">
+                          Best performance
+                        </div>
+                      </div>
+                      <div className="bg-slate-700/30 p-3 rounded-lg">
+                        <div className="text-slate-400">Season Low</div>
+                        <div className="text-white font-semibold text-lg">
+                          {enhancedData.seasonStats?.seasonLow || '6.8'}
+                        </div>
+                        <div className="text-slate-400 text-xs">
+                          Worst performance
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* League-Specific Stats */}
+                  <div className="space-y-3">
+                    <h4 className="text-slate-300 font-semibold">
+                      {enhancedData.sport?.toUpperCase() || 'NFL'} Specific
+                    </h4>
+                    <div className="grid grid-cols-1 gap-3 text-sm">
+                      {enhancedData.sport?.toLowerCase() === 'nfl' ? (
+                        <>
+                          <div className="bg-slate-700/30 p-3 rounded-lg">
+                            <div className="text-slate-400">Snap Count %</div>
+                            <div className="text-white font-semibold">78.5%</div>
+                          </div>
+                          <div className="bg-slate-700/30 p-3 rounded-lg">
+                            <div className="text-slate-400">Target Share</div>
+                            <div className="text-white font-semibold">22.3%</div>
+                          </div>
+                        </>
+                      ) : enhancedData.sport?.toLowerCase() === 'nba' ? (
+                        <>
+                          <div className="bg-slate-700/30 p-3 rounded-lg">
+                            <div className="text-slate-400">Minutes Per Game</div>
+                            <div className="text-white font-semibold">32.4</div>
+                          </div>
+                          <div className="bg-slate-700/30 p-3 rounded-lg">
+                            <div className="text-slate-400">Usage Rate</div>
+                            <div className="text-white font-semibold">24.8%</div>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="bg-slate-700/30 p-3 rounded-lg">
+                            <div className="text-slate-400">Games Started</div>
+                            <div className="text-white font-semibold">12/15</div>
+                          </div>
+                          <div className="bg-slate-700/30 p-3 rounded-lg">
+                            <div className="text-slate-400">Efficiency Rating</div>
+                            <div className="text-white font-semibold">+8.2</div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Post-Injury Performance */}
+              <Card className="bg-slate-800/50 border-slate-700">
+                <CardHeader>
+                  <CardTitle className="text-slate-200 flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-orange-400" />
+                    Post-Injury Performance
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Last Injury</span>
+                      <Badge className="bg-orange-600/20 text-orange-300 border-orange-500/30">
+                        {enhancedData.injuryStatus === 'injured' ? 'CURRENT' : '2 weeks ago'}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Games Since Return</span>
+                      <span className="text-slate-300">
+                        {enhancedData.injuryStatus === 'injured' ? '0' : '3'}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* Post-Injury Stats */}
+                  <div className="space-y-3">
+                    <h4 className="text-slate-300 font-semibold">Since Return</h4>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="bg-slate-700/30 p-3 rounded-lg">
+                        <div className="text-slate-400">Average</div>
+                        <div className="text-white font-semibold text-lg">
+                          {enhancedData.injuryStatus === 'injured' ? 'N/A' : '11.2'}
+                        </div>
+                        <div className="text-slate-400 text-xs">
+                          {enhancedData.propType} per game
+                        </div>
+                      </div>
+                      <div className="bg-slate-700/30 p-3 rounded-lg">
+                        <div className="text-slate-400">Minutes Played</div>
+                        <div className="text-white font-semibold text-lg">
+                          {enhancedData.sport?.toLowerCase() === 'nfl' ? '45' : 
+                           enhancedData.sport?.toLowerCase() === 'nba' ? '28.5' : '85'}
+                        </div>
+                        <div className="text-slate-400 text-xs">
+                          {enhancedData.sport?.toLowerCase() === 'nfl' ? 'Snaps' : 
+                           enhancedData.sport?.toLowerCase() === 'nba' ? 'Minutes' : 'Minutes'}
+                        </div>
+                      </div>
+                      <div className="bg-slate-700/30 p-3 rounded-lg">
+                        <div className="text-slate-400">Hit Rate</div>
+                        <div className="text-white font-semibold text-lg">
+                          {enhancedData.injuryStatus === 'injured' ? 'N/A' : '66.7%'}
+                        </div>
+                        <div className="text-slate-400 text-xs">
+                          Since return
+                        </div>
+                      </div>
+                      <div className="bg-slate-700/30 p-3 rounded-lg">
+                        <div className="text-slate-400">Trend</div>
+                        <div className="text-white font-semibold text-lg">
+                          {enhancedData.injuryStatus === 'injured' ? 'N/A' : '↗️'}
+                        </div>
+                        <div className="text-slate-400 text-xs">
+                          Improving
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Recovery Timeline */}
+                  <div className="space-y-3">
+                    <h4 className="text-slate-300 font-semibold">Recovery Timeline</h4>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-2 h-2 bg-green-400 rounded-full" />
+                        <span className="text-slate-300 text-sm">Week 1: Limited minutes, easing back</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-2 h-2 bg-yellow-400 rounded-full" />
+                        <span className="text-slate-300 text-sm">Week 2: Increased workload, building confidence</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-2 h-2 bg-green-400 rounded-full" />
+                        <span className="text-slate-300 text-sm">Week 3: Full minutes, back to form</span>
                       </div>
                     </div>
                   </div>
