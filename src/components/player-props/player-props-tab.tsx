@@ -1167,6 +1167,14 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
 
   // Handle enhanced analysis
   const handleEnhancedAnalysis = (prop: PlayerProp) => {
+    console.log('PlayerPropsTab: Opening enhanced analysis for prop:', {
+      id: prop.id,
+      playerName: prop.playerName,
+      confidence: prop.confidence,
+      expectedValue: prop.expectedValue,
+      hasConfidence: 'confidence' in prop,
+      hasExpectedValue: 'expectedValue' in prop
+    });
     setSelectedPropForEnhancedAnalysis(prop);
     setShowEnhancedAnalysis(true);
   };
@@ -1780,7 +1788,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
               ) : (
                 <>
                   <RefreshCw className="w-4 h-4 mr-2" />
-                  Load More Props ({totalProps - realProps.length} remaining)
+                  Load More {sportFilter.toUpperCase()} Props ({totalProps - realProps.length} remaining)
                 </>
               )}
             </Button>
@@ -1790,8 +1798,8 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         {/* Pagination Info */}
         {!isLoadingData && realProps.length > 0 && (
           <div className="text-center py-4 text-sm text-muted-foreground">
-            Showing {realProps.length} of {totalProps} props
-            {hasMoreProps && ` • ${totalProps - realProps.length} more available`}
+            Showing {realProps.length} of {totalProps} {sportFilter.toUpperCase()} props
+            {hasMoreProps && ` • ${totalProps - realProps.length} more {sportFilter.toUpperCase()} props available`}
           </div>
         )}
 
