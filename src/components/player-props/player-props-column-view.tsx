@@ -138,6 +138,14 @@ interface PlayerProp {
   awayTeamLogo?: string;
   // Position (derived from prop type or player data)
   position?: string;
+  // Additional properties for streak and rating calculations
+  player_id?: string | number;
+  hitRate?: number;
+  gamesTracked?: number;
+  rating_over_normalized?: number;
+  rating_over_raw?: number;
+  rating_under_normalized?: number;
+  rating_under_raw?: number;
 }
 
 interface PlayerPropsColumnViewProps {
@@ -522,6 +530,9 @@ export function PlayerPropsColumnView({
 
                 {/* Prop Type */}
                 <div className="col-span-2 text-center flex flex-col items-center justify-center">
+                  <div className="text-xs font-semibold text-muted-foreground mb-1">
+                    Prop
+                  </div>
                   <div className="text-sm font-medium text-foreground leading-tight">
                     {(() => {
                       const formattedPropType = formatPropType(prop.propType);
