@@ -220,7 +220,7 @@ export default {
           const legacyProps = result.events.flatMap((event: any) => 
             event.player_props?.filter((prop: any) => prop.best_over || prop.best_under).map((prop: any) => ({
               id: `${event.eventID}-${prop.player_name}-${prop.market_type}`.replace(/\s+/g, '-').toLowerCase(),
-              playerName: prop.player_name,
+              playerName: formatPlayerName(prop.player_name),
               propType: prop.market_type,
               line: prop.line,
               overOdds: prop.best_over,
@@ -548,6 +548,105 @@ async function handleCachePurge(url: URL, request: Request, env: Env): Promise<R
 // DEPRECATED: SportRadar proxy function - removed
 // All SportRadar functionality has been migrated to SportsGameOdds API
 
+// Helper function to format player names consistently
+function formatPlayerName(name: string): string {
+  if (!name) return "Unknown";
+  return name
+    .toLowerCase()
+    .split(" ")
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+// Helper function to normalize matchup with logos
+function normalizeMatchup(ev: any) {
+  const homeName = ev.home_team || ev.teams?.home?.names?.long || "UNK";
+  const awayName = ev.away_team || ev.teams?.away?.names?.long || "UNK";
+  
+  // Extract team abbreviations from team names
+  const homeAbbr = extractTeamAbbr(homeName);
+  const awayAbbr = extractTeamAbbr(awayName);
+
+  return {
+    matchup: `${awayName} @ ${homeName}`,
+    home_logo: `/logos/${homeAbbr}.png`,
+    away_logo: `/logos/${awayAbbr}.png`,
+  };
+}
+
+// Helper function to extract team abbreviation from team name
+function extractTeamAbbr(teamName: string): string {
+  if (!teamName || teamName === "UNK") return "UNK";
+  
+  // NFL team name to abbreviation mapping
+  const teamMap: Record<string, string> = {
+    'Arizona Cardinals': 'ARI',
+    'Atlanta Falcons': 'ATL',
+    'Baltimore Ravens': 'BAL',
+    'Buffalo Bills': 'BUF',
+    'Carolina Panthers': 'CAR',
+    'Chicago Bears': 'CHI',
+    'Cincinnati Bengals': 'CIN',
+    'Cleveland Browns': 'CLE',
+    'Dallas Cowboys': 'DAL',
+    'Denver Broncos': 'DEN',
+    'Detroit Lions': 'DET',
+    'Green Bay Packers': 'GB',
+    'Houston Texans': 'HOU',
+    'Indianapolis Colts': 'IND',
+    'Jacksonville Jaguars': 'JAX',
+    'Kansas City Chiefs': 'KC',
+    'Las Vegas Raiders': 'LV',
+    'Los Angeles Chargers': 'LAC',
+    'Los Angeles Rams': 'LAR',
+    'Miami Dolphins': 'MIA',
+    'Minnesota Vikings': 'MIN',
+    'New England Patriots': 'NE',
+    'New Orleans Saints': 'NO',
+    'New York Giants': 'NYG',
+    'New York Jets': 'NYJ',
+    'Philadelphia Eagles': 'PHI',
+    'Pittsburgh Steelers': 'PIT',
+    'San Francisco 49ers': 'SF',
+    'Seattle Seahawks': 'SEA',
+    'Tampa Bay Buccaneers': 'TB',
+    'Tennessee Titans': 'TEN',
+    'Washington Commanders': 'WAS'
+  };
+  
+  return teamMap[teamName] || teamName.split(' ').pop() || 'UNK';
+}
+
+// Helper function to prioritize props (offense first, defense last)
+function prioritizeProps(props: any[]): any[] {
+  const priorityOrder = [
+    'passing', 'rushing', 'receiving', // Offensive stats first
+    'kicking', 'fieldgoals', 'extrapoints', // Kicking next
+    'touchdowns', // Touchdowns before defense
+    'defense', 'tackles', 'sacks', 'interceptions' // Defense last
+  ];
+
+  return props.sort((a, b) => {
+    const aType = a.market_type.toLowerCase();
+    const bType = b.market_type.toLowerCase();
+    
+    const aPriority = priorityOrder.findIndex(p => aType.includes(p));
+    const bPriority = priorityOrder.findIndex(p => bType.includes(p));
+    
+    // If both found in priority order, sort by priority
+    if (aPriority !== -1 && bPriority !== -1) {
+      return aPriority - bPriority;
+    }
+    
+    // If only one found, prioritize it
+    if (aPriority !== -1) return -1;
+    if (bPriority !== -1) return 1;
+    
+    // Otherwise, maintain original order
+    return 0;
+  });
+}
+
 // Helper function to create standardized API requests with proper headers
 async function fetchWithAPIKey(url: string, env: Env, options: RequestInit = {}, apiKey: string = env.SGO_API_KEY): Promise<Response> {
   const headers = {
@@ -775,7 +874,8 @@ function normalizeEvent(ev: SGEvent) {
       if (!playerName.includes('_') || period !== 'game') continue;
       
       // Create a clean player name from the SGO format
-      const cleanPlayerName = playerName.replace(/_/g, ' ').replace(/\s+\d+\s+NFL/, '');
+      const rawPlayerName = playerName.replace(/_/g, ' ').replace(/\s+\d+\s+NFL/, '');
+      const cleanPlayerName = formatPlayerName(rawPlayerName);
       
       // Create a unique key for this player+stat combination
       const propKey = `${cleanPlayerName}|${statType}`;
@@ -844,14 +944,24 @@ function normalizeEvent(ev: SGEvent) {
 
   console.log(`Returning event ${eventId} with ${playerProps.length} player props and ${teamProps.length} team props`);
   
+  // Add matchup data with logos - use the team names we already have
+  const matchup = {
+    matchup: `${ev.away_team || "UNK"} @ ${ev.home_team || "UNK"}`,
+    home_logo: `/logos/${extractTeamAbbr(ev.home_team || "UNK")}.png`,
+    away_logo: `/logos/${extractTeamAbbr(ev.away_team || "UNK")}.png`,
+  };
+  
   return {
     eventID: eventId,
     leagueID: leagueId,
     start_time: formatEventDate(ev, "America/New_York"),
     home_team: ev.teams?.home?.names?.long || "UNK",
     away_team: ev.teams?.away?.names?.long || "UNK",
+    matchup: matchup.matchup,
+    home_logo: matchup.home_logo,
+    away_logo: matchup.away_logo,
     team_props: teamProps,
-    player_props: playerProps,
+    player_props: prioritizeProps(playerProps),
   };
 }
 
