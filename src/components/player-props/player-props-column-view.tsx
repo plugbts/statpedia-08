@@ -420,41 +420,41 @@ export function PlayerPropsColumnView({
       </div>
 
       {/* Column Headers */}
-      <div className="grid grid-cols-14 gap-2 px-3 py-2 bg-gradient-card border border-border/50 rounded-lg">
-        <div className="col-span-3 text-sm font-semibold text-foreground flex items-center gap-2">
-          <Users className="w-4 h-4" />
+      <div className="grid grid-cols-12 gap-1 px-2 py-2 bg-gradient-card border border-border/50 rounded-lg">
+        <div className="col-span-3 text-xs font-semibold text-foreground flex items-center gap-1">
+          <Users className="w-3 h-3" />
           Player
         </div>
-        <div className="col-span-2 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
-          <Target className="w-4 h-4" />
+        <div className="col-span-1 text-xs font-semibold text-foreground text-center flex items-center justify-center gap-1">
+          <Target className="w-3 h-3" />
           Pos • Team
         </div>
-        <div className="col-span-2 text-sm font-semibold text-foreground flex items-center gap-2">
-          <Target className="w-4 h-4" />
+        <div className="col-span-2 text-xs font-semibold text-foreground flex items-center gap-1">
+          <Target className="w-3 h-3" />
           Prop
         </div>
-        <div className="col-span-1 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
-          <BarChart3 className="w-4 h-4" />
+        <div className="col-span-1 text-xs font-semibold text-foreground text-center flex items-center justify-center gap-1">
+          <BarChart3 className="w-3 h-3" />
           Line
         </div>
-        <div className="col-span-1 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
-          <TrendingUp className="w-4 h-4 text-green-500" />
+        <div className="col-span-1 text-xs font-semibold text-foreground text-center flex items-center justify-center gap-1">
+          <TrendingUp className="w-3 h-3 text-green-500" />
           Odds
         </div>
-        <div className="col-span-1 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
-          <Zap className="w-4 h-4" />
+        <div className="col-span-1 text-xs font-semibold text-foreground text-center flex items-center justify-center gap-1">
+          <Zap className="w-3 h-3" />
           EV
         </div>
-        <div className="col-span-1 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
-          <Activity className="w-4 h-4" />
+        <div className="col-span-1 text-xs font-semibold text-foreground text-center flex items-center justify-center gap-1">
+          <Activity className="w-3 h-3" />
           Streak
         </div>
-        <div className="col-span-1 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
-          <Star className="w-4 h-4" />
+        <div className="col-span-1 text-xs font-semibold text-foreground text-center flex items-center justify-center gap-1">
+          <Star className="w-3 h-3" />
           Rating
         </div>
-        <div className="col-span-1 text-sm font-semibold text-foreground text-center flex items-center justify-center gap-2">
-          <Sparkles className="w-4 h-4" />
+        <div className="col-span-1 text-xs font-semibold text-foreground text-center flex items-center justify-center gap-1">
+          <Sparkles className="w-3 h-3" />
           Action
         </div>
       </div>
@@ -467,8 +467,8 @@ export function PlayerPropsColumnView({
             className="bg-gradient-card border-border/50 hover:border-primary/30 hover:shadow-card-hover transition-all duration-300 cursor-pointer group hover:scale-[1.01]"
             onClick={() => handlePropClick(prop)}
           >
-            <CardContent className="p-3">
-              <div className="grid grid-cols-14 gap-2 items-center">
+            <CardContent className="p-2">
+              <div className="grid grid-cols-12 gap-1 items-center">
                 {/* Player Info */}
                 <div className="col-span-3 flex items-center justify-center space-x-3">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 flex items-center justify-center text-foreground font-bold text-sm overflow-hidden flex-shrink-0">
@@ -513,8 +513,8 @@ export function PlayerPropsColumnView({
                 </div>
 
                 {/* Position & Team */}
-                <div className="col-span-2 text-center">
-                  <div className="text-sm font-medium text-foreground">
+                <div className="col-span-1 text-center">
+                  <div className="text-xs font-medium text-foreground">
                     {prop.position || '—'} • {prop.teamAbbr || '—'}
                   </div>
                 </div>
@@ -541,14 +541,14 @@ export function PlayerPropsColumnView({
 
                 {/* Line */}
                 <div className="col-span-1 text-center">
-                  <div className="text-lg font-bold text-foreground">
+                  <div className="text-sm font-bold text-foreground">
                     {formatNumber(prop.line, 1)}
                   </div>
                 </div>
 
                 {/* Odds (context-aware) */}
                 <div className="col-span-1 text-center">
-                  <div className={`text-sm font-semibold ${
+                  <div className={`text-xs font-semibold ${
                     overUnderFilter === 'over' ? 'text-green-500' : 
                     overUnderFilter === 'under' ? 'text-red-500' : 
                     'text-foreground'
