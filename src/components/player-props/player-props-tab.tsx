@@ -20,6 +20,103 @@ import { advancedPredictionService, ComprehensivePrediction } from '@/services/a
 import { evCalculatorService } from '@/services/ev-calculator';
 import { statpediaRatingService } from '@/services/statpedia-rating-service';
 
+// Helper function to calculate composite rating for PropFinder-style ordering
+const calculateCompositeRating = (prop: any): number => {
+  // Base score from hit rate (0-100)
+  const hitRateScore = Math.min(100, Math.max(0, (prop.hitRate || 50) * 2));
+  
+  // Projection gap score (value vs market line)
+  const projectionGapScore = 50; // Default neutral, can be enhanced with actual projection data
+  
+  // Market confidence score (based on available sportsbooks)
+  const sportsbookCount = prop.availableSportsbooks?.length || 1;
+  const marketConfidenceScore = Math.min(100, sportsbookCount * 20);
+  
+  // Opponent score (defensive strength - simplified)
+  const opponentScore = 50; // Default neutral, can be enhanced with defensive data
+  
+  // Recency score (recent form)
+  const recencyScore = 50; // Default neutral, can be enhanced with recent performance
+  
+  // AI prediction score (if available)
+  const aiScore = prop.aiPrediction?.confidence ? prop.aiPrediction.confidence * 100 : 50;
+  
+  // Blend factors with weights (matching backend and Statpedia rating system)
+  const compositeScore = 
+    (0.30 * hitRateScore) +
+    (0.20 * projectionGapScore) +
+    (0.20 * aiScore) +
+    (0.15 * opponentScore) +
+    (0.10 * marketConfidenceScore) +
+    (0.05 * recencyScore);
+  
+  return Math.round(compositeScore);
+};
+
+// Helper function to get prop priority with normalized matching (matches backend)
+const getPropPriorityNormalized = (propType: string): number => {
+  if (!propType) return 99;
+  
+  const normalized = propType.toLowerCase().trim();
+  
+  // Broad touchdown detection (regardless of exact wording)
+  if (normalized.includes('touchdown')) {
+    return 3;
+  }
+  
+  // Offensive props (passing, rushing, receiving)
+  if (normalized.includes('passing') || normalized.includes('rushing') || normalized.includes('receiving')) {
+    return 1;
+  }
+  
+  // Kicking props
+  if (normalized.includes('field goal') || normalized.includes('kicking') || normalized.includes('extra point')) {
+    return 2;
+  }
+  
+  // Defense props
+  if (normalized.includes('defense') || normalized.includes('sack') || normalized.includes('tackle') || normalized.includes('interception')) {
+    return 4;
+  }
+  
+  // Default to low priority
+  return 99;
+};
+
+// Helper function to get offensive sub-order for tie-breaking (matches backend)
+const getOffensiveSubOrder = (propType: string): number => {
+  if (!propType) return 3;
+  
+  const normalized = propType.toLowerCase();
+  
+  // Passing props first
+  if (normalized.includes('passing')) return 1;
+  
+  // Rushing props second
+  if (normalized.includes('rushing')) return 2;
+  
+  // Receiving props third
+  if (normalized.includes('receiving')) return 3;
+  
+  // Other offensive props
+  if (normalized.includes('points') || normalized.includes('goals') || normalized.includes('assists')) return 4;
+  
+  // Non-offensive props
+  return 5;
+};
+
+// Helper function to determine if a prop is offensive
+const isOffensiveProp = (propType: string): boolean => {
+  if (!propType) return false;
+  const lowerPropType = propType.toLowerCase();
+  return lowerPropType.includes('passing') || 
+         lowerPropType.includes('rushing') || 
+         lowerPropType.includes('receiving') ||
+         lowerPropType.includes('points') ||
+         lowerPropType.includes('goals') ||
+         lowerPropType.includes('assists');
+};
+
 // Prop priority mapping (matches Cloudflare Worker logic)
 const getPropPriority = (propType: string): number => {
   const lowerPropType = propType.toLowerCase();
@@ -851,8 +948,50 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
           bValue = b.playerName;
           break;
         case 'api':
-          // Preserve API order (offense → kicking → defense → touchdowns)
-          return 0;
+          // PropFinder-style ordering: composite rating first, then offensive props
+          const aCompositeRating = calculateCompositeRating(a);
+          const bCompositeRating = calculateCompositeRating(b);
+          
+          // First: Sort by composite rating (highest first)
+          if (aCompositeRating !== bCompositeRating) {
+            return bCompositeRating - aCompositeRating;
+          }
+          
+          // Second: Within same rating, prioritize offensive props
+          const aIsOffensive = isOffensiveProp(a.propType);
+          const bIsOffensive = isOffensiveProp(b.propType);
+          
+          if (aIsOffensive && !bIsOffensive) return -1;
+          if (!aIsOffensive && bIsOffensive) return 1;
+          
+          // Third: Within same category, use normalized priority
+          const aPriority = getPropPriorityNormalized(a.propType);
+          const bPriority = getPropPriorityNormalized(b.propType);
+          
+          if (aPriority !== bPriority) {
+            return aPriority - bPriority;
+          }
+          
+          // Fourth: Tie-breaker for offensive props (passing → rushing → receiving)
+          if (aIsOffensive && bIsOffensive) {
+            const aSubOrder = getOffensiveSubOrder(a.propType);
+            const bSubOrder = getOffensiveSubOrder(b.propType);
+            
+            if (aSubOrder !== bSubOrder) {
+              return aSubOrder - bSubOrder;
+            }
+          }
+          
+          // Fifth: Alphabetical by prop type
+          const aPropType = a.propType.toLowerCase();
+          const bPropType = b.propType.toLowerCase();
+          
+          if (aPropType !== bPropType) {
+            return aPropType.localeCompare(bPropType);
+          }
+          
+          // Sixth: Alphabetical by player name
+          return a.playerName.localeCompare(b.playerName);
         case 'order':
           // Sort by prop priority order
           const aPriority = getPropPriority(a.propType);

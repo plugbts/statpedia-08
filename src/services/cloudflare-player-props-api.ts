@@ -122,6 +122,11 @@ class CloudflarePlayerPropsAPI {
       
       const response = await fetch(url.toString(), {
         method: 'GET',
+        mode: 'cors',
+        credentials: 'omit',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
 
       const responseTime = Date.now() - startTime;
@@ -377,6 +382,11 @@ class CloudflarePlayerPropsAPI {
       
       const response = await fetch(url.toString(), {
         method: 'GET',
+        mode: 'cors',
+        credentials: 'omit',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
 
       const responseTime = Date.now() - startTime;
