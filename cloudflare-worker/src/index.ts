@@ -459,8 +459,8 @@ async function processPlayerProps(leagues: string[], date: string, view: string,
         // Props processed
       }
 
-      // 4. Prioritize + cap props per league (80 props per event)
-      const processedNormalized = capPropsPerLeague(normalized, league, 80);
+      // 4. Prioritize + cap props per league (150 props per event)
+      const processedNormalized = capPropsPerLeague(normalized, league, 150);
 
       // 5. Collect all props for pagination
       const validEvents = processedNormalized.filter((event): event is NonNullable<typeof event> => event !== null);
