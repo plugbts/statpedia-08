@@ -931,6 +931,11 @@ export function PlayerPropsColumnView({
                                 strokeDasharray={`${scaledPercentage}, 100`}
                                 strokeLinecap="round"
                                 className={`${circleColor} transition-all duration-500 ease-out`}
+                                style={{
+                                  animation: displayPercentage >= 80 ? 'pulse 3s ease-in-out infinite' :
+                                             displayPercentage >= 60 ? 'pulse 5s ease-in-out infinite' :
+                                             'none'
+                                }}
                               />
                             </svg>
                             
@@ -938,6 +943,11 @@ export function PlayerPropsColumnView({
                             <div className="absolute inset-0 flex items-center justify-center">
                               <span 
                                 className={`text-xs font-bold ${textColor} transition-all duration-300 group-hover/rating:scale-110`}
+                                style={{
+                                  animation: displayPercentage >= 80 ? 'pulse 3s ease-in-out infinite' :
+                                             displayPercentage >= 60 ? 'pulse 5s ease-in-out infinite' :
+                                             'none'
+                                }}
                               >
                                 {Math.round(displayPercentage)}
                               </span>
