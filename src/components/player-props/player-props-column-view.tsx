@@ -769,23 +769,14 @@ export function PlayerPropsColumnView({
 
           {/* Data Rows */}
           <div className="space-y-0">
-        {filteredAndSortedProps.map((prop, index) => {
-          // Calculate analytics data - using mock data for now since gameLogs don't exist
-          const gameLogs = prop.gameLogs || [];
-          const gameLogs2025 = prop.gameLogs2025 || [];
-          const streak = calculateStreak(gameLogs, prop.line, "over");
-          const h2h = calculateHitRate(gameLogs, prop.line, "over", undefined, prop.opponentAbbr);
-          const season = calculateHitRate(gameLogs2025, prop.line, "over");
-          const l5 = calculateHitRate(gameLogs, prop.line, "over", 5);
-          const l10 = calculateHitRate(gameLogs, prop.line, "over", 10);
-          const l20 = calculateHitRate(gameLogs, prop.line, "over", 20);
-
-          return (
-            <div
-              key={prop.id || `prop-${prop.playerId}-${prop.propType}-${index}`}
-              className="flex border-b border-border/20 hover:bg-gray-50/50 transition-colors duration-200 cursor-pointer group"
-              onClick={() => handlePropClick(prop)}
-            >
+        {filteredAndSortedProps.map((prop, index) => (
+          <Card
+            key={prop.id || `prop-${prop.playerId}-${prop.propType}-${index}`}
+            className="bg-gradient-card border-border/50 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 cursor-pointer group hover:scale-[1.02] hover:bg-gradient-to-br hover:from-card/90 hover:to-card/70"
+            onClick={() => handlePropClick(prop)}
+          >
+            <CardContent className="p-2">
+              <div className="grid grid-cols-12 gap-1 items-center">
                 {/* Player Info */}
                 <div className="col-span-3 flex items-center justify-center space-x-3">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 flex items-center justify-center text-foreground font-bold text-sm overflow-hidden flex-shrink-0">
