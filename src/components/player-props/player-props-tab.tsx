@@ -947,8 +947,8 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       
       // Over/Under filter
       const matchesOverUnder = overUnderFilter === 'both' || 
-        (overUnderFilter === 'over' && overOdds > 0) || 
-        (overUnderFilter === 'under' && underOdds > 0);
+        (overUnderFilter === 'over' && overOdds !== null && overOdds !== undefined && !isNaN(parseFloat(overOdds))) || 
+        (overUnderFilter === 'under' && underOdds !== null && underOdds !== undefined && !isNaN(parseFloat(underOdds)));
       
       const passes = matchesSearch && matchesPropType && matchesConfidence && matchesEV && matchesPositiveEV && matchesLine && matchesOddsRange && matchesOverUnder;
       
