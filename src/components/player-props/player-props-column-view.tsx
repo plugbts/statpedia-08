@@ -34,6 +34,7 @@ import { statpediaRatingService, StatpediaRating } from '@/services/statpedia-ra
 import { toAmericanOdds, getOddsColorClass } from '@/utils/odds';
 import { getPlayerHeadshot, getPlayerInitials, getKnownPlayerHeadshot } from '@/utils/headshots';
 import { StreakService } from '@/services/streak-service';
+import { useToast } from '@/hooks/use-toast';
 
 // Prop priority mapping (matches Cloudflare Worker logic)
 const getPropPriority = (propType: string): number => {
@@ -176,6 +177,78 @@ export function PlayerPropsColumnView({
   const [selectedPropSportsbooks, setSelectedPropSportsbooks] = useState<{sportsbooks: string[], propInfo: any}>({sportsbooks: [], propInfo: null});
   const [selectedGame, setSelectedGame] = useState('all');
   const [showAlternativeLines, setShowAlternativeLines] = useState(false);
+  const { toast } = useToast();
+
+  // Handle alternative lines toggle with confirmation
+  const handleAlternativeLinesToggle = (checked: boolean) => {
+    if (checked) {
+      // Calculate how many additional props will be shown
+      const propsWithoutAlternatives = props.filter(prop => {
+        // Game filter
+        if (selectedGame !== 'all' && prop.gameId !== selectedGame) {
+          return false;
+        }
+        
+        // Alternative lines filter (show only main lines)
+        const key = `${prop.playerName}-${prop.propType}`;
+        const existingProps = props.filter(p => 
+          p.playerName === prop.playerName && 
+          p.propType === prop.propType && 
+          p.id !== prop.id
+        );
+
+        if (existingProps.length > 0) {
+          // Find the most common line (main line)
+          const lineCounts = existingProps.reduce((acc, p) => {
+            acc[p.line] = (acc[p.line] || 0) + 1;
+            return acc;
+          }, {} as Record<number, number>);
+
+          const mainLine = Object.entries(lineCounts)
+            .sort(([,a], [,b]) => b - a)[0]?.[0];
+
+          // Only show the main line, hide alternatives
+          if (prop.line !== Number(mainLine)) {
+            return false;
+          }
+        }
+        return true;
+      });
+
+      const totalProps = props.filter(prop => {
+        // Game filter
+        if (selectedGame !== 'all' && prop.gameId !== selectedGame) {
+          return false;
+        }
+        return true;
+      });
+
+      const additionalProps = totalProps.length - propsWithoutAlternatives.length;
+      
+      setShowAlternativeLines(true);
+      
+      if (additionalProps > 0) {
+        toast({
+          title: "Alternative Lines Revealed",
+          description: `Showing ${additionalProps} additional alternative prop lines`,
+          duration: 2000,
+        });
+      } else {
+        toast({
+          title: "Alternative Lines",
+          description: "No additional alternative lines available",
+          duration: 2000,
+        });
+      }
+    } else {
+      setShowAlternativeLines(false);
+      toast({
+        title: "Alternative Lines Hidden",
+        description: "Showing only main prop lines",
+        duration: 2000,
+      });
+    }
+  };
 
   // Format number helper with .5 and .0 intervals for lines
   const formatNumber = (value: number, decimals: number = 1): string => {
@@ -474,7 +547,7 @@ export function PlayerPropsColumnView({
           <div className="flex items-center gap-2 px-3 py-2 bg-card border border-border/50 rounded-lg hover:border-primary/30 transition-colors">
             <Switch
               checked={showAlternativeLines}
-              onCheckedChange={setShowAlternativeLines}
+              onCheckedChange={handleAlternativeLinesToggle}
               className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-white"
             />
             <label className="text-sm font-medium text-foreground cursor-pointer">
