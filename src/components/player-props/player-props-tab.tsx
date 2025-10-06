@@ -491,7 +491,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const [maxLine, setMaxLine] = useState(100);
   const [showSelection, setShowSelection] = useState(false);
   const [viewMode, setViewMode] = useState<'column' | 'cards'>('column');
-  const [overUnderFilter, setOverUnderFilter] = useState<'over' | 'under' | 'both'>('both');
+  const [overUnderFilter, setOverUnderFilter] = useState<'over' | 'under' | 'both'>('over');
   
   // Handle view parameter from URL
   useEffect(() => {
@@ -508,7 +508,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   // Odds range filter state
   const [minOdds, setMinOdds] = useState(-175);
   const [maxOdds, setMaxOdds] = useState(500);
-  const [useOddsFilter, setUseOddsFilter] = useState(false);
+  const [useOddsFilter, setUseOddsFilter] = useState(true);
 
   // Filter presets
   const filterPresets = {

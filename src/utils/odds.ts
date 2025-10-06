@@ -18,6 +18,11 @@ export function toAmericanOdds(val: number | string | null | undefined): string 
     return '—';
   }
 
+  // Check for pick 'em props (odds around +100, typically between +95 and +105)
+  if (num >= 95 && num <= 105) {
+    return 'Pick \'em';
+  }
+
   // If the value is already in American odds format (e.g., -110, +150)
   if (num >= -1000 && num <= 1000 && num !== 0) {
     return num > 0 ? `+${num}` : `${num}`;
@@ -71,6 +76,10 @@ export function getOddsColorClass(val: number | string | null | undefined): stri
   
   if (americanOdds === '—') {
     return 'text-muted-foreground';
+  }
+
+  if (americanOdds === 'Pick \'em') {
+    return 'text-blue-600';
   }
 
   const isPositive = americanOdds.startsWith('+');
