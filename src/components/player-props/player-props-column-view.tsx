@@ -96,46 +96,15 @@ const calculateLastNHitRate = (gameLogs: any[], line: number, direction: 'over' 
   return calculateHitRate(gameLogs || [], line, direction, n);
 };
 
-// Defensive rank calculation
-const getDefensiveRank = (defenseStats: any, opponent: string, marketType: string, position: string) => {
-  if (!defenseStats || !opponent || !marketType || !position) return { rank: 'N/A', display: 'N/A' };
+// Defensive rank calculation - using real data only
+const getDefensiveRank = (prop: any) => {
+  // Use existing relevantRank or defensive rank from prop data
+  if (prop.relevantRank) {
+    return { rank: prop.relevantRank, display: `${prop.opponent} ${prop.relevantRank}` };
+  }
   
-  const teamStats = defenseStats[opponent];
-  if (!teamStats) return { rank: 'N/A', display: 'N/A' };
-  
-  const positionStats = teamStats[position];
-  if (!positionStats) return { rank: 'N/A', display: 'N/A' };
-  
-  const propStats = positionStats[marketType];
-  if (!propStats || propStats.rank === undefined) return { rank: 'N/A', display: 'N/A' };
-  
-  return { 
-    rank: propStats.rank, 
-    display: `${opponent} ${propStats.rank}` 
-  };
-};
-
-// Precompute defense stats (mock data for now)
-const getDefenseStats = () => {
-  const teams = ['KC', 'JAX', 'BUF', 'MIA', 'NE', 'NYJ', 'BAL', 'CIN', 'CLE', 'PIT'];
-  const positions = ['QB', 'RB', 'WR', 'TE'];
-  const marketTypes = ['Passing Yards', 'Rushing Yards', 'Receiving Yards', 'Passing TDs', 'Rushing TDs', 'Receptions'];
-  
-  const defenseStats: any = {};
-  
-  teams.forEach(team => {
-    defenseStats[team] = {};
-    positions.forEach(position => {
-      defenseStats[team][position] = {};
-      marketTypes.forEach(marketType => {
-        defenseStats[team][position][marketType] = {
-          rank: Math.floor(Math.random() * 32) + 1
-        };
-      });
-    });
-  });
-  
-  return defenseStats;
+  // If no real defensive rank data available, show N/A
+  return { rank: 'N/A', display: 'N/A' };
 };
 
 // Prop priority mapping (matches Cloudflare Worker logic)
@@ -283,13 +252,7 @@ export function PlayerPropsColumnView({
   const [selectedPropSportsbooks, setSelectedPropSportsbooks] = useState<{sportsbooks: string[], propInfo: any}>({sportsbooks: [], propInfo: null});
   const [selectedGame, setSelectedGame] = useState('all');
   const [showAlternativeLines, setShowAlternativeLines] = useState(false);
-  const [defenseStats, setDefenseStats] = useState<any>(null);
   const { toast } = useToast();
-
-  // Initialize defense stats
-  useEffect(() => {
-    setDefenseStats(getDefenseStats());
-  }, []);
 
   // Handle alternative lines toggle with confirmation
   const handleAlternativeLinesToggle = (checked: boolean) => {
@@ -826,12 +789,6 @@ export function PlayerPropsColumnView({
             <div className="w-16 text-center px-2 py-3 text-xs font-semibold text-foreground">EV%</div>
             <div className="w-16 text-center px-2 py-3 text-xs font-semibold text-foreground">Streak</div>
             <div className="w-16 text-center px-2 py-3 text-xs font-semibold text-foreground">Rating</div>
-            <div className="w-20 text-center px-2 py-3 text-xs font-semibold text-foreground">Matchup</div>
-            <div className="w-16 text-center px-2 py-3 text-xs font-semibold text-foreground">2025</div>
-            <div className="w-16 text-center px-2 py-3 text-xs font-semibold text-foreground">H2H</div>
-            <div className="w-16 text-center px-2 py-3 text-xs font-semibold text-foreground">L5</div>
-            <div className="w-16 text-center px-2 py-3 text-xs font-semibold text-foreground">L10</div>
-            <div className="w-16 text-center px-2 py-3 text-xs font-semibold text-foreground">L20</div>
       </div>
 
           {/* Fixed Data Rows */}
@@ -1025,113 +982,6 @@ export function PlayerPropsColumnView({
                   })()}
                   </div>
 
-                  {/* Matchup Rank */}
-                  <div className="w-20 text-center px-2 group-hover:opacity-80 transition-colors duration-200">
-                    {(() => {
-                      const defensiveRank = getDefensiveRank(defenseStats, prop.opponent, prop.propType, prop.position);
-                      return (
-                        <div className="text-xs font-medium text-foreground">
-                          <div className="text-xs font-bold">{prop.opponent}</div>
-                          <div className="text-xs text-muted-foreground">#{defensiveRank.rank}</div>
-                        </div>
-                      );
-                    })()}
-                  </div>
-
-                  {/* Season 2025 Hit Rate */}
-                  <div className="w-16 text-center px-2 group-hover:opacity-80 transition-colors duration-200">
-                    {(() => {
-                      const season2025 = calculateSeasonHitRate(prop.gameLogs2025 || [], prop.line, overUnderFilter as 'over' | 'under');
-                      return (
-                        <div className="text-xs font-medium text-foreground">
-                          {season2025.total > 0 ? (
-                            <div>
-                              <div className="text-xs font-bold">{season2025.hits}/{season2025.total}</div>
-                              <div className="text-xs text-muted-foreground">({season2025.pct.toFixed(0)}%)</div>
-                            </div>
-                          ) : (
-                            <div className="text-xs text-muted-foreground">N/A</div>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </div>
-
-                  {/* H2H Hit Rate */}
-                  <div className="w-16 text-center px-2 group-hover:opacity-80 transition-colors duration-200">
-                    {(() => {
-                      const h2h = calculateH2HHitRate(prop.gameLogs || [], prop.line, overUnderFilter as 'over' | 'under', prop.opponent);
-                      return (
-                        <div className="text-xs font-medium text-foreground">
-                          {h2h.total > 0 ? (
-                            <div>
-                              <div className="text-xs font-bold">{h2h.hits}/{h2h.total}</div>
-                              <div className="text-xs text-muted-foreground">({h2h.pct.toFixed(0)}%)</div>
-                            </div>
-                          ) : (
-                            <div className="text-xs text-muted-foreground">N/A</div>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </div>
-
-                  {/* L5 Hit Rate */}
-                  <div className="w-16 text-center px-2 group-hover:opacity-80 transition-colors duration-200">
-                    {(() => {
-                      const l5 = calculateLastNHitRate(prop.gameLogs || [], prop.line, overUnderFilter as 'over' | 'under', 5);
-                      return (
-                        <div className="text-xs font-medium text-foreground">
-                          {l5.total > 0 ? (
-                            <div>
-                              <div className="text-xs font-bold">{l5.hits}/{l5.total}</div>
-                              <div className="text-xs text-muted-foreground">({l5.pct.toFixed(0)}%)</div>
-                            </div>
-                          ) : (
-                            <div className="text-xs text-muted-foreground">N/A</div>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </div>
-
-                  {/* L10 Hit Rate */}
-                  <div className="w-16 text-center px-2 group-hover:opacity-80 transition-colors duration-200">
-                    {(() => {
-                      const l10 = calculateLastNHitRate(prop.gameLogs || [], prop.line, overUnderFilter as 'over' | 'under', 10);
-                      return (
-                        <div className="text-xs font-medium text-foreground">
-                          {l10.total > 0 ? (
-                            <div>
-                              <div className="text-xs font-bold">{l10.hits}/{l10.total}</div>
-                              <div className="text-xs text-muted-foreground">({l10.pct.toFixed(0)}%)</div>
-                            </div>
-                          ) : (
-                            <div className="text-xs text-muted-foreground">N/A</div>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </div>
-
-                  {/* L20 Hit Rate */}
-                  <div className="w-16 text-center px-2 group-hover:opacity-80 transition-colors duration-200">
-                    {(() => {
-                      const l20 = calculateLastNHitRate(prop.gameLogs || [], prop.line, overUnderFilter as 'over' | 'under', 20);
-                      return (
-                        <div className="text-xs font-medium text-foreground">
-                          {l20.total > 0 ? (
-                            <div>
-                              <div className="text-xs font-bold">{l20.hits}/{l20.total}</div>
-                              <div className="text-xs text-muted-foreground">({l20.pct.toFixed(0)}%)</div>
-                            </div>
-                          ) : (
-                            <div className="text-xs text-muted-foreground">N/A</div>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -1155,14 +1005,15 @@ export function PlayerPropsColumnView({
           {/* Analytics Data Rows */}
           <div className="space-y-2">
             {filteredAndSortedProps.map((prop, index) => {
-              // Calculate analytics data
+              // Calculate analytics data using current filter
               const gameLogs = prop.gameLogs || [];
               const gameLogs2025 = prop.gameLogs2025 || [];
-              const h2h = calculateHitRate(gameLogs, prop.line, "over", undefined, prop.opponentAbbr);
-              const season = calculateHitRate(gameLogs2025, prop.line, "over");
-              const l5 = calculateHitRate(gameLogs, prop.line, "over", 5);
-              const l10 = calculateHitRate(gameLogs, prop.line, "over", 10);
-              const l20 = calculateHitRate(gameLogs, prop.line, "over", 20);
+              const direction = overUnderFilter as 'over' | 'under';
+              const h2h = calculateHitRate(gameLogs, prop.line, direction, undefined, prop.opponentAbbr);
+              const season = calculateHitRate(gameLogs2025, prop.line, direction);
+              const l5 = calculateHitRate(gameLogs, prop.line, direction, 5);
+              const l10 = calculateHitRate(gameLogs, prop.line, direction, 10);
+              const l20 = calculateHitRate(gameLogs, prop.line, direction, 20);
 
                       return (
                 <div
