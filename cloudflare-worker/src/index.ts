@@ -1490,6 +1490,8 @@ async function normalizeEvent(ev: SGEvent) {
     
     // Process odds entries
     
+    console.log(`DEBUG: Processing ${Object.keys(oddsDict).length} odds entries`);
+    
     // Parse odds entries with format: "statType-PLAYER_NAME-game-side"
     for (const oddID in oddsDict) {
       const oddsEntry = oddsDict[oddID];
@@ -1499,37 +1501,50 @@ async function normalizeEvent(ev: SGEvent) {
         continue;
       }
       
-      // Skip exotic touchdown markets that clutter the list (case-insensitive)
+      // Skip unwanted markets (case-insensitive)
       const marketKey = oddID.toLowerCase();
-      if (marketKey.includes('first touchdown') || marketKey.includes('last touchdown')) {
+      if (marketKey.includes('touchdown') || marketKey.includes('td') || marketKey.includes('firsttouchdown') || marketKey.includes('lasttouchdown') ||
+          marketKey.includes('defense_interceptions') || marketKey.includes('defense_sacks') || 
+          marketKey.includes('defense_combinedtackles') || marketKey.includes('defense_assistedtackles') ||
+          marketKey.includes('extrapoints_kicksmade') || marketKey.includes('kicking_totalpoints')) {
         continue;
       }
       
+      console.log(`DEBUG: Processing oddID: ${oddID}`);
+      
       // Parse the oddID to extract stat type, player name, period, and side
-      // Format: "statType-PLAYER_NAME-period-side-direction"
-      // Example: "passing_touchdowns-JOE_FLACCO_1_NFL-game-ou-over"
+      // Format: "statType-PLAYER_NAME_NFL-game-side-direction"
+      // Example: "firstTouchdown-BRIAN_THOMAS_1_NFL-game-yn-yes"
       const parts = oddID.split('-');
       if (parts.length < 5) continue;
       
-      // Find where the player name ends (it contains underscores)
+      // Find where the player name ends (it contains underscores and ends with NFL)
       let playerNameEnd = -1;
       for (let i = 1; i < parts.length; i++) {
-        if (parts[i].includes('_') && parts[i].includes('NFL')) {
+        if (parts[i].includes('_') && parts[i].endsWith('NFL')) {
           playerNameEnd = i;
           break;
         }
       }
       
-      if (playerNameEnd === -1) continue;
+      if (playerNameEnd === -1) {
+        console.log(`DEBUG: No player name found for oddID: ${oddID}`);
+        continue;
+      }
       
-      const statType = parts[0]; // e.g., "passing_yards", "receiving_yards"
-      const playerName = parts.slice(1, playerNameEnd + 1).join('-'); // e.g., "JOE_FLACCO_1_NFL"
+      const statType = parts[0]; // e.g., "firstTouchdown", "passing_yards"
+      const playerName = parts.slice(1, playerNameEnd + 1).join('-'); // e.g., "BRIAN_THOMAS_1_NFL"
       const period = parts[playerNameEnd + 1]; // e.g., "game", "1h", "1q"
       const side = parts[playerNameEnd + 2]; // e.g., "ou", "yn"
       const direction = parts[playerNameEnd + 3]; // e.g., "over", "under", "yes", "no"
       
+      console.log(`DEBUG: Parsed - statType: ${statType}, playerName: ${playerName}, period: ${period}, side: ${side}, direction: ${direction}`);
+      
       // Skip if not a player prop or if it's not the right format
-      if (!playerName.includes('_') || period !== 'game') continue;
+      if (!playerName.includes('_') || period !== 'game') {
+        console.log(`DEBUG: Skipping - playerName includes underscore: ${playerName.includes('_')}, period is game: ${period === 'game'}`);
+        continue;
+      }
       
       // Create a clean player name from the SGO format
       const rawPlayerName = playerName.replace(/_/g, ' ').replace(/\s+\d+\s+NFL/, '');
@@ -1590,12 +1605,15 @@ async function normalizeEvent(ev: SGEvent) {
     
     // Convert map to array and apply all processing
     playerProps = Array.from(playerPropsMap.values());
+    console.log(`DEBUG: Converted map to array, got ${playerProps.length} props`);
     
     // Apply quarterback filtering
     playerProps = filterQuarterbacks(playerProps);
+    console.log(`DEBUG: After QB filtering, got ${playerProps.length} props`);
     
     // Apply priority sorting
     playerProps = prioritizeProps(playerProps);
+    console.log(`DEBUG: After priority sorting, got ${playerProps.length} props`);
     
         // Extracted player props from SGO format
   }
@@ -1607,9 +1625,13 @@ async function normalizeEvent(ev: SGEvent) {
 
   // Add player_id, position, and team abbreviation to all player props
   console.log(`DEBUG: Adding player_id, position, and team to ${playerProps.length} props`);
-  playerProps = await Promise.all(playerProps.map(async (prop: any) => {
+  playerProps = await Promise.all(playerProps.map(async (prop: any, index: number) => {
     const playerName = prop.player_name;
     const player = Object.values(ev.players || {}).find((p: any) => p.name === playerName) as any;
+    
+    if (index < 3) {
+      console.log(`DEBUG: Processing prop ${index}: playerName=${playerName}, found player=${!!player}`);
+    }
     
     // Convert teamID to abbreviation (e.g., "CLEVELAND_BROWNS_NFL" -> "CLE")
     let teamAbbr: string | null = null;
@@ -1626,10 +1648,12 @@ async function normalizeEvent(ev: SGEvent) {
     return {
       ...prop,
       player_id: player?.playerID || null,
-      position: await getPlayerPosition(playerName, 'nfl'),
+      position: '—',
       teamAbbr: teamAbbr,
     };
   }));
+  
+  console.log(`DEBUG: Final player props count: ${playerProps.length}`);
 
   // console.log(`Returning event ${eventId} with ${playerProps.length} player props and ${teamProps.length} team props`);
   
