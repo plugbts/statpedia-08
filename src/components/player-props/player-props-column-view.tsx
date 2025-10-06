@@ -719,13 +719,17 @@ export function PlayerPropsColumnView({
 
                 {/* Prop Type */}
                 <div className="col-span-2 text-center flex flex-col items-center justify-center">
-                  <div className="text-sm font-medium text-foreground leading-tight text-center">
+                  <div className="text-sm font-medium leading-tight text-center">
                     {(() => {
                       const formattedPropType = formatPropType(prop.propType);
                       const lines = splitTextIntoLines(formattedPropType, 12);
                       
                       return lines.map((line, index) => (
-                        <div key={index} className="block text-center">
+                        <div 
+                          key={index} 
+                          className="block text-center bg-gradient-to-r from-white via-gray-200 to-white bg-clip-text text-transparent font-semibold animate-pulse"
+                          style={{ animationDelay: `${index * 0.1}s` }}
+                        >
                           {line}
                         </div>
                       ));

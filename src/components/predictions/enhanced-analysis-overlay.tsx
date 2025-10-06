@@ -1358,42 +1358,6 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFi
           </div>
         </DialogHeader>
 
-        {/* Prop Selector - Always show if we have props data */}
-        {(availableProps.length > 0 || isLoadingProps) && (
-          <div className="mb-6 p-4 bg-gradient-to-r from-gray-800/50 to-black/50 border border-purple-500/20 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Target className="w-5 h-5 text-purple-400" />
-                <span className="text-white font-medium">Select Prop to Analyze:</span>
-              </div>
-              <Select 
-                value={selectedPropId || prediction.id || ''} 
-                onValueChange={handlePropChange}
-                disabled={isLoadingProps || availableProps.length === 0}
-              >
-                <SelectTrigger className="w-80 bg-gradient-to-r from-gray-700/50 to-gray-800/50 border border-purple-500/30 text-white hover:border-purple-400/50 transition-all duration-300">
-                  <SelectValue placeholder={isLoadingProps ? "Loading props..." : availableProps.length === 0 ? "No props available" : "Choose a prop"} />
-                </SelectTrigger>
-                <SelectContent className="bg-gradient-to-br from-gray-800 to-black border border-purple-500/30 max-h-60">
-                  {availableProps.map((prop) => (
-                    <SelectItem 
-                      key={prop.id} 
-                      value={prop.id}
-                      className="text-white hover:bg-purple-600/20 focus:bg-purple-600/20 transition-all duration-300"
-                    >
-                      <div className="flex flex-col">
-                        <span className="font-medium">{prop.propType}</span>
-                        <span className="text-sm text-gray-300">
-                          Line: {prop.line} • Over: {formatAmericanOdds(prop.overOdds)} • Under: {formatAmericanOdds(prop.underOdds)}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        )}
 
         {/* Energetic Tabs with Soul */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 mt-4">
@@ -1474,6 +1438,35 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFi
                     <Target className="w-6 h-6 text-purple-400 animate-pulse" />
                     Key Metrics
                   </CardTitle>
+                  
+                  {/* Prop Selector Dropdown */}
+                  <div className="mt-3">
+                    <Select 
+                      value={selectedPropId || prediction.id || ''} 
+                      onValueChange={handlePropChange}
+                      disabled={isLoadingProps || availableProps.length === 0}
+                    >
+                      <SelectTrigger className="w-full bg-gradient-to-r from-gray-700/50 to-gray-800/50 border border-purple-500/30 text-white hover:border-purple-400/50 transition-all duration-300">
+                        <SelectValue placeholder={isLoadingProps ? "Loading props..." : availableProps.length === 0 ? "No props available" : "Choose a prop"} />
+                      </SelectTrigger>
+                      <SelectContent className="bg-gradient-to-br from-gray-800 to-black border border-purple-500/30 max-h-60">
+                        {availableProps.map((prop) => (
+                          <SelectItem 
+                            key={prop.id} 
+                            value={prop.id}
+                            className="text-white hover:bg-purple-600/20 focus:bg-purple-600/20 transition-all duration-300"
+                          >
+                            <div className="flex flex-col">
+                              <span className="font-medium">{prop.propType}</span>
+                              <span className="text-sm text-gray-300">
+                                Line: {prop.line} • Over: {formatAmericanOdds(prop.overOdds)} • Under: {formatAmericanOdds(prop.underOdds)}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex justify-between items-center p-2 bg-gradient-to-r from-purple-600/10 to-pink-600/10 rounded-lg border border-purple-500/20">
