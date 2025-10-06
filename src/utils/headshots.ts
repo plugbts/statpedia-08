@@ -49,6 +49,13 @@ export function getPlayerHeadshot(league: string, playerId: string | number | nu
   const leagueLower = league.toLowerCase();
   const id = String(playerId);
 
+  // Only return URLs for known players to avoid 404s
+  // For unknown players, return null so initials are shown instead
+  const knownPlayerIds = Object.values(knownPlayers);
+  if (!knownPlayerIds.includes(id)) {
+    return null;
+  }
+
   // Major leagues with ESPN CDN
   if (['nfl', 'nba', 'mlb', 'nhl'].includes(leagueLower)) {
     // ESPN CDN format: https://a.espncdn.com/i/headshots/{sport}/500/{id}.png

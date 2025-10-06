@@ -180,6 +180,8 @@ export function PlayerPropsColumnView({
 
   // Handle alternative lines toggle with confirmation
   const handleAlternativeLinesToggle = (checked: boolean) => {
+    console.log(`🔍 Toggle Alternative Lines: ${checked ? 'ON' : 'OFF'}`);
+    
     if (checked) {
       // Calculate how many additional props will be shown
       const propsWithoutAlternatives = props.filter(prop => {
@@ -191,7 +193,8 @@ export function PlayerPropsColumnView({
         // Alternative lines filter (show only main lines)
         const allPropsForPlayer = props.filter(p => 
           p.playerName === prop.playerName && 
-          p.propType === prop.propType
+          p.propType === prop.propType &&
+          p.gameId === prop.gameId // Add gameId to ensure we're looking at the same game
         );
 
         if (allPropsForPlayer.length > 1) {
@@ -222,13 +225,31 @@ export function PlayerPropsColumnView({
 
       const additionalProps = totalProps.length - propsWithoutAlternatives.length;
       
-      // Debug logging
-      console.log('🔍 Alternative Lines Debug:', {
+      // Enhanced debug logging
+      console.log('🔍 Alternative Lines Toggle Debug:', {
         totalProps: totalProps.length,
         propsWithoutAlternatives: propsWithoutAlternatives.length,
         additionalProps,
-        showAlternativeLines: checked
+        showAlternativeLines: checked,
+        selectedGame
       });
+      
+      // Log specific examples of alternative lines found
+      const groupedProps = props.reduce((acc, prop) => {
+        const key = `${prop.playerName}-${prop.propType}-${prop.gameId}`;
+        if (!acc[key]) {
+          acc[key] = [];
+        }
+        acc[key].push(prop);
+        return acc;
+      }, {} as Record<string, any[]>);
+      
+      const alternativeLineGroups = Object.entries(groupedProps).filter(([_, propGroup]) => propGroup.length > 1);
+      console.log(`🔍 Found ${alternativeLineGroups.length} alternative line groups:`, alternativeLineGroups.slice(0, 3).map(([key, propGroup]) => ({
+        key,
+        count: propGroup.length,
+        lines: propGroup.map(p => p.line)
+      })));
       
       setShowAlternativeLines(true);
       
@@ -247,6 +268,7 @@ export function PlayerPropsColumnView({
       }
     } else {
       setShowAlternativeLines(false);
+      console.log('🔍 Alternative Lines Hidden - showing only main lines');
       toast({
         title: "Alternative Lines Hidden",
         description: "Showing only main prop lines",
@@ -332,16 +354,17 @@ export function PlayerPropsColumnView({
         console.log(`🔍 Sample player data:`, playersWithMultipleProps[0]);
         
         // Let's also check if we can find any props with similar lines
-        const samplePlayer = playersWithMultipleProps[0];
-        if (samplePlayer) {
-          const propTypes = samplePlayer.props.map(p => p.propType);
-          console.log(`🔍 Sample player prop types:`, propTypes);
+        const samplePlayerEntry = playersWithMultipleProps[0];
+        if (samplePlayerEntry) {
+          const [playerName, playerProps] = samplePlayerEntry;
+          const propTypes = playerProps.map((p: any) => p.propType);
+          console.log(`🔍 Sample player (${playerName}) prop types:`, propTypes);
           
           // Check if any prop types have similar lines
-          propTypes.forEach(propType => {
-            const propsOfType = samplePlayer.props.filter(p => p.propType === propType);
+          propTypes.forEach((propType: string) => {
+            const propsOfType = playerProps.filter((p: any) => p.propType === propType);
             if (propsOfType.length > 1) {
-              console.log(`🔍 Found multiple props for ${propType}:`, propsOfType.map(p => ({ line: p.line, overOdds: p.overOdds, underOdds: p.underOdds })));
+              console.log(`🔍 Found multiple props for ${propType}:`, propsOfType.map((p: any) => ({ line: p.line, overOdds: p.overOdds, underOdds: p.underOdds })));
             }
           });
         }
@@ -745,6 +768,9 @@ export function PlayerPropsColumnView({
                               if (parent) {
                                 parent.innerHTML = getPlayerInitials(prop.playerName);
                               }
+                            }}
+                            onLoad={(e) => {
+                              // Image loaded successfully, no need to do anything
                             }}
                           />
                         );
