@@ -1462,28 +1462,31 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFi
                   <div className="p-2 bg-gradient-to-r from-blue-600/10 to-cyan-600/10 rounded-lg border border-blue-500/20">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-gray-300 text-sm font-medium">Current Prop</span>
+                      <span className="text-xs text-gray-400">({availableProps.length} props)</span>
                     </div>
                     <Select 
                       value={selectedPropId || prediction.id || ''} 
                       onValueChange={handlePropChange}
-                      disabled={isLoadingProps || availableProps.length === 0}
+                      disabled={isLoadingProps}
                     >
-                      <SelectTrigger className="w-full bg-gradient-to-r from-gray-700/50 to-gray-800/50 border border-purple-500/30 text-white hover:border-purple-400/50 transition-all duration-300">
+                      <SelectTrigger className="w-full bg-gradient-to-r from-gray-700/50 to-gray-800/50 border border-purple-500/30 text-white hover:border-purple-400/50 hover:shadow-lg hover:shadow-purple-500/20 transition-all duration-300 hover:scale-[1.02] cursor-pointer">
                         <SelectValue placeholder={isLoadingProps ? "Loading props..." : availableProps.length === 0 ? "No props available" : "Choose a prop"}>
-                          {currentData.propType} - Line: {currentData.line}
+                          {currentData.propType}
                         </SelectValue>
                       </SelectTrigger>
-                      <SelectContent className="bg-gradient-to-br from-gray-800 to-black border border-purple-500/30 max-h-60">
+                      <SelectContent className="bg-gradient-to-br from-gray-800 to-black border border-purple-500/30 max-h-60 shadow-2xl shadow-purple-500/20 animate-in slide-in-from-top-2 duration-200">
                         {availableProps.map((prop) => (
                           <SelectItem 
                             key={prop.id} 
                             value={prop.id}
-                            className="text-white hover:bg-purple-600/20 focus:bg-purple-600/20 transition-all duration-300"
+                            className="text-white hover:bg-purple-600/20 focus:bg-purple-600/20 transition-all duration-300 hover:scale-[1.02] cursor-pointer"
                           >
                             <div className="flex flex-col">
-                              <span className="font-medium">{prop.propType}</span>
+                              <span className="font-medium bg-gradient-to-r from-white to-gray-200 bg-clip-text text-transparent animate-pulse">
+                                {prop.propType}
+                              </span>
                               <span className="text-sm text-gray-300">
-                                Line: {prop.line} • Over: {formatAmericanOdds(prop.overOdds)} • Under: {formatAmericanOdds(prop.underOdds)}
+                                Over: {formatAmericanOdds(prop.overOdds)} • Under: {formatAmericanOdds(prop.underOdds)}
                               </span>
                             </div>
                           </SelectItem>
