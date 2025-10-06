@@ -1451,6 +1451,21 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFi
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-4 mt-2">
+            {/* Main Prop Display - Animated and Cool */}
+            <div className="space-y-3 animate-fade-in">
+              <h3 className="text-3xl font-bold text-white bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent animate-pulse text-center">
+                {currentData.playerName}
+              </h3>
+              <div className="bg-gradient-to-r from-gray-800/50 to-gray-700/50 rounded-lg p-6 border border-gray-600/30 shadow-lg text-center">
+                <p className="text-2xl font-semibold text-white mb-2 animate-pulse">
+                  {currentData.propType}
+                </p>
+                <p className="text-3xl font-bold text-blue-400 animate-bounce">
+                  Line: {currentData.line}
+                </p>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* Key Metrics */}
               <Card className="bg-gradient-to-br from-gray-800/80 to-black/80 border-2 border-purple-500/30 shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 transition-all duration-300">
