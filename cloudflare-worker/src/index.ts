@@ -1605,15 +1605,15 @@ async function normalizeEvent(ev: SGEvent) {
       console.log(`DEBUG: Processing oddID: ${oddID}`);
       
       // Parse the oddID to extract stat type, player name, period, and side
-      // Format: "statType-PLAYER_NAME_NFL-game-side-direction"
-      // Example: "firstTouchdown-BRIAN_THOMAS_1_NFL-game-yn-yes"
+      // Format: "statType-PLAYER_NAME_LEAGUE-game-side-direction"
+      // Example: "firstTouchdown-BRIAN_THOMAS_1_NFL-game-yn-yes" or "hits-SHOHEI_OHTANI_1_MLB-game-ou-over"
       const parts = oddID.split('-');
       if (parts.length < 5) continue;
       
-      // Find where the player name ends (it contains underscores and ends with NFL)
+      // Find where the player name ends (it contains underscores and ends with league suffix)
       let playerNameEnd = -1;
       for (let i = 1; i < parts.length; i++) {
-        if (parts[i].includes('_') && parts[i].endsWith('NFL')) {
+        if (parts[i].includes('_') && (parts[i].endsWith('NFL') || parts[i].endsWith('NBA') || parts[i].endsWith('MLB') || parts[i].endsWith('NHL'))) {
           playerNameEnd = i;
           break;
         }
