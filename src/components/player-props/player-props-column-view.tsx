@@ -895,53 +895,104 @@ export function PlayerPropsColumnView({
                         : (prop.rating_under_normalized || prop.rating_under_raw);
                       
                       const ratingValue = propFinderRating || statpediaRatingService.calculateRating(prop, overUnderFilter).overall;
-                      const percentage = Math.min(Math.max(ratingValue, 0), 100);
+                      // Scale so 95+ is considered full circle
+                      const scaledPercentage = Math.min((ratingValue / 95) * 100, 100);
+                      const displayPercentage = Math.min(Math.max(ratingValue, 0), 100);
                       
                       // Color based on rating
-                      let circleColor = 'stroke-gray-300';
+                      let circleColor = 'stroke-gray-400';
                       let textColor = 'text-gray-500';
+                      let glowColor = '';
                       
-                      if (percentage >= 80) {
+                      if (displayPercentage >= 80) {
                         circleColor = 'stroke-green-500';
                         textColor = 'text-green-600';
-                      } else if (percentage >= 60) {
+                        glowColor = 'drop-shadow-[0_0_8px_rgba(34,197,94,0.3)]';
+                      } else if (displayPercentage >= 60) {
                         circleColor = 'stroke-yellow-500';
                         textColor = 'text-yellow-600';
+                        glowColor = 'drop-shadow-[0_0_8px_rgba(234,179,8,0.3)]';
                       } else {
                         circleColor = 'stroke-red-500';
                         textColor = 'text-red-600';
+                        glowColor = 'drop-shadow-[0_0_8px_rgba(239,68,68,0.3)]';
                       }
-                    
-                    return (
-                        <div className="flex flex-col items-center">
-                          <div className="relative w-8 h-8">
-                            <svg className="w-8 h-8 transform -rotate-90" viewBox="0 0 36 36">
-                              {/* Background circle */}
+                      
+                      return (
+                        <div className="flex flex-col items-center group/rating">
+                          <div className="relative w-10 h-10">
+                            <svg className="w-10 h-10 transform -rotate-90 transition-all duration-500 group-hover/rating:scale-110" viewBox="0 0 36 36">
+                              {/* Gradient definitions */}
+                              <defs>
+                                <linearGradient id={`progress-${index}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                                  <stop offset="0%" stopColor="currentColor" stopOpacity="0.8" />
+                                  <stop offset="100%" stopColor="currentColor" stopOpacity="1" />
+                                </linearGradient>
+                              </defs>
+                              
+                              {/* Progress circle with animation */}
                               <path
                                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                                 fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                className="stroke-gray-200"
-                              />
-                              {/* Progress circle */}
-                              <path
-                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeDasharray={`${percentage}, 100`}
-                                className={circleColor}
+                                stroke="url(#progress-${index})"
+                                strokeWidth="3"
+                                strokeDasharray={`${scaledPercentage}, 100`}
+                                strokeLinecap="round"
+                                className={`${circleColor} transition-all duration-1000 ease-out ${glowColor}`}
+                                style={{
+                                  strokeDashoffset: 0,
+                                  animation: `drawCircle-${index} 1.5s ease-out forwards`
+                                }}
                               />
                             </svg>
+                            
+                            {/* Animated number with pulse effect */}
                             <div className="absolute inset-0 flex items-center justify-center">
-                              <span className={`text-xs font-bold ${textColor}`}>
-                                {Math.round(percentage)}
+                              <span 
+                                className={`text-sm font-bold ${textColor} transition-all duration-500 group-hover/rating:scale-110 group-hover/rating:drop-shadow-lg`}
+                                style={{
+                                  animation: `fadeInUp-${index} 0.8s ease-out forwards`,
+                                  animationDelay: '0.3s',
+                                  opacity: 0
+                                }}
+                              >
+                                {Math.round(displayPercentage)}
                               </span>
                             </div>
+                            
+                            {/* Subtle inner glow effect */}
+                            <div className={`absolute inset-1 rounded-full opacity-20 group-hover/rating:opacity-30 transition-opacity duration-300 ${
+                              displayPercentage >= 80 ? 'bg-green-500' : 
+                              displayPercentage >= 60 ? 'bg-yellow-500' : 'bg-red-500'
+                            }`} />
+                          </div>
+                          
+                          {/* CSS Animations */}
+                          <style dangerouslySetInnerHTML={{
+                            __html: `
+                              @keyframes drawCircle-${index} {
+                                from {
+                                  stroke-dasharray: 0, 100;
+                                }
+                                to {
+                                  stroke-dasharray: ${scaledPercentage}, 100;
+                                }
+                              }
+                              
+                              @keyframes fadeInUp-${index} {
+                                from {
+                                  opacity: 0;
+                                  transform: translateY(10px);
+                                }
+                                to {
+                                  opacity: 1;
+                                  transform: translateY(0);
+                                }
+                              }
+                            `
+                          }} />
                         </div>
-                      </div>
-                    );
+                      );
                   })()}
                   </div>
                 </div>
