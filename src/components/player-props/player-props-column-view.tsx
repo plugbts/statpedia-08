@@ -788,38 +788,38 @@ export function PlayerPropsColumnView({
           >
               <CardContent className="p-3">
                 <div className="flex items-center">
-                  {/* Player Info */}
+                {/* Player Info */}
                   <div className="w-48 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 flex items-center justify-center text-foreground font-bold text-sm overflow-hidden flex-shrink-0">
-                      {(() => {
-                        const knownHeadshotUrl = getKnownPlayerHeadshot(prop.playerName, prop.sport || 'nfl');
-                        const fallbackHeadshotUrl = getPlayerHeadshot(prop.sport || 'nfl', prop.player_id);
-                        const headshotUrl = knownHeadshotUrl || fallbackHeadshotUrl;
-                        
-                        if (headshotUrl) {
-                          return (
-                            <img 
-                              src={headshotUrl} 
-                              alt={prop.playerName}
-                              className="w-full h-full object-cover rounded-full"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.style.display = 'none';
-                                const parent = target.parentElement;
-                                if (parent) {
-                                  parent.innerHTML = getPlayerInitials(prop.playerName);
-                                }
-                              }}
-                            />
-                          );
-                        }
-                        return getPlayerInitials(prop.playerName);
-                      })()}
-                    </div>
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 flex items-center justify-center text-foreground font-bold text-sm overflow-hidden flex-shrink-0">
+                    {(() => {
+                      const knownHeadshotUrl = getKnownPlayerHeadshot(prop.playerName, prop.sport || 'nfl');
+                      const fallbackHeadshotUrl = getPlayerHeadshot(prop.sport || 'nfl', prop.player_id);
+                      const headshotUrl = knownHeadshotUrl || fallbackHeadshotUrl;
+                      
+                      if (headshotUrl) {
+                        return (
+                          <img 
+                            src={headshotUrl} 
+                            alt={prop.playerName}
+                            className="w-full h-full object-cover rounded-full"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const parent = target.parentElement;
+                              if (parent) {
+                                parent.innerHTML = getPlayerInitials(prop.playerName);
+                              }
+                            }}
+                          />
+                        );
+                      }
+                      return getPlayerInitials(prop.playerName);
+                    })()}
+                  </div>
                     <div className="min-w-0 flex-1">
                       <div className="font-bold text-foreground text-sm group-hover:text-primary transition-colors duration-200 truncate">
-                        {prop.playerName || 'Unknown Player'}
-                      </div>
+                      {prop.playerName || 'Unknown Player'}
+                    </div>
                     </div>
                     <Button
                       variant="ghost"
@@ -833,28 +833,28 @@ export function PlayerPropsColumnView({
                     >
                       <Star className="h-4 w-4" />
                     </Button>
-                  </div>
+                </div>
 
-                  {/* Team */}
+                {/* Team */}
                   <div className="w-16 text-center px-2">
-                    <div className="text-xs font-medium text-foreground">
-                      {prop.teamAbbr || '—'}
-                    </div>
-                  </div>
+         <div className="text-xs font-medium text-foreground">
+           {prop.teamAbbr || '—'}
+         </div>
+       </div>
 
-                  {/* Prop Type */}
+                {/* Prop Type */}
                   <div className="w-24 text-center px-2">
                     <div className="text-xs font-medium text-foreground group-hover:text-primary/90 transition-colors duration-200 truncate">
                       {formatPropType(prop.propType)}
-                    </div>
                   </div>
+                </div>
 
-                  {/* Line */}
+                {/* Line */}
                   <div className="w-16 text-center px-2">
                     <div className="text-xs font-bold text-foreground group-hover:text-primary transition-colors duration-200">
-                      {formatNumber(prop.line, 1)}
-                    </div>
+                    {formatNumber(prop.line, 1)}
                   </div>
+                </div>
 
                   {/* Odds */}
                   <div className="w-16 text-center px-2">
@@ -912,87 +912,34 @@ export function PlayerPropsColumnView({
                         circleColor = 'stroke-yellow-500';
                         textColor = 'text-yellow-600';
                         glowColor = 'drop-shadow-[0_0_8px_rgba(234,179,8,0.3)]';
-                      } else {
+                    } else {
                         circleColor = 'stroke-red-500';
                         textColor = 'text-red-600';
                         glowColor = 'drop-shadow-[0_0_8px_rgba(239,68,68,0.3)]';
-                      }
-                      
-                      return (
-                        <div className="flex flex-col items-center group/rating">
-                          <div className="relative w-10 h-10">
-                            <svg className="w-10 h-10 transform -rotate-90 transition-all duration-500 group-hover/rating:scale-110" viewBox="0 0 36 36">
-                              {/* Gradient definitions */}
-                              <defs>
-                                <linearGradient id={`progress-${index}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                                  <stop offset="0%" stopColor="currentColor" stopOpacity="0.8" />
-                                  <stop offset="100%" stopColor="currentColor" stopOpacity="1" />
-                                </linearGradient>
-                              </defs>
-                              
-                              {/* Progress circle with animation */}
+                    }
+                    
+                    return (
+                        <div className="flex flex-col items-center">
+                          <div className="relative w-8 h-8">
+                            <svg className="w-8 h-8 transform -rotate-90" viewBox="0 0 36 36">
+                              {/* Progress circle - no background, transparent unfilled */}
                               <path
                                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                                 fill="none"
-                                stroke="url(#progress-${index})"
-                                strokeWidth="3"
+                                stroke="currentColor"
+                                strokeWidth="2"
                                 strokeDasharray={`${scaledPercentage}, 100`}
-                                strokeLinecap="round"
-                                className={`${circleColor} transition-all duration-1000 ease-out ${glowColor}`}
-                                style={{
-                                  strokeDashoffset: 0,
-                                  animation: `drawCircle-${index} 1.5s ease-out forwards`
-                                }}
+                                className={circleColor}
                               />
                             </svg>
-                            
-                            {/* Animated number with pulse effect */}
                             <div className="absolute inset-0 flex items-center justify-center">
-                              <span 
-                                className={`text-sm font-bold ${textColor} transition-all duration-500 group-hover/rating:scale-110 group-hover/rating:drop-shadow-lg`}
-                                style={{
-                                  animation: `fadeInUp-${index} 0.8s ease-out forwards`,
-                                  animationDelay: '0.3s',
-                                  opacity: 0
-                                }}
-                              >
+                              <span className={`text-xs font-bold ${textColor}`}>
                                 {Math.round(displayPercentage)}
                               </span>
                             </div>
-                            
-                            {/* Subtle inner glow effect */}
-                            <div className={`absolute inset-1 rounded-full opacity-20 group-hover/rating:opacity-30 transition-opacity duration-300 ${
-                              displayPercentage >= 80 ? 'bg-green-500' : 
-                              displayPercentage >= 60 ? 'bg-yellow-500' : 'bg-red-500'
-                            }`} />
-                          </div>
-                          
-                          {/* CSS Animations */}
-                          <style dangerouslySetInnerHTML={{
-                            __html: `
-                              @keyframes drawCircle-${index} {
-                                from {
-                                  stroke-dasharray: 0, 100;
-                                }
-                                to {
-                                  stroke-dasharray: ${scaledPercentage}, 100;
-                                }
-                              }
-                              
-                              @keyframes fadeInUp-${index} {
-                                from {
-                                  opacity: 0;
-                                  transform: translateY(10px);
-                                }
-                                to {
-                                  opacity: 1;
-                                  transform: translateY(0);
-                                }
-                              }
-                            `
-                          }} />
                         </div>
-                      );
+                      </div>
+                    );
                   })()}
                   </div>
                 </div>
