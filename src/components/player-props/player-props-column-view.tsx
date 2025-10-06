@@ -35,6 +35,54 @@ import { getPlayerHeadshot, getPlayerInitials, getKnownPlayerHeadshot } from '@/
 import { StreakService } from '@/services/streak-service';
 import { useToast } from '@/hooks/use-toast';
 
+// Utility function to calculate streak
+const calculateStreak = (gameLogs: any[], line: number, direction: 'over' | 'under') => {
+  if (!gameLogs || gameLogs.length === 0) return 0;
+  
+  let streak = 0;
+  for (let i = 0; i < gameLogs.length; i++) {
+    const hit = direction === 'over' ? gameLogs[i].value >= line : gameLogs[i].value <= line;
+    if (hit) {
+      streak++;
+    } else {
+      break;
+    }
+  }
+  return streak;
+};
+
+// Utility function to calculate hit rate
+const calculateHitRate = (gameLogs: any[], line: number, direction: 'over' | 'under', sampleSize?: number, filterOpponent?: string) => {
+  if (!gameLogs || gameLogs.length === 0) {
+    return { hits: 0, total: 0, pct: 0 };
+  }
+  
+  let filteredLogs = gameLogs;
+  
+  // Filter by opponent if specified
+  if (filterOpponent) {
+    filteredLogs = gameLogs.filter(log => log.opponent === filterOpponent);
+  }
+  
+  // Apply sample size if specified
+  if (sampleSize && sampleSize > 0) {
+    filteredLogs = filteredLogs.slice(0, sampleSize);
+  }
+  
+  if (filteredLogs.length === 0) {
+    return { hits: 0, total: 0, pct: 0 };
+  }
+  
+  const hits = filteredLogs.filter(log => {
+    return direction === 'over' ? log.value >= line : log.value <= line;
+  }).length;
+  
+  const total = filteredLogs.length;
+  const pct = total > 0 ? (hits / total) * 100 : 0;
+  
+  return { hits, total, pct };
+};
+
 // Prop priority mapping (matches Cloudflare Worker logic)
 const getPropPriority = (propType: string): number => {
   const lowerPropType = propType.toLowerCase();
@@ -696,56 +744,48 @@ export function PlayerPropsColumnView({
         </div>
       </div>
 
-      {/* Column Headers */}
-      <div className="grid grid-cols-12 gap-1 px-2 py-2 bg-gradient-card border border-border/50 rounded-lg">
-        <div className="col-span-3 text-xs font-semibold text-foreground flex items-center gap-1">
-          <Users className="w-3 h-3" />
-          Player
-        </div>
-        <div className="col-span-1 text-xs font-semibold text-foreground text-center flex items-center justify-center gap-1">
-          <Target className="w-3 h-3" />
-          Team
-        </div>
-        <div className="col-span-2 text-xs font-semibold text-foreground text-center flex items-center justify-center gap-1">
-          <Target className="w-3 h-3" />
-          Prop
-        </div>
-        <div className="col-span-1 text-xs font-semibold text-foreground text-center flex items-center justify-center gap-1">
-          <BarChart3 className="w-3 h-3" />
-          Line
-        </div>
-        <div className="col-span-1 text-xs font-semibold text-foreground text-center flex items-center justify-center gap-1">
-          <TrendingUp className="w-3 h-3 text-green-500" />
-          Odds
-        </div>
-        <div className="col-span-1 text-xs font-semibold text-foreground text-center flex items-center justify-center gap-1">
-          <Zap className="w-3 h-3" />
-          EV
-        </div>
-        <div className="col-span-1 text-xs font-semibold text-foreground text-center flex items-center justify-center gap-1">
-          <Activity className="w-3 h-3" />
-          Streak
-        </div>
-        <div className="col-span-1 text-xs font-semibold text-foreground text-center flex items-center justify-center gap-1">
-          <Star className="w-3 h-3" />
-          Rating
-        </div>
-        <div className="col-span-1 text-xs font-semibold text-foreground text-center flex items-center justify-center gap-1">
-          <Sparkles className="w-3 h-3" />
-          Action
-        </div>
-      </div>
+      {/* Scrollable Table Container */}
+      <div className="overflow-x-auto">
+        <div className="min-w-max">
+          {/* Header Row */}
+          <div className="flex sticky top-0 bg-white z-20 border-b border-border/50">
+            <div className="w-48 sticky left-0 bg-white z-30 px-4 py-3 text-xs font-semibold text-foreground flex items-center gap-1">
+              <Users className="w-3 h-3" />
+              Player
+            </div>
+            <div className="w-24 text-center px-2 py-3 text-xs font-semibold text-foreground">Team</div>
+            <div className="w-32 text-center px-2 py-3 text-xs font-semibold text-foreground">Prop</div>
+            <div className="w-24 text-center px-2 py-3 text-xs font-semibold text-foreground">Line</div>
+            <div className="w-24 text-center px-2 py-3 text-xs font-semibold text-foreground">Odds</div>
+            <div className="w-24 text-center px-2 py-3 text-xs font-semibold text-foreground">EV%</div>
+            <div className="w-24 text-center px-2 py-3 text-xs font-semibold text-foreground">Streak</div>
+            <div className="w-24 text-center px-2 py-3 text-xs font-semibold text-foreground">Matchup</div>
+            <div className="w-24 text-center px-2 py-3 text-xs font-semibold text-foreground">H2H</div>
+            <div className="w-24 text-center px-2 py-3 text-xs font-semibold text-foreground">2025</div>
+            <div className="w-24 text-center px-2 py-3 text-xs font-semibold text-foreground">L5</div>
+            <div className="w-24 text-center px-2 py-3 text-xs font-semibold text-foreground">L10</div>
+            <div className="w-24 text-center px-2 py-3 text-xs font-semibold text-foreground">L20</div>
+          </div>
 
-      {/* Props List */}
-      <div className="space-y-3">
-        {filteredAndSortedProps.map((prop, index) => (
-          <Card
-            key={prop.id || `prop-${prop.playerId}-${prop.propType}-${index}`}
-            className="bg-gradient-card border-border/50 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 cursor-pointer group hover:scale-[1.02] hover:bg-gradient-to-br hover:from-card/90 hover:to-card/70"
-            onClick={() => handlePropClick(prop)}
-          >
-            <CardContent className="p-2">
-              <div className="grid grid-cols-12 gap-1 items-center">
+          {/* Data Rows */}
+          <div className="space-y-0">
+        {filteredAndSortedProps.map((prop, index) => {
+          // Calculate analytics data - using mock data for now since gameLogs don't exist
+          const gameLogs = prop.gameLogs || [];
+          const gameLogs2025 = prop.gameLogs2025 || [];
+          const streak = calculateStreak(gameLogs, prop.line, "over");
+          const h2h = calculateHitRate(gameLogs, prop.line, "over", undefined, prop.opponentAbbr);
+          const season = calculateHitRate(gameLogs2025, prop.line, "over");
+          const l5 = calculateHitRate(gameLogs, prop.line, "over", 5);
+          const l10 = calculateHitRate(gameLogs, prop.line, "over", 10);
+          const l20 = calculateHitRate(gameLogs, prop.line, "over", 20);
+
+          return (
+            <div
+              key={prop.id || `prop-${prop.playerId}-${prop.propType}-${index}`}
+              className="flex border-b border-border/20 hover:bg-gray-50/50 transition-colors duration-200 cursor-pointer group"
+              onClick={() => handlePropClick(prop)}
+            >
                 {/* Player Info */}
                 <div className="col-span-3 flex items-center justify-center space-x-3">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 flex items-center justify-center text-foreground font-bold text-sm overflow-hidden flex-shrink-0">
@@ -991,6 +1031,8 @@ export function PlayerPropsColumnView({
             </CardContent>
           </Card>
         ))}
+          </div>
+        </div>
       </div>
 
       {/* Empty State */}
