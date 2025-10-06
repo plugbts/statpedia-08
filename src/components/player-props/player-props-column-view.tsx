@@ -922,17 +922,7 @@ export function PlayerPropsColumnView({
                         <div className="flex flex-col items-center group/rating">
                           <div className="relative w-8 h-8">
                             <svg className="w-8 h-8 transform -rotate-90 transition-all duration-300 group-hover/rating:scale-110" viewBox="0 0 36 36">
-                              {/* Background circle - transparent */}
-                              <path
-                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeDasharray="100, 100"
-                                className="text-gray-300/30"
-                              />
-                              
-                              {/* Filled progress circle with AI prediction glow */}
+                              {/* Only the filled progress circle with AI prediction glow */}
                               <path
                                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                                 fill="none"
