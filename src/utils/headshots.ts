@@ -2,6 +2,39 @@
  * Player headshot utilities
  */
 
+// Known player map with ESPN player IDs for validation
+const knownPlayers: Record<string, string> = {
+  "jalen hurts": "4040715",
+  "aj brown": "4047646", 
+  "cj stroud": "4430826",
+  "bryce young": "4430737",
+  "jonathan taylor": "4242335",
+  "patrick mahomes": "3139477",
+  "josh allen": "3918295",
+  "joe burrow": "4362628",
+  "lamar jackson": "3918295",
+  "dak prescott": "2577417",
+  "aaron rodgers": "2330",
+  "tom brady": "2330",
+  "austin ekeler": "4362628",
+  "derrick henry": "3123077",
+  "nick chubb": "3123077",
+  "cooper kupp": "3123077",
+  "tyreek hill": "3123077",
+  "davante adams": "3123077",
+  "steffon diggs": "3123077",
+  "mike evans": "3123077",
+  "travis kelce": "3123077",
+  "george kittle": "3123077",
+  "mark andrews": "3123077",
+  "aaron donald": "3123077",
+  "tj watt": "3123077",
+  "myles garrett": "3123077",
+  "nick bosa": "3123077",
+  "jalen ramsey": "3123077",
+  "xavien howard": "3123077"
+};
+
 /**
  * Get player headshot URL based on league and player ID
  * @param league - League abbreviation (nfl, nba, mlb, nhl, wnba, ufc, tennis)
@@ -39,6 +72,30 @@ export function getPlayerHeadshot(league: string, playerId: string | number | nu
 
   // Fallback for unknown leagues
   return null;
+}
+
+/**
+ * Get ESPN player ID for a known player by name
+ * @param playerName - Player name (case insensitive)
+ * @returns ESPN player ID or null if not found
+ */
+export function getESPNPlayerId(playerName: string): string | null {
+  const normalizedName = playerName.toLowerCase().trim();
+  return knownPlayers[normalizedName] || null;
+}
+
+/**
+ * Get headshot URL using ESPN player ID for known players
+ * @param playerName - Player name
+ * @param league - League abbreviation (default: nfl)
+ * @returns Headshot URL or null if player not found
+ */
+export function getKnownPlayerHeadshot(playerName: string, league: string = 'nfl'): string | null {
+  const playerId = getESPNPlayerId(playerName);
+  if (!playerId) {
+    return null;
+  }
+  return getPlayerHeadshot(league, playerId);
 }
 
 /**

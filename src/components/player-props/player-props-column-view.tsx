@@ -32,7 +32,7 @@ import { SportsbookIconsList } from '@/components/ui/sportsbook-icons';
 import { SportsbookOverlay } from '@/components/ui/sportsbook-overlay';
 import { statpediaRatingService, StatpediaRating } from '@/services/statpedia-rating-service';
 import { toAmericanOdds, getOddsColorClass } from '@/utils/odds';
-import { getPlayerHeadshot, getPlayerInitials } from '@/utils/headshots';
+import { getPlayerHeadshot, getPlayerInitials, getKnownPlayerHeadshot } from '@/utils/headshots';
 import { StreakService } from '@/services/streak-service';
 
 // Prop priority mapping (matches Cloudflare Worker logic)
@@ -578,7 +578,11 @@ export function PlayerPropsColumnView({
                 <div className="col-span-3 flex items-center justify-center space-x-3">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 flex items-center justify-center text-foreground font-bold text-sm overflow-hidden flex-shrink-0">
                     {(() => {
-                      const headshotUrl = getPlayerHeadshot(prop.sport || 'nfl', prop.player_id);
+                      // Try known player headshot first, then fallback to player_id
+                      const knownHeadshotUrl = getKnownPlayerHeadshot(prop.playerName, prop.sport || 'nfl');
+                      const fallbackHeadshotUrl = getPlayerHeadshot(prop.sport || 'nfl', prop.player_id);
+                      const headshotUrl = knownHeadshotUrl || fallbackHeadshotUrl;
+                      
                       if (headshotUrl) {
                         return (
                           <img 

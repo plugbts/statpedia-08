@@ -14,6 +14,7 @@ import { PlayerPropCard3D } from './3d-player-prop-card';
 import { PlayerPropsColumnView } from './player-props-column-view';
 import { EnhancedAnalysisOverlay } from '../predictions/enhanced-analysis-overlay';
 import { PlayerPropCardAd } from '@/components/ads/ad-placements';
+import { validateHeadshots } from '@/utils/validateHeadshots';
 import { logAPI, logState, logFilter, logSuccess, logError, logWarning, logInfo, logDebug } from '@/utils/console-logger';
 import { AdvancedPredictionDisplay } from '@/components/advanced-prediction-display';
 import { advancedPredictionService, ComprehensivePrediction } from '@/services/advanced-prediction-service';
@@ -834,6 +835,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
           
           // Set all props at once (no pagination)
           setRealProps(sortedPropsWithEV as PlayerProp[]);
+          
+          // Validate headshot player ID matches
+          validateHeadshots(sortedPropsWithEV as any[]);
           
           // Log success to console (visible in dev console)
           logSuccess('PlayerPropsTab', `Player Props Loaded: Found ${result.length} server-side cached props for ${sport.toUpperCase()} with exact sportsbook odds`);
