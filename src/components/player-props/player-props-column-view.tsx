@@ -27,7 +27,6 @@ import {
   ToggleRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { convertEVToText, getEVBadgeClasses } from '@/utils/ev-text-converter';
 import { SportsbookIconsList } from '@/components/ui/sportsbook-icons';
 import { SportsbookOverlay } from '@/components/ui/sportsbook-overlay';
 import { statpediaRatingService, StatpediaRating } from '@/services/statpedia-rating-service';
@@ -769,9 +768,9 @@ export function PlayerPropsColumnView({
                 {/* Expected Value */}
                 <div className="col-span-1 text-center">
                   {prop.expectedValue ? (
-                    <Badge className={`text-xs font-bold border px-2 py-1 ${getEVBadgeClasses(prop.expectedValue * 100).combined}`}>
-                      {convertEVToText(prop.expectedValue * 100).text}
-                    </Badge>
+                    <span className="text-xs font-bold text-blue-500">
+                      {Math.round(prop.expectedValue * 100)}%
+                    </span>
                   ) : (
                     <span className="text-xs text-muted-foreground">N/A</span>
                   )}
