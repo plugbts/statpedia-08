@@ -491,7 +491,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const [maxLine, setMaxLine] = useState(100);
   const [showSelection, setShowSelection] = useState(false);
   const [viewMode, setViewMode] = useState<'column' | 'cards'>('column');
-  const [overUnderFilter, setOverUnderFilter] = useState<'over' | 'under' | 'both'>('over');
+  const [overUnderFilter, setOverUnderFilter] = useState<'over' | 'under' | 'both'>('both');
   
   // Handle view parameter from URL
   useEffect(() => {
@@ -508,7 +508,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   // Odds range filter state
   const [minOdds, setMinOdds] = useState(-175);
   const [maxOdds, setMaxOdds] = useState(500);
-  const [useOddsFilter, setUseOddsFilter] = useState(true);
+  const [useOddsFilter, setUseOddsFilter] = useState(false);
 
   // Filter presets
   const filterPresets = {
@@ -1038,14 +1038,12 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       // Must be NFL
       if (p.sport && String(p.sport).toLowerCase() !== "nfl") return false;
       
-      // Filter out defensive and kicking props
+      // Filter out defensive props (but keep field goals)
       const marketType = (p.propType || "").toLowerCase();
       if (marketType.includes("defense") || 
           marketType.includes("sack") || 
           marketType.includes("tackle") || 
           marketType.includes("interception") ||
-          marketType.includes("field goal") ||
-          marketType.includes("kicking") ||
           marketType.includes("extra point")) {
         return false;
       }
