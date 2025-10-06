@@ -727,11 +727,11 @@ export function PlayerPropsColumnView({
                       return lines.map((line, index) => (
                         <div 
                           key={index} 
-                          className="block text-center bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent font-semibold animate-pulse blur-sm hover:blur-none transition-all duration-200"
+                          className="block text-center bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent font-semibold animate-pulse blur-md hover:blur-sm transition-all duration-500"
                           style={{ 
-                            animationDelay: `${index * 0.05}s`,
-                            animationDuration: '1s',
-                            filter: 'drop-shadow(0 0 8px rgba(255, 255, 255, 0.3))'
+                            animationDelay: `${index * 0.2}s`,
+                            animationDuration: '2.5s',
+                            filter: 'drop-shadow(0 0 12px rgba(255, 255, 255, 0.4))'
                           }}
                         >
                           {line}
