@@ -304,11 +304,29 @@ export function PlayerPropsColumnView({
     
     // Alternative lines filter
     if (!showAlternativeLines) {
-      // Hide alternative lines - keep only the most common line for each player/prop combination
-      // This is a simplified approach - in a real implementation, you'd want to identify
-      // which lines are "alternative" vs "main" lines
-      const isMainLine = true; // For now, show all lines
-      if (!isMainLine) return false;
+      // Group by player + prop type combination
+      const key = `${prop.playerName}-${prop.propType}`;
+      const existingProps = props.filter(p => 
+        p.playerName === prop.playerName && 
+        p.propType === prop.propType && 
+        p.id !== prop.id
+      );
+      
+      if (existingProps.length > 0) {
+        // Find the most common line (main line)
+        const lineCounts = existingProps.reduce((acc, p) => {
+          acc[p.line] = (acc[p.line] || 0) + 1;
+          return acc;
+        }, {} as Record<number, number>);
+        
+        const mainLine = Object.entries(lineCounts)
+          .sort(([,a], [,b]) => b - a)[0]?.[0];
+        
+        // Only show the main line, hide alternatives
+        if (prop.line !== Number(mainLine)) {
+          return false;
+        }
+      }
     }
     
     // Existing filters

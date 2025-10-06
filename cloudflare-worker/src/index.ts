@@ -1557,6 +1557,7 @@ async function normalizeEvent(ev: SGEvent) {
       if (!playerPropsMap.has(propKey)) {
         playerPropsMap.set(propKey, {
           player_name: cleanPlayerName,
+          playerName: cleanPlayerName,
           market_type: formatMarketType(normalizeMarketType(statType)),
           line: 0, // Will be set from the odds data
           best_over: null,
@@ -1648,6 +1649,7 @@ async function normalizeEvent(ev: SGEvent) {
     
     return {
       ...prop,
+      playerName: prop.player_name, // Ensure playerName is set
       player_id: player?.playerID || null,
       position: '—',
       teamAbbr: teamAbbr,
@@ -1800,6 +1802,7 @@ async function normalizePlayerGroup(markets: any[], players: Record<string, any>
 
   const result = {
     player_name: formatPlayerName(playerName),
+    playerName: formatPlayerName(playerName),
     player_id: player?.playerID || base.statEntityID || null,
     teamID: teamID,
     market_type: formatMarketTypeWithLeague(base.statID, league),
