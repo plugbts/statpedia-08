@@ -909,6 +909,14 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFi
   const [featureData, setFeatureData] = useState<any>(null);
   const [updatedEnhancedData, setUpdatedEnhancedData] = useState<EnhancedPrediction | null>(null);
   
+  // Custom alerts state
+  const [customAlerts, setCustomAlerts] = useState([
+    { id: 1, type: 'Line Movement', active: true, threshold: '±0.5', editable: false },
+    { id: 2, type: 'Odds Change', active: true, threshold: '±10', editable: false },
+    { id: 3, type: 'Volume Spike', active: false, threshold: '200%', editable: false },
+    { id: 4, type: 'Player Status', active: true, threshold: 'Injury', editable: false }
+  ]);
+  
   // Prop selector state
   const [availableProps, setAvailableProps] = useState<any[]>([]);
   const [selectedPropId, setSelectedPropId] = useState<string | null>(null);
@@ -1395,37 +1403,131 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFi
         });
         break;
       case 'value-finder':
+        // Calculate real edge using EV calculator
+        const evCalculation = evCalculatorService.calculateEV({
+          id: enhancedData.id,
+          playerName: enhancedData.playerName,
+          propType: enhancedData.propType,
+          line: enhancedData.line,
+          odds: enhancedData.overOdds?.toString() || '0',
+          sport: enhancedData.sport,
+          team: enhancedData.team,
+          opponent: enhancedData.opponent,
+          gameDate: enhancedData.gameDate,
+          hitRate: enhancedData.seasonStats?.hitRate,
+          recentForm: enhancedData.recentForm,
+          matchupData: enhancedData.matchupAnalysis,
+          weatherConditions: enhancedData.weatherImpact,
+          injuryStatus: enhancedData.injuryImpact,
+          restDays: enhancedData.restDays
+        });
+        
+        // Calculate fair odds based on true probability
+        const trueProbability = evCalculation.confidence / 100;
+        const fairOdds = trueProbability > 0.5 ? 
+          Math.round(-100 * trueProbability / (1 - trueProbability)) :
+          Math.round(100 * (1 - trueProbability) / trueProbability);
+        
         setFeatureData({
           type: 'value-finder',
           value: {
             currentOdds: enhancedData.overOdds,
-            fairOdds: -105,
-            edge: 8.5,
-            recommendation: 'STRONG VALUE'
+            fairOdds: fairOdds,
+            edge: evCalculation.evPercentage.toFixed(1),
+            recommendation: evCalculation.recommendation.toUpperCase().replace('_', ' '),
+            evPercentage: evCalculation.evPercentage,
+            confidence: evCalculation.confidence,
+            aiRating: evCalculation.aiRating
           }
         });
         break;
       case 'trend-analysis':
+        // Generate real trend analysis based on actual data
+        const gameHistory = generateEnhancedGameHistory(enhancedData);
+        const last5Games = gameHistory.slice(0, 5);
+        const last10Games = gameHistory.slice(0, 10);
+        
+        // Calculate trends based on actual performance
+        const last5Avg = last5Games.reduce((sum, game) => sum + game.performance, 0) / last5Games.length;
+        const last10Avg = last10Games.reduce((sum, game) => sum + game.performance, 0) / last10Games.length;
+        const seasonAvg = enhancedData.seasonStats?.average || last10Avg;
+        
+        // Calculate percentage changes
+        const last5Change = seasonAvg > 0 ? ((last5Avg - seasonAvg) / seasonAvg * 100) : 0;
+        const last10Change = seasonAvg > 0 ? ((last10Avg - seasonAvg) / seasonAvg * 100) : 0;
+        
+        // Determine trend direction
+        const getTrendDirection = (change: number) => {
+          if (change > 5) return 'Upward';
+          if (change < -5) return 'Downward';
+          return 'Stable';
+        };
+        
         setFeatureData({
           type: 'trend-analysis',
           trends: [
-            { period: 'Last 5 Games', trend: 'Upward', change: '+12%' },
-            { period: 'Last 10 Games', trend: 'Stable', change: '+3%' },
-            { period: 'Season Average', trend: 'Upward', change: '+8%' }
+            { 
+              period: 'Last 5 Games', 
+              trend: getTrendDirection(last5Change), 
+              change: `${last5Change >= 0 ? '+' : ''}${last5Change.toFixed(1)}%`,
+              average: last5Avg.toFixed(1)
+            },
+            { 
+              period: 'Last 10 Games', 
+              trend: getTrendDirection(last10Change), 
+              change: `${last10Change >= 0 ? '+' : ''}${last10Change.toFixed(1)}%`,
+              average: last10Avg.toFixed(1)
+            },
+            { 
+              period: 'Season Average', 
+              trend: 'Baseline', 
+              change: '0.0%',
+              average: seasonAvg.toFixed(1)
+            }
           ]
         });
         break;
       case 'custom-alerts':
         setFeatureData({
           type: 'custom-alerts',
-          alerts: [
-            { type: 'Line Movement', active: true, threshold: '±0.5' },
-            { type: 'Odds Change', active: true, threshold: '±10' },
-            { type: 'Volume Spike', active: false, threshold: '200%' }
-          ]
+          alerts: customAlerts
         });
         break;
     }
+  };
+
+  // Custom alert handlers
+  const toggleAlertActive = (id: number) => {
+    setCustomAlerts(prev => prev.map(alert => 
+      alert.id === id ? { ...alert, active: !alert.active } : alert
+    ));
+  };
+
+  const toggleAlertEdit = (id: number) => {
+    setCustomAlerts(prev => prev.map(alert => 
+      alert.id === id ? { ...alert, editable: !alert.editable } : alert
+    ));
+  };
+
+  const updateAlertThreshold = (id: number, threshold: string) => {
+    setCustomAlerts(prev => prev.map(alert => 
+      alert.id === id ? { ...alert, threshold } : alert
+    ));
+  };
+
+  const addNewAlert = () => {
+    const newId = Math.max(...customAlerts.map(a => a.id)) + 1;
+    setCustomAlerts(prev => [...prev, {
+      id: newId,
+      type: 'Custom Alert',
+      active: true,
+      threshold: '±5',
+      editable: true
+    }]);
+  };
+
+  const removeAlert = (id: number) => {
+    setCustomAlerts(prev => prev.filter(alert => alert.id !== id));
   };
 
   return (
@@ -2469,13 +2571,41 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFi
                             </div>
                             <div className="bg-slate-700/30 p-3 rounded-lg">
                               <div className="text-slate-400 text-sm">Edge</div>
-                              <div className="text-emerald-400 font-semibold">+{featureData.value.edge}%</div>
+                              <div className={`font-semibold ${featureData.value.edge >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                {featureData.value.edge >= 0 ? '+' : ''}{featureData.value.edge}%
+                              </div>
                             </div>
                             <div className="bg-slate-700/30 p-3 rounded-lg">
                               <div className="text-slate-400 text-sm">Recommendation</div>
-                              <Badge className="bg-emerald-600/20 text-emerald-300 border-emerald-500/30">
+                              <Badge className={`${
+                                featureData.value.recommendation.includes('STRONG') 
+                                  ? 'bg-emerald-600/20 text-emerald-300 border-emerald-500/30'
+                                  : featureData.value.recommendation.includes('GOOD')
+                                  ? 'bg-blue-600/20 text-blue-300 border-blue-500/30'
+                                  : 'bg-slate-600/20 text-slate-300 border-slate-500/30'
+                              }`}>
                                 {featureData.value.recommendation}
                               </Badge>
+                            </div>
+                          </div>
+                          
+                          {/* Additional EV details */}
+                          <div className="grid grid-cols-3 gap-4 mt-4">
+                            <div className="bg-slate-700/30 p-3 rounded-lg">
+                              <div className="text-slate-400 text-sm">EV Percentage</div>
+                              <div className={`font-semibold ${featureData.value.evPercentage >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                {featureData.value.evPercentage >= 0 ? '+' : ''}{featureData.value.evPercentage.toFixed(1)}%
+                              </div>
+                            </div>
+                            <div className="bg-slate-700/30 p-3 rounded-lg">
+                              <div className="text-slate-400 text-sm">Confidence</div>
+                              <div className="text-white font-semibold">{featureData.value.confidence.toFixed(0)}%</div>
+                            </div>
+                            <div className="bg-slate-700/30 p-3 rounded-lg">
+                              <div className="text-slate-400 text-sm">AI Rating</div>
+                              <div className="text-yellow-400 font-semibold">
+                                {'★'.repeat(featureData.value.aiRating)}{'☆'.repeat(5 - featureData.value.aiRating)}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -2490,9 +2620,11 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFi
                                 <div>
                                   <div className="text-slate-300 font-medium">{trend.period}</div>
                                   <div className="text-slate-400 text-sm">{trend.trend}</div>
+                                  <div className="text-slate-500 text-xs">Avg: {trend.average}</div>
                                 </div>
                                 <div className={`font-semibold ${
-                                  trend.change.startsWith('+') ? 'text-emerald-400' : 'text-red-400'
+                                  trend.change.startsWith('+') ? 'text-emerald-400' : 
+                                  trend.change.startsWith('-') ? 'text-red-400' : 'text-slate-400'
                                 }`}>
                                   {trend.change}
                                 </div>
@@ -2504,21 +2636,65 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFi
 
                       {activeFeature === 'custom-alerts' && featureData && (
                         <div className="space-y-4">
-                          <h4 className="text-slate-300 font-semibold">Alert Settings</h4>
+                          <div className="flex justify-between items-center">
+                            <h4 className="text-slate-300 font-semibold">Alert Settings</h4>
+                            <Button 
+                              onClick={addNewAlert}
+                              className="bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 text-sm"
+                            >
+                              + Add Alert
+                            </Button>
+                          </div>
                           <div className="space-y-3">
                             {featureData.alerts.map((alert: any, index: number) => (
-                              <div key={index} className="flex justify-between items-center p-3 bg-slate-700/30 rounded-lg">
-                                <div>
+                              <div key={alert.id} className="flex justify-between items-center p-3 bg-slate-700/30 rounded-lg">
+                                <div className="flex-1">
                                   <div className="text-slate-300 font-medium">{alert.type}</div>
-                                  <div className="text-slate-400 text-sm">Threshold: {alert.threshold}</div>
+                                  <div className="text-slate-400 text-sm flex items-center gap-2">
+                                    Threshold: 
+                                    {alert.editable ? (
+                                      <input
+                                        type="text"
+                                        value={alert.threshold}
+                                        onChange={(e) => updateAlertThreshold(alert.id, e.target.value)}
+                                        className="bg-slate-600/50 border border-slate-500/30 rounded px-2 py-1 text-slate-300 text-sm w-20"
+                                        onBlur={() => toggleAlertEdit(alert.id)}
+                                        autoFocus
+                                      />
+                                    ) : (
+                                      <span 
+                                        className="cursor-pointer hover:text-slate-300"
+                                        onClick={() => toggleAlertEdit(alert.id)}
+                                      >
+                                        {alert.threshold}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
-                                <Badge className={
-                                  alert.active 
-                                    ? "bg-emerald-600/20 text-emerald-300 border-emerald-500/30"
-                                    : "bg-slate-600/20 text-slate-300 border-slate-500/30"
-                                }>
-                                  {alert.active ? 'ACTIVE' : 'INACTIVE'}
-                                </Badge>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    onClick={() => toggleAlertActive(alert.id)}
+                                    className={`text-xs px-3 py-1 ${
+                                      alert.active 
+                                        ? "bg-emerald-600/20 text-emerald-300 border-emerald-500/30 hover:bg-emerald-600/30"
+                                        : "bg-slate-600/20 text-slate-300 border-slate-500/30 hover:bg-slate-600/30"
+                                    }`}
+                                  >
+                                    {alert.active ? 'ACTIVE' : 'INACTIVE'}
+                                  </Button>
+                                  <Button
+                                    onClick={() => toggleAlertEdit(alert.id)}
+                                    className="text-xs px-2 py-1 bg-blue-600/20 text-blue-300 border-blue-500/30 hover:bg-blue-600/30"
+                                  >
+                                    {alert.editable ? 'Save' : 'Edit'}
+                                  </Button>
+                                  <Button
+                                    onClick={() => removeAlert(alert.id)}
+                                    className="text-xs px-2 py-1 bg-red-600/20 text-red-300 border-red-500/30 hover:bg-red-600/30"
+                                  >
+                                    ×
+                                  </Button>
+                                </div>
                               </div>
                             ))}
                           </div>
