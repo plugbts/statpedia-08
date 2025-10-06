@@ -888,7 +888,7 @@ export function PlayerPropsColumnView({
                   </div>
 
                   {/* Rating */}
-                  <div className="w-16 text-center px-2">
+                  <div className="w-16 text-center px-2 bg-transparent">
                   {(() => {
                       const propFinderRating = overUnderFilter === 'over' 
                         ? (prop.rating_over_normalized || prop.rating_over_raw)
@@ -919,8 +919,8 @@ export function PlayerPropsColumnView({
                     }
                     
                       return (
-                        <div className="flex flex-col items-center group/rating">
-                          <div className="relative w-8 h-8">
+                        <div className="flex flex-col items-center group/rating bg-transparent">
+                          <div className="relative w-8 h-8 bg-transparent">
                             <svg className="w-8 h-8 transform -rotate-90 transition-all duration-300 group-hover/rating:scale-110" viewBox="0 0 36 36">
                               {/* Only the filled progress circle with AI prediction glow */}
                               <path
