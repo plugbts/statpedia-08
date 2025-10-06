@@ -918,28 +918,129 @@ export function PlayerPropsColumnView({
                         glowColor = 'drop-shadow-[0_0_8px_rgba(239,68,68,0.3)]';
                     }
                     
-                    return (
-                        <div className="flex flex-col items-center">
-                          <div className="relative w-8 h-8">
-                            <svg className="w-8 h-8 transform -rotate-90" viewBox="0 0 36 36">
-                              {/* Progress circle - no background, transparent unfilled */}
+                      return (
+                        <div className="flex flex-col items-center group/rating">
+                          <div className="relative w-10 h-10">
+                            <svg className="w-10 h-10 transform -rotate-90 transition-all duration-500 group-hover/rating:scale-110" viewBox="0 0 36 36">
+                              {/* Glow effect behind circle */}
+                              <defs>
+                                <filter id={`glow-${index}`}>
+                                  <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                                  <feMerge> 
+                                    <feMergeNode in="coloredBlur"/>
+                                    <feMergeNode in="SourceGraphic"/>
+                                  </feMerge>
+                                </filter>
+                                <linearGradient id={`gradient-${index}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                                  <stop offset="0%" stopColor="currentColor" stopOpacity="0.8" />
+                                  <stop offset="50%" stopColor="currentColor" stopOpacity="1" />
+                                  <stop offset="100%" stopColor="currentColor" stopOpacity="0.9" />
+                                </linearGradient>
+                              </defs>
+                              
+                              {/* Progress circle with glow and animation */}
                               <path
                                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                                 fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
+                                stroke={`url(#gradient-${index})`}
+                                strokeWidth="3"
                                 strokeDasharray={`${scaledPercentage}, 100`}
-                                className={circleColor}
+                                strokeLinecap="round"
+                                className={`${circleColor} transition-all duration-1000 ease-out group-hover/rating:drop-shadow-lg`}
+                                style={{
+                                  filter: `url(#glow-${index})`,
+                                  strokeDashoffset: 0,
+                                  animation: `drawCircle-${index} 2s ease-out forwards, pulse-${index} 2s ease-in-out infinite 2s`
+                                }}
                               />
                             </svg>
+                            
+                            {/* Animated number with glow */}
                             <div className="absolute inset-0 flex items-center justify-center">
-                              <span className={`text-xs font-bold ${textColor}`}>
+                              <span 
+                                className={`text-sm font-bold ${textColor} transition-all duration-500 group-hover/rating:scale-110 group-hover/rating:drop-shadow-lg`}
+                                style={{
+                                  animation: `fadeInUp-${index} 1s ease-out forwards, glow-${index} 2s ease-in-out infinite 1s`,
+                                  textShadow: `0 0 8px currentColor`
+                                }}
+                              >
                                 {Math.round(displayPercentage)}
                               </span>
                             </div>
+                            
+                            {/* Pulsing background glow */}
+                            <div 
+                              className={`absolute inset-0 rounded-full opacity-0 group-hover/rating:opacity-30 transition-all duration-500 ${
+                                displayPercentage >= 80 ? 'bg-green-500' : 
+                                displayPercentage >= 60 ? 'bg-yellow-500' : 'bg-red-500'
+                              }`}
+                              style={{
+                                animation: `pulseGlow-${index} 2s ease-in-out infinite`
+                              }}
+                            />
+                            
+                            {/* CSS Animations */}
+                            <style dangerouslySetInnerHTML={{
+                              __html: `
+                                @keyframes drawCircle-${index} {
+                                  from {
+                                    stroke-dasharray: 0, 100;
+                                    opacity: 0;
+                                  }
+                                  to {
+                                    stroke-dasharray: ${scaledPercentage}, 100;
+                                    opacity: 1;
+                                  }
+                                }
+                                
+                                @keyframes fadeInUp-${index} {
+                                  from {
+                                    opacity: 0;
+                                    transform: translateY(10px) scale(0.8);
+                                  }
+                                  to {
+                                    opacity: 1;
+                                    transform: translateY(0) scale(1);
+                                  }
+                                }
+                                
+                                @keyframes pulse-${index} {
+                                  0%, 100% {
+                                    stroke-width: 3;
+                                    opacity: 1;
+                                  }
+                                  50% {
+                                    stroke-width: 4;
+                                    opacity: 0.8;
+                                  }
+                                }
+                                
+                                @keyframes glow-${index} {
+                                  0%, 100% {
+                                    text-shadow: 0 0 8px currentColor;
+                                    transform: scale(1);
+                                  }
+                                  50% {
+                                    text-shadow: 0 0 16px currentColor, 0 0 24px currentColor;
+                                    transform: scale(1.05);
+                                  }
+                                }
+                                
+                                @keyframes pulseGlow-${index} {
+                                  0%, 100% {
+                                    opacity: 0;
+                                    transform: scale(0.8);
+                                  }
+                                  50% {
+                                    opacity: 0.3;
+                                    transform: scale(1.1);
+                                  }
+                                }
+                              `
+                            }} />
+                          </div>
                         </div>
-                      </div>
-                    );
+                      );
                   })()}
                   </div>
                 </div>
