@@ -1150,21 +1150,21 @@ export function PlayerPropsColumnView({
                     }
                     
                     // Determine streak display
-                    let display;
+                    let textColor;
                     if (currentStreak >= 5) {
-                      display = { bgColor: "bg-gradient-to-r from-emerald-600 to-green-600 text-white", text: `${currentStreak}W` };
+                      textColor = "text-emerald-600";
                     } else if (currentStreak >= 3) {
-                      display = { bgColor: "bg-gradient-to-r from-blue-600 to-cyan-600 text-white", text: `${currentStreak}W` };
+                      textColor = "text-blue-600";
                     } else if (currentStreak >= 1) {
-                      display = { bgColor: "bg-gradient-to-r from-yellow-600 to-orange-600 text-white", text: `${currentStreak}W` };
+                      textColor = "text-yellow-600";
                     } else {
-                      display = { bgColor: "bg-gradient-to-r from-gray-600 to-slate-600 text-white", text: "0W" };
+                      textColor = "text-muted-foreground";
                     }
                     
                     return (
-                      <Badge className={cn("text-xs font-bold border px-1 py-0.5", display.bgColor)}>
-                        {display.text}
-                      </Badge>
+                      <div className={cn("text-xs font-bold group-hover:opacity-80 transition-colors duration-200", textColor)}>
+                        {currentStreak}W
+                      </div>
                     );
                   })()}
                 </div>
