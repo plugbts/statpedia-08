@@ -748,32 +748,27 @@ export function PlayerPropsColumnView({
         </div>
       </div>
 
-      {/* Scrollable Table Container */}
-      <div className="overflow-x-auto">
-        <div className="min-w-max">
-          {/* Header Row */}
-          <div className="flex sticky top-0 bg-gradient-card z-20 border-b border-border/50">
-            <div className="w-48 sticky left-0 bg-gradient-card z-30 px-4 py-3 text-xs font-semibold text-foreground flex items-center gap-1">
+      {/* Fixed + Scrollable Table Container */}
+      <div className="flex">
+        {/* Fixed Columns (Player through Rating) */}
+        <div className="flex-none">
+          {/* Fixed Header */}
+          <div className="flex bg-gradient-card border-b border-border/50">
+            <div className="w-48 px-4 py-3 text-xs font-semibold text-foreground flex items-center gap-1">
               <Users className="w-3 h-3" />
               Player
             </div>
-            <div className="w-12 text-center px-1 py-3 text-xs font-semibold text-foreground">Team</div>
-            <div className="w-20 text-center px-1 py-3 text-xs font-semibold text-foreground">Prop</div>
-            <div className="w-12 text-center px-1 py-3 text-xs font-semibold text-foreground">Line</div>
-            <div className="w-12 text-center px-1 py-3 text-xs font-semibold text-foreground">Odds</div>
-            <div className="w-12 text-center px-1 py-3 text-xs font-semibold text-foreground">EV%</div>
-            <div className="w-10 text-center px-1 py-3 text-xs font-semibold text-foreground">Streak</div>
-            <div className="w-10 text-center px-1 py-3 text-xs font-semibold text-foreground">Rating</div>
-            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">Matchup</div>
-            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">H2H</div>
-            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">2025</div>
-            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">L5</div>
-            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">L10</div>
-            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">L20</div>
+            <div className="w-16 text-center px-2 py-3 text-xs font-semibold text-foreground">Team</div>
+            <div className="w-24 text-center px-2 py-3 text-xs font-semibold text-foreground">Prop</div>
+            <div className="w-16 text-center px-2 py-3 text-xs font-semibold text-foreground">Line</div>
+            <div className="w-16 text-center px-2 py-3 text-xs font-semibold text-foreground">Odds</div>
+            <div className="w-16 text-center px-2 py-3 text-xs font-semibold text-foreground">EV%</div>
+            <div className="w-16 text-center px-2 py-3 text-xs font-semibold text-foreground">Streak</div>
+            <div className="w-16 text-center px-2 py-3 text-xs font-semibold text-foreground">Rating</div>
           </div>
 
-          {/* Data Rows */}
-          <div className="space-y-0">
+          {/* Fixed Data Rows */}
+          <div className="space-y-2">
         {filteredAndSortedProps.map((prop, index) => {
           // Calculate analytics data - using mock data for now since gameLogs don't exist
           const gameLogs = prop.gameLogs || [];
@@ -786,187 +781,225 @@ export function PlayerPropsColumnView({
           const l20 = calculateHitRate(gameLogs, prop.line, "over", 20);
 
           return (
-            <div
+            <Card
               key={prop.id || `prop-${prop.playerId}-${prop.propType}-${index}`}
-              className="flex border-b border-border/20 hover:bg-gray-50/50 transition-colors duration-200 cursor-pointer group"
+              className="bg-gradient-card border-border/50 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 cursor-pointer group hover:scale-[1.02] hover:bg-gradient-to-br hover:from-card/90 hover:to-card/70"
               onClick={() => handlePropClick(prop)}
             >
-              {/* Player Info */}
-              <div className="w-48 sticky left-0 bg-gradient-card z-10 px-4 py-3 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 flex items-center justify-center text-foreground font-bold text-sm overflow-hidden flex-shrink-0">
-                  {(() => {
-                    const knownHeadshotUrl = getKnownPlayerHeadshot(prop.playerName, prop.sport || 'nfl');
-                    const fallbackHeadshotUrl = getPlayerHeadshot(prop.sport || 'nfl', prop.player_id);
-                    const headshotUrl = knownHeadshotUrl || fallbackHeadshotUrl;
-                    
-                    if (headshotUrl) {
-                      return (
-                        <img 
-                          src={headshotUrl} 
-                          alt={prop.playerName}
-                          className="w-full h-full object-cover rounded-full"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
-                            const parent = target.parentElement;
-                            if (parent) {
-                              parent.innerHTML = getPlayerInitials(prop.playerName);
-                            }
-                          }}
-                        />
-                      );
-                    }
-                    return getPlayerInitials(prop.playerName);
-                  })()}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="font-bold text-foreground text-sm group-hover:text-primary transition-colors duration-200 truncate">
-                    {prop.playerName || 'Unknown Player'}
-                  </div>
-                  <div className="text-xs text-muted-foreground group-hover:text-foreground/80 transition-colors duration-200">
-                    {prop.position || '—'}
-                  </div>
-                </div>
-              </div>
-
-              {/* Team */}
-              <div className="w-12 text-center px-1 py-3">
-                <div className="text-xs font-medium text-foreground">
-                  {prop.teamAbbr || '—'}
-                </div>
-              </div>
-
-              {/* Prop Type */}
-              <div className="w-20 text-center px-1 py-3">
-                <div className="text-xs font-medium text-foreground group-hover:text-primary/90 transition-colors duration-200 truncate">
-                  {formatPropType(prop.propType)}
-                </div>
-              </div>
-
-              {/* Line */}
-              <div className="w-12 text-center px-1 py-3">
-                <div className="text-xs font-bold text-foreground group-hover:text-primary transition-colors duration-200">
-                  {formatNumber(prop.line, 1)}
-                </div>
-              </div>
-
-              {/* Odds */}
-              <div className="w-12 text-center px-1 py-3">
-                <div className={`text-xs font-semibold transition-colors duration-200 ${
-                  overUnderFilter === 'over' ? 'text-green-500 group-hover:text-green-400' : 
-                  overUnderFilter === 'under' ? 'text-red-500 group-hover:text-red-400' : 
-                  'text-foreground group-hover:text-primary/90'
-                }`}>
-                  {overUnderFilter === 'over' ? toAmericanOdds(prop.best_over || prop.overOdds) :
-                   overUnderFilter === 'under' ? toAmericanOdds(prop.best_under || prop.underOdds) :
-                   toAmericanOdds(prop.best_over || prop.overOdds)}
-                </div>
-              </div>
-
-              {/* EV% */}
-              <div className="w-12 text-center px-1 py-3">
-                {prop.expectedValue ? (
-                  <span className="text-xs font-bold text-blue-500 group-hover:text-blue-400 transition-colors duration-200">
-                    {prop.expectedValue > 0 ? '+' : ''}{prop.expectedValue.toFixed(1)}%
-                  </span>
-                ) : (
-                  <span className="text-xs text-muted-foreground group-hover:text-foreground/70 transition-colors duration-200">N/A</span>
-                )}
-              </div>
-
-              {/* Streak */}
-              <div className="w-10 text-center px-1 py-3">
-                <div className="text-xs font-bold text-muted-foreground group-hover:opacity-80 transition-colors duration-200">
-                  {streak}W
-                </div>
-              </div>
-
-              {/* Rating */}
-              <div className="w-10 text-center px-1 py-3">
-                {(() => {
-                  const propFinderRating = overUnderFilter === 'over' 
-                    ? (prop.rating_over_normalized || prop.rating_over_raw)
-                    : (prop.rating_under_normalized || prop.rating_under_raw);
-                  
-                  if (propFinderRating) {
-                    return (
-                      <div className="text-xs font-bold text-foreground">
-                        {propFinderRating >= 80 ? 'A' : propFinderRating >= 60 ? 'B' : 'C'}
-                      </div>
-                    );
-                  }
-                  
-                  const rating = statpediaRatingService.calculateRating(prop, overUnderFilter);
-                  return (
-                    <div className="text-xs font-bold text-foreground">
-                      {rating.grade}
+              <CardContent className="p-3">
+                <div className="flex items-center">
+                  {/* Player Info */}
+                  <div className="w-48 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 flex items-center justify-center text-foreground font-bold text-sm overflow-hidden flex-shrink-0">
+                      {(() => {
+                        const knownHeadshotUrl = getKnownPlayerHeadshot(prop.playerName, prop.sport || 'nfl');
+                        const fallbackHeadshotUrl = getPlayerHeadshot(prop.sport || 'nfl', prop.player_id);
+                        const headshotUrl = knownHeadshotUrl || fallbackHeadshotUrl;
+                        
+                        if (headshotUrl) {
+                          return (
+                            <img 
+                              src={headshotUrl} 
+                              alt={prop.playerName}
+                              className="w-full h-full object-cover rounded-full"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                const parent = target.parentElement;
+                                if (parent) {
+                                  parent.innerHTML = getPlayerInitials(prop.playerName);
+                                }
+                              }}
+                            />
+                          );
+                        }
+                        return getPlayerInitials(prop.playerName);
+                      })()}
                     </div>
-                  );
-                })()}
-              </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-bold text-foreground text-sm group-hover:text-primary transition-colors duration-200 truncate">
+                        {prop.playerName || 'Unknown Player'}
+                      </div>
+                      <div className="text-xs text-muted-foreground group-hover:text-foreground/80 transition-colors duration-200">
+                        {prop.position || '—'}
+                      </div>
+                    </div>
+                  </div>
 
-              {/* Matchup */}
-              <div className="w-24 text-center px-1 py-3">
-                <div className="text-xs font-medium text-foreground">
-                  {prop.opponentAbbr || '—'}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {prop.relevantRank || '—'}
-                </div>
-              </div>
+                  {/* Team */}
+                  <div className="w-16 text-center px-2">
+                    <div className="text-xs font-medium text-foreground">
+                      {prop.teamAbbr || '—'}
+                    </div>
+                  </div>
 
-              {/* H2H */}
-              <div className="w-24 text-center px-1 py-3">
-                <div className="text-xs font-medium text-foreground">
-                  {h2h.pct.toFixed(0)}%
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {h2h.hits}/{h2h.total}
-                </div>
-              </div>
+                  {/* Prop Type */}
+                  <div className="w-24 text-center px-2">
+                    <div className="text-xs font-medium text-foreground group-hover:text-primary/90 transition-colors duration-200 truncate">
+                      {formatPropType(prop.propType)}
+                    </div>
+                  </div>
 
-              {/* 2025 */}
-              <div className="w-24 text-center px-1 py-3">
-                <div className="text-xs font-medium text-foreground">
-                  {season.pct.toFixed(0)}%
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {season.hits}/{season.total}
-                </div>
-              </div>
+                  {/* Line */}
+                  <div className="w-16 text-center px-2">
+                    <div className="text-xs font-bold text-foreground group-hover:text-primary transition-colors duration-200">
+                      {formatNumber(prop.line, 1)}
+                    </div>
+                  </div>
 
-              {/* L5 */}
-              <div className="w-24 text-center px-1 py-3">
-                <div className="text-xs font-medium text-foreground">
-                  {l5.pct.toFixed(0)}%
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {l5.hits}/{l5.total}
-                </div>
-              </div>
+                  {/* Odds */}
+                  <div className="w-16 text-center px-2">
+                    <div className={`text-xs font-semibold transition-colors duration-200 ${
+                      overUnderFilter === 'over' ? 'text-green-500 group-hover:text-green-400' : 
+                      overUnderFilter === 'under' ? 'text-red-500 group-hover:text-red-400' : 
+                      'text-foreground group-hover:text-primary/90'
+                    }`}>
+                      {overUnderFilter === 'over' ? toAmericanOdds(prop.best_over || prop.overOdds) :
+                       overUnderFilter === 'under' ? toAmericanOdds(prop.best_under || prop.underOdds) :
+                       toAmericanOdds(prop.best_over || prop.overOdds)}
+                    </div>
+                  </div>
 
-              {/* L10 */}
-              <div className="w-24 text-center px-1 py-3">
-                <div className="text-xs font-medium text-foreground">
-                  {l10.pct.toFixed(0)}%
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {l10.hits}/{l10.total}
-                </div>
-              </div>
+                  {/* EV% */}
+                  <div className="w-16 text-center px-2">
+                    {prop.expectedValue ? (
+                      <span className="text-xs font-bold text-blue-500 group-hover:text-blue-400 transition-colors duration-200">
+                        {prop.expectedValue > 0 ? '+' : ''}{prop.expectedValue.toFixed(1)}%
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground group-hover:text-foreground/70 transition-colors duration-200">N/A</span>
+                    )}
+                  </div>
 
-              {/* L20 */}
-              <div className="w-24 text-center px-1 py-3">
-                <div className="text-xs font-medium text-foreground">
-                  {l20.pct.toFixed(0)}%
+                  {/* Streak */}
+                  <div className="w-16 text-center px-2">
+                    <div className="text-xs font-bold text-muted-foreground group-hover:opacity-80 transition-colors duration-200">
+                      {streak}W
+                    </div>
+                  </div>
+
+                  {/* Rating */}
+                  <div className="w-16 text-center px-2">
+                    {(() => {
+                      const propFinderRating = overUnderFilter === 'over' 
+                        ? (prop.rating_over_normalized || prop.rating_over_raw)
+                        : (prop.rating_under_normalized || prop.rating_under_raw);
+                      
+                      if (propFinderRating) {
+                        return (
+                          <div className="text-xs font-bold text-foreground">
+                            {propFinderRating >= 80 ? 'A' : propFinderRating >= 60 ? 'B' : 'C'}
+                          </div>
+                        );
+                      }
+                      
+                      const rating = statpediaRatingService.calculateRating(prop, overUnderFilter);
+                      return (
+                        <div className="text-xs font-bold text-foreground">
+                          {rating.grade}
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  {l20.hits}/{l20.total}
-                </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           );
         })}
+          </div>
+        </div>
+
+        {/* Scrollable Analytics Columns */}
+        <div className="flex-1 overflow-x-auto">
+          {/* Analytics Header */}
+          <div className="flex bg-gradient-card border-b border-border/50 sticky top-0 z-20">
+            <div className="w-24 text-center px-2 py-3 text-xs font-semibold text-foreground">Matchup</div>
+            <div className="w-24 text-center px-2 py-3 text-xs font-semibold text-foreground">H2H</div>
+            <div className="w-24 text-center px-2 py-3 text-xs font-semibold text-foreground">2025</div>
+            <div className="w-24 text-center px-2 py-3 text-xs font-semibold text-foreground">L5</div>
+            <div className="w-24 text-center px-2 py-3 text-xs font-semibold text-foreground">L10</div>
+            <div className="w-24 text-center px-2 py-3 text-xs font-semibold text-foreground">L20</div>
+          </div>
+
+          {/* Analytics Data Rows */}
+          <div className="space-y-2">
+            {filteredAndSortedProps.map((prop, index) => {
+              // Calculate analytics data
+              const gameLogs = prop.gameLogs || [];
+              const gameLogs2025 = prop.gameLogs2025 || [];
+              const h2h = calculateHitRate(gameLogs, prop.line, "over", undefined, prop.opponentAbbr);
+              const season = calculateHitRate(gameLogs2025, prop.line, "over");
+              const l5 = calculateHitRate(gameLogs, prop.line, "over", 5);
+              const l10 = calculateHitRate(gameLogs, prop.line, "over", 10);
+              const l20 = calculateHitRate(gameLogs, prop.line, "over", 20);
+
+              return (
+                <div
+                  key={prop.id || `analytics-${prop.playerId}-${prop.propType}-${index}`}
+                  className="flex border-b border-border/20 hover:bg-gray-50/50 transition-colors duration-200"
+                >
+                  {/* Matchup */}
+                  <div className="w-24 text-center px-2 py-3">
+                    <div className="text-xs font-medium text-foreground">
+                      {prop.opponentAbbr || '—'}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {prop.relevantRank || '—'}
+                    </div>
+                  </div>
+
+                  {/* H2H */}
+                  <div className="w-24 text-center px-2 py-3">
+                    <div className="text-xs font-medium text-foreground">
+                      {h2h.pct.toFixed(0)}%
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {h2h.hits}/{h2h.total}
+                    </div>
+                  </div>
+
+                  {/* 2025 */}
+                  <div className="w-24 text-center px-2 py-3">
+                    <div className="text-xs font-medium text-foreground">
+                      {season.pct.toFixed(0)}%
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {season.hits}/{season.total}
+                    </div>
+                  </div>
+
+                  {/* L5 */}
+                  <div className="w-24 text-center px-2 py-3">
+                    <div className="text-xs font-medium text-foreground">
+                      {l5.pct.toFixed(0)}%
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {l5.hits}/{l5.total}
+                    </div>
+                  </div>
+
+                  {/* L10 */}
+                  <div className="w-24 text-center px-2 py-3">
+                    <div className="text-xs font-medium text-foreground">
+                      {l10.pct.toFixed(0)}%
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {l10.hits}/{l10.total}
+                    </div>
+                  </div>
+
+                  {/* L20 */}
+                  <div className="w-24 text-center px-2 py-3">
+                    <div className="text-xs font-medium text-foreground">
+                      {l20.pct.toFixed(0)}%
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {l20.hits}/{l20.total}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
