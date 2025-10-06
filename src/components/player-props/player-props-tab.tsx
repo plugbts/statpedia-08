@@ -1053,11 +1053,41 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
 
     // Sort by Statpedia rating first (highest to lowest), then by priority
     nflOnly.sort((a, b) => {
+      // Check if props are pick 'em (odds around +100)
+      const aIsPickEm = (a.overOdds && parseInt(a.overOdds) >= 95 && parseInt(a.overOdds) <= 105) || 
+                       (a.underOdds && parseInt(a.underOdds) >= 95 && parseInt(a.underOdds) <= 105);
+      const bIsPickEm = (b.overOdds && parseInt(b.overOdds) >= 95 && parseInt(b.overOdds) <= 105) || 
+                       (b.underOdds && parseInt(b.underOdds) >= 95 && parseInt(b.underOdds) <= 105);
+      
       // First: Sort by Statpedia rating (highest first)
       const aRating = statpediaRatingService.calculateRating(a, 'both');
       const bRating = statpediaRatingService.calculateRating(b, 'both');
-      if (aRating.overall !== bRating.overall) {
-        return bRating.overall - aRating.overall; // Higher rating first
+      
+      // If one is pick 'em and the other isn't, handle special case
+      if (aIsPickEm && !bIsPickEm) {
+        // Only show pick 'em props if they have B rating or higher (80+)
+        if (aRating.overall >= 80) {
+          return bRating.overall - aRating.overall; // Higher rating first
+        } else {
+          return 1; // Put pick 'em with low rating at the end
+        }
+      } else if (!aIsPickEm && bIsPickEm) {
+        // Only show pick 'em props if they have B rating or higher (80+)
+        if (bRating.overall >= 80) {
+          return bRating.overall - aRating.overall; // Higher rating first
+        } else {
+          return -1; // Put pick 'em with low rating at the end
+        }
+      } else if (aIsPickEm && bIsPickEm) {
+        // Both are pick 'em, sort by rating
+        if (aRating.overall !== bRating.overall) {
+          return bRating.overall - aRating.overall;
+        }
+      } else {
+        // Neither is pick 'em, normal sorting
+        if (aRating.overall !== bRating.overall) {
+          return bRating.overall - aRating.overall; // Higher rating first
+        }
       }
 
       // Second: Use priority for tie-breakers

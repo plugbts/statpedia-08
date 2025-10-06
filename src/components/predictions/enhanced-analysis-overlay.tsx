@@ -587,9 +587,25 @@ const generatePerformanceMetrics = (gameHistory: GameHistoryEntry[], prediction:
   // Use StreakService for consistent streak calculation
   const streakData = StreakService.calculateStreak(hitRate, hitRate, 10);
   
+  // Calculate real longest streak from game history
+  let longestStreak = 0;
+  let currentStreak = 0;
+  let maxStreak = 0;
+  
+  for (let i = 0; i < gameHistory.length; i++) {
+    if (gameHistory[i].hit) {
+      currentStreak++;
+      maxStreak = Math.max(maxStreak, currentStreak);
+    } else {
+      currentStreak = 0;
+    }
+  }
+  
+  longestStreak = maxStreak;
+  
   return {
     currentStreak: streakData.currentStreak,
-    longestStreak: Math.floor(Math.random() * 8) + 3,
+    longestStreak: longestStreak,
     recentForm: hitRate > 0.7 ? 'hot' : hitRate < 0.4 ? 'cold' : 'average',
     consistency: 0.7 + Math.random() * 0.2,
     volatility: 0.3 + Math.random() * 0.4,
@@ -1576,7 +1592,7 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                         ) : (
                           <ArrowDown className="w-4 h-4 mr-2" />
                         )}
-                        {recommended === 'over' ? 'OVER' : 'UNDER'} ^ AI PREDICTION
+                        {recommended === 'over' ? 'OVER' : 'UNDER'} AI PREDICTION
                       </Badge>
                     );
                   })()}

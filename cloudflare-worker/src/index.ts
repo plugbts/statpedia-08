@@ -1506,7 +1506,8 @@ async function normalizeEvent(ev: SGEvent) {
       if (marketKey.includes('touchdown') || marketKey.includes('td') || marketKey.includes('firsttouchdown') || marketKey.includes('lasttouchdown') ||
           marketKey.includes('defense_interceptions') || marketKey.includes('defense_sacks') || 
           marketKey.includes('defense_combinedtackles') || marketKey.includes('defense_assistedtackles') ||
-          marketKey.includes('extrapoints_kicksmade') || marketKey.includes('kicking_totalpoints')) {
+          marketKey.includes('extrapoints_kicksmade') || marketKey.includes('kicking_totalpoints') ||
+          marketKey.includes('turnovers')) {
         continue;
       }
       
