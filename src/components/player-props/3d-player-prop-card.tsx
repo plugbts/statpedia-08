@@ -292,9 +292,9 @@ export function PlayerPropCard3D({
           <div className="absolute inset-0 bg-gradient-to-r from-slate-600/5 via-gray-600/4 to-slate-600/5 opacity-0 group-hover:opacity-100 blur-xl transition-all duration-500" />
           
           {/* Card Content */}
-          <CardContent className="relative z-10 p-3 h-full flex flex-col">
+          <CardContent className="relative z-10 p-2 h-full flex flex-col">
             {/* Compact Header */}
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-1">
               <div className="flex items-center space-x-2 flex-1">
                 <div className={`w-7 h-7 rounded-full ${teamColorsService.getTeamGradient(prop.teamAbbr, prop.sport)} flex items-center justify-center text-white font-bold text-xs shadow-lg border-2 ${teamColorsService.getTeamBorder(prop.teamAbbr, prop.sport)} overflow-hidden flex-shrink-0`}>
                   {(() => {
@@ -349,7 +349,7 @@ export function PlayerPropCard3D({
             </div>
 
             {/* Main Content Area - Simplified Layout */}
-            <div className="flex-1 flex flex-col space-y-2">
+            <div className="flex-1 flex flex-col space-y-1">
               {/* Prop Details - Centered */}
               <div className="text-center space-y-1">
                 <div className="text-slate-400 text-xs font-semibold tracking-wide uppercase leading-tight">
@@ -401,23 +401,30 @@ export function PlayerPropCard3D({
                 )}
               </div>
 
-              {/* Odds Display - Compact */}
-              <div className="grid grid-cols-2 gap-2">
-                <div className="text-center bg-slate-800/30 rounded p-2">
-                  <div className="text-xs text-slate-500 uppercase font-semibold">Over</div>
-                  <div className={`text-sm font-bold ${getOddsColorClass(prop.best_over || prop.overOdds)}`}>
-                    {toAmericanOdds(prop.best_over || prop.overOdds)}
+              {/* Odds Display - Filtered */}
+              <div className={cn(
+                "grid gap-2",
+                overUnderFilter === 'both' ? "grid-cols-2" : "grid-cols-1"
+              )}>
+                {(overUnderFilter === 'over' || overUnderFilter === 'both') && (
+                  <div className="text-center bg-slate-800/30 rounded p-2">
+                    <div className="text-xs text-slate-500 uppercase font-semibold">Over</div>
+                    <div className={`text-sm font-bold ${getOddsColorClass(prop.best_over || prop.overOdds)}`}>
+                      {toAmericanOdds(prop.best_over || prop.overOdds)}
+                    </div>
                   </div>
-                </div>
-                <div className="text-center bg-slate-800/30 rounded p-2">
-                  <div className="text-xs text-slate-500 uppercase font-semibold">Under</div>
-                  <div className={`text-sm font-bold ${getOddsColorClass(prop.best_under || prop.underOdds)}`}>
-                    {toAmericanOdds(prop.best_under || prop.underOdds)}
+                )}
+                {(overUnderFilter === 'under' || overUnderFilter === 'both') && (
+                  <div className="text-center bg-slate-800/30 rounded p-2">
+                    <div className="text-xs text-slate-500 uppercase font-semibold">Under</div>
+                    <div className={`text-sm font-bold ${getOddsColorClass(prop.best_under || prop.underOdds)}`}>
+                      {toAmericanOdds(prop.best_under || prop.underOdds)}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
-              {/* Hit Streak */}
+              {/* Hit Streak - Compact */}
               <div className="text-center">
                 {(() => {
                   // Calculate real streak based on historical data
@@ -429,13 +436,13 @@ export function PlayerPropCard3D({
                   const display = StreakService.getStreakDisplay(streakData);
                   
                   return (
-                    <div className="flex items-center justify-center space-x-2">
+                    <div className="flex items-center justify-center space-x-1">
                       <div className={cn(
-                        "flex items-center space-x-1 px-2 py-1 rounded text-xs font-semibold",
+                        "flex items-center space-x-1 px-1.5 py-0.5 rounded text-xs font-semibold",
                         display.bgColor
                       )}>
-                        <Activity className="h-3 w-3" />
-                        <span className="uppercase text-xs">{display.count} Game Streak</span>
+                        <Activity className="h-2.5 w-2.5" />
+                        <span className="uppercase text-xs">{display.count}</span>
                       </div>
                       <div className="text-xs text-slate-400 font-semibold">
                         {display.label}
@@ -445,82 +452,48 @@ export function PlayerPropCard3D({
                 })()}
               </div>
 
-              {/* Additional Info - Compact */}
-              <div className="space-y-2">
-                {/* Sportsbook Source */}
-                {prop.sportsbookSource && (
-                  <div className="mb-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Data Source</span>
-                      <Badge variant="outline" className="text-xs">
-                        {prop.sportsbookSource}
-                      </Badge>
-                    </div>
-                    {prop.lastOddsUpdate && (
-                      <div className="text-xs text-slate-400 mt-1">
-                        Updated: {new Date(prop.lastOddsUpdate).toLocaleTimeString()}
-                      </div>
-                    )}
-                  </div>
-                )}
+              {/* View Analysis Button - Moved Up */}
+              <div className="mt-1">
+                <Button
+                  className={cn(
+                    "w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500",
+                    "text-white font-semibold py-1.5 px-3 rounded-lg text-xs",
+                    "transition-all duration-300 ease-out",
+                    "hover:shadow-lg hover:shadow-blue-500/25",
+                    "border border-blue-500/50",
+                    "group"
+                  )}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAnalysisClick(prop);
+                  }}
+                >
+                  <BarChart3 className="h-3 w-3 mr-1" />
+                  View Analysis
+                  <ChevronRight className="h-3 w-3 ml-1 group-hover:translate-x-1 transition-transform duration-300" />
+                </Button>
+              </div>
 
-                {/* Team Odds Context */}
-                {prop.teamOddsContext && prop.teamOddsContext.hasTeamOdds && (
-                  <div className="mb-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Team Odds Available</span>
-                      <Badge variant="secondary" className="text-xs">
-                        {prop.teamOddsContext.sportsbooks.length} Sportsbooks
-                      </Badge>
-                    </div>
-                    <div className="text-xs text-slate-400">
-                      {prop.teamOddsContext.homeTeam} vs {prop.teamOddsContext.awayTeam}
-                    </div>
-                  </div>
-                )}
-
-                {/* Expected Value */}
+              {/* Additional Info - Very Compact */}
+              <div className="space-y-1">
+                {/* Expected Value - Compact */}
                 {prop.expectedValue !== undefined && (
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-slate-500 uppercase font-semibold">Expected Value</span>
-                      <Badge className={`text-xs font-bold ${getEVBadgeClasses(prop.expectedValue * 100).combined}`}>
-                        <Zap className="h-3 w-3 mr-1" />
-                        {convertEVToText(prop.expectedValue * 100).text}
-                      </Badge>
-                    </div>
+                  <div className="flex items-center justify-center">
+                    <Badge className={`text-xs font-bold ${getEVBadgeClasses(prop.expectedValue * 100).combined}`}>
+                      <Zap className="h-2.5 w-2.5 mr-1" />
+                      {convertEVToText(prop.expectedValue * 100).text}
+                    </Badge>
                   </div>
                 )}
 
-                {/* Game Info */}
-                <div className="text-center pt-2 border-t border-slate-700/50">
+                {/* Game Info - Compact */}
+                <div className="text-center">
                   <div className="text-xs text-slate-500 font-semibold">
                     {new Date(prop.gameDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • {new Date(prop.gameTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
                   </div>
                 </div>
               </div>
             </div>
-
-          {/* View Analysis Button - Always Visible */}
-          <div className="mt-2 pt-2 border-t border-slate-700/50 space-y-2">
-            <Button
-              className={cn(
-                "w-full bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700",
-                "text-slate-100 font-semibold py-2 px-3 rounded-lg text-sm",
-                "transition-all duration-300 ease-out",
-                "hover:shadow-lg hover:shadow-slate-500/25",
-                "border border-slate-600/50",
-                "group"
-              )}
-              onClick={(e) => {
-                e.stopPropagation();
-                onAnalysisClick(prop);
-              }}
-            >
-              <BarChart3 className="h-4 w-4 mr-2" />
-              View Analysis
-              <ChevronRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform duration-300" />
-            </Button>
             
             {/* Advanced Analysis Button */}
             {onAdvancedAnalysisClick && (

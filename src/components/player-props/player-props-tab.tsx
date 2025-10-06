@@ -1760,6 +1760,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                           onAnalysisClick={handleEnhancedAnalysis}
                           onAdvancedAnalysisClick={generateAdvancedPrediction}
                           isSelected={selectedProps.includes(prop.id)}
+                          overUnderFilter={overUnderFilter}
                           onSelect={showSelection ? (propId) => {
                             setSelectedProps(prev => 
                               prev.includes(propId) 
@@ -1768,7 +1769,6 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                             );
                           } : undefined}
                           showSelection={showSelection}
-                          overUnderFilter={overUnderFilter}
                         />
                       </CardContent>
                     </Card>

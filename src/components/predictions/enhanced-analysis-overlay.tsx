@@ -375,14 +375,19 @@ const VotePredictionsTab: React.FC<VotePredictionsTabProps> = ({ prediction }) =
         <CardContent className="p-6">
           <div className="text-center space-y-6">
             {/* Prop Display */}
-            <div className="space-y-2">
-              <h3 className="text-xl font-bold text-slate-200">
+            <div className="space-y-3 animate-fade-in">
+              <h3 className="text-2xl font-bold text-white bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent animate-pulse">
                 {prediction.playerName}
               </h3>
-              <p className="text-slate-400">
-                {prediction.propType} • Line: {prediction.line}
-              </p>
-              <p className="text-sm text-slate-500">
+              <div className="bg-gradient-to-r from-gray-800/50 to-gray-700/50 rounded-lg p-4 border border-gray-600/30 shadow-lg">
+                <p className="text-lg font-semibold text-white mb-1">
+                  {prediction.propType}
+                </p>
+                <p className="text-2xl font-bold text-blue-400">
+                  Line: {prediction.line}
+                </p>
+              </div>
+              <p className="text-sm text-gray-300 font-medium">
                 {prediction.teamAbbr} vs {prediction.opponentAbbr}
               </p>
             </div>
@@ -1580,9 +1585,27 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFi
                     // Determine recommendation based on current filter and ratings
                     let recommended: 'over' | 'under';
                     if (currentFilter === 'over') {
-                      recommended = 'over';
+                      // When over filter is selected:
+                      // - If over rating is high (80+), use over
+                      // - If over rating is low but under rating is high (80+), use under
+                      if (overRating.overall >= 80) {
+                        recommended = 'over';
+                      } else if (underRating.overall >= 80) {
+                        recommended = 'under';
+                      } else {
+                        recommended = 'over'; // Default to over when filter is over
+                      }
                     } else if (currentFilter === 'under') {
-                      recommended = 'under';
+                      // When under filter is selected:
+                      // - If under rating is high (80+), use under
+                      // - If under rating is low but over rating is high (80+), use over
+                      if (underRating.overall >= 80) {
+                        recommended = 'under';
+                      } else if (overRating.overall >= 80) {
+                        recommended = 'over';
+                      } else {
+                        recommended = 'under'; // Default to under when filter is under
+                      }
                     } else {
                       // For 'both' or default, use the higher rating
                       recommended = overRating.overall > underRating.overall ? 'over' : 'under';
