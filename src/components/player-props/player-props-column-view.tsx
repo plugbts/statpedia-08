@@ -888,7 +888,7 @@ export function PlayerPropsColumnView({
                   </div>
 
                   {/* Rating */}
-                  <div className="w-16 text-center px-2 bg-transparent">
+                  <div className="w-16 text-center px-2 bg-transparent group-hover:opacity-80 transition-colors duration-200">
                   {(() => {
                       const propFinderRating = overUnderFilter === 'over' 
                         ? (prop.rating_over_normalized || prop.rating_over_raw)
@@ -921,7 +921,7 @@ export function PlayerPropsColumnView({
                       return (
                         <div className="flex flex-col items-center group/rating bg-transparent">
                           <div className="relative w-8 h-8 bg-transparent">
-                            <svg className="w-8 h-8 transform -rotate-90 transition-all duration-300 group-hover/rating:scale-110" viewBox="0 0 36 36">
+                            <svg className="w-8 h-8 transform -rotate-90 transition-all duration-300 group-hover:scale-110" viewBox="0 0 36 36">
                               {/* Only the filled progress circle with AI prediction glow */}
                               <path
                                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
@@ -942,7 +942,7 @@ export function PlayerPropsColumnView({
                             {/* Number with AI prediction glow */}
                             <div className="absolute inset-0 flex items-center justify-center">
                               <span 
-                                className={`text-xs font-bold ${textColor} transition-all duration-300 group-hover/rating:scale-110`}
+                                className={`text-xs font-bold ${textColor} transition-all duration-300 group-hover:scale-110`}
                                 style={{
                                   animation: displayPercentage >= 80 ? 'pulse 3s ease-in-out infinite' :
                                              displayPercentage >= 60 ? 'pulse 5s ease-in-out infinite' :
