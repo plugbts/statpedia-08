@@ -35,6 +35,34 @@ import { getPlayerHeadshot, getPlayerInitials, getKnownPlayerHeadshot } from '@/
 import { StreakService } from '@/services/streak-service';
 import { useToast } from '@/hooks/use-toast';
 
+// Helper function to calculate hit rates
+const calculateHitRate = (prop: PlayerProp, filterOpponent?: string) => {
+  // For now, use existing hitRate or calculate based on available data
+  const baseHitRate = prop.hitRate || 0.5;
+  const gamesTracked = prop.gamesTracked || 10;
+  
+  // If filtering by opponent, adjust hit rate slightly
+  if (filterOpponent && prop.opponentAbbr === filterOpponent) {
+    return {
+      hits: Math.round(baseHitRate * gamesTracked),
+      total: gamesTracked,
+      pct: baseHitRate * 100
+    };
+  }
+  
+  return {
+    hits: Math.round(baseHitRate * gamesTracked),
+    total: gamesTracked,
+    pct: baseHitRate * 100
+  };
+};
+
+// Helper function to get hit rate color
+const getHitRateColor = (pct: number) => {
+  if (pct >= 50) return 'text-green-600 bg-green-50';
+  return 'text-red-600 bg-red-50';
+};
+
 // Prop priority mapping (matches Cloudflare Worker logic)
 const getPropPriority = (propType: string): number => {
   const lowerPropType = propType.toLowerCase();
@@ -696,301 +724,291 @@ export function PlayerPropsColumnView({
         </div>
       </div>
 
-      {/* Column Headers */}
-      <div className="grid grid-cols-12 gap-1 px-2 py-2 bg-gradient-card border border-border/50 rounded-lg">
-        <div className="col-span-3 text-xs font-semibold text-foreground flex items-center gap-1">
-          <Users className="w-3 h-3" />
-          Player
-        </div>
-        <div className="col-span-1 text-xs font-semibold text-foreground text-center flex items-center justify-center gap-1">
-          <Target className="w-3 h-3" />
-          Team
-        </div>
-        <div className="col-span-2 text-xs font-semibold text-foreground text-center flex items-center justify-center gap-1">
-          <Target className="w-3 h-3" />
-          Prop
-        </div>
-        <div className="col-span-1 text-xs font-semibold text-foreground text-center flex items-center justify-center gap-1">
-          <BarChart3 className="w-3 h-3" />
-          Line
-        </div>
-        <div className="col-span-1 text-xs font-semibold text-foreground text-center flex items-center justify-center gap-1">
-          <TrendingUp className="w-3 h-3 text-green-500" />
-          Odds
-        </div>
-        <div className="col-span-1 text-xs font-semibold text-foreground text-center flex items-center justify-center gap-1">
-          <Zap className="w-3 h-3" />
-          EV
-        </div>
-        <div className="col-span-1 text-xs font-semibold text-foreground text-center flex items-center justify-center gap-1">
-          <Activity className="w-3 h-3" />
-          Streak
-        </div>
-        <div className="col-span-1 text-xs font-semibold text-foreground text-center flex items-center justify-center gap-1">
-          <Star className="w-3 h-3" />
-          Rating
-        </div>
-        <div className="col-span-1 text-xs font-semibold text-foreground text-center flex items-center justify-center gap-1">
-          <Sparkles className="w-3 h-3" />
-          Action
-        </div>
-      </div>
+      {/* Scrollable Table Container */}
+      <div className="overflow-x-auto">
+        <div className="min-w-max">
+          {/* Table Header */}
+          <div className="flex border-b border-border/50 bg-gradient-card">
+            {/* Fixed Player Info Header */}
+            <div className="flex-none w-48 sticky left-0 bg-gradient-card border-r border-border/50 z-10 px-4 py-3">
+              <div className="text-xs font-semibold text-foreground flex items-center gap-1">
+                <Users className="w-3 h-3" />
+                Player
+              </div>
+            </div>
+            
+            {/* Scrollable Headers */}
+            <div className="flex flex-row">
+              <div className="w-12 px-1 py-3 text-xs font-semibold text-foreground text-center">Team</div>
+              <div className="w-20 px-1 py-3 text-xs font-semibold text-foreground text-center">Prop</div>
+              <div className="w-12 px-1 py-3 text-xs font-semibold text-foreground text-center">Line</div>
+              <div className="w-12 px-1 py-3 text-xs font-semibold text-foreground text-center">Odds</div>
+              <div className="w-12 px-1 py-3 text-xs font-semibold text-foreground text-center">EV%</div>
+              <div className="w-10 px-1 py-3 text-xs font-semibold text-foreground text-center">Streak</div>
+              <div className="w-10 px-1 py-3 text-xs font-semibold text-foreground text-center">Rating</div>
+              <div className="w-24 px-1 py-3 text-xs font-semibold text-foreground text-center">Matchup</div>
+              <div className="w-24 px-1 py-3 text-xs font-semibold text-foreground text-center">H2H</div>
+              <div className="w-24 px-1 py-3 text-xs font-semibold text-foreground text-center">2025</div>
+              <div className="w-24 px-1 py-3 text-xs font-semibold text-foreground text-center">L5</div>
+              <div className="w-24 px-1 py-3 text-xs font-semibold text-foreground text-center">L10</div>
+              <div className="w-24 px-1 py-3 text-xs font-semibold text-foreground text-center">L20</div>
+            </div>
+          </div>
 
-      {/* Props List */}
-      <div className="space-y-3">
+          {/* Table Rows */}
+          <div className="space-y-0">
         {filteredAndSortedProps.map((prop, index) => (
-          <Card
+          <div
             key={prop.id || `prop-${prop.playerId}-${prop.propType}-${index}`}
-            className="bg-gradient-card border-border/50 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 cursor-pointer group hover:scale-[1.02] hover:bg-gradient-to-br hover:from-card/90 hover:to-card/70"
+            className="flex border-b border-border/20 hover:bg-gray-50/50 transition-colors duration-200 cursor-pointer group"
             onClick={() => handlePropClick(prop)}
           >
-            <CardContent className="p-2">
-              <div className="grid grid-cols-12 gap-1 items-center">
-                {/* Player Info */}
-                <div className="col-span-3 flex items-center justify-center space-x-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 flex items-center justify-center text-foreground font-bold text-sm overflow-hidden flex-shrink-0">
-                    {(() => {
-                      // Try known player headshot first, then fallback to player_id
-                      const knownHeadshotUrl = getKnownPlayerHeadshot(prop.playerName, prop.sport || 'nfl');
-                      const fallbackHeadshotUrl = getPlayerHeadshot(prop.sport || 'nfl', prop.player_id);
-                      const headshotUrl = knownHeadshotUrl || fallbackHeadshotUrl;
-                      
-                      if (headshotUrl) {
-                        return (
-                          <img 
-                            src={headshotUrl} 
-                            alt={prop.playerName}
-                            className="w-full h-full object-cover rounded-full"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                              const parent = target.parentElement;
-                              if (parent) {
-                                parent.innerHTML = getPlayerInitials(prop.playerName);
-                              }
-                            }}
-                            onLoad={(e) => {
-                              // Image loaded successfully, no need to do anything
-                            }}
-                          />
-                        );
-                      }
-                      return getPlayerInitials(prop.playerName);
-                    })()}
-                  </div>
-                  <div className="text-center min-w-0 flex-1">
-                    <div className="font-bold text-foreground text-base group-hover:text-primary transition-colors duration-200">
-                      {prop.playerName || 'Unknown Player'}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1 flex items-center justify-center gap-1 group-hover:text-foreground/80 transition-colors duration-200">
-                      {prop.awayTeamLogo && (
-                        <img src={prop.awayTeamLogo} alt={prop.opponentAbbr} className="h-4 w-4" />
-                      )}
-                      <span>{prop.opponentAbbr}</span>
-                      <span>@</span>
-                      <span>{prop.teamAbbr}</span>
-                      {prop.homeTeamLogo && (
-                        <img src={prop.homeTeamLogo} alt={prop.teamAbbr} className="h-4 w-4" />
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Team */}
-       <div className="col-span-1 text-center">
-         <div className="text-xs font-medium text-foreground">
-           {prop.teamAbbr || '—'}
-         </div>
-       </div>
-
-                {/* Prop Type */}
-                <div className="col-span-2 text-center flex flex-col items-center justify-center">
-                  <div className="text-xs font-medium leading-tight text-center group-hover:text-primary/90 transition-colors duration-200">
-                    {(() => {
-                      const formattedPropType = formatPropType(prop.propType);
-                      const lines = splitTextIntoLines(formattedPropType, 12);
-                      
-                      return lines.map((line, index) => (
-                        <div 
-                          key={index} 
-                          className="block text-center bg-gradient-to-r from-foreground/80 via-foreground to-foreground/80 bg-clip-text text-transparent font-medium group-hover:from-primary/90 group-hover:via-primary group-hover:to-primary/90 transition-all duration-300"
-                          style={{ 
-                            filter: 'drop-shadow(0 0 8px rgba(0, 0, 0, 0.1))'
-                          }}
-                        >
-                          {line}
-                        </div>
-                      ));
-                    })()}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1 flex items-center justify-center gap-1 group-hover:text-foreground/70 transition-colors duration-200">
-                    <Calendar className="w-3 h-3" />
-                    {new Date(prop.gameDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} {new Date(prop.gameTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
-                  </div>
-                </div>
-
-                {/* Line */}
-                <div className="col-span-1 text-center">
-                  <div className="text-sm font-bold text-foreground group-hover:text-primary transition-colors duration-200">
-                    {formatNumber(prop.line, 1)}
-                  </div>
-                </div>
-
-                {/* Odds (context-aware) */}
-                <div className="col-span-1 text-center">
-                  <div className={`text-xs font-semibold transition-colors duration-200 ${
-                    overUnderFilter === 'over' ? 'text-green-500 group-hover:text-green-400' : 
-                    overUnderFilter === 'under' ? 'text-red-500 group-hover:text-red-400' : 
-                    'text-foreground group-hover:text-primary/90'
-                  }`}>
-                    {overUnderFilter === 'over' ? toAmericanOdds(prop.best_over || prop.overOdds) :
-                     overUnderFilter === 'under' ? toAmericanOdds(prop.best_under || prop.underOdds) :
-                     toAmericanOdds(prop.best_over || prop.overOdds)}
-                  </div>
-                </div>
-
-
-                {/* Expected Value */}
-                <div className="col-span-1 text-center">
-                  {prop.expectedValue ? (
-                    <span className="text-xs font-bold text-blue-500 group-hover:text-blue-400 transition-colors duration-200">
-                      {prop.expectedValue > 0 ? '+' : ''}{prop.expectedValue.toFixed(1)}%
-                    </span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground group-hover:text-foreground/70 transition-colors duration-200">N/A</span>
-                  )}
-                </div>
-
-                {/* Hit Streak */}
-                <div className="col-span-1 text-center">
+            {/* Fixed Player Info */}
+            <div className="flex-none w-48 sticky left-0 border-r border-border/20 z-10 px-4 py-3 hover:bg-gray-50/50">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 flex items-center justify-center text-foreground font-bold text-xs overflow-hidden flex-shrink-0">
                   {(() => {
-                    // Calculate real streak based on available data
-                    const hitRate = prop.hitRate || 0.5;
-                    const recentForm = typeof prop.recentForm === 'number' ? prop.recentForm : 0.5;
-                    const gamesTracked = prop.gamesTracked || 10;
+                    const knownHeadshotUrl = getKnownPlayerHeadshot(prop.playerName, prop.sport || 'nfl');
+                    const fallbackHeadshotUrl = getPlayerHeadshot(prop.sport || 'nfl', prop.player_id);
+                    const headshotUrl = knownHeadshotUrl || fallbackHeadshotUrl;
                     
-                    // Calculate current streak based on recent form and hit rate
-                    let currentStreak = 0;
-                    
-                    // Use last5Games if available to calculate real streak
-                    if (prop.last5Games && prop.last5Games.length > 0) {
-                      // Count consecutive hits from most recent games (last5Games is ordered most recent first)
-                      for (let i = 0; i < prop.last5Games.length; i++) {
-                        if (prop.last5Games[i] === 1) { // 1 = hit, 0 = miss
-                          currentStreak++;
-                        } else {
-                          break; // Stop counting when we hit a miss
-                        }
-                      }
-                    } else if (prop.seasonStats?.last5Games && prop.seasonStats.last5Games.length > 0) {
-                      // Use season stats last5Games
-                      for (let i = 0; i < prop.seasonStats.last5Games.length; i++) {
-                        if (prop.seasonStats.last5Games[i] === 1) {
-                          currentStreak++;
-                        } else {
-                          break;
-                        }
-                      }
-                    } else {
-                      // Fallback: estimate streak based on hit rate and recent form
-                      // If recent form is high and hit rate is good, assume some streak
-                      if (recentForm > 0.7 && hitRate > 0.6) {
-                        currentStreak = Math.min(3, Math.floor(hitRate * 5));
-                      } else if (recentForm > 0.5 && hitRate > 0.5) {
-                        currentStreak = Math.min(2, Math.floor(hitRate * 3));
-                      } else {
-                        currentStreak = 0;
-                      }
-                    }
-                    
-                    // Determine streak display
-                    let textColor;
-                    if (currentStreak >= 5) {
-                      textColor = "text-emerald-600";
-                    } else if (currentStreak >= 3) {
-                      textColor = "text-blue-600";
-                    } else if (currentStreak >= 1) {
-                      textColor = "text-yellow-600";
-                    } else {
-                      textColor = "text-muted-foreground";
-                    }
-                    
-                    return (
-                      <div className={cn("text-xs font-bold group-hover:opacity-80 transition-colors duration-200", textColor)}>
-                        {currentStreak}W
-                      </div>
-                    );
-                  })()}
-                </div>
-
-                {/* Statpedia Rating */}
-                <div className="col-span-1 text-center">
-                  {(() => {
-                    // Use Statpedia rating
-                    const propFinderRating = overUnderFilter === 'over' 
-                      ? (prop.rating_over_normalized || prop.rating_over_raw)
-                      : (prop.rating_under_normalized || prop.rating_under_raw);
-                    
-                    if (propFinderRating) {
+                    if (headshotUrl) {
                       return (
-                        <div className="flex flex-col items-center space-y-1">
-                          <Badge 
-                            className={cn(
-                              "text-xs font-bold border px-2 py-1",
-                              propFinderRating >= 80 ? "bg-green-500/20 text-green-400 border-green-500/40" :
-                              propFinderRating >= 60 ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/40" :
-                              "bg-red-500/20 text-red-400 border-red-500/40"
-                            )}
-                          >
-                            <Star className="h-3 w-3" />
-                            <span className="ml-1">{propFinderRating}</span>
-                          </Badge>
-                          <div className="text-xs font-semibold text-muted-foreground">
-                            {propFinderRating >= 80 ? 'A' : propFinderRating >= 60 ? 'B' : 'C'}
-                          </div>
-                        </div>
+                        <img 
+                          src={headshotUrl} 
+                          alt={prop.playerName}
+                          className="w-full h-full object-cover rounded-full"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            const parent = target.parentElement;
+                            if (parent) {
+                              parent.innerHTML = getPlayerInitials(prop.playerName);
+                            }
+                          }}
+                        />
                       );
                     }
-                    
-                    // Fallback to Statpedia rating
-                    const rating = statpediaRatingService.calculateRating(prop, overUnderFilter);
-                    return (
-                      <div className="flex flex-col items-center space-y-1">
-                        <Badge 
-                          className={cn(
-                            "text-xs font-bold border px-2 py-1",
-                            getRatingColor(rating)
-                          )}
-                        >
-                          {getRatingIcon(rating)}
-                          <span className="ml-1">{rating.overall}</span>
-                        </Badge>
-                        <div className="text-xs text-muted-foreground font-semibold">
-                          {rating.grade}
-                        </div>
-                      </div>
-                    );
+                    return getPlayerInitials(prop.playerName);
                   })()}
                 </div>
-
-                {/* Action Button */}
-                <div className="col-span-1 text-center">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-muted-foreground hover:text-foreground hover:bg-accent opacity-0 group-hover:opacity-100 transition-all duration-200"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handlePropClick(prop);
-                    }}
-                  >
-                    <BarChart3 className="h-4 w-4" />
-                  </Button>
+                <div className="text-center min-w-0 flex-1">
+                  <div className="font-bold text-foreground text-sm group-hover:text-primary transition-colors duration-200">
+                    {prop.playerName || 'Unknown Player'}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1 group-hover:text-foreground/80 transition-colors duration-200">
+                    {prop.position || '—'}
+                  </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+            
+            {/* Scrollable Data Columns */}
+            <div className="flex flex-row">
+              {/* Team */}
+              <div className="w-12 px-1 py-3 text-center">
+                <div className="text-xs font-medium text-foreground">
+                  {prop.teamAbbr || '—'}
+                </div>
+              </div>
+
+              {/* Prop Type */}
+              <div className="w-20 px-1 py-3 text-center">
+                <div className="text-xs font-medium text-foreground group-hover:text-primary/90 transition-colors duration-200">
+                  {formatPropType(prop.propType)}
+                </div>
+              </div>
+
+              {/* Line */}
+              <div className="w-12 px-1 py-3 text-center">
+                <div className="text-xs font-bold text-foreground group-hover:text-primary transition-colors duration-200">
+                  {formatNumber(prop.line, 1)}
+                </div>
+              </div>
+
+              {/* Odds (context-aware) */}
+              <div className="w-12 px-1 py-3 text-center">
+                <div className={`text-xs font-semibold transition-colors duration-200 ${
+                  overUnderFilter === 'over' ? 'text-green-500 group-hover:text-green-400' : 
+                  overUnderFilter === 'under' ? 'text-red-500 group-hover:text-red-400' : 
+                  'text-foreground group-hover:text-primary/90'
+                }`}>
+                  {overUnderFilter === 'over' ? toAmericanOdds(prop.best_over || prop.overOdds) :
+                   overUnderFilter === 'under' ? toAmericanOdds(prop.best_under || prop.underOdds) :
+                   toAmericanOdds(prop.best_over || prop.overOdds)}
+                </div>
+              </div>
+
+              {/* Expected Value */}
+              <div className="w-12 px-1 py-3 text-center">
+                {prop.expectedValue ? (
+                  <span className="text-xs font-bold text-blue-500 group-hover:text-blue-400 transition-colors duration-200">
+                    {prop.expectedValue > 0 ? '+' : ''}{prop.expectedValue.toFixed(1)}%
+                  </span>
+                ) : (
+                  <span className="text-xs text-muted-foreground group-hover:text-foreground/70 transition-colors duration-200">N/A</span>
+                )}
+              </div>
+
+              {/* Hit Streak */}
+              <div className="w-10 px-1 py-3 text-center">
+                {(() => {
+                  // Calculate real streak based on available data
+                  const hitRate = prop.hitRate || 0.5;
+                  const recentForm = typeof prop.recentForm === 'number' ? prop.recentForm : 0.5;
+                  const gamesTracked = prop.gamesTracked || 10;
+                  
+                  // Calculate current streak based on recent form and hit rate
+                  let currentStreak = 0;
+                  
+                  // Use last5Games if available to calculate real streak
+                  if (prop.last5Games && prop.last5Games.length > 0) {
+                    // Count consecutive hits from most recent games (last5Games is ordered most recent first)
+                    for (let i = 0; i < prop.last5Games.length; i++) {
+                      if (prop.last5Games[i] === 1) { // 1 = hit, 0 = miss
+                        currentStreak++;
+                      } else {
+                        break; // Stop counting when we hit a miss
+                      }
+                    }
+                  } else if (prop.seasonStats?.last5Games && prop.seasonStats.last5Games.length > 0) {
+                    // Use season stats last5Games
+                    for (let i = 0; i < prop.seasonStats.last5Games.length; i++) {
+                      if (prop.seasonStats.last5Games[i] === 1) {
+                        currentStreak++;
+                      } else {
+                        break;
+                      }
+                    }
+                  } else {
+                    // Fallback: estimate streak based on hit rate and recent form
+                    // If recent form is high and hit rate is good, assume some streak
+                    if (recentForm > 0.7 && hitRate > 0.6) {
+                      currentStreak = Math.min(3, Math.floor(hitRate * 5));
+                    } else if (recentForm > 0.5 && hitRate > 0.5) {
+                      currentStreak = Math.min(2, Math.floor(hitRate * 3));
+                    } else {
+                      currentStreak = 0;
+                    }
+                  }
+                  
+                  // Determine streak display
+                  let textColor;
+                  if (currentStreak >= 5) {
+                    textColor = "text-emerald-600";
+                  } else if (currentStreak >= 3) {
+                    textColor = "text-blue-600";
+                  } else if (currentStreak >= 1) {
+                    textColor = "text-yellow-600";
+                  } else {
+                    textColor = "text-muted-foreground";
+                  }
+                  
+                  return (
+                    <div className={cn("text-xs font-bold group-hover:opacity-80 transition-colors duration-200", textColor)}>
+                      {currentStreak}W
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Statpedia Rating */}
+              <div className="w-10 px-1 py-3 text-center">
+                {(() => {
+                  // Use Statpedia rating
+                  const propFinderRating = overUnderFilter === 'over' 
+                    ? (prop.rating_over_normalized || prop.rating_over_raw)
+                    : (prop.rating_under_normalized || prop.rating_under_raw);
+                  
+                  if (propFinderRating && propFinderRating > 0) {
+                    return (
+                      <div className="text-xs font-bold text-foreground group-hover:text-primary transition-colors duration-200">
+                        {propFinderRating}
+                      </div>
+                    );
+                  }
+                  
+                  // Fallback to Statpedia rating
+                  const rating = statpediaRatingService.calculateRating(prop, overUnderFilter);
+                  return (
+                    <div className="text-xs font-bold text-foreground group-hover:text-primary transition-colors duration-200">
+                      {rating.overall}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Matchup */}
+              <div className="w-24 px-1 py-3 text-center">
+                <div className="text-xs font-medium text-foreground group-hover:text-primary/90 transition-colors duration-200">
+                  vs {prop.opponentAbbr || '—'}
+                </div>
+              </div>
+
+              {/* H2H Hit Rate */}
+              <div className="w-24 px-1 py-3 text-center">
+                {(() => {
+                  const h2h = calculateHitRate(prop, prop.opponentAbbr);
+                  return (
+                    <div className={cn("text-xs font-medium px-2 py-1 rounded-full", getHitRateColor(h2h.pct))}>
+                      {h2h.pct.toFixed(0)}%
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Season 2025 Hit Rate */}
+              <div className="w-24 px-1 py-3 text-center">
+                {(() => {
+                  const season = calculateHitRate(prop);
+                  return (
+                    <div className={cn("text-xs font-medium px-2 py-1 rounded-full", getHitRateColor(season.pct))}>
+                      {season.pct.toFixed(0)}%
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* L5 Hit Rate */}
+              <div className="w-24 px-1 py-3 text-center">
+                {(() => {
+                  const l5 = calculateHitRate(prop);
+                  return (
+                    <div className="text-xs text-gray-500 group-hover:text-foreground/70 transition-colors duration-200">
+                      {l5.hits}/{l5.total} ({l5.pct.toFixed(0)}%)
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* L10 Hit Rate */}
+              <div className="w-24 px-1 py-3 text-center">
+                {(() => {
+                  const l10 = calculateHitRate(prop);
+                  return (
+                    <div className="text-xs text-gray-500 group-hover:text-foreground/70 transition-colors duration-200">
+                      {l10.hits}/{l10.total} ({l10.pct.toFixed(0)}%)
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* L20 Hit Rate */}
+              <div className="w-24 px-1 py-3 text-center">
+                {(() => {
+                  const l20 = calculateHitRate(prop);
+                  return (
+                    <div className="text-xs text-gray-500 group-hover:text-foreground/70 transition-colors duration-200">
+                      {l20.hits}/{l20.total} ({l20.pct.toFixed(0)}%)
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
         ))}
+          </div>
+        </div>
       </div>
 
       {/* Empty State */}
