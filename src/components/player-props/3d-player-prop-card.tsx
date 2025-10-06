@@ -17,7 +17,6 @@ import {
 import { cn } from '@/lib/utils';
 import { SeasonalCardBackground } from '@/components/ui/seasonal-card-background';
 import { teamColorsService } from '@/services/team-colors-service';
-import { convertEVToText, getEVBadgeClasses } from '@/utils/ev-text-converter';
 import { SportsbookOverlay } from '@/components/ui/sportsbook-overlay';
 import { statpediaRatingService, StatpediaRating } from '@/services/statpedia-rating-service';
 import { toAmericanOdds, getOddsColorClass } from '@/utils/odds';
@@ -530,10 +529,10 @@ export function PlayerPropCard3D({
                 {/* Expected Value - Compact */}
                 {prop.expectedValue !== undefined && (
                   <div className="flex items-center justify-center">
-                    <Badge className={`text-xs font-bold ${getEVBadgeClasses(prop.expectedValue * 100).combined}`}>
-                      <Zap className="h-2.5 w-2.5 mr-1" />
-                      {convertEVToText(prop.expectedValue * 100).text}
-                    </Badge>
+                    <div className="flex items-center space-x-1 px-2 py-1 bg-blue-600/20 text-blue-400 rounded text-xs font-bold">
+                      <Zap className="h-2.5 w-2.5" />
+                      <span>{prop.expectedValue > 0 ? '+' : ''}{prop.expectedValue.toFixed(1)}%</span>
+                    </div>
                   </div>
                 )}
 

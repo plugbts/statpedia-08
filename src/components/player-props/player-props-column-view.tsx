@@ -769,7 +769,7 @@ export function PlayerPropsColumnView({
                 <div className="col-span-1 text-center">
                   {prop.expectedValue ? (
                     <span className="text-xs font-bold text-blue-500">
-                      {Math.round(prop.expectedValue * 100)}%
+                      {prop.expectedValue > 0 ? '+' : ''}{prop.expectedValue.toFixed(1)}%
                     </span>
                   ) : (
                     <span className="text-xs text-muted-foreground">N/A</span>
