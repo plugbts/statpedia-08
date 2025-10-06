@@ -1207,23 +1207,6 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFi
       // Use the consistent props service to get all props for the sport
       const allProps = await consistentPropsService.getConsistentPlayerProps(prediction.sport);
       
-      // Find related props by player_id and market_type
-      const related = allProps.filter((p) =>
-        p.player_id === prediction.player_id &&
-        p.market_type === prediction.propType
-      );
-      
-      console.debug("[RELATED CHECK]", { 
-        current: { player_id: prediction.player_id, market_type: prediction.propType },
-        relatedCount: related.length,
-        related: related.map(r => ({ line: r.line, id: r.id }))
-      });
-      
-      // Find alternative lines (same player and market type, different line)
-      const alternatives = related.filter(p => p.line !== prediction.line);
-      
-      console.debug("[ALTERNATIVES]", alternatives);
-      
       // Filter to get props for the current player - be more lenient with matching
       const playerProps = allProps.filter(prop => {
         // Match player name (case insensitive)
@@ -1946,7 +1929,7 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFi
                       disabled={isLoadingProps}
                     >
                       <SelectTrigger className="w-full bg-gradient-to-r from-gray-700/50 to-gray-800/50 border border-purple-500/30 text-white hover:border-purple-400/50 hover:shadow-lg hover:shadow-purple-500/20 transition-all duration-300 hover:scale-[1.02] cursor-pointer">
-                        <SelectValue placeholder={isLoadingProps ? "Loading props..." : availableProps.length === 0 ? "No props available" : `Choose a prop (${availableProps.length - 1} related)`}>
+                        <SelectValue placeholder={isLoadingProps ? "Loading props..." : availableProps.length === 0 ? "No props available" : "Choose a prop"}>
                           {currentData.propType}
                         </SelectValue>
                       </SelectTrigger>
