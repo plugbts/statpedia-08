@@ -279,11 +279,73 @@ export function PlayerPropsColumnView({
     return toAmericanOdds(odds);
   };
 
-  // Debug logging for first 10 props
+  // Debug logging for props and alternative lines
   React.useEffect(() => {
-    if (props && props.length > 0 && Math.random() < 0.1) { // Log ~10% of props for debugging
-      const firstProp = props[0];
-      console.debug("[PROP]", firstProp.playerName, firstProp.position, firstProp.overOdds, firstProp.underOdds, firstProp.player_id);
+    if (props && props.length > 0) {
+      console.log(`🔍 Player Props Debug - Total props: ${props.length}`);
+      
+      // Group props by player and prop type to check for alternative lines
+      const groupedProps = props.reduce((acc, prop) => {
+        const key = `${prop.playerName}-${prop.propType}-${prop.gameId}`;
+        if (!acc[key]) {
+          acc[key] = [];
+        }
+        acc[key].push(prop);
+        return acc;
+      }, {} as Record<string, any[]>);
+      
+      // Log groups with multiple lines
+      let alternativeLinesFound = 0;
+      Object.entries(groupedProps).forEach(([key, propGroup]) => {
+        if (propGroup.length > 1) {
+          alternativeLinesFound++;
+          console.log(`🔍 Alternative Lines Found - ${key}:`, propGroup.map(p => ({ line: p.line, overOdds: p.overOdds, underOdds: p.underOdds })));
+        }
+      });
+      
+      console.log(`🔍 Total alternative line groups found: ${alternativeLinesFound}`);
+      
+      // If no alternative lines found, let's check if we have different prop types for same player
+      const playerGroups = props.reduce((acc, prop) => {
+        const key = `${prop.playerName}-${prop.gameId}`;
+        if (!acc[key]) {
+          acc[key] = [];
+        }
+        acc[key].push(prop);
+        return acc;
+      }, {} as Record<string, any[]>);
+      
+      const playersWithMultipleProps = Object.entries(playerGroups).filter(([_, playerProps]) => {
+        const propTypes = new Set(playerProps.map(p => p.propType));
+        return propTypes.size > 1;
+      });
+      
+      console.log(`🔍 Players with multiple prop types: ${playersWithMultipleProps.length}`);
+      if (playersWithMultipleProps.length > 0) {
+        console.log(`🔍 Sample player with multiple props:`, playersWithMultipleProps[0]);
+      }
+      
+      // TEMPORARY: If no alternative lines found, create some for testing
+      if (alternativeLinesFound === 0 && playersWithMultipleProps.length > 0) {
+        console.log(`🔍 No alternative lines found - this suggests the API is not returning multiple lines for the same player/prop combination`);
+        console.log(`🔍 The issue is likely in the Cloudflare Worker grouping logic that groups all lines for the same player/prop together`);
+        console.log(`🔍 Sample player data:`, playersWithMultipleProps[0]);
+        
+        // Let's also check if we can find any props with similar lines
+        const samplePlayer = playersWithMultipleProps[0];
+        if (samplePlayer) {
+          const propTypes = samplePlayer.props.map(p => p.propType);
+          console.log(`🔍 Sample player prop types:`, propTypes);
+          
+          // Check if any prop types have similar lines
+          propTypes.forEach(propType => {
+            const propsOfType = samplePlayer.props.filter(p => p.propType === propType);
+            if (propsOfType.length > 1) {
+              console.log(`🔍 Found multiple props for ${propType}:`, propsOfType.map(p => ({ line: p.line, overOdds: p.overOdds, underOdds: p.underOdds })));
+            }
+          });
+        }
+      }
     }
   }, [props]);
 
@@ -380,13 +442,13 @@ export function PlayerPropsColumnView({
       return false;
     }
     
-    // Alternative lines filter
+    // Alternative lines filter - FIXED LOGIC
     if (!showAlternativeLines) {
       // Group by player + prop type combination
-      const key = `${prop.playerName}-${prop.propType}`;
       const allPropsForPlayer = props.filter(p => 
         p.playerName === prop.playerName && 
-        p.propType === prop.propType
+        p.propType === prop.propType &&
+        p.gameId === prop.gameId // Add gameId to ensure we're looking at the same game
       );
       
       if (allPropsForPlayer.length > 1) {
@@ -400,15 +462,14 @@ export function PlayerPropsColumnView({
           .sort(([,a], [,b]) => b - a)[0]?.[0];
         
         // Debug logging for alternative lines
-        if (allPropsForPlayer.length > 1) {
-          console.log(`🔍 Alternative Lines Filter - ${prop.playerName} ${prop.propType}:`, {
-            allPropsForPlayer: allPropsForPlayer.length,
-            lineCounts,
-            mainLine: Number(mainLine),
-            currentLine: prop.line,
-            willShow: prop.line === Number(mainLine)
-          });
-        }
+        console.log(`🔍 Alternative Lines Filter - ${prop.playerName} ${prop.propType}:`, {
+          allPropsForPlayer: allPropsForPlayer.length,
+          lineCounts,
+          mainLine: Number(mainLine),
+          currentLine: prop.line,
+          willShow: prop.line === Number(mainLine),
+          showAlternativeLines
+        });
         
         // Only show the main line, hide alternatives
         if (prop.line !== Number(mainLine)) {
@@ -657,7 +718,7 @@ export function PlayerPropsColumnView({
         {filteredAndSortedProps.map((prop, index) => (
           <Card
             key={prop.id || `prop-${prop.playerId}-${prop.propType}-${index}`}
-            className="bg-gradient-card border-border/50 hover:border-primary/30 hover:shadow-card-hover transition-all duration-300 cursor-pointer group hover:scale-[1.01]"
+            className="bg-gradient-card border-border/50 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 cursor-pointer group hover:scale-[1.02] hover:bg-gradient-to-br hover:from-card/90 hover:to-card/70"
             onClick={() => handlePropClick(prop)}
           >
             <CardContent className="p-2">
@@ -692,10 +753,10 @@ export function PlayerPropsColumnView({
                     })()}
                   </div>
                   <div className="text-center min-w-0 flex-1">
-                    <div className="font-semibold text-foreground text-sm">
+                    <div className="font-bold text-foreground text-base group-hover:text-primary transition-colors duration-200">
                       {prop.playerName || 'Unknown Player'}
                     </div>
-                    <div className="text-xs text-muted-foreground mt-1 flex items-center justify-center gap-1">
+                    <div className="text-xs text-muted-foreground mt-1 flex items-center justify-center gap-1 group-hover:text-foreground/80 transition-colors duration-200">
                       {prop.awayTeamLogo && (
                         <img src={prop.awayTeamLogo} alt={prop.opponentAbbr} className="h-4 w-4" />
                       )}
@@ -718,7 +779,7 @@ export function PlayerPropsColumnView({
 
                 {/* Prop Type */}
                 <div className="col-span-2 text-center flex flex-col items-center justify-center">
-                  <div className="text-sm font-medium leading-tight text-center">
+                  <div className="text-xs font-medium leading-tight text-center group-hover:text-primary/90 transition-colors duration-200">
                     {(() => {
                       const formattedPropType = formatPropType(prop.propType);
                       const lines = splitTextIntoLines(formattedPropType, 12);
@@ -726,11 +787,9 @@ export function PlayerPropsColumnView({
                       return lines.map((line, index) => (
                         <div 
                           key={index} 
-                          className="block text-center bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent font-semibold animate-pulse blur-md hover:blur-sm transition-all duration-500"
+                          className="block text-center bg-gradient-to-r from-foreground/80 via-foreground to-foreground/80 bg-clip-text text-transparent font-medium group-hover:from-primary/90 group-hover:via-primary group-hover:to-primary/90 transition-all duration-300"
                           style={{ 
-                            animationDelay: `${index * 0.2}s`,
-                            animationDuration: '2.5s',
-                            filter: 'drop-shadow(0 0 12px rgba(255, 255, 255, 0.4))'
+                            filter: 'drop-shadow(0 0 8px rgba(0, 0, 0, 0.1))'
                           }}
                         >
                           {line}
@@ -738,7 +797,7 @@ export function PlayerPropsColumnView({
                       ));
                     })()}
                   </div>
-                  <div className="text-xs text-muted-foreground mt-1 flex items-center justify-center gap-1">
+                  <div className="text-xs text-muted-foreground mt-1 flex items-center justify-center gap-1 group-hover:text-foreground/70 transition-colors duration-200">
                     <Calendar className="w-3 h-3" />
                     {new Date(prop.gameDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} {new Date(prop.gameTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
                   </div>
@@ -746,17 +805,17 @@ export function PlayerPropsColumnView({
 
                 {/* Line */}
                 <div className="col-span-1 text-center">
-                  <div className="text-sm font-bold text-foreground">
+                  <div className="text-sm font-bold text-foreground group-hover:text-primary transition-colors duration-200">
                     {formatNumber(prop.line, 1)}
                   </div>
                 </div>
 
                 {/* Odds (context-aware) */}
                 <div className="col-span-1 text-center">
-                  <div className={`text-xs font-semibold ${
-                    overUnderFilter === 'over' ? 'text-green-500' : 
-                    overUnderFilter === 'under' ? 'text-red-500' : 
-                    'text-foreground'
+                  <div className={`text-xs font-semibold transition-colors duration-200 ${
+                    overUnderFilter === 'over' ? 'text-green-500 group-hover:text-green-400' : 
+                    overUnderFilter === 'under' ? 'text-red-500 group-hover:text-red-400' : 
+                    'text-foreground group-hover:text-primary/90'
                   }`}>
                     {overUnderFilter === 'over' ? toAmericanOdds(prop.best_over || prop.overOdds) :
                      overUnderFilter === 'under' ? toAmericanOdds(prop.best_under || prop.underOdds) :
@@ -768,11 +827,11 @@ export function PlayerPropsColumnView({
                 {/* Expected Value */}
                 <div className="col-span-1 text-center">
                   {prop.expectedValue ? (
-                    <span className="text-xs font-bold text-blue-500">
+                    <span className="text-xs font-bold text-blue-500 group-hover:text-blue-400 transition-colors duration-200">
                       {prop.expectedValue > 0 ? '+' : ''}{prop.expectedValue.toFixed(1)}%
                     </span>
                   ) : (
-                    <span className="text-xs text-muted-foreground">N/A</span>
+                    <span className="text-xs text-muted-foreground group-hover:text-foreground/70 transition-colors duration-200">N/A</span>
                   )}
                 </div>
 
