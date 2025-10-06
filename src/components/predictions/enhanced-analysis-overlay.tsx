@@ -630,9 +630,9 @@ const generatePerformanceMetrics = (gameHistory: GameHistoryEntry[], prediction:
   const consistency = Math.max(0, 1 - variance);
   
   // Calculate trend based on recent vs older performance
-  const recentGames = gameHistory.slice(0, Math.min(5, gameHistory.length));
+  const recentGamesSlice = gameHistory.slice(0, Math.min(5, gameHistory.length));
   const olderGames = gameHistory.slice(5, Math.min(10, gameHistory.length));
-  const recentHitRate = recentGames.length > 0 ? recentGames.filter(g => g.hit).length / recentGames.length : 0;
+  const recentHitRate = recentGamesSlice.length > 0 ? recentGamesSlice.filter(g => g.hit).length / recentGamesSlice.length : 0;
   const olderHitRate = olderGames.length > 0 ? olderGames.filter(g => g.hit).length / olderGames.length : 0;
   
   let trend: 'upward' | 'downward' | 'stable' = 'stable';
