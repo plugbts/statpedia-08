@@ -794,15 +794,27 @@ export function PlayerPropsColumnView({
           {/* Fixed Data Rows */}
           <div className="space-y-2">
         {filteredAndSortedProps.map((prop, index) => {
-          // Calculate analytics data - using mock data for now since gameLogs don't exist
-          const gameLogs = prop.gameLogs || [];
-          const gameLogs2025 = prop.gameLogs2025 || [];
-          const streak = calculateStreak(gameLogs, prop.line, "over");
-          const h2h = calculateHitRate(gameLogs, prop.line, "over", undefined, prop.opponentAbbr);
-          const season = calculateHitRate(gameLogs2025, prop.line, "over");
-          const l5 = calculateHitRate(gameLogs, prop.line, "over", 5);
-          const l10 = calculateHitRate(gameLogs, prop.line, "over", 10);
-          const l20 = calculateHitRate(gameLogs, prop.line, "over", 20);
+          // Calculate analytics data using available data
+          const last5Games = prop.last5Games || [];
+          const direction = overUnderFilter as 'over' | 'under';
+          
+          // Convert last5Games to gameLogs format for calculations
+          const gameLogs = last5Games.map((value, index) => ({
+            value: value,
+            opponent: prop.opponentAbbr,
+            date: new Date(Date.now() - (last5Games.length - index) * 7 * 24 * 60 * 60 * 1000).toISOString()
+          }));
+          
+          const streak = calculateStreak(gameLogs, prop.line, direction);
+          const h2h = calculateHitRate(gameLogs, prop.line, direction, undefined, prop.opponentAbbr);
+          const season = prop.seasonStats ? {
+            hits: Math.round(prop.seasonStats.hitRate * prop.seasonStats.gamesPlayed),
+            total: prop.seasonStats.gamesPlayed,
+            pct: prop.seasonStats.hitRate * 100
+          } : { hits: 0, total: 0, pct: 0 };
+          const l5 = calculateHitRate(gameLogs, prop.line, direction, 5);
+          const l10 = calculateHitRate(gameLogs, prop.line, direction, 10);
+          const l20 = calculateHitRate(gameLogs, prop.line, direction, 20);
 
           return (
           <Card
@@ -942,7 +954,7 @@ export function PlayerPropsColumnView({
                         glowColor = 'drop-shadow-[0_0_8px_rgba(239,68,68,0.3)]';
                     }
                     
-                      return (
+                    return (
                         <div className="flex flex-col items-center group/rating bg-transparent">
                           <div className="relative w-8 h-8 bg-transparent">
                             <svg className="w-8 h-8 transform -rotate-90 transition-all duration-300 group-hover:scale-110" viewBox="0 0 36 36">
@@ -976,11 +988,11 @@ export function PlayerPropsColumnView({
                                 {Math.round(displayPercentage)}
                               </span>
                             </div>
-                          </div>
                         </div>
-                      );
+                      </div>
+                    );
                   })()}
-                  </div>
+                </div>
 
                 </div>
               </CardContent>
@@ -1005,12 +1017,25 @@ export function PlayerPropsColumnView({
           {/* Analytics Data Rows */}
           <div className="space-y-2">
             {filteredAndSortedProps.map((prop, index) => {
-              // Calculate analytics data using current filter
-              const gameLogs = prop.gameLogs || [];
-              const gameLogs2025 = prop.gameLogs2025 || [];
+              // Calculate analytics data using available data
+              const last5Games = prop.last5Games || [];
+              const seasonStats = prop.seasonStats;
               const direction = overUnderFilter as 'over' | 'under';
+              
+              // Convert last5Games to gameLogs format for calculations
+              const gameLogs = last5Games.map((value, index) => ({
+                value: value,
+                opponent: prop.opponentAbbr,
+                date: new Date(Date.now() - (last5Games.length - index) * 7 * 24 * 60 * 60 * 1000).toISOString()
+              }));
+              
+              // Calculate hit rates
               const h2h = calculateHitRate(gameLogs, prop.line, direction, undefined, prop.opponentAbbr);
-              const season = calculateHitRate(gameLogs2025, prop.line, direction);
+              const season = seasonStats ? {
+                hits: Math.round(seasonStats.hitRate * seasonStats.gamesPlayed),
+                total: seasonStats.gamesPlayed,
+                pct: seasonStats.hitRate * 100
+              } : { hits: 0, total: 0, pct: 0 };
               const l5 = calculateHitRate(gameLogs, prop.line, direction, 5);
               const l10 = calculateHitRate(gameLogs, prop.line, direction, 10);
               const l20 = calculateHitRate(gameLogs, prop.line, direction, 20);
@@ -1026,7 +1051,7 @@ export function PlayerPropsColumnView({
                       {prop.opponentAbbr || '—'}
                           </div>
                     <div className="text-xs text-muted-foreground">
-                      {prop.relevantRank || '—'}
+                      {prop.relevantRank || 'N/A'}
                         </div>
                   </div>
 
