@@ -2111,63 +2111,79 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFi
                 <CardContent className="space-y-4">
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-400">Last Injury</span>
-                      <Badge className="bg-orange-600/20 text-orange-300 border-orange-500/30">
-                        {enhancedData.injuryStatus === 'injured' ? 'CURRENT' : '2 weeks ago'}
+                      <span className="text-slate-400">Injury Status</span>
+                      <Badge className={cn(
+                        enhancedData.injuryStatus === 'injured' ? 'bg-red-600/20 text-red-300 border-red-500/30' :
+                        enhancedData.injuryStatus === 'questionable' ? 'bg-orange-600/20 text-orange-300 border-orange-500/30' :
+                        'bg-green-600/20 text-green-300 border-green-500/30'
+                      )}>
+                        {enhancedData.injuryStatus === 'injured' ? 'INJURED' : 
+                         enhancedData.injuryStatus === 'questionable' ? 'QUESTIONABLE' : 
+                         'HEALTHY'}
                       </Badge>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-400">Games Since Return</span>
-                      <span className="text-slate-300">
-                        {enhancedData.injuryStatus === 'injured' ? '0' : '3'}
-                      </span>
-                    </div>
+                    {enhancedData.injuryStatus === 'injured' || enhancedData.injuryStatus === 'questionable' ? (
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-400">Games Since Return</span>
+                        <span className="text-slate-300">
+                          {enhancedData.injuryStatus === 'injured' ? '0' : 'Returning'}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-400">Availability</span>
+                        <span className="text-green-300 font-semibold">
+                          Full Availability
+                        </span>
+                      </div>
+                    )}
                   </div>
                   
-                  {/* Post-Injury Stats */}
-                  <div className="space-y-3">
-                    <h4 className="text-slate-300 font-semibold">Since Return</h4>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div className="bg-slate-700/30 p-3 rounded-lg">
-                        <div className="text-slate-400">Average</div>
-                        <div className="text-white font-semibold text-lg">
-                          {enhancedData.injuryStatus === 'injured' ? 'N/A' : '11.2'}
+                  {/* Post-Injury Stats - Only show if player has recent injury history */}
+                  {enhancedData.injuryStatus !== 'healthy' && (
+                    <div className="space-y-3">
+                      <h4 className="text-slate-300 font-semibold">Recovery Status</h4>
+                      <div className="bg-slate-700/30 p-4 rounded-lg">
+                        <div className="text-slate-400 text-sm mb-2">
+                          {enhancedData.injuryStatus === 'injured' ? 
+                            'Player is currently dealing with an injury. Monitor injury reports for updates.' :
+                            'Player is listed as questionable. Check status before game time.'}
                         </div>
-                        <div className="text-slate-400 text-xs">
-                          {enhancedData.propType} per game
-                        </div>
-                      </div>
-                      <div className="bg-slate-700/30 p-3 rounded-lg">
-                        <div className="text-slate-400">Minutes Played</div>
-                        <div className="text-white font-semibold text-lg">
-                          {enhancedData.sport?.toLowerCase() === 'nfl' ? '45' : 
-                           enhancedData.sport?.toLowerCase() === 'nba' ? '28.5' : '85'}
-                        </div>
-                        <div className="text-slate-400 text-xs">
-                          {enhancedData.sport?.toLowerCase() === 'nfl' ? 'Snaps' : 
-                           enhancedData.sport?.toLowerCase() === 'nba' ? 'Minutes' : 'Minutes'}
-                        </div>
-                      </div>
-                      <div className="bg-slate-700/30 p-3 rounded-lg">
-                        <div className="text-slate-400">Hit Rate</div>
-                        <div className="text-white font-semibold text-lg">
-                          {enhancedData.injuryStatus === 'injured' ? 'N/A' : '66.7%'}
-                        </div>
-                        <div className="text-slate-400 text-xs">
-                          Since return
-                        </div>
-                      </div>
-                      <div className="bg-slate-700/30 p-3 rounded-lg">
-                        <div className="text-slate-400">Trend</div>
-                        <div className="text-white font-semibold text-lg">
-                          {enhancedData.injuryStatus === 'injured' ? 'N/A' : '↗️'}
-                        </div>
-                        <div className="text-slate-400 text-xs">
-                          Improving
+                        <div className="flex items-center gap-2 text-orange-300">
+                          <AlertTriangle className="w-4 h-4" />
+                          <span className="text-xs font-semibold">Always verify latest injury reports</span>
                         </div>
                       </div>
                     </div>
-                  </div>
+                  )}
+                  
+                  {/* Current Season Stats - Always show for healthy players */}
+                  {enhancedData.injuryStatus === 'healthy' && (
+                    <div className="space-y-3">
+                      <h4 className="text-slate-300 font-semibold">Current Performance</h4>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div className="bg-slate-700/30 p-3 rounded-lg">
+                          <div className="text-slate-400">Season Average</div>
+                          <div className="text-white font-semibold text-lg">
+                            {enhancedData.seasonStats?.average?.toFixed(1) || 'N/A'}
+                          </div>
+                          <div className="text-slate-400 text-xs">
+                            {enhancedData.propType} per game
+                          </div>
+                        </div>
+                        <div className="bg-slate-700/30 p-3 rounded-lg">
+                          <div className="text-slate-400">Hit Rate</div>
+                          <div className="text-white font-semibold text-lg">
+                            {enhancedData.seasonStats?.hitRate ? 
+                              (enhancedData.seasonStats.hitRate * 100).toFixed(1) + '%' : 'N/A'}
+                          </div>
+                          <div className="text-slate-400 text-xs">
+                            This season
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   
                   {/* Recovery Timeline */}
                   <div className="space-y-3">
