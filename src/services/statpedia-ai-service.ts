@@ -703,16 +703,169 @@ class StatpediaAIService {
   }
 
   private async searchAndAnswer(question: string, context?: any): Promise<AIResponse> {
-    // Simulate web search for additional information
     console.log(`🔍 Searching for additional information about: "${question}"`);
     
-    // In a real implementation, this would call a web search API
-    // For now, we'll provide a more comprehensive response based on available data
+    try {
+      // Use real web search
+      const searchResults = await this.performWebSearch(question, context);
+      
+      if (searchResults.length > 0) {
+        return this.generateSearchBasedResponse(question, searchResults, context);
+      } else {
+        return this.generateEnhancedResponse(question, this.extractSearchTerms(question), context);
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      return this.generateEnhancedResponse(question, this.extractSearchTerms(question), context);
+    }
+  }
+
+  private async performWebSearch(question: string, context?: any): Promise<any[]> {
+    try {
+      // Use a CORS proxy for web search
+      const searchQuery = this.buildSearchQuery(question, context);
+      const proxyUrl = 'https://api.allorigins.win/raw?url=';
+      const searchUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(searchQuery)}&format=json&no_html=1&skip_disambig=1`;
+      
+      const response = await fetch(proxyUrl + encodeURIComponent(searchUrl));
+      
+      if (!response.ok) {
+        throw new Error('Search API failed');
+      }
+
+      const data = await response.json();
+      return this.parseSearchResults(data);
+    } catch (error) {
+      console.error('Web search failed:', error);
+      // Return empty array instead of mock data
+      return [];
+    }
+  }
+
+  private buildSearchQuery(question: string, context?: any): string {
+    let query = question;
     
-    const searchTerms = this.extractSearchTerms(question);
-    const enhancedResponse = await this.generateEnhancedResponse(question, searchTerms, context);
+    // Add sport context if available
+    if (context?.sport) {
+      query += ` ${context.sport} 2024 stats`;
+    }
     
-    return enhancedResponse;
+    // Add reliable sports sources
+    query += ' site:espn.com OR site:nba.com OR site:nfl.com OR site:mlb.com OR site:nhl.com';
+    
+    return query;
+  }
+
+  private parseSearchResults(data: any): any[] {
+    const results = [];
+    
+    if (data.RelatedTopics) {
+      for (const topic of data.RelatedTopics.slice(0, 3)) {
+        if (topic.Text && topic.FirstURL) {
+          results.push({
+            title: topic.Text.split(' - ')[0] || topic.Text,
+            snippet: topic.Text,
+            url: topic.FirstURL,
+            source: this.extractSource(topic.FirstURL)
+          });
+        }
+      }
+    }
+
+    return results;
+  }
+
+  private extractSource(url: string): string {
+    try {
+      const domain = new URL(url).hostname;
+      return domain.replace('www.', '');
+    } catch {
+      return 'Unknown';
+    }
+  }
+
+  private async generateSearchBasedResponse(question: string, searchResults: any[], context?: any): Promise<AIResponse> {
+    // Analyze search results to provide a real answer
+    const relevantResults = searchResults.filter(result => 
+      result.snippet && result.snippet.length > 10
+    );
+
+    if (relevantResults.length === 0) {
+      return this.generateEnhancedResponse(question, this.extractSearchTerms(question), context);
+    }
+
+    // Extract key information from search results
+    const keyInfo = this.extractKeyInformation(question, relevantResults);
+    
+    let answer = `Based on my search, here's what I found about "${question}":\n\n`;
+    
+    if (keyInfo.length > 0) {
+      answer += keyInfo.join('\n\n');
+    } else {
+      answer += `I found some information but couldn't extract specific details. Here are the sources I found:\n\n`;
+      relevantResults.forEach((result, index) => {
+        answer += `${index + 1}. ${result.title}\n   ${result.snippet}\n   Source: ${result.source}\n\n`;
+      });
+    }
+
+    answer += `\nFor the most current information, I recommend checking the official sources directly.`;
+
+    return {
+      answer,
+      confidence: 75,
+      reasoning: [
+        'Performed real web search',
+        `Found ${relevantResults.length} relevant results`,
+        'Extracted information from search results'
+      ],
+      relatedStats: [],
+      sources: relevantResults.map(r => r.source),
+      followUpQuestions: [
+        'Would you like more specific information about this topic?',
+        'Are you looking for recent updates on this?',
+        'Would you like me to search for something related?'
+      ]
+    };
+  }
+
+  private extractKeyInformation(question: string, results: any[]): string[] {
+    const keyInfo: string[] = [];
+    
+    // Look for specific patterns in the question and results
+    const lowerQuestion = question.toLowerCase();
+    
+    if (lowerQuestion.includes('games played') || lowerQuestion.includes('how many games')) {
+      for (const result of results) {
+        const snippet = result.snippet.toLowerCase();
+        if (snippet.includes('games') && snippet.includes('played')) {
+          // Extract number of games
+          const gameMatch = snippet.match(/(\d+)\s*games?\s*played/);
+          if (gameMatch) {
+            keyInfo.push(`According to ${result.source}, the player has played ${gameMatch[1]} games this season.`);
+          }
+        }
+      }
+    }
+    
+    if (lowerQuestion.includes('stats') || lowerQuestion.includes('averages')) {
+      for (const result of results) {
+        const snippet = result.snippet;
+        if (snippet.includes('points') || snippet.includes('rebounds') || snippet.includes('assists')) {
+          keyInfo.push(`From ${result.source}: ${snippet.substring(0, 200)}...`);
+        }
+      }
+    }
+    
+    if (lowerQuestion.includes('injury') || lowerQuestion.includes('status')) {
+      for (const result of results) {
+        const snippet = result.snippet.toLowerCase();
+        if (snippet.includes('injury') || snippet.includes('out') || snippet.includes('questionable')) {
+          keyInfo.push(`Injury status from ${result.source}: ${result.snippet.substring(0, 200)}...`);
+        }
+      }
+    }
+
+    return keyInfo;
   }
 
   private extractSearchTerms(question: string): string[] {
@@ -735,17 +888,17 @@ class StatpediaAIService {
       return await this.analyzePlayerPerformance(question, context);
     }
     
-    // If no specific player data, provide general analysis
+    // If no specific player data, provide honest response
     return {
-      answer: `Based on my analysis of "${question}", I can provide some general insights. While I don't have specific data on all aspects of your question, I can help you think through the key factors to consider. ${context?.playerProp?.playerName ? `I notice you're looking at ${context.playerProp.playerName}'s prop - that might be relevant to your question.` : ''} Would you like me to focus on a specific aspect or provide more targeted analysis?`,
-      confidence: 60,
+      answer: `I don't have specific data about "${question}" in my current database. I can help you with general sports analysis, but for the most accurate and up-to-date information, I'd recommend checking official sources like ESPN, the league websites, or other reliable sports databases. ${context?.playerProp?.playerName ? `I can help analyze ${context.playerProp.playerName}'s current prop if that's relevant to your question.` : ''} What specific aspect would you like me to help you with?`,
+      confidence: 40,
       reasoning: [
-        'Performed enhanced search analysis',
-        'Combined available data with general knowledge',
-        hasPlayerData ? 'Found relevant player data' : 'Used general analysis approach'
+        'No specific data available for this query',
+        'Recommending official sources for accurate information',
+        hasPlayerData ? 'Found relevant player data' : 'No relevant data found'
       ],
       relatedStats: [],
-      sources: ['Enhanced Search Analysis', 'Statpedia AI Assistant'],
+      sources: ['Statpedia AI Assistant'],
       followUpQuestions: [
         'Can you be more specific about what you want to know?',
         'Are you looking for data on a particular player?',
