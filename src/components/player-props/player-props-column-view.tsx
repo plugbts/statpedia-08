@@ -931,12 +931,6 @@ export function PlayerPropsColumnView({
                                 strokeDasharray={`${scaledPercentage}, 100`}
                                 strokeLinecap="round"
                                 className={`${circleColor} transition-all duration-500 ease-out`}
-                                style={{
-                                  filter: displayPercentage >= 80 ? 'drop-shadow(0 0 8px rgba(34, 197, 94, 0.6))' :
-                                          displayPercentage >= 60 ? 'drop-shadow(0 0 8px rgba(234, 179, 8, 0.6))' :
-                                          'drop-shadow(0 0 8px rgba(239, 68, 68, 0.6))',
-                                  animation: 'pulse 3s ease-in-out infinite'
-                                }}
                               />
                             </svg>
                             
@@ -944,12 +938,6 @@ export function PlayerPropsColumnView({
                             <div className="absolute inset-0 flex items-center justify-center">
                               <span 
                                 className={`text-xs font-bold ${textColor} transition-all duration-300 group-hover/rating:scale-110`}
-                                style={{
-                                  textShadow: displayPercentage >= 80 ? '0 0 8px rgba(34, 197, 94, 0.8)' :
-                                             displayPercentage >= 60 ? '0 0 8px rgba(234, 179, 8, 0.8)' :
-                                             '0 0 8px rgba(239, 68, 68, 0.8)',
-                                  animation: 'pulse 3s ease-in-out infinite'
-                                }}
                               >
                                 {Math.round(displayPercentage)}
                               </span>
