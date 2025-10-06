@@ -431,25 +431,72 @@ export function PlayerPropCard3D({
               {/* Hit Streak - Compact */}
               <div className="text-center">
                 {(() => {
-                  // Calculate real streak based on historical data
+                  // Calculate real streak based on available data
                   const hitRate = prop.hitRate || 0.5;
                   const recentForm = typeof prop.recentForm === 'number' ? prop.recentForm : 0.5;
                   const gamesTracked = prop.gamesTracked || 10;
                   
-                  const streakData = StreakService.calculateStreak(hitRate, recentForm, gamesTracked);
-                  const display = StreakService.getStreakDisplay(streakData);
+                  // Calculate current streak based on recent form and hit rate
+                  let currentStreak = 0;
+                  
+                  // Use last5Games if available to calculate real streak
+                  if (prop.last5Games && prop.last5Games.length > 0) {
+                    // Count consecutive hits from most recent games (last5Games is ordered most recent first)
+                    for (let i = 0; i < prop.last5Games.length; i++) {
+                      if (prop.last5Games[i] === 1) { // 1 = hit, 0 = miss
+                        currentStreak++;
+                      } else {
+                        break; // Stop counting when we hit a miss
+                      }
+                    }
+                  } else if (prop.seasonStats?.last5Games && prop.seasonStats.last5Games.length > 0) {
+                    // Use season stats last5Games
+                    for (let i = 0; i < prop.seasonStats.last5Games.length; i++) {
+                      if (prop.seasonStats.last5Games[i] === 1) {
+                        currentStreak++;
+                      } else {
+                        break;
+                      }
+                    }
+                  } else {
+                    // Fallback: estimate streak based on hit rate and recent form
+                    // If recent form is high and hit rate is good, assume some streak
+                    if (recentForm > 0.7 && hitRate > 0.6) {
+                      currentStreak = Math.min(3, Math.floor(hitRate * 5));
+                    } else if (recentForm > 0.5 && hitRate > 0.5) {
+                      currentStreak = Math.min(2, Math.floor(hitRate * 3));
+                    } else {
+                      currentStreak = 0;
+                    }
+                  }
+                  
+                  // Determine streak display based on current streak
+                  let bgColor, text;
+                  if (currentStreak >= 5) {
+                    bgColor = "bg-gradient-to-r from-emerald-600 to-green-600 text-white";
+                    text = `${currentStreak}W`;
+                  } else if (currentStreak >= 3) {
+                    bgColor = "bg-gradient-to-r from-blue-600 to-cyan-600 text-white";
+                    text = `${currentStreak}W`;
+                  } else if (currentStreak >= 1) {
+                    bgColor = "bg-gradient-to-r from-yellow-600 to-orange-600 text-white";
+                    text = `${currentStreak}W`;
+                  } else {
+                    bgColor = "bg-gradient-to-r from-gray-600 to-slate-600 text-white";
+                    text = "0W";
+                  }
                   
                   return (
                     <div className="flex items-center justify-center space-x-1">
                       <div className={cn(
                         "flex items-center space-x-1 px-1.5 py-0.5 rounded text-xs font-semibold",
-                        display.bgColor
+                        bgColor
                       )}>
                         <Activity className="h-2.5 w-2.5" />
-                        <span className="uppercase text-xs">{display.count}</span>
+                        <span className="uppercase text-xs">{text}</span>
                       </div>
                       <div className="text-xs text-slate-400 font-semibold">
-                        {display.label}
+                        Streak
                       </div>
                     </div>
                   );
