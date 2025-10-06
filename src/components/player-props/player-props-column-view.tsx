@@ -693,7 +693,7 @@ export function PlayerPropsColumnView({
                     })()}
                   </div>
                   <div className="text-center min-w-0 flex-1">
-                    <div className="font-semibold text-foreground text-sm">
+                    <div className="font-semibold text-foreground text-sm bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent animate-pulse">
                       {prop.playerName || 'Unknown Player'}
                     </div>
                     <div className="text-xs text-muted-foreground mt-1 flex items-center justify-center gap-1">
@@ -719,13 +719,17 @@ export function PlayerPropsColumnView({
 
                 {/* Prop Type */}
                 <div className="col-span-2 text-center flex flex-col items-center justify-center">
-                  <div className="text-sm font-medium text-foreground leading-tight text-center">
+                  <div className="text-sm font-medium text-foreground leading-tight text-center animate-fade-in">
                     {(() => {
                       const formattedPropType = formatPropType(prop.propType);
                       const lines = splitTextIntoLines(formattedPropType, 12);
                       
                       return lines.map((line, index) => (
-                        <div key={index} className="block text-center">
+                        <div 
+                          key={index} 
+                          className="block text-center bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent font-semibold animate-pulse"
+                          style={{ animationDelay: `${index * 0.1}s` }}
+                        >
                           {line}
                         </div>
                       ));
