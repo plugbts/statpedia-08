@@ -1751,11 +1751,13 @@ async function groupPlayerProps(event: any, league: string) {
   const grouped: Record<string, any[]> = {};
 
   for (const m of event.player_props) {
+    // Include the line value in the grouping key to preserve alternative lines
     const key = [
       m.playerID || "",
       m.statID || "",
       m.periodID || "",
-      m.betTypeID || ""
+      m.betTypeID || "",
+      m.fairOverUnder || m.bookOverUnder || "0" // Include line value to separate alternative lines
     ].join("|");
     (grouped[key] ||= []).push(m);
   }
