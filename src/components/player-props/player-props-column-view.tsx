@@ -811,14 +811,16 @@ export function PlayerPropsColumnView({
           const direction = overUnderFilter as 'over' | 'under';
           
           // Convert last5Games to gameLogs format for calculations
+          // For H2H calculation, we need to use actual opponent data if available
           const gameLogs = last5Games.map((value, index) => ({
             value: value,
-            opponent: prop.opponentAbbr,
+            opponent: prop.opponentAbbr, // This will be the same for all games, so H2H will show all games
             date: new Date(Date.now() - (last5Games.length - index) * 7 * 24 * 60 * 60 * 1000).toISOString()
           }));
           
           const streak = calculateStreak(gameLogs, prop.line, direction);
-          const h2h = calculateHitRate(gameLogs, prop.line, direction, undefined, prop.opponentAbbr);
+          // H2H calculation - since we don't have real opponent data in last5Games, show N/A
+          const h2h = { hits: 0, total: 0, pct: 0 }; // No real H2H data available
           const season = prop.seasonStats ? {
             hits: Math.round(prop.seasonStats.hitRate * prop.seasonStats.gamesPlayed),
             total: prop.seasonStats.gamesPlayed,
@@ -1042,7 +1044,8 @@ export function PlayerPropsColumnView({
               }));
               
               // Calculate hit rates
-              const h2h = calculateHitRate(gameLogs, prop.line, direction, undefined, prop.opponentAbbr);
+              // H2H calculation - since we don't have real opponent data in last5Games, show N/A
+              const h2h = { hits: 0, total: 0, pct: 0 }; // No real H2H data available
               const season = seasonStats ? {
                 hits: Math.round(seasonStats.hitRate * seasonStats.gamesPlayed),
                 total: seasonStats.gamesPlayed,
