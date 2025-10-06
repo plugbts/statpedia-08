@@ -788,11 +788,13 @@ export function PlayerPropsColumnView({
               <div className="w-12 px-1 py-3 text-xs font-semibold text-foreground text-center">Team</div>
               <div className="w-20 px-1 py-3 text-xs font-semibold text-foreground text-center">Prop</div>
               <div className="w-12 px-1 py-3 text-xs font-semibold text-foreground text-center">Line</div>
-              <div className="w-12 px-1 py-3 text-xs font-semibold text-foreground text-center">Over</div>
-              <div className="w-12 px-1 py-3 text-xs font-semibold text-foreground text-center">Under</div>
+              <div className="w-12 px-1 py-3 text-xs font-semibold text-foreground text-center">Odds</div>
               <div className="w-16 px-1 py-3 text-xs font-semibold text-foreground text-center">Matchup</div>
               <div className="w-10 px-1 py-3 text-xs font-semibold text-foreground text-center">2025</div>
-              <div className="w-16 px-1 py-3 text-xs font-semibold text-foreground text-center">H2H|L5|L10|L20</div>
+              <div className="w-10 px-1 py-3 text-xs font-semibold text-foreground text-center">H2H</div>
+              <div className="w-10 px-1 py-3 text-xs font-semibold text-foreground text-center">L5</div>
+              <div className="w-10 px-1 py-3 text-xs font-semibold text-foreground text-center">L10</div>
+              <div className="w-10 px-1 py-3 text-xs font-semibold text-foreground text-center">L20</div>
               <div className="w-10 px-1 py-3 text-xs font-semibold text-foreground text-center">EV%</div>
               <div className="w-10 px-1 py-3 text-xs font-semibold text-foreground text-center">Streak</div>
               <div className="w-10 px-1 py-3 text-xs font-semibold text-foreground text-center">Rating</div>
@@ -807,7 +809,7 @@ export function PlayerPropsColumnView({
               onClick={() => handlePropClick(prop)}
             >
               {/* Fixed Player Info */}
-              <div className="flex-none w-48 sticky left-0 bg-white border-r border-border/20 z-10 px-4 py-3 hover:bg-gray-50/50">
+              <div className="flex-none w-48 sticky left-0 border-r border-border/20 z-10 px-4 py-3 hover:bg-gray-50/50">
                 <div className="flex items-center space-x-3">
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 flex items-center justify-center text-foreground font-bold text-xs overflow-hidden flex-shrink-0">
                     {(() => {
@@ -840,7 +842,7 @@ export function PlayerPropsColumnView({
                       {prop.playerName || 'Unknown Player'}
                     </div>
                     <div className="text-xs text-muted-foreground group-hover:text-foreground/70 transition-colors duration-200">
-                      {prop.position || '—'} • {prop.teamAbbr || '—'}
+                      {prop.position || '—'}
                     </div>
                   </div>
                 </div>
@@ -869,21 +871,20 @@ export function PlayerPropsColumnView({
                   </div>
                 </div>
 
-                {/* Over Odds */}
+                {/* Odds (context-aware) */}
                 <div className="w-12 px-1 py-3 text-center">
-                  <div className="text-xs font-semibold text-green-500 group-hover:text-green-400 transition-colors duration-200">
-                    {toAmericanOdds(prop.best_over || prop.overOdds)}
+                  <div className={`text-xs font-semibold transition-colors duration-200 ${
+                    overUnderFilter === 'over' ? 'text-green-500 group-hover:text-green-400' : 
+                    overUnderFilter === 'under' ? 'text-red-500 group-hover:text-red-400' : 
+                    'text-foreground group-hover:text-primary/90'
+                  }`}>
+                    {overUnderFilter === 'over' ? toAmericanOdds(prop.best_over || prop.overOdds) :
+                     overUnderFilter === 'under' ? toAmericanOdds(prop.best_under || prop.underOdds) :
+                     toAmericanOdds(prop.best_over || prop.overOdds)}
                   </div>
                 </div>
 
-                {/* Under Odds */}
-                <div className="w-12 px-1 py-3 text-center">
-                  <div className="text-xs font-semibold text-red-500 group-hover:text-red-400 transition-colors duration-200">
-                    {toAmericanOdds(prop.best_under || prop.underOdds)}
-                  </div>
-                </div>
-
-                {/* Matchup Column */}
+                {/* Matchup Column - Only Opponent & Defensive Rank */}
                 <div className="w-16 px-1 py-3 text-center">
                   {(() => {
                     const key = `${prop.playerName}-${prop.teamAbbr}-${prop.opponentAbbr}-${prop.propType}`;
@@ -905,7 +906,7 @@ export function PlayerPropsColumnView({
                       return (
                         <div className="text-xs">
                           <div className="font-bold text-foreground group-hover:text-primary transition-colors duration-200">
-                            {prop.teamAbbr}@{prop.opponentAbbr}
+                            {prop.opponentAbbr}
                           </div>
                           <div className={`font-semibold ${relevantRank > 0 ? matchupDataService.getDefensiveRankColor(relevantRank) : 'text-muted-foreground'} group-hover:opacity-80 transition-colors duration-200`}>
                             {relevantRank > 0 ? `#${relevantRank}` : 'No Data'}
@@ -917,7 +918,7 @@ export function PlayerPropsColumnView({
                     return (
                       <div className="text-xs">
                         <div className="font-bold text-foreground group-hover:text-primary transition-colors duration-200">
-                          {prop.teamAbbr}@{prop.opponentAbbr}
+                          {prop.opponentAbbr}
                         </div>
                         <div className="text-muted-foreground group-hover:text-foreground/70 transition-colors duration-200">
                           Loading...
@@ -949,25 +950,82 @@ export function PlayerPropsColumnView({
                   })()}
                 </div>
 
-                {/* H2H | L5 | L10 | L20 Column */}
-                <div className="w-16 px-1 py-3 text-center">
+                {/* H2H Column */}
+                <div className="w-10 px-1 py-3 text-center">
                   {(() => {
                     const key = `${prop.playerName}-${prop.teamAbbr}-${prop.opponentAbbr}-${prop.propType}`;
                     const matchup = matchupData.get(key);
                     
                     if (matchup) {
                       return (
-                        <div className="text-xs">
-                          <div className="flex items-center justify-center gap-1">
-                            <span className={matchup.hitRate.h2h !== '—' ? matchupDataService.getHitRateColor(matchup.hitRate.h2h) : 'text-muted-foreground'}>{matchup.hitRate.h2h}</span>
-                            <span className="text-muted-foreground">|</span>
-                            <span className={matchup.hitRate.l5 !== '—' ? matchupDataService.getHitRateColor(matchup.hitRate.l5) : 'text-muted-foreground'}>{matchup.hitRate.l5}</span>
-                          </div>
-                          <div className="flex items-center justify-center gap-1">
-                            <span className={matchup.hitRate.l10 !== '—' ? matchupDataService.getHitRateColor(matchup.hitRate.l10) : 'text-muted-foreground'}>{matchup.hitRate.l10}</span>
-                            <span className="text-muted-foreground">|</span>
-                            <span className={matchup.hitRate.l20 !== '—' ? matchupDataService.getHitRateColor(matchup.hitRate.l20) : 'text-muted-foreground'}>{matchup.hitRate.l20}</span>
-                          </div>
+                        <div className={`text-xs font-bold ${matchup.hitRate.h2h !== '—' ? matchupDataService.getHitRateColor(matchup.hitRate.h2h) : 'text-muted-foreground'} group-hover:opacity-80 transition-colors duration-200`}>
+                          {matchup.hitRate.h2h}
+                        </div>
+                      );
+                    }
+                    
+                    return (
+                      <div className="text-xs text-muted-foreground group-hover:text-foreground/70 transition-colors duration-200">
+                        Loading...
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* L5 Column */}
+                <div className="w-10 px-1 py-3 text-center">
+                  {(() => {
+                    const key = `${prop.playerName}-${prop.teamAbbr}-${prop.opponentAbbr}-${prop.propType}`;
+                    const matchup = matchupData.get(key);
+                    
+                    if (matchup) {
+                      return (
+                        <div className={`text-xs font-bold ${matchup.hitRate.l5 !== '—' ? matchupDataService.getHitRateColor(matchup.hitRate.l5) : 'text-muted-foreground'} group-hover:opacity-80 transition-colors duration-200`}>
+                          {matchup.hitRate.l5}
+                        </div>
+                      );
+                    }
+                    
+                    return (
+                      <div className="text-xs text-muted-foreground group-hover:text-foreground/70 transition-colors duration-200">
+                        Loading...
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* L10 Column */}
+                <div className="w-10 px-1 py-3 text-center">
+                  {(() => {
+                    const key = `${prop.playerName}-${prop.teamAbbr}-${prop.opponentAbbr}-${prop.propType}`;
+                    const matchup = matchupData.get(key);
+                    
+                    if (matchup) {
+                      return (
+                        <div className={`text-xs font-bold ${matchup.hitRate.l10 !== '—' ? matchupDataService.getHitRateColor(matchup.hitRate.l10) : 'text-muted-foreground'} group-hover:opacity-80 transition-colors duration-200`}>
+                          {matchup.hitRate.l10}
+                        </div>
+                      );
+                    }
+                    
+                    return (
+                      <div className="text-xs text-muted-foreground group-hover:text-foreground/70 transition-colors duration-200">
+                        Loading...
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* L20 Column */}
+                <div className="w-10 px-1 py-3 text-center">
+                  {(() => {
+                    const key = `${prop.playerName}-${prop.teamAbbr}-${prop.opponentAbbr}-${prop.propType}`;
+                    const matchup = matchupData.get(key);
+                    
+                    if (matchup) {
+                      return (
+                        <div className={`text-xs font-bold ${matchup.hitRate.l20 !== '—' ? matchupDataService.getHitRateColor(matchup.hitRate.l20) : 'text-muted-foreground'} group-hover:opacity-80 transition-colors duration-200`}>
+                          {matchup.hitRate.l20}
                         </div>
                       );
                     }
