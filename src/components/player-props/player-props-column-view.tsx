@@ -4,6 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -24,7 +26,9 @@ import {
   SortDesc,
   Gamepad2,
   ToggleLeft,
-  ToggleRight
+  ToggleRight,
+  Search,
+  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SportsbookIconsList } from '@/components/ui/sportsbook-icons';
@@ -178,6 +182,8 @@ export function PlayerPropsColumnView({
   const [selectedGame, setSelectedGame] = useState('all');
   const [showAlternativeLines, setShowAlternativeLines] = useState(false);
   const [matchupData, setMatchupData] = useState<Map<string, MatchupData>>(new Map());
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedPropTypes, setSelectedPropTypes] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   // Load matchup data for props
@@ -534,6 +540,16 @@ export function PlayerPropsColumnView({
       return false;
     }
     
+    // Search filter
+    if (searchQuery && !prop.playerName?.toLowerCase().includes(searchQuery.toLowerCase())) {
+      return false;
+    }
+    
+    // Prop type filter
+    if (selectedPropTypes.size > 0 && !selectedPropTypes.has(prop.propType)) {
+      return false;
+    }
+    
     // Alternative lines filter - FIXED LOGIC
     if (!showAlternativeLines) {
       // Group by player + prop type combination
@@ -622,6 +638,14 @@ export function PlayerPropsColumnView({
 
     return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
   });
+
+  // Initialize selected prop types with all available prop types
+  useEffect(() => {
+    if (props.length > 0 && selectedPropTypes.size === 0) {
+      const allPropTypes = new Set(props.map(prop => prop.propType));
+      setSelectedPropTypes(allPropTypes);
+    }
+  }, [props, selectedPropTypes.size]);
 
   // Load matchup data when props change
   useEffect(() => {
@@ -769,6 +793,55 @@ export function PlayerPropsColumnView({
           >
             {sortOrder === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
           </Button>
+        </div>
+      </div>
+
+      {/* Search and Prop Type Filters */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        {/* Search Input */}
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search players..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 bg-card border-border/50 text-foreground placeholder:text-muted-foreground hover:border-primary/30 focus:border-primary/50 transition-colors"
+          />
+          {searchQuery && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
+
+        {/* Prop Type Filter */}
+        <div className="flex flex-wrap gap-2">
+          {Array.from(selectedPropTypes).map(propType => (
+            <div key={propType} className="flex items-center gap-2 px-3 py-2 bg-card border border-border/50 rounded-lg hover:border-primary/30 transition-colors">
+              <Checkbox
+                id={propType}
+                checked={selectedPropTypes.has(propType)}
+                onCheckedChange={(checked) => {
+                  const newSelected = new Set(selectedPropTypes);
+                  if (checked) {
+                    newSelected.add(propType);
+                  } else {
+                    newSelected.delete(propType);
+                  }
+                  setSelectedPropTypes(newSelected);
+                }}
+                className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-white"
+              />
+              <label htmlFor={propType} className="text-sm font-medium text-foreground cursor-pointer">
+                {propType}
+              </label>
+            </div>
+          ))}
         </div>
       </div>
 
