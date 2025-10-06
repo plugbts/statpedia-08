@@ -34,6 +34,7 @@ import { toAmericanOdds, getOddsColorClass } from '@/utils/odds';
 import { getPlayerHeadshot, getPlayerInitials, getKnownPlayerHeadshot } from '@/utils/headshots';
 import { StreakService } from '@/services/streak-service';
 import { useToast } from '@/hooks/use-toast';
+import { normalizeOpponent, normalizeMarketType, normalizePosition, normalizeTeam } from '@/utils/normalize';
 
 // Utility function to calculate streak
 const calculateStreak = (gameLogs: any[], line: number, direction: 'over' | 'under') => {
@@ -228,6 +229,7 @@ interface PlayerProp {
   gameLogs?: any[];
   gameLogs2025?: any[];
   relevantRank?: string;
+  marketType?: string;
 }
 
 interface PlayerPropsColumnViewProps {
@@ -245,6 +247,16 @@ export function PlayerPropsColumnView({
   isLoading = false,
   overUnderFilter = 'both'
 }: PlayerPropsColumnViewProps) {
+  // Normalize props data
+  const normalizedProps = props.map(prop => ({
+    ...prop,
+    team: normalizeTeam(prop.team),
+    opponent: normalizeOpponent(prop.opponent),
+    opponentAbbr: normalizeOpponent(prop.opponentAbbr || prop.opponent),
+    marketType: normalizeMarketType(prop.marketType || prop.propType),
+    position: normalizePosition(prop.position),
+  }));
+
   const [sortBy, setSortBy] = useState('api');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filterBy, setFilterBy] = useState('all');
@@ -260,14 +272,14 @@ export function PlayerPropsColumnView({
     
     if (checked) {
       // Calculate how many additional props will be shown
-      const propsWithoutAlternatives = props.filter(prop => {
+      const propsWithoutAlternatives = normalizedProps.filter(prop => {
         // Game filter
         if (selectedGame !== 'all' && prop.gameId !== selectedGame) {
           return false;
         }
         
         // Alternative lines filter (show only main lines)
-        const allPropsForPlayer = props.filter(p => 
+        const allPropsForPlayer = normalizedProps.filter(p => 
           p.playerName === prop.playerName && 
           p.propType === prop.propType &&
           p.gameId === prop.gameId // Add gameId to ensure we're looking at the same game
@@ -291,7 +303,7 @@ export function PlayerPropsColumnView({
         return true;
       });
 
-      const totalProps = props.filter(prop => {
+      const totalProps = normalizedProps.filter(prop => {
         // Game filter
         if (selectedGame !== 'all' && prop.gameId !== selectedGame) {
           return false;
@@ -311,7 +323,7 @@ export function PlayerPropsColumnView({
       });
       
       // Log specific examples of alternative lines found
-      const groupedProps = props.reduce((acc, prop) => {
+      const groupedProps = normalizedProps.reduce((acc, prop) => {
         const key = `${prop.playerName}-${prop.propType}-${prop.gameId}`;
         if (!acc[key]) {
           acc[key] = [];
@@ -379,11 +391,11 @@ export function PlayerPropsColumnView({
 
   // Debug logging for props and alternative lines
   React.useEffect(() => {
-    if (props && props.length > 0) {
-      console.log(`🔍 Player Props Debug - Total props: ${props.length}`);
+    if (normalizedProps && normalizedProps.length > 0) {
+      console.log(`🔍 Player Props Debug - Total props: ${normalizedProps.length}`);
       
       // Group props by player and prop type to check for alternative lines
-      const groupedProps = props.reduce((acc, prop) => {
+      const groupedProps = normalizedProps.reduce((acc, prop) => {
         const key = `${prop.playerName}-${prop.propType}-${prop.gameId}`;
         if (!acc[key]) {
           acc[key] = [];
@@ -404,7 +416,7 @@ export function PlayerPropsColumnView({
       console.log(`🔍 Total alternative line groups found: ${alternativeLinesFound}`);
       
       // If no alternative lines found, let's check if we have different prop types for same player
-      const playerGroups = props.reduce((acc, prop) => {
+      const playerGroups = normalizedProps.reduce((acc, prop) => {
         const key = `${prop.playerName}-${prop.gameId}`;
         if (!acc[key]) {
           acc[key] = [];
@@ -446,7 +458,7 @@ export function PlayerPropsColumnView({
         }
       }
     }
-  }, [props]);
+  }, [normalizedProps]);
 
   const formatPercentage = (value: number): string => {
     return `${(value * 100).toFixed(1)}%`;
@@ -509,7 +521,7 @@ export function PlayerPropsColumnView({
   const uniqueGames = React.useMemo(() => {
     const games = new Map<string, { id: string; display: string; date: string }>();
     
-    props.forEach(prop => {
+    normalizedProps.forEach(prop => {
       if (prop.gameId && prop.team && prop.opponent) {
         const gameKey = prop.gameId;
         const gameDate = new Date(prop.gameDate).toLocaleDateString('en-US', { 
@@ -532,10 +544,10 @@ export function PlayerPropsColumnView({
     return Array.from(games.values()).sort((a, b) => 
       new Date(a.date).getTime() - new Date(b.date).getTime()
     );
-  }, [props]);
+  }, [normalizedProps]);
 
   // Filter props (preserve order unless explicitly sorting)
-  const filteredProps = props.filter(prop => {
+  const filteredProps = normalizedProps.filter(prop => {
     // Game filter
     if (selectedGame !== 'all' && prop.gameId !== selectedGame) {
       return false;
@@ -544,7 +556,7 @@ export function PlayerPropsColumnView({
     // Alternative lines filter - FIXED LOGIC
     if (!showAlternativeLines) {
       // Group by player + prop type combination
-      const allPropsForPlayer = props.filter(p => 
+      const allPropsForPlayer = normalizedProps.filter(p => 
         p.playerName === prop.playerName && 
         p.propType === prop.propType &&
         p.gameId === prop.gameId // Add gameId to ensure we're looking at the same game
@@ -881,7 +893,7 @@ export function PlayerPropsColumnView({
                 {/* Prop Type */}
                   <div className="w-24 text-center px-2">
                     <div className="text-xs font-medium text-foreground group-hover:text-primary/90 transition-colors duration-200 truncate">
-                      {formatPropType(prop.propType)}
+                      {formatPropType(prop.marketType || prop.propType)}
                   </div>
                 </div>
 
