@@ -15,7 +15,8 @@ import {
   Lightbulb,
   MessageCircle,
   BarChart3,
-  Zap
+  Zap,
+  ChevronDown
 } from 'lucide-react';
 import { statpediaAI, AIResponse } from '@/services/statpedia-ai-service';
 import { cn } from '@/lib/utils';
@@ -41,15 +42,20 @@ export function AskStatpedia({ playerProp, gameContext }: AskStatpediaProps) {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [showScrollButton, setShowScrollButton] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
   };
 
   useEffect(() => {
     scrollToBottom();
+    setShowScrollButton(messages.length > 3);
   }, [messages]);
 
   useEffect(() => {
@@ -178,8 +184,9 @@ export function AskStatpedia({ playerProp, gameContext }: AskStatpediaProps) {
       </div>
 
       {/* Messages Area */}
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-4">
+      <div className="relative flex-1">
+        <ScrollArea className="h-full p-4 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800" ref={scrollAreaRef}>
+          <div className="space-y-4" ref={messagesEndRef}>
           {messages.map((message) => (
             <div
               key={message.id}
@@ -279,7 +286,19 @@ export function AskStatpedia({ playerProp, gameContext }: AskStatpediaProps) {
           )}
         </div>
         <div ref={messagesEndRef} />
-      </ScrollArea>
+        </ScrollArea>
+        
+        {/* Scroll to Bottom Button */}
+        {showScrollButton && (
+          <Button
+            onClick={scrollToBottom}
+            className="absolute bottom-4 right-4 h-8 w-8 rounded-full bg-slate-700/80 hover:bg-slate-600/80 text-slate-300 shadow-lg"
+            size="sm"
+          >
+            <ChevronDown className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
 
       {/* Sample Questions (shown when no messages or only welcome) */}
       {messages.length <= 1 && (

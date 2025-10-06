@@ -149,44 +149,53 @@ class StatpediaAIService {
     
     let response: AIResponse;
 
-    // First try to answer with existing knowledge
+    // PRIORITY 1: Try web search first for most questions
     try {
-      switch (questionType) {
-        case 'player_performance':
-          response = await this.analyzePlayerPerformance(normalizedQuestion, context);
-          break;
-        case 'player_comparison':
-          response = await this.comparePlayerPerformance(normalizedQuestion, context);
-          break;
-        case 'team_analysis':
-          response = await this.analyzeTeamPerformance(normalizedQuestion, context);
-          break;
-        case 'matchup_prediction':
-          response = await this.predictMatchup(normalizedQuestion, context);
-          break;
-        case 'injury_impact':
-          response = await this.analyzeInjuryImpact(normalizedQuestion, context);
-          break;
-        case 'prop_recommendation':
-          response = await this.recommendPropBets(normalizedQuestion, context);
-          break;
+      console.log(`🔍 Attempting web search first for: "${question}"`);
+      const searchResponse = await this.searchAndAnswer(question, context);
+      
+      // If search found good results, use them
+      if (searchResponse.confidence >= 60) {
+        console.log(`✅ Search successful with ${searchResponse.confidence}% confidence`);
+        return searchResponse;
+      }
+      
+      // If search didn't find good results, fall back to database
+      console.log(`⚠️ Search found limited results (${searchResponse.confidence}%), falling back to database`);
+    } catch (error) {
+      console.error('Search failed, falling back to database:', error);
+    }
+
+    // PRIORITY 2: Fall back to database knowledge
+    try {
+    switch (questionType) {
+      case 'player_performance':
+        response = await this.analyzePlayerPerformance(normalizedQuestion, context);
+        break;
+      case 'player_comparison':
+        response = await this.comparePlayerPerformance(normalizedQuestion, context);
+        break;
+      case 'team_analysis':
+        response = await this.analyzeTeamPerformance(normalizedQuestion, context);
+        break;
+      case 'matchup_prediction':
+        response = await this.predictMatchup(normalizedQuestion, context);
+        break;
+      case 'injury_impact':
+        response = await this.analyzeInjuryImpact(normalizedQuestion, context);
+        break;
+      case 'prop_recommendation':
+        response = await this.recommendPropBets(normalizedQuestion, context);
+        break;
         case 'general':
           response = await this.generateGeneralResponse(normalizedQuestion, context);
           break;
-        default:
-          response = await this.generateGenericResponse(normalizedQuestion, context);
+      default:
+        response = await this.generateGenericResponse(normalizedQuestion, context);
       }
     } catch (error) {
       console.error('Error in AI response generation:', error);
       response = await this.generateErrorResponse(question, context);
-    }
-
-    // If confidence is low, try to search for more information
-    if (response.confidence < 50) {
-      const searchResponse = await this.searchAndAnswer(question, context);
-      if (searchResponse.confidence > response.confidence) {
-        response = searchResponse;
-      }
     }
 
     console.log(`🎯 Statpedia AI response generated with ${response.confidence}% confidence`);
@@ -984,16 +993,16 @@ class StatpediaAIService {
         "How do injuries affect team scoring averages in the NFL?"
       ];
     } else if (sportType === 'nba') {
-      return [
-        "How well does LeBron play when AD is out?",
-        "Should I bet the over on Luka's points tonight?",
-        "How do the Lakers perform without LeBron?",
-        "What's Curry's three-point prop value against the Celtics?",
-        "How does Giannis perform in back-to-back games?",
-        "Which team has the better defensive matchup tonight?",
-        "What's the best parlay for tonight's slate?",
-        "How do injuries affect team scoring averages?"
-      ];
+    return [
+      "How well does LeBron play when AD is out?",
+      "Should I bet the over on Luka's points tonight?",
+      "How do the Lakers perform without LeBron?",
+      "What's Curry's three-point prop value against the Celtics?",
+      "How does Giannis perform in back-to-back games?",
+      "Which team has the better defensive matchup tonight?",
+      "What's the best parlay for tonight's slate?",
+      "How do injuries affect team scoring averages?"
+    ];
     } else if (sportType === 'mlb') {
       return [
         "How well does Ohtani perform against left-handed pitchers?",

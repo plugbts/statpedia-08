@@ -2968,6 +2968,7 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFi
               <AskStatpedia 
                 playerProp={currentData}
                 gameContext={{
+                  sport: currentData.sport || 'nfl',
                   homeTeam: currentData.opponentAbbr,
                   awayTeam: currentData.teamAbbr,
                   date: currentData.gameDate,
