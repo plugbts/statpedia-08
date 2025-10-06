@@ -1843,6 +1843,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         <EnhancedAnalysisOverlay
           prediction={selectedPropForEnhancedAnalysis as any}
           isOpen={showEnhancedAnalysis}
+          currentFilter={overUnderFilter}
           onClose={() => {
             setShowEnhancedAnalysis(false);
             setSelectedPropForEnhancedAnalysis(null);

@@ -4,8 +4,8 @@
 // Known friendly labels for common markets
 const MARKET_ALIASES: Record<string, string> = {
   // Passing markets
-  "Passing Yards": "Passing + Rush Yards",
-  "passing_yards": "Passing + Rush Yards",
+  "Passing Yards": "Passing Yards",
+  "passing_yards": "Passing Yards",
   "Passing Attempts": "Passing Attempts", 
   "passing_attempts": "Passing Attempts",
   "Passing Completions": "Passing Completions",
@@ -14,10 +14,12 @@ const MARKET_ALIASES: Record<string, string> = {
   "passing_touchdowns": "Passing TDs",
   "Passing Interceptions": "Passing INTs",
   "passing_interceptions": "Passing INTs",
+  "Passing LongestCompletion": "Passing Longest Completion",
+  "passing_longestCompletion": "Passing Longest Completion",
 
   // Rushing markets
-  "Rushing Yards": "Rushing + Rec Yards",
-  "rushing_yards": "Rushing + Rec Yards", 
+  "Rushing Yards": "Rushing Yards",
+  "rushing_yards": "Rushing Yards", 
   "Rushing Attempts": "Rushing Attempts",
   "rushing_attempts": "Rushing Attempts",
   "Rushing Touchdowns": "Rushing TDs",
@@ -66,6 +68,14 @@ const MARKET_ALIASES: Record<string, string> = {
   "forced_fumbles": "Forced Fumbles",
   "Fumble Recoveries": "Fumble Recoveries",
   "fumble_recoveries": "Fumble Recoveries",
+
+  // Combined markets
+  "Passing+Rushing Yards": "Passing + Rushing Yards",
+  "passing+rushing_yards": "Passing + Rushing Yards",
+  "Rushing+Receiving Yards": "Rushing + Rec Yards",
+  "rushing+receiving_yards": "Rushing + Rec Yards",
+  "Passing + Rush Yards": "Passing + Rushing Yards",
+  "Rushing + Rec Yards": "Rushing + Rec Yards",
 
   // Fantasy/Scoring markets
   "Fantasy Score": "Fantasy Score",

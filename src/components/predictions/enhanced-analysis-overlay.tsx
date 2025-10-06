@@ -472,6 +472,7 @@ interface EnhancedAnalysisOverlayProps {
   prediction: any;
   isOpen: boolean;
   onClose: () => void;
+  currentFilter?: 'over' | 'under' | 'both';
 }
 
 // Enhanced chart configuration with professional color scheme
@@ -839,7 +840,7 @@ const EnhancedBarChart = React.memo(({
   );
 });
 
-export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: EnhancedAnalysisOverlayProps) {
+export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFilter = 'both' }: EnhancedAnalysisOverlayProps) {
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedTimeframe, setSelectedTimeframe] = useState('last10');
   const [isAnimating, setIsAnimating] = useState(false);
@@ -1576,8 +1577,16 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose }: Enhance
                     const overRating = statpediaRatingService.calculateRating(currentData, 'over');
                     const underRating = statpediaRatingService.calculateRating(currentData, 'under');
                     
-                    // Determine recommendation based on which rating is higher
-                    const recommended = overRating.overall > underRating.overall ? 'over' : 'under';
+                    // Determine recommendation based on current filter and ratings
+                    let recommended: 'over' | 'under';
+                    if (currentFilter === 'over') {
+                      recommended = 'over';
+                    } else if (currentFilter === 'under') {
+                      recommended = 'under';
+                    } else {
+                      // For 'both' or default, use the higher rating
+                      recommended = overRating.overall > underRating.overall ? 'over' : 'under';
+                    }
                     const confidence = Math.max(overRating.overall, underRating.overall);
                     
                     return (
