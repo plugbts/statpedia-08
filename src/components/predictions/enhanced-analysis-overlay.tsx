@@ -590,33 +590,63 @@ const generatePerformanceMetrics = (gameHistory: GameHistoryEntry[], prediction:
   const recentGames = gameHistory.slice(0, 5);
   const hitRate = recentGames.filter(g => g.hit).length / recentGames.length;
   
-  // Use StreakService for consistent streak calculation
-  const streakData = StreakService.calculateStreak(hitRate, hitRate, 10);
-  
-  // Calculate real longest streak from game history
+  // Calculate REAL streaks from game history
   let longestStreak = 0;
   let currentStreak = 0;
   let maxStreak = 0;
   
+  // Calculate current streak (from most recent games)
   for (let i = 0; i < gameHistory.length; i++) {
     if (gameHistory[i].hit) {
       currentStreak++;
       maxStreak = Math.max(maxStreak, currentStreak);
     } else {
-      currentStreak = 0;
+      // If we hit a miss, reset current streak
+      if (i === 0) {
+        // If the most recent game was a miss, current streak is 0
+        currentStreak = 0;
+      }
+      break; // Stop counting current streak when we hit a miss
+    }
+  }
+  
+  // Calculate longest streak (across all games)
+  let tempStreak = 0;
+  for (let i = 0; i < gameHistory.length; i++) {
+    if (gameHistory[i].hit) {
+      tempStreak++;
+      maxStreak = Math.max(maxStreak, tempStreak);
+    } else {
+      tempStreak = 0;
     }
   }
   
   longestStreak = maxStreak;
   
+  // Calculate consistency based on actual hit rate variance
+  const hitRates = gameHistory.map(g => g.hit ? 1 : 0);
+  const variance = hitRates.length > 1 ? 
+    hitRates.reduce((acc, val) => acc + Math.pow(val - hitRate, 2), 0) / (hitRates.length - 1) : 0;
+  const consistency = Math.max(0, 1 - variance);
+  
+  // Calculate trend based on recent vs older performance
+  const recentGames = gameHistory.slice(0, Math.min(5, gameHistory.length));
+  const olderGames = gameHistory.slice(5, Math.min(10, gameHistory.length));
+  const recentHitRate = recentGames.length > 0 ? recentGames.filter(g => g.hit).length / recentGames.length : 0;
+  const olderHitRate = olderGames.length > 0 ? olderGames.filter(g => g.hit).length / olderGames.length : 0;
+  
+  let trend: 'upward' | 'downward' | 'stable' = 'stable';
+  if (recentHitRate > olderHitRate + 0.1) trend = 'upward';
+  else if (recentHitRate < olderHitRate - 0.1) trend = 'downward';
+  
   return {
-    currentStreak: streakData.currentStreak,
+    currentStreak: currentStreak,
     longestStreak: longestStreak,
     recentForm: hitRate > 0.7 ? 'hot' : hitRate < 0.4 ? 'cold' : 'average',
-    consistency: 0.7 + Math.random() * 0.2,
-    volatility: 0.3 + Math.random() * 0.4,
-    trend: Math.random() > 0.5 ? 'upward' : 'downward',
-    momentum: -1 + Math.random() * 2,
+    consistency: consistency,
+    volatility: variance,
+    trend: trend,
+    momentum: recentHitRate - olderHitRate,
   };
 };
 

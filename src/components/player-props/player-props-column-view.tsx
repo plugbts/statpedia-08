@@ -772,13 +772,56 @@ export function PlayerPropsColumnView({
                 {/* Hit Streak */}
                 <div className="col-span-1 text-center">
                   {(() => {
-                    // Calculate real streak based on historical data
+                    // Calculate real streak based on available data
                     const hitRate = prop.hitRate || 0.5;
                     const recentForm = typeof prop.recentForm === 'number' ? prop.recentForm : 0.5;
                     const gamesTracked = prop.gamesTracked || 10;
                     
-                    const streakData = StreakService.calculateStreak(hitRate, recentForm, gamesTracked);
-                    const display = StreakService.getStreakDisplay(streakData);
+                    // Calculate current streak based on recent form and hit rate
+                    let currentStreak = 0;
+                    
+                    // Use last5Games if available to calculate real streak
+                    if (prop.last5Games && prop.last5Games.length > 0) {
+                      // Count consecutive hits from most recent games (last5Games is ordered most recent first)
+                      for (let i = 0; i < prop.last5Games.length; i++) {
+                        if (prop.last5Games[i] === 1) { // 1 = hit, 0 = miss
+                          currentStreak++;
+                        } else {
+                          break; // Stop counting when we hit a miss
+                        }
+                      }
+                    } else if (prop.seasonStats?.last5Games && prop.seasonStats.last5Games.length > 0) {
+                      // Use season stats last5Games
+                      for (let i = 0; i < prop.seasonStats.last5Games.length; i++) {
+                        if (prop.seasonStats.last5Games[i] === 1) {
+                          currentStreak++;
+                        } else {
+                          break;
+                        }
+                      }
+                    } else {
+                      // Fallback: estimate streak based on hit rate and recent form
+                      // If recent form is high and hit rate is good, assume some streak
+                      if (recentForm > 0.7 && hitRate > 0.6) {
+                        currentStreak = Math.min(3, Math.floor(hitRate * 5));
+                      } else if (recentForm > 0.5 && hitRate > 0.5) {
+                        currentStreak = Math.min(2, Math.floor(hitRate * 3));
+                      } else {
+                        currentStreak = 0;
+                      }
+                    }
+                    
+                    // Determine streak display based on current streak
+                    let display;
+                    if (currentStreak >= 5) {
+                      display = { bgColor: "bg-gradient-to-r from-emerald-600 to-green-600 text-white", text: `${currentStreak}W` };
+                    } else if (currentStreak >= 3) {
+                      display = { bgColor: "bg-gradient-to-r from-blue-600 to-cyan-600 text-white", text: `${currentStreak}W` };
+                    } else if (currentStreak >= 1) {
+                      display = { bgColor: "bg-gradient-to-r from-yellow-600 to-orange-600 text-white", text: `${currentStreak}W` };
+                    } else {
+                      display = { bgColor: "bg-gradient-to-r from-gray-600 to-slate-600 text-white", text: "0W" };
+                    }
                     
                     return (
                       <div className="flex flex-col items-center space-y-1">
