@@ -83,6 +83,61 @@ const calculateHitRate = (gameLogs: any[], line: number, direction: 'over' | 'un
   return { hits, total, pct };
 };
 
+// PropFinder-style analytics functions
+const calculateSeasonHitRate = (gameLogs2025: any[], line: number, direction: 'over' | 'under') => {
+  return calculateHitRate(gameLogs2025 || [], line, direction);
+};
+
+const calculateH2HHitRate = (gameLogs: any[], line: number, direction: 'over' | 'under', opponent: string) => {
+  return calculateHitRate(gameLogs || [], line, direction, undefined, opponent);
+};
+
+const calculateLastNHitRate = (gameLogs: any[], line: number, direction: 'over' | 'under', n: number) => {
+  return calculateHitRate(gameLogs || [], line, direction, n);
+};
+
+// Defensive rank calculation
+const getDefensiveRank = (defenseStats: any, opponent: string, marketType: string, position: string) => {
+  if (!defenseStats || !opponent || !marketType || !position) return { rank: 'N/A', display: 'N/A' };
+  
+  const teamStats = defenseStats[opponent];
+  if (!teamStats) return { rank: 'N/A', display: 'N/A' };
+  
+  const positionStats = teamStats[position];
+  if (!positionStats) return { rank: 'N/A', display: 'N/A' };
+  
+  const propStats = positionStats[marketType];
+  if (!propStats || propStats.rank === undefined) return { rank: 'N/A', display: 'N/A' };
+  
+  return { 
+    rank: propStats.rank, 
+    display: `${opponent} ${propStats.rank}` 
+  };
+};
+
+// Precompute defense stats (mock data for now)
+const getDefenseStats = () => {
+  const teams = ['KC', 'JAX', 'BUF', 'MIA', 'NE', 'NYJ', 'BAL', 'CIN', 'CLE', 'PIT'];
+  const positions = ['QB', 'RB', 'WR', 'TE'];
+  const marketTypes = ['Passing Yards', 'Rushing Yards', 'Receiving Yards', 'Passing TDs', 'Rushing TDs', 'Receptions'];
+  
+  const defenseStats: any = {};
+  
+  teams.forEach(team => {
+    defenseStats[team] = {};
+    positions.forEach(position => {
+      defenseStats[team][position] = {};
+      marketTypes.forEach(marketType => {
+        defenseStats[team][position][marketType] = {
+          rank: Math.floor(Math.random() * 32) + 1
+        };
+      });
+    });
+  });
+  
+  return defenseStats;
+};
+
 // Prop priority mapping (matches Cloudflare Worker logic)
 const getPropPriority = (propType: string): number => {
   const lowerPropType = propType.toLowerCase();
@@ -228,7 +283,13 @@ export function PlayerPropsColumnView({
   const [selectedPropSportsbooks, setSelectedPropSportsbooks] = useState<{sportsbooks: string[], propInfo: any}>({sportsbooks: [], propInfo: null});
   const [selectedGame, setSelectedGame] = useState('all');
   const [showAlternativeLines, setShowAlternativeLines] = useState(false);
+  const [defenseStats, setDefenseStats] = useState<any>(null);
   const { toast } = useToast();
+
+  // Initialize defense stats
+  useEffect(() => {
+    setDefenseStats(getDefenseStats());
+  }, []);
 
   // Handle alternative lines toggle with confirmation
   const handleAlternativeLinesToggle = (checked: boolean) => {
@@ -765,6 +826,12 @@ export function PlayerPropsColumnView({
             <div className="w-16 text-center px-2 py-3 text-xs font-semibold text-foreground">EV%</div>
             <div className="w-16 text-center px-2 py-3 text-xs font-semibold text-foreground">Streak</div>
             <div className="w-16 text-center px-2 py-3 text-xs font-semibold text-foreground">Rating</div>
+            <div className="w-20 text-center px-2 py-3 text-xs font-semibold text-foreground">Matchup</div>
+            <div className="w-16 text-center px-2 py-3 text-xs font-semibold text-foreground">2025</div>
+            <div className="w-16 text-center px-2 py-3 text-xs font-semibold text-foreground">H2H</div>
+            <div className="w-16 text-center px-2 py-3 text-xs font-semibold text-foreground">L5</div>
+            <div className="w-16 text-center px-2 py-3 text-xs font-semibold text-foreground">L10</div>
+            <div className="w-16 text-center px-2 py-3 text-xs font-semibold text-foreground">L20</div>
       </div>
 
           {/* Fixed Data Rows */}
@@ -956,6 +1023,114 @@ export function PlayerPropsColumnView({
                         </div>
                       );
                   })()}
+                  </div>
+
+                  {/* Matchup Rank */}
+                  <div className="w-20 text-center px-2 group-hover:opacity-80 transition-colors duration-200">
+                    {(() => {
+                      const defensiveRank = getDefensiveRank(defenseStats, prop.opponent, prop.propType, prop.position);
+                      return (
+                        <div className="text-xs font-medium text-foreground">
+                          <div className="text-xs font-bold">{prop.opponent}</div>
+                          <div className="text-xs text-muted-foreground">#{defensiveRank.rank}</div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Season 2025 Hit Rate */}
+                  <div className="w-16 text-center px-2 group-hover:opacity-80 transition-colors duration-200">
+                    {(() => {
+                      const season2025 = calculateSeasonHitRate(prop.gameLogs2025 || [], prop.line, overUnderFilter as 'over' | 'under');
+                      return (
+                        <div className="text-xs font-medium text-foreground">
+                          {season2025.total > 0 ? (
+                            <div>
+                              <div className="text-xs font-bold">{season2025.hits}/{season2025.total}</div>
+                              <div className="text-xs text-muted-foreground">({season2025.pct.toFixed(0)}%)</div>
+                            </div>
+                          ) : (
+                            <div className="text-xs text-muted-foreground">N/A</div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* H2H Hit Rate */}
+                  <div className="w-16 text-center px-2 group-hover:opacity-80 transition-colors duration-200">
+                    {(() => {
+                      const h2h = calculateH2HHitRate(prop.gameLogs || [], prop.line, overUnderFilter as 'over' | 'under', prop.opponent);
+                      return (
+                        <div className="text-xs font-medium text-foreground">
+                          {h2h.total > 0 ? (
+                            <div>
+                              <div className="text-xs font-bold">{h2h.hits}/{h2h.total}</div>
+                              <div className="text-xs text-muted-foreground">({h2h.pct.toFixed(0)}%)</div>
+                            </div>
+                          ) : (
+                            <div className="text-xs text-muted-foreground">N/A</div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* L5 Hit Rate */}
+                  <div className="w-16 text-center px-2 group-hover:opacity-80 transition-colors duration-200">
+                    {(() => {
+                      const l5 = calculateLastNHitRate(prop.gameLogs || [], prop.line, overUnderFilter as 'over' | 'under', 5);
+                      return (
+                        <div className="text-xs font-medium text-foreground">
+                          {l5.total > 0 ? (
+                            <div>
+                              <div className="text-xs font-bold">{l5.hits}/{l5.total}</div>
+                              <div className="text-xs text-muted-foreground">({l5.pct.toFixed(0)}%)</div>
+                            </div>
+                          ) : (
+                            <div className="text-xs text-muted-foreground">N/A</div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* L10 Hit Rate */}
+                  <div className="w-16 text-center px-2 group-hover:opacity-80 transition-colors duration-200">
+                    {(() => {
+                      const l10 = calculateLastNHitRate(prop.gameLogs || [], prop.line, overUnderFilter as 'over' | 'under', 10);
+                      return (
+                        <div className="text-xs font-medium text-foreground">
+                          {l10.total > 0 ? (
+                            <div>
+                              <div className="text-xs font-bold">{l10.hits}/{l10.total}</div>
+                              <div className="text-xs text-muted-foreground">({l10.pct.toFixed(0)}%)</div>
+                            </div>
+                          ) : (
+                            <div className="text-xs text-muted-foreground">N/A</div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* L20 Hit Rate */}
+                  <div className="w-16 text-center px-2 group-hover:opacity-80 transition-colors duration-200">
+                    {(() => {
+                      const l20 = calculateLastNHitRate(prop.gameLogs || [], prop.line, overUnderFilter as 'over' | 'under', 20);
+                      return (
+                        <div className="text-xs font-medium text-foreground">
+                          {l20.total > 0 ? (
+                            <div>
+                              <div className="text-xs font-bold">{l20.hits}/{l20.total}</div>
+                              <div className="text-xs text-muted-foreground">({l20.pct.toFixed(0)}%)</div>
+                            </div>
+                          ) : (
+                            <div className="text-xs text-muted-foreground">N/A</div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </CardContent>
