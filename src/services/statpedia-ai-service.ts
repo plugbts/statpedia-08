@@ -154,8 +154,8 @@ class StatpediaAIService {
       console.log(`🔍 Attempting web search first for: "${question}"`);
       const searchResponse = await this.searchAndAnswer(question, context);
       
-      // If search found good results, use them
-      if (searchResponse.confidence >= 60) {
+      // If search found any results, use them (lowered threshold)
+      if (searchResponse.confidence >= 40) {
         console.log(`✅ Search successful with ${searchResponse.confidence}% confidence`);
         return searchResponse;
       }
@@ -713,14 +713,20 @@ class StatpediaAIService {
 
   private async searchAndAnswer(question: string, context?: any): Promise<AIResponse> {
     console.log(`🔍 Searching for additional information about: "${question}"`);
+    console.log(`📊 Search context:`, context);
     
     try {
       // Use real web search
       const searchResults = await this.performWebSearch(question, context);
+      console.log(`🔍 Search results count: ${searchResults.length}`);
+      console.log(`🔍 Search results:`, searchResults);
       
       if (searchResults.length > 0) {
-        return this.generateSearchBasedResponse(question, searchResults, context);
+        const response = this.generateSearchBasedResponse(question, searchResults, context);
+        console.log(`✅ Generated search-based response with confidence: ${response.confidence}%`);
+        return response;
       } else {
+        console.log(`⚠️ No search results found, using enhanced response`);
         return this.generateEnhancedResponse(question, this.extractSearchTerms(question), context);
       }
     } catch (error) {
@@ -754,13 +760,21 @@ class StatpediaAIService {
   private buildSearchQuery(question: string, context?: any): string {
     let query = question;
     
-    // Add sport context if available
-    if (context?.sport) {
-      query += ` ${context.sport} 2024 stats`;
+    // Add player context if available
+    if (context?.playerName) {
+      query = `${context.playerName} ${question}`;
     }
     
+    // Add sport context if available
+    if (context?.sport) {
+      query += ` ${context.sport}`;
+    }
+    
+    // Add current year for recent stats
+    query += ' 2024 2025';
+    
     // Add reliable sports sources
-    query += ' site:espn.com OR site:nba.com OR site:nfl.com OR site:mlb.com OR site:nhl.com';
+    query += ' site:espn.com OR site:nfl.com OR site:nba.com OR site:mlb.com OR site:nhl.com OR site:pro-football-reference.com OR site:basketball-reference.com';
     
     return query;
   }
@@ -817,7 +831,12 @@ class StatpediaAIService {
       });
     }
 
-    answer += `\nFor the most current information, I recommend checking the official sources directly.`;
+    // Add specific context if available
+    if (context?.playerName && context?.sport) {
+      answer += `\nFor the most current information about ${context.playerName} in the ${context.sport.toUpperCase()}, I recommend checking the official sources directly.`;
+    } else {
+      answer += `\nFor the most current information, I recommend checking the official sources directly.`;
+    }
 
     return {
       answer,
@@ -843,6 +862,7 @@ class StatpediaAIService {
     // Look for specific patterns in the question and results
     const lowerQuestion = question.toLowerCase();
     
+    // Games played queries
     if (lowerQuestion.includes('games played') || lowerQuestion.includes('how many games')) {
       for (const result of results) {
         const snippet = result.snippet.toLowerCase();
@@ -851,25 +871,52 @@ class StatpediaAIService {
           const gameMatch = snippet.match(/(\d+)\s*games?\s*played/);
           if (gameMatch) {
             keyInfo.push(`According to ${result.source}, the player has played ${gameMatch[1]} games this season.`);
+          } else {
+            keyInfo.push(`From ${result.source}: ${result.snippet.substring(0, 200)}...`);
           }
         }
       }
     }
     
-    if (lowerQuestion.includes('stats') || lowerQuestion.includes('averages')) {
+    // Stats and performance queries (including passing completions, yards, etc.)
+    if (lowerQuestion.includes('stats') || lowerQuestion.includes('averages') || lowerQuestion.includes('completions') || lowerQuestion.includes('passing') || lowerQuestion.includes('yards')) {
       for (const result of results) {
         const snippet = result.snippet;
-        if (snippet.includes('points') || snippet.includes('rebounds') || snippet.includes('assists')) {
+        if (snippet.includes('points') || snippet.includes('rebounds') || snippet.includes('assists') || 
+            snippet.includes('completions') || snippet.includes('passing') || snippet.includes('yards') || 
+            snippet.includes('touchdowns') || snippet.includes('rushing')) {
           keyInfo.push(`From ${result.source}: ${snippet.substring(0, 200)}...`);
         }
       }
     }
     
-    if (lowerQuestion.includes('injury') || lowerQuestion.includes('status')) {
+    // Injury status queries
+    if (lowerQuestion.includes('injury') || lowerQuestion.includes('status') || lowerQuestion.includes('questionable')) {
       for (const result of results) {
         const snippet = result.snippet.toLowerCase();
-        if (snippet.includes('injury') || snippet.includes('out') || snippet.includes('questionable')) {
+        if (snippet.includes('injury') || snippet.includes('out') || snippet.includes('questionable') || snippet.includes('doubtful')) {
           keyInfo.push(`Injury status from ${result.source}: ${result.snippet.substring(0, 200)}...`);
+        }
+      }
+    }
+    
+    // Recent form queries
+    if (lowerQuestion.includes('recent') || lowerQuestion.includes('last') || lowerQuestion.includes('form')) {
+      for (const result of results) {
+        const snippet = result.snippet;
+        if (snippet.includes('recent') || snippet.includes('last') || snippet.includes('form') || snippet.includes('streak')) {
+          keyInfo.push(`Recent form from ${result.source}: ${snippet.substring(0, 200)}...`);
+        }
+      }
+    }
+    
+    // If no specific patterns found, try to extract any relevant stats
+    if (keyInfo.length === 0) {
+      for (const result of results) {
+        const snippet = result.snippet;
+        // Look for numbers that might be stats
+        if (/\d+/.test(snippet) && (snippet.includes('completions') || snippet.includes('yards') || snippet.includes('touchdowns') || snippet.includes('games') || snippet.includes('points'))) {
+          keyInfo.push(`Stats from ${result.source}: ${snippet.substring(0, 200)}...`);
         }
       }
     }
