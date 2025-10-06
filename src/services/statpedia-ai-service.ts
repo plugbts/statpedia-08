@@ -144,62 +144,20 @@ class StatpediaAIService {
     console.log(`🤖 Statpedia AI analyzing question: "${question}"`);
     console.log(`📊 Context received:`, context);
     
-    const normalizedQuestion = question.toLowerCase();
-    const questionType = this.classifyQuestion(normalizedQuestion);
-    
-    let response: AIResponse;
-
-    // PRIORITY 1: Try web search first for most questions
+    // ChatGPT-like approach: Always search first, no database fallback
     try {
-      console.log(`🔍 Attempting web search first for: "${question}"`);
+      console.log(`🔍 Searching for information about: "${question}"`);
       const searchResponse = await this.searchAndAnswer(question, context);
       
-      // If search found any results, use them (lowered threshold)
-      if (searchResponse.confidence >= 40) {
-        console.log(`✅ Search successful with ${searchResponse.confidence}% confidence`);
-        return searchResponse;
-      }
+      // Always use search results, regardless of confidence
+      console.log(`✅ Search completed with ${searchResponse.confidence}% confidence`);
+      return searchResponse;
       
-      // If search didn't find good results, fall back to database
-      console.log(`⚠️ Search found limited results (${searchResponse.confidence}%), falling back to database`);
     } catch (error) {
-      console.error('Search failed, falling back to database:', error);
+      console.error('Search failed:', error);
+      // If search fails, provide a helpful error response
+      return this.generateSearchErrorResponse(question, context);
     }
-
-    // PRIORITY 2: Fall back to database knowledge
-    try {
-    switch (questionType) {
-      case 'player_performance':
-        response = await this.analyzePlayerPerformance(normalizedQuestion, context);
-        break;
-      case 'player_comparison':
-        response = await this.comparePlayerPerformance(normalizedQuestion, context);
-        break;
-      case 'team_analysis':
-        response = await this.analyzeTeamPerformance(normalizedQuestion, context);
-        break;
-      case 'matchup_prediction':
-        response = await this.predictMatchup(normalizedQuestion, context);
-        break;
-      case 'injury_impact':
-        response = await this.analyzeInjuryImpact(normalizedQuestion, context);
-        break;
-      case 'prop_recommendation':
-        response = await this.recommendPropBets(normalizedQuestion, context);
-        break;
-        case 'general':
-          response = await this.generateGeneralResponse(normalizedQuestion, context);
-          break;
-      default:
-        response = await this.generateGenericResponse(normalizedQuestion, context);
-      }
-    } catch (error) {
-      console.error('Error in AI response generation:', error);
-      response = await this.generateErrorResponse(question, context);
-    }
-
-    console.log(`🎯 Statpedia AI response generated with ${response.confidence}% confidence`);
-    return response;
   }
 
   private classifyQuestion(question: string): string {
@@ -726,12 +684,12 @@ class StatpediaAIService {
         console.log(`✅ Generated search-based response with confidence: ${response.confidence}%`);
         return response;
       } else {
-        console.log(`⚠️ No search results found, using enhanced response`);
-        return this.generateEnhancedResponse(question, this.extractSearchTerms(question), context);
+        console.log(`⚠️ No search results found, using no results response`);
+        return this.generateNoResultsResponse(question, context);
       }
     } catch (error) {
       console.error('Search error:', error);
-      return this.generateEnhancedResponse(question, this.extractSearchTerms(question), context);
+      return this.generateSearchErrorResponse(question, context);
     }
   }
 
@@ -814,7 +772,7 @@ class StatpediaAIService {
     );
 
     if (relevantResults.length === 0) {
-      return this.generateEnhancedResponse(question, this.extractSearchTerms(question), context);
+      return this.generateNoResultsResponse(question, context);
     }
 
     // Extract key information from search results
@@ -852,6 +810,44 @@ class StatpediaAIService {
         'Would you like more specific information about this topic?',
         'Are you looking for recent updates on this?',
         'Would you like me to search for something related?'
+      ]
+    };
+  }
+
+  private generateSearchErrorResponse(question: string, context?: any): AIResponse {
+    return {
+      answer: `I apologize, but I'm having trouble searching for information about "${question}" right now. This could be due to a temporary network issue or search service problem.\n\nTo get the most accurate and up-to-date information, I recommend:\n\n• Checking official league websites (NFL.com, NBA.com, etc.)\n• Visiting ESPN, CBS Sports, or other reputable sports news sources\n• Looking at recent injury reports and team updates\n• Checking official team social media accounts\n\nIs there anything specific about this topic I can help you with once the search is working again?`,
+      confidence: 0,
+      reasoning: [
+        'Search service temporarily unavailable',
+        'Network connectivity issue',
+        'Recommended official sources as alternative'
+      ],
+      relatedStats: [],
+      sources: ['Search service error'],
+      followUpQuestions: [
+        'Try asking about a different player or team',
+        'Check official league websites for updates',
+        'Ask about general sports betting strategies'
+      ]
+    };
+  }
+
+  private generateNoResultsResponse(question: string, context?: any): AIResponse {
+    return {
+      answer: `I searched for information about "${question}" but couldn't find specific results that match your query. This might be because:\n\n• The information is very recent and not yet indexed\n• The search terms might need to be more specific\n• The topic might be too niche or specialized\n\nTo get better results, try:\n\n• Being more specific about the player, team, or event\n• Using different keywords or phrases\n• Asking about more general topics\n• Checking official sources directly\n\nWould you like to try rephrasing your question or ask about something else?`,
+      confidence: 0,
+      reasoning: [
+        'No relevant search results found',
+        'Query may be too specific or recent',
+        'Suggested alternative approaches'
+      ],
+      relatedStats: [],
+      sources: ['No results found'],
+      followUpQuestions: [
+        'Try rephrasing your question',
+        'Ask about a different player or team',
+        'Check official sources for updates'
       ]
     };
   }

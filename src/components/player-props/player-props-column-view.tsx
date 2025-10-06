@@ -958,8 +958,8 @@ export function PlayerPropsColumnView({
                           <div className="font-bold text-foreground group-hover:text-primary transition-colors duration-200">
                             {prop.teamAbbr}@{prop.opponentAbbr}
                           </div>
-                          <div className={`font-semibold ${matchupDataService.getDefensiveRankColor(relevantRank)} group-hover:opacity-80 transition-colors duration-200`}>
-                            #{relevantRank}
+                          <div className={`font-semibold ${relevantRank > 0 ? matchupDataService.getDefensiveRankColor(relevantRank) : 'text-muted-foreground'} group-hover:opacity-80 transition-colors duration-200`}>
+                            {relevantRank > 0 ? `#${relevantRank}` : 'No Data'}
                           </div>
                         </div>
                       );
@@ -986,7 +986,7 @@ export function PlayerPropsColumnView({
                     
                     if (matchup) {
                       return (
-                        <div className={`text-xs font-bold ${matchupDataService.getHitRateColor(matchup.hitRate.season)} group-hover:opacity-80 transition-colors duration-200`}>
+                        <div className={`text-xs font-bold ${matchup.hitRate.season !== '—' ? matchupDataService.getHitRateColor(matchup.hitRate.season) : 'text-muted-foreground'} group-hover:opacity-80 transition-colors duration-200`}>
                           {matchup.hitRate.season}
                         </div>
                       );
@@ -1010,14 +1010,14 @@ export function PlayerPropsColumnView({
                       return (
                         <div className="text-xs">
                           <div className="flex items-center justify-center gap-1">
-                            <span className={matchupDataService.getHitRateColor(matchup.hitRate.h2h)}>{matchup.hitRate.h2h}</span>
+                            <span className={matchup.hitRate.h2h !== '—' ? matchupDataService.getHitRateColor(matchup.hitRate.h2h) : 'text-muted-foreground'}>{matchup.hitRate.h2h}</span>
                             <span className="text-muted-foreground">|</span>
-                            <span className={matchupDataService.getHitRateColor(matchup.hitRate.l5)}>{matchup.hitRate.l5}</span>
+                            <span className={matchup.hitRate.l5 !== '—' ? matchupDataService.getHitRateColor(matchup.hitRate.l5) : 'text-muted-foreground'}>{matchup.hitRate.l5}</span>
                           </div>
                           <div className="flex items-center justify-center gap-1">
-                            <span className={matchupDataService.getHitRateColor(matchup.hitRate.l10)}>{matchup.hitRate.l10}</span>
+                            <span className={matchup.hitRate.l10 !== '—' ? matchupDataService.getHitRateColor(matchup.hitRate.l10) : 'text-muted-foreground'}>{matchup.hitRate.l10}</span>
                             <span className="text-muted-foreground">|</span>
-                            <span className={matchupDataService.getHitRateColor(matchup.hitRate.l20)}>{matchup.hitRate.l20}</span>
+                            <span className={matchup.hitRate.l20 !== '—' ? matchupDataService.getHitRateColor(matchup.hitRate.l20) : 'text-muted-foreground'}>{matchup.hitRate.l20}</span>
                           </div>
                         </div>
                       );
@@ -1038,7 +1038,7 @@ export function PlayerPropsColumnView({
                       {prop.expectedValue > 0 ? '+' : ''}{prop.expectedValue.toFixed(1)}%
                     </span>
                   ) : (
-                    <span className="text-xs text-muted-foreground group-hover:text-foreground/70 transition-colors duration-200">N/A</span>
+                    <span className="text-xs text-muted-foreground group-hover:text-foreground/70 transition-colors duration-200">—</span>
                   )}
                 </div>
 
@@ -1053,7 +1053,8 @@ export function PlayerPropsColumnView({
                       last5Games: prop.last5Games,
                       seasonStats: prop.seasonStats,
                       hasLast5Games: !!(prop.last5Games && prop.last5Games.length > 0),
-                      hasSeasonStats: !!(prop.seasonStats?.last5Games && prop.seasonStats.last5Games.length > 0)
+                      hasSeasonStats: !!(prop.seasonStats?.last5Games && prop.seasonStats.last5Games.length > 0),
+                      hasRealData: !!(prop.last5Games && prop.last5Games.length > 0) || !!(prop.seasonStats?.last5Games && prop.seasonStats.last5Games.length > 0)
                     });
                     
                     // Use last5Games if available to calculate REAL streak
@@ -1078,34 +1079,9 @@ export function PlayerPropsColumnView({
                       }
                       console.log(`🔍 Real streak from seasonStats: ${currentStreak}`);
                     } else {
-                      // If no real game data available, simulate realistic streaks based on hit rate
-                      // This simulates what would happen if we had real game data
-                      const hitRate = prop.hitRate || 0.5;
-                      const recentForm = typeof prop.recentForm === 'number' ? prop.recentForm : 0.5;
-                      
-                      // Create a deterministic "simulation" of recent games based on hit rate
-                      const playerSeed = prop.playerName.charCodeAt(0) + prop.propType.charCodeAt(0);
-                      const seed = (playerSeed * 7) % 100; // More varied seed
-                      
-                      // Simulate last 5 games based on hit rate and recent form
-                      const simulatedGames = [];
-                      for (let i = 0; i < 5; i++) {
-                        const gameSeed = (seed + i * 13) % 100;
-                        const gameHitRate = recentForm > 0.6 ? hitRate + 0.1 : hitRate - 0.1;
-                        const threshold = Math.max(0.1, Math.min(0.9, gameHitRate)) * 100;
-                        simulatedGames.push(gameSeed < threshold ? 1 : 0);
-                      }
-                      
-                      // Calculate streak from simulated games
-                      for (let i = 0; i < simulatedGames.length; i++) {
-                        if (simulatedGames[i] === 1) {
-                          currentStreak++;
-                        } else {
-                          break;
-                        }
-                      }
-                      
-                      console.log(`🔍 Simulated streak: ${currentStreak} (hitRate: ${hitRate}, recentForm: ${recentForm}, games: ${simulatedGames})`);
+                      // No real game data available - show 0 streak
+                      currentStreak = 0;
+                      console.log(`🔍 No real game data available, streak = 0`);
                     }
                     
                     // Determine streak display based on current streak
@@ -1140,21 +1116,17 @@ export function PlayerPropsColumnView({
                     
                     if (propFinderRating) {
                       return (
-                        <div className="flex flex-col items-center space-y-1">
+                        <div className="text-center">
                           <Badge 
                             className={cn(
-                              "text-xs font-bold border px-2 py-1",
+                              "text-xs font-bold border px-1 py-0.5",
                               propFinderRating >= 80 ? "bg-green-500/20 text-green-400 border-green-500/40" :
                               propFinderRating >= 60 ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/40" :
                               "bg-red-500/20 text-red-400 border-red-500/40"
                             )}
                           >
-                            <Star className="h-3 w-3" />
-                            <span className="ml-1">{propFinderRating}</span>
+                            {propFinderRating}
                           </Badge>
-                          <div className="text-xs font-semibold text-muted-foreground">
-                            {propFinderRating >= 80 ? 'A' : propFinderRating >= 60 ? 'B' : 'C'}
-                          </div>
                         </div>
                       );
                     }
@@ -1162,19 +1134,15 @@ export function PlayerPropsColumnView({
                     // Fallback to Statpedia rating
                     const rating = statpediaRatingService.calculateRating(prop, overUnderFilter);
                     return (
-                      <div className="flex flex-col items-center space-y-1">
+                      <div className="text-center">
                         <Badge 
                           className={cn(
-                            "text-xs font-bold border px-2 py-1",
+                            "text-xs font-bold border px-1 py-0.5",
                             getRatingColor(rating)
                           )}
                         >
-                          {getRatingIcon(rating)}
-                          <span className="ml-1">{rating.overall}</span>
+                          {rating.overall}
                         </Badge>
-                        <div className="text-xs text-muted-foreground font-semibold">
-                          {rating.grade}
-                        </div>
                       </div>
                     );
                   })()}
