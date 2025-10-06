@@ -45,6 +45,7 @@ import {
   Minus,
   Plus,
   BarChart,
+  Circle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
@@ -1820,7 +1821,7 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFi
 
         {/* Energetic Tabs with Soul */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 mt-4">
-          <TabsList className="grid w-full grid-cols-7 bg-gradient-to-r from-gray-800/80 via-black/80 to-gray-800/80 border-2 border-purple-500/30 rounded-xl p-2 shadow-lg shadow-purple-500/20 mb-4 mx-auto max-w-4xl">
+          <TabsList className={`grid w-full ${currentData.sport === 'mlb' ? 'grid-cols-8' : 'grid-cols-7'} bg-gradient-to-r from-gray-800/80 via-black/80 to-gray-800/80 border-2 border-purple-500/30 rounded-xl p-2 shadow-lg shadow-purple-500/20 mb-4 mx-auto max-w-4xl`}>
             <TabsTrigger 
               value="overview" 
               className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/50 transition-all duration-300 hover:scale-105 text-xs px-2 py-1"
@@ -1863,6 +1864,15 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFi
               <Settings className="w-3 h-3 mr-1" />
               Features
             </TabsTrigger>
+            {currentData.sport === 'mlb' && (
+              <TabsTrigger 
+                value="pitchers" 
+                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-yellow-600 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-yellow-500/50 transition-all duration-300 hover:scale-105 text-xs px-2 py-1"
+              >
+                <Circle className="w-3 h-3 mr-1" />
+                Pitchers
+              </TabsTrigger>
+            )}
             <TabsTrigger 
               value="ask-statpedia" 
               className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-600 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-cyan-500/50 transition-all duration-300 hover:scale-105 text-xs px-2 py-1"
@@ -2961,6 +2971,393 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFi
               </Card>
             </div>
           </TabsContent>
+
+          {/* Pitchers Tab - Baseball Only */}
+          {currentData.sport === 'mlb' && (
+            <TabsContent value="pitchers" className="space-y-4 mt-2">
+              <div className="space-y-6">
+                {/* Both Pitchers Header */}
+                <div className="text-center">
+                  <h3 className="text-2xl font-bold text-white bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">
+                    Starting Pitchers Analysis
+                  </h3>
+                  <p className="text-slate-400 mt-2">
+                    {currentData.teamAbbr} vs {currentData.opponentAbbr}
+                  </p>
+                </div>
+
+                {/* Pitcher 1 - Home Team */}
+                <div className="space-y-4">
+                  <h4 className="text-xl font-semibold text-white flex items-center gap-2">
+                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                    {currentData.teamAbbr} Starting Pitcher
+                  </h4>
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Opponent Team Stats vs Prop Type */}
+                    <Card className="bg-slate-800/50 border-slate-700">
+                      <CardHeader>
+                        <CardTitle className="text-slate-200 flex items-center gap-2">
+                          <Target className="w-5 h-5 text-red-400" />
+                          {currentData.opponentAbbr} vs {currentData.propType}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {currentData.propType.toLowerCase().includes('strikeout') && (
+                          <>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">K% vs RHP</span>
+                              <span className="text-white font-bold">24.3%</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">Contact Rate</span>
+                              <span className="text-white font-bold">76.8%</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">Chase Rate</span>
+                              <span className="text-white font-bold">28.1%</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">League Rank</span>
+                              <Badge className="bg-red-600/20 text-red-300 border-red-500/30">
+                                28th in Ks vs RHP
+                              </Badge>
+                            </div>
+                          </>
+                        )}
+                        {currentData.propType.toLowerCase().includes('out') && (
+                          <>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">Runs per Game</span>
+                              <span className="text-white font-bold">4.2</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">OBP</span>
+                              <span className="text-white font-bold">.312</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">Pitch Count Pressure</span>
+                              <span className="text-white font-bold">High</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">League Rank</span>
+                              <Badge className="bg-yellow-600/20 text-yellow-300 border-yellow-500/30">
+                                15th in Runs/Game
+                              </Badge>
+                            </div>
+                          </>
+                        )}
+                        {currentData.propType.toLowerCase().includes('earned run') && (
+                          <>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">Batting Average</span>
+                              <span className="text-white font-bold">.245</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">OPS</span>
+                              <span className="text-white font-bold">.712</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">wRC+ vs RHP</span>
+                              <span className="text-white font-bold">98</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">League Rank</span>
+                              <Badge className="bg-green-600/20 text-green-300 border-green-500/30">
+                                8th in Offense
+                              </Badge>
+                            </div>
+                          </>
+                        )}
+                        {!currentData.propType.toLowerCase().includes('strikeout') && 
+                         !currentData.propType.toLowerCase().includes('out') && 
+                         !currentData.propType.toLowerCase().includes('earned run') && (
+                          <>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">Team OPS</span>
+                              <span className="text-white font-bold">.712</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">wRC+</span>
+                              <span className="text-white font-bold">98</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">Runs per Game</span>
+                              <span className="text-white font-bold">4.2</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">League Rank</span>
+                              <Badge className="bg-blue-600/20 text-blue-300 border-blue-500/30">
+                                12th in Offense
+                              </Badge>
+                            </div>
+                          </>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Pitcher Usage & Efficiency */}
+                    <Card className="bg-slate-800/50 border-slate-700">
+                      <CardHeader>
+                        <CardTitle className="text-slate-200 flex items-center gap-2">
+                          <Activity className="w-5 h-5 text-blue-400" />
+                          Pitcher Usage & Efficiency
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Avg Innings</span>
+                          <span className="text-white font-bold">6.1</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Avg Pitch Count</span>
+                          <span className="text-white font-bold">95</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Recent Pitch Counts</span>
+                          <span className="text-white font-bold">101, 98, 95</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">CSW%</span>
+                          <span className="text-white font-bold">32.1%</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Walk Rate</span>
+                          <span className="text-white font-bold">8.2%</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">WHIP</span>
+                          <span className="text-white font-bold">1.15</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Splits & Situational Data */}
+                    <Card className="bg-slate-800/50 border-slate-700">
+                      <CardHeader>
+                        <CardTitle className="text-slate-200 flex items-center gap-2">
+                          <BarChart3 className="w-5 h-5 text-purple-400" />
+                          Splits & Situational
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Home vs Away</span>
+                          <span className="text-white font-bold">2.85 / 3.42 ERA</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">vs {currentData.opponentAbbr}</span>
+                          <span className="text-white font-bold">2-1, 2.33 ERA</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Last 30 Days</span>
+                          <span className="text-white font-bold">2.98 ERA</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">vs LHB/RHB</span>
+                          <span className="text-white font-bold">.198 / .245</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">1st Inning ERA</span>
+                          <span className="text-white font-bold">1.85</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">No Runs 1st</span>
+                          <Badge className="bg-green-600/20 text-green-300 border-green-500/30">
+                            18/25 (72%)
+                          </Badge>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+
+                {/* Pitcher 2 - Away Team */}
+                <div className="space-y-4">
+                  <h4 className="text-xl font-semibold text-white flex items-center gap-2">
+                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                    {currentData.opponentAbbr} Starting Pitcher
+                  </h4>
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Team Stats vs Prop Type */}
+                    <Card className="bg-slate-800/50 border-slate-700">
+                      <CardHeader>
+                        <CardTitle className="text-slate-200 flex items-center gap-2">
+                          <Target className="w-5 h-5 text-red-400" />
+                          {currentData.teamAbbr} vs {currentData.propType}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {currentData.propType.toLowerCase().includes('strikeout') && (
+                          <>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">K% vs RHP</span>
+                              <span className="text-white font-bold">22.1%</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">Contact Rate</span>
+                              <span className="text-white font-bold">78.2%</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">Chase Rate</span>
+                              <span className="text-white font-bold">31.4%</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">League Rank</span>
+                              <Badge className="bg-yellow-600/20 text-yellow-300 border-yellow-500/30">
+                                18th in Ks vs RHP
+                              </Badge>
+                            </div>
+                          </>
+                        )}
+                        {currentData.propType.toLowerCase().includes('out') && (
+                          <>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">Runs per Game</span>
+                              <span className="text-white font-bold">4.8</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">OBP</span>
+                              <span className="text-white font-bold">.328</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">Pitch Count Pressure</span>
+                              <span className="text-white font-bold">Medium</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">League Rank</span>
+                              <Badge className="bg-green-600/20 text-green-300 border-green-500/30">
+                                6th in Runs/Game
+                              </Badge>
+                            </div>
+                          </>
+                        )}
+                        {currentData.propType.toLowerCase().includes('earned run') && (
+                          <>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">Batting Average</span>
+                              <span className="text-white font-bold">.258</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">OPS</span>
+                              <span className="text-white font-bold">.745</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">wRC+ vs RHP</span>
+                              <span className="text-white font-bold">105</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">League Rank</span>
+                              <Badge className="bg-green-600/20 text-green-300 border-green-500/30">
+                                5th in Offense
+                              </Badge>
+                            </div>
+                          </>
+                        )}
+                        {!currentData.propType.toLowerCase().includes('strikeout') && 
+                         !currentData.propType.toLowerCase().includes('out') && 
+                         !currentData.propType.toLowerCase().includes('earned run') && (
+                          <>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">Team OPS</span>
+                              <span className="text-white font-bold">.745</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">wRC+</span>
+                              <span className="text-white font-bold">105</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">Runs per Game</span>
+                              <span className="text-white font-bold">4.8</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">League Rank</span>
+                              <Badge className="bg-green-600/20 text-green-300 border-green-500/30">
+                                5th in Offense
+                              </Badge>
+                            </div>
+                          </>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Pitcher Usage & Efficiency */}
+                    <Card className="bg-slate-800/50 border-slate-700">
+                      <CardHeader>
+                        <CardTitle className="text-slate-200 flex items-center gap-2">
+                          <Activity className="w-5 h-5 text-red-400" />
+                          Pitcher Usage & Efficiency
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Avg Innings</span>
+                          <span className="text-white font-bold">5.8</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Avg Pitch Count</span>
+                          <span className="text-white font-bold">92</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Recent Pitch Counts</span>
+                          <span className="text-white font-bold">88, 95, 89</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">CSW%</span>
+                          <span className="text-white font-bold">29.8%</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Walk Rate</span>
+                          <span className="text-white font-bold">9.1%</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">WHIP</span>
+                          <span className="text-white font-bold">1.28</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Splits & Situational Data */}
+                    <Card className="bg-slate-800/50 border-slate-700">
+                      <CardHeader>
+                        <CardTitle className="text-slate-200 flex items-center gap-2">
+                          <BarChart3 className="w-5 h-5 text-purple-400" />
+                          Splits & Situational
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Home vs Away</span>
+                          <span className="text-white font-bold">3.12 / 3.85 ERA</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">vs {currentData.teamAbbr}</span>
+                          <span className="text-white font-bold">1-2, 3.45 ERA</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Last 30 Days</span>
+                          <span className="text-white font-bold">3.67 ERA</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">vs LHB/RHB</span>
+                          <span className="text-white font-bold">.225 / .268</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">1st Inning ERA</span>
+                          <span className="text-white font-bold">2.45</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">No Runs 1st</span>
+                          <Badge className="bg-yellow-600/20 text-yellow-300 border-yellow-500/30">
+                            15/23 (65%)
+                          </Badge>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+          )}
 
           {/* Ask Statpedia Tab */}
           <TabsContent value="ask-statpedia" className="mt-2">
