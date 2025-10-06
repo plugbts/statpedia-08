@@ -2359,11 +2359,11 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFi
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div className="bg-slate-700/30 p-3 rounded-lg">
                         <div className="text-slate-400">Average</div>
-                        <div className="text-white font-semibold">{enhancedData.seasonStats?.average?.toFixed(1) || '12.5'}</div>
+                        <div className="text-white font-semibold">{enhancedData.seasonStats?.average?.toFixed(1) || (enhancedData.gameHistory?.length > 0 ? (enhancedData.gameHistory.reduce((sum: number, game: any) => sum + (game.performance || 0), 0) / enhancedData.gameHistory.length).toFixed(1) : 'N/A')}</div>
                       </div>
                       <div className="bg-slate-700/30 p-3 rounded-lg">
                         <div className="text-slate-400">Hit Rate</div>
-                        <div className="text-white font-semibold">{Math.round((enhancedData.seasonStats?.hitRate || 0.65) * 100)}%</div>
+                        <div className="text-white font-semibold">{Math.round((enhancedData.seasonStats?.hitRate || (enhancedData.gameHistory?.length > 0 ? enhancedData.gameHistory.filter((game: any) => game.hit).length / enhancedData.gameHistory.length : 0.5)) * 100)}%</div>
                       </div>
                     </div>
                   </div>
@@ -2450,7 +2450,7 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFi
                       <div className="bg-slate-700/30 p-3 rounded-lg">
                         <div className="text-slate-400">Current Season</div>
                         <div className="text-white font-semibold text-lg">
-                          {enhancedData.seasonStats?.average?.toFixed(1) || '12.5'}
+                          {enhancedData.seasonStats?.average?.toFixed(1) || (enhancedData.gameHistory?.length > 0 ? (enhancedData.gameHistory.reduce((sum: number, game: any) => sum + (game.performance || 0), 0) / enhancedData.gameHistory.length).toFixed(1) : 'N/A')}
                         </div>
                         <div className="text-slate-400 text-xs">
                           {enhancedData.propType} per game

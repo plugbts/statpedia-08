@@ -160,18 +160,18 @@ export function AskStatpedia({ playerProp, gameContext }: AskStatpediaProps) {
   const questionCategories = statpediaAI.getQuestionCategories();
 
   return (
-    <div className="flex flex-col h-full max-h-[600px] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="flex flex-col h-full max-h-[600px] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       {/* Header */}
-      <div className="flex items-center space-x-3 p-4 border-b border-slate-700/60 bg-slate-900/80">
-        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600">
+      <div className="flex items-center space-x-3 p-4 border-b border-slate-800/80 bg-slate-900/90">
+        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600">
           <Brain className="h-5 w-5 text-white" />
         </div>
         <div>
-          <h3 className="text-lg font-bold text-slate-100">Ask Statpedia</h3>
-          <p className="text-sm text-slate-400">Advanced Sports Analytics AI</p>
+          <h3 className="text-lg font-bold text-slate-100">AI Insights</h3>
+          <p className="text-sm text-slate-300">Advanced Sports Analytics</p>
         </div>
         <div className="flex-1" />
-        <Badge className="bg-gradient-to-r from-blue-500/20 to-purple-600/20 text-blue-300 border-blue-500/30">
+        <Badge className="bg-gradient-to-r from-cyan-500/20 to-blue-600/20 text-cyan-300 border-cyan-500/30">
           <Zap className="h-3 w-3 mr-1" />
           AI Powered
         </Badge>
@@ -283,10 +283,10 @@ export function AskStatpedia({ playerProp, gameContext }: AskStatpediaProps) {
 
       {/* Sample Questions (shown when no messages or only welcome) */}
       {messages.length <= 1 && (
-        <div className="p-4 border-t border-slate-700/60 bg-slate-900/40">
+        <div className="p-4 border-t border-slate-800/80 bg-slate-950/60">
           <div className="flex items-center space-x-1 mb-3">
-            <Lightbulb className="h-4 w-4 text-yellow-400" />
-            <span className="text-sm font-semibold text-slate-300">Try asking:</span>
+            <Lightbulb className="h-4 w-4 text-cyan-400" />
+            <span className="text-sm font-semibold text-slate-200">Suggested Questions:</span>
           </div>
           <div className="grid grid-cols-1 gap-2">
             {sampleQuestions.slice(0, 4).map((question, index) => (
@@ -295,7 +295,7 @@ export function AskStatpedia({ playerProp, gameContext }: AskStatpediaProps) {
                 variant="ghost"
                 size="sm"
                 onClick={() => handleSampleQuestionClick(question)}
-                className="justify-start h-auto p-2 text-xs text-slate-400 hover:text-blue-300 hover:bg-blue-500/10 border border-slate-700/40 hover:border-blue-500/40"
+                className="justify-start h-auto p-2 text-xs text-slate-300 hover:text-cyan-300 hover:bg-cyan-500/10 border border-slate-800/60 hover:border-cyan-500/60"
               >
                 <MessageCircle className="h-3 w-3 mr-2 flex-shrink-0" />
                 <span className="text-left">{question}</span>
@@ -306,7 +306,7 @@ export function AskStatpedia({ playerProp, gameContext }: AskStatpediaProps) {
       )}
 
       {/* Input Area */}
-      <div className="p-4 border-t border-slate-700/60 bg-slate-900/80">
+      <div className="p-4 border-t border-slate-800/80 bg-slate-900/90">
         <div className="flex space-x-2">
           <Input
             ref={inputRef}
@@ -314,13 +314,13 @@ export function AskStatpedia({ playerProp, gameContext }: AskStatpediaProps) {
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="Ask me anything about sports analytics, player performance, or prop betting..."
-            className="flex-1 bg-slate-800/60 border-slate-600/60 text-slate-200 placeholder-slate-500 focus:border-blue-500/60 focus:ring-blue-500/20"
+            className="flex-1 bg-slate-800/80 border-slate-700/80 text-slate-100 placeholder-slate-400 focus:border-cyan-500/60 focus:ring-cyan-500/20"
             disabled={isLoading}
           />
           <Button
             onClick={handleSendMessage}
             disabled={!inputValue.trim() || isLoading}
-            className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
+            className="bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 text-white"
           >
             <Send className="h-4 w-4" />
           </Button>
