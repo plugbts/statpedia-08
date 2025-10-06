@@ -907,13 +907,10 @@ export function PlayerPropsColumnView({
                       } else if (percentage >= 60) {
                         circleColor = 'stroke-yellow-500';
                         textColor = 'text-yellow-600';
-                      } else if (percentage >= 40) {
-                        circleColor = 'stroke-orange-500';
-                        textColor = 'text-orange-600';
-                    } else {
+                      } else {
                         circleColor = 'stroke-red-500';
                         textColor = 'text-red-600';
-                    }
+                      }
                     
                     return (
                         <div className="flex flex-col items-center">
