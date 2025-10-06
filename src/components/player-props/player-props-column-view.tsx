@@ -785,17 +785,17 @@ export function PlayerPropsColumnView({
             
             {/* Scrollable Headers */}
             <div className="flex flex-row">
-              <div className="w-24 px-2 py-3 text-xs font-semibold text-foreground text-center">Team</div>
-              <div className="w-32 px-2 py-3 text-xs font-semibold text-foreground text-center">Prop</div>
-              <div className="w-20 px-2 py-3 text-xs font-semibold text-foreground text-center">Line</div>
-              <div className="w-20 px-2 py-3 text-xs font-semibold text-foreground text-center">Over</div>
-              <div className="w-20 px-2 py-3 text-xs font-semibold text-foreground text-center">Under</div>
-              <div className="w-24 px-2 py-3 text-xs font-semibold text-foreground text-center">Matchup</div>
-              <div className="w-16 px-2 py-3 text-xs font-semibold text-foreground text-center">2025</div>
-              <div className="w-24 px-2 py-3 text-xs font-semibold text-foreground text-center">H2H|L5|L10|L20</div>
-              <div className="w-16 px-2 py-3 text-xs font-semibold text-foreground text-center">EV%</div>
-              <div className="w-16 px-2 py-3 text-xs font-semibold text-foreground text-center">Streak</div>
-              <div className="w-16 px-2 py-3 text-xs font-semibold text-foreground text-center">Rating</div>
+              <div className="w-12 px-1 py-3 text-xs font-semibold text-foreground text-center">Team</div>
+              <div className="w-20 px-1 py-3 text-xs font-semibold text-foreground text-center">Prop</div>
+              <div className="w-12 px-1 py-3 text-xs font-semibold text-foreground text-center">Line</div>
+              <div className="w-12 px-1 py-3 text-xs font-semibold text-foreground text-center">Over</div>
+              <div className="w-12 px-1 py-3 text-xs font-semibold text-foreground text-center">Under</div>
+              <div className="w-16 px-1 py-3 text-xs font-semibold text-foreground text-center">Matchup</div>
+              <div className="w-10 px-1 py-3 text-xs font-semibold text-foreground text-center">2025</div>
+              <div className="w-16 px-1 py-3 text-xs font-semibold text-foreground text-center">H2H|L5|L10|L20</div>
+              <div className="w-10 px-1 py-3 text-xs font-semibold text-foreground text-center">EV%</div>
+              <div className="w-10 px-1 py-3 text-xs font-semibold text-foreground text-center">Streak</div>
+              <div className="w-10 px-1 py-3 text-xs font-semibold text-foreground text-center">Rating</div>
             </div>
           </div>
 
@@ -849,42 +849,42 @@ export function PlayerPropsColumnView({
               {/* Scrollable Data Columns */}
               <div className="flex flex-row">
                 {/* Team */}
-                <div className="w-24 px-2 py-3 text-center">
+                <div className="w-12 px-1 py-3 text-center">
                   <div className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors duration-200">
                     {prop.teamAbbr || '—'}
                   </div>
                 </div>
 
                 {/* Prop Type */}
-                <div className="w-32 px-2 py-3 text-center">
+                <div className="w-20 px-1 py-3 text-center">
                   <div className="text-xs font-semibold text-foreground group-hover:text-primary/90 transition-colors duration-200">
                     {prop.propType || '—'}
                   </div>
                 </div>
 
                 {/* Line */}
-                <div className="w-20 px-2 py-3 text-center">
-                  <div className="text-sm font-bold text-foreground group-hover:text-primary transition-colors duration-200">
+                <div className="w-12 px-1 py-3 text-center">
+                  <div className="text-xs font-bold text-foreground group-hover:text-primary transition-colors duration-200">
                     {prop.line ? prop.line.toFixed(1) : '—'}
                   </div>
                 </div>
 
                 {/* Over Odds */}
-                <div className="w-20 px-2 py-3 text-center">
+                <div className="w-12 px-1 py-3 text-center">
                   <div className="text-xs font-semibold text-green-500 group-hover:text-green-400 transition-colors duration-200">
                     {toAmericanOdds(prop.best_over || prop.overOdds)}
                   </div>
                 </div>
 
                 {/* Under Odds */}
-                <div className="w-20 px-2 py-3 text-center">
+                <div className="w-12 px-1 py-3 text-center">
                   <div className="text-xs font-semibold text-red-500 group-hover:text-red-400 transition-colors duration-200">
                     {toAmericanOdds(prop.best_under || prop.underOdds)}
                   </div>
                 </div>
 
                 {/* Matchup Column */}
-                <div className="w-24 px-2 py-3 text-center">
+                <div className="w-16 px-1 py-3 text-center">
                   {(() => {
                     const key = `${prop.playerName}-${prop.teamAbbr}-${prop.opponentAbbr}-${prop.propType}`;
                     const matchup = matchupData.get(key);
@@ -928,7 +928,7 @@ export function PlayerPropsColumnView({
                 </div>
 
                 {/* 2025 Hit Rate Column */}
-                <div className="w-16 px-2 py-3 text-center">
+                <div className="w-10 px-1 py-3 text-center">
                   {(() => {
                     const key = `${prop.playerName}-${prop.teamAbbr}-${prop.opponentAbbr}-${prop.propType}`;
                     const matchup = matchupData.get(key);
@@ -950,7 +950,7 @@ export function PlayerPropsColumnView({
                 </div>
 
                 {/* H2H | L5 | L10 | L20 Column */}
-                <div className="w-24 px-2 py-3 text-center">
+                <div className="w-16 px-1 py-3 text-center">
                   {(() => {
                     const key = `${prop.playerName}-${prop.teamAbbr}-${prop.opponentAbbr}-${prop.propType}`;
                     const matchup = matchupData.get(key);
@@ -981,7 +981,7 @@ export function PlayerPropsColumnView({
                 </div>
 
                 {/* Expected Value */}
-                <div className="w-16 px-2 py-3 text-center">
+                <div className="w-10 px-1 py-3 text-center">
                   {prop.expectedValue ? (
                     <span className="text-xs font-bold text-blue-500 group-hover:text-blue-400 transition-colors duration-200">
                       {prop.expectedValue > 0 ? '+' : ''}{prop.expectedValue.toFixed(1)}%
@@ -992,7 +992,7 @@ export function PlayerPropsColumnView({
                 </div>
 
                 {/* Hit Streak */}
-                <div className="w-16 px-2 py-3 text-center">
+                <div className="w-10 px-1 py-3 text-center">
                   {(() => {
                     // Calculate REAL streak based on actual game results
                     let currentStreak = 0;
@@ -1039,7 +1039,7 @@ export function PlayerPropsColumnView({
                 </div>
 
                 {/* Statpedia Rating */}
-                <div className="w-16 px-2 py-3 text-center">
+                <div className="w-10 px-1 py-3 text-center">
                   {(() => {
                     const propFinderRating = overUnderFilter === 'over' 
                       ? (prop.rating_over_normalized || prop.rating_over_raw)
