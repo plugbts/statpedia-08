@@ -156,8 +156,8 @@ export function AskStatpedia({ playerProp, gameContext }: AskStatpediaProps) {
     return <Activity className="h-3 w-3" />;
   };
 
-  const sampleQuestions = statpediaAI.getSampleQuestions();
-  const questionCategories = statpediaAI.getQuestionCategories();
+  const sampleQuestions = statpediaAI.getSampleQuestions(gameContext?.sport, gameContext);
+  const questionCategories = statpediaAI.getQuestionCategories(gameContext?.sport, gameContext);
 
   return (
     <div className="flex flex-col h-full max-h-[600px] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">

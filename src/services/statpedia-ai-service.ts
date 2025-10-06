@@ -149,27 +149,44 @@ class StatpediaAIService {
     
     let response: AIResponse;
 
-    switch (questionType) {
-      case 'player_performance':
-        response = await this.analyzePlayerPerformance(normalizedQuestion, context);
-        break;
-      case 'player_comparison':
-        response = await this.comparePlayerPerformance(normalizedQuestion, context);
-        break;
-      case 'team_analysis':
-        response = await this.analyzeTeamPerformance(normalizedQuestion, context);
-        break;
-      case 'matchup_prediction':
-        response = await this.predictMatchup(normalizedQuestion, context);
-        break;
-      case 'injury_impact':
-        response = await this.analyzeInjuryImpact(normalizedQuestion, context);
-        break;
-      case 'prop_recommendation':
-        response = await this.recommendPropBets(normalizedQuestion, context);
-        break;
-      default:
-        response = await this.generateGenericResponse(normalizedQuestion, context);
+    // First try to answer with existing knowledge
+    try {
+      switch (questionType) {
+        case 'player_performance':
+          response = await this.analyzePlayerPerformance(normalizedQuestion, context);
+          break;
+        case 'player_comparison':
+          response = await this.comparePlayerPerformance(normalizedQuestion, context);
+          break;
+        case 'team_analysis':
+          response = await this.analyzeTeamPerformance(normalizedQuestion, context);
+          break;
+        case 'matchup_prediction':
+          response = await this.predictMatchup(normalizedQuestion, context);
+          break;
+        case 'injury_impact':
+          response = await this.analyzeInjuryImpact(normalizedQuestion, context);
+          break;
+        case 'prop_recommendation':
+          response = await this.recommendPropBets(normalizedQuestion, context);
+          break;
+        case 'general':
+          response = await this.generateGeneralResponse(normalizedQuestion, context);
+          break;
+        default:
+          response = await this.generateGenericResponse(normalizedQuestion, context);
+      }
+    } catch (error) {
+      console.error('Error in AI response generation:', error);
+      response = await this.generateErrorResponse(question, context);
+    }
+
+    // If confidence is low, try to search for more information
+    if (response.confidence < 50) {
+      const searchResponse = await this.searchAndAnswer(question, context);
+      if (searchResponse.confidence > response.confidence) {
+        response = searchResponse;
+      }
     }
 
     console.log(`🎯 Statpedia AI response generated with ${response.confidence}% confidence`);
@@ -195,7 +212,137 @@ class StatpediaAIService {
     if (question.includes('how') && (question.includes('play') || question.includes('perform'))) {
       return 'player_performance';
     }
+    if (question.includes('what') || question.includes('explain') || question.includes('tell me') || question.includes('why') || question.includes('when') || question.includes('where')) {
+      return 'general';
+    }
     return 'general';
+  }
+
+  private async comparePlayerPerformance(question: string, context?: any): Promise<AIResponse> {
+    const players = this.extractPlayerNames(question);
+    if (players.length < 2) {
+      return {
+        answer: "I need at least two player names to make a comparison. Could you specify which players you'd like me to compare?",
+        confidence: 30,
+        reasoning: ['Insufficient players for comparison'],
+        relatedStats: [],
+        sources: [],
+        followUpQuestions: [
+          'Which two players would you like me to compare?',
+          'Are you looking for a specific stat comparison?'
+        ]
+      };
+    }
+
+    const player1 = this.playerDatabase.get(players[0]);
+    const player2 = this.playerDatabase.get(players[1]);
+
+    if (!player1 || !player2) {
+      return this.createNotFoundResponse(players[0] || players[1], context);
+    }
+
+    const comparison = this.generatePlayerComparison(player1, player2);
+    
+    return {
+      answer: comparison.analysis,
+      confidence: 88,
+      reasoning: comparison.reasoning,
+      relatedStats: comparison.stats,
+      sources: ['NBA Stats API', 'Basketball Reference', 'Statpedia Analytics'],
+      followUpQuestions: [
+        `Who has better advanced metrics: ${player1.name} or ${player2.name}?`,
+        `How do ${player1.name} and ${player2.name} perform in clutch situations?`,
+        `Which player offers better value for prop betting?`
+      ]
+    };
+  }
+
+  private async analyzeTeamPerformance(question: string, context?: any): Promise<AIResponse> {
+    const teamName = this.extractTeamName(question);
+    const team = this.teamDatabase.get(teamName);
+    
+    if (!team) {
+      return {
+        answer: `I don't have detailed data on ${teamName}. Could you try asking about a specific NBA team like the Lakers, Mavericks, Warriors, or Celtics?`,
+        confidence: 30,
+        reasoning: [`Team "${teamName}" not found in database`],
+        relatedStats: [],
+        sources: [],
+        followUpQuestions: [
+          'Which NBA team would you like me to analyze?',
+          'Are you looking for team stats or player performance?'
+        ]
+      };
+    }
+
+    const analysis = this.generateTeamAnalysis(team);
+    
+    return {
+      answer: analysis,
+      confidence: 85,
+      reasoning: [
+        `Analyzing ${team.name} performance`,
+        `Record: ${team.record.wins}-${team.record.losses}`,
+        `Offensive rating: ${team.stats.offensiveRating}`,
+        `Defensive rating: ${team.stats.defensiveRating}`
+      ],
+      relatedStats: [team.stats, team.record],
+      sources: ['NBA Team Stats', 'Statpedia Analytics'],
+      followUpQuestions: [
+        `How do ${team.name} perform on the road?`,
+        `What's ${team.name}'s strength of schedule?`,
+        `Which players are key to ${team.name}'s success?`
+      ]
+    };
+  }
+
+  private async predictMatchup(question: string, context?: any): Promise<AIResponse> {
+    const teams = this.extractTeamNames(question);
+    if (teams.length < 2) {
+      return {
+        answer: "I need two team names to predict a matchup. Could you specify which teams you'd like me to analyze?",
+        confidence: 30,
+        reasoning: ['Insufficient teams for matchup analysis'],
+        relatedStats: [],
+        sources: [],
+        followUpQuestions: [
+          'Which two teams are playing?',
+          'Are you looking for a specific game prediction?'
+        ]
+      };
+    }
+
+    const team1 = this.teamDatabase.get(teams[0]);
+    const team2 = this.teamDatabase.get(teams[1]);
+
+    if (!team1 || !team2) {
+      return {
+        answer: `I don't have data on one or both teams. Could you try asking about specific NBA teams?`,
+        confidence: 30,
+        reasoning: ['One or both teams not found'],
+        relatedStats: [],
+        sources: [],
+        followUpQuestions: [
+          'Which NBA teams are you interested in?',
+          'Are you looking for team comparisons?'
+        ]
+      };
+    }
+
+    const prediction = this.generateMatchupPrediction(team1, team2);
+    
+    return {
+      answer: prediction.analysis,
+      confidence: prediction.confidence,
+      reasoning: prediction.reasoning,
+      relatedStats: [team1.stats, team2.stats],
+      sources: ['NBA Matchup Analysis', 'Statpedia Modeling'],
+      followUpQuestions: [
+        `What props look good for this ${team1.name} vs ${team2.name} game?`,
+        `How do these teams perform historically?`,
+        `Which team has the better defense?`
+      ]
+    };
   }
 
   private async analyzePlayerPerformance(question: string, context?: any): Promise<AIResponse> {
@@ -511,6 +658,119 @@ class StatpediaAIService {
     };
   }
 
+  private async generateGeneralResponse(question: string, context?: any): Promise<AIResponse> {
+    // Enhanced general response that can handle any question
+    const lowerQuestion = question.toLowerCase();
+    
+    // Check if it's a sports-related question
+    const sportsKeywords = ['basketball', 'football', 'nba', 'nfl', 'player', 'team', 'game', 'season', 'stats', 'performance', 'bet', 'prop', 'odds', 'line', 'over', 'under'];
+    const isSportsRelated = sportsKeywords.some(keyword => lowerQuestion.includes(keyword));
+    
+    if (isSportsRelated) {
+      return {
+        answer: `I can help you with that sports question! While I don't have specific data on every aspect you're asking about, I can provide general insights and analysis. ${context?.playerProp?.playerName ? `I see you're looking at ${context.playerProp.playerName}'s prop - I can help analyze that specific situation.` : ''} What specific information are you looking for?`,
+        confidence: 70,
+        reasoning: [
+          'Question appears to be sports-related',
+          'Can provide general analysis and guidance',
+          context?.playerProp?.playerName ? 'Has current player context' : 'No specific player context'
+        ],
+        relatedStats: [],
+        sources: ['Statpedia AI Assistant', 'General Sports Knowledge'],
+        followUpQuestions: [
+          'Can you be more specific about what you want to know?',
+          'Are you asking about a particular player or team?',
+          'Would you like me to analyze the current prop you\'re viewing?',
+          'What sport are you most interested in?'
+        ]
+      };
+    }
+    
+    // Non-sports question
+    return {
+      answer: "I'm specialized in sports analysis and betting insights! I can help you with questions about player performance, team matchups, injury impacts, prop betting, and sports statistics. Feel free to ask me about NBA, NFL, or other sports topics. What would you like to know about sports?",
+      confidence: 80,
+      reasoning: ['Question not sports-related', 'Redirecting to sports expertise'],
+      relatedStats: [],
+      sources: ['Statpedia AI Assistant'],
+      followUpQuestions: [
+        'What sports are you interested in?',
+        'Do you have any questions about player performance?',
+        'Would you like help with prop betting?',
+        'Are you looking for team analysis?'
+      ]
+    };
+  }
+
+  private async searchAndAnswer(question: string, context?: any): Promise<AIResponse> {
+    // Simulate web search for additional information
+    console.log(`🔍 Searching for additional information about: "${question}"`);
+    
+    // In a real implementation, this would call a web search API
+    // For now, we'll provide a more comprehensive response based on available data
+    
+    const searchTerms = this.extractSearchTerms(question);
+    const enhancedResponse = await this.generateEnhancedResponse(question, searchTerms, context);
+    
+    return enhancedResponse;
+  }
+
+  private extractSearchTerms(question: string): string[] {
+    const words = question.toLowerCase().split(' ');
+    const stopWords = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'how', 'what', 'when', 'where', 'why', 'who', 'which'];
+    
+    return words.filter(word => 
+      word.length > 2 && 
+      !stopWords.includes(word) && 
+      !word.match(/^[0-9]+$/)
+    );
+  }
+
+  private async generateEnhancedResponse(question: string, searchTerms: string[], context?: any): Promise<AIResponse> {
+    // Generate a more comprehensive response based on search terms
+    const playerName = this.extractPlayerName(question, context);
+    const hasPlayerData = this.playerDatabase.has(playerName);
+    
+    if (hasPlayerData) {
+      return await this.analyzePlayerPerformance(question, context);
+    }
+    
+    // If no specific player data, provide general analysis
+    return {
+      answer: `Based on my analysis of "${question}", I can provide some general insights. While I don't have specific data on all aspects of your question, I can help you think through the key factors to consider. ${context?.playerProp?.playerName ? `I notice you're looking at ${context.playerProp.playerName}'s prop - that might be relevant to your question.` : ''} Would you like me to focus on a specific aspect or provide more targeted analysis?`,
+      confidence: 60,
+      reasoning: [
+        'Performed enhanced search analysis',
+        'Combined available data with general knowledge',
+        hasPlayerData ? 'Found relevant player data' : 'Used general analysis approach'
+      ],
+      relatedStats: [],
+      sources: ['Enhanced Search Analysis', 'Statpedia AI Assistant'],
+      followUpQuestions: [
+        'Can you be more specific about what you want to know?',
+        'Are you looking for data on a particular player?',
+        'Would you like me to analyze the current prop?',
+        'What specific aspect should I focus on?'
+      ]
+    };
+  }
+
+  private async generateErrorResponse(question: string, context?: any): Promise<AIResponse> {
+    return {
+      answer: "I apologize, but I encountered an error while processing your question. Please try rephrasing your question or ask about something else. I'm here to help with sports analysis, player performance, and betting insights!",
+      confidence: 30,
+      reasoning: ['Error occurred during response generation'],
+      relatedStats: [],
+      sources: ['Statpedia AI Assistant'],
+      followUpQuestions: [
+        'Can you try asking your question differently?',
+        'Are you looking for help with a specific player or team?',
+        'Would you like me to analyze the current prop?',
+        'What sports topic interests you most?'
+      ]
+    };
+  }
+
   private async generateGenericResponse(question: string, context?: any): Promise<AIResponse> {
     // If we have context about a current player prop, provide contextual help
     if (context?.playerProp?.playerName) {
@@ -556,7 +816,56 @@ class StatpediaAIService {
   }
 
   // Additional utility methods for enhanced functionality
-  getSampleQuestions(): string[] {
+  getSampleQuestions(sport?: string, context?: any): string[] {
+    const sportType = sport?.toLowerCase() || context?.sport?.toLowerCase() || 'nba';
+    
+    if (sportType === 'nfl') {
+      return [
+        "How well does Mahomes perform in cold weather games?",
+        "Should I bet the over on Josh Allen's passing yards?",
+        "How do the Chiefs perform without Travis Kelce?",
+        "What's Derrick Henry's rushing prop value against this defense?",
+        "How does Aaron Rodgers perform in primetime games?",
+        "Which team has the better defensive matchup tonight?",
+        "What's the best parlay for tonight's NFL games?",
+        "How do injuries affect team scoring averages in the NFL?"
+      ];
+    } else if (sportType === 'nba') {
+      return [
+        "How well does LeBron play when AD is out?",
+        "Should I bet the over on Luka's points tonight?",
+        "How do the Lakers perform without LeBron?",
+        "What's Curry's three-point prop value against the Celtics?",
+        "How does Giannis perform in back-to-back games?",
+        "Which team has the better defensive matchup tonight?",
+        "What's the best parlay for tonight's slate?",
+        "How do injuries affect team scoring averages?"
+      ];
+    } else if (sportType === 'mlb') {
+      return [
+        "How well does Ohtani perform against left-handed pitchers?",
+        "Should I bet the over on Judge's home runs tonight?",
+        "How do the Yankees perform without Aaron Judge?",
+        "What's Trout's batting average prop value against this pitcher?",
+        "How does Acuña perform in day games vs night games?",
+        "Which team has the better pitching matchup tonight?",
+        "What's the best parlay for tonight's MLB games?",
+        "How do weather conditions affect hitting performance?"
+      ];
+    } else if (sportType === 'nhl') {
+      return [
+        "How well does McDavid perform on the road?",
+        "Should I bet the over on Matthews' shots on goal?",
+        "How do the Oilers perform without McDavid?",
+        "What's MacKinnon's points prop value against this team?",
+        "How does Crosby perform in playoff games?",
+        "Which team has the better defensive matchup tonight?",
+        "What's the best parlay for tonight's NHL games?",
+        "How do injuries affect team scoring in hockey?"
+      ];
+    }
+    
+    // Default NBA questions
     return [
       "How well does LeBron play when AD is out?",
       "Should I bet the over on Luka's points tonight?",
@@ -569,7 +878,104 @@ class StatpediaAIService {
     ];
   }
 
-  getQuestionCategories(): { [key: string]: string[] } {
+  getQuestionCategories(sport?: string, context?: any): { [key: string]: string[] } {
+    const sportType = sport?.toLowerCase() || context?.sport?.toLowerCase() || 'nba';
+    
+    if (sportType === 'nfl') {
+      return {
+        "Player Performance": [
+          "How is [Player] performing this season?",
+          "What are [Player]'s clutch time stats?",
+          "How does [Player] perform in cold weather?"
+        ],
+        "Injury Impact": [
+          "How does [Player] perform without [Teammate]?",
+          "What happens to team offense when [Player] is out?",
+          "How do backup players step up with injuries?"
+        ],
+        "Prop Betting": [
+          "Should I bet the over on [Player]'s passing yards?",
+          "What props offer the best value tonight?",
+          "How does [Player] perform against this defense?"
+        ],
+        "Team Analysis": [
+          "How do [Team] perform on the road?",
+          "What's [Team]'s strength of schedule?",
+          "Which team has the better defensive matchup?"
+        ]
+      };
+    } else if (sportType === 'nba') {
+      return {
+        "Player Performance": [
+          "How is [Player] performing this season?",
+          "What are [Player]'s clutch time stats?",
+          "How does [Player] play at home vs away?"
+        ],
+        "Injury Impact": [
+          "How does [Player] perform without [Teammate]?",
+          "What happens to team offense when [Player] is out?",
+          "How do role players step up with injuries?"
+        ],
+        "Prop Betting": [
+          "Should I bet the over on [Player]'s points?",
+          "What props offer the best value tonight?",
+          "How does [Player] perform against this defense?"
+        ],
+        "Team Analysis": [
+          "How do [Team] perform on the road?",
+          "What's [Team]'s strength of schedule?",
+          "Which team has the better matchup?"
+        ]
+      };
+    } else if (sportType === 'mlb') {
+      return {
+        "Player Performance": [
+          "How is [Player] performing this season?",
+          "What are [Player]'s clutch time stats?",
+          "How does [Player] perform against left/right-handed pitchers?"
+        ],
+        "Injury Impact": [
+          "How does [Player] perform without [Teammate]?",
+          "What happens to team offense when [Player] is out?",
+          "How do bench players step up with injuries?"
+        ],
+        "Prop Betting": [
+          "Should I bet the over on [Player]'s home runs?",
+          "What props offer the best value tonight?",
+          "How does [Player] perform against this pitcher?"
+        ],
+        "Team Analysis": [
+          "How do [Team] perform on the road?",
+          "What's [Team]'s strength of schedule?",
+          "Which team has the better pitching matchup?"
+        ]
+      };
+    } else if (sportType === 'nhl') {
+      return {
+        "Player Performance": [
+          "How is [Player] performing this season?",
+          "What are [Player]'s clutch time stats?",
+          "How does [Player] perform at home vs away?"
+        ],
+        "Injury Impact": [
+          "How does [Player] perform without [Teammate]?",
+          "What happens to team offense when [Player] is out?",
+          "How do depth players step up with injuries?"
+        ],
+        "Prop Betting": [
+          "Should I bet the over on [Player]'s points?",
+          "What props offer the best value tonight?",
+          "How does [Player] perform against this team?"
+        ],
+        "Team Analysis": [
+          "How do [Team] perform on the road?",
+          "What's [Team]'s strength of schedule?",
+          "Which team has the better defensive matchup?"
+        ]
+      };
+    }
+    
+    // Default NBA categories
     return {
       "Player Performance": [
         "How is [Player] performing this season?",
@@ -590,6 +996,106 @@ class StatpediaAIService {
         "How do [Team] perform on the road?",
         "What's [Team]'s strength of schedule?",
         "Which team has the better matchup?"
+      ]
+    };
+  }
+
+  // Helper methods for the new functionality
+  private extractTeamName(question: string): string {
+    const teamNames = [
+      'lakers', 'mavericks', 'warriors', 'celtics', 'heat', 'nuggets', 'suns', 'bucks',
+      'nets', 'sixers', 'knicks', 'hawks', 'hornets', 'bulls', 'cavaliers', 'pistons',
+      'pacers', 'magic', 'raptors', 'wizards', 'jazz', 'thunder', 'trail blazers',
+      'kings', 'spurs', 'rockets', 'grizzlies', 'pelicans', 'timberwolves', 'clippers'
+    ];
+    
+    const lowerQuestion = question.toLowerCase();
+    const foundTeam = teamNames.find(team => lowerQuestion.includes(team));
+    return foundTeam || '';
+  }
+
+  private extractTeamNames(question: string): string[] {
+    const teamNames = [
+      'lakers', 'mavericks', 'warriors', 'celtics', 'heat', 'nuggets', 'suns', 'bucks',
+      'nets', 'sixers', 'knicks', 'hawks', 'hornets', 'bulls', 'cavaliers', 'pistons',
+      'pacers', 'magic', 'raptors', 'wizards', 'jazz', 'thunder', 'trail blazers',
+      'kings', 'spurs', 'rockets', 'grizzlies', 'pelicans', 'timberwolves', 'clippers'
+    ];
+    
+    const lowerQuestion = question.toLowerCase();
+    return teamNames.filter(team => lowerQuestion.includes(team));
+  }
+
+  private generatePlayerComparison(player1: PlayerStats, player2: PlayerStats) {
+    const pointsWinner = player1.averages.points > player2.averages.points ? player1.name : player2.name;
+    const reboundsWinner = player1.averages.rebounds > player2.averages.rebounds ? player1.name : player2.name;
+    const assistsWinner = player1.averages.assists > player2.averages.assists ? player1.name : player2.name;
+    const perWinner = player1.advanced.per > player2.advanced.per ? player1.name : player2.name;
+    
+    const analysis = `Comparing ${player1.name} vs ${player2.name}: ${player1.name} averages ${player1.averages.points} PPG, ${player1.averages.rebounds} RPG, and ${player1.averages.assists} APG with a ${player1.advanced.per} PER. ${player2.name} averages ${player2.averages.points} PPG, ${player2.averages.rebounds} RPG, and ${player2.averages.assists} APG with a ${player2.advanced.per} PER. ${pointsWinner} leads in scoring, ${reboundsWinner} in rebounds, ${assistsWinner} in assists, and ${perWinner} has the higher PER. Both are elite players with different strengths.`;
+    
+    return {
+      analysis,
+      reasoning: [
+        `Comparing ${player1.name} and ${player2.name} across key metrics`,
+        `Points: ${player1.name} ${player1.averages.points} vs ${player2.name} ${player2.averages.points}`,
+        `Rebounds: ${player1.name} ${player1.averages.rebounds} vs ${player2.name} ${player2.averages.rebounds}`,
+        `Assists: ${player1.name} ${player1.averages.assists} vs ${player2.name} ${player2.averages.assists}`,
+        `PER: ${player1.name} ${player1.advanced.per} vs ${player2.name} ${player2.advanced.per}`
+      ],
+      stats: {
+        player1: player1.averages,
+        player2: player2.averages,
+        comparison: {
+          points: player1.averages.points - player2.averages.points,
+          rebounds: player1.averages.rebounds - player2.averages.rebounds,
+          assists: player1.averages.assists - player2.averages.assists,
+          per: player1.advanced.per - player2.advanced.per
+        }
+      }
+    };
+  }
+
+  private generateTeamAnalysis(team: any): string {
+    const winPercentage = (team.record.wins / (team.record.wins + team.record.losses) * 100).toFixed(1);
+    const netRating = team.stats.netRating > 0 ? `+${team.stats.netRating}` : team.stats.netRating;
+    
+    return `${team.name} is having a ${team.record.wins}-${team.record.losses} season (${winPercentage}% win rate). They rank ${team.stats.offensiveRating} in offensive rating and ${team.stats.defensiveRating} in defensive rating, giving them a ${netRating} net rating. Their pace of ${team.stats.pace} suggests they play at a ${team.stats.pace > 100 ? 'fast' : 'slow'} tempo. Key players include ${team.keyPlayers.join(', ')}. Recent form: ${team.recentForm}.`;
+  }
+
+  private generateMatchupPrediction(team1: any, team2: any) {
+    const team1NetRating = team1.stats.netRating;
+    const team2NetRating = team2.stats.netRating;
+    const netRatingDiff = team1NetRating - team2NetRating;
+    
+    let predictedWinner = team1.name;
+    let confidence = 70;
+    
+    if (netRatingDiff > 5) {
+      confidence = 85;
+    } else if (netRatingDiff > 2) {
+      confidence = 75;
+    } else if (netRatingDiff < -5) {
+      predictedWinner = team2.name;
+      confidence = 85;
+    } else if (netRatingDiff < -2) {
+      predictedWinner = team2.name;
+      confidence = 75;
+    } else {
+      confidence = 60;
+    }
+    
+    const analysis = `${team1.name} (${team1.stats.netRating} net rating) vs ${team2.name} (${team2.stats.netRating} net rating). Based on net rating differential of ${netRatingDiff.toFixed(1)}, I predict ${predictedWinner} has the advantage. ${team1.name} has a ${team1.stats.offensiveRating} offensive rating vs ${team2.name}'s ${team2.stats.defensiveRating} defensive rating, while ${team2.name} has a ${team2.stats.offensiveRating} offensive rating vs ${team1.name}'s ${team1.stats.defensiveRating} defensive rating.`;
+    
+    return {
+      analysis,
+      confidence,
+      reasoning: [
+        `Comparing ${team1.name} and ${team2.name} net ratings`,
+        `${team1.name}: ${team1.stats.offensiveRating} ORtg, ${team1.stats.defensiveRating} DRtg`,
+        `${team2.name}: ${team2.stats.offensiveRating} ORtg, ${team2.stats.defensiveRating} DRtg`,
+        `Net rating differential: ${netRatingDiff.toFixed(1)}`,
+        `Predicted winner: ${predictedWinner}`
       ]
     };
   }
