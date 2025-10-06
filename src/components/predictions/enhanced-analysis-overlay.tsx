@@ -1304,7 +1304,7 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFi
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-7xl max-h-[90vh] bg-gradient-to-br from-gray-900 via-black to-gray-900 border-2 border-purple-500/30 overflow-y-auto shadow-2xl shadow-purple-500/20">
+      <DialogContent className="max-w-7xl max-h-[90vh] bg-gradient-to-br from-gray-900 via-black to-gray-900 border-2 border-purple-500/30 overflow-y-auto shadow-2xl shadow-purple-500/20 flex flex-col">
         {/* Energetic Header with Soul */}
         <DialogHeader className="pb-6 relative">
           {/* Animated background glow */}
@@ -1366,8 +1366,8 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFi
         )}
 
         {/* Energetic Tabs with Soul */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 mt-8">
-          <TabsList className="grid w-full grid-cols-7 bg-gradient-to-r from-gray-800/80 via-black/80 to-gray-800/80 border-2 border-purple-500/30 rounded-xl p-6 shadow-lg shadow-purple-500/20 mb-8 mx-auto max-w-4xl">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 mt-4">
+          <TabsList className="grid w-full grid-cols-7 bg-gradient-to-r from-gray-800/80 via-black/80 to-gray-800/80 border-2 border-purple-500/30 rounded-xl p-2 shadow-lg shadow-purple-500/20 mb-4 mx-auto max-w-4xl">
             <TabsTrigger 
               value="overview" 
               className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/50 transition-all duration-300 hover:scale-105 text-xs px-2 py-1"
@@ -1420,7 +1420,7 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFi
           </TabsList>
 
           {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-4 mt-4">
+          <TabsContent value="overview" className="space-y-4 mt-2">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* Key Metrics */}
               <Card className="bg-gradient-to-br from-gray-800/80 to-black/80 border-2 border-purple-500/30 shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 transition-all duration-300">
@@ -1684,7 +1684,7 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFi
           </TabsContent>
 
           {/* Performance Tab */}
-          <TabsContent value="performance" className="space-y-6 mt-6">
+          <TabsContent value="performance" className="space-y-4 mt-2">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card className="bg-slate-800/50 border-slate-700">
                 <CardHeader>
@@ -1770,7 +1770,7 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFi
           </TabsContent>
 
           {/* Trends Tab */}
-          <TabsContent value="trends" className="space-y-6 mt-6">
+          <TabsContent value="trends" className="space-y-4 mt-2">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Performance Metrics */}
               <Card className="bg-slate-800/50 border-slate-700">
@@ -1845,12 +1845,12 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFi
           </TabsContent>
 
           {/* Vote Predictions Tab */}
-          <TabsContent value="vote" className="space-y-6 mt-6">
+          <TabsContent value="vote" className="space-y-4 mt-2">
             <VotePredictionsTab prediction={enhancedData} />
           </TabsContent>
 
           {/* Advanced Tab */}
-          <TabsContent value="advanced" className="space-y-6 mt-6">
+          <TabsContent value="advanced" className="space-y-4 mt-2">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* AI Reasoning */}
               <Card className="bg-slate-800/50 border-slate-700">
@@ -2193,7 +2193,7 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFi
           </TabsContent>
 
           {/* Features Tab */}
-          <TabsContent value="features" className="space-y-6 mt-6">
+          <TabsContent value="features" className="space-y-4 mt-2">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Feature Buttons */}
               <Card className="bg-slate-800/50 border-slate-700">
@@ -2357,7 +2357,7 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFi
           </TabsContent>
 
           {/* Ask Statpedia Tab */}
-          <TabsContent value="ask-statpedia" className="mt-6">
+          <TabsContent value="ask-statpedia" className="mt-2">
             <div className="h-full">
               <AskStatpedia 
                 playerProp={currentData}
