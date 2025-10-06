@@ -1752,15 +1752,25 @@ async function groupPlayerProps(event: any, league: string) {
 
   for (const m of event.player_props) {
     // Include the line value in the grouping key to preserve alternative lines
+    const lineValue = m.fairOverUnder || m.bookOverUnder || m.overUnder || "0";
     const key = [
       m.playerID || "",
       m.statID || "",
       m.periodID || "",
       m.betTypeID || "",
-      m.fairOverUnder || m.bookOverUnder || "0" // Include line value to separate alternative lines
+      lineValue // Include line value to separate alternative lines
     ].join("|");
+    
+    // Debug logging for alternative lines
+    if (m.playerID && m.statID) {
+      console.log(`🔍 Grouping prop: Player=${m.playerID}, Stat=${m.statID}, Line=${lineValue}, Key=${key}`);
+    }
+    
     (grouped[key] ||= []).push(m);
   }
+  
+  // Debug: Log how many groups we have
+  console.log(`🔍 Grouped ${event.player_props.length} props into ${Object.keys(grouped).length} groups`);
 
   // DEBUG: Log grouped props
   // Props grouped
