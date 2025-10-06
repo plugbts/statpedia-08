@@ -3,7 +3,7 @@
 /// <reference types="@cloudflare/workers-types" />
 
 import { withCORS, handleOptions } from "./cors";
-import { normalizeMarketType, isPlayerProp, extractPlayerInfo } from "./market-mapper";
+import { isPlayerProp, extractPlayerInfo } from "./market-mapper";
 import { DateTime } from "luxon";
 
 export interface Env {
@@ -1059,10 +1059,40 @@ async function getPlayerPosition(playerName: string, league: string = 'nfl'): Pr
     console.log(`Official API failed for ${playerName} (${league}):`, error);
   }
   
-  // Fallback to comprehensive 2025 position database
-  const fallbackPosition = get2025PositionDatabase(playerName, league);
+  // Fallback to simple position detection
+  const fallbackPosition = detectPositionFromName(playerName, league);
   playerPositionCache.set(cacheKey, fallbackPosition);
   return fallbackPosition;
+}
+
+function detectPositionFromName(playerName: string, league: string): string {
+  const name = playerName.toLowerCase();
+  
+  // Simple position detection based on common patterns
+  if (league === 'NFL') {
+    // Quarterback patterns
+    if (name.includes('mahomes') || name.includes('brady') || name.includes('rodgers') || 
+        name.includes('allen') || name.includes('burrow') || name.includes('herbert')) {
+      return 'QB';
+    }
+    // Running back patterns
+    if (name.includes('mccaffrey') || name.includes('henry') || name.includes('cook') || 
+        name.includes('chubb') || name.includes('jones')) {
+      return 'RB';
+    }
+    // Wide receiver patterns
+    if (name.includes('hill') || name.includes('adams') || name.includes('hopkins') || 
+        name.includes('thomas') || name.includes('brown')) {
+      return 'WR';
+    }
+    // Tight end patterns
+    if (name.includes('kelce') || name.includes('kittle') || name.includes('waller') || 
+        name.includes('andrews')) {
+      return 'TE';
+    }
+  }
+  
+  return '—'; // Default fallback
 }
 
 async function fetchPlayerPositionFromAPI(playerName: string, league: string, signal?: AbortSignal): Promise<string> {
@@ -1788,6 +1818,7 @@ async function groupPlayerProps(event: any, league: string) {
   event.player_props = playerProps;
 }
 
+
 async function normalizePlayerGroup(markets: any[], players: Record<string, any>, league: string) {
   const over = markets.find(m => m.sideID?.toLowerCase() === "over" || m.sideID?.toLowerCase() === "yes");
   const under = markets.find(m => m.sideID?.toLowerCase() === "under" || m.sideID?.toLowerCase() === "no");
@@ -1882,7 +1913,7 @@ async function normalizePlayerGroup(markets: any[], players: Record<string, any>
     playerName: formatPlayerName(playerName),
     player_id: player?.playerID || base.statEntityID || null,
     teamID: teamID,
-    market_type: formatMarketTypeWithLeague(base.statID, league),
+    market_type: normalizeMarketType(formatMarketTypeWithLeague(base.statID, league)),
     line: Number(base.bookOverUnder ?? null),
     best_over: best_over,
     best_under: best_under,
@@ -1906,6 +1937,30 @@ async function normalizePlayerGroup(markets: any[], players: Record<string, any>
   // Player group processed
 
   return result;
+}
+
+function normalizeMarketType(name: string): string {
+  const marketTypeMap: Record<string, string> = {
+    'Pass Completions': 'Passing Completions',
+    'Rush Yards': 'Rushing Yards',
+    'Rec Yards': 'Receiving Yards',
+    'Pass Yards': 'Passing Yards',
+    'Pass TDs': 'Passing Touchdowns',
+    'Rush TDs': 'Rushing Touchdowns',
+    'Rec TDs': 'Receiving Touchdowns',
+    'Pass INTs': 'Passing Interceptions',
+    'Pass Attempts': 'Passing Attempts',
+    'Rush Attempts': 'Rushing Attempts',
+    'Rec Attempts': 'Receiving Attempts',
+    'Longest Pass': 'Passing Longest Completion',
+    'Longest Rush': 'Rushing Longest Rush',
+    'Longest Rec': 'Longest Reception',
+    'Rush + Rec Yards': 'Rushing + Receiving Yards',
+    'Rush + Rec TDs': 'Rushing + Receiving Touchdowns',
+    'Rush + Rec Attempts': 'Rushing + Receiving Attempts',
+  };
+  
+  return marketTypeMap[name] || name;
 }
 
 function normalizeSide(side: string | undefined): "over" | "under" | null {
