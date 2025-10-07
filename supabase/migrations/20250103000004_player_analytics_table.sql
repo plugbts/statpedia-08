@@ -1,5 +1,5 @@
--- Create PlayerAnalytics table for precomputed analytics
-CREATE TABLE IF NOT EXISTS PlayerAnalytics (
+-- Create playeranalytics table for precomputed analytics
+CREATE TABLE IF NOT EXISTS playeranalytics (
   id SERIAL PRIMARY KEY,
   player_id VARCHAR(64) NOT NULL,
   player_name VARCHAR(128),
@@ -55,14 +55,14 @@ CREATE TABLE IF NOT EXISTS PlayerAnalytics (
 );
 
 -- Enable RLS
-ALTER TABLE PlayerAnalytics ENABLE ROW LEVEL SECURITY;
+ALTER TABLE playeranalytics ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policy for anonymous access
-CREATE POLICY "Allow all access to PlayerAnalytics" ON PlayerAnalytics
+CREATE POLICY "Allow all access to playeranalytics" ON playeranalytics
 FOR ALL USING (true);
 
 -- Grant permissions
-GRANT ALL ON PlayerAnalytics TO anon;
-GRANT ALL ON PlayerAnalytics TO authenticated;
-GRANT USAGE ON SEQUENCE playeralytics_id_seq TO anon;
-GRANT USAGE ON SEQUENCE playeralytics_id_seq TO authenticated;
+GRANT ALL ON playeranalytics TO anon;
+GRANT ALL ON playeranalytics TO authenticated;
+GRANT USAGE ON SEQUENCE playeranalytics_id_seq TO anon;
+GRANT USAGE ON SEQUENCE playeranalytics_id_seq TO authenticated;

@@ -1,5 +1,5 @@
--- Create PropLines table for storing player prop odds data
-CREATE TABLE IF NOT EXISTS public.PropLines (
+-- Create proplines table for storing player prop odds data
+CREATE TABLE IF NOT EXISTS public.proplines (
   id SERIAL PRIMARY KEY,
   player_id VARCHAR(64) NOT NULL,
   player_name VARCHAR(128) NOT NULL,
@@ -32,15 +32,15 @@ CREATE TABLE IF NOT EXISTS public.PropLines (
 );
 
 -- Enable RLS
-ALTER TABLE public.PropLines ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.proplines ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policy for anonymous access (public data)
-CREATE POLICY "Allow all access to PropLines" ON public.PropLines
+CREATE POLICY "Allow all access to proplines" ON public.proplines
 FOR ALL USING (true);
 
 -- Grant permissions
-GRANT ALL ON public.PropLines TO anon;
-GRANT ALL ON public.PropLines TO authenticated;
+GRANT ALL ON public.proplines TO anon;
+GRANT ALL ON public.proplines TO authenticated;
 GRANT USAGE ON SEQUENCE proplines_id_seq TO anon;
 GRANT USAGE ON SEQUENCE proplines_id_seq TO authenticated;
 
@@ -55,7 +55,7 @@ $$ LANGUAGE plpgsql;
 
 -- Trigger for automatic timestamp updates
 CREATE TRIGGER update_proplines_last_updated
-BEFORE UPDATE ON public.PropLines
+BEFORE UPDATE ON public.proplines
 FOR EACH ROW
 EXECUTE FUNCTION update_proplines_updated_at();
 
@@ -66,7 +66,7 @@ DECLARE
   deleted_count INTEGER;
 BEGIN
   -- Delete prop lines older than 30 days and inactive
-  DELETE FROM public.PropLines 
+  DELETE FROM public.proplines 
   WHERE created_at < NOW() - INTERVAL '30 days' 
     AND is_active = false;
   

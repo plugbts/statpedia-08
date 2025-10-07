@@ -86,7 +86,7 @@ async function precomputeAnalytics(season = new Date().getFullYear()) {
               season,
               team,
               opponent,
-              PropLines!inner(
+              proplines!inner(
                 line,
                 over_odds,
                 under_odds,
@@ -114,10 +114,10 @@ async function precomputeAnalytics(season = new Date().getFullYear()) {
           const processedData = joined.map(game => ({
             date: game.date,
             value: game.value,
-            line: game.PropLines.line,
-            over_odds: game.PropLines.over_odds,
-            under_odds: game.PropLines.under_odds,
-            sportsbook: game.PropLines.sportsbook
+            line: game.proplines.line,
+            over_odds: game.proplines.over_odds,
+            under_odds: game.proplines.under_odds,
+            sportsbook: game.proplines.sportsbook
           }));
 
           // Calculate analytics for both over and under directions
@@ -259,7 +259,7 @@ async function precomputeAnalytics(season = new Date().getFullYear()) {
       
       const upsertPromises = results.map(async (analytics) => {
         const { error } = await supabase
-          .from('PlayerAnalytics')
+          .from('playeralytics')
           .upsert(analytics, {
             onConflict: 'player_id,prop_type,line,direction'
           });
@@ -292,7 +292,7 @@ async function precomputeAnalytics(season = new Date().getFullYear()) {
 async function getPlayerPropAnalytics(playerId, propType, season = new Date().getFullYear()) {
   try {
     const { data, error } = await supabase
-      .from('PlayerAnalytics')
+      .from('playeralytics')
       .select('*')
       .eq('player_id', playerId)
       .eq('prop_type', propType)
@@ -317,7 +317,7 @@ async function getPlayerPropAnalytics(playerId, propType, season = new Date().ge
 async function getTopPerformers(propType, direction = 'over', season = new Date().getFullYear(), limit = 10) {
   try {
     const { data, error } = await supabase
-      .from('PlayerAnalytics')
+      .from('playeralytics')
       .select('*')
       .eq('prop_type', propType)
       .eq('direction', direction)

@@ -1,8 +1,8 @@
 -- Enhance PlayerAnalytics table with additional analytics fields
 -- Add new columns for enhanced analytics calculations
 
--- Add new columns to PlayerAnalytics table
-ALTER TABLE PlayerAnalytics 
+-- Add new columns to playeranalytics table
+ALTER TABLE playeranalytics 
 ADD COLUMN IF NOT EXISTS avg_value_l5 DECIMAL(10,2) DEFAULT 0.0,
 ADD COLUMN IF NOT EXISTS avg_value_l10 DECIMAL(10,2) DEFAULT 0.0,
 ADD COLUMN IF NOT EXISTS avg_value_season DECIMAL(10,2) DEFAULT 0.0,
@@ -18,25 +18,25 @@ ADD COLUMN IF NOT EXISTS most_recent_under_odds INTEGER,
 ADD COLUMN IF NOT EXISTS games_with_lines INTEGER DEFAULT 0;
 
 -- Add comments to document the new fields
-COMMENT ON COLUMN PlayerAnalytics.avg_value_l5 IS 'Average actual value over last 5 games';
-COMMENT ON COLUMN PlayerAnalytics.avg_value_l10 IS 'Average actual value over last 10 games';
-COMMENT ON COLUMN PlayerAnalytics.avg_value_season IS 'Average actual value for the season';
-COMMENT ON COLUMN PlayerAnalytics.consistency_l10 IS 'Consistency score (0-100) over last 10 games';
-COMMENT ON COLUMN PlayerAnalytics.consistency_season IS 'Consistency score (0-100) for the season';
-COMMENT ON COLUMN PlayerAnalytics.trend IS 'Trend direction: improving, declining, or neutral';
-COMMENT ON COLUMN PlayerAnalytics.trend_streak IS 'Trend strength (0-100)';
-COMMENT ON COLUMN PlayerAnalytics.trend_difference IS 'Difference between recent and overall performance';
-COMMENT ON COLUMN PlayerAnalytics.edge IS 'Betting edge percentage vs implied probability';
-COMMENT ON COLUMN PlayerAnalytics.kelly_criterion IS 'Kelly criterion percentage for optimal bet sizing';
-COMMENT ON COLUMN PlayerAnalytics.most_recent_over_odds IS 'Most recent over odds from sportsbook';
-COMMENT ON COLUMN PlayerAnalytics.most_recent_under_odds IS 'Most recent under odds from sportsbook';
-COMMENT ON COLUMN PlayerAnalytics.games_with_lines IS 'Number of games with available prop lines';
+COMMENT ON COLUMN playeranalytics.avg_value_l5 IS 'Average actual value over last 5 games';
+COMMENT ON COLUMN playeranalytics.avg_value_l10 IS 'Average actual value over last 10 games';
+COMMENT ON COLUMN playeranalytics.avg_value_season IS 'Average actual value for the season';
+COMMENT ON COLUMN playeranalytics.consistency_l10 IS 'Consistency score (0-100) over last 10 games';
+COMMENT ON COLUMN playeranalytics.consistency_season IS 'Consistency score (0-100) for the season';
+COMMENT ON COLUMN playeranalytics.trend IS 'Trend direction: improving, declining, or neutral';
+COMMENT ON COLUMN playeranalytics.trend_strength IS 'Trend strength (0-100)';
+COMMENT ON COLUMN playeranalytics.trend_difference IS 'Difference between recent and overall performance';
+COMMENT ON COLUMN playeranalytics.edge IS 'Betting edge percentage vs implied probability';
+COMMENT ON COLUMN playeranalytics.kelly_criterion IS 'Kelly criterion percentage for optimal bet sizing';
+COMMENT ON COLUMN playeranalytics.most_recent_over_odds IS 'Most recent over odds from sportsbook';
+COMMENT ON COLUMN playeranalytics.most_recent_under_odds IS 'Most recent under odds from sportsbook';
+COMMENT ON COLUMN playeranalytics.games_with_lines IS 'Number of games with available prop lines';
 
 -- Create indexes for new analytics fields
-CREATE INDEX IF NOT EXISTS idx_analytics_trend ON PlayerAnalytics(trend);
-CREATE INDEX IF NOT EXISTS idx_analytics_edge ON PlayerAnalytics(edge);
-CREATE INDEX IF NOT EXISTS idx_analytics_kelly ON PlayerAnalytics(kelly_criterion);
-CREATE INDEX IF NOT EXISTS idx_analytics_games_with_lines ON PlayerAnalytics(games_with_lines);
+CREATE INDEX IF NOT EXISTS idx_analytics_trend ON playeranalytics(trend);
+CREATE INDEX IF NOT EXISTS idx_analytics_edge ON playeranalytics(edge);
+CREATE INDEX IF NOT EXISTS idx_analytics_kelly ON playeranalytics(kelly_criterion);
+CREATE INDEX IF NOT EXISTS idx_analytics_games_with_lines ON playeranalytics(games_with_lines);
 
 -- Create function to get analytics summary for a player/prop
 CREATE OR REPLACE FUNCTION get_player_analytics_summary(
@@ -67,7 +67,7 @@ BEGIN
     pa.edge,
     pa.trend,
     pa.games_with_lines
-  FROM PlayerAnalytics pa
+  FROM playeranalytics pa
   WHERE pa.player_id = p_player_id 
     AND pa.prop_type = p_prop_type 
     AND pa.season = p_season
@@ -104,7 +104,7 @@ BEGIN
     pa.streak_current,
     pa.edge,
     pa.games_with_lines
-  FROM PlayerAnalytics pa
+  FROM playeranalytics pa
   WHERE pa.prop_type = p_prop_type 
     AND pa.direction = p_direction
     AND pa.season = p_season
@@ -145,7 +145,7 @@ BEGIN
     pa.edge,
     pa.kelly_criterion,
     pa.games_with_lines
-  FROM PlayerAnalytics pa
+  FROM playeranalytics pa
   WHERE pa.season = p_season
     AND pa.season_total >= p_min_games
     AND pa.edge >= p_min_edge

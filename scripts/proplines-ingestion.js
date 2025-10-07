@@ -388,7 +388,7 @@ async function ingestLeagueProps(league) {
       if (rows.length > 0) {
         console.log(`  💾 Upserting ${rows.length} prop lines...`);
         
-        const { error } = await supabase.from("PropLines")
+        const { error } = await supabase.from("proplines")
           .upsert(rows, { 
             onConflict: ['player_id', 'date', 'prop_type', 'sportsbook', 'line'],
             ignoreDuplicates: false
