@@ -9,6 +9,8 @@
 import { createClient } from '@supabase/supabase-js';
 import fetch from 'node-fetch';
 import dotenv from 'dotenv';
+import { ingestPropLines } from './proplines-ingestion.js';
+import { precomputeAnalytics as enhancedPrecomputeAnalytics } from './enhanced-precompute-analytics.js';
 
 dotenv.config();
 
@@ -502,6 +504,7 @@ async function runNightlyJob() {
   
   const results = {
     ingestion: { success: false, records: 0, leagues: {} },
+    proplines: { success: false, records: 0, leagues: {} },
     analytics: { success: false, recordsProcessed: 0 },
     totalTime: 0
   };
@@ -518,11 +521,22 @@ async function runNightlyJob() {
       leagues: ingestionResults.results
     };
     
-    // Step 2: Analytics Precomputation
-    console.log('\n📊 STEP 2: Analytics Precomputation');
+    // Step 2: PropLines Ingestion
+    console.log('\n🎯 STEP 2: PropLines Ingestion');
     console.log('-'.repeat(40));
     
-    const analyticsResults = await precomputeAnalytics(new Date().getFullYear());
+    const proplinesResults = await ingestPropLines();
+    results.proplines = {
+      success: true,
+      records: proplinesResults.totalRecords,
+      leagues: proplinesResults.results
+    };
+    
+    // Step 3: Enhanced Analytics Precomputation (with real betting lines)
+    console.log('\n📊 STEP 3: Enhanced Analytics Precomputation');
+    console.log('-'.repeat(40));
+    
+    const analyticsResults = await enhancedPrecomputeAnalytics(new Date().getFullYear());
     results.analytics = analyticsResults;
     
     // Calculate total time
@@ -537,6 +551,11 @@ async function runNightlyJob() {
       console.log(`  ${league.toUpperCase()}: ${count} records`);
     }
     console.log(`  Total: ${results.ingestion.records} records`);
+    console.log('\n🎯 PROPLINES RESULTS:');
+    for (const [league, count] of Object.entries(results.proplines.leagues)) {
+      console.log(`  ${league.toUpperCase()}: ${count} records`);
+    }
+    console.log(`  Total: ${results.proplines.records} records`);
     console.log('\n📈 ANALYTICS RESULTS:');
     console.log(`  Records processed: ${results.analytics.recordsProcessed}`);
     console.log(`  Success: ${results.analytics.success ? '✅' : '❌'}`);

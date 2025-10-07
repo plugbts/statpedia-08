@@ -29,9 +29,14 @@
     "precompute-analytics": "node scripts/nightly-precompute-analytics.js",
     "precompute-analytics:2024": "node scripts/nightly-precompute-analytics.js 2024",
     "precompute-analytics:2025": "node scripts/nightly-precompute-analytics.js 2025",
+    "precompute-analytics:enhanced": "node scripts/enhanced-precompute-analytics.js",
+    "precompute-analytics:enhanced:2024": "node scripts/enhanced-precompute-analytics.js 2024",
+    "precompute-analytics:enhanced:2025": "node scripts/enhanced-precompute-analytics.js 2025",
     "nightly-job": "node scripts/combined-nightly-job.js",
     "nightly-job:ingestion-only": "node scripts/nightly-ingestion.js",
-    "nightly-job:analytics-only": "node scripts/nightly-precompute-analytics.js"
+    "nightly-job:analytics-only": "node scripts/nightly-precompute-analytics.js",
+    "ingest-proplines": "node scripts/proplines-ingestion.js",
+    "nightly-job:proplines-only": "node scripts/proplines-ingestion.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
