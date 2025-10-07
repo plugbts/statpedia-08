@@ -2123,30 +2123,6 @@ async function normalizePlayerGroup(markets: any[], players: Record<string, any>
   return result;
 }
 
-function normalizeMarketType(name: string): string {
-  const marketTypeMap: Record<string, string> = {
-    'Pass Completions': 'Passing Completions',
-    'Rush Yards': 'Rushing Yards',
-    'Rec Yards': 'Receiving Yards',
-    'Pass Yards': 'Passing Yards',
-    'Pass TDs': 'Passing Touchdowns',
-    'Rush TDs': 'Rushing Touchdowns',
-    'Rec TDs': 'Receiving Touchdowns',
-    'Pass INTs': 'Passing Interceptions',
-    'Pass Attempts': 'Passing Attempts',
-    'Rush Attempts': 'Rushing Attempts',
-    'Rec Attempts': 'Receiving Attempts',
-    'Longest Pass': 'Passing Longest Completion',
-    'Longest Rush': 'Rushing Longest Rush',
-    'Longest Rec': 'Longest Reception',
-    'Rush + Rec Yards': 'Rushing + Receiving Yards',
-    'Rush + Rec TDs': 'Rushing + Receiving Touchdowns',
-    'Rush + Rec Attempts': 'Rushing + Receiving Attempts',
-  };
-  
-  return marketTypeMap[name] || name;
-}
-
 function normalizeSide(side: string | undefined): "over" | "under" | null {
   if (!side) return null;
   const s = side.toLowerCase();
