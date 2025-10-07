@@ -1,0 +1,28 @@
+{
+  "jobs": [
+    {
+      "name": "daily-analytics-precomputation",
+      "schedule": "0 2 * * *",
+      "function": "scheduled-jobs",
+      "params": {
+        "job": "analytics-precomputation"
+      }
+    },
+    {
+      "name": "daily-data-ingestion",
+      "schedule": "0 1 * * *",
+      "function": "scheduled-jobs",
+      "params": {
+        "job": "data-ingestion"
+      }
+    },
+    {
+      "name": "weekly-cache-cleanup",
+      "schedule": "0 3 * * 0",
+      "function": "scheduled-jobs",
+      "params": {
+        "job": "cache-cleanup"
+      }
+    }
+  ]
+}

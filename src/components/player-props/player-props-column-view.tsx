@@ -35,6 +35,8 @@ import { getPlayerHeadshot, getPlayerInitials, getKnownPlayerHeadshot } from '@/
 import { StreakService } from '@/services/streak-service';
 import { useToast } from '@/hooks/use-toast';
 import { normalizeOpponent, normalizeMarketType, normalizePosition, normalizeTeam } from '@/utils/normalize';
+import { analyticsCalculator, AnalyticsResult } from '@/services/analytics-calculator';
+import { historicalDataService } from '@/services/historical-data-service';
 
 
 // Prop priority mapping (matches Cloudflare Worker logic)
@@ -180,7 +182,66 @@ export function PlayerPropsColumnView({
   const [selectedPropSportsbooks, setSelectedPropSportsbooks] = useState<{sportsbooks: string[], propInfo: any}>({sportsbooks: [], propInfo: null});
   const [selectedGame, setSelectedGame] = useState('all');
   const [showAlternativeLines, setShowAlternativeLines] = useState(false);
+  const [analyticsData, setAnalyticsData] = useState<Map<string, AnalyticsResult>>(new Map());
+  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
   const { toast } = useToast();
+
+  // Load analytics data for props
+  const loadAnalyticsData = async (props: PlayerProp[]) => {
+    if (isLoadingAnalytics) return;
+    
+    setIsLoadingAnalytics(true);
+    try {
+      const analyticsPromises = props.map(async (prop) => {
+        const key = `${prop.playerId}-${prop.propType}`;
+        
+        // Check if we already have analytics for this prop
+        if (analyticsData.has(key)) {
+          return { key, analytics: analyticsData.get(key)! };
+        }
+        
+        try {
+          const analytics = await analyticsCalculator.calculateAnalytics(
+            prop.playerId || prop.player_id || '',
+            prop.playerName,
+            prop.team,
+            prop.opponent,
+            prop.propType,
+            prop.line,
+            overUnderFilter as 'over' | 'under',
+            prop.sport || 'nfl'
+          );
+          
+          return { key, analytics };
+        } catch (error) {
+          console.warn(`Failed to load analytics for ${prop.playerName} ${prop.propType}:`, error);
+          return { key, analytics: null };
+        }
+      });
+      
+      const results = await Promise.all(analyticsPromises);
+      const newAnalyticsData = new Map(analyticsData);
+      
+      results.forEach(({ key, analytics }) => {
+        if (analytics) {
+          newAnalyticsData.set(key, analytics);
+        }
+      });
+      
+      setAnalyticsData(newAnalyticsData);
+    } catch (error) {
+      console.error('Failed to load analytics data:', error);
+    } finally {
+      setIsLoadingAnalytics(false);
+    }
+  };
+
+  // Load analytics when props change
+  React.useEffect(() => {
+    if (normalizedProps.length > 0) {
+      loadAnalyticsData(normalizedProps);
+    }
+  }, [normalizedProps, overUnderFilter]);
 
   // Handle alternative lines toggle with confirmation
   const handleAlternativeLinesToggle = (checked: boolean) => {
@@ -722,18 +783,38 @@ export function PlayerPropsColumnView({
           {/* Fixed Data Rows */}
           <div className="space-y-2">
         {filteredAndSortedProps.map((prop, index) => {
-          // Calculate analytics data using available data
-          // Analytics calculations - using placeholder values since historical data is not available
-          const direction = overUnderFilter as 'over' | 'under';
-          const streak = 0;
-          const h2h = { hits: 0, total: 0, pct: 0 };
-          const season = { hits: 0, total: 0, pct: 0 };
-          const l5 = { hits: 0, total: 0, pct: 0 };
-          const l10 = { hits: 0, total: 0, pct: 0 };
-          const l20 = { hits: 0, total: 0, pct: 0 };
+          // Debug logging for prop inputs
+          console.debug("[PROP]", {
+            player: prop.playerName,
+            opponent: prop.opponent,
+            market: prop.marketType,
+            position: prop.position,
+            logs: 0, // prop.gameLogs?.length - not available in current prop structure
+            propType: prop.propType,
+            playerId: prop.playerId
+          });
+
+          // Get analytics data for this prop
+          const analyticsKey = `${prop.playerId}-${prop.propType}`;
+          const analytics = analyticsData.get(analyticsKey);
+          
+          // Debug analytics data
+          console.debug("[ANALYTICS]", {
+            key: analyticsKey,
+            hasAnalytics: !!analytics,
+            analytics: analytics
+          });
+          
+          // Use real analytics data or fallback to defaults
+          const streak = analytics?.streak?.current || 0;
+          const h2h = analytics?.h2h || { hits: 0, total: 0, pct: 0 };
+          const season = analytics?.season || { hits: 0, total: 0, pct: 0 };
+          const l5 = analytics?.l5 || { hits: 0, total: 0, pct: 0 };
+          const l10 = analytics?.l10 || { hits: 0, total: 0, pct: 0 };
+          const l20 = analytics?.l20 || { hits: 0, total: 0, pct: 0 };
           
           // Get defensive rank
-          const defensiveRank = { rank: 'N/A', display: 'N/A' };
+          const defensiveRank = analytics?.matchupRank || { rank: 0, display: 'N/A' };
 
           return (
           <Card
@@ -936,18 +1017,18 @@ export function PlayerPropsColumnView({
           {/* Analytics Data Rows */}
           <div className="space-y-2">
             {filteredAndSortedProps.map((prop, index) => {
-              // Calculate analytics using the unified gameLogs structure
-              // Analytics calculations - using placeholder values since historical data is not available
-              const direction = overUnderFilter as 'over' | 'under';
-              const streak = 0;
-              const h2h = { hits: 0, total: 0, pct: 0 };
-              const season = { hits: 0, total: 0, pct: 0 };
-              const l5 = { hits: 0, total: 0, pct: 0 };
-              const l10 = { hits: 0, total: 0, pct: 0 };
-              const l20 = { hits: 0, total: 0, pct: 0 };
+              // Get analytics data for this prop
+              const analyticsKey = `${prop.playerId}-${prop.propType}`;
+              const analytics = analyticsData.get(analyticsKey);
               
-              // Get defensive rank
-              const defensiveRank = { rank: 'N/A', display: 'N/A' };
+              // Use real analytics data or fallback to defaults
+              const h2h = analytics?.h2h || { hits: 0, total: 0, pct: 0 };
+              const season = analytics?.season || { hits: 0, total: 0, pct: 0 };
+              const l5 = analytics?.l5 || { hits: 0, total: 0, pct: 0 };
+              const l10 = analytics?.l10 || { hits: 0, total: 0, pct: 0 };
+              const l20 = analytics?.l20 || { hits: 0, total: 0, pct: 0 };
+              const streak = analytics?.streak?.current || 0;
+              const defensiveRank = analytics?.matchupRank || { rank: 0, display: 'N/A' };
 
                       return (
                 <div
@@ -958,59 +1039,59 @@ export function PlayerPropsColumnView({
                   <div className="w-24 text-center px-2 py-3">
                     <div className="text-xs font-medium text-foreground">
                       {prop.opponentAbbr || '—'}
-                          </div>
+                    </div>
                     <div className="text-xs text-muted-foreground">
-                      N/A
-                        </div>
+                      {defensiveRank.display}
+                    </div>
                   </div>
 
                   {/* H2H */}
                   <div className="w-24 text-center px-2 py-3">
                     <div className="text-xs font-medium text-foreground">
-                      {h2h.pct.toFixed(0)}%
-                        </div>
+                      {h2h.total > 0 ? `${h2h.pct.toFixed(0)}%` : 'N/A'}
+                    </div>
                     <div className="text-xs text-muted-foreground">
-                      {h2h.hits}/{h2h.total}
-                      </div>
-                </div>
+                      {h2h.total > 0 ? `${h2h.hits}/${h2h.total}` : '0/0'}
+                    </div>
+                  </div>
 
                   {/* 2025 */}
                   <div className="w-24 text-center px-2 py-3">
                     <div className="text-xs font-medium text-foreground">
-                      {season.pct.toFixed(0)}%
-                </div>
+                      {season.total > 0 ? `${season.pct.toFixed(0)}%` : 'N/A'}
+                    </div>
                     <div className="text-xs text-muted-foreground">
-                      {season.hits}/{season.total}
-              </div>
+                      {season.total > 0 ? `${season.hits}/${season.total}` : '0/0'}
+                    </div>
                   </div>
 
                   {/* L5 */}
                   <div className="w-24 text-center px-2 py-3">
                     <div className="text-xs font-medium text-foreground">
-                      {l5.pct.toFixed(0)}%
+                      {l5.total > 0 ? `${l5.pct.toFixed(0)}%` : 'N/A'}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {l5.hits}/{l5.total}
+                      {l5.total > 0 ? `${l5.hits}/${l5.total}` : '0/0'}
                     </div>
                   </div>
 
                   {/* L10 */}
                   <div className="w-24 text-center px-2 py-3">
                     <div className="text-xs font-medium text-foreground">
-                      {l10.pct.toFixed(0)}%
+                      {l10.total > 0 ? `${l10.pct.toFixed(0)}%` : 'N/A'}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {l10.hits}/{l10.total}
+                      {l10.total > 0 ? `${l10.hits}/${l10.total}` : '0/0'}
                     </div>
                   </div>
 
                   {/* L20 */}
                   <div className="w-24 text-center px-2 py-3">
                     <div className="text-xs font-medium text-foreground">
-                      {l20.pct.toFixed(0)}%
+                      {l20.total > 0 ? `${l20.pct.toFixed(0)}%` : 'N/A'}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {l20.hits}/{l20.total}
+                      {l20.total > 0 ? `${l20.hits}/${l20.total}` : '0/0'}
                     </div>
                   </div>
                 </div>
