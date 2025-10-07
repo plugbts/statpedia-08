@@ -190,13 +190,16 @@ export function PlayerPropsColumnView({
 
   // Load analytics data for props
   const loadAnalyticsData = async (props: PlayerProp[]) => {
-    if (isLoadingAnalytics) return;
+    if (isLoadingAnalytics) {
+      console.log("⏳ [ANALYTICS_LOAD] Already loading analytics, skipping");
+      return;
+    }
     
-    console.log("[ANALYTICS_LOAD] Starting loadAnalyticsData with props:", props.length);
+    console.log("🚀 [ANALYTICS_LOAD] Starting loadAnalyticsData with props:", props.length);
     
     // Safety check for empty props
     if (!props || props.length === 0) {
-      console.log("[ANALYTICS_LOAD] No props to process");
+      console.log("📭 [ANALYTICS_LOAD] No props to process");
       return;
     }
     
@@ -210,7 +213,7 @@ export function PlayerPropsColumnView({
       const analyticsPromises = props.map(async (prop) => {
         const key = `${prop.playerId}-${prop.propType}`;
         
-        console.log("[ANALYTICS_LOAD] Processing prop:", {
+        console.log("📊 [ANALYTICS_LOAD] Processing prop:", {
           key,
           playerName: prop.playerName,
           playerId: prop.playerId,
@@ -221,12 +224,12 @@ export function PlayerPropsColumnView({
         
         // Check if we already have analytics for this prop
         if (analyticsData.has(key)) {
-          console.log("[ANALYTICS_LOAD] Using cached analytics for:", key);
+          console.log("💾 [ANALYTICS_LOAD] Using cached analytics for:", key);
           return { key, analytics: analyticsData.get(key)! };
         }
         
         try {
-          console.log("[ANALYTICS_LOAD] Calculating analytics for:", key);
+          console.log("🔄 [ANALYTICS_LOAD] Calculating analytics for:", key);
           
           // Add safety checks
           if (!prop.playerId && !prop.player_id) {
@@ -259,32 +262,41 @@ export function PlayerPropsColumnView({
         }
       });
       
+      console.log("⏳ [ANALYTICS_LOAD] Waiting for analytics promises...");
       const results = await Promise.race([
         Promise.all(analyticsPromises),
         timeoutPromise
       ]) as Array<{ key: string; analytics: AnalyticsResult | null }>;
+      
+      console.log("📈 [ANALYTICS_LOAD] Analytics results received:", results.length);
       
       const newAnalyticsData = new Map(analyticsData);
       
       results.forEach(({ key, analytics }) => {
         if (analytics) {
           newAnalyticsData.set(key, analytics);
+          console.log("💾 [ANALYTICS_LOAD] Stored analytics for key:", key);
+        } else {
+          console.log("⚠️ [ANALYTICS_LOAD] No analytics data for key:", key);
         }
       });
       
       setAnalyticsData(newAnalyticsData);
+      console.log("🎉 [ANALYTICS_LOAD] Analytics loading completed!");
     } catch (error) {
-      console.error('Failed to load analytics data:', error);
+      console.error('❌ [ANALYTICS_LOAD] Failed to load analytics data:', error);
     } finally {
       setIsLoadingAnalytics(false);
+      console.log("🏁 [ANALYTICS_LOAD] Analytics loading finished");
     }
   };
 
   // Load analytics when props change
   React.useEffect(() => {
-    console.log("[ANALYTICS_LOAD] Props changed:", {
+    console.log("🔍 [ANALYTICS_LOAD] Props changed:", {
       propsCount: normalizedProps.length,
       overUnderFilter,
+      analyticsEnabled,
       firstProp: normalizedProps[0] ? {
         playerName: normalizedProps[0].playerName,
         playerId: normalizedProps[0].playerId,
@@ -295,14 +307,16 @@ export function PlayerPropsColumnView({
     
     // Only load analytics for a reasonable number of props to prevent crashes
     if (analyticsEnabled && normalizedProps.length > 0 && normalizedProps.length <= 50) {
-      console.log("[ANALYTICS_LOAD] Loading analytics for", normalizedProps.length, "props");
+      console.log("🚀 [ANALYTICS_LOAD] Loading analytics for", normalizedProps.length, "props");
       loadAnalyticsData(normalizedProps);
     } else if (normalizedProps.length > 50) {
-      console.warn("[ANALYTICS_LOAD] Too many props to load analytics safely:", normalizedProps.length);
+      console.warn("⚠️ [ANALYTICS_LOAD] Too many props to load analytics safely:", normalizedProps.length);
     } else if (!analyticsEnabled) {
-      console.log("[ANALYTICS_LOAD] Analytics disabled");
+      console.log("❌ [ANALYTICS_LOAD] Analytics disabled");
+    } else if (normalizedProps.length === 0) {
+      console.log("📭 [ANALYTICS_LOAD] No props to load analytics for");
     }
-  }, [normalizedProps, overUnderFilter]);
+  }, [normalizedProps, overUnderFilter, analyticsEnabled]);
 
   // Handle alternative lines toggle with confirmation
   const handleAlternativeLinesToggle = (checked: boolean) => {
