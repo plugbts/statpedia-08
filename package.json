@@ -17,7 +17,13 @@
     "git-sync:check": "node scripts/git-sync.js check",
     "loveable-sync": "node scripts/loveable-sync.js",
     "loveable-sync:watch": "node scripts/loveable-sync.js watch",
-    "loveable-sync:check": "node scripts/loveable-sync.js check"
+    "loveable-sync:check": "node scripts/loveable-sync.js check",
+    "ingest-data": "node scripts/ingest-historical-data.js",
+    "ingest-data:nfl": "node scripts/ingest-historical-data.js NFL 2025 100",
+    "ingest-data:clear": "node scripts/clear-historical-data.js",
+    "ingest-data:realistic": "node scripts/simple-ingest.js",
+    "ingest-data:real": "node scripts/real-data-ingest.js",
+    "debug-analytics": "node scripts/debug-analytics.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -58,6 +64,7 @@
     "cmdk": "^1.1.1",
     "date-fns": "^3.6.0",
     "dompurify": "^3.2.7",
+    "dotenv": "^17.2.3",
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "^12.23.22",
     "input-otp": "^1.4.2",
