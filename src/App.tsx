@@ -17,6 +17,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { AnalyticsTest } from "@/components/debug/analytics-test";
+import { AnalyticsDebug } from "@/components/debug/analytics-debug";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -103,6 +104,11 @@ const App = () => {
                   <div className="container mx-auto py-8">
                     <h1 className="text-3xl font-bold mb-8">Analytics Debug</h1>
                     <AnalyticsTest />
+                  </div>
+                } />
+                <Route path="/debug/analytics2" element={
+                  <div className="container mx-auto py-8">
+                    <AnalyticsDebug />
                   </div>
                 } />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
