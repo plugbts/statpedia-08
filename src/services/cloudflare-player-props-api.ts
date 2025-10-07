@@ -215,11 +215,37 @@ class CloudflarePlayerPropsAPI {
 
       // Helper function to format market names for display
       const formatMarketName = (marketType: string): string => {
-        return marketType
+        // First normalize the market type to proper prop types
+        const normalizedMarketType = normalizeMarketType(marketType);
+        
+        return normalizedMarketType
           .replace(/_/g, ' ')
           .split(' ')
           .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
           .join(' ');
+      };
+
+      // Helper function to normalize market types to proper prop types
+      const normalizeMarketType = (marketType: string): string => {
+        if (!marketType) return 'Unknown';
+        
+        const lowerMarket = marketType.toLowerCase();
+        
+        // Map common market types to proper prop types
+        if (lowerMarket.includes('passing') && lowerMarket.includes('yard')) return 'Passing Yards';
+        if (lowerMarket.includes('rushing') && lowerMarket.includes('yard')) return 'Rushing Yards';
+        if (lowerMarket.includes('receiving') && lowerMarket.includes('yard')) return 'Receiving Yards';
+        if (lowerMarket.includes('passing') && lowerMarket.includes('touchdown')) return 'Passing Touchdowns';
+        if (lowerMarket.includes('rushing') && lowerMarket.includes('touchdown')) return 'Rushing Touchdowns';
+        if (lowerMarket.includes('receiving') && lowerMarket.includes('touchdown')) return 'Receiving Touchdowns';
+        if (lowerMarket.includes('field') && lowerMarket.includes('goal')) return 'Field Goals Made';
+        if (lowerMarket.includes('extra') && lowerMarket.includes('point')) return 'Extra Points Made';
+        
+        // Handle specific cases where API returns wrong market types
+        if (lowerMarket === 'receptions' && marketType.includes('receiving')) return 'Receiving Yards';
+        if (lowerMarket === 'receptions') return 'Receptions';
+        
+        return marketType;
       };
 
       // Helper function to get team name from teamID
@@ -325,6 +351,7 @@ class CloudflarePlayerPropsAPI {
                   team: playerTeam,
                   opponent: opponentTeam || 'Unknown',
                   propType: formatMarketName(prop.market_type),
+                  marketType: normalizeMarketType(prop.market_type), // Add normalized market type
                   line: prop.line,
                   overOdds: parseOdds(prop.best_over),
                   underOdds: parseOdds(prop.best_under),
