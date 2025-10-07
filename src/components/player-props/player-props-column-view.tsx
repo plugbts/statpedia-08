@@ -165,6 +165,7 @@ export function PlayerPropsColumnView({
   isLoading = false,
   overUnderFilter = 'both'
 }: PlayerPropsColumnViewProps) {
+  console.log("[PLAYER_PROPS] Component rendered with props:", props.length);
   // Normalize props data
   const normalizedProps = props.map(prop => ({
     ...prop,
@@ -184,6 +185,7 @@ export function PlayerPropsColumnView({
   const [showAlternativeLines, setShowAlternativeLines] = useState(false);
   const [analyticsData, setAnalyticsData] = useState<Map<string, AnalyticsResult>>(new Map());
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
+  const [analyticsEnabled, setAnalyticsEnabled] = useState(true); // Toggle to disable analytics
   const { toast } = useToast();
 
   // Load analytics data for props
@@ -200,6 +202,11 @@ export function PlayerPropsColumnView({
     
     setIsLoadingAnalytics(true);
     try {
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Analytics loading timeout')), 30000); // 30 second timeout
+      });
+      
       const analyticsPromises = props.map(async (prop) => {
         const key = `${prop.playerId}-${prop.propType}`;
         
@@ -252,7 +259,11 @@ export function PlayerPropsColumnView({
         }
       });
       
-      const results = await Promise.all(analyticsPromises);
+      const results = await Promise.race([
+        Promise.all(analyticsPromises),
+        timeoutPromise
+      ]) as Array<{ key: string; analytics: AnalyticsResult | null }>;
+      
       const newAnalyticsData = new Map(analyticsData);
       
       results.forEach(({ key, analytics }) => {
@@ -282,8 +293,14 @@ export function PlayerPropsColumnView({
       } : null
     });
     
-    if (normalizedProps.length > 0) {
+    // Only load analytics for a reasonable number of props to prevent crashes
+    if (analyticsEnabled && normalizedProps.length > 0 && normalizedProps.length <= 50) {
+      console.log("[ANALYTICS_LOAD] Loading analytics for", normalizedProps.length, "props");
       loadAnalyticsData(normalizedProps);
+    } else if (normalizedProps.length > 50) {
+      console.warn("[ANALYTICS_LOAD] Too many props to load analytics safely:", normalizedProps.length);
+    } else if (!analyticsEnabled) {
+      console.log("[ANALYTICS_LOAD] Analytics disabled");
     }
   }, [normalizedProps, overUnderFilter]);
 
@@ -760,6 +777,18 @@ export function PlayerPropsColumnView({
             />
             <label className="text-sm font-medium text-foreground cursor-pointer">
               Show Alternative Lines
+            </label>
+          </div>
+
+          {/* Analytics Toggle Switch */}
+          <div className="flex items-center gap-2 px-3 py-2 bg-card border border-border/50 rounded-lg hover:border-primary/30 transition-colors">
+            <Switch
+              checked={analyticsEnabled}
+              onCheckedChange={setAnalyticsEnabled}
+              className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-white"
+            />
+            <label className="text-sm font-medium text-foreground cursor-pointer">
+              Analytics Enabled
             </label>
           </div>
 

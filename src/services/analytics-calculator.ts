@@ -50,55 +50,8 @@ export class AnalyticsCalculator {
     try {
       logAPI('AnalyticsCalculator', `Calculating analytics for ${playerName} ${propType} ${line} ${direction}`);
       
-      // Check for cached analytics first
-      const cachedAnalytics = await analyticsCacheService.getCachedAnalytics(
-        playerId,
-        propType,
-        line,
-        direction
-      );
-      
-      if (cachedAnalytics) {
-        logInfo('AnalyticsCalculator', `Using cached analytics for ${playerName} ${propType}`);
-        
-        return {
-          matchupRank: {
-            rank: cachedAnalytics.matchup_rank_value || 0,
-            display: cachedAnalytics.matchup_rank_display
-          },
-          h2h: {
-            hits: cachedAnalytics.h2h_hits,
-            total: cachedAnalytics.h2h_total,
-            pct: cachedAnalytics.h2h_pct
-          },
-          season: {
-            hits: cachedAnalytics.season_hits,
-            total: cachedAnalytics.season_total,
-            pct: cachedAnalytics.season_pct
-          },
-          l5: {
-            hits: cachedAnalytics.l5_hits,
-            total: cachedAnalytics.l5_total,
-            pct: cachedAnalytics.l5_pct
-          },
-          l10: {
-            hits: cachedAnalytics.l10_hits,
-            total: cachedAnalytics.l10_total,
-            pct: cachedAnalytics.l10_pct
-          },
-          l20: {
-            hits: cachedAnalytics.l20_hits,
-            total: cachedAnalytics.l20_total,
-            pct: cachedAnalytics.l20_pct
-          },
-          streak: {
-            current: cachedAnalytics.streak_current,
-            longest: cachedAnalytics.streak_current, // Use current as longest for simplicity
-            direction: cachedAnalytics.streak_type
-          },
-          chartData: [] // Chart data not cached, would need to be fetched separately
-        };
-      }
+      // Skip cache lookup for now to avoid 404 errors
+      logInfo('AnalyticsCalculator', `Calculating analytics in real-time for ${playerName} ${propType}`);
       
       // If no cached data, calculate in real-time
       logInfo('AnalyticsCalculator', `No cached data found, calculating in real-time for ${playerName} ${propType}`);
