@@ -35,6 +35,115 @@ export interface AnalyticsResult {
 
 export class AnalyticsCalculator {
   /**
+   * Safe hit rate calculation with guards
+   */
+  private safeHitRate(
+    games: Array<{ value: number; date: string; season: number; opponent: string }>,
+    line: number,
+    direction: 'over' | 'under'
+  ): { hits: number; total: number; pct: number } {
+    if (!games || games.length === 0 || Number.isNaN(Number(line))) {
+      console.debug("⚠️ [SAFE_HIT_RATE] Invalid input", { 
+        gamesLength: games?.length, 
+        line, 
+        direction 
+      });
+      return { hits: 0, total: 0, pct: 0 };
+    }
+    
+    const validGames = games.filter(g => 
+      g && 
+      typeof g.value === 'number' && 
+      !Number.isNaN(g.value) && 
+      g.value >= 0
+    );
+    
+    if (validGames.length === 0) {
+      console.debug("⚠️ [SAFE_HIT_RATE] No valid games", { 
+        originalLength: games.length,
+        line,
+        direction
+      });
+      return { hits: 0, total: 0, pct: 0 };
+    }
+    
+    const hits = validGames.filter(g => 
+      direction === 'over' ? g.value > Number(line) : g.value < Number(line)
+    ).length;
+    
+    const result = { 
+      hits, 
+      total: validGames.length, 
+      pct: validGames.length > 0 ? (hits / validGames.length) * 100 : 0 
+    };
+    
+    console.debug("✅ [SAFE_HIT_RATE] Calculated", {
+      hits: result.hits,
+      total: result.total,
+      pct: result.pct.toFixed(1),
+      line,
+      direction,
+      sampleValues: validGames.slice(0, 3).map(g => g.value)
+    });
+    
+    return result;
+  }
+
+  /**
+   * Safe streak calculation with guards
+   */
+  private safeStreak(
+    games: Array<{ value: number; date: string }>,
+    line: number,
+    direction: 'over' | 'under'
+  ): { current: number; longest: number; direction: string } {
+    if (!games || games.length === 0 || Number.isNaN(Number(line))) {
+      return { current: 0, longest: 0, direction: 'mixed' };
+    }
+    
+    const validGames = games.filter(g => 
+      g && 
+      typeof g.value === 'number' && 
+      !Number.isNaN(g.value) && 
+      g.value >= 0
+    ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    
+    if (validGames.length === 0) {
+      return { current: 0, longest: 0, direction: 'mixed' };
+    }
+    
+    let current = 0;
+    let longest = 0;
+    let temp = 0;
+    let streakDirection = 'mixed';
+    
+    for (const game of validGames) {
+      const hit = direction === 'over' ? game.value > Number(line) : game.value < Number(line);
+      
+      if (hit) {
+        temp++;
+        if (current === 0) {
+          current = temp;
+          streakDirection = direction === 'over' ? 'over_hit' : 'under_hit';
+        }
+        longest = Math.max(longest, temp);
+      } else {
+        temp = 0;
+      }
+    }
+    
+    console.debug("✅ [SAFE_STREAK] Calculated", {
+      current,
+      longest,
+      direction: streakDirection,
+      line,
+      sampleValues: validGames.slice(0, 3).map(g => g.value)
+    });
+    
+    return { current, longest, direction: streakDirection };
+  }
+
+  /**
    * Calculate comprehensive analytics for a player prop
    */
   async calculateAnalytics(
@@ -50,17 +159,42 @@ export class AnalyticsCalculator {
     try {
       logAPI('AnalyticsCalculator', `Calculating analytics for ${playerName} ${propType} ${line} ${direction}`);
       
-      // Skip cache lookup for now to avoid 404 errors
-      logInfo('AnalyticsCalculator', `Calculating analytics in real-time for ${playerName} ${propType}`);
+      // 1. VALIDATE INPUTS BEFORE CALCULATIONS
+      console.debug("🔍 [ANALYTICS INPUT VALIDATION]", {
+        playerId,
+        playerName,
+        teamRaw: team,
+        opponentRaw: opponent,
+        propTypeRaw: propType,
+        lineRaw: line,
+        direction,
+        sport
+      });
       
-      // If no cached data, calculate in real-time
-      logInfo('AnalyticsCalculator', `No cached data found, calculating in real-time for ${playerName} ${propType}`);
-      
-      // Normalize inputs
+      // Normalize inputs with validation
       const normalizedTeam = normalizeOpponent(team);
       const normalizedOpponent = normalizeOpponent(opponent);
       const normalizedPropType = normalizeMarketType(propType);
       const normalizedPosition = this.getPositionFromPropType(normalizedPropType);
+      
+      // Validate normalized values
+      console.debug("🔍 [NORMALIZED VALUES]", {
+        teamRaw: team,
+        teamNorm: normalizedTeam,
+        opponentRaw: opponent,
+        opponentNorm: normalizedOpponent,
+        propTypeRaw: propType,
+        propTypeNorm: normalizedPropType,
+        positionNorm: normalizedPosition,
+        line: line,
+        direction
+      });
+      
+      // Validate line is a number
+      if (Number.isNaN(Number(line)) || line <= 0) {
+        console.warn("⚠️ [INVALID LINE]", { line, propType, playerName });
+        return this.getDefaultAnalytics();
+      }
       
       // Get all analytics in parallel
       const [
@@ -115,32 +249,51 @@ export class AnalyticsCalculator {
     position: string
   ): Promise<{ rank: number; display: string }> {
     try {
-      console.debug("[DEFENSIVE_RANK]", {
-        team,
-        opponent,
-        propType,
-        position,
-        normalizedTeam: normalizeOpponent(team),
-        normalizedOpponent: normalizeOpponent(opponent),
-        normalizedPropType: normalizeMarketType(propType),
-        normalizedPosition: normalizePosition(position)
+      const normalizedTeam = normalizeOpponent(team);
+      const normalizedOpponent = normalizeOpponent(opponent);
+      const normalizedPropType = normalizeMarketType(propType);
+      const normalizedPosition = normalizePosition(position);
+      
+      console.debug("🔍 [DEFENSIVE_RANK] Input validation", {
+        teamRaw: team,
+        teamNorm: normalizedTeam,
+        opponentRaw: opponent,
+        opponentNorm: normalizedOpponent,
+        propTypeRaw: propType,
+        propTypeNorm: normalizedPropType,
+        positionRaw: position,
+        positionNorm: normalizedPosition
       });
 
       const defensiveRank = await historicalDataService.getDefensiveRank(
-        normalizeOpponent(team),
-        normalizeOpponent(opponent),
-        normalizeMarketType(propType),
-        normalizePosition(position),
+        normalizedTeam,
+        normalizedOpponent,
+        normalizedPropType,
+        normalizedPosition,
         2025
       );
       
-      console.debug("[DEFENSIVE_RANK_RESULT]", {
+      console.debug("✅ [DEFENSIVE_RANK_RESULT]", {
         defensiveRank,
-        team,
-        opponent,
-        propType,
-        position
+        team: normalizedTeam,
+        opponent: normalizedOpponent,
+        propType: normalizedPropType,
+        position: normalizedPosition,
+        rankValue: defensiveRank?.rank,
+        rankDisplay: defensiveRank?.display
       });
+
+      // Guard against null/undefined results
+      if (!defensiveRank || defensiveRank.rank == null) {
+        console.warn("⚠️ [DEF_RANK_MISS]", { 
+          team: normalizedTeam, 
+          opponent: normalizedOpponent, 
+          propType: normalizedPropType, 
+          position: normalizedPosition,
+          result: defensiveRank
+        });
+        return { rank: 0, display: 'N/A' };
+      }
       
       return {
         rank: defensiveRank.rank,
@@ -200,7 +353,7 @@ export class AnalyticsCalculator {
     season: number
   ): Promise<HitRateResult> {
     try {
-      console.debug("[SEASON_HIT_RATE]", {
+      console.debug("🔍 [SEASON_HIT_RATE] Input validation", {
         playerId,
         propType,
         line,
@@ -210,19 +363,35 @@ export class AnalyticsCalculator {
 
       const hitRate = await historicalDataService.getHitRate(playerId, propType, line, direction);
       
-      console.debug("[SEASON_HIT_RATE_RESULT]", {
+      console.debug("✅ [SEASON_HIT_RATE_RESULT]", {
         hitRate,
         playerId,
         propType,
         line,
         direction,
-        season
+        season,
+        hits: hitRate?.hits,
+        total: hitRate?.total,
+        hitRate: hitRate?.hit_rate
       });
+
+      // Guard against null/undefined results
+      if (!hitRate || hitRate.hits == null || hitRate.total == null) {
+        console.warn("⚠️ [SEASON_HIT_RATE_MISS]", { 
+          playerId, 
+          propType, 
+          line, 
+          direction, 
+          season,
+          result: hitRate
+        });
+        return { hits: 0, total: 0, pct: 0 };
+      }
       
       return {
         hits: hitRate.hits,
         total: hitRate.total,
-        pct: hitRate.hit_rate * 100
+        pct: (hitRate.hit_rate || 0) * 100
       };
     } catch (error) {
       logWarning('AnalyticsCalculator', `Failed to get season hit rate for ${playerId}:`, error);
