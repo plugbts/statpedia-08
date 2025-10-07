@@ -1330,6 +1330,49 @@ async function fetchSportsOdds(url: string, env: Env, options: RequestInit = {})
   return fetchWithAPIKey(url, env, options, env.SPORTSODDS_API_KEY);
 }
 
+// Fetch historical data for a player from league APIs
+async function fetchPlayerHistoricalData(playerName: string, league: string, marketType: string): Promise<{
+  gameLogs: Array<{date: string, season: number, opponent: string, value: number}>;
+  last5Games: number[];
+  seasonStats: {average: number, median: number, gamesPlayed: number, hitRate: number, last5Games: number[], seasonHigh: number, seasonLow: number};
+  defensiveRank: string;
+}> {
+  try {
+    // For now, return empty data structure until we implement real API calls
+    // This ensures the frontend doesn't break while we work on real data integration
+    return {
+      gameLogs: [],
+      last5Games: [],
+      seasonStats: {
+        average: 0,
+        median: 0,
+        gamesPlayed: 0,
+        hitRate: 0,
+        last5Games: [],
+        seasonHigh: 0,
+        seasonLow: 0
+      },
+      defensiveRank: 'N/A'
+    };
+  } catch (error) {
+    console.error(`Error fetching historical data for ${playerName}:`, error);
+    return {
+      gameLogs: [],
+      last5Games: [],
+      seasonStats: {
+        average: 0,
+        median: 0,
+        gamesPlayed: 0,
+        hitRate: 0,
+        last5Games: [],
+        seasonHigh: 0,
+        seasonLow: 0
+      },
+      defensiveRank: 'N/A'
+    };
+  }
+}
+
 function buildUpstreamUrl(path: string, league: string, date: string, oddIDs?: string | null, bookmakerID?: string | null) {
   const BASE_URL = "https://api.sportsgameodds.com";
   const url = new URL(path, BASE_URL);
@@ -1741,6 +1784,9 @@ async function normalizeEvent(ev: SGEvent) {
     // Calculate EV using Outlier methodology
     const expectedValue = calculateEV(prop);
     
+    // Fetch historical data for this player
+    const historicalData = await fetchPlayerHistoricalData(playerName, leagueId, prop.market_type);
+    
     return {
       ...prop,
       playerName: prop.player_name, // Ensure playerName is set
@@ -1748,6 +1794,10 @@ async function normalizeEvent(ev: SGEvent) {
       position: '—',
       teamAbbr: teamAbbr,
       expectedValue: expectedValue,
+      gameLogs: historicalData.gameLogs,
+      last5Games: historicalData.last5Games,
+      seasonStats: historicalData.seasonStats,
+      relevantRank: historicalData.defensiveRank,
     };
   }));
   
