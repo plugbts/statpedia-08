@@ -822,6 +822,9 @@ export function PlayerPropsColumnView({
           const l5 = calculateLastNHitRate(gameLogs, prop.line, direction, 5);
           const l10 = calculateLastNHitRate(gameLogs, prop.line, direction, 10);
           const l20 = calculateLastNHitRate(gameLogs, prop.line, direction, 20);
+          
+          // Get defensive rank
+          const defensiveRank = getDefensiveRank(prop);
 
           return (
           <Card
@@ -1034,6 +1037,9 @@ export function PlayerPropsColumnView({
               const l5 = calculateLastNHitRate(gameLogs, prop.line, direction, 5);
               const l10 = calculateLastNHitRate(gameLogs, prop.line, direction, 10);
               const l20 = calculateLastNHitRate(gameLogs, prop.line, direction, 20);
+              
+              // Get defensive rank
+              const defensiveRank = getDefensiveRank(prop);
 
                       return (
                 <div
