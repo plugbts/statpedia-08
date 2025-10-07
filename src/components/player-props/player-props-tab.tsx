@@ -714,6 +714,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         );
         
         logAPI('PlayerPropsTab', `Cloudflare Workers API returned ${result?.length || 0} props`);
+        console.log('🔍 [API_DEBUG] API result:', result);
         
         // 🔍 COMPREHENSIVE FRONTEND DEBUG LOGGING
         if (result && result.length > 0) {
@@ -834,6 +835,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
           });
           
           // Set all props at once (no pagination)
+          console.log('🔍 [PROPS_DEBUG] Setting realProps with:', sortedPropsWithEV.length, 'props');
           setRealProps(sortedPropsWithEV as PlayerProp[]);
           
           // Validate headshot player ID matches
@@ -951,8 +953,8 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       
       // Over/Under filter
       const matchesOverUnder = overUnderFilter === 'both' || 
-        (overUnderFilter === 'over' && overOdds !== null && overOdds !== undefined && !isNaN(parseFloat(overOdds))) || 
-        (overUnderFilter === 'under' && underOdds !== null && underOdds !== undefined && !isNaN(parseFloat(underOdds)));
+        (overUnderFilter === 'over' && overOdds !== null && overOdds !== undefined && !isNaN(Number(overOdds))) || 
+        (overUnderFilter === 'under' && underOdds !== null && underOdds !== undefined && !isNaN(Number(underOdds)));
       
       const passes = matchesSearch && matchesPropType && matchesConfidence && matchesEV && matchesPositiveEV && matchesLine && matchesOddsRange && matchesOverUnder;
       
@@ -1058,10 +1060,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     // Sort by Statpedia rating first (highest to lowest), then by priority
     nflOnly.sort((a, b) => {
       // Check if props are pick 'em (odds around +100)
-      const aIsPickEm = (a.overOdds && parseInt(a.overOdds) >= 95 && parseInt(a.overOdds) <= 105) || 
-                       (a.underOdds && parseInt(a.underOdds) >= 95 && parseInt(a.underOdds) <= 105);
-      const bIsPickEm = (b.overOdds && parseInt(b.overOdds) >= 95 && parseInt(b.overOdds) <= 105) || 
-                       (b.underOdds && parseInt(b.underOdds) >= 95 && parseInt(b.underOdds) <= 105);
+      const aIsPickEm = (a.overOdds && Number(a.overOdds) >= 95 && Number(a.overOdds) <= 105) || 
+                       (a.underOdds && Number(a.underOdds) >= 95 && Number(a.underOdds) <= 105);
+      const bIsPickEm = (b.overOdds && Number(b.overOdds) >= 95 && Number(b.overOdds) <= 105) || 
+                       (b.underOdds && Number(b.underOdds) >= 95 && Number(b.underOdds) <= 105);
       
       // First: Sort by Statpedia rating (highest first)
       const aRating = statpediaRatingService.calculateRating(a, 'both');
@@ -1718,6 +1720,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
 
 
         {/* Player Props Content */}
+        {(() => {
+          console.log("[PLAYER_PROPS_TAB] Rendering check:", { isLoadingData, orderedPropsLength: orderedProps.length, viewMode });
+          return null;
+        })()}
         {!isLoadingData && orderedProps.length > 0 && (
           <>
             {viewMode === 'column' ? (

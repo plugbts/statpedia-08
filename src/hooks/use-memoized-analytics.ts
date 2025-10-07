@@ -1,6 +1,6 @@
 import { useMemo, useCallback, useState, useEffect } from 'react';
 import { analyticsPrecomputationService } from '@/services/analytics-precomputation';
-import { useAnalyticsWorker } from '@/hooks/use-analytics-worker';
+// import { useAnalyticsWorker } from '@/hooks/use-analytics-worker';
 import { processAnalyticsWithProgress } from '@/utils/chunked-processing';
 
 interface AnalyticsResult {
@@ -32,10 +32,12 @@ export function useMemoizedAnalytics() {
   const [progress, setProgress] = useState({ completed: 0, total: 0 });
   const [error, setError] = useState<string | null>(null);
   
-  const { calculateAnalytics: workerCalculateAnalytics, isWorkerAvailable } = useAnalyticsWorker();
+  // Disable Web Worker completely due to localStorage issue
+  const isWorkerAvailable = false;
 
   // Memoized analytics calculation
   const calculateAnalytics = useCallback(async (props: Prop[]) => {
+    console.log(`[MEMOIZED_ANALYTICS] calculateAnalytics called with ${props.length} props`);
     if (props.length === 0) return;
 
     setIsLoading(true);
@@ -44,14 +46,18 @@ export function useMemoizedAnalytics() {
 
     try {
       // Check for precomputed analytics first
+      console.log(`[MEMOIZED_ANALYTICS] Checking precomputed analytics for ${props.length} props`);
       const precomputedResults = await Promise.all(
         props.map(async (prop) => {
+          const key = `${prop.playerId}-${prop.propType}-${prop.line}-${prop.direction}`;
+          console.log(`[MEMOIZED_ANALYTICS] Checking precomputed for key: ${key}`);
           const precomputed = await analyticsPrecomputationService.getPrecomputedAnalytics(
             prop.playerId,
             prop.propType,
             prop.line,
             prop.direction
           );
+          console.log(`[MEMOIZED_ANALYTICS] Precomputed result for ${key}:`, precomputed);
           
           if (precomputed) {
             return {
@@ -62,36 +68,36 @@ export function useMemoizedAnalytics() {
                   display: precomputed.matchup_rank_display || 'N/A'
                 },
                 h2h: {
-                  hits: precomputed.h2h_hits,
-                  total: precomputed.h2h_total,
-                  pct: precomputed.h2h_pct
+                  hits: precomputed.h2h_hits || 0,
+                  total: precomputed.h2h_total || 0,
+                  pct: precomputed.h2h_pct || 0
                 },
                 season: {
-                  hits: precomputed.season_hits,
-                  total: precomputed.season_total,
-                  pct: precomputed.season_pct
+                  hits: precomputed.season_hits || 0,
+                  total: precomputed.season_total || 0,
+                  pct: precomputed.season_pct || 0
                 },
                 l5: {
-                  hits: precomputed.l5_hits,
-                  total: precomputed.l5_total,
-                  pct: precomputed.l5_pct
+                  hits: precomputed.l5_hits || 0,
+                  total: precomputed.l5_total || 0,
+                  pct: precomputed.l5_pct || 0
                 },
                 l10: {
-                  hits: precomputed.l10_hits,
-                  total: precomputed.l10_total,
-                  pct: precomputed.l10_pct
+                  hits: precomputed.l10_hits || 0,
+                  total: precomputed.l10_total || 0,
+                  pct: precomputed.l10_pct || 0
                 },
                 l20: {
-                  hits: precomputed.l20_hits,
-                  total: precomputed.l20_total,
-                  pct: precomputed.l20_pct
+                  hits: precomputed.l20_hits || 0,
+                  total: precomputed.l20_total || 0,
+                  pct: precomputed.l20_pct || 0
                 },
                 streak: {
-                  current: precomputed.streak_current,
-                  longest: precomputed.streak_longest,
-                  direction: precomputed.streak_direction
+                  current: precomputed.streak_current || 0,
+                  longest: precomputed.streak_current || 0, // Use current as longest for simplicity
+                  direction: precomputed.streak_type || 'mixed'
                 },
-                chartData: precomputed.chart_data || []
+                chartData: [] // Chart data not available in analytics table
               }
             };
           }
@@ -125,8 +131,8 @@ export function useMemoizedAnalytics() {
 
       let results: Array<{ key: string; analytics: any }> = [];
 
-      // Try Web Worker first
-      if (isWorkerAvailable) {
+      // Temporarily disable Web Worker due to localStorage issue
+      if (false && isWorkerAvailable) {
         try {
           console.log('🚀 Using Web Worker for analytics calculation');
           results = await workerCalculateAnalytics(propsNeedingCalculation);
@@ -178,7 +184,10 @@ export function useMemoizedAnalytics() {
   // Memoized analytics getter
   const getAnalytics = useCallback((playerId: string, propType: string, line: number, direction: string) => {
     const key = `${playerId}-${propType}-${line}-${direction}`;
-    return analyticsData.get(key) || null;
+    const result = analyticsData.get(key) || null;
+    console.log(`[MEMOIZED_ANALYTICS] getAnalytics called for key: ${key}, result:`, result);
+    console.log(`[MEMOIZED_ANALYTICS] Total analytics in cache: ${analyticsData.size}`);
+    return result;
   }, [analyticsData]);
 
   // Clear analytics cache

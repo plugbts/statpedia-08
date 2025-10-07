@@ -189,7 +189,7 @@ export class AnalyticsPrecomputationService {
   ): Promise<PlayerAnalyticsRecord | null> {
     try {
       const { data, error } = await supabase
-        .from('playeralytics')
+        .from('analytics')
         .select('*')
         .eq('player_id', playerId)
         .eq('prop_type', propType)
@@ -214,7 +214,7 @@ export class AnalyticsPrecomputationService {
   private async storeAnalytics(analytics: PlayerAnalyticsRecord): Promise<void> {
     try {
       const { error } = await supabase
-        .from('playeralytics')
+        .from('analytics')
         .upsert(analytics, {
           onConflict: 'player_id,prop_type,line,direction'
         });

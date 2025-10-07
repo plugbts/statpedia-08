@@ -414,8 +414,9 @@ class CloudflarePlayerPropsAPI {
     } catch (error) {
       console.error('❌ New /api/{league}/player-props endpoint error:', error);
       
-      // Don't fallback to legacy endpoint - it has CORS issues
-      throw error;
+      // Fallback to Supabase Edge Function
+      console.log('🔄 Falling back to Supabase Edge Function...');
+      return await this.getPlayerPropsFromSupabase(sport, forceRefresh);
     }
   }
 

@@ -18,6 +18,11 @@ import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { AnalyticsTest } from "@/components/debug/analytics-test";
 import { AnalyticsDebug } from "@/components/debug/analytics-debug";
+import { AnalyticsDebugTest } from "@/components/debug/analytics-debug-test";
+import { AnalyticsUITest } from "@/components/debug/analytics-ui-test";
+import { SimpleAnalyticsTest } from "@/components/debug/simple-analytics-test";
+import { BasicTest } from "@/components/debug/basic-test";
+import { SimpleHookTest } from "@/components/debug/simple-hook-test";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -109,6 +114,31 @@ const App = () => {
                 <Route path="/debug/analytics2" element={
                   <div className="container mx-auto py-8">
                     <AnalyticsDebug />
+                  </div>
+                } />
+                <Route path="/debug/analytics3" element={
+                  <div className="container mx-auto py-8">
+                    <AnalyticsDebugTest />
+                  </div>
+                } />
+                <Route path="/debug/analytics4" element={
+                  <div className="container mx-auto py-8">
+                    <AnalyticsUITest />
+                  </div>
+                } />
+                <Route path="/debug/analytics5" element={
+                  <div className="container mx-auto py-8">
+                    <SimpleAnalyticsTest />
+                  </div>
+                } />
+                <Route path="/debug/basic" element={
+                  <div className="container mx-auto py-8">
+                    <BasicTest />
+                  </div>
+                } />
+                <Route path="/debug/hook" element={
+                  <div className="container mx-auto py-8">
+                    <SimpleHookTest />
                   </div>
                 } />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

@@ -35,7 +35,7 @@ import { getPlayerHeadshot, getPlayerInitials, getKnownPlayerHeadshot } from '@/
 import { StreakService } from '@/services/streak-service';
 import { useToast } from '@/hooks/use-toast';
 import { normalizeOpponent, normalizeMarketType, normalizePosition, normalizeTeam } from '@/utils/normalize';
-import { useMemoizedAnalytics } from '@/hooks/use-memoized-analytics';
+import { useSimpleAnalytics } from '@/hooks/use-simple-analytics';
 
 
 // Prop priority mapping (matches Cloudflare Worker logic)
@@ -165,6 +165,14 @@ export function PlayerPropsColumnView({
   overUnderFilter = 'both'
 }: PlayerPropsColumnViewProps) {
   console.log("[PLAYER_PROPS] Component rendered with props:", props.length);
+  console.log("[PLAYER_PROPS] Props data:", props.slice(0, 2));
+  console.log("[PLAYER_PROPS] First prop details:", props[0] ? {
+    playerName: props[0].playerName,
+    propType: props[0].propType,
+    line: props[0].line,
+    team: props[0].team,
+    opponent: props[0].opponent
+  } : 'No props');
   // Normalize props data
   const normalizedProps = props.map(prop => ({
     ...prop,
@@ -182,11 +190,11 @@ export function PlayerPropsColumnView({
   const [selectedPropSportsbooks, setSelectedPropSportsbooks] = useState<{sportsbooks: string[], propInfo: any}>({sportsbooks: [], propInfo: null});
   const [selectedGame, setSelectedGame] = useState('all');
   const [showAlternativeLines, setShowAlternativeLines] = useState(false);
-  // Use memoized analytics hook
-  const { calculateAnalytics, getAnalytics, isLoading: analyticsLoading, progress } = useMemoizedAnalytics();
+  // Use simple analytics hook
+  const { calculateAnalytics, getAnalytics, isLoading: analyticsLoading, progress } = useSimpleAnalytics();
   const { toast } = useToast();
 
-  // Load analytics data for props using the new memoized system
+  // Load analytics data for props using the simple analytics hook
   const loadAnalyticsData = React.useCallback(async (props: PlayerProp[]) => {
     if (analyticsLoading) {
       console.log("⏳ [ANALYTICS_LOAD] Already loading analytics, skipping");
@@ -201,7 +209,7 @@ export function PlayerPropsColumnView({
       return;
     }
     
-    // Convert props to the format expected by the memoized analytics hook
+    // Convert props to the format expected by the simple analytics hook
     const propsToCalculate = props.slice(0, 50).map(prop => ({
       playerId: prop.playerId || prop.player_id || '',
       playerName: prop.playerName || 'Unknown Player',
@@ -213,6 +221,8 @@ export function PlayerPropsColumnView({
       position: prop.position || 'QB',
       sport: prop.sport || selectedSport
     }));
+    
+    console.log('[ANALYTICS_LOAD] Props to calculate:', propsToCalculate.slice(0, 3));
     
     await calculateAnalytics(propsToCalculate);
   }, [analyticsLoading, overUnderFilter, selectedSport, calculateAnalytics]);
@@ -233,6 +243,7 @@ export function PlayerPropsColumnView({
     // Only load analytics for a reasonable number of props to prevent crashes
     if (normalizedProps.length > 0 && normalizedProps.length <= 50) {
       console.log("🚀 [ANALYTICS_LOAD] Loading analytics for", normalizedProps.length, "props");
+      console.log("🚀 [ANALYTICS_LOAD] First few props:", normalizedProps.slice(0, 3));
       loadAnalyticsData(normalizedProps);
     } else if (normalizedProps.length > 50) {
       console.warn("⚠️ [ANALYTICS_LOAD] Too many props to load analytics safely:", normalizedProps.length);
@@ -801,6 +812,10 @@ export function PlayerPropsColumnView({
             overUnderFilter
           );
           
+          // Debug analytics retrieval
+          console.log(`[ANALYTICS_DEBUG] Prop: ${prop.playerName} ${prop.propType} ${prop.line} ${overUnderFilter}`);
+          console.log(`[ANALYTICS_DEBUG] Analytics result:`, analytics);
+          
           // Debug analytics data
           console.debug("[ANALYTICS]", {
             key: `${prop.playerId}-${prop.propType}-${prop.line}-${overUnderFilter}`,
@@ -1027,6 +1042,10 @@ export function PlayerPropsColumnView({
                 prop.line || 0,
                 overUnderFilter
               );
+              
+              // Debug analytics retrieval
+              console.log(`[ANALYTICS_DEBUG] Prop: ${prop.playerName} ${prop.propType} ${prop.line} ${overUnderFilter}`);
+              console.log(`[ANALYTICS_DEBUG] Analytics result:`, analytics);
               
               // Use real analytics data or fallback to defaults
               const h2h = analytics?.h2h || { hits: 0, total: 0, pct: 0 };
