@@ -5,6 +5,8 @@
  * providing unlimited scalability and no resource restrictions.
  */
 
+import { playerPropsEnricher } from './player-props-enricher';
+
 interface PlayerProp {
   id?: string;
   playerId?: string;
@@ -351,7 +353,7 @@ class CloudflarePlayerPropsAPI {
                   team: playerTeam,
                   opponent: opponentTeam || 'Unknown',
                   propType: formatMarketName(prop.market_type),
-                  marketType: normalizeMarketType(prop.market_type), // Add normalized market type
+                  // marketType: normalizeMarketType(prop.market_type), // Add normalized market type
                   line: prop.line,
                   overOdds: parseOdds(prop.best_over),
                   underOdds: parseOdds(prop.best_under),
@@ -436,7 +438,13 @@ class CloudflarePlayerPropsAPI {
       console.log(`✅ Transformed ${playerProps.length} player props from new endpoint`);
       
       // Apply pagination to the deduplicated props
-      return playerProps;
+      console.log(`🔧 Enriching ${playerProps.length} player props with gameLogs and defenseStats...`);
+      
+      // Enrich props with gameLogs and defenseStats for analytics
+      const enrichedProps = await playerPropsEnricher.enrichPlayerProps(playerProps);
+      
+      console.log(`✅ Enriched ${enrichedProps.length} player props with analytics data`);
+      return enrichedProps;
       
     } catch (error) {
       console.error('❌ New /api/{league}/player-props endpoint error:', error);
@@ -582,7 +590,14 @@ class CloudflarePlayerPropsAPI {
       }
 
       console.log(`✅ Player props loaded from Supabase: ${data.totalProps} props`);
-      return data.data || [];
+      const props = data.data || [];
+      
+      // Enrich props with gameLogs and defenseStats for analytics
+      console.log(`🔧 Enriching ${props.length} player props with gameLogs and defenseStats...`);
+      const enrichedProps = await playerPropsEnricher.enrichPlayerProps(props);
+      
+      console.log(`✅ Enriched ${enrichedProps.length} player props with analytics data`);
+      return enrichedProps;
       
     } catch (error) {
       console.error('❌ Supabase Edge Function error:', error);

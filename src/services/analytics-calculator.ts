@@ -372,7 +372,7 @@ export class AnalyticsCalculator {
         season,
         hits: hitRate?.hits,
         total: hitRate?.total,
-        hitRate: hitRate?.hit_rate
+        hit_rate: hitRate?.hit_rate
       });
 
       // Guard against null/undefined results

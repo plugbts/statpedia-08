@@ -32,14 +32,8 @@ const knownPlayers: Record<string, string> = {
   "tj watt": "3123077",
   "myles garrett": "3123077",
   "nick bosa": "3123077",
-  "aaron donald": "3123077",
   "jalen ramsey": "3123077",
-  "xavien howard": "3123077",
-  "jalen hurts": "4040715",
-  "aj brown": "4047646",
-  "cj stroud": "4430826",
-  "bryce young": "4430737",
-  "jonathan taylor": "4242335"
+  "xavien howard": "3123077"
 };
 
 export interface NormalizedProp {

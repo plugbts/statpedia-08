@@ -147,6 +147,19 @@ interface PlayerProp {
   rating_under_raw?: number;
   // Analytics properties
   marketType?: string;
+  // Enriched properties for analytics
+  gameLogs?: Array<{
+    date: string;
+    season: number;
+    opponent: string;
+    value: number;
+  }>;
+  defenseStats?: Array<{
+    team: string;
+    propType: string;
+    position: string;
+    rank: number;
+  }>;
 }
 
 interface PlayerPropsColumnViewProps {
@@ -799,7 +812,7 @@ export function PlayerPropsColumnView({
             opponent: prop.opponent,
             market: prop.marketType,
             position: prop.position,
-            logs: 0, // prop.gameLogs?.length - not available in current prop structure
+            logs: prop.gameLogs?.length || 0, // Now available from enriched props
             propType: prop.propType,
             playerId: prop.playerId
           });
