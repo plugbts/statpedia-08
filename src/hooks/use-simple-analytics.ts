@@ -1,5 +1,6 @@
 import { useMemo, useCallback, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { normalizePlayerId } from '@/utils/player-id-normalizer';
 
 interface AnalyticsResult {
   matchupRank: { rank: number; display: string };
@@ -38,12 +39,14 @@ export function useSimpleAnalytics() {
       const results: Array<{ key: string; analytics: AnalyticsResult }> = [];
 
       for (const prop of props) {
-        const key = `${prop.playerId}-${prop.propType}-${prop.line}-${prop.direction}`;
-        console.log(`[SIMPLE_ANALYTICS] Processing ${key}`);
+        // Normalize player ID to match database
+        const normalizedPlayerId = normalizePlayerId(prop.playerName || prop.playerId);
+        const key = `${normalizedPlayerId}-${prop.propType}-${prop.line}-${prop.direction}`;
+        console.log(`[SIMPLE_ANALYTICS] Processing ${key} (original: ${prop.playerId}, normalized: ${normalizedPlayerId})`);
 
         // Check for precomputed analytics
         console.log(`[SIMPLE_ANALYTICS] Querying analytics for:`, {
-          player_id: prop.playerId,
+          player_id: normalizedPlayerId,
           prop_type: prop.propType,
           line: prop.line,
           direction: prop.direction
@@ -52,7 +55,7 @@ export function useSimpleAnalytics() {
         const { data: precomputed, error: precomputedError } = await supabase
           .from('analytics')
           .select('*')
-          .eq('player_id', prop.playerId)
+          .eq('player_id', normalizedPlayerId)
           .eq('prop_type', prop.propType)
           .eq('line', prop.line)
           .eq('direction', prop.direction)
@@ -66,7 +69,7 @@ export function useSimpleAnalytics() {
           // Fallback to real-time calculation
           const { data: hitRate, error: hitRateError } = await supabase
             .rpc('calculate_hit_rate', {
-              p_player_id: prop.playerId,
+              p_player_id: normalizedPlayerId,
               p_prop_type: prop.propType,
               p_line: prop.line,
               p_direction: prop.direction,
@@ -151,9 +154,11 @@ export function useSimpleAnalytics() {
   }, [analyticsData]);
 
   const getAnalytics = useCallback((playerId: string, propType: string, line: number, direction: string) => {
-    const key = `${playerId}-${propType}-${line}-${direction}`;
+    // Normalize player ID to match the key used in calculateAnalytics
+    const normalizedPlayerId = normalizePlayerId(playerId);
+    const key = `${normalizedPlayerId}-${propType}-${line}-${direction}`;
     const result = analyticsData.get(key) || null;
-    console.log(`[SIMPLE_ANALYTICS] getAnalytics called for key: ${key}, result:`, result);
+    console.log(`[SIMPLE_ANALYTICS] getAnalytics called for key: ${key} (original: ${playerId}, normalized: ${normalizedPlayerId}), result:`, result);
     return result;
   }, [analyticsData]);
 

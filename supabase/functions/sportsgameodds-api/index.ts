@@ -48,9 +48,11 @@ class SportGameOddsAPIService {
     
     try {
       const { data, error } = await supabase
-        .from('api_config')
+        .from('api_plan_config')
         .select('*')
-        .limit(1);
+        .eq('is_active', true)
+        .limit(1)
+        .single();
 
       if (error) {
         console.error('❌ Database error loading API config:', error);
@@ -65,7 +67,7 @@ class SportGameOddsAPIService {
       
       if (!data) {
         console.error('❌ No API configuration found in database');
-        throw new Error('No API configuration found. Please set up the api_config table.');
+        throw new Error('No API configuration found. Please set up the api_plan_config table.');
       }
       
       console.log(`✅ Loaded configuration from database`);
@@ -73,16 +75,14 @@ class SportGameOddsAPIService {
       // Get API key from environment as fallback
       const apiKey = Deno.env.get('SPORTSGAMEODDS_API_KEY') || '';
 
-      // Parse the configuration from the api_config table
-      const configData = data.value || {};
-      
+      // Parse the configuration from the api_plan_config table
       this.config = {
-        sportsgameodds_api_key: configData.sportsgameodds_api_key || apiKey,
-        cache_ttl_seconds: parseInt(configData.cache_ttl_seconds) || 30,
-        polling_interval_seconds: parseInt(configData.polling_interval_seconds) || 30,
-        rate_limit_per_minute: parseInt(configData.rate_limit_per_minute) || 60,
-        max_props_per_request: parseInt(configData.max_props_per_request) || 50,
-        enabled_sports: configData.enabled_sports || ['nfl', 'nba', 'mlb', 'nhl']
+        sportsgameodds_api_key: data.sportsgameodds_api_key || apiKey,
+        cache_ttl_seconds: data.cache_ttl_seconds || 30,
+        polling_interval_seconds: data.polling_interval_seconds || 30,
+        rate_limit_per_minute: data.rate_limit_per_minute || 60,
+        max_props_per_request: data.max_props_per_request || 50,
+        enabled_sports: data.enabled_sports || ['nfl', 'nba', 'mlb', 'nhl']
       };
 
       return this.config;
