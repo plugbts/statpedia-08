@@ -717,17 +717,6 @@ export function PlayerPropsColumnView({
             </label>
           </div>
 
-          {/* Analytics Toggle Switch */}
-          <div className="flex items-center gap-2 px-3 py-2 bg-card border border-border/50 rounded-lg hover:border-primary/30 transition-colors">
-            <Switch
-              checked={analyticsEnabled}
-              onCheckedChange={setAnalyticsEnabled}
-              className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-white"
-            />
-            <label className="text-sm font-medium text-foreground cursor-pointer">
-              Analytics Enabled
-            </label>
-          </div>
 
           {/* Filter Dropdown */}
           <Select value={filterBy} onValueChange={setFilterBy}>
