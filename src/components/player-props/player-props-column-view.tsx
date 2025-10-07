@@ -35,8 +35,7 @@ import { getPlayerHeadshot, getPlayerInitials, getKnownPlayerHeadshot } from '@/
 import { StreakService } from '@/services/streak-service';
 import { useToast } from '@/hooks/use-toast';
 import { normalizeOpponent, normalizeMarketType, normalizePosition, normalizeTeam } from '@/utils/normalize';
-import { analyticsCalculator, AnalyticsResult } from '@/services/analytics-calculator';
-import { historicalDataService } from '@/services/historical-data-service';
+import { useMemoizedAnalytics } from '@/hooks/use-memoized-analytics';
 
 
 // Prop priority mapping (matches Cloudflare Worker logic)
@@ -183,14 +182,13 @@ export function PlayerPropsColumnView({
   const [selectedPropSportsbooks, setSelectedPropSportsbooks] = useState<{sportsbooks: string[], propInfo: any}>({sportsbooks: [], propInfo: null});
   const [selectedGame, setSelectedGame] = useState('all');
   const [showAlternativeLines, setShowAlternativeLines] = useState(false);
-  const [analyticsData, setAnalyticsData] = useState<Map<string, AnalyticsResult>>(new Map());
-  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
-  const [analyticsEnabled, setAnalyticsEnabled] = useState(true); // Toggle to disable analytics
+  // Use memoized analytics hook
+  const { calculateAnalytics, getAnalytics, isLoading: analyticsLoading, progress } = useMemoizedAnalytics();
   const { toast } = useToast();
 
-  // Load analytics data for props
-  const loadAnalyticsData = async (props: PlayerProp[]) => {
-    if (isLoadingAnalytics) {
+  // Load analytics data for props using the new memoized system
+  const loadAnalyticsData = React.useCallback(async (props: PlayerProp[]) => {
+    if (analyticsLoading) {
       console.log("⏳ [ANALYTICS_LOAD] Already loading analytics, skipping");
       return;
     }
@@ -203,100 +201,27 @@ export function PlayerPropsColumnView({
       return;
     }
     
-    setIsLoadingAnalytics(true);
-    try {
-      // Add timeout to prevent hanging
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Analytics loading timeout')), 30000); // 30 second timeout
-      });
-      
-      const analyticsPromises = props.map(async (prop) => {
-        const key = `${prop.playerId}-${prop.propType}`;
-        
-        console.log("📊 [ANALYTICS_LOAD] Processing prop:", {
-          key,
-          playerName: prop.playerName,
-          playerId: prop.playerId,
-          propType: prop.propType,
-          opponent: prop.opponent,
-          line: prop.line
-        });
-        
-        // Check if we already have analytics for this prop
-        if (analyticsData.has(key)) {
-          console.log("💾 [ANALYTICS_LOAD] Using cached analytics for:", key);
-          return { key, analytics: analyticsData.get(key)! };
-        }
-        
-        try {
-          console.log("🔄 [ANALYTICS_LOAD] Calculating analytics for:", key);
-          
-          // Add safety checks
-          if (!prop.playerId && !prop.player_id) {
-            console.warn("[ANALYTICS_LOAD] No player ID found for prop:", prop);
-            return { key, analytics: null };
-          }
-          
-          if (!prop.propType) {
-            console.warn("[ANALYTICS_LOAD] No prop type found for prop:", prop);
-            return { key, analytics: null };
-          }
-          
-          const analytics = await analyticsCalculator.calculateAnalytics(
-            prop.playerId || prop.player_id || '',
-            prop.playerName || 'Unknown Player',
-            prop.team || 'UNK',
-            prop.opponent || 'UNK',
-            prop.propType,
-            prop.line || 0,
-            overUnderFilter as 'over' | 'under',
-            prop.sport || 'nfl'
-          );
-          
-          console.log("[ANALYTICS_LOAD] Analytics calculated for:", key, analytics);
-          return { key, analytics };
-        } catch (error) {
-          console.error(`[ANALYTICS_LOAD] Failed to load analytics for ${prop.playerName} ${prop.propType}:`, error);
-          console.error("[ANALYTICS_LOAD] Prop data:", prop);
-          return { key, analytics: null };
-        }
-      });
-      
-      console.log("⏳ [ANALYTICS_LOAD] Waiting for analytics promises...");
-      const results = await Promise.race([
-        Promise.all(analyticsPromises),
-        timeoutPromise
-      ]) as Array<{ key: string; analytics: AnalyticsResult | null }>;
-      
-      console.log("📈 [ANALYTICS_LOAD] Analytics results received:", results.length);
-      
-      const newAnalyticsData = new Map(analyticsData);
-      
-      results.forEach(({ key, analytics }) => {
-        if (analytics) {
-          newAnalyticsData.set(key, analytics);
-          console.log("💾 [ANALYTICS_LOAD] Stored analytics for key:", key);
-        } else {
-          console.log("⚠️ [ANALYTICS_LOAD] No analytics data for key:", key);
-        }
-      });
-      
-      setAnalyticsData(newAnalyticsData);
-      console.log("🎉 [ANALYTICS_LOAD] Analytics loading completed!");
-    } catch (error) {
-      console.error('❌ [ANALYTICS_LOAD] Failed to load analytics data:', error);
-    } finally {
-      setIsLoadingAnalytics(false);
-      console.log("🏁 [ANALYTICS_LOAD] Analytics loading finished");
-    }
-  };
+    // Convert props to the format expected by the memoized analytics hook
+    const propsToCalculate = props.slice(0, 50).map(prop => ({
+      playerId: prop.playerId || prop.player_id || '',
+      playerName: prop.playerName || 'Unknown Player',
+      propType: prop.propType,
+      line: prop.line || 0,
+      direction: overUnderFilter as 'over' | 'under',
+      team: prop.team || 'UNK',
+      opponent: prop.opponent || 'UNK',
+      position: prop.position || 'QB',
+      sport: prop.sport || selectedSport
+    }));
+    
+    await calculateAnalytics(propsToCalculate);
+  }, [analyticsLoading, overUnderFilter, selectedSport, calculateAnalytics]);
 
   // Load analytics when props change
   React.useEffect(() => {
     console.log("🔍 [ANALYTICS_LOAD] Props changed:", {
       propsCount: normalizedProps.length,
       overUnderFilter,
-      analyticsEnabled,
       firstProp: normalizedProps[0] ? {
         playerName: normalizedProps[0].playerName,
         playerId: normalizedProps[0].playerId,
@@ -306,17 +231,15 @@ export function PlayerPropsColumnView({
     });
     
     // Only load analytics for a reasonable number of props to prevent crashes
-    if (analyticsEnabled && normalizedProps.length > 0 && normalizedProps.length <= 50) {
+    if (normalizedProps.length > 0 && normalizedProps.length <= 50) {
       console.log("🚀 [ANALYTICS_LOAD] Loading analytics for", normalizedProps.length, "props");
       loadAnalyticsData(normalizedProps);
     } else if (normalizedProps.length > 50) {
       console.warn("⚠️ [ANALYTICS_LOAD] Too many props to load analytics safely:", normalizedProps.length);
-    } else if (!analyticsEnabled) {
-      console.log("❌ [ANALYTICS_LOAD] Analytics disabled");
     } else if (normalizedProps.length === 0) {
       console.log("📭 [ANALYTICS_LOAD] No props to load analytics for");
     }
-  }, [normalizedProps, overUnderFilter, analyticsEnabled]);
+  }, [normalizedProps, overUnderFilter, loadAnalyticsData]);
 
   // Handle alternative lines toggle with confirmation
   const handleAlternativeLinesToggle = (checked: boolean) => {
@@ -882,12 +805,16 @@ export function PlayerPropsColumnView({
           });
 
           // Get analytics data for this prop
-          const analyticsKey = `${prop.playerId}-${prop.propType}`;
-          const analytics = analyticsData.get(analyticsKey);
+          const analytics = getAnalytics(
+            prop.playerId || prop.player_id || '',
+            prop.propType,
+            prop.line || 0,
+            overUnderFilter
+          );
           
           // Debug analytics data
           console.debug("[ANALYTICS]", {
-            key: analyticsKey,
+            key: `${prop.playerId}-${prop.propType}-${prop.line}-${overUnderFilter}`,
             hasAnalytics: !!analytics,
             analytics: analytics
           });
@@ -1105,8 +1032,12 @@ export function PlayerPropsColumnView({
           <div className="space-y-2">
             {filteredAndSortedProps.map((prop, index) => {
               // Get analytics data for this prop
-              const analyticsKey = `${prop.playerId}-${prop.propType}`;
-              const analytics = analyticsData.get(analyticsKey);
+              const analytics = getAnalytics(
+                prop.playerId || prop.player_id || '',
+                prop.propType,
+                prop.line || 0,
+                overUnderFilter
+              );
               
               // Use real analytics data or fallback to defaults
               const h2h = analytics?.h2h || { hits: 0, total: 0, pct: 0 };
