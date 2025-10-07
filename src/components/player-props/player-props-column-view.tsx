@@ -807,12 +807,17 @@ export function PlayerPropsColumnView({
           <div className="space-y-2">
         {filteredAndSortedProps.map((prop, index) => {
           // Debug logging for prop inputs
-          console.debug("[PROP]", {
+          console.debug("[PROP INPUT]", {
             player: prop.playerName,
-            opponent: prop.opponent,
-            market: prop.marketType,
+            opponentRaw: prop.opponent,
+            opponentNorm: normalizeOpponent(prop.opponent),
+            market: prop.marketType || prop.propType,
+            marketNorm: normalizeMarketType(prop.marketType || prop.propType),
             position: prop.position,
-            logs: prop.gameLogs?.length || 0, // Now available from enriched props
+            positionNorm: normalizePosition(prop.position),
+            line: prop.line,
+            logsCount: prop.gameLogs?.length || 0,
+            sampleLog: prop.gameLogs?.[0],
             propType: prop.propType,
             playerId: prop.playerId
           });
@@ -829,6 +834,13 @@ export function PlayerPropsColumnView({
           console.log(`[ANALYTICS_DEBUG] Prop: ${prop.playerName} ${prop.propType} ${prop.line} ${overUnderFilter}`);
           console.log(`[ANALYTICS_DEBUG] Analytics result:`, analytics);
           
+          // Log defense stats keys for debugging
+          if (prop.defenseStats && prop.defenseStats.length > 0) {
+            console.debug("[DEFENSE KEYS]", prop.defenseStats.slice(0, 5));
+          } else {
+            console.debug("[DEFENSE KEYS]", "No defense stats available");
+          }
+          
           // Debug analytics data
           console.debug("[ANALYTICS]", {
             key: `${prop.playerId}-${prop.propType}-${prop.line}-${overUnderFilter}`,
@@ -836,16 +848,19 @@ export function PlayerPropsColumnView({
             analytics: analytics
           });
           
-          // Use real analytics data or fallback to defaults
-          const streak = analytics?.streak?.current || 0;
-          const h2h = analytics?.h2h || { hits: 0, total: 0, pct: 0 };
-          const season = analytics?.season || { hits: 0, total: 0, pct: 0 };
-          const l5 = analytics?.l5 || { hits: 0, total: 0, pct: 0 };
-          const l10 = analytics?.l10 || { hits: 0, total: 0, pct: 0 };
-          const l20 = analytics?.l20 || { hits: 0, total: 0, pct: 0 };
+          // Use real analytics data or fallback to defaults with UI guardrails
+          const hasGameLogs = prop.gameLogs && prop.gameLogs.length > 0;
+          const hasDefenseStats = prop.defenseStats && prop.defenseStats.length > 0;
+          
+          const streak = hasGameLogs ? (analytics?.streak?.current || 0) : 0;
+          const h2h = hasGameLogs ? (analytics?.h2h || { hits: 0, total: 0, pct: 0 }) : { hits: 0, total: 0, pct: 0 };
+          const season = hasGameLogs ? (analytics?.season || { hits: 0, total: 0, pct: 0 }) : { hits: 0, total: 0, pct: 0 };
+          const l5 = hasGameLogs ? (analytics?.l5 || { hits: 0, total: 0, pct: 0 }) : { hits: 0, total: 0, pct: 0 };
+          const l10 = hasGameLogs ? (analytics?.l10 || { hits: 0, total: 0, pct: 0 }) : { hits: 0, total: 0, pct: 0 };
+          const l20 = hasGameLogs ? (analytics?.l20 || { hits: 0, total: 0, pct: 0 }) : { hits: 0, total: 0, pct: 0 };
           
           // Get defensive rank
-          const defensiveRank = analytics?.matchupRank || { rank: 0, display: 'N/A' };
+          const defensiveRank = hasDefenseStats ? (analytics?.matchupRank || { rank: 0, display: '—' }) : { rank: 0, display: '—' };
 
           return (
           <Card
@@ -950,7 +965,7 @@ export function PlayerPropsColumnView({
                   {/* Streak */}
                   <div className="w-16 text-center px-2">
                     <div className="text-xs font-bold text-muted-foreground group-hover:opacity-80 transition-colors duration-200">
-                      {streak}W
+                      {hasGameLogs && streak > 0 ? `${streak}W` : '—'}
                     </div>
                   </div>
 
@@ -1060,14 +1075,24 @@ export function PlayerPropsColumnView({
               console.log(`[ANALYTICS_DEBUG] Prop: ${prop.playerName} ${prop.propType} ${prop.line} ${overUnderFilter}`);
               console.log(`[ANALYTICS_DEBUG] Analytics result:`, analytics);
               
-              // Use real analytics data or fallback to defaults
-              const h2h = analytics?.h2h || { hits: 0, total: 0, pct: 0 };
-              const season = analytics?.season || { hits: 0, total: 0, pct: 0 };
-              const l5 = analytics?.l5 || { hits: 0, total: 0, pct: 0 };
-              const l10 = analytics?.l10 || { hits: 0, total: 0, pct: 0 };
-              const l20 = analytics?.l20 || { hits: 0, total: 0, pct: 0 };
-              const streak = analytics?.streak?.current || 0;
-              const defensiveRank = analytics?.matchupRank || { rank: 0, display: 'N/A' };
+              // Log defense stats keys for debugging
+              if (prop.defenseStats && prop.defenseStats.length > 0) {
+                console.debug("[DEFENSE KEYS]", prop.defenseStats.slice(0, 5));
+              } else {
+                console.debug("[DEFENSE KEYS]", "No defense stats available");
+              }
+              
+              // Use real analytics data or fallback to defaults with UI guardrails
+              const hasGameLogs = prop.gameLogs && prop.gameLogs.length > 0;
+              const hasDefenseStats = prop.defenseStats && prop.defenseStats.length > 0;
+              
+              const h2h = hasGameLogs ? (analytics?.h2h || { hits: 0, total: 0, pct: 0 }) : { hits: 0, total: 0, pct: 0 };
+              const season = hasGameLogs ? (analytics?.season || { hits: 0, total: 0, pct: 0 }) : { hits: 0, total: 0, pct: 0 };
+              const l5 = hasGameLogs ? (analytics?.l5 || { hits: 0, total: 0, pct: 0 }) : { hits: 0, total: 0, pct: 0 };
+              const l10 = hasGameLogs ? (analytics?.l10 || { hits: 0, total: 0, pct: 0 }) : { hits: 0, total: 0, pct: 0 };
+              const l20 = hasGameLogs ? (analytics?.l20 || { hits: 0, total: 0, pct: 0 }) : { hits: 0, total: 0, pct: 0 };
+              const streak = hasGameLogs ? (analytics?.streak?.current || 0) : 0;
+              const defensiveRank = hasDefenseStats ? (analytics?.matchupRank || { rank: 0, display: '—' }) : { rank: 0, display: '—' };
 
                       return (
                 <div
@@ -1087,50 +1112,50 @@ export function PlayerPropsColumnView({
                   {/* H2H */}
                   <div className="w-24 text-center px-2 py-3">
                     <div className="text-xs font-medium text-foreground">
-                      {h2h.total > 0 ? `${h2h.pct.toFixed(0)}%` : 'N/A'}
+                      {hasGameLogs && h2h.total > 0 ? `${h2h.pct.toFixed(0)}%` : '—'}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {h2h.total > 0 ? `${h2h.hits}/${h2h.total}` : '0/0'}
+                      {hasGameLogs && h2h.total > 0 ? `${h2h.hits}/${h2h.total}` : 'No data'}
                     </div>
                   </div>
 
                   {/* 2025 */}
                   <div className="w-24 text-center px-2 py-3">
                     <div className="text-xs font-medium text-foreground">
-                      {season.total > 0 ? `${season.pct.toFixed(0)}%` : 'N/A'}
+                      {hasGameLogs && season.total > 0 ? `${season.pct.toFixed(0)}%` : '—'}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {season.total > 0 ? `${season.hits}/${season.total}` : '0/0'}
+                      {hasGameLogs && season.total > 0 ? `${season.hits}/${season.total}` : 'No data'}
                     </div>
                   </div>
 
                   {/* L5 */}
                   <div className="w-24 text-center px-2 py-3">
                     <div className="text-xs font-medium text-foreground">
-                      {l5.total > 0 ? `${l5.pct.toFixed(0)}%` : 'N/A'}
+                      {hasGameLogs && l5.total > 0 ? `${l5.pct.toFixed(0)}%` : '—'}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {l5.total > 0 ? `${l5.hits}/${l5.total}` : '0/0'}
+                      {hasGameLogs && l5.total > 0 ? `${l5.hits}/${l5.total}` : 'No data'}
                     </div>
                   </div>
 
                   {/* L10 */}
                   <div className="w-24 text-center px-2 py-3">
                     <div className="text-xs font-medium text-foreground">
-                      {l10.total > 0 ? `${l10.pct.toFixed(0)}%` : 'N/A'}
+                      {hasGameLogs && l10.total > 0 ? `${l10.pct.toFixed(0)}%` : '—'}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {l10.total > 0 ? `${l10.hits}/${l10.total}` : '0/0'}
+                      {hasGameLogs && l10.total > 0 ? `${l10.hits}/${l10.total}` : 'No data'}
                     </div>
                   </div>
 
                   {/* L20 */}
                   <div className="w-24 text-center px-2 py-3">
                     <div className="text-xs font-medium text-foreground">
-                      {l20.total > 0 ? `${l20.pct.toFixed(0)}%` : 'N/A'}
+                      {hasGameLogs && l20.total > 0 ? `${l20.pct.toFixed(0)}%` : '—'}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {l20.total > 0 ? `${l20.hits}/${l20.total}` : '0/0'}
+                      {hasGameLogs && l20.total > 0 ? `${l20.hits}/${l20.total}` : 'No data'}
                     </div>
                   </div>
                 </div>
