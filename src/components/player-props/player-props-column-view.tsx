@@ -36,77 +36,6 @@ import { StreakService } from '@/services/streak-service';
 import { useToast } from '@/hooks/use-toast';
 import { normalizeOpponent, normalizeMarketType, normalizePosition, normalizeTeam } from '@/utils/normalize';
 
-// Utility function to calculate streak
-const calculateStreak = (gameLogs: any[], line: number, direction: 'over' | 'under') => {
-  if (!gameLogs || gameLogs.length === 0) return 0;
-  
-  let streak = 0;
-  for (let i = 0; i < gameLogs.length; i++) {
-    const hit = direction === 'over' ? gameLogs[i].value >= line : gameLogs[i].value <= line;
-    if (hit) {
-      streak++;
-    } else {
-      break;
-    }
-  }
-  return streak;
-};
-
-// Utility function to calculate hit rate
-const calculateHitRate = (gameLogs: Array<{date: string, season: number, opponent: string, value: number}>, line: number, direction: 'over' | 'under', sampleSize?: number, filterOpponent?: string) => {
-  if (!gameLogs || gameLogs.length === 0) {
-    return { hits: 0, total: 0, pct: 0 };
-  }
-  
-  let filteredLogs = gameLogs;
-  
-  // Filter by opponent if specified (using normalized comparison)
-  if (filterOpponent) {
-    filteredLogs = gameLogs.filter(log => normalizeOpponent(log.opponent) === normalizeOpponent(filterOpponent));
-  }
-  
-  // Apply sample size if specified (most recent N games)
-  if (sampleSize && sampleSize > 0) {
-    filteredLogs = filteredLogs.slice(0, sampleSize);
-  }
-  
-  if (filteredLogs.length === 0) {
-    return { hits: 0, total: 0, pct: 0 };
-  }
-  
-  const hits = filteredLogs.filter(log => {
-    return direction === 'over' ? log.value >= line : log.value <= line;
-  }).length;
-  
-  const total = filteredLogs.length;
-  const pct = total > 0 ? (hits / total) * 100 : 0;
-  
-  return { hits, total, pct };
-};
-
-// PropFinder-style analytics functions
-const calculateSeasonHitRate = (gameLogs: Array<{date: string, season: number, opponent: string, value: number}>, line: number, direction: 'over' | 'under') => {
-  return calculateHitRate(gameLogs.filter(g => g.season === 2025), line, direction);
-};
-
-const calculateH2HHitRate = (gameLogs: Array<{date: string, season: number, opponent: string, value: number}>, line: number, direction: 'over' | 'under', opponent: string) => {
-  return calculateHitRate(gameLogs.filter(g => normalizeOpponent(g.opponent) === normalizeOpponent(opponent)), line, direction);
-};
-
-const calculateLastNHitRate = (gameLogs: Array<{date: string, season: number, opponent: string, value: number}>, line: number, direction: 'over' | 'under', n: number) => {
-  return calculateHitRate(gameLogs.slice(0, n), line, direction);
-};
-
-// Defensive rank calculation - using real data only
-const getDefensiveRank = (prop: any) => {
-  // Use existing relevantRank or defensive rank from prop data
-  if (prop.relevantRank) {
-    return { rank: prop.relevantRank, display: `${normalizeOpponent(prop.opponent)} ${prop.relevantRank}` };
-  }
-  
-  // If no real defensive rank data available, show N/A
-  return { rank: 'N/A', display: 'N/A' };
-};
 
 // Prop priority mapping (matches Cloudflare Worker logic)
 const getPropPriority = (propType: string): number => {
@@ -185,16 +114,6 @@ interface PlayerProp {
   aiRating?: number;
   recommendation?: 'strong_bet' | 'good_bet' | 'neutral' | 'avoid' | 'strong_avoid';
   recentForm?: string;
-  last5Games?: number[];
-  seasonStats?: {
-    average: number;
-    median: number;
-    gamesPlayed: number;
-    hitRate: number;
-    last5Games: number[];
-    seasonHigh: number;
-    seasonLow: number;
-  };
   aiPrediction?: {
     recommended: 'over' | 'under';
     confidence: number;
@@ -226,14 +145,6 @@ interface PlayerProp {
   rating_under_normalized?: number;
   rating_under_raw?: number;
   // Analytics properties
-  gameLogs?: Array<{
-    date: string;
-    season: number;
-    opponent: string;
-    value: number;
-  }>;
-  gameLogs2025?: any[];
-  relevantRank?: string;
   marketType?: string;
 }
 
@@ -812,19 +723,17 @@ export function PlayerPropsColumnView({
           <div className="space-y-2">
         {filteredAndSortedProps.map((prop, index) => {
           // Calculate analytics data using available data
-          const gameLogs = prop.gameLogs || [];
+          // Analytics calculations - using placeholder values since historical data is not available
           const direction = overUnderFilter as 'over' | 'under';
-          
-          // Calculate analytics using the unified gameLogs structure
-          const streak = calculateStreak(gameLogs.map(g => g.value), prop.line, direction);
-          const h2h = calculateH2HHitRate(gameLogs, prop.line, direction, prop.opponentAbbr);
-          const season = calculateSeasonHitRate(gameLogs, prop.line, direction);
-          const l5 = calculateLastNHitRate(gameLogs, prop.line, direction, 5);
-          const l10 = calculateLastNHitRate(gameLogs, prop.line, direction, 10);
-          const l20 = calculateLastNHitRate(gameLogs, prop.line, direction, 20);
+          const streak = 0;
+          const h2h = { hits: 0, total: 0, pct: 0 };
+          const season = { hits: 0, total: 0, pct: 0 };
+          const l5 = { hits: 0, total: 0, pct: 0 };
+          const l10 = { hits: 0, total: 0, pct: 0 };
+          const l20 = { hits: 0, total: 0, pct: 0 };
           
           // Get defensive rank
-          const defensiveRank = getDefensiveRank(prop);
+          const defensiveRank = { rank: 'N/A', display: 'N/A' };
 
           return (
           <Card
@@ -1028,18 +937,17 @@ export function PlayerPropsColumnView({
           <div className="space-y-2">
             {filteredAndSortedProps.map((prop, index) => {
               // Calculate analytics using the unified gameLogs structure
-              const gameLogs = prop.gameLogs || [];
+              // Analytics calculations - using placeholder values since historical data is not available
               const direction = overUnderFilter as 'over' | 'under';
-              
-              const streak = calculateStreak(gameLogs.map(g => g.value), prop.line, direction);
-              const h2h = calculateH2HHitRate(gameLogs, prop.line, direction, prop.opponentAbbr);
-              const season = calculateSeasonHitRate(gameLogs, prop.line, direction);
-              const l5 = calculateLastNHitRate(gameLogs, prop.line, direction, 5);
-              const l10 = calculateLastNHitRate(gameLogs, prop.line, direction, 10);
-              const l20 = calculateLastNHitRate(gameLogs, prop.line, direction, 20);
+              const streak = 0;
+              const h2h = { hits: 0, total: 0, pct: 0 };
+              const season = { hits: 0, total: 0, pct: 0 };
+              const l5 = { hits: 0, total: 0, pct: 0 };
+              const l10 = { hits: 0, total: 0, pct: 0 };
+              const l20 = { hits: 0, total: 0, pct: 0 };
               
               // Get defensive rank
-              const defensiveRank = getDefensiveRank(prop);
+              const defensiveRank = { rank: 'N/A', display: 'N/A' };
 
                       return (
                 <div
@@ -1052,7 +960,7 @@ export function PlayerPropsColumnView({
                       {prop.opponentAbbr || '—'}
                           </div>
                     <div className="text-xs text-muted-foreground">
-                      {prop.relevantRank || 'N/A'}
+                      N/A
                         </div>
                   </div>
 
