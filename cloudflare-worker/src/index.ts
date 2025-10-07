@@ -5,6 +5,7 @@
 import { withCORS, handleOptions } from "./cors";
 import { isPlayerProp, extractPlayerInfo } from "./market-mapper";
 import { DateTime } from "luxon";
+import { SportsReferenceScraper } from "./scraping-service";
 
 export interface Env {
   SPORTSODDS_API_KEY: string;
@@ -1338,39 +1339,172 @@ async function fetchPlayerHistoricalData(playerName: string, league: string, mar
   defensiveRank: string;
 }> {
   try {
-    // For now, return empty data structure until we implement real API calls
-    // This ensures the frontend doesn't break while we work on real data integration
+    const scraper = new SportsReferenceScraper();
+    let boxScores: any[] = [];
+    
+    // Scrape box scores based on league
+    switch (league.toLowerCase()) {
+      case 'nba':
+        boxScores = await scraper.scrapeNBABoxScores(playerName, 2025);
+        break;
+      case 'nfl':
+        boxScores = await scraper.scrapeNFLBoxScores(playerName, 2025);
+        break;
+      case 'mlb':
+        boxScores = await scraper.scrapeMLBBoxScores(playerName, 2025);
+        break;
+      default:
+        console.log(`Unsupported league for scraping: ${league}`);
+        return getEmptyHistoricalData();
+    }
+    
+    // Filter box scores for the specific market type
+    const relevantBoxScores = boxScores.filter(bs => 
+      bs.propType === marketType || 
+      bs.propType === normalizeMarketType(marketType)
+    );
+    
+    // Convert to gameLogs format
+    const gameLogs = relevantBoxScores.map(bs => ({
+      date: bs.gameDate,
+      season: bs.season,
+      opponent: bs.opponent,
+      value: bs.statValue
+    })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    
+    // Generate last5Games from most recent games
+    const last5Games = gameLogs.slice(0, 5).map(log => log.value);
+    
+    // Calculate season stats
+    const seasonStats = calculateSeasonStats(gameLogs);
+    
+    // Get defensive rank (simplified for now)
+    const defensiveRank = await getDefensiveRankForPlayer(playerName, league, marketType);
+    
     return {
-      gameLogs: [],
-      last5Games: [],
-      seasonStats: {
-        average: 0,
-        median: 0,
-        gamesPlayed: 0,
-        hitRate: 0,
-        last5Games: [],
-        seasonHigh: 0,
-        seasonLow: 0
-      },
-      defensiveRank: 'N/A'
+      gameLogs,
+      last5Games,
+      seasonStats,
+      defensiveRank
     };
   } catch (error) {
     console.error(`Error fetching historical data for ${playerName}:`, error);
+    return getEmptyHistoricalData();
+  }
+}
+
+// Helper function to normalize market type for matching
+function normalizeMarketType(marketType: string): string {
+  const normalized = marketType.toLowerCase().replace(/[_\s]/g, '');
+  const mappings: Record<string, string> = {
+    'passingyards': 'passing_yards',
+    'passingtds': 'passing_touchdowns',
+    'rushingyards': 'rushing_yards',
+    'rushingtds': 'rushing_touchdowns',
+    'receivingyards': 'receiving_yards',
+    'receivingtds': 'receiving_touchdowns',
+    'receptions': 'receptions',
+    'points': 'points',
+    'rebounds': 'rebounds',
+    'assists': 'assists',
+    'hits': 'hits',
+    'homeruns': 'home_runs',
+    'rbis': 'rbis',
+    'strikeouts': 'strikeouts'
+  };
+  
+  return mappings[normalized] || marketType;
+}
+
+// Calculate season statistics from game logs
+function calculateSeasonStats(gameLogs: Array<{date: string, season: number, opponent: string, value: number}>): {
+  average: number;
+  median: number;
+  gamesPlayed: number;
+  hitRate: number;
+  last5Games: number[];
+  seasonHigh: number;
+  seasonLow: number;
+} {
+  if (gameLogs.length === 0) {
     return {
-      gameLogs: [],
+      average: 0,
+      median: 0,
+      gamesPlayed: 0,
+      hitRate: 0,
       last5Games: [],
-      seasonStats: {
-        average: 0,
-        median: 0,
-        gamesPlayed: 0,
-        hitRate: 0,
-        last5Games: [],
-        seasonHigh: 0,
-        seasonLow: 0
-      },
-      defensiveRank: 'N/A'
+      seasonHigh: 0,
+      seasonLow: 0
     };
   }
+  
+  const values = gameLogs.map(log => log.value);
+  const sortedValues = [...values].sort((a, b) => a - b);
+  
+  const average = values.reduce((sum, val) => sum + val, 0) / values.length;
+  const median = sortedValues.length % 2 === 0 
+    ? (sortedValues[sortedValues.length / 2 - 1] + sortedValues[sortedValues.length / 2]) / 2
+    : sortedValues[Math.floor(sortedValues.length / 2)];
+  
+  const seasonHigh = Math.max(...values);
+  const seasonLow = Math.min(...values);
+  
+  // Calculate hit rate (assuming we need to know the line to calculate this properly)
+  // For now, we'll use a placeholder
+  const hitRate = 0.5; // This would need the actual line to calculate properly
+  
+  return {
+    average,
+    median,
+    gamesPlayed: gameLogs.length,
+    hitRate,
+    last5Games: values.slice(0, 5),
+    seasonHigh,
+    seasonLow
+  };
+}
+
+// Get defensive rank for a player's opponent
+async function getDefensiveRankForPlayer(playerName: string, league: string, marketType: string): Promise<string> {
+  try {
+    const scraper = new SportsReferenceScraper();
+    const rankings = await scraper.scrapeDefensiveRankings(league, 2025);
+    
+    // Find ranking for the specific market type
+    const relevantRanking = rankings.find(r => r.propType === marketType);
+    
+    if (relevantRanking) {
+      return `${relevantRanking.rank}`;
+    }
+    
+    return 'N/A';
+  } catch (error) {
+    console.error(`Error fetching defensive rank for ${playerName}:`, error);
+    return 'N/A';
+  }
+}
+
+// Helper function to return empty historical data
+function getEmptyHistoricalData(): {
+  gameLogs: Array<{date: string, season: number, opponent: string, value: number}>;
+  last5Games: number[];
+  seasonStats: {average: number, median: number, gamesPlayed: number, hitRate: number, last5Games: number[], seasonHigh: number, seasonLow: number};
+  defensiveRank: string;
+} {
+  return {
+    gameLogs: [],
+    last5Games: [],
+    seasonStats: {
+      average: 0,
+      median: 0,
+      gamesPlayed: 0,
+      hitRate: 0,
+      last5Games: [],
+      seasonHigh: 0,
+      seasonLow: 0
+    },
+    defensiveRank: 'N/A'
+  };
 }
 
 function buildUpstreamUrl(path: string, league: string, date: string, oddIDs?: string | null, bookmakerID?: string | null) {
