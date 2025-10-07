@@ -1,6 +1,8 @@
--- Create RPC functions for analytics calculations
+-- Fix table name case sensitivity in RPC functions
 
--- Function to calculate hit rate for a player
+-- Drop and recreate calculate_hit_rate function
+DROP FUNCTION IF EXISTS calculate_hit_rate(VARCHAR(64), VARCHAR(64), FLOAT, VARCHAR(8), INTEGER);
+
 CREATE OR REPLACE FUNCTION calculate_hit_rate(
   p_player_id VARCHAR(64),
   p_prop_type VARCHAR(64),
@@ -48,7 +50,9 @@ BEGIN
 END;
 $$;
 
--- Function to calculate streak for a player
+-- Drop and recreate calculate_streak function
+DROP FUNCTION IF EXISTS calculate_streak(VARCHAR(64), VARCHAR(64), FLOAT, VARCHAR(8));
+
 CREATE OR REPLACE FUNCTION calculate_streak(
   p_player_id VARCHAR(64),
   p_prop_type VARCHAR(64),
@@ -127,7 +131,9 @@ BEGIN
 END;
 $$;
 
--- Function to get defensive rank for a matchup
+-- Drop and recreate get_defensive_rank function
+DROP FUNCTION IF EXISTS get_defensive_rank(VARCHAR(8), VARCHAR(8), VARCHAR(64), VARCHAR(8), INTEGER);
+
 CREATE OR REPLACE FUNCTION get_defensive_rank(
   p_team VARCHAR(8),
   p_opponent VARCHAR(8),
@@ -172,7 +178,9 @@ BEGIN
 END;
 $$;
 
--- Function to get player chart data
+-- Drop and recreate get_player_chart_data function
+DROP FUNCTION IF EXISTS get_player_chart_data(VARCHAR(64), VARCHAR(64), INTEGER);
+
 CREATE OR REPLACE FUNCTION get_player_chart_data(
   p_player_id VARCHAR(64),
   p_prop_type VARCHAR(64),

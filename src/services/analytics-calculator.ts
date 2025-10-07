@@ -127,10 +127,10 @@ export class AnalyticsCalculator {
       });
 
       const defensiveRank = await historicalDataService.getDefensiveRank(
-        team,
-        opponent,
-        propType,
-        position,
+        normalizeOpponent(team),
+        normalizeOpponent(opponent),
+        normalizeMarketType(propType),
+        normalizePosition(position),
         2025
       );
       

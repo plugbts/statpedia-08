@@ -108,7 +108,7 @@ export function AnalyticsDebug() {
       
     } catch (error) {
       console.error("❌ Analytics calculator test failed:", error);
-      setResults({ error: error.message });
+      setResults({ error: error.message, stack: error.stack });
     } finally {
       setLoading(false);
     }
