@@ -7,17 +7,27 @@
 
 import { createClient } from '@supabase/supabase-js';
 import fetch from 'node-fetch';
-import { calculateHitRate, calculateStreak } from './analyticsCalculators.js';
+import { calculateHitRate, calculateStreak } from './scripts/analyticsCalculators.js';
 import dotenv from 'dotenv';
 
+// Load both .env and .env.local files
 dotenv.config();
+dotenv.config({ path: '.env.local' });
 
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
 );
 
 const API_KEY = process.env.SPORTSGAMEODDS_API_KEY;
+
+// Check if API key is available
+if (!API_KEY) {
+  console.error('❌ SPORTSGAMEODDS_API_KEY environment variable is required');
+  console.error('Please set your API key in the .env file:');
+  console.error('SPORTSGAMEODDS_API_KEY=your_api_key_here');
+  process.exit(1);
+}
 const LEAGUES = ["nfl", "nba", "mlb", "nhl"];
 
 async function runNightlyJob() {
@@ -89,7 +99,7 @@ async function ingestGameLogs() {
     
     do {
       try {
-        const url = `https://api.sportsgameodds.com/v1/${league}/events?since=${since}&limit=100${nextCursor ? `&cursor=${nextCursor}` : ""}`;
+        const url = `https://api.sportsgameodds.com/events?league=${league}&since=${since}&limit=100${nextCursor ? `&cursor=${nextCursor}` : ""}`;
         const res = await fetch(url, { headers: { 'x-api-key': API_KEY } });
         
         if (!res.ok) {
@@ -100,26 +110,38 @@ async function ingestGameLogs() {
         const data = await res.json();
 
         const rows = [];
-        for (const event of data.events || []) {
-          for (const player of event.players || []) {
-            if (!player.stats || Object.keys(player.stats).length === 0) {
-              continue;
-            }
+        // The API returns events in a data array
+        for (const event of data.data || []) {
+          if (!event.results || !event.results.game) continue;
+          
+          const gameDate = event.status?.startsAt ? new Date(event.status.startsAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+          const season = new Date(gameDate).getFullYear();
+          
+          // Process player results from the game
+          for (const [playerId, playerStats] of Object.entries(event.results.game)) {
+            if (playerId === 'away' || playerId === 'home') continue; // Skip team stats
             
-            // Process each stat
-            for (const [statType, value] of Object.entries(player.stats)) {
-              if (value === null || value === undefined) continue;
+            // Extract player name from playerId (format: PLAYER_NAME_1_NFL)
+            const playerName = playerId.replace(/_1_NFL$/, '').replace(/_/g, ' ');
+            
+              // Process each stat type
+              for (const [statType, value] of Object.entries(playerStats)) {
+                if (value === null || value === undefined || value === 'null' || typeof value !== 'number') continue;
+              
+              // Map stat types to prop types
+              const propType = mapStatTypeToPropType(statType);
+              if (!propType) continue;
               
               rows.push({
-                player_id: player.id || normalizePlayerId(player.name),
-                player_name: player.name,
-                team: normalizeTeam(player.team, league),
-                opponent: normalizeTeam(event.opponent, league),
-                season: event.season || new Date().getFullYear(),
-                date: event.date,
-                prop_type: normalizeMarketType(statType),
+                player_id: playerId,
+                player_name: playerName,
+                team: 'UNK', // We'd need to determine team from game data
+                opponent: 'UNK', // We'd need to determine opponent from game data
+                season: season,
+                date: gameDate,
+                prop_type: propType,
                 value: Number(value),
-                position: player.position || 'UNK'
+                position: 'UNK'
               });
             }
           }
@@ -127,7 +149,7 @@ async function ingestGameLogs() {
 
         if (rows.length > 0) {
           const { error } = await supabase.from("playergamelogs")
-            .upsert(rows, { onConflict: ['player_id','date','prop_type'] });
+            .upsert(rows);
           
           if (error) {
             console.error(`❌ Insert error for ${league}:`, error);
@@ -170,7 +192,7 @@ async function ingestPropLines() {
     
     do {
       try {
-        const url = `https://api.sportsgameodds.com/v1/${league}/props?since=${since}&limit=100${nextCursor ? `&cursor=${nextCursor}` : ""}`;
+        const url = `https://api.sportsgameodds.com/events?league=${league}&since=${since}&limit=100${nextCursor ? `&cursor=${nextCursor}` : ""}`;
         const res = await fetch(url, { headers: { 'x-api-key': API_KEY } });
         
         if (!res.ok) {
@@ -181,30 +203,52 @@ async function ingestPropLines() {
         const data = await res.json();
 
         const rows = [];
-        for (const prop of data.props || []) {
-          if (!prop.player || !prop.player.id || !prop.player.name) {
-            continue;
-          }
+        
+        // Extract prop lines from events odds data
+        for (const event of data.data || []) {
+          if (!event.odds) continue;
           
-          rows.push({
-            player_id: prop.player.id,
-            player_name: prop.player.name,
-            team: normalizeTeam(prop.team, league),
-            opponent: normalizeTeam(prop.opponent, league),
-            season: prop.season || new Date().getFullYear(),
-            date: prop.date,
-            prop_type: normalizeMarketType(prop.market),
-            line: Number(prop.line),
-            over_odds: parseOdds(prop.overOdds),
-            under_odds: parseOdds(prop.underOdds),
-            sportsbook: prop.sportsbook || "Consensus",
-            league: league.toLowerCase()
-          });
+          const gameDate = event.status?.startsAt ? new Date(event.status.startsAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+          const season = new Date(gameDate).getFullYear();
+          
+          // Process each odd/prop
+          for (const [oddId, oddData] of Object.entries(event.odds)) {
+            // Skip non-player props (team-level props)
+            if (!oddData.playerID || !oddData.statID) continue;
+            
+            // Only process over/under props
+            if (oddData.betTypeID !== 'ou') continue;
+            
+            // Extract player name from playerID (format: PLAYER_NAME_1_NFL)
+            const playerName = oddData.playerID.replace(/_1_NFL$/, '').replace(/_/g, ' ');
+            
+            // Map stat types to prop types
+            const propType = mapStatTypeToPropType(oddData.statID);
+            if (!propType) continue;
+            
+            // Get the line value
+            const lineValue = parseFloat(oddData.fairOverUnder || oddData.bookOverUnder);
+            if (isNaN(lineValue)) continue;
+            
+            rows.push({
+              player_id: oddData.playerID,
+              player_name: playerName,
+              team: 'UNK', // Would need to determine from game data
+              opponent: 'UNK', // Would need to determine from game data
+              season: season,
+              date: gameDate,
+              prop_type: propType,
+              line: lineValue,
+              over_odds: parseOdds(oddData.sideID === 'over' ? oddData.fairOdds : null),
+              under_odds: parseOdds(oddData.sideID === 'under' ? oddData.fairOdds : null),
+              sportsbook: "Consensus" // Using fair odds as consensus
+            });
+          }
         }
 
         if (rows.length > 0) {
           const { error } = await supabase.from("proplines")
-            .upsert(rows, { onConflict: ['player_id','date','prop_type','sportsbook'] });
+            .upsert(rows);
           
           if (error) {
             console.error(`❌ Insert error for ${league}:`, error);
@@ -239,13 +283,16 @@ async function ingestPropLines() {
 async function precomputeAnalytics(season) {
   console.log(`📊 Precomputing analytics for season ${season}...`);
   
+  // Ensure the player_analytics table exists
+  await createAnalyticsTableIfNotExists();
+  
   try {
     // Get unique player/prop combinations
     const { data: combos, error: combosError } = await supabase
       .from('playergamelogs')
       .select('player_id, player_name, prop_type')
       .eq('season', season)
-      .neq('value', null)
+      .not('value', 'is', null)
       .neq('value', 0);
 
     if (combosError) {
@@ -275,22 +322,52 @@ async function precomputeAnalytics(season) {
     for (const { player_id, player_name, prop_type } of uniqueCombinations.values()) {
       try {
         // Join game logs with prop lines
-        const { data: joined, error: joinError } = await supabase
+        // Get game logs for this player/prop combination
+        const { data: gameLogs, error: logsError } = await supabase
           .from('playergamelogs')
-          .select(`
-            date,
-            value,
-            proplines!inner(line)
-          `)
+          .select('date, value')
           .eq('player_id', player_id)
           .eq('prop_type', prop_type)
           .eq('season', season)
           .order('date', { ascending: false });
 
-        if (joinError) {
-          console.error(`❌ Join error for ${player_name} ${prop_type}:`, joinError);
+        if (logsError) {
+          console.error(`❌ Logs error for ${player_name} ${prop_type}:`, logsError);
           continue;
         }
+
+        // Get prop lines for this player/prop combination
+        const { data: propLines, error: propsError } = await supabase
+          .from('proplines')
+          .select('date, line, over_odds, under_odds, sportsbook')
+          .eq('player_id', player_id)
+          .eq('prop_type', prop_type)
+          .eq('season', season)
+          .order('date', { ascending: false });
+
+        if (propsError) {
+          console.error(`❌ Props error for ${player_name} ${prop_type}:`, propsError);
+          continue;
+        }
+
+        // Manual join on date
+        const joined = [];
+        for (const log of gameLogs || []) {
+          const matchingProp = propLines?.find(prop => prop.date === log.date);
+          if (matchingProp) {
+            joined.push({
+              date: log.date,
+              value: log.value,
+              proplines: {
+                line: matchingProp.line,
+                over_odds: matchingProp.over_odds,
+                under_odds: matchingProp.under_odds,
+                sportsbook: matchingProp.sportsbook
+              }
+            });
+          }
+        }
+
 
         if (!joined || joined.length === 0) {
           continue;
@@ -319,21 +396,21 @@ async function precomputeAnalytics(season) {
             prop_type,
             line: processedData[0]?.line || 0,
             direction,
-            season_hits: hitRateSeason.hits,
-            season_total: hitRateSeason.total,
-            season_pct: hitRateSeason.hitRate,
-            l20_hits: hitRateL20.hits,
-            l20_total: hitRateL20.total,
-            l20_pct: hitRateL20.hitRate,
-            l10_hits: hitRateL10.hits,
-            l10_total: hitRateL10.total,
-            l10_pct: hitRateL10.hitRate,
-            l5_hits: hitRateL5.hits,
-            l5_total: hitRateL5.total,
-            l5_pct: hitRateL5.hitRate,
-            streak_current: streak.currentStreak,
-            streak_longest: streak.longestStreak,
-            streak_direction: streak.streakDirection,
+            season_hits: hitRateSeason.hits || 0,
+            season_total: hitRateSeason.total || 0,
+            season_pct: hitRateSeason.hitRate || 0,
+            l20_hits: hitRateL20.hits || 0,
+            l20_total: hitRateL20.total || 0,
+            l20_pct: hitRateL20.hitRate || 0,
+            l10_hits: hitRateL10.hits || 0,
+            l10_total: hitRateL10.total || 0,
+            l10_pct: hitRateL10.hitRate || 0,
+            l5_hits: hitRateL5.hits || 0,
+            l5_total: hitRateL5.total || 0,
+            l5_pct: hitRateL5.hitRate || 0,
+            streak_current: streak.currentStreak || 0,
+            streak_longest: streak.longestStreak || 0,
+            streak_direction: streak.streakDirection || 'none',
             last_computed_at: new Date().toISOString(),
             season
           });
@@ -350,18 +427,77 @@ async function precomputeAnalytics(season) {
       }
     }
 
-    // Upsert analytics results
+    // Upsert analytics results into the database
     if (results.length > 0) {
-      console.log(`💾 Upserting ${results.length} analytics records...`);
+      console.log(`💾 Upserting ${results.length} analytics records into player_analytics table...`);
       
-      const { error: upsertError } = await supabase.from('playeranalytics')
-        .upsert(results, { onConflict: ['player_id','prop_type','line','direction'] });
+      // Log first few records as examples
+      results.slice(0, 3).forEach((record, i) => {
+        console.log(`  ${i + 1}. ${record.player_name} ${record.prop_type} ${record.direction} ${record.line} - Season: ${record.season_pct?.toFixed(1)}% (${record.season_hits}/${record.season_total})`);
+      });
+      
+      if (results.length > 3) {
+        console.log(`  ... and ${results.length - 3} more records`);
+      }
+      
+      // Try to insert into an existing table first, fallback to logging if table doesn't exist
+      const { error: upsertError } = await supabase
+        .from('player_analytics')
+        .upsert(results, { 
+          onConflict: 'player_id,prop_type,line,direction,season',
+          ignoreDuplicates: false 
+        });
       
       if (upsertError) {
         console.error('❌ Upsert error:', upsertError);
+        
+        if (upsertError.message.includes('Could not find the table')) {
+          console.log('\n💡 SOLUTION: Create the player_analytics table in Supabase dashboard');
+          console.log('1. Go to: https://supabase.com/dashboard/project/oalssjwhzbukrswjriaj');
+          console.log('2. Navigate to: SQL Editor');
+          console.log('3. Run this SQL:');
+          console.log(`
+CREATE TABLE player_analytics (
+  id SERIAL PRIMARY KEY,
+  player_id VARCHAR(64) NOT NULL,
+  player_name VARCHAR(128),
+  prop_type VARCHAR(64) NOT NULL,
+  line FLOAT NOT NULL,
+  direction VARCHAR(8) NOT NULL,
+  season INT NOT NULL,
+  season_hits INT DEFAULT 0,
+  season_total INT DEFAULT 0,
+  season_pct FLOAT DEFAULT 0.0,
+  l20_hits INT DEFAULT 0,
+  l20_total INT DEFAULT 0,
+  l20_pct FLOAT DEFAULT 0.0,
+  l10_hits INT DEFAULT 0,
+  l10_total INT DEFAULT 0,
+  l10_pct FLOAT DEFAULT 0.0,
+  l5_hits INT DEFAULT 0,
+  l5_total INT DEFAULT 0,
+  l5_pct FLOAT DEFAULT 0.0,
+  streak_current INT DEFAULT 0,
+  streak_longest INT DEFAULT 0,
+  streak_direction VARCHAR(16) DEFAULT 'none',
+  last_computed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(player_id, prop_type, line, direction, season)
+);
+
+ALTER TABLE player_analytics ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all access to player_analytics" ON player_analytics FOR ALL USING (true);
+GRANT ALL ON player_analytics TO anon;
+GRANT ALL ON player_analytics TO authenticated;
+GRANT USAGE ON SEQUENCE player_analytics_id_seq TO anon;
+GRANT USAGE ON SEQUENCE player_analytics_id_seq TO authenticated;
+          `);
+          console.log('4. Then run: node nightlyJob.js');
+        }
+        
+        console.log('📊 Analytics computation complete - but failed to save to database');
         return { records: 0 };
       } else {
-        console.log(`✅ Successfully upserted ${results.length} analytics records`);
+        console.log(`✅ Successfully upserted ${results.length} analytics records into player_analytics table`);
         return { records: results.length };
       }
     }
@@ -377,6 +513,100 @@ async function precomputeAnalytics(season) {
 /* ------------------------------
    Helper Functions
 --------------------------------*/
+async function createAnalyticsTableIfNotExists() {
+  console.log('🔧 Ensuring player_analytics table exists...');
+  
+  const createTableSQL = `
+    CREATE TABLE IF NOT EXISTS player_analytics (
+      id SERIAL PRIMARY KEY,
+      player_id VARCHAR(64) NOT NULL,
+      player_name VARCHAR(128),
+      prop_type VARCHAR(64) NOT NULL,
+      line FLOAT NOT NULL,
+      direction VARCHAR(8) NOT NULL,
+      season INT NOT NULL,
+      season_hits INT DEFAULT 0,
+      season_total INT DEFAULT 0,
+      season_pct FLOAT DEFAULT 0.0,
+      l20_hits INT DEFAULT 0,
+      l20_total INT DEFAULT 0,
+      l20_pct FLOAT DEFAULT 0.0,
+      l10_hits INT DEFAULT 0,
+      l10_total INT DEFAULT 0,
+      l10_pct FLOAT DEFAULT 0.0,
+      l5_hits INT DEFAULT 0,
+      l5_total INT DEFAULT 0,
+      l5_pct FLOAT DEFAULT 0.0,
+      streak_current INT DEFAULT 0,
+      streak_longest INT DEFAULT 0,
+      streak_direction VARCHAR(16) DEFAULT 'none',
+      last_computed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+      UNIQUE(player_id, prop_type, line, direction, season)
+    );
+    
+    -- Enable RLS
+    ALTER TABLE player_analytics ENABLE ROW LEVEL SECURITY;
+    
+    -- Create RLS policy for anonymous access
+    CREATE POLICY IF NOT EXISTS "Allow all access to player_analytics" ON player_analytics
+    FOR ALL USING (true);
+    
+    -- Grant permissions
+    GRANT ALL ON player_analytics TO anon;
+    GRANT ALL ON player_analytics TO authenticated;
+    GRANT USAGE ON SEQUENCE player_analytics_id_seq TO anon;
+    GRANT USAGE ON SEQUENCE player_analytics_id_seq TO authenticated;
+  `;
+  
+  try {
+    // Try to execute the SQL using Supabase's SQL endpoint
+    const { error } = await supabase.rpc('exec_sql', { sql: createTableSQL });
+    if (error) {
+      console.log('⚠️ Could not create table via RPC:', error.message);
+      
+      // Fallback: try to create table by inserting a dummy record and catching the error
+      console.log('🔄 Trying alternative table creation method...');
+      const { error: insertError } = await supabase
+        .from('player_analytics')
+        .insert([{
+          player_id: 'dummy',
+          player_name: 'dummy',
+          prop_type: 'dummy',
+          line: 0,
+          direction: 'over',
+          season: 2025
+        }]);
+      
+      if (insertError && insertError.message.includes('relation "player_analytics" does not exist')) {
+        console.log('❌ Table does not exist and could not be created automatically');
+        console.log('💡 Please run the migration manually or create the table in Supabase dashboard');
+      } else if (insertError) {
+        console.log('✅ Table exists (got expected error):', insertError.message);
+      }
+    } else {
+      console.log('✅ player_analytics table created successfully');
+    }
+  } catch (error) {
+    console.log('⚠️ Table creation error:', error.message);
+  }
+}
+
+function mapStatTypeToPropType(statType) {
+  const statMap = {
+    'passing_yards': 'Passing Yards',
+    'rushing_yards': 'Rushing Yards', 
+    'receiving_yards': 'Receiving Yards',
+    'passing_completions': 'Passing Completions',
+    'passing_attempts': 'Passing Attempts',
+    'touchdowns': 'Touchdowns',
+    'receiving_receptions': 'Receptions',
+    'passing_touchdowns': 'Passing Touchdowns',
+    'rushing_touchdowns': 'Rushing Touchdowns',
+    'receiving_touchdowns': 'Receiving Touchdowns'
+  };
+  return statMap[statType] || null;
+}
+
 function normalizeMarketType(market) {
   if (!market) return "";
   const lower = market.toLowerCase();
