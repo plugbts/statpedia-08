@@ -25,7 +25,13 @@
     "ingest-data:real": "node scripts/real-data-ingest.js",
     "ingest-data:comprehensive": "node scripts/comprehensive-ingest.js",
     "debug-analytics": "node scripts/debug-analytics.js",
-    "debug-analytics:comprehensive": "node scripts/comprehensive-debug.js"
+    "debug-analytics:comprehensive": "node scripts/comprehensive-debug.js",
+    "precompute-analytics": "node scripts/nightly-precompute-analytics.js",
+    "precompute-analytics:2024": "node scripts/nightly-precompute-analytics.js 2024",
+    "precompute-analytics:2025": "node scripts/nightly-precompute-analytics.js 2025",
+    "nightly-job": "node scripts/combined-nightly-job.js",
+    "nightly-job:ingestion-only": "node scripts/nightly-ingestion.js",
+    "nightly-job:analytics-only": "node scripts/nightly-precompute-analytics.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
