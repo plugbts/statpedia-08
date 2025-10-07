@@ -53,19 +53,19 @@ const calculateStreak = (gameLogs: any[], line: number, direction: 'over' | 'und
 };
 
 // Utility function to calculate hit rate
-const calculateHitRate = (gameLogs: any[], line: number, direction: 'over' | 'under', sampleSize?: number, filterOpponent?: string) => {
+const calculateHitRate = (gameLogs: Array<{date: string, season: number, opponent: string, value: number}>, line: number, direction: 'over' | 'under', sampleSize?: number, filterOpponent?: string) => {
   if (!gameLogs || gameLogs.length === 0) {
     return { hits: 0, total: 0, pct: 0 };
   }
   
   let filteredLogs = gameLogs;
   
-  // Filter by opponent if specified
+  // Filter by opponent if specified (using normalized comparison)
   if (filterOpponent) {
-    filteredLogs = gameLogs.filter(log => log.opponent === filterOpponent);
+    filteredLogs = gameLogs.filter(log => normalizeOpponent(log.opponent) === normalizeOpponent(filterOpponent));
   }
   
-  // Apply sample size if specified
+  // Apply sample size if specified (most recent N games)
   if (sampleSize && sampleSize > 0) {
     filteredLogs = filteredLogs.slice(0, sampleSize);
   }
@@ -85,23 +85,23 @@ const calculateHitRate = (gameLogs: any[], line: number, direction: 'over' | 'un
 };
 
 // PropFinder-style analytics functions
-const calculateSeasonHitRate = (gameLogs2025: any[], line: number, direction: 'over' | 'under') => {
-  return calculateHitRate(gameLogs2025 || [], line, direction);
+const calculateSeasonHitRate = (gameLogs: Array<{date: string, season: number, opponent: string, value: number}>, line: number, direction: 'over' | 'under') => {
+  return calculateHitRate(gameLogs.filter(g => g.season === 2025), line, direction);
 };
 
-const calculateH2HHitRate = (gameLogs: any[], line: number, direction: 'over' | 'under', opponent: string) => {
-  return calculateHitRate(gameLogs || [], line, direction, undefined, opponent);
+const calculateH2HHitRate = (gameLogs: Array<{date: string, season: number, opponent: string, value: number}>, line: number, direction: 'over' | 'under', opponent: string) => {
+  return calculateHitRate(gameLogs.filter(g => normalizeOpponent(g.opponent) === normalizeOpponent(opponent)), line, direction);
 };
 
-const calculateLastNHitRate = (gameLogs: any[], line: number, direction: 'over' | 'under', n: number) => {
-  return calculateHitRate(gameLogs || [], line, direction, n);
+const calculateLastNHitRate = (gameLogs: Array<{date: string, season: number, opponent: string, value: number}>, line: number, direction: 'over' | 'under', n: number) => {
+  return calculateHitRate(gameLogs.slice(0, n), line, direction);
 };
 
 // Defensive rank calculation - using real data only
 const getDefensiveRank = (prop: any) => {
   // Use existing relevantRank or defensive rank from prop data
   if (prop.relevantRank) {
-    return { rank: prop.relevantRank, display: `${prop.opponent} ${prop.relevantRank}` };
+    return { rank: prop.relevantRank, display: `${normalizeOpponent(prop.opponent)} ${prop.relevantRank}` };
   }
   
   // If no real defensive rank data available, show N/A
@@ -226,7 +226,12 @@ interface PlayerProp {
   rating_under_normalized?: number;
   rating_under_raw?: number;
   // Analytics properties
-  gameLogs?: any[];
+  gameLogs?: Array<{
+    date: string;
+    season: number;
+    opponent: string;
+    value: number;
+  }>;
   gameLogs2025?: any[];
   relevantRank?: string;
   marketType?: string;
@@ -807,28 +812,16 @@ export function PlayerPropsColumnView({
           <div className="space-y-2">
         {filteredAndSortedProps.map((prop, index) => {
           // Calculate analytics data using available data
-          const last5Games = prop.last5Games || [];
+          const gameLogs = prop.gameLogs || [];
           const direction = overUnderFilter as 'over' | 'under';
           
-          // Convert last5Games to gameLogs format for calculations
-          // For H2H calculation, we need to use actual opponent data if available
-          const gameLogs = last5Games.map((value, index) => ({
-            value: value,
-            opponent: prop.opponentAbbr, // This will be the same for all games, so H2H will show all games
-            date: new Date(Date.now() - (last5Games.length - index) * 7 * 24 * 60 * 60 * 1000).toISOString()
-          }));
-          
-          const streak = calculateStreak(gameLogs, prop.line, direction);
-          // H2H calculation - since we don't have real opponent data in last5Games, show N/A
-          const h2h = { hits: 0, total: 0, pct: 0 }; // No real H2H data available
-          const season = prop.seasonStats ? {
-            hits: Math.round(prop.seasonStats.hitRate * prop.seasonStats.gamesPlayed),
-            total: prop.seasonStats.gamesPlayed,
-            pct: prop.seasonStats.hitRate * 100
-          } : { hits: 0, total: 0, pct: 0 };
-          const l5 = calculateHitRate(gameLogs, prop.line, direction, 5);
-          const l10 = calculateHitRate(gameLogs, prop.line, direction, 10);
-          const l20 = calculateHitRate(gameLogs, prop.line, direction, 20);
+          // Calculate analytics using the unified gameLogs structure
+          const streak = calculateStreak(gameLogs.map(g => g.value), prop.line, direction);
+          const h2h = calculateH2HHitRate(gameLogs, prop.line, direction, prop.opponentAbbr);
+          const season = calculateSeasonHitRate(gameLogs, prop.line, direction);
+          const l5 = calculateLastNHitRate(gameLogs, prop.line, direction, 5);
+          const l10 = calculateLastNHitRate(gameLogs, prop.line, direction, 10);
+          const l20 = calculateLastNHitRate(gameLogs, prop.line, direction, 20);
 
           return (
           <Card
@@ -1031,29 +1024,16 @@ export function PlayerPropsColumnView({
           {/* Analytics Data Rows */}
           <div className="space-y-2">
             {filteredAndSortedProps.map((prop, index) => {
-              // Calculate analytics data using available data
-              const last5Games = prop.last5Games || [];
-              const seasonStats = prop.seasonStats;
+              // Calculate analytics using the unified gameLogs structure
+              const gameLogs = prop.gameLogs || [];
               const direction = overUnderFilter as 'over' | 'under';
               
-              // Convert last5Games to gameLogs format for calculations
-              const gameLogs = last5Games.map((value, index) => ({
-                value: value,
-                opponent: prop.opponentAbbr,
-                date: new Date(Date.now() - (last5Games.length - index) * 7 * 24 * 60 * 60 * 1000).toISOString()
-              }));
-              
-              // Calculate hit rates
-              // H2H calculation - since we don't have real opponent data in last5Games, show N/A
-              const h2h = { hits: 0, total: 0, pct: 0 }; // No real H2H data available
-              const season = seasonStats ? {
-                hits: Math.round(seasonStats.hitRate * seasonStats.gamesPlayed),
-                total: seasonStats.gamesPlayed,
-                pct: seasonStats.hitRate * 100
-              } : { hits: 0, total: 0, pct: 0 };
-              const l5 = calculateHitRate(gameLogs, prop.line, direction, 5);
-              const l10 = calculateHitRate(gameLogs, prop.line, direction, 10);
-              const l20 = calculateHitRate(gameLogs, prop.line, direction, 20);
+              const streak = calculateStreak(gameLogs.map(g => g.value), prop.line, direction);
+              const h2h = calculateH2HHitRate(gameLogs, prop.line, direction, prop.opponentAbbr);
+              const season = calculateSeasonHitRate(gameLogs, prop.line, direction);
+              const l5 = calculateLastNHitRate(gameLogs, prop.line, direction, 5);
+              const l10 = calculateLastNHitRate(gameLogs, prop.line, direction, 10);
+              const l20 = calculateLastNHitRate(gameLogs, prop.line, direction, 20);
 
                       return (
                 <div
