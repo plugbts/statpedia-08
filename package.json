@@ -23,7 +23,9 @@
     "ingest-data:clear": "node scripts/clear-historical-data.js",
     "ingest-data:realistic": "node scripts/simple-ingest.js",
     "ingest-data:real": "node scripts/real-data-ingest.js",
-    "debug-analytics": "node scripts/debug-analytics.js"
+    "ingest-data:comprehensive": "node scripts/comprehensive-ingest.js",
+    "debug-analytics": "node scripts/debug-analytics.js",
+    "debug-analytics:comprehensive": "node scripts/comprehensive-debug.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
