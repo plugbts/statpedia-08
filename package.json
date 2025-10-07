@@ -37,7 +37,11 @@
     "nightly-job:ingestion-only": "node scripts/nightly-ingestion.js",
     "nightly-job:analytics-only": "node scripts/nightly-precompute-analytics.js",
     "ingest-proplines": "node scripts/proplines-ingestion.js",
-    "nightly-job:proplines-only": "node scripts/proplines-ingestion.js"
+    "nightly-job:proplines-only": "node scripts/proplines-ingestion.js",
+    "backfill-historical": "node scripts/historical-backfill.js",
+    "backfill-historical:2022": "node scripts/historical-backfill.js 2022",
+    "backfill-historical:2023": "node scripts/historical-backfill.js 2023",
+    "backfill-historical:2024": "node scripts/historical-backfill.js 2024"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
