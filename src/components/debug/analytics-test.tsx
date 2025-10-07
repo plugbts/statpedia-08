@@ -98,7 +98,9 @@ export function AnalyticsTest() {
 
     try {
       // Test hit rate function
+      console.log("Testing hit rate function...");
       const hitRate = await historicalDataService.getHitRate('mahomes-patrick', 'Passing Yards', 275, 'over');
+      console.log("Hit rate result:", hitRate);
       results.push({
         player: 'Patrick Mahomes',
         propType: 'Passing Yards',
@@ -182,10 +184,17 @@ export function AnalyticsTest() {
                         Error: {result.error}
                       </div>
                     ) : (
-                      <div className="text-sm">
-                        <pre className="bg-gray-100 p-2 rounded overflow-auto">
-                          {JSON.stringify(result.result, null, 2)}
-                        </pre>
+                      <div className="text-sm space-y-2">
+                        <div className="font-medium">Raw Result:</div>
+                        <div className="bg-gray-100 p-2 rounded">
+                          {result.result ? JSON.stringify(result.result, null, 2) : 'No result data'}
+                        </div>
+                        {result.result?.data && (
+                          <div className="bg-blue-50 p-2 rounded">
+                            <div className="font-medium">Data:</div>
+                            <div>{JSON.stringify(result.result.data, null, 2)}</div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

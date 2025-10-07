@@ -190,31 +190,64 @@ export function PlayerPropsColumnView({
   const loadAnalyticsData = async (props: PlayerProp[]) => {
     if (isLoadingAnalytics) return;
     
+    console.log("[ANALYTICS_LOAD] Starting loadAnalyticsData with props:", props.length);
+    
+    // Safety check for empty props
+    if (!props || props.length === 0) {
+      console.log("[ANALYTICS_LOAD] No props to process");
+      return;
+    }
+    
     setIsLoadingAnalytics(true);
     try {
       const analyticsPromises = props.map(async (prop) => {
         const key = `${prop.playerId}-${prop.propType}`;
         
+        console.log("[ANALYTICS_LOAD] Processing prop:", {
+          key,
+          playerName: prop.playerName,
+          playerId: prop.playerId,
+          propType: prop.propType,
+          opponent: prop.opponent,
+          line: prop.line
+        });
+        
         // Check if we already have analytics for this prop
         if (analyticsData.has(key)) {
+          console.log("[ANALYTICS_LOAD] Using cached analytics for:", key);
           return { key, analytics: analyticsData.get(key)! };
         }
         
         try {
+          console.log("[ANALYTICS_LOAD] Calculating analytics for:", key);
+          
+          // Add safety checks
+          if (!prop.playerId && !prop.player_id) {
+            console.warn("[ANALYTICS_LOAD] No player ID found for prop:", prop);
+            return { key, analytics: null };
+          }
+          
+          if (!prop.propType) {
+            console.warn("[ANALYTICS_LOAD] No prop type found for prop:", prop);
+            return { key, analytics: null };
+          }
+          
           const analytics = await analyticsCalculator.calculateAnalytics(
             prop.playerId || prop.player_id || '',
-            prop.playerName,
-            prop.team,
-            prop.opponent,
+            prop.playerName || 'Unknown Player',
+            prop.team || 'UNK',
+            prop.opponent || 'UNK',
             prop.propType,
-            prop.line,
+            prop.line || 0,
             overUnderFilter as 'over' | 'under',
             prop.sport || 'nfl'
           );
           
+          console.log("[ANALYTICS_LOAD] Analytics calculated for:", key, analytics);
           return { key, analytics };
         } catch (error) {
-          console.warn(`Failed to load analytics for ${prop.playerName} ${prop.propType}:`, error);
+          console.error(`[ANALYTICS_LOAD] Failed to load analytics for ${prop.playerName} ${prop.propType}:`, error);
+          console.error("[ANALYTICS_LOAD] Prop data:", prop);
           return { key, analytics: null };
         }
       });
@@ -238,6 +271,17 @@ export function PlayerPropsColumnView({
 
   // Load analytics when props change
   React.useEffect(() => {
+    console.log("[ANALYTICS_LOAD] Props changed:", {
+      propsCount: normalizedProps.length,
+      overUnderFilter,
+      firstProp: normalizedProps[0] ? {
+        playerName: normalizedProps[0].playerName,
+        playerId: normalizedProps[0].playerId,
+        propType: normalizedProps[0].propType,
+        opponent: normalizedProps[0].opponent
+      } : null
+    });
+    
     if (normalizedProps.length > 0) {
       loadAnalyticsData(normalizedProps);
     }
