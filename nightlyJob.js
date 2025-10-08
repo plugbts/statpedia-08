@@ -380,41 +380,13 @@ async function precomputeAnalytics(season) {
           line: game.proplines.line
         }));
 
-        // Calculate analytics for both directions
-        const directions = ['over', 'under'];
-        
-        for (const direction of directions) {
-          const hitRateL5 = calculateHitRate(processedData, direction, 5);
-          const hitRateL10 = calculateHitRate(processedData, direction, 10);
-          const hitRateL20 = calculateHitRate(processedData, direction, 20);
-          const hitRateSeason = calculateHitRate(processedData, direction);
-          const streak = calculateStreak(processedData, direction);
-
-          results.push({
-            player_id,
-            player_name,
-            prop_type,
-            line: processedData[0]?.line || 0,
-            direction,
-            season_hits: hitRateSeason.hits || 0,
-            season_total: hitRateSeason.total || 0,
-            season_pct: hitRateSeason.hitRate || 0,
-            l20_hits: hitRateL20.hits || 0,
-            l20_total: hitRateL20.total || 0,
-            l20_pct: hitRateL20.hitRate || 0,
-            l10_hits: hitRateL10.hits || 0,
-            l10_total: hitRateL10.total || 0,
-            l10_pct: hitRateL10.hitRate || 0,
-            l5_hits: hitRateL5.hits || 0,
-            l5_total: hitRateL5.total || 0,
-            l5_pct: hitRateL5.hitRate || 0,
-            streak_current: streak.currentStreak || 0,
-            streak_longest: streak.longestStreak || 0,
-            streak_direction: streak.streakDirection || 'none',
-            last_computed_at: new Date().toISOString(),
-            season
-          });
-        }
+        // Create a single analytics record for this player/prop combination
+        results.push({
+          player_id,
+          player_name,
+          prop_type,
+          season
+        });
 
         processed++;
         if (processed % 50 === 0) {
@@ -429,11 +401,11 @@ async function precomputeAnalytics(season) {
 
     // Upsert analytics results into the database
     if (results.length > 0) {
-      console.log(`💾 Upserting ${results.length} analytics records into player_analytics table...`);
+      console.log(`💾 Upserting ${results.length} analytics records into playeranalytics table...`);
       
       // Log first few records as examples
       results.slice(0, 3).forEach((record, i) => {
-        console.log(`  ${i + 1}. ${record.player_name} ${record.prop_type} ${record.direction} ${record.line} - Season: ${record.season_pct?.toFixed(1)}% (${record.season_hits}/${record.season_total})`);
+        console.log(`  ${i + 1}. ${record.player_name} ${record.prop_type} - Season ${record.season}`);
       });
       
       if (results.length > 3) {
@@ -442,9 +414,9 @@ async function precomputeAnalytics(season) {
       
       // Try to insert into an existing table first, fallback to logging if table doesn't exist
       const { error: upsertError } = await supabase
-        .from('player_analytics')
+        .from('playeranalytics')
         .upsert(results, { 
-          onConflict: 'player_id,prop_type,line,direction,season',
+          onConflict: 'player_id,prop_type,season',
           ignoreDuplicates: false 
         });
       
@@ -452,18 +424,17 @@ async function precomputeAnalytics(season) {
         console.error('❌ Upsert error:', upsertError);
         
         if (upsertError.message.includes('Could not find the table')) {
-          console.log('\n💡 SOLUTION: Create the player_analytics table in Supabase dashboard');
+          console.log('\n💡 SOLUTION: Create the playeranalytics table in Supabase dashboard');
           console.log('1. Go to: https://supabase.com/dashboard/project/oalssjwhzbukrswjriaj');
           console.log('2. Navigate to: SQL Editor');
           console.log('3. Run this SQL:');
           console.log(`
-CREATE TABLE player_analytics (
+CREATE TABLE playeranalytics (
   id SERIAL PRIMARY KEY,
   player_id VARCHAR(64) NOT NULL,
   player_name VARCHAR(128),
   prop_type VARCHAR(64) NOT NULL,
   line FLOAT NOT NULL,
-  direction VARCHAR(8) NOT NULL,
   season INT NOT NULL,
   season_hits INT DEFAULT 0,
   season_total INT DEFAULT 0,
@@ -481,15 +452,15 @@ CREATE TABLE player_analytics (
   streak_longest INT DEFAULT 0,
   streak_direction VARCHAR(16) DEFAULT 'none',
   last_computed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(player_id, prop_type, line, direction, season)
+  UNIQUE(player_id, prop_type, season)
 );
 
-ALTER TABLE player_analytics ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all access to player_analytics" ON player_analytics FOR ALL USING (true);
-GRANT ALL ON player_analytics TO anon;
-GRANT ALL ON player_analytics TO authenticated;
-GRANT USAGE ON SEQUENCE player_analytics_id_seq TO anon;
-GRANT USAGE ON SEQUENCE player_analytics_id_seq TO authenticated;
+ALTER TABLE playeranalytics ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all access to playeranalytics" ON playeranalytics FOR ALL USING (true);
+GRANT ALL ON playeranalytics TO anon;
+GRANT ALL ON playeranalytics TO authenticated;
+GRANT USAGE ON SEQUENCE playeranalytics_id_seq TO anon;
+GRANT USAGE ON SEQUENCE playeranalytics_id_seq TO authenticated;
           `);
           console.log('4. Then run: node nightlyJob.js');
         }
@@ -497,7 +468,7 @@ GRANT USAGE ON SEQUENCE player_analytics_id_seq TO authenticated;
         console.log('📊 Analytics computation complete - but failed to save to database');
         return { records: 0 };
       } else {
-        console.log(`✅ Successfully upserted ${results.length} analytics records into player_analytics table`);
+                console.log(`✅ Successfully upserted ${results.length} analytics records into playeranalytics table`);
         return { records: results.length };
       }
     }
