@@ -182,9 +182,13 @@ class UnifiedSportsAPI {
       
       logAPI('UnifiedSportsAPI', `Fetching games for ${sport} on ${today} using /${league}/games endpoint`);
       
-      // Call the backend API endpoint that uses the correct format
-      const response = await fetch(`https://statpedia-player-props.statpedia.workers.dev/api/${league}/player-props?date=${today}`, {
+      // Call the Supabase Edge Function for prop ingestion
+      const response = await fetch(`https://rfdrifnsfobqlzorcesn.supabase.co/functions/v1/prop-ingestion?action=ingest&league=${league.toUpperCase()}&season=2025`, {
         method: 'GET',
+        headers: {
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZHJpZm5zZm9icWx6b3JjZXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwNDg4MzYsImV4cCI6MjA3NDYyNDgzNn0.oUzP1pTapCMEaaPXzia2uqn-m3L9BRR82_RYcUXqykI',
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZHJpZm5zZm9icWx6b3JjZXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwNDg4MzYsImV4cCI6MjA3NDYyNDgzNn0.oUzP1pTapCMEaaPXzia2uqn-m3L9BRR82_RYcUXqykI'
+        }
       });
       
       if (!response.ok) {
