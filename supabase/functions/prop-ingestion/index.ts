@@ -17,7 +17,7 @@ const LEAGUE_CONFIG = {
   FOOTBALL: {
     sportID: 'FOOTBALL',
     leagues: ['NFL', 'NCAAF'],
-    maxEventsPerRequest: 10, // Reduced for Edge Function limits
+    maxEventsPerRequest: 25, // Increased to get more props
     cacheDuration: 4 * 60 * 60 * 1000 // 4 hours
   },
   BASKETBALL: {
@@ -162,62 +162,62 @@ async function runIngestion(supabaseClient: any, league?: string, season: string
     let totalUpdated = 0
     let totalErrors = 0
 
-    // Process leagues - simplified for debugging
-    const sportID = league === 'NFL' || league === 'NCAAF' ? 'FOOTBALL' : 
-                   league === 'NBA' || league === 'NCAAB' ? 'BASKETBALL' :
-                   league === 'MLB' ? 'BASEBALL' :
-                   league === 'NHL' ? 'HOCKEY' : 'FOOTBALL'
+    // Process all leagues if no specific league provided
+    const leaguesToProcess = league ? [league] : ['NFL', 'NCAAF', 'NBA', 'NCAAB', 'MLB', 'NHL']
     
-    console.log(`Processing ${league || 'all leagues'} (${sportID})`)
-    
-    try {
-      // Fetch events from SportsGameOdds API
-      console.log(`About to fetch events for sportID: ${sportID}, season: ${season}, week: ${week}`)
-      const events = await fetchEvents(sportID, season, week)
-      console.log(`Fetched ${events.length} events for ${league || 'all leagues'}`)
+    for (const currentLeague of leaguesToProcess) {
+      const sportID = currentLeague === 'NFL' || currentLeague === 'NCAAF' ? 'FOOTBALL' : 
+                     currentLeague === 'NBA' || currentLeague === 'NCAAB' ? 'BASKETBALL' :
+                     currentLeague === 'MLB' ? 'BASEBALL' :
+                     currentLeague === 'NHL' ? 'HOCKEY' : 'FOOTBALL'
       
-      if (events.length === 0) {
-        console.log('No events found - checking API call')
-        return {
-          success: false,
-          message: 'No events found',
-          error: 'No events returned from API'
+      console.log(`Processing ${currentLeague} (${sportID})`)
+      
+      try {
+        // Fetch events from SportsGameOdds API
+        console.log(`About to fetch events for sportID: ${sportID}, season: ${season}, week: ${week}`)
+        const events = await fetchEvents(sportID, season, week)
+        console.log(`Fetched ${events.length} events for ${currentLeague}`)
+        
+        if (events.length === 0) {
+          console.log(`No events found for ${currentLeague} - skipping`)
+          continue
         }
-      }
 
-      // Log details about the first few events
-      console.log(`First event details:`, {
-        eventID: events[0]?.eventID,
-        teams: events[0]?.teams,
-        oddsCount: Object.keys(events[0]?.odds || {}).length,
-        hasOdds: !!events[0]?.odds
-      })
+        // Log details about the first few events
+        console.log(`First event details for ${currentLeague}:`, {
+          eventID: events[0]?.eventID,
+          teams: events[0]?.teams,
+          oddsCount: Object.keys(events[0]?.odds || {}).length,
+          hasOdds: !!events[0]?.odds
+        })
 
-      // Extract and process player props
-      for (const event of events) {
-        try {
-          console.log(`Processing event ${event.eventID} with ${Object.keys(event.odds || {}).length} odds`)
-          const props = await extractPlayerPropsFromEvent(event, league || 'NFL', season, week)
-          console.log(`Extracted ${props.length} props from event ${event.eventID}`)
-          
-          if (props.length > 0) {
-            console.log(`Found ${props.length} props in event ${event.eventID}`)
-            // Process all props
-            const upsertResult = await upsertProps(supabaseClient, props)
-            totalInserted += upsertResult.inserted
-            totalUpdated += upsertResult.updated
-            totalErrors += upsertResult.errors
-            totalProps += props.length
+        // Extract and process player props
+        for (const event of events) {
+          try {
+            console.log(`Processing event ${event.eventID} with ${Object.keys(event.odds || {}).length} odds`)
+            const props = await extractPlayerPropsFromEvent(event, currentLeague, season, week)
+            console.log(`Extracted ${props.length} props from event ${event.eventID}`)
+            
+            if (props.length > 0) {
+              console.log(`Found ${props.length} props in event ${event.eventID}`)
+              // Process all props
+              const upsertResult = await upsertProps(supabaseClient, props)
+              totalInserted += upsertResult.inserted
+              totalUpdated += upsertResult.updated
+              totalErrors += upsertResult.errors
+              totalProps += props.length
+            }
+          } catch (error) {
+            console.error(`Error processing event ${event.eventID}:`, error)
+            totalErrors++
           }
-        } catch (error) {
-          console.error(`Error processing event ${event.eventID}:`, error)
-          totalErrors++
         }
+        
+      } catch (error) {
+        console.error(`Error processing league ${currentLeague}:`, error)
+        totalErrors++
       }
-      
-    } catch (error) {
-      console.error(`Error processing league ${league || 'all leagues'}:`, error)
-      totalErrors++
     }
 
     const duration = Date.now() - startTime
@@ -242,7 +242,7 @@ async function runIngestion(supabaseClient: any, league?: string, season: string
         updated: totalUpdated,
         errors: totalErrors,
         duration: `${duration}ms`,
-        leagues: [league || 'all']
+        leagues: league ? [league] : ['NFL', 'NCAAF', 'NBA', 'NCAAB', 'MLB', 'NHL']
       }
     }
 
@@ -260,11 +260,11 @@ async function fetchEvents(sportID: string, season: string, week?: string): Prom
   let allEvents: any[] = []
   let nextCursor: string | null = null
   let pageCount = 0
-  const maxPages = 2 // Limit pages for edge function
+  const maxPages = 5 // Increased to get more events
 
   do {
     try {
-      let endpoint = `/v2/events?sportID=${sportID}&season=${season}&oddsAvailable=true&markets=playerProps&limit=10`
+      let endpoint = `/v2/events?sportID=${sportID}&season=${season}&oddsAvailable=true&markets=playerProps&limit=25`
       if (week) endpoint += `&week=${week}`
       if (nextCursor) endpoint += `&cursor=${nextCursor}`
       
