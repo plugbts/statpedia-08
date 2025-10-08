@@ -486,49 +486,6 @@ var init_extract = __esm({
   }
 });
 
-// src/missingPlayers.ts
-async function storeMissingPlayer(env, playerName, team, league, generatedId, oddId) {
-  try {
-    const missingPlayer = {
-      player_name: playerName,
-      team,
-      league,
-      normalized_name: normalizePlayerName(playerName),
-      generated_id: generatedId,
-      first_seen: (/* @__PURE__ */ new Date()).toISOString(),
-      last_seen: (/* @__PURE__ */ new Date()).toISOString(),
-      count: 1,
-      sample_odd_id: oddId
-    };
-    await fetch(`${env.SUPABASE_URL}/rest/v1/missing_players`, {
-      method: "POST",
-      headers: {
-        "apikey": env.SUPABASE_SERVICE_KEY,
-        "Authorization": `Bearer ${env.SUPABASE_SERVICE_KEY}`,
-        "Content-Type": "application/json",
-        "Prefer": "resolution=merge-duplicates"
-      },
-      body: JSON.stringify(missingPlayer)
-    });
-    console.log(`\u{1F4DD} Stored missing player: ${playerName} (${team})`);
-  } catch (error) {
-    console.error(`\u274C Failed to store missing player ${playerName}:`, error);
-  }
-}
-function normalizePlayerName(name) {
-  return name.toLowerCase().replace(/[^\w\s]/g, "").replace(/\s+/g, " ").replace(/\s(jr|sr|iii|iv|v)$/i, "").trim();
-}
-var init_missingPlayers = __esm({
-  "src/missingPlayers.ts"() {
-    "use strict";
-    init_checked_fetch();
-    init_strip_cf_connecting_ip_header();
-    init_modules_watch_stub();
-    __name(storeMissingPlayer, "storeMissingPlayer");
-    __name(normalizePlayerName, "normalizePlayerName");
-  }
-});
-
 // src/supabaseFetch.ts
 var supabaseFetch_exports = {};
 __export(supabaseFetch_exports, {
@@ -735,6 +692,49 @@ var init_playersLoader = __esm({
   }
 });
 
+// src/missingPlayers.ts
+async function storeMissingPlayer(env, playerName, team, league, generatedId, oddId) {
+  try {
+    const missingPlayer = {
+      player_name: playerName,
+      team,
+      league,
+      normalized_name: normalizePlayerName(playerName),
+      generated_id: generatedId,
+      first_seen: (/* @__PURE__ */ new Date()).toISOString(),
+      last_seen: (/* @__PURE__ */ new Date()).toISOString(),
+      count: 1,
+      sample_odd_id: oddId
+    };
+    await fetch(`${env.SUPABASE_URL}/rest/v1/missing_players`, {
+      method: "POST",
+      headers: {
+        "apikey": env.SUPABASE_SERVICE_KEY,
+        "Authorization": `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+        "Content-Type": "application/json",
+        "Prefer": "resolution=merge-duplicates"
+      },
+      body: JSON.stringify(missingPlayer)
+    });
+    console.log(`\u{1F4DD} Stored missing player: ${playerName} (${team})`);
+  } catch (error) {
+    console.error(`\u274C Failed to store missing player ${playerName}:`, error);
+  }
+}
+function normalizePlayerName(name) {
+  return name.toLowerCase().replace(/[^\w\s]/g, "").replace(/\s+/g, " ").replace(/\s(jr|sr|iii|iv|v)$/i, "").trim();
+}
+var init_missingPlayers = __esm({
+  "src/missingPlayers.ts"() {
+    "use strict";
+    init_checked_fetch();
+    init_strip_cf_connecting_ip_header();
+    init_modules_watch_stub();
+    __name(storeMissingPlayer, "storeMissingPlayer");
+    __name(normalizePlayerName, "normalizePlayerName");
+  }
+});
+
 // src/createPlayerPropsFromOdd.ts
 var createPlayerPropsFromOdd_exports = {};
 __export(createPlayerPropsFromOdd_exports, {
@@ -809,8 +809,8 @@ async function createPlayerPropsFromOdd(odd, oddId, event, league, season, week,
     return props;
   }
   const finalLine = line != null ? parseFloat(line) : 0;
-  const normalizedPropType = MARKET_MAP[rawPropType.toLowerCase()] || rawPropType;
-  if (!MARKET_MAP[rawPropType.toLowerCase()]) {
+  const normalizedPropType = MARKET_MAP2[rawPropType.toLowerCase()] || rawPropType;
+  if (!MARKET_MAP2[rawPropType.toLowerCase()]) {
     console.warn("Unmapped market:", {
       rawMarket: rawPropType,
       oddId,
@@ -866,7 +866,7 @@ function mapBookmakerIdToName(bookmakerId) {
   };
   return bookmakerMap[bookmakerId.toLowerCase()] || "Consensus";
 }
-var MARKET_MAP;
+var MARKET_MAP2;
 var init_createPlayerPropsFromOdd = __esm({
   "src/createPlayerPropsFromOdd.ts"() {
     "use strict";
@@ -876,7 +876,7 @@ var init_createPlayerPropsFromOdd = __esm({
     init_missingPlayers();
     init_playersLoader();
     init_normalizeName();
-    MARKET_MAP = {
+    MARKET_MAP2 = {
       // NFL Passing
       "passing yards": "Passing Yards",
       "pass yards": "Passing Yards",
@@ -980,7 +980,6 @@ init_strip_cf_connecting_ip_header();
 init_modules_watch_stub();
 init_api();
 init_extract();
-init_createPlayerPropsFromOdd();
 init_playersLoader();
 
 // src/lib/insertProps.ts
@@ -1052,6 +1051,155 @@ async function insertProps(env, mapped) {
 }
 __name(insertProps, "insertProps");
 
+// src/lib/diagnosticMapper.ts
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
+var MARKET_MAP = {
+  "Passing Yards": "Passing Yards",
+  "Rushing Yards": "Rushing Yards",
+  "Receiving Yards": "Receiving Yards",
+  "Completions": "Completions",
+  "Receptions": "Receptions",
+  "3PT Made": "3PT Made",
+  "Points": "Points",
+  "Assists": "Assists",
+  "Rebounds": "Rebounds",
+  // NFL specific
+  "passing yards": "Passing Yards",
+  "pass yards": "Passing Yards",
+  "passing yds": "Passing Yards",
+  "pass yds": "Passing Yards",
+  "rushing yards": "Rushing Yards",
+  "rush yards": "Rushing Yards",
+  "rushing yds": "Rushing Yards",
+  "rush yds": "Rushing Yards",
+  "receiving yards": "Receiving Yards",
+  "rec yards": "Receiving Yards",
+  "receiving yds": "Receiving Yards",
+  "rec yds": "Receiving Yards",
+  "receptions": "Receptions",
+  "passing touchdowns": "Passing Touchdowns",
+  "pass tds": "Passing Touchdowns",
+  "rushing touchdowns": "Rushing Touchdowns",
+  "rush tds": "Rushing Touchdowns",
+  "receiving touchdowns": "Receiving Touchdowns",
+  "rec tds": "Receiving Touchdowns",
+  // NBA specific
+  "points": "Points",
+  "assists": "Assists",
+  "rebounds": "Rebounds",
+  "threes made": "3PT Made",
+  "3pt made": "3PT Made",
+  "steals": "Steals",
+  "blocks": "Blocks",
+  // MLB specific
+  "hits": "Hits",
+  "runs": "Runs",
+  "rbis": "RBIs",
+  "total bases": "Total Bases",
+  "strikeouts": "Strikeouts",
+  // NHL specific
+  "shots on goal": "Shots on Goal",
+  "goals": "Goals",
+  "saves": "Saves",
+  // Yes/No bets (common patterns)
+  "first touchdown": "First Touchdown",
+  "anytime touchdown": "Anytime Touchdown",
+  "to record first touchdown": "First Touchdown",
+  "to record anytime touchdown": "Anytime Touchdown",
+  "to score": "Anytime Touchdown"
+  // Add more as needed
+};
+function normalizePlayerId(nameOrId) {
+  if (!nameOrId)
+    return null;
+  return nameOrId.trim().replace(/\s+/g, "_").toUpperCase();
+}
+__name(normalizePlayerId, "normalizePlayerId");
+function mapWithDiagnostics(odds) {
+  const stats = {
+    missingPlayerId: 0,
+    unmappedMarket: 0,
+    incompleteOdd: 0,
+    success: 0,
+    total: odds.length
+  };
+  const mapped = odds.map((odd, index) => {
+    console.log(`\u{1F50D} Processing odd ${index + 1}/${odds.length}:`, {
+      playerName: odd.playerName,
+      marketName: odd.marketName,
+      line: odd.line,
+      odds: odd.odds,
+      sportsbook: odd.sportsbook,
+      league: odd.league
+    });
+    const playerId = normalizePlayerId(odd.playerName) || normalizePlayerId(odd.playerId);
+    if (!playerId) {
+      console.log(`\u274C Missing player ID for:`, odd.playerName);
+      stats.missingPlayerId++;
+      return null;
+    }
+    let propType = MARKET_MAP[odd.marketName];
+    if (!propType) {
+      propType = MARKET_MAP[odd.marketName?.toLowerCase()];
+    }
+    if (!propType) {
+      const marketWords = odd.marketName?.toLowerCase().split(" ") || [];
+      for (const word of marketWords) {
+        if (MARKET_MAP[word]) {
+          propType = MARKET_MAP[word];
+          break;
+        }
+      }
+    }
+    if (!propType) {
+      console.log(`\u274C Unmapped market:`, odd.marketName);
+      stats.unmappedMarket++;
+      return null;
+    }
+    if (!odd.eventStartUtc || !odd.sportsbook) {
+      console.log(`\u274C Incomplete odd data:`, {
+        eventStartUtc: odd.eventStartUtc,
+        sportsbook: odd.sportsbook,
+        line: odd.line
+      });
+      stats.incompleteOdd++;
+      return null;
+    }
+    const date = odd.eventStartUtc.split("T")[0];
+    const season = new Date(date).getFullYear();
+    const mappedProp = {
+      player_id: playerId,
+      player_name: odd.playerName,
+      team: odd.team || "UNK",
+      opponent: odd.opponent || "UNK",
+      date,
+      prop_type: propType,
+      sportsbook: odd.sportsbook,
+      line: odd.line || 0,
+      // Default to 0 for Yes/No bets
+      over_odds: odd.overUnder === "over" || odd.overUnder === "yes" ? odd.odds : null,
+      under_odds: odd.overUnder === "under" || odd.overUnder === "no" ? odd.odds : null,
+      league: (odd.league || "UNKNOWN").toLowerCase(),
+      season,
+      game_id: odd.eventId || `${playerId}-${date}`,
+      conflict_key: `${playerId}|${date}|${propType}|${odd.sportsbook}|${odd.league?.toLowerCase() || "UNK"}|${season}`
+    };
+    console.log(`\u2705 Successfully mapped prop:`, {
+      player_id: mappedProp.player_id,
+      prop_type: mappedProp.prop_type,
+      line: mappedProp.line,
+      league: mappedProp.league
+    });
+    stats.success++;
+    return mappedProp;
+  }).filter(Boolean);
+  console.log("\u{1F50D} Mapping diagnostics summary:", stats);
+  return { mapped, stats };
+}
+__name(mapWithDiagnostics, "mapWithDiagnostics");
+
 // src/jobs/backfill.ts
 async function runBackfill(env, leagueID, season, days) {
   console.log(`\u{1F504} Starting backfill for ${leagueID} season ${season} (${days} days)`);
@@ -1080,49 +1228,10 @@ async function runBackfill(env, leagueID, season, days) {
     }
     const playerIdMap = await getCachedPlayerIdMap(env);
     console.log(`\u{1F4CA} ${leagueID} ${season}: Loaded player map with ${Object.keys(playerIdMap).length} players`);
-    const mappedProps = [];
-    for (const prop of extractedProps) {
-      try {
-        const mockEvent = {
-          id: prop.eventId,
-          date: prop.eventStartUtc,
-          homeTeam: "HOME",
-          // Will be extracted from actual event data
-          awayTeam: "AWAY",
-          // Will be extracted from actual event data
-          teams: ["HOME", "AWAY"]
-        };
-        const mockOdd = {
-          player: {
-            name: prop.playerName,
-            team: prop.team || "UNK"
-          },
-          player_name: prop.playerName,
-          playerID: prop.playerId,
-          market_key: prop.marketName,
-          point: prop.line,
-          over_price: prop.overUnder === "over" ? prop.odds : null,
-          under_price: prop.overUnder === "under" ? prop.odds : null,
-          overOdds: prop.overUnder === "over" || prop.overUnder === "yes" ? prop.odds : null,
-          underOdds: prop.overUnder === "under" || prop.overUnder === "no" ? prop.odds : null,
-          bookmaker_name: prop.sportsbook,
-          id: prop.oddId
-        };
-        const eventProps = await createPlayerPropsFromOdd(
-          mockOdd,
-          prop.oddId,
-          mockEvent,
-          prop.league.toLowerCase(),
-          season.toString(),
-          void 0,
-          env
-        );
-        mappedProps.push(...eventProps);
-      } catch (error) {
-        console.error(`\u274C Error mapping prop ${prop.oddId}:`, error);
-        errors++;
-      }
-    }
+    console.log(`\u{1F50D} Mapping ${extractedProps.length} extracted props using diagnostic mapper...`);
+    const { mapped: mappedProps, stats: mappingStats } = mapWithDiagnostics(extractedProps);
+    console.log(`\u{1F4CA} ${leagueID} ${season}: Mapping results:`, mappingStats);
+    errors += mappingStats.missingPlayerId + mappingStats.unmappedMarket + mappingStats.incompleteOdd;
     console.log(`\u{1F4CA} ${leagueID} ${season}: Mapped ${mappedProps.length} props for insertion`);
     if (mappedProps.length > 0) {
       console.log(`\u{1F4CA} ${leagueID} ${season}: Inserting ${mappedProps.length} props using new insertProps function`);
@@ -1402,7 +1511,6 @@ init_strip_cf_connecting_ip_header();
 init_modules_watch_stub();
 init_api();
 init_extract();
-init_createPlayerPropsFromOdd();
 async function runIngestion(env) {
   console.log(`\u{1F504} Starting current season ingestion...`);
   const startTime = Date.now();
@@ -1432,47 +1540,10 @@ async function runIngestion(env) {
         leagueResults.push({ league: leagueID, props: 0, inserted: 0, errors: 0 });
         continue;
       }
-      const mappedProps = [];
-      for (const prop of extractedProps) {
-        try {
-          const mockEvent = {
-            id: prop.eventId,
-            date: prop.eventStartUtc,
-            homeTeam: "HOME",
-            awayTeam: "AWAY",
-            teams: ["HOME", "AWAY"]
-          };
-          const mockOdd = {
-            player: {
-              name: prop.playerName,
-              team: prop.team || "UNK"
-            },
-            player_name: prop.playerName,
-            playerID: prop.playerId,
-            market_key: prop.marketName,
-            point: prop.line,
-            over_price: prop.overUnder === "over" ? prop.odds : null,
-            under_price: prop.overUnder === "under" ? prop.odds : null,
-            overOdds: prop.overUnder === "over" || prop.overUnder === "yes" ? prop.odds : null,
-            underOdds: prop.overUnder === "under" || prop.overUnder === "no" ? prop.odds : null,
-            bookmaker_name: prop.sportsbook,
-            id: prop.oddId
-          };
-          const eventProps = await createPlayerPropsFromOdd(
-            mockOdd,
-            prop.oddId,
-            mockEvent,
-            prop.league.toLowerCase(),
-            season.toString(),
-            void 0,
-            env
-          );
-          mappedProps.push(...eventProps);
-        } catch (error) {
-          console.error(`\u274C Error mapping prop ${prop.oddId}:`, error);
-          totalErrors++;
-        }
-      }
+      console.log(`\u{1F50D} Mapping ${extractedProps.length} extracted props using diagnostic mapper...`);
+      const { mapped: mappedProps, stats: mappingStats } = mapWithDiagnostics(extractedProps);
+      console.log(`\u{1F4CA} ${leagueID}: Mapping results:`, mappingStats);
+      totalErrors += mappingStats.missingPlayerId + mappingStats.unmappedMarket + mappingStats.incompleteOdd;
       console.log(`\u{1F4CA} ${leagueID}: Mapped ${mappedProps.length} props for insertion`);
       totalProps += mappedProps.length;
       let leagueInserted = 0;
@@ -1987,8 +2058,8 @@ var worker_default = {
         } catch (error) {
           return new Response(JSON.stringify({
             success: false,
-            error: error.message,
-            stack: error.stack
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : void 0
           }), {
             status: 500,
             headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }

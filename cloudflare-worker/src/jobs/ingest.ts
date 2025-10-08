@@ -8,6 +8,7 @@ import { chunk } from "../helpers";
 import { createPlayerPropsFromOdd } from "../createPlayerPropsFromOdd";
 import { getActiveLeagues } from "../config/leagues";
 import { insertProps } from "../lib/insertProps";
+import { mapWithDiagnostics } from "../lib/diagnosticMapper";
 
 export interface IngestionResult {
   totalProps: number;
@@ -65,53 +66,14 @@ export async function runIngestion(env: any): Promise<IngestionResult> {
         continue;
       }
       
-      // Convert to proplines format
-      const mappedProps = [];
-      for (const prop of extractedProps) {
-        try {
-          // Create mock event and odd objects for createPlayerPropsFromOdd
-          const mockEvent = {
-            id: prop.eventId,
-            date: prop.eventStartUtc,
-            homeTeam: 'HOME',
-            awayTeam: 'AWAY',
-            teams: ['HOME', 'AWAY']
-          };
-          
-          const mockOdd = {
-            player: {
-              name: prop.playerName,
-              team: prop.team || 'UNK'
-            },
-            player_name: prop.playerName,
-            playerID: prop.playerId,
-            market_key: prop.marketName,
-            point: prop.line,
-            over_price: prop.overUnder === 'over' ? prop.odds : null,
-            under_price: prop.overUnder === 'under' ? prop.odds : null,
-            overOdds: prop.overUnder === 'over' || prop.overUnder === 'yes' ? prop.odds : null,
-            underOdds: prop.overUnder === 'under' || prop.overUnder === 'no' ? prop.odds : null,
-            bookmaker_name: prop.sportsbook,
-            id: prop.oddId
-          };
-          
-          const eventProps = await createPlayerPropsFromOdd(
-            mockOdd, 
-            prop.oddId, 
-            mockEvent, 
-            prop.league.toLowerCase(), 
-            season.toString(), 
-            undefined, 
-            env
-          );
-          
-          mappedProps.push(...eventProps);
-          
-        } catch (error) {
-          console.error(`❌ Error mapping prop ${prop.oddId}:`, error);
-          totalErrors++;
-        }
-      }
+      // Use diagnostic mapper to convert extracted props to proplines format
+      console.log(`🔍 Mapping ${extractedProps.length} extracted props using diagnostic mapper...`);
+      const { mapped: mappedProps, stats: mappingStats } = mapWithDiagnostics(extractedProps);
+      
+      console.log(`📊 ${leagueID}: Mapping results:`, mappingStats);
+      
+      // Update error count based on mapping failures
+      totalErrors += mappingStats.missingPlayerId + mappingStats.unmappedMarket + mappingStats.incompleteOdd;
       
       console.log(`📊 ${leagueID}: Mapped ${mappedProps.length} props for insertion`);
       totalProps += mappedProps.length;
