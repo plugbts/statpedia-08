@@ -321,7 +321,7 @@ async function extractPlayerPropsFromEvent(event: any, league: string, season: s
       if (isPlayerProp(oddData, oddId)) {
         playerPropOdds++
         console.log(`Found player prop: ${oddId}`)
-        const playerProps = await createPlayerPropsFromOdd(
+        const playerProps = await createPlayerPropsFromOddDebug(
           oddData, 
           oddId, 
           event, 
@@ -337,7 +337,8 @@ async function extractPlayerPropsFromEvent(event: any, league: string, season: s
     }
   }
 
-  console.log(`Event ${event.eventID}: ${playerPropOdds} player prop odds found, ${processedOdds} props created`)
+  console.log(`Event ${event.eventID}: ${playerPropOdds} player prop odds found, ${processedOdds} props created out of ${totalOdds} total odds`)
+  console.log(`✅ Processed ${props.length} props out of ${totalOdds} total odds for event ${event.eventID}`)
   return props
 }
 
@@ -355,6 +356,9 @@ function isPlayerProp(odd: any, oddId: string): boolean {
   // Check if it's an over/under bet
   const isOverUnder = betTypeID === 'ou' || betTypeID === 'over_under'
   
+  // Only process 'over' side - we'll handle both over and under from the same odd
+  const isOverSide = sideID === 'over'
+  
   // Check if the statID is one we can normalize (or is a common player prop)
   const normalizedStatID = statID.toLowerCase()
   const isPlayerStat = Object.keys(CANONICAL_PROP_TYPES).includes(normalizedStatID) ||
@@ -368,7 +372,67 @@ function isPlayerProp(odd: any, oddId: string): boolean {
                       normalizedStatID.includes('kicking') ||
                       normalizedStatID.includes('points')
   
-  return isPlayerID && isOverUnder && isPlayerStat
+  return isPlayerID && isOverUnder && isOverSide && isPlayerStat
+}
+
+// Debug harness function to log every rejection reason
+async function createPlayerPropsFromOddDebug(odd: any, oddId: string, event: any, league: string, season: string, week?: string): Promise<any[]> {
+  try {
+    const props = await createPlayerPropsFromOdd(odd, oddId, event, league, season, week);
+
+    if (!props || props.length === 0) {
+      console.error("❌ Rejected odd (returned empty array):", {
+        oddId,
+        hasOdd: !!odd,
+        hasEvent: !!event,
+        league,
+        season,
+        week,
+        odd: JSON.stringify(odd, null, 2)
+      });
+      return [];
+    }
+
+    // Check each prop for critical fields
+    const validProps = [];
+    for (const prop of props) {
+      if (!prop) {
+        console.error("❌ Null prop in array:", { oddId, props });
+        continue;
+      }
+
+      const { player_id, date, prop_type } = prop;
+      if (!player_id || !date || !prop_type) {
+        console.error("❌ Missing critical field in prop:", {
+          player_id,
+          date,
+          prop_type,
+          oddId,
+          prop: JSON.stringify(prop, null, 2)
+        });
+        continue;
+      }
+
+      // Optional fields can be null, but log if they are
+      if (prop.line == null) {
+        console.warn("⚠️ Null line value for:", { oddId, prop });
+      }
+      if (prop.over_odds == null || prop.under_odds == null) {
+        console.warn("⚠️ Null odds value for:", { oddId, prop });
+      }
+      if (!prop.sportsbook) {
+        console.warn("⚠️ Missing sportsbook for:", { oddId, prop });
+      }
+
+      validProps.push(prop);
+    }
+
+    console.log(`✅ Processed ${validProps.length} valid props out of ${props.length} total for odd ${oddId}`);
+    return validProps;
+  } catch (err) {
+    console.error("❌ Exception in createPlayerPropsFromOddDebug:", err, "OddId:", oddId, "Odd:", JSON.stringify(odd, null, 2));
+    return [];
+  }
 }
 
 async function createPlayerPropsFromOdd(odd: any, oddId: string, event: any, league: string, season: string, week?: string): Promise<any[]> {
@@ -384,6 +448,7 @@ async function createPlayerPropsFromOdd(odd: any, oddId: string, event: any, lea
   const underOdd = event.odds[underOddId]
   
   if (!underOdd) {
+    console.log(`⚠️ No corresponding under odd found for ${oddId}`)
     return props
   }
 
@@ -433,6 +498,7 @@ function createIngestedPlayerProp(odd: any, oddId: string, overData: any, underD
     
     const playerName = extractPlayerName(playerID)
     const team = extractTeam(playerID, event.teams?.home?.names?.short, event.teams?.away?.names?.short)
+    const sportsbookName = mapBookmakerIdToName(bookmakerId)
     
     const propType = normalizePropType(statID)
     const overOdds = parseOdds(overData.odds)
