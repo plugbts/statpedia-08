@@ -191,7 +191,13 @@ async function runIngestion(supabaseClient: any, league?: string, season: string
             console.log(`Found ${props.length} props in event ${event.eventID}`)
             // Upsert props to database (limit to first 3 for debugging)
             const propsToProcess = props.slice(0, 3)
-            console.log(`Processing first 3 props:`, propsToProcess.map(p => ({ player_id: p.player_id, prop_type: p.prop_type, line: p.line })))
+            console.log(`Processing first 3 props:`, propsToProcess.map(p => ({ 
+              player_id: p.player_id, 
+              prop_type: p.prop_type, 
+              line: p.line,
+              sportsbook: p.sportsbook,
+              date: p.date
+            })))
             const upsertResult = await upsertProps(supabaseClient, propsToProcess)
             totalInserted += upsertResult.inserted
             totalUpdated += upsertResult.updated
@@ -430,12 +436,42 @@ function createIngestedPlayerProp(odd: any, overData: any, underData: any, bookm
       return null
     }
 
-    // Extract date from game time
+    // Extract date from game time with safety check
     const gameTime = new Date(event.status?.startsAt || new Date());
     const gameDate = gameTime.toISOString().split('T')[0]; // YYYY-MM-DD format
     
+    // Safety check - ensure we have a valid date
+    if (!gameDate || gameDate === 'Invalid Date' || gameDate.includes('Invalid')) {
+      console.error(`Invalid date extracted: ${gameDate} from ${event.status?.startsAt}`);
+      return null
+    }
+
+    // Log the data for debugging
+    console.log(`Creating prop:`, {
+      playerID,
+      playerName,
+      team,
+      propType,
+      sportsbookName,
+      gameDate,
+      line,
+      overOdds,
+      underOdds
+    });
+
+    // Validate all required fields
+    if (!playerID || !playerName || !team || !propType || !sportsbookName) {
+      console.error(`Missing required fields:`, {
+        playerID: !!playerID,
+        playerName: !!playerName,
+        team: !!team,
+        propType: !!propType,
+        sportsbookName: !!sportsbookName
+      });
+      return null
+    }
+    
     // Generate conflict key for efficient upserts
-    const sportsbookName = mapBookmakerIdToName(bookmakerId);
     const conflictKey = `${playerID}-${propType}-${line}-${sportsbookName}-${gameDate}`;
     
     return {
@@ -563,13 +599,17 @@ async function upsertProps(supabaseClient: any, props: any[]): Promise<{ inserte
         })
 
       if (error) {
+        console.log(`Database error for prop:`, JSON.stringify(prop, null, 2))
+        console.log(`Error details:`, JSON.stringify(error, null, 2))
         // If it's a duplicate key error, count as updated
         if (error.code === '23505') { // Unique constraint violation
+          console.log(`Duplicate key error - counting as updated`)
           updated++
         } else {
           throw error
         }
       } else {
+        console.log(`Successfully inserted prop:`, prop.player_id, prop.prop_type, prop.line)
         inserted++
       }
     } catch (error) {
