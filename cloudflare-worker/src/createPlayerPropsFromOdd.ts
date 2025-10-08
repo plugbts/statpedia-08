@@ -227,22 +227,18 @@ export async function createPlayerPropsFromOdd(odd: any, oddId: string, event: a
     player_name: playerName,
     team: team,
     opponent: event.teams?.find((t: any) => t !== team) || null,
+    season: parseInt(season),
+    date: gameDate, // ✅ REQUIRED field that was missing!
     prop_type: normalizedPropType,
     line: parseFloat(line),
     over_odds: overOdds ? parseInt(overOdds) : null,
     under_odds: underOdds ? parseInt(underOdds) : null,
     sportsbook: sportsbook,
-    sportsbook_key: odd.bookmaker?.id || 'consensus',
-    game_id: gameId,
-    game_time: gameTime.toISOString(),
-    home_team: homeTeam || '',
-    away_team: awayTeam || '',
     league: league.toLowerCase(),
-    season: season,
-    week: week || null,
-    conflict_key: `${playerID}-${normalizedPropType}-${line}-${sportsbook}-${gameDate}`,
-    last_updated: new Date().toISOString(),
-    is_available: true
+    game_id: gameId,
+    conflict_key: `${playerID}-${normalizedPropType}-${line}-${sportsbook}-${gameDate}`
+    // Removed extra fields that don't exist in schema:
+    // - sportsbook_key, game_time, home_team, away_team, week, last_updated, is_available
   };
 
   props.push(prop);

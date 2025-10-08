@@ -108,6 +108,12 @@ export async function runBackfill(env: any, leagueID: string, season: number, da
       
       for (let i = 0; i < propChunks.length; i++) {
         try {
+          // Debug: Log first row structure
+          if (propChunks[i].length > 0) {
+            console.log("🔍 Sample propline row:", JSON.stringify(propChunks[i][0], null, 2));
+            console.log("🔍 Batch size:", propChunks[i].length);
+          }
+          
           const { data, error } = await supabaseFetch(env, "proplines", {
             method: "POST",
             body: propChunks[i],

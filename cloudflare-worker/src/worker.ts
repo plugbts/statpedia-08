@@ -31,7 +31,7 @@ export default {
             backfill: ['/backfill-all', '/backfill-recent', '/backfill-full', '/backfill-league/{league}', '/backfill-season/{season}'],
             verification: ['/verify-backfill', '/verify-analytics'],
             status: ['/status', '/leagues', '/seasons'],
-            debug: ['/debug-api', '/debug-comprehensive', '/debug-json', '/debug-extraction']
+            debug: ['/debug-api', '/debug-comprehensive', '/debug-json', '/debug-extraction', '/debug-insert', '/debug-schema']
           },
           leagues: getActiveLeagues().map(l => l.id),
           seasons: getAllSeasons(),
@@ -397,6 +397,116 @@ export default {
         }
       }
       
+      // Handle schema check
+      if (url.pathname === '/debug-schema') {
+        try {
+          const { supabaseFetch } = await import("./supabaseFetch");
+          
+          console.log('🔍 Checking table schema...');
+          
+          // Query the table structure
+          const { data, error } = await supabaseFetch(env, "proplines", {
+            method: "GET",
+            query: "?limit=1&select=*"
+          });
+          
+          if (error) {
+            console.error("❌ Schema check failed:", error);
+            return new Response(JSON.stringify({
+              success: false,
+              error: error.message,
+              details: error
+            }), {
+              status: 500,
+              headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+            });
+          } else {
+            console.log("✅ Schema check successful:", data);
+            return new Response(JSON.stringify({
+              success: true,
+              message: "Table schema retrieved",
+              data: data,
+              note: "This shows what columns exist in the table"
+            }), {
+              headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+            });
+          }
+          
+        } catch (error) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: error.message
+          }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          });
+        }
+      }
+      
+      // Handle isolated insert test
+      if (url.pathname === '/debug-insert') {
+        try {
+          const { supabaseFetch } = await import("./supabaseFetch");
+          
+          console.log('🔍 Testing isolated insert...');
+          
+          // Test single hardcoded row (minimal schema)
+          const testProp = {
+            player_id: "JALEN_HURTS-UNK-PHI",
+            player_name: "Jalen Hurts",
+            team: "PHI",
+            opponent: "DAL",
+            season: 2025,
+            date: "2025-10-08",
+            prop_type: "Passing Yards",
+            sportsbook: "Consensus",
+            line: 245.5,
+            over_odds: -110,
+            under_odds: -110,
+            league: "nfl"
+            // Removed game_id and conflict_key for now to test basic insert
+          };
+          
+          console.log("🔍 Test prop:", JSON.stringify(testProp, null, 2));
+          
+          const { data, error } = await supabaseFetch(env, "proplines", {
+            method: "POST",
+            body: [testProp],
+            query: "?on_conflict=conflict_key"
+          });
+          
+          if (error) {
+            console.error("❌ Insert failed:", error);
+            return new Response(JSON.stringify({
+              success: false,
+              error: error.message,
+              details: error
+            }), {
+              status: 500,
+              headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+            });
+          } else {
+            console.log("✅ Insert successful:", data);
+            return new Response(JSON.stringify({
+              success: true,
+              message: "Test insert successful",
+              data: data
+            }), {
+              headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+            });
+          }
+          
+        } catch (error) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: error.message
+          }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          });
+        }
+      }
+      
       // Handle extraction debug test
       if (url.pathname === '/debug-extraction') {
         try {
@@ -580,7 +690,7 @@ export default {
                 eventsCount: Array.isArray(data) ? data.length : 'not array',
                 dataType: typeof data
               });
-            } catch (error) {
+              } catch (error) {
               testResults.push({
                 endpoint,
                 error: error.message

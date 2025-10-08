@@ -486,6 +486,40 @@ var init_extract = __esm({
   }
 });
 
+// src/supabaseFetch.ts
+var supabaseFetch_exports = {};
+__export(supabaseFetch_exports, {
+  supabaseFetch: () => supabaseFetch
+});
+async function supabaseFetch(env, table, { method = "GET", body, query = "" } = {}) {
+  const url = `${env.SUPABASE_URL}/rest/v1/${table}${query}`;
+  const res = await fetch(url, {
+    method,
+    headers: {
+      apikey: env.SUPABASE_SERVICE_KEY,
+      Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+      "Content-Type": "application/json",
+      ...method === "POST" ? { Prefer: "resolution=merge-duplicates" } : {}
+    },
+    body: body ? JSON.stringify(body) : void 0
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    console.error(`\u274C Supabase ${method} ${table} failed:`, text);
+    throw new Error(text);
+  }
+  return res.json();
+}
+var init_supabaseFetch = __esm({
+  "src/supabaseFetch.ts"() {
+    "use strict";
+    init_checked_fetch();
+    init_strip_cf_connecting_ip_header();
+    init_modules_watch_stub();
+    __name(supabaseFetch, "supabaseFetch");
+  }
+});
+
 // .wrangler/tmp/bundle-5tAbBl/middleware-loader.entry.ts
 init_checked_fetch();
 init_strip_cf_connecting_ip_header();
@@ -512,31 +546,7 @@ init_strip_cf_connecting_ip_header();
 init_modules_watch_stub();
 init_api();
 init_extract();
-
-// src/supabaseFetch.ts
-init_checked_fetch();
-init_strip_cf_connecting_ip_header();
-init_modules_watch_stub();
-async function supabaseFetch(env, table, { method = "GET", body, query = "" } = {}) {
-  const url = `${env.SUPABASE_URL}/rest/v1/${table}${query}`;
-  const res = await fetch(url, {
-    method,
-    headers: {
-      apikey: env.SUPABASE_SERVICE_KEY,
-      Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
-      "Content-Type": "application/json",
-      ...method === "POST" ? { Prefer: "resolution=merge-duplicates" } : {}
-    },
-    body: body ? JSON.stringify(body) : void 0
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    console.error(`\u274C Supabase ${method} ${table} failed:`, text);
-    throw new Error(text);
-  }
-  return res.json();
-}
-__name(supabaseFetch, "supabaseFetch");
+init_supabaseFetch();
 
 // src/helpers.ts
 init_checked_fetch();
@@ -597,6 +607,7 @@ __name(normalizePlayerName, "normalizePlayerName");
 init_checked_fetch();
 init_strip_cf_connecting_ip_header();
 init_modules_watch_stub();
+init_supabaseFetch();
 
 // src/normalizeName.ts
 init_checked_fetch();
@@ -859,22 +870,19 @@ async function createPlayerPropsFromOdd(odd, oddId, event, league, season, week,
     player_name: playerName,
     team,
     opponent: event.teams?.find((t) => t !== team) || null,
+    season: parseInt(season),
+    date: gameDate,
+    // ✅ REQUIRED field that was missing!
     prop_type: normalizedPropType,
     line: parseFloat(line),
     over_odds: overOdds ? parseInt(overOdds) : null,
     under_odds: underOdds ? parseInt(underOdds) : null,
     sportsbook,
-    sportsbook_key: odd.bookmaker?.id || "consensus",
-    game_id: gameId,
-    game_time: gameTime.toISOString(),
-    home_team: homeTeam || "",
-    away_team: awayTeam || "",
     league: league.toLowerCase(),
-    season,
-    week: week || null,
-    conflict_key: `${playerID}-${normalizedPropType}-${line}-${sportsbook}-${gameDate}`,
-    last_updated: (/* @__PURE__ */ new Date()).toISOString(),
-    is_available: true
+    game_id: gameId,
+    conflict_key: `${playerID}-${normalizedPropType}-${line}-${sportsbook}-${gameDate}`
+    // Removed extra fields that don't exist in schema:
+    // - sportsbook_key, game_time, home_team, away_team, week, last_updated, is_available
   };
   props.push(prop);
   return props;
@@ -975,6 +983,10 @@ async function runBackfill(env, leagueID, season, days) {
       console.log(`\u{1F4CA} ${leagueID} ${season}: Inserting ${propChunks.length} prop batches`);
       for (let i = 0; i < propChunks.length; i++) {
         try {
+          if (propChunks[i].length > 0) {
+            console.log("\u{1F50D} Sample propline row:", JSON.stringify(propChunks[i][0], null, 2));
+            console.log("\u{1F50D} Batch size:", propChunks[i].length);
+          }
           const { data, error } = await supabaseFetch(env, "proplines", {
             method: "POST",
             body: propChunks[i],
@@ -1312,6 +1324,7 @@ init_strip_cf_connecting_ip_header();
 init_modules_watch_stub();
 init_api();
 init_extract();
+init_supabaseFetch();
 async function runIngestion(env) {
   console.log(`\u{1F504} Starting current season ingestion...`);
   const startTime = Date.now();
@@ -1472,7 +1485,7 @@ var worker_default = {
             backfill: ["/backfill-all", "/backfill-recent", "/backfill-full", "/backfill-league/{league}", "/backfill-season/{season}"],
             verification: ["/verify-backfill", "/verify-analytics"],
             status: ["/status", "/leagues", "/seasons"],
-            debug: ["/debug-api", "/debug-comprehensive", "/debug-json", "/debug-extraction"]
+            debug: ["/debug-api", "/debug-comprehensive", "/debug-json", "/debug-extraction", "/debug-insert", "/debug-schema"]
           },
           leagues: getActiveLeagues().map((l) => l.id),
           seasons: getAllSeasons(),
@@ -1763,6 +1776,100 @@ var worker_default = {
               "Content-Type": "application/json",
               "Access-Control-Allow-Origin": "*"
             }
+          });
+        }
+      }
+      if (url.pathname === "/debug-schema") {
+        try {
+          const { supabaseFetch: supabaseFetch2 } = await Promise.resolve().then(() => (init_supabaseFetch(), supabaseFetch_exports));
+          console.log("\u{1F50D} Checking table schema...");
+          const { data, error } = await supabaseFetch2(env, "proplines", {
+            method: "GET",
+            query: "?limit=1&select=*"
+          });
+          if (error) {
+            console.error("\u274C Schema check failed:", error);
+            return new Response(JSON.stringify({
+              success: false,
+              error: error.message,
+              details: error
+            }), {
+              status: 500,
+              headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+            });
+          } else {
+            console.log("\u2705 Schema check successful:", data);
+            return new Response(JSON.stringify({
+              success: true,
+              message: "Table schema retrieved",
+              data,
+              note: "This shows what columns exist in the table"
+            }), {
+              headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+            });
+          }
+        } catch (error) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: error.message
+          }), {
+            status: 500,
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+          });
+        }
+      }
+      if (url.pathname === "/debug-insert") {
+        try {
+          const { supabaseFetch: supabaseFetch2 } = await Promise.resolve().then(() => (init_supabaseFetch(), supabaseFetch_exports));
+          console.log("\u{1F50D} Testing isolated insert...");
+          const testProp = {
+            player_id: "JALEN_HURTS-UNK-PHI",
+            player_name: "Jalen Hurts",
+            team: "PHI",
+            opponent: "DAL",
+            season: 2025,
+            date: "2025-10-08",
+            prop_type: "Passing Yards",
+            sportsbook: "Consensus",
+            line: 245.5,
+            over_odds: -110,
+            under_odds: -110,
+            league: "nfl"
+            // Removed game_id and conflict_key for now to test basic insert
+          };
+          console.log("\u{1F50D} Test prop:", JSON.stringify(testProp, null, 2));
+          const { data, error } = await supabaseFetch2(env, "proplines", {
+            method: "POST",
+            body: [testProp],
+            query: "?on_conflict=conflict_key"
+          });
+          if (error) {
+            console.error("\u274C Insert failed:", error);
+            return new Response(JSON.stringify({
+              success: false,
+              error: error.message,
+              details: error
+            }), {
+              status: 500,
+              headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+            });
+          } else {
+            console.log("\u2705 Insert successful:", data);
+            return new Response(JSON.stringify({
+              success: true,
+              message: "Test insert successful",
+              data
+            }), {
+              headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+            });
+          }
+        } catch (error) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: error.message
+          }), {
+            status: 500,
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
           });
         }
       }
