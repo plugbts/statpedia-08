@@ -467,6 +467,135 @@ export default {
         }
       }
       
+            // Handle market analysis debug test
+            if (url.pathname === '/debug-market-analysis') {
+              try {
+                const { fetchEventsWithProps } = await import("./lib/api");
+                const { extractPlayerProps } = await import("./lib/extract");
+                
+                console.log('🔍 Analyzing market patterns...');
+                
+                const leagues = ['NFL', 'MLB'];
+                const analysis = {};
+                
+                for (const league of leagues) {
+                  const events = await fetchEventsWithProps(env, league, { limit: 2 });
+                  if (events.length > 0) {
+                    const extracted = extractPlayerProps(events);
+                    console.log(`📊 ${league}: Extracted ${extracted.length} props`);
+                    
+                    // Analyze market patterns
+                    const marketCounts = {};
+                    const unmappedMarkets = new Set();
+                    
+                    for (const prop of extracted) {
+                      const market = prop.marketName;
+                      marketCounts[market] = (marketCounts[market] || 0) + 1;
+                      
+                      // Check if this market would be mapped
+                      const MARKET_MAP = {
+                        "Passing Yards": "Passing Yards",
+                        "Rushing Yards": "Rushing Yards", 
+                        "Receiving Yards": "Receiving Yards",
+                        "Completions": "Completions",
+                        "Receptions": "Receptions",
+                        "3PT Made": "3PT Made",
+                        "Points": "Points",
+                        "Assists": "Assists",
+                        "Rebounds": "Rebounds",
+                        "passing yards": "Passing Yards",
+                        "pass yards": "Passing Yards",
+                        "passing yds": "Passing Yards",
+                        "pass yds": "Passing Yards",
+                        "rushing yards": "Rushing Yards",
+                        "rush yards": "Rushing Yards",
+                        "rushing yds": "Rushing Yards",
+                        "rush yds": "Rushing Yards",
+                        "receiving yards": "Receiving Yards",
+                        "rec yards": "Receiving Yards",
+                        "receiving yds": "Receiving Yards",
+                        "rec yds": "Receiving Yards",
+                        "receptions": "Receptions",
+                        "passing touchdowns": "Passing Touchdowns",
+                        "pass tds": "Passing Touchdowns",
+                        "rushing touchdowns": "Rushing Touchdowns",
+                        "rush tds": "Rushing Touchdowns",
+                        "receiving touchdowns": "Receiving Touchdowns",
+                        "rec tds": "Receiving Touchdowns",
+                        "points": "Points",
+                        "assists": "Assists",
+                        "rebounds": "Rebounds",
+                        "threes made": "3PT Made",
+                        "3pt made": "3PT Made",
+                        "steals": "Steals",
+                        "blocks": "Blocks",
+                        "hits": "Hits",
+                        "runs": "Runs",
+                        "rbis": "RBIs",
+                        "total bases": "Total Bases",
+                        "strikeouts": "Strikeouts",
+                        "shots on goal": "Shots on Goal",
+                        "goals": "Goals",
+                        "saves": "Saves",
+                        "first touchdown": "First Touchdown",
+                        "anytime touchdown": "Anytime Touchdown",
+                        "to record first touchdown": "First Touchdown",
+                        "to record anytime touchdown": "Anytime Touchdown",
+                        "to score": "Anytime Touchdown"
+                      };
+                      
+                      let propType = MARKET_MAP[market];
+                      if (!propType) {
+                        propType = MARKET_MAP[market?.toLowerCase()];
+                      }
+                      if (!propType) {
+                        const marketWords = market?.toLowerCase().split(' ') || [];
+                        for (const word of marketWords) {
+                          if (MARKET_MAP[word]) {
+                            propType = MARKET_MAP[word];
+                            break;
+                          }
+                        }
+                      }
+                      
+                      if (!propType) {
+                        unmappedMarkets.add(market);
+                      }
+                    }
+                    
+                    analysis[league] = {
+                      totalProps: extracted.length,
+                      marketCounts: Object.entries(marketCounts)
+                        .sort(([,a], [,b]) => b - a)
+                        .slice(0, 20), // Top 20 markets
+                      unmappedMarkets: Array.from(unmappedMarkets).slice(0, 20), // Top 20 unmapped
+                      sampleProps: extracted.slice(0, 5) // Sample props for analysis
+                    };
+                  }
+                }
+                
+                return new Response(JSON.stringify({
+                  success: true,
+                  analysis: analysis,
+                  recommendations: {
+                    nfl: "Focus on 'Over/Under' patterns and 'To Record' markets",
+                    mlb: "Focus on 'Hits', 'Runs', 'RBIs' patterns"
+                  }
+                }), {
+                  headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+                });
+                
+              } catch (error) {
+                return new Response(JSON.stringify({
+                  success: false,
+                  error: error instanceof Error ? error.message : String(error)
+                }), {
+                  status: 500,
+                  headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+                });
+              }
+            }
+
             // Handle mapping debug test
             if (url.pathname === '/debug-mapping') {
               try {

@@ -1056,6 +1056,7 @@ init_checked_fetch();
 init_strip_cf_connecting_ip_header();
 init_modules_watch_stub();
 var MARKET_MAP = {
+  // Core markets
   "Passing Yards": "Passing Yards",
   "Rushing Yards": "Rushing Yards",
   "Receiving Yards": "Receiving Yards",
@@ -1065,26 +1066,82 @@ var MARKET_MAP = {
   "Points": "Points",
   "Assists": "Assists",
   "Rebounds": "Rebounds",
-  // NFL specific
+  // NFL specific - common abbreviations and variations
+  "Pass Yards": "Passing Yards",
+  "Passing Yards": "Passing Yards",
   "passing yards": "Passing Yards",
   "pass yards": "Passing Yards",
   "passing yds": "Passing Yards",
   "pass yds": "Passing Yards",
+  "Pass Attempts": "Pass Attempts",
+  "Passing Attempts": "Pass Attempts",
+  "pass attempts": "Pass Attempts",
+  "passing attempts": "Pass Attempts",
+  "Pass Completions": "Completions",
+  "Passing Completions": "Completions",
+  "Completions": "Completions",
+  "pass completions": "Completions",
+  "passing completions": "Completions",
+  "completions": "Completions",
+  "Pass TDs": "Passing Touchdowns",
+  "Passing TDs": "Passing Touchdowns",
+  "passing touchdowns": "Passing Touchdowns",
+  "pass tds": "Passing Touchdowns",
+  "Interceptions": "Interceptions",
+  "Pass Interceptions": "Interceptions",
+  "interceptions": "Interceptions",
+  "pass interceptions": "Interceptions",
+  "pass int": "Interceptions",
+  "Rush Yards": "Rushing Yards",
+  "Rushing Yards": "Rushing Yards",
   "rushing yards": "Rushing Yards",
   "rush yards": "Rushing Yards",
   "rushing yds": "Rushing Yards",
   "rush yds": "Rushing Yards",
+  "Rush Attempts": "Carries",
+  "Rushing Attempts": "Carries",
+  "Carries": "Carries",
+  "rush attempts": "Carries",
+  "rushing attempts": "Carries",
+  "carries": "Carries",
+  "Rush TDs": "Rushing Touchdowns",
+  "Rushing TDs": "Rushing Touchdowns",
+  "rushing touchdowns": "Rushing Touchdowns",
+  "rush tds": "Rushing Touchdowns",
+  "Longest Rush": "Longest Rush",
+  "longest rush": "Longest Rush",
+  "Rec Yards": "Receiving Yards",
+  "Receiving Yards": "Receiving Yards",
   "receiving yards": "Receiving Yards",
   "rec yards": "Receiving Yards",
   "receiving yds": "Receiving Yards",
   "rec yds": "Receiving Yards",
+  "Receptions": "Receptions",
   "receptions": "Receptions",
-  "passing touchdowns": "Passing Touchdowns",
-  "pass tds": "Passing Touchdowns",
-  "rushing touchdowns": "Rushing Touchdowns",
-  "rush tds": "Rushing Touchdowns",
+  "Longest Reception": "Longest Reception",
+  "longest reception": "Longest Reception",
+  "Rec TDs": "Receiving Touchdowns",
+  "Receiving TDs": "Receiving Touchdowns",
   "receiving touchdowns": "Receiving Touchdowns",
   "rec tds": "Receiving Touchdowns",
+  // NFL Over/Under patterns
+  "passing yards over/under": "Passing Yards",
+  "rushing yards over/under": "Rushing Yards",
+  "receiving yards over/under": "Receiving Yards",
+  "receptions over/under": "Receptions",
+  "passing touchdowns over/under": "Passing Touchdowns",
+  "rushing touchdowns over/under": "Rushing Touchdowns",
+  "receiving touchdowns over/under": "Receiving Touchdowns",
+  "interceptions over/under": "Interceptions",
+  // NFL Yes/No patterns
+  "to record first touchdown yes/no": "First Touchdown",
+  "any touchdowns yes/no": "Anytime Touchdown",
+  "anytime touchdown yes/no": "Anytime Touchdown",
+  "first touchdown": "First Touchdown",
+  "anytime touchdown": "Anytime Touchdown",
+  "to record first touchdown": "First Touchdown",
+  "to record anytime touchdown": "Anytime Touchdown",
+  "to score": "Anytime Touchdown",
   // NBA specific
   "points": "Points",
   "assists": "Assists",
@@ -1093,23 +1150,66 @@ var MARKET_MAP = {
   "3pt made": "3PT Made",
   "steals": "Steals",
   "blocks": "Blocks",
-  // MLB specific
+  "points over/under": "Points",
+  "assists over/under": "Assists",
+  "rebounds over/under": "Rebounds",
+  "threes made over/under": "3PT Made",
+  "steals over/under": "Steals",
+  "blocks over/under": "Blocks",
+  // MLB specific - expanded based on diagnostic analysis
+  "Hits": "Hits",
   "hits": "Hits",
+  "Runs": "Runs",
   "runs": "Runs",
+  "RBIs": "RBIs",
   "rbis": "RBIs",
+  "Total Bases": "Total Bases",
   "total bases": "Total Bases",
+  "Strikeouts": "Strikeouts",
   "strikeouts": "Strikeouts",
+  "Walks": "Walks",
+  "walks": "Walks",
+  "Singles": "Singles",
+  "singles": "Singles",
+  "Doubles": "Doubles",
+  "doubles": "Doubles",
+  "Triples": "Triples",
+  "triples": "Triples",
+  "Home Runs": "Home Runs",
+  "home runs": "Home Runs",
+  "Fantasy Score": "Fantasy Score",
+  "fantasy score": "Fantasy Score",
+  // Additional MLB markets from diagnostic analysis
+  "Pitching Outs": "Pitching Outs",
+  "pitching outs": "Pitching Outs",
+  "Earned Runs": "Earned Runs",
+  "earned runs": "Earned Runs",
+  "Stolen Bases": "Stolen Bases",
+  "stolen bases": "Stolen Bases",
+  "Hits + Runs + RBIs": "Hits + Runs + RBIs",
+  "hits + runs + rbis": "Hits + Runs + RBIs",
+  // MLB Over/Under patterns
+  "hits over/under": "Hits",
+  "runs over/under": "Runs",
+  "rbis over/under": "RBIs",
+  "total bases over/under": "Total Bases",
+  "strikeouts over/under": "Strikeouts",
+  "walks over/under": "Walks",
+  "singles over/under": "Singles",
+  "doubles over/under": "Doubles",
+  "triples over/under": "Triples",
+  "home runs over/under": "Home Runs",
+  "fantasy score over/under": "Fantasy Score",
   // NHL specific
   "shots on goal": "Shots on Goal",
   "goals": "Goals",
   "saves": "Saves",
-  // Yes/No bets (common patterns)
-  "first touchdown": "First Touchdown",
-  "anytime touchdown": "Anytime Touchdown",
-  "to record first touchdown": "First Touchdown",
-  "to record anytime touchdown": "Anytime Touchdown",
-  "to score": "Anytime Touchdown"
-  // Add more as needed
+  "shots on goal over/under": "Shots on Goal",
+  "goals over/under": "Goals",
+  "saves over/under": "Saves",
+  // Common patterns that might appear in any league
+  "over/under": "Over/Under",
+  "yes/no": "Yes/No"
 };
 function normalizePlayerId(nameOrId) {
   if (!nameOrId)
@@ -1975,6 +2075,121 @@ var worker_default = {
               headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
             });
           }
+        } catch (error) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          }), {
+            status: 500,
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+          });
+        }
+      }
+      if (url.pathname === "/debug-market-analysis") {
+        try {
+          const { fetchEventsWithProps: fetchEventsWithProps2 } = await Promise.resolve().then(() => (init_api(), api_exports));
+          const { extractPlayerProps: extractPlayerProps2 } = await Promise.resolve().then(() => (init_extract(), extract_exports));
+          console.log("\u{1F50D} Analyzing market patterns...");
+          const leagues = ["NFL", "MLB"];
+          const analysis = {};
+          for (const league of leagues) {
+            const events = await fetchEventsWithProps2(env, league, { limit: 2 });
+            if (events.length > 0) {
+              const extracted = extractPlayerProps2(events);
+              console.log(`\u{1F4CA} ${league}: Extracted ${extracted.length} props`);
+              const marketCounts = {};
+              const unmappedMarkets = /* @__PURE__ */ new Set();
+              for (const prop of extracted) {
+                const market = prop.marketName;
+                marketCounts[market] = (marketCounts[market] || 0) + 1;
+                const MARKET_MAP3 = {
+                  "Passing Yards": "Passing Yards",
+                  "Rushing Yards": "Rushing Yards",
+                  "Receiving Yards": "Receiving Yards",
+                  "Completions": "Completions",
+                  "Receptions": "Receptions",
+                  "3PT Made": "3PT Made",
+                  "Points": "Points",
+                  "Assists": "Assists",
+                  "Rebounds": "Rebounds",
+                  "passing yards": "Passing Yards",
+                  "pass yards": "Passing Yards",
+                  "passing yds": "Passing Yards",
+                  "pass yds": "Passing Yards",
+                  "rushing yards": "Rushing Yards",
+                  "rush yards": "Rushing Yards",
+                  "rushing yds": "Rushing Yards",
+                  "rush yds": "Rushing Yards",
+                  "receiving yards": "Receiving Yards",
+                  "rec yards": "Receiving Yards",
+                  "receiving yds": "Receiving Yards",
+                  "rec yds": "Receiving Yards",
+                  "receptions": "Receptions",
+                  "passing touchdowns": "Passing Touchdowns",
+                  "pass tds": "Passing Touchdowns",
+                  "rushing touchdowns": "Rushing Touchdowns",
+                  "rush tds": "Rushing Touchdowns",
+                  "receiving touchdowns": "Receiving Touchdowns",
+                  "rec tds": "Receiving Touchdowns",
+                  "points": "Points",
+                  "assists": "Assists",
+                  "rebounds": "Rebounds",
+                  "threes made": "3PT Made",
+                  "3pt made": "3PT Made",
+                  "steals": "Steals",
+                  "blocks": "Blocks",
+                  "hits": "Hits",
+                  "runs": "Runs",
+                  "rbis": "RBIs",
+                  "total bases": "Total Bases",
+                  "strikeouts": "Strikeouts",
+                  "shots on goal": "Shots on Goal",
+                  "goals": "Goals",
+                  "saves": "Saves",
+                  "first touchdown": "First Touchdown",
+                  "anytime touchdown": "Anytime Touchdown",
+                  "to record first touchdown": "First Touchdown",
+                  "to record anytime touchdown": "Anytime Touchdown",
+                  "to score": "Anytime Touchdown"
+                };
+                let propType = MARKET_MAP3[market];
+                if (!propType) {
+                  propType = MARKET_MAP3[market?.toLowerCase()];
+                }
+                if (!propType) {
+                  const marketWords = market?.toLowerCase().split(" ") || [];
+                  for (const word of marketWords) {
+                    if (MARKET_MAP3[word]) {
+                      propType = MARKET_MAP3[word];
+                      break;
+                    }
+                  }
+                }
+                if (!propType) {
+                  unmappedMarkets.add(market);
+                }
+              }
+              analysis[league] = {
+                totalProps: extracted.length,
+                marketCounts: Object.entries(marketCounts).sort(([, a], [, b]) => b - a).slice(0, 20),
+                // Top 20 markets
+                unmappedMarkets: Array.from(unmappedMarkets).slice(0, 20),
+                // Top 20 unmapped
+                sampleProps: extracted.slice(0, 5)
+                // Sample props for analysis
+              };
+            }
+          }
+          return new Response(JSON.stringify({
+            success: true,
+            analysis,
+            recommendations: {
+              nfl: "Focus on 'Over/Under' patterns and 'To Record' markets",
+              mlb: "Focus on 'Hits', 'Runs', 'RBIs' patterns"
+            }
+          }), {
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+          });
         } catch (error) {
           return new Response(JSON.stringify({
             success: false,
