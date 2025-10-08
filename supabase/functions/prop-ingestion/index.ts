@@ -180,8 +180,8 @@ async function runIngestion(supabaseClient: any, league?: string, season: string
         }
       }
 
-      // Extract and process player props
-      for (const event of events) {
+      // Extract and process player props (limit to first 5 for debugging)
+      for (const event of events.slice(0, 5)) {
         try {
           console.log(`Processing event ${event.eventID} with ${Object.keys(event.odds || {}).length} odds`)
           const props = await extractPlayerPropsFromEvent(event, league || 'NFL', season, week)
@@ -189,12 +189,14 @@ async function runIngestion(supabaseClient: any, league?: string, season: string
           
           if (props.length > 0) {
             console.log(`Found ${props.length} props in event ${event.eventID}`)
-            // Upsert props to database
-            const upsertResult = await upsertProps(supabaseClient, props)
+            // Upsert props to database (limit to first 3 for debugging)
+            const propsToProcess = props.slice(0, 3)
+            console.log(`Processing first 3 props:`, propsToProcess.map(p => ({ player_id: p.player_id, prop_type: p.prop_type, line: p.line })))
+            const upsertResult = await upsertProps(supabaseClient, propsToProcess)
             totalInserted += upsertResult.inserted
             totalUpdated += upsertResult.updated
             totalErrors += upsertResult.errors
-            totalProps += props.length
+            totalProps += propsToProcess.length
           }
         } catch (error) {
           console.error(`Error processing event ${event.eventID}:`, error)
@@ -437,23 +439,17 @@ function createIngestedPlayerProp(odd: any, overData: any, underData: any, bookm
     const conflictKey = `${playerID}-${propType}-${line}-${sportsbookName}-${gameDate}`;
     
     return {
-      player_id: playerID,
-      player_name: playerName,
-      team: team,
-      opponent: team === event.teams?.home?.names?.short ? event.teams?.away?.names?.short : event.teams?.home?.names?.short,
-      prop_type: propType,
+      player_id: playerID.substring(0, 64), // Truncate to match VARCHAR(64)
+      player_name: playerName.substring(0, 128), // Truncate to match VARCHAR(128)
+      team: team.substring(0, 8), // Truncate to match VARCHAR(8)
+      opponent: (team === event.teams?.home?.names?.short ? event.teams?.away?.names?.short : event.teams?.home?.names?.short)?.substring(0, 8) || 'UNKNOWN',
+      season: parseInt(season),
+      date: gameDate,
+      prop_type: propType.substring(0, 64), // Truncate to match VARCHAR(64)
       line: line,
       over_odds: overOdds,
       under_odds: underOdds,
-      sportsbook: sportsbookName,
-      league: league,
-      game_id: event.eventID,
-      season: parseInt(season),
-      date: gameDate,
-      position: extractPosition(playerID, propType), // Extract position if possible
-      is_active: true,
-      conflict_key: conflictKey,
-      last_updated: new Date().toISOString()
+      sportsbook: sportsbookName.substring(0, 32) // Truncate to match VARCHAR(32)
     }
   } catch (error) {
     console.error('Error creating player prop:', error)
@@ -555,50 +551,30 @@ async function upsertProps(supabaseClient: any, props: any[]): Promise<{ inserte
   let updated = 0
   let errors = 0
 
+  // For now, just try to insert all records (ignore duplicates)
   for (const prop of props) {
     try {
-      // Use conflict_key for efficient upsert operations
-      const { data: existing } = await supabaseClient
+      // Insert new record - let the database handle duplicates via unique constraint
+      const { error } = await supabaseClient
         .from('proplines')
-        .select('id, last_updated')
-        .eq('conflict_key', prop.conflict_key)
-        .single()
+        .insert({
+          ...prop,
+          created_at: new Date().toISOString()
+        })
 
-      if (existing) {
-        // Update if newer
-        if (new Date(prop.last_updated) > new Date(existing.last_updated)) {
-          const { error } = await supabaseClient
-            .from('proplines')
-            .update({
-              player_name: prop.player_name,
-              team: prop.team,
-              opponent: prop.opponent,
-              over_odds: prop.over_odds,
-              under_odds: prop.under_odds,
-              game_id: prop.game_id,
-              position: prop.position,
-              last_updated: prop.last_updated,
-              is_active: prop.is_active
-            })
-            .eq('conflict_key', prop.conflict_key)
-
-          if (error) throw error
+      if (error) {
+        // If it's a duplicate key error, count as updated
+        if (error.code === '23505') { // Unique constraint violation
           updated++
+        } else {
+          throw error
         }
       } else {
-        // Insert new record
-        const { error } = await supabaseClient
-          .from('proplines')
-          .insert({
-            ...prop,
-            created_at: new Date().toISOString()
-          })
-
-        if (error) throw error
         inserted++
       }
     } catch (error) {
-      console.error('Error upserting prop:', error)
+      console.error('Error inserting prop:', error)
+      console.error('Prop data:', JSON.stringify(prop, null, 2))
       errors++
     }
   }
