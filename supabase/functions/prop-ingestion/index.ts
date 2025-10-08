@@ -4,6 +4,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Max-Age': '86400',
 }
 
 // SportsGameOdds API Configuration
@@ -89,7 +91,10 @@ const CANONICAL_PROP_TYPES = {
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { 
+      headers: corsHeaders,
+      status: 200
+    })
   }
 
   try {
@@ -179,6 +184,14 @@ async function runIngestion(supabaseClient: any, league?: string, season: string
           error: 'No events returned from API'
         }
       }
+
+      // Log details about the first few events
+      console.log(`First event details:`, {
+        eventID: events[0]?.eventID,
+        teams: events[0]?.teams,
+        oddsCount: Object.keys(events[0]?.odds || {}).length,
+        hasOdds: !!events[0]?.odds
+      })
 
       // Extract and process player props
       for (const event of events) {
@@ -299,12 +312,15 @@ async function extractPlayerPropsFromEvent(event: any, league: string, season: s
 
   let playerPropOdds = 0
   let processedOdds = 0
+  let totalOdds = 0
 
   for (const [oddId, oddData] of Object.entries(event.odds || {})) {
+    totalOdds++
     try {
       // Check if this is a player prop
       if (isPlayerProp(oddData, oddId)) {
         playerPropOdds++
+        console.log(`Found player prop: ${oddId}`)
         const playerProps = await createPlayerPropsFromOdd(
           oddData, 
           oddId, 
