@@ -3,6 +3,7 @@
 
 import { runMultiSeasonBackfill, runRecentSeasonsBackfill, runFullHistoricalBackfill, runLeagueSpecificBackfill, runSeasonSpecificBackfill, runProgressiveBackfill } from "./jobs/multiBackfill";
 import { runIngestion, runSingleLeagueIngestion } from "./jobs/ingest";
+import { runPerformanceIngestion, runSingleLeaguePerformanceIngestion, runHistoricalPerformanceIngestion } from "./jobs/performanceIngestion";
 import { LEAGUES, getActiveLeagues, getAllSeasons, getActiveLeagueSeasonPairs } from "./config/leagues";
 
 export default {
@@ -29,6 +30,7 @@ export default {
           endpoints: {
             ingestion: ['/ingest', '/ingest/{league}'],
             backfill: ['/backfill-all', '/backfill-recent', '/backfill-full', '/backfill-league/{league}', '/backfill-season/{season}'],
+            performance: ['/performance-ingest', '/performance-ingest/{league}', '/performance-historical'],
             analytics: ['/refresh-analytics', '/incremental-analytics-refresh', '/analytics/streaks', '/analytics/defensive-rankings'],
             verification: ['/verify-backfill', '/verify-analytics'],
             status: ['/status', '/leagues', '/seasons'],
@@ -1675,6 +1677,164 @@ export default {
           }), {
             status: 500,
             headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          });
+        }
+      }
+
+      // Handle performance data ingestion endpoint
+      if (url.pathname === '/performance-ingest') {
+        console.log(`🔄 Starting performance data ingestion...`);
+        
+        const startTime = Date.now();
+        const leagues = url.searchParams.get('leagues')?.split(',');
+        const date = url.searchParams.get('date');
+        const days = parseInt(url.searchParams.get('days') || '1');
+        
+        try {
+          const result = await runPerformanceIngestion(env, {
+            leagues,
+            date,
+            days
+          });
+          
+          const duration = Date.now() - startTime;
+          
+          return new Response(JSON.stringify({
+            success: result.success,
+            message: 'Performance data ingestion completed',
+            duration: `${duration}ms`,
+            ...result
+          }), {
+            status: result.success ? 200 : 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+          
+        } catch (error) {
+          console.error('❌ Performance ingestion failed:', error);
+          
+          return new Response(JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : String(error),
+            duration: `${Date.now() - startTime}ms`
+          }), {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+      }
+
+      // Handle single league performance ingestion
+      if (url.pathname.startsWith('/performance-ingest/')) {
+        const leagueId = url.pathname.split('/')[2];
+        const date = url.searchParams.get('date');
+        const days = parseInt(url.searchParams.get('days') || '1');
+        
+        console.log(`🔄 Starting single league performance ingestion for ${leagueId}...`);
+        
+        const startTime = Date.now();
+        
+        try {
+          const result = await runSingleLeaguePerformanceIngestion(env, leagueId, {
+            date,
+            days
+          });
+          
+          const duration = Date.now() - startTime;
+          
+          return new Response(JSON.stringify({
+            success: result.success,
+            message: `Single league performance ingestion completed for ${leagueId}`,
+            duration: `${duration}ms`,
+            ...result
+          }), {
+            status: result.success ? 200 : 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+          
+        } catch (error) {
+          console.error(`❌ Single league performance ingestion failed for ${leagueId}:`, error);
+          
+          return new Response(JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : String(error),
+            duration: `${Date.now() - startTime}ms`
+          }), {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+      }
+
+      // Handle historical performance ingestion
+      if (url.pathname === '/performance-historical') {
+        const startDate = url.searchParams.get('startDate');
+        const endDate = url.searchParams.get('endDate');
+        const leagues = url.searchParams.get('leagues')?.split(',');
+        
+        if (!startDate || !endDate) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'startDate and endDate parameters are required'
+          }), {
+            status: 400,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+        
+        console.log(`🔄 Starting historical performance ingestion from ${startDate} to ${endDate}...`);
+        
+        const startTime = Date.now();
+        
+        try {
+          const result = await runHistoricalPerformanceIngestion(env, {
+            leagues,
+            startDate,
+            endDate
+          });
+          
+          const duration = Date.now() - startTime;
+          
+          return new Response(JSON.stringify({
+            success: result.success,
+            message: 'Historical performance ingestion completed',
+            duration: `${duration}ms`,
+            ...result
+          }), {
+            status: result.success ? 200 : 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+          
+        } catch (error) {
+          console.error('❌ Historical performance ingestion failed:', error);
+          
+          return new Response(JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : String(error),
+            duration: `${Date.now() - startTime}ms`
+          }), {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
           });
         }
       }
