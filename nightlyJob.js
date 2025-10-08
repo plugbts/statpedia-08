@@ -8,6 +8,7 @@
 import { createClient } from '@supabase/supabase-js';
 import fetch from 'node-fetch';
 import { calculateHitRate, calculateStreak } from './scripts/analyticsCalculators.js';
+import { ingestPropsV2WithTeams } from './scripts/prop-ingestion-v2-enhanced.js';
 import dotenv from 'dotenv';
 
 // Load both .env and .env.local files
@@ -47,10 +48,10 @@ async function runNightlyJob() {
     console.log('-'.repeat(40));
     results.gameLogs = await ingestGameLogs();
     
-    // Step 2: Ingest PropLines
-    console.log('\n🎯 STEP 2: Ingest PropLines');
+    // Step 2: Ingest PropLines (Enhanced V2)
+    console.log('\n🎯 STEP 2: Ingest PropLines (Enhanced V2)');
     console.log('-'.repeat(40));
-    results.propLines = await ingestPropLines();
+    results.propLines = await ingestPropsV2WithTeams(new Date().getFullYear());
     
     // Step 3: Precompute Analytics
     console.log('\n📊 STEP 3: Precompute Analytics');
@@ -370,6 +371,7 @@ async function precomputeAnalytics(season) {
 
 
         if (!joined || joined.length === 0) {
+          console.log(`  ⚠️ Skipping ${player_name} ${prop_type} - no matching prop lines found (${gameLogs?.length || 0} game logs, ${propLines?.length || 0} prop lines)`);
           continue;
         }
 
@@ -381,6 +383,7 @@ async function precomputeAnalytics(season) {
         }));
 
         // Create a single analytics record for this player/prop combination
+        console.log(`  ✅ Creating analytics for ${player_name} ${prop_type} - ${joined.length} joined records`);
         results.push({
           player_id,
           player_name,
