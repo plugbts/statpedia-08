@@ -7,6 +7,7 @@ import { supabaseFetch } from "../supabaseFetch";
 import { chunk } from "../helpers";
 import { createPlayerPropsFromOdd } from "../createPlayerPropsFromOdd";
 import { getActiveLeagues } from "../config/leagues";
+import { insertProps } from "../lib/insertProps";
 
 export interface IngestionResult {
   totalProps: number;
@@ -78,12 +79,18 @@ export async function runIngestion(env: any): Promise<IngestionResult> {
           };
           
           const mockOdd = {
+            player: {
+              name: prop.playerName,
+              team: prop.team || 'UNK'
+            },
             player_name: prop.playerName,
             playerID: prop.playerId,
             market_key: prop.marketName,
             point: prop.line,
             over_price: prop.overUnder === 'over' ? prop.odds : null,
             under_price: prop.overUnder === 'under' ? prop.odds : null,
+            overOdds: prop.overUnder === 'over' || prop.overUnder === 'yes' ? prop.odds : null,
+            underOdds: prop.overUnder === 'under' || prop.overUnder === 'no' ? prop.odds : null,
             bookmaker_name: prop.sportsbook,
             id: prop.oddId
           };
@@ -114,28 +121,13 @@ export async function runIngestion(env: any): Promise<IngestionResult> {
       let leagueErrors = 0;
       
       if (mappedProps.length > 0) {
-        const propChunks = chunk(mappedProps, 500);
-        
-        for (let i = 0; i < propChunks.length; i++) {
-          try {
-            const { data, error } = await supabaseFetch(env, "proplines", {
-              method: "POST",
-              body: propChunks[i],
-              query: "?on_conflict=conflict_key"
-            });
-            
-            if (error) {
-              console.error(`❌ ${leagueID}: Props batch ${i + 1} failed:`, error);
-              leagueErrors += propChunks[i].length;
-            } else {
-              leagueInserted += propChunks[i].length;
-              console.log(`✅ ${leagueID}: Inserted props batch ${i + 1}/${propChunks.length} (${propChunks[i].length} props)`);
-            }
-            
-          } catch (error) {
-            console.error(`❌ ${leagueID}: Props batch ${i + 1} exception:`, error);
-            leagueErrors += propChunks[i].length;
-          }
+        try {
+          await insertProps(env, mappedProps);
+          leagueInserted += mappedProps.length;
+          console.log(`✅ ${leagueID}: Successfully inserted ${mappedProps.length} props using insertProps function`);
+        } catch (error) {
+          console.error(`❌ ${leagueID}: Insert props failed:`, error);
+          leagueErrors += mappedProps.length;
         }
       }
       

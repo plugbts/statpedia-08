@@ -1,4 +1,4 @@
-export async function supabaseFetch(env: any, table: string, { method = "GET", body, query = "" }: { method?: string; body?: any; query?: string } = {}) {
+export async function supabaseFetch(env: any, table: string, { method = "GET", body, query = "", headers = {} }: { method?: string; body?: any; query?: string; headers?: Record<string, string> } = {}) {
   const url = `${env.SUPABASE_URL}/rest/v1/${table}${query}`;
 
   const res = await fetch(url, {
@@ -8,6 +8,7 @@ export async function supabaseFetch(env: any, table: string, { method = "GET", b
       Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
       "Content-Type": "application/json",
       ...(method === "POST" && body ? { Prefer: "resolution=merge-duplicates" } : {}),
+      ...headers, // Merge custom headers
     },
     body: body ? JSON.stringify(body) : undefined,
   });

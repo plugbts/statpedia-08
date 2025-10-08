@@ -7,6 +7,7 @@ import { supabaseFetch } from "../supabaseFetch";
 import { chunk } from "../helpers";
 import { createPlayerPropsFromOdd } from "../createPlayerPropsFromOdd";
 import { getCachedPlayerIdMap } from "../playersLoader";
+import { insertProps } from "../lib/insertProps";
 
 export interface BackfillResult {
   propsInserted: number;
@@ -71,12 +72,18 @@ export async function runBackfill(env: any, leagueID: string, season: number, da
         
         // Create a mock odd object for createPlayerPropsFromOdd
         const mockOdd = {
+          player: {
+            name: prop.playerName,
+            team: prop.team || 'UNK'
+          },
           player_name: prop.playerName,
           playerID: prop.playerId,
           market_key: prop.marketName,
           point: prop.line,
           over_price: prop.overUnder === 'over' ? prop.odds : null,
           under_price: prop.overUnder === 'under' ? prop.odds : null,
+          overOdds: prop.overUnder === 'over' || prop.overUnder === 'yes' ? prop.odds : null,
+          underOdds: prop.overUnder === 'under' || prop.overUnder === 'no' ? prop.odds : null,
           bookmaker_name: prop.sportsbook,
           id: prop.oddId
         };
@@ -101,85 +108,22 @@ export async function runBackfill(env: any, leagueID: string, season: number, da
     
     console.log(`📊 ${leagueID} ${season}: Mapped ${mappedProps.length} props for insertion`);
     
-    // Batch insert props
+    // Insert props using the new insertProps function
     if (mappedProps.length > 0) {
-      const propChunks = chunk(mappedProps, 500);
-      console.log(`📊 ${leagueID} ${season}: Inserting ${propChunks.length} prop batches`);
+      console.log(`📊 ${leagueID} ${season}: Inserting ${mappedProps.length} props using new insertProps function`);
       
-      for (let i = 0; i < propChunks.length; i++) {
-        try {
-          // Debug: Log first row structure
-          if (propChunks[i].length > 0) {
-            console.log("🔍 Sample propline row:", JSON.stringify(propChunks[i][0], null, 2));
-            console.log("🔍 Batch size:", propChunks[i].length);
-          }
-          
-          const { data, error } = await supabaseFetch(env, "proplines", {
-            method: "POST",
-            body: propChunks[i],
-            query: "?on_conflict=conflict_key"
-          });
-          
-          if (error) {
-            console.error(`❌ ${leagueID} ${season}: Props batch ${i + 1} failed:`, error);
-            errors += propChunks[i].length;
-          } else {
-            propsInserted += propChunks[i].length;
-            console.log(`✅ ${leagueID} ${season}: Inserted props batch ${i + 1}/${propChunks.length} (${propChunks[i].length} props)`);
-          }
-          
-        } catch (error) {
-          console.error(`❌ ${leagueID} ${season}: Props batch ${i + 1} exception:`, error);
-          errors += propChunks[i].length;
-        }
+      try {
+        await insertProps(env, mappedProps);
+        propsInserted += mappedProps.length;
+        console.log(`✅ ${leagueID} ${season}: Successfully inserted ${mappedProps.length} props`);
+      } catch (error) {
+        console.error(`❌ ${leagueID} ${season}: Insert props failed:`, error);
+        errors += mappedProps.length;
       }
     }
     
-    // Create game log entries for analytics
-    const gameLogRows = mappedProps.map(row => ({
-      player_id: row.player_id,
-      player_name: row.player_name,
-      team: row.team,
-      opponent: row.opponent || 'UNK',
-      season: season,
-      date: row.game_time ? row.game_time.split('T')[0] : new Date().toISOString().split('T')[0],
-      prop_type: row.prop_type,
-      value: row.line || 0, // Use line as value for now
-      sport: getSportFromLeague(leagueID),
-      position: row.position || 'UNK',
-      game_id: row.game_id,
-      home_away: row.home_away || 'HOME',
-      weather_conditions: row.weather_conditions,
-      injury_status: 'Active'
-    }));
-    
-    // Batch insert game logs
-    if (gameLogRows.length > 0) {
-      const gameLogChunks = chunk(gameLogRows, 500);
-      console.log(`📊 ${leagueID} ${season}: Inserting ${gameLogChunks.length} game log batches`);
-      
-      for (let i = 0; i < gameLogChunks.length; i++) {
-        try {
-          const { data, error } = await supabaseFetch(env, "player_game_logs", {
-            method: "POST",
-            body: gameLogChunks[i],
-            query: "?on_conflict=unique_player_game_log"
-          });
-          
-          if (error) {
-            console.error(`❌ ${leagueID} ${season}: Game logs batch ${i + 1} failed:`, error);
-            errors += gameLogChunks[i].length;
-          } else {
-            gameLogsInserted += gameLogChunks[i].length;
-            console.log(`✅ ${leagueID} ${season}: Inserted game logs batch ${i + 1}/${gameLogChunks.length} (${gameLogChunks[i].length} logs)`);
-          }
-          
-        } catch (error) {
-          console.error(`❌ ${leagueID} ${season}: Game logs batch ${i + 1} exception:`, error);
-          errors += gameLogChunks[i].length;
-        }
-      }
-    }
+    // Game logs are now handled by the insertProps function
+    gameLogsInserted = mappedProps.length; // The insertProps function handles both tables
     
     const duration = Date.now() - startTime;
     console.log(`✅ ${leagueID} ${season} backfill complete: ${propsInserted} props, ${gameLogsInserted} game logs, ${errors} errors in ${duration}ms`);

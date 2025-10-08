@@ -197,10 +197,13 @@ export async function createPlayerPropsFromOdd(odd: any, oddId: string, event: a
   const underOdds = odd.underOdds;
   const sportsbook = mapBookmakerIdToName(odd.bookmaker?.id || 'unknown') || 'Consensus';
   
-  if (!rawPropType || line == null) {
-    console.log(`Skipping odd ${oddId}: missing prop type or line`);
+  if (!rawPropType) {
+    console.log(`Skipping odd ${oddId}: missing prop type`);
     return props;
   }
+  
+  // Handle props without lines (Yes/No bets, etc.)
+  const finalLine = line != null ? parseFloat(line) : 0;
 
   // Normalize prop type using market mapping
   const normalizedPropType = MARKET_MAP[rawPropType.toLowerCase()] || rawPropType;
@@ -230,7 +233,7 @@ export async function createPlayerPropsFromOdd(odd: any, oddId: string, event: a
     season: parseInt(season),
     date: gameDate, // ✅ REQUIRED field that was missing!
     prop_type: normalizedPropType,
-    line: parseFloat(line),
+    line: finalLine,
     over_odds: overOdds ? parseInt(overOdds) : null,
     under_odds: underOdds ? parseInt(underOdds) : null,
     sportsbook: sportsbook,

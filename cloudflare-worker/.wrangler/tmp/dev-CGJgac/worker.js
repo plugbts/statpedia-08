@@ -486,12 +486,55 @@ var init_extract = __esm({
   }
 });
 
+// src/missingPlayers.ts
+async function storeMissingPlayer(env, playerName, team, league, generatedId, oddId) {
+  try {
+    const missingPlayer = {
+      player_name: playerName,
+      team,
+      league,
+      normalized_name: normalizePlayerName(playerName),
+      generated_id: generatedId,
+      first_seen: (/* @__PURE__ */ new Date()).toISOString(),
+      last_seen: (/* @__PURE__ */ new Date()).toISOString(),
+      count: 1,
+      sample_odd_id: oddId
+    };
+    await fetch(`${env.SUPABASE_URL}/rest/v1/missing_players`, {
+      method: "POST",
+      headers: {
+        "apikey": env.SUPABASE_SERVICE_KEY,
+        "Authorization": `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+        "Content-Type": "application/json",
+        "Prefer": "resolution=merge-duplicates"
+      },
+      body: JSON.stringify(missingPlayer)
+    });
+    console.log(`\u{1F4DD} Stored missing player: ${playerName} (${team})`);
+  } catch (error) {
+    console.error(`\u274C Failed to store missing player ${playerName}:`, error);
+  }
+}
+function normalizePlayerName(name) {
+  return name.toLowerCase().replace(/[^\w\s]/g, "").replace(/\s+/g, " ").replace(/\s(jr|sr|iii|iv|v)$/i, "").trim();
+}
+var init_missingPlayers = __esm({
+  "src/missingPlayers.ts"() {
+    "use strict";
+    init_checked_fetch();
+    init_strip_cf_connecting_ip_header();
+    init_modules_watch_stub();
+    __name(storeMissingPlayer, "storeMissingPlayer");
+    __name(normalizePlayerName, "normalizePlayerName");
+  }
+});
+
 // src/supabaseFetch.ts
 var supabaseFetch_exports = {};
 __export(supabaseFetch_exports, {
   supabaseFetch: () => supabaseFetch
 });
-async function supabaseFetch(env, table, { method = "GET", body, query = "" } = {}) {
+async function supabaseFetch(env, table, { method = "GET", body, query = "", headers = {} } = {}) {
   const url = `${env.SUPABASE_URL}/rest/v1/${table}${query}`;
   const res = await fetch(url, {
     method,
@@ -499,7 +542,9 @@ async function supabaseFetch(env, table, { method = "GET", body, query = "" } = 
       apikey: env.SUPABASE_SERVICE_KEY,
       Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
       "Content-Type": "application/json",
-      ...method === "POST" && body ? { Prefer: "resolution=merge-duplicates" } : {}
+      ...method === "POST" && body ? { Prefer: "resolution=merge-duplicates" } : {},
+      ...headers
+      // Merge custom headers
     },
     body: body ? JSON.stringify(body) : void 0
   });
@@ -533,107 +578,13 @@ var init_supabaseFetch = __esm({
   }
 });
 
-// .wrangler/tmp/bundle-5tAbBl/middleware-loader.entry.ts
-init_checked_fetch();
-init_strip_cf_connecting_ip_header();
-init_modules_watch_stub();
-
-// .wrangler/tmp/bundle-5tAbBl/middleware-insertion-facade.js
-init_checked_fetch();
-init_strip_cf_connecting_ip_header();
-init_modules_watch_stub();
-
-// src/worker.ts
-init_checked_fetch();
-init_strip_cf_connecting_ip_header();
-init_modules_watch_stub();
-
-// src/jobs/multiBackfill.ts
-init_checked_fetch();
-init_strip_cf_connecting_ip_header();
-init_modules_watch_stub();
-
-// src/jobs/backfill.ts
-init_checked_fetch();
-init_strip_cf_connecting_ip_header();
-init_modules_watch_stub();
-init_api();
-init_extract();
-init_supabaseFetch();
-
-// src/helpers.ts
-init_checked_fetch();
-init_strip_cf_connecting_ip_header();
-init_modules_watch_stub();
-function chunk(arr, size) {
-  const out = [];
-  for (let i = 0; i < arr.length; i += size)
-    out.push(arr.slice(i, i + size));
-  return out;
-}
-__name(chunk, "chunk");
-
-// src/createPlayerPropsFromOdd.ts
-init_checked_fetch();
-init_strip_cf_connecting_ip_header();
-init_modules_watch_stub();
-
-// src/missingPlayers.ts
-init_checked_fetch();
-init_strip_cf_connecting_ip_header();
-init_modules_watch_stub();
-async function storeMissingPlayer(env, playerName, team, league, generatedId, oddId) {
-  try {
-    const missingPlayer = {
-      player_name: playerName,
-      team,
-      league,
-      normalized_name: normalizePlayerName(playerName),
-      generated_id: generatedId,
-      first_seen: (/* @__PURE__ */ new Date()).toISOString(),
-      last_seen: (/* @__PURE__ */ new Date()).toISOString(),
-      count: 1,
-      sample_odd_id: oddId
-    };
-    await fetch(`${env.SUPABASE_URL}/rest/v1/missing_players`, {
-      method: "POST",
-      headers: {
-        "apikey": env.SUPABASE_SERVICE_KEY,
-        "Authorization": `Bearer ${env.SUPABASE_SERVICE_KEY}`,
-        "Content-Type": "application/json",
-        "Prefer": "resolution=merge-duplicates"
-      },
-      body: JSON.stringify(missingPlayer)
-    });
-    console.log(`\u{1F4DD} Stored missing player: ${playerName} (${team})`);
-  } catch (error) {
-    console.error(`\u274C Failed to store missing player ${playerName}:`, error);
-  }
-}
-__name(storeMissingPlayer, "storeMissingPlayer");
-function normalizePlayerName(name) {
-  return name.toLowerCase().replace(/[^\w\s]/g, "").replace(/\s+/g, " ").replace(/\s(jr|sr|iii|iv|v)$/i, "").trim();
-}
-__name(normalizePlayerName, "normalizePlayerName");
-
-// src/playersLoader.ts
-init_checked_fetch();
-init_strip_cf_connecting_ip_header();
-init_modules_watch_stub();
-init_supabaseFetch();
-
 // src/normalizeName.ts
-init_checked_fetch();
-init_strip_cf_connecting_ip_header();
-init_modules_watch_stub();
 function normalizeName(name) {
   return name.toLowerCase().replace(/[^\w\s]/g, "").replace(/\s+/g, " ").replace(/\s(jr|sr|iii|iv|v)$/i, "").trim();
 }
-__name(normalizeName, "normalizeName");
 function aggressiveNormalizeName(name) {
   return name.toLowerCase().replace(/[^\w]/g, "").replace(/\s(jr|sr|iii|iv|v)$/i, "").trim();
 }
-__name(aggressiveNormalizeName, "aggressiveNormalizeName");
 function generateNameVariations(name) {
   const normalized = normalizeName(name);
   const variations = [normalized];
@@ -652,9 +603,26 @@ function generateNameVariations(name) {
   }
   return [...new Set(variations)];
 }
-__name(generateNameVariations, "generateNameVariations");
+var init_normalizeName = __esm({
+  "src/normalizeName.ts"() {
+    "use strict";
+    init_checked_fetch();
+    init_strip_cf_connecting_ip_header();
+    init_modules_watch_stub();
+    __name(normalizeName, "normalizeName");
+    __name(aggressiveNormalizeName, "aggressiveNormalizeName");
+    __name(generateNameVariations, "generateNameVariations");
+  }
+});
 
 // src/playersLoader.ts
+var playersLoader_exports = {};
+__export(playersLoader_exports, {
+  getCachedPlayerIdMap: () => getCachedPlayerIdMap,
+  loadPlayerIdMap: () => loadPlayerIdMap,
+  loadPlayerIdMapByLeague: () => loadPlayerIdMapByLeague,
+  updateMissingPlayersSuccess: () => updateMissingPlayersSuccess
+});
 async function loadPlayerIdMap(env) {
   try {
     console.log("\u{1F504} Loading players from Supabase...");
@@ -691,10 +659,6 @@ async function loadPlayerIdMap(env) {
     return {};
   }
 }
-__name(loadPlayerIdMap, "loadPlayerIdMap");
-var playerMapCache = null;
-var cacheTimestamp = 0;
-var CACHE_TTL = 30 * 60 * 1e3;
 async function getCachedPlayerIdMap(env) {
   const now = Date.now();
   if (playerMapCache && now - cacheTimestamp < CACHE_TTL) {
@@ -704,7 +668,38 @@ async function getCachedPlayerIdMap(env) {
   cacheTimestamp = now;
   return playerMapCache;
 }
-__name(getCachedPlayerIdMap, "getCachedPlayerIdMap");
+async function loadPlayerIdMapByLeague(env, league) {
+  try {
+    console.log(`\u{1F504} Loading ${league} players from Supabase...`);
+    const players = await supabaseFetch(env, "players", {
+      query: `?select=player_id,full_name,team,league,position&league=eq.${league}&limit=5000`
+    });
+    if (!players || !Array.isArray(players)) {
+      console.error(`\u274C Failed to load ${league} players from Supabase`);
+      return {};
+    }
+    const map = {};
+    let loadedCount = 0;
+    for (const player of players) {
+      if (!player.full_name || !player.player_id)
+        continue;
+      const normalizedKey = normalizeName(player.full_name);
+      map[normalizedKey] = player.player_id;
+      loadedCount++;
+      const variations = generateNameVariations(player.full_name);
+      for (const variation of variations) {
+        if (variation !== normalizedKey && !map[variation]) {
+          map[variation] = player.player_id;
+        }
+      }
+    }
+    console.log(`\u2705 Loaded ${loadedCount} ${league} players (${Object.keys(map).length} total mappings)`);
+    return map;
+  } catch (error) {
+    console.error(`\u274C Error loading ${league} player ID map:`, error);
+    return {};
+  }
+}
 async function updateMissingPlayersSuccess(env, playerName, canonicalId) {
   try {
     const normalizedName = normalizeName(playerName);
@@ -721,81 +716,30 @@ async function updateMissingPlayersSuccess(env, playerName, canonicalId) {
     console.error(`\u274C Failed to update missing players for ${playerName}:`, error);
   }
 }
-__name(updateMissingPlayersSuccess, "updateMissingPlayersSuccess");
+var playerMapCache, cacheTimestamp, CACHE_TTL;
+var init_playersLoader = __esm({
+  "src/playersLoader.ts"() {
+    "use strict";
+    init_checked_fetch();
+    init_strip_cf_connecting_ip_header();
+    init_modules_watch_stub();
+    init_supabaseFetch();
+    init_normalizeName();
+    __name(loadPlayerIdMap, "loadPlayerIdMap");
+    playerMapCache = null;
+    cacheTimestamp = 0;
+    CACHE_TTL = 30 * 60 * 1e3;
+    __name(getCachedPlayerIdMap, "getCachedPlayerIdMap");
+    __name(loadPlayerIdMapByLeague, "loadPlayerIdMapByLeague");
+    __name(updateMissingPlayersSuccess, "updateMissingPlayersSuccess");
+  }
+});
 
 // src/createPlayerPropsFromOdd.ts
-var MARKET_MAP = {
-  // NFL Passing
-  "passing yards": "Passing Yards",
-  "pass yards": "Passing Yards",
-  "passing yds": "Passing Yards",
-  "pass yds": "Passing Yards",
-  "passing yards passing": "Passing Yards",
-  "passing touchdowns": "Passing Touchdowns",
-  "pass tds": "Passing Touchdowns",
-  "passing td": "Passing Touchdowns",
-  "pass td": "Passing Touchdowns",
-  "passing attempts": "Passing Attempts",
-  "pass attempts": "Passing Attempts",
-  "pass att": "Passing Attempts",
-  "passing completions": "Passing Completions",
-  "pass completions": "Passing Completions",
-  "pass comp": "Passing Completions",
-  "passing interceptions": "Passing Interceptions",
-  "pass interceptions": "Passing Interceptions",
-  "pass int": "Passing Interceptions",
-  // NFL Rushing
-  "rushing yards": "Rushing Yards",
-  "rush yards": "Rushing Yards",
-  "rushing yds": "Rushing Yards",
-  "rush yds": "Rushing Yards",
-  "rushing touchdowns": "Rushing Touchdowns",
-  "rush tds": "Rushing Touchdowns",
-  "rushing td": "Rushing Touchdowns",
-  "rush td": "Rushing Touchdowns",
-  "rushing attempts": "Rushing Attempts",
-  "rush attempts": "Rushing Attempts",
-  "rush att": "Rushing Attempts",
-  // NFL Receiving
-  "receiving yards": "Receiving Yards",
-  "rec yards": "Receiving Yards",
-  "receiving yds": "Receiving Yards",
-  "rec yds": "Receiving Yards",
-  "receiving touchdowns": "Receiving Touchdowns",
-  "rec tds": "Receiving Touchdowns",
-  "receiving td": "Receiving Touchdowns",
-  "rec td": "Receiving Touchdowns",
-  "receptions": "Receptions",
-  "rec": "Receptions",
-  // NFL Defense
-  "defense sacks": "Defense Sacks",
-  "defense interceptions": "Defense Interceptions",
-  "defense combined tackles": "Defense Combined Tackles",
-  "defense total tackles": "Defense Combined Tackles",
-  // NFL Kicking
-  "field goals made": "Field Goals Made",
-  "kicking total points": "Kicking Total Points",
-  "extra points kicks made": "Extra Points Made",
-  // NBA
-  "points": "Points",
-  "rebounds": "Rebounds",
-  "assists": "Assists",
-  "steals": "Steals",
-  "blocks": "Blocks",
-  "threes made": "Three Pointers Made",
-  "3-pointers made": "Three Pointers Made",
-  // MLB
-  "hits": "Hits",
-  "runs": "Runs",
-  "rbis": "RBIs",
-  "strikeouts": "Strikeouts",
-  "walks": "Walks",
-  "home runs": "Home Runs",
-  // NHL
-  "goals": "Goals",
-  "shots": "Shots",
-  "saves": "Saves"
-};
+var createPlayerPropsFromOdd_exports = {};
+__export(createPlayerPropsFromOdd_exports, {
+  createPlayerPropsFromOdd: () => createPlayerPropsFromOdd
+});
 async function getPlayerID(playerName, team, league, env) {
   if (!env) {
     const canonicalName = playerName.toUpperCase().replace(/[^\w\s]/g, "").replace(/\s+/g, "_").replace(/\s(jr|sr|iii|iv|v)$/i, "").trim();
@@ -826,7 +770,6 @@ async function getPlayerID(playerName, team, league, env) {
     return `${canonicalName}-UNK-${team}`;
   }
 }
-__name(getPlayerID, "getPlayerID");
 async function createPlayerPropsFromOdd(odd, oddId, event, league, season, week, env) {
   const props = [];
   const playerName = odd.player?.name;
@@ -861,10 +804,11 @@ async function createPlayerPropsFromOdd(odd, oddId, event, league, season, week,
   const overOdds = odd.overOdds;
   const underOdds = odd.underOdds;
   const sportsbook = mapBookmakerIdToName(odd.bookmaker?.id || "unknown") || "Consensus";
-  if (!rawPropType || line == null) {
-    console.log(`Skipping odd ${oddId}: missing prop type or line`);
+  if (!rawPropType) {
+    console.log(`Skipping odd ${oddId}: missing prop type`);
     return props;
   }
+  const finalLine = line != null ? parseFloat(line) : 0;
   const normalizedPropType = MARKET_MAP[rawPropType.toLowerCase()] || rawPropType;
   if (!MARKET_MAP[rawPropType.toLowerCase()]) {
     console.warn("Unmapped market:", {
@@ -887,7 +831,7 @@ async function createPlayerPropsFromOdd(odd, oddId, event, league, season, week,
     date: gameDate,
     // ✅ REQUIRED field that was missing!
     prop_type: normalizedPropType,
-    line: parseFloat(line),
+    line: finalLine,
     over_odds: overOdds ? parseInt(overOdds) : null,
     under_odds: underOdds ? parseInt(underOdds) : null,
     sportsbook,
@@ -900,7 +844,6 @@ async function createPlayerPropsFromOdd(odd, oddId, event, league, season, week,
   props.push(prop);
   return props;
 }
-__name(createPlayerPropsFromOdd, "createPlayerPropsFromOdd");
 function mapBookmakerIdToName(bookmakerId) {
   const bookmakerMap = {
     "draftkings": "DraftKings",
@@ -923,7 +866,191 @@ function mapBookmakerIdToName(bookmakerId) {
   };
   return bookmakerMap[bookmakerId.toLowerCase()] || "Consensus";
 }
-__name(mapBookmakerIdToName, "mapBookmakerIdToName");
+var MARKET_MAP;
+var init_createPlayerPropsFromOdd = __esm({
+  "src/createPlayerPropsFromOdd.ts"() {
+    "use strict";
+    init_checked_fetch();
+    init_strip_cf_connecting_ip_header();
+    init_modules_watch_stub();
+    init_missingPlayers();
+    init_playersLoader();
+    init_normalizeName();
+    MARKET_MAP = {
+      // NFL Passing
+      "passing yards": "Passing Yards",
+      "pass yards": "Passing Yards",
+      "passing yds": "Passing Yards",
+      "pass yds": "Passing Yards",
+      "passing yards passing": "Passing Yards",
+      "passing touchdowns": "Passing Touchdowns",
+      "pass tds": "Passing Touchdowns",
+      "passing td": "Passing Touchdowns",
+      "pass td": "Passing Touchdowns",
+      "passing attempts": "Passing Attempts",
+      "pass attempts": "Passing Attempts",
+      "pass att": "Passing Attempts",
+      "passing completions": "Passing Completions",
+      "pass completions": "Passing Completions",
+      "pass comp": "Passing Completions",
+      "passing interceptions": "Passing Interceptions",
+      "pass interceptions": "Passing Interceptions",
+      "pass int": "Passing Interceptions",
+      // NFL Rushing
+      "rushing yards": "Rushing Yards",
+      "rush yards": "Rushing Yards",
+      "rushing yds": "Rushing Yards",
+      "rush yds": "Rushing Yards",
+      "rushing touchdowns": "Rushing Touchdowns",
+      "rush tds": "Rushing Touchdowns",
+      "rushing td": "Rushing Touchdowns",
+      "rush td": "Rushing Touchdowns",
+      "rushing attempts": "Rushing Attempts",
+      "rush attempts": "Rushing Attempts",
+      "rush att": "Rushing Attempts",
+      // NFL Receiving
+      "receiving yards": "Receiving Yards",
+      "rec yards": "Receiving Yards",
+      "receiving yds": "Receiving Yards",
+      "rec yds": "Receiving Yards",
+      "receiving touchdowns": "Receiving Touchdowns",
+      "rec tds": "Receiving Touchdowns",
+      "receiving td": "Receiving Touchdowns",
+      "rec td": "Receiving Touchdowns",
+      "receptions": "Receptions",
+      "rec": "Receptions",
+      // NFL Defense
+      "defense sacks": "Defense Sacks",
+      "defense interceptions": "Defense Interceptions",
+      "defense combined tackles": "Defense Combined Tackles",
+      "defense total tackles": "Defense Combined Tackles",
+      // NFL Kicking
+      "field goals made": "Field Goals Made",
+      "kicking total points": "Kicking Total Points",
+      "extra points kicks made": "Extra Points Made",
+      // NBA
+      "points": "Points",
+      "rebounds": "Rebounds",
+      "assists": "Assists",
+      "steals": "Steals",
+      "blocks": "Blocks",
+      "threes made": "Three Pointers Made",
+      "3-pointers made": "Three Pointers Made",
+      // MLB
+      "hits": "Hits",
+      "runs": "Runs",
+      "rbis": "RBIs",
+      "strikeouts": "Strikeouts",
+      "walks": "Walks",
+      "home runs": "Home Runs",
+      // NHL
+      "goals": "Goals",
+      "shots": "Shots",
+      "saves": "Saves"
+    };
+    __name(getPlayerID, "getPlayerID");
+    __name(createPlayerPropsFromOdd, "createPlayerPropsFromOdd");
+    __name(mapBookmakerIdToName, "mapBookmakerIdToName");
+  }
+});
+
+// .wrangler/tmp/bundle-5tAbBl/middleware-loader.entry.ts
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
+
+// .wrangler/tmp/bundle-5tAbBl/middleware-insertion-facade.js
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
+
+// src/worker.ts
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
+
+// src/jobs/multiBackfill.ts
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
+
+// src/jobs/backfill.ts
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
+init_api();
+init_extract();
+init_createPlayerPropsFromOdd();
+init_playersLoader();
+
+// src/lib/insertProps.ts
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
+init_supabaseFetch();
+
+// src/helpers.ts
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
+function chunk(arr, size) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size)
+    out.push(arr.slice(i, i + size));
+  return out;
+}
+__name(chunk, "chunk");
+
+// src/lib/insertProps.ts
+async function insertProps(env, mapped) {
+  if (!mapped.length) {
+    console.log("\u26A0\uFE0F No props to insert");
+    return;
+  }
+  console.log(`\u{1F504} Starting insertion of ${mapped.length} props...`);
+  for (const batch of chunk(mapped, 500)) {
+    try {
+      await supabaseFetch(env, "proplines", {
+        method: "POST",
+        body: batch,
+        // Upsert on conflict key
+        headers: { Prefer: "resolution=merge-duplicates" }
+      });
+      console.log(`\u2705 Inserted proplines batch of ${batch.length}`);
+    } catch (e) {
+      console.error("\u274C Proplines insert failed:", e);
+    }
+  }
+  const gamelogRows = mapped.map((row) => ({
+    player_id: row.player_id,
+    player_name: row.player_name,
+    team: row.team,
+    opponent: row.opponent,
+    season: row.season,
+    date: row.date,
+    prop_type: row.prop_type,
+    value: row.line,
+    // Use line as the value for game logs
+    sport: row.league?.toUpperCase() || "NFL",
+    // Default to NFL if league is missing
+    league: row.league,
+    game_id: row.game_id
+  }));
+  for (const batch of chunk(gamelogRows, 500)) {
+    try {
+      await supabaseFetch(env, "player_game_logs", {
+        method: "POST",
+        body: batch,
+        headers: { Prefer: "resolution=merge-duplicates" }
+      });
+      console.log(`\u2705 Inserted gamelog batch of ${batch.length}`);
+    } catch (e) {
+      console.error("\u274C Gamelogs insert failed:", e);
+    }
+  }
+  console.log(`\u2705 Completed insertion of ${mapped.length} props into both tables`);
+}
+__name(insertProps, "insertProps");
 
 // src/jobs/backfill.ts
 async function runBackfill(env, leagueID, season, days) {
@@ -966,12 +1093,18 @@ async function runBackfill(env, leagueID, season, days) {
           teams: ["HOME", "AWAY"]
         };
         const mockOdd = {
+          player: {
+            name: prop.playerName,
+            team: prop.team || "UNK"
+          },
           player_name: prop.playerName,
           playerID: prop.playerId,
           market_key: prop.marketName,
           point: prop.line,
           over_price: prop.overUnder === "over" ? prop.odds : null,
           under_price: prop.overUnder === "under" ? prop.odds : null,
+          overOdds: prop.overUnder === "over" || prop.overUnder === "yes" ? prop.odds : null,
+          underOdds: prop.overUnder === "under" || prop.overUnder === "no" ? prop.odds : null,
           bookmaker_name: prop.sportsbook,
           id: prop.oddId
         };
@@ -992,72 +1125,17 @@ async function runBackfill(env, leagueID, season, days) {
     }
     console.log(`\u{1F4CA} ${leagueID} ${season}: Mapped ${mappedProps.length} props for insertion`);
     if (mappedProps.length > 0) {
-      const propChunks = chunk(mappedProps, 500);
-      console.log(`\u{1F4CA} ${leagueID} ${season}: Inserting ${propChunks.length} prop batches`);
-      for (let i = 0; i < propChunks.length; i++) {
-        try {
-          if (propChunks[i].length > 0) {
-            console.log("\u{1F50D} Sample propline row:", JSON.stringify(propChunks[i][0], null, 2));
-            console.log("\u{1F50D} Batch size:", propChunks[i].length);
-          }
-          const { data, error } = await supabaseFetch(env, "proplines", {
-            method: "POST",
-            body: propChunks[i],
-            query: "?on_conflict=conflict_key"
-          });
-          if (error) {
-            console.error(`\u274C ${leagueID} ${season}: Props batch ${i + 1} failed:`, error);
-            errors += propChunks[i].length;
-          } else {
-            propsInserted += propChunks[i].length;
-            console.log(`\u2705 ${leagueID} ${season}: Inserted props batch ${i + 1}/${propChunks.length} (${propChunks[i].length} props)`);
-          }
-        } catch (error) {
-          console.error(`\u274C ${leagueID} ${season}: Props batch ${i + 1} exception:`, error);
-          errors += propChunks[i].length;
-        }
+      console.log(`\u{1F4CA} ${leagueID} ${season}: Inserting ${mappedProps.length} props using new insertProps function`);
+      try {
+        await insertProps(env, mappedProps);
+        propsInserted += mappedProps.length;
+        console.log(`\u2705 ${leagueID} ${season}: Successfully inserted ${mappedProps.length} props`);
+      } catch (error) {
+        console.error(`\u274C ${leagueID} ${season}: Insert props failed:`, error);
+        errors += mappedProps.length;
       }
     }
-    const gameLogRows = mappedProps.map((row) => ({
-      player_id: row.player_id,
-      player_name: row.player_name,
-      team: row.team,
-      opponent: row.opponent || "UNK",
-      season,
-      date: row.game_time ? row.game_time.split("T")[0] : (/* @__PURE__ */ new Date()).toISOString().split("T")[0],
-      prop_type: row.prop_type,
-      value: row.line || 0,
-      // Use line as value for now
-      sport: getSportFromLeague(leagueID),
-      position: row.position || "UNK",
-      game_id: row.game_id,
-      home_away: row.home_away || "HOME",
-      weather_conditions: row.weather_conditions,
-      injury_status: "Active"
-    }));
-    if (gameLogRows.length > 0) {
-      const gameLogChunks = chunk(gameLogRows, 500);
-      console.log(`\u{1F4CA} ${leagueID} ${season}: Inserting ${gameLogChunks.length} game log batches`);
-      for (let i = 0; i < gameLogChunks.length; i++) {
-        try {
-          const { data, error } = await supabaseFetch(env, "player_game_logs", {
-            method: "POST",
-            body: gameLogChunks[i],
-            query: "?on_conflict=unique_player_game_log"
-          });
-          if (error) {
-            console.error(`\u274C ${leagueID} ${season}: Game logs batch ${i + 1} failed:`, error);
-            errors += gameLogChunks[i].length;
-          } else {
-            gameLogsInserted += gameLogChunks[i].length;
-            console.log(`\u2705 ${leagueID} ${season}: Inserted game logs batch ${i + 1}/${gameLogChunks.length} (${gameLogChunks[i].length} logs)`);
-          }
-        } catch (error) {
-          console.error(`\u274C ${leagueID} ${season}: Game logs batch ${i + 1} exception:`, error);
-          errors += gameLogChunks[i].length;
-        }
-      }
-    }
+    gameLogsInserted = mappedProps.length;
     const duration = Date.now() - startTime;
     console.log(`\u2705 ${leagueID} ${season} backfill complete: ${propsInserted} props, ${gameLogsInserted} game logs, ${errors} errors in ${duration}ms`);
     return {
@@ -1074,19 +1152,6 @@ async function runBackfill(env, leagueID, season, days) {
   }
 }
 __name(runBackfill, "runBackfill");
-function getSportFromLeague(leagueId) {
-  const leagueMap = {
-    "NFL": "football",
-    "NCAAF": "football",
-    "NBA": "basketball",
-    "NCAAB": "basketball",
-    "MLB": "baseball",
-    "NHL": "hockey",
-    "EPL": "soccer"
-  };
-  return leagueMap[leagueId] || "unknown";
-}
-__name(getSportFromLeague, "getSportFromLeague");
 async function runBatchBackfill(env, combinations) {
   console.log(`\u{1F680} Starting batch backfill for ${combinations.length} league/season combinations`);
   let totalProps = 0;
@@ -1337,7 +1402,7 @@ init_strip_cf_connecting_ip_header();
 init_modules_watch_stub();
 init_api();
 init_extract();
-init_supabaseFetch();
+init_createPlayerPropsFromOdd();
 async function runIngestion(env) {
   console.log(`\u{1F504} Starting current season ingestion...`);
   const startTime = Date.now();
@@ -1378,12 +1443,18 @@ async function runIngestion(env) {
             teams: ["HOME", "AWAY"]
           };
           const mockOdd = {
+            player: {
+              name: prop.playerName,
+              team: prop.team || "UNK"
+            },
             player_name: prop.playerName,
             playerID: prop.playerId,
             market_key: prop.marketName,
             point: prop.line,
             over_price: prop.overUnder === "over" ? prop.odds : null,
             under_price: prop.overUnder === "under" ? prop.odds : null,
+            overOdds: prop.overUnder === "over" || prop.overUnder === "yes" ? prop.odds : null,
+            underOdds: prop.overUnder === "under" || prop.overUnder === "no" ? prop.odds : null,
             bookmaker_name: prop.sportsbook,
             id: prop.oddId
           };
@@ -1407,25 +1478,13 @@ async function runIngestion(env) {
       let leagueInserted = 0;
       let leagueErrors = 0;
       if (mappedProps.length > 0) {
-        const propChunks = chunk(mappedProps, 500);
-        for (let i = 0; i < propChunks.length; i++) {
-          try {
-            const { data, error } = await supabaseFetch(env, "proplines", {
-              method: "POST",
-              body: propChunks[i],
-              query: "?on_conflict=conflict_key"
-            });
-            if (error) {
-              console.error(`\u274C ${leagueID}: Props batch ${i + 1} failed:`, error);
-              leagueErrors += propChunks[i].length;
-            } else {
-              leagueInserted += propChunks[i].length;
-              console.log(`\u2705 ${leagueID}: Inserted props batch ${i + 1}/${propChunks.length} (${propChunks[i].length} props)`);
-            }
-          } catch (error) {
-            console.error(`\u274C ${leagueID}: Props batch ${i + 1} exception:`, error);
-            leagueErrors += propChunks[i].length;
-          }
+        try {
+          await insertProps(env, mappedProps);
+          leagueInserted += mappedProps.length;
+          console.log(`\u2705 ${leagueID}: Successfully inserted ${mappedProps.length} props using insertProps function`);
+        } catch (error) {
+          console.error(`\u274C ${leagueID}: Insert props failed:`, error);
+          leagueErrors += mappedProps.length;
         }
       }
       totalInserted += leagueInserted;
@@ -1849,6 +1908,87 @@ var worker_default = {
           return new Response(JSON.stringify({
             success: false,
             error: error instanceof Error ? error.message : String(error)
+          }), {
+            status: 500,
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+          });
+        }
+      }
+      if (url.pathname === "/debug-mapping") {
+        try {
+          const { fetchEventsWithProps: fetchEventsWithProps2 } = await Promise.resolve().then(() => (init_api(), api_exports));
+          const { extractPlayerProps: extractPlayerProps2 } = await Promise.resolve().then(() => (init_extract(), extract_exports));
+          const { createPlayerPropsFromOdd: createPlayerPropsFromOdd2 } = await Promise.resolve().then(() => (init_createPlayerPropsFromOdd(), createPlayerPropsFromOdd_exports));
+          console.log("\u{1F50D} Testing mapping function...");
+          const events = await fetchEventsWithProps2(env, "NFL", { limit: 1 });
+          if (events.length > 0) {
+            const extracted = extractPlayerProps2(events);
+            if (extracted.length > 0) {
+              const prop = extracted[0];
+              console.log("\u{1F50D} Testing with prop:", prop);
+              const mockOdd = {
+                player: {
+                  name: prop.playerName,
+                  team: "PHI"
+                },
+                player_name: prop.playerName,
+                playerID: prop.playerId,
+                market_key: prop.marketName,
+                point: prop.line,
+                over_price: prop.overUnder === "over" ? prop.odds : null,
+                under_price: prop.overUnder === "under" ? prop.odds : null,
+                overOdds: prop.overUnder === "over" || prop.overUnder === "yes" ? prop.odds : null,
+                underOdds: prop.overUnder === "under" || prop.overUnder === "no" ? prop.odds : null,
+                bookmaker_name: prop.sportsbook,
+                id: prop.oddId
+              };
+              const mockEvent = {
+                eventID: prop.eventId,
+                date: prop.eventStartUtc,
+                homeTeam: "HOME",
+                awayTeam: "AWAY",
+                teams: ["HOME", "AWAY"]
+              };
+              console.log("\u{1F50D} Calling createPlayerPropsFromOdd...");
+              const { getCachedPlayerIdMap: getCachedPlayerIdMap2 } = await Promise.resolve().then(() => (init_playersLoader(), playersLoader_exports));
+              const playerIdMap = await getCachedPlayerIdMap2(env);
+              console.log("\u{1F50D} Player ID map loaded:", Object.keys(playerIdMap).length, "players");
+              const testPlayerId = playerIdMap[`Jalen Hurts-PHI`] || playerIdMap[`jalen hurts-PHI`] || "NOT_FOUND";
+              console.log("\u{1F50D} Test player ID for Jalen Hurts-PHI:", testPlayerId);
+              const mappedProps = await createPlayerPropsFromOdd2(
+                mockOdd,
+                prop.oddId,
+                mockEvent,
+                "nfl",
+                "2024",
+                void 0,
+                env
+              );
+              console.log("\u{1F50D} Mapping result:", mappedProps);
+              return new Response(JSON.stringify({
+                success: true,
+                extractedProp: prop,
+                mockOdd,
+                mockEvent,
+                mappedProps,
+                mappedCount: mappedProps.length
+              }), {
+                headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+              });
+            }
+          }
+          return new Response(JSON.stringify({
+            success: false,
+            error: "No props found for testing"
+          }), {
+            status: 500,
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+          });
+        } catch (error) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: error.message,
+            stack: error.stack
           }), {
             status: 500,
             headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
