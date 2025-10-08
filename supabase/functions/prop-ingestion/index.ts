@@ -167,13 +167,25 @@ async function runIngestion(supabaseClient: any, league?: string, season: string
     
     try {
       // Fetch events from SportsGameOdds API
+      console.log(`About to fetch events for sportID: ${sportID}, season: ${season}, week: ${week}`)
       const events = await fetchEvents(sportID, season, week)
       console.log(`Fetched ${events.length} events for ${league || 'all leagues'}`)
+      
+      if (events.length === 0) {
+        console.log('No events found - checking API call')
+        return {
+          success: false,
+          message: 'No events found',
+          error: 'No events returned from API'
+        }
+      }
 
       // Extract and process player props
       for (const event of events) {
         try {
+          console.log(`Processing event ${event.eventID} with ${Object.keys(event.odds || {}).length} odds`)
           const props = await extractPlayerPropsFromEvent(event, league || 'NFL', season, week)
+          console.log(`Extracted ${props.length} props from event ${event.eventID}`)
           
           if (props.length > 0) {
             console.log(`Found ${props.length} props in event ${event.eventID}`)
@@ -239,8 +251,11 @@ async function fetchEvents(sportID: string, season: string, week?: string): Prom
 
   do {
     try {
-      const endpoint = `/v2/events?sportID=${sportID}&season=${season}&oddsAvailable=true&markets=playerProps&limit=10${nextCursor ? `&cursor=${nextCursor}` : ''}`
+      let endpoint = `/v2/events?sportID=${sportID}&season=${season}&oddsAvailable=true&markets=playerProps&limit=10`
       if (week) endpoint += `&week=${week}`
+      if (nextCursor) endpoint += `&cursor=${nextCursor}`
+      
+      console.log(`Making API call to: ${SPORTSGAMEODDS_BASE_URL}${endpoint}`)
 
       const response = await fetch(`${SPORTSGAMEODDS_BASE_URL}${endpoint}`, {
         headers: {
@@ -282,10 +297,14 @@ async function extractPlayerPropsFromEvent(event: any, league: string, season: s
   const awayTeam = event.teams?.away?.names?.short || 'AWAY'
   const gameTime = event.status?.startsAt || new Date().toISOString()
 
+  let playerPropOdds = 0
+  let processedOdds = 0
+
   for (const [oddId, oddData] of Object.entries(event.odds || {})) {
     try {
       // Check if this is a player prop
       if (isPlayerProp(oddData, oddId)) {
+        playerPropOdds++
         const playerProps = await createPlayerPropsFromOdd(
           oddData, 
           oddId, 
@@ -295,12 +314,14 @@ async function extractPlayerPropsFromEvent(event: any, league: string, season: s
           week
         )
         props.push(...playerProps)
+        processedOdds += playerProps.length
       }
     } catch (error) {
       console.error(`Error processing odd ${oddId}:`, error)
     }
   }
 
+  console.log(`Event ${event.eventID}: ${playerPropOdds} player prop odds found, ${processedOdds} props created`)
   return props
 }
 
@@ -338,7 +359,7 @@ async function createPlayerPropsFromOdd(odd: any, oddId: string, event: any, lea
   const props: any[] = []
   
   // Only process 'over' side - we'll find the corresponding 'under' side
-  if (odd.sideID !== 'over') {
+  if (!oddId.includes('-over')) {
     return props
   }
   
