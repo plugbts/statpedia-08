@@ -7,6 +7,7 @@ import { getActiveLeagues } from '../config/leagues';
 import { supabaseFetch } from '../supabaseFetch';
 import { createClient } from '@supabase/supabase-js';
 import { buildConflictKey } from '../lib/conflictKeyGenerator';
+import { normalizePropType } from '../lib/propTypeNormalizer';
 
 export interface PerformanceIngestionResult {
   success: boolean;
@@ -201,50 +202,58 @@ async function insertPerformanceDataDirectly(env: any, performanceData: Performa
   const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
 
   // Convert performance data to player_game_logs format
-  const gameLogRows = performanceData.map(perf => ({
-    player_id: perf.player_id,
-    player_name: perf.player_name,
-    team: perf.team,
-    opponent: perf.opponent,
-    season: perf.season,
-    date: perf.date.slice(0, 10), // Ensure date is properly formatted
-    prop_type: perf.prop_type,
-    value: perf.value,
-    sport: perf.league.toUpperCase(),
-    league: perf.league,
-    game_id: perf.game_id,
-    conflict_key: perf.conflict_key || buildConflictKey({
-      playerId: perf.player_id,
-      gameId: perf.game_id,
-      propType: perf.prop_type,
-      sportsbook: "SportsGameOdds",
+  const gameLogRows = performanceData.map(perf => {
+    const normalizedPropType = normalizePropType(perf.prop_type);
+    
+    return {
+      player_id: perf.player_id,
+      player_name: perf.player_name,
+      team: perf.team,
+      opponent: perf.opponent,
+      season: perf.season,
+      date: perf.date.slice(0, 10), // Ensure date is properly formatted
+      prop_type: normalizedPropType,
+      value: perf.value,
+      sport: perf.league.toUpperCase(),
       league: perf.league,
-      season: perf.season
-    })
-  }));
+      game_id: perf.game_id,
+      conflict_key: perf.conflict_key || buildConflictKey({
+        playerId: perf.player_id,
+        gameId: perf.game_id,
+        propType: normalizedPropType,
+        sportsbook: "SportsGameOdds",
+        league: perf.league,
+        season: perf.season
+      })
+    };
+  });
 
   // Convert performance data to proplines format
-  const propLinesRows = performanceData.map(perf => ({
-    player_id: perf.player_id,
-    player_name: perf.player_name,
-    season: perf.season,
-    date: perf.date.slice(0, 10), // Ensure date is properly formatted
-    prop_type: perf.prop_type,
-    line: perf.value, // Use the actual performance value as the line
-    sportsbook: "SportsGameOdds",
-    over_odds: -110, // Default odds
-    under_odds: 100, // Default odds
-    league: perf.league.toLowerCase(),
-    game_id: perf.game_id,
-    conflict_key: perf.conflict_key || buildConflictKey({
-      playerId: perf.player_id,
-      gameId: perf.game_id,
-      propType: perf.prop_type,
+  const propLinesRows = performanceData.map(perf => {
+    const normalizedPropType = normalizePropType(perf.prop_type);
+    
+    return {
+      player_id: perf.player_id,
+      player_name: perf.player_name,
+      season: perf.season,
+      date: perf.date.slice(0, 10), // Ensure date is properly formatted
+      prop_type: normalizedPropType,
+      line: perf.value, // Use the actual performance value as the line
       sportsbook: "SportsGameOdds",
-      league: perf.league,
-      season: perf.season
-    })
-  }));
+      over_odds: -110, // Default odds
+      under_odds: 100, // Default odds
+      league: perf.league.toLowerCase(),
+      game_id: perf.game_id,
+      conflict_key: perf.conflict_key || buildConflictKey({
+        playerId: perf.player_id,
+        gameId: perf.game_id,
+        propType: normalizedPropType,
+        sportsbook: "SportsGameOdds",
+        league: perf.league,
+        season: perf.season
+      })
+    };
+  });
 
   try {
     // Use upsert to handle unique constraints gracefully

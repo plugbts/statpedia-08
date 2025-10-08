@@ -3,6 +3,7 @@
 
 import { PerformanceData, PerformanceDataFetcher } from './performanceDataFetcher';
 import { buildConflictKey } from './conflictKeyGenerator';
+import { normalizePropType } from './propTypeNormalizer';
 import { supabaseFetch } from '../supabaseFetch';
 
 const LEAGUES = ["NFL", "NBA", "MLB", "NHL"];
@@ -151,13 +152,15 @@ export class SportsGameOddsPerformanceFetcher implements PerformanceDataFetcher 
       const sportsbook = "SportsGameOdds";
       const season = new Date(date).getFullYear();
       
+      const normalizedPropType = normalizePropType(propData.propType);
+      
       const performanceRecord: PerformanceData = {
         player_id: playerId,
         player_name: propData.playerName,
         team: playerTeam,
         opponent: opponent,
         date: event.info?.date ? event.info.date.slice(0, 10) : date,
-        prop_type: propData.propType,
+        prop_type: normalizedPropType,
         value: actualPerformance,
         league: league.toLowerCase(),
         season: season,
@@ -165,7 +168,7 @@ export class SportsGameOddsPerformanceFetcher implements PerformanceDataFetcher 
         conflict_key: buildConflictKey({
           playerId,
           gameId,
-          propType: propData.propType,
+          propType: normalizedPropType,
           sportsbook,
           league: league.toLowerCase(),
           season

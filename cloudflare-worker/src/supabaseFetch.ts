@@ -31,13 +31,13 @@ export async function supabaseFetch(env: any, table: string, { method = "GET", b
   const contentLength = res.headers.get('content-length');
   if (contentLength === '0' || contentLength === null) {
     console.log(`✅ Supabase ${method} ${table} successful (empty response)`);
-    return null; // Empty response indicates success
+    return []; // Return empty array for GET requests, null for others
   }
 
   const text = await res.text();
   if (text.trim() === '') {
     console.log(`✅ Supabase ${method} ${table} successful (empty text response)`);
-    return null; // Empty response indicates success
+    return method === 'GET' ? [] : null; // Return empty array for GET requests
   }
 
   try {
