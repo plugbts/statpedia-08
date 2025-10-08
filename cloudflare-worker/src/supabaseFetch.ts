@@ -1,4 +1,4 @@
-export async function supabaseFetch(env: any, table: string, { method = "GET", body, query = "" } = {}) {
+export async function supabaseFetch(env: any, table: string, { method = "GET", body, query = "" }: { method?: string; body?: any; query?: string } = {}) {
   const url = `${env.SUPABASE_URL}/rest/v1/${table}${query}`;
 
   const res = await fetch(url, {
@@ -7,7 +7,7 @@ export async function supabaseFetch(env: any, table: string, { method = "GET", b
       apikey: env.SUPABASE_SERVICE_KEY,
       Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
       "Content-Type": "application/json",
-      ...(method === "POST" ? { Prefer: "resolution=merge-duplicates" } : {}),
+      ...(method === "POST" && body ? { Prefer: "resolution=merge-duplicates" } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -18,5 +18,21 @@ export async function supabaseFetch(env: any, table: string, { method = "GET", b
     throw new Error(text);
   }
 
-  return res.json();
+  // Handle empty responses (common for successful inserts)
+  const contentLength = res.headers.get('content-length');
+  if (contentLength === '0' || contentLength === null) {
+    return null; // Empty response indicates success
+  }
+
+  const text = await res.text();
+  if (text.trim() === '') {
+    return null; // Empty response indicates success
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    console.warn(`⚠️ Failed to parse JSON response: ${text}`);
+    return text;
+  }
 }

@@ -236,7 +236,7 @@ export async function createPlayerPropsFromOdd(odd: any, oddId: string, event: a
     sportsbook: sportsbook,
     league: league.toLowerCase(),
     game_id: gameId,
-    conflict_key: `${playerID}-${normalizedPropType}-${line}-${sportsbook}-${gameDate}`
+    conflict_key: `${playerID}|${gameDate}|${normalizedPropType}|${sportsbook}|${league.toLowerCase()}|${season}`
     // Removed extra fields that don't exist in schema:
     // - sportsbook_key, game_time, home_team, away_team, week, last_updated, is_available
   };

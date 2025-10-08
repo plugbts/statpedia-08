@@ -499,16 +499,29 @@ async function supabaseFetch(env, table, { method = "GET", body, query = "" } = 
       apikey: env.SUPABASE_SERVICE_KEY,
       Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
       "Content-Type": "application/json",
-      ...method === "POST" ? { Prefer: "resolution=merge-duplicates" } : {}
+      ...method === "POST" && body ? { Prefer: "resolution=merge-duplicates" } : {}
     },
     body: body ? JSON.stringify(body) : void 0
   });
   if (!res.ok) {
-    const text = await res.text();
-    console.error(`\u274C Supabase ${method} ${table} failed:`, text);
-    throw new Error(text);
+    const text2 = await res.text();
+    console.error(`\u274C Supabase ${method} ${table} failed:`, text2);
+    throw new Error(text2);
   }
-  return res.json();
+  const contentLength = res.headers.get("content-length");
+  if (contentLength === "0" || contentLength === null) {
+    return null;
+  }
+  const text = await res.text();
+  if (text.trim() === "") {
+    return null;
+  }
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    console.warn(`\u26A0\uFE0F Failed to parse JSON response: ${text}`);
+    return text;
+  }
 }
 var init_supabaseFetch = __esm({
   "src/supabaseFetch.ts"() {
@@ -880,7 +893,7 @@ async function createPlayerPropsFromOdd(odd, oddId, event, league, season, week,
     sportsbook,
     league: league.toLowerCase(),
     game_id: gameId,
-    conflict_key: `${playerID}-${normalizedPropType}-${line}-${sportsbook}-${gameDate}`
+    conflict_key: `${playerID}|${gameDate}|${normalizedPropType}|${sportsbook}|${league.toLowerCase()}|${season}`
     // Removed extra fields that don't exist in schema:
     // - sportsbook_key, game_time, home_team, away_team, week, last_updated, is_available
   };
@@ -1515,7 +1528,11 @@ var worker_default = {
             success: true,
             message: "Multi-season backfill completed successfully",
             duration: `${duration}ms`,
-            ...result
+            totalProps: result.totalProps,
+            totalGameLogs: result.totalGameLogs,
+            totalErrors: result.totalErrors,
+            leagueSeasonResults: result.leagueSeasonResults,
+            summary: result.summary
           }), {
             status: 200,
             headers: {
@@ -1527,7 +1544,7 @@ var worker_default = {
           console.error("\u274C Multi-season backfill failed:", error);
           return new Response(JSON.stringify({
             success: false,
-            error: error.message,
+            error: error instanceof Error ? error.message : String(error),
             duration: `${Date.now() - startTime}ms`
           }), {
             status: 500,
@@ -1549,7 +1566,11 @@ var worker_default = {
             success: true,
             message: "Recent seasons backfill completed successfully",
             duration: `${duration}ms`,
-            ...result
+            totalProps: result.totalProps,
+            totalGameLogs: result.totalGameLogs,
+            totalErrors: result.totalErrors,
+            leagueSeasonResults: result.leagueSeasonResults,
+            summary: result.summary
           }), {
             status: 200,
             headers: {
@@ -1561,7 +1582,7 @@ var worker_default = {
           console.error("\u274C Recent seasons backfill failed:", error);
           return new Response(JSON.stringify({
             success: false,
-            error: error.message,
+            error: error instanceof Error ? error.message : String(error),
             duration: `${Date.now() - startTime}ms`
           }), {
             status: 500,
@@ -1583,7 +1604,11 @@ var worker_default = {
             success: true,
             message: "Full historical backfill completed successfully",
             duration: `${duration}ms`,
-            ...result
+            totalProps: result.totalProps,
+            totalGameLogs: result.totalGameLogs,
+            totalErrors: result.totalErrors,
+            leagueSeasonResults: result.leagueSeasonResults,
+            summary: result.summary
           }), {
             status: 200,
             headers: {
@@ -1595,7 +1620,7 @@ var worker_default = {
           console.error("\u274C Full historical backfill failed:", error);
           return new Response(JSON.stringify({
             success: false,
-            error: error.message,
+            error: error instanceof Error ? error.message : String(error),
             duration: `${Date.now() - startTime}ms`
           }), {
             status: 500,
@@ -1619,7 +1644,11 @@ var worker_default = {
             success: true,
             message: `League-specific backfill completed successfully for ${leagueId}`,
             duration: `${duration}ms`,
-            ...result
+            totalProps: result.totalProps,
+            totalGameLogs: result.totalGameLogs,
+            totalErrors: result.totalErrors,
+            leagueSeasonResults: result.leagueSeasonResults,
+            summary: result.summary
           }), {
             status: 200,
             headers: {
@@ -1631,7 +1660,7 @@ var worker_default = {
           console.error(`\u274C League-specific backfill failed for ${leagueId}:`, error);
           return new Response(JSON.stringify({
             success: false,
-            error: error.message,
+            error: error instanceof Error ? error.message : String(error),
             duration: `${Date.now() - startTime}ms`
           }), {
             status: 500,
@@ -1655,7 +1684,11 @@ var worker_default = {
             success: true,
             message: `Season-specific backfill completed successfully for ${season}`,
             duration: `${duration}ms`,
-            ...result
+            totalProps: result.totalProps,
+            totalGameLogs: result.totalGameLogs,
+            totalErrors: result.totalErrors,
+            leagueSeasonResults: result.leagueSeasonResults,
+            summary: result.summary
           }), {
             status: 200,
             headers: {
@@ -1667,7 +1700,7 @@ var worker_default = {
           console.error(`\u274C Season-specific backfill failed for ${season}:`, error);
           return new Response(JSON.stringify({
             success: false,
-            error: error.message,
+            error: error instanceof Error ? error.message : String(error),
             duration: `${Date.now() - startTime}ms`
           }), {
             status: 500,
@@ -1689,7 +1722,11 @@ var worker_default = {
             success: true,
             message: "Progressive backfill completed successfully",
             duration: `${duration}ms`,
-            ...result
+            totalProps: result.totalProps,
+            totalGameLogs: result.totalGameLogs,
+            totalErrors: result.totalErrors,
+            leagueSeasonResults: result.leagueSeasonResults,
+            summary: result.summary
           }), {
             status: 200,
             headers: {
@@ -1701,7 +1738,7 @@ var worker_default = {
           console.error("\u274C Progressive backfill failed:", error);
           return new Response(JSON.stringify({
             success: false,
-            error: error.message,
+            error: error instanceof Error ? error.message : String(error),
             duration: `${Date.now() - startTime}ms`
           }), {
             status: 500,
@@ -1734,7 +1771,7 @@ var worker_default = {
           console.error("\u274C Ingestion failed:", error);
           return new Response(JSON.stringify({
             success: false,
-            error: error.message,
+            error: error instanceof Error ? error.message : String(error),
             duration: `${Date.now() - startTime}ms`
           }), {
             status: 500,
@@ -1768,7 +1805,7 @@ var worker_default = {
           console.error(`\u274C Single league ingestion failed for ${leagueId}:`, error);
           return new Response(JSON.stringify({
             success: false,
-            error: error.message,
+            error: error instanceof Error ? error.message : String(error),
             duration: `${Date.now() - startTime}ms`
           }), {
             status: 500,
@@ -1783,26 +1820,26 @@ var worker_default = {
         try {
           const { supabaseFetch: supabaseFetch2 } = await Promise.resolve().then(() => (init_supabaseFetch(), supabaseFetch_exports));
           console.log("\u{1F50D} Checking table schema...");
-          const { data, error } = await supabaseFetch2(env, "proplines", {
+          const response = await supabaseFetch2(env, "proplines", {
             method: "GET",
             query: "?limit=1&select=*"
           });
-          if (error) {
-            console.error("\u274C Schema check failed:", error);
+          if (response.error) {
+            console.error("\u274C Schema check failed:", response.error);
             return new Response(JSON.stringify({
               success: false,
-              error: error.message,
-              details: error
+              error: response.error instanceof Error ? response.error.message : String(response.error),
+              details: response.error
             }), {
               status: 500,
               headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
             });
           } else {
-            console.log("\u2705 Schema check successful:", data);
+            console.log("\u2705 Schema check successful:", response.data);
             return new Response(JSON.stringify({
               success: true,
               message: "Table schema retrieved",
-              data,
+              data: response.data,
               note: "This shows what columns exist in the table"
             }), {
               headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
@@ -1811,7 +1848,7 @@ var worker_default = {
         } catch (error) {
           return new Response(JSON.stringify({
             success: false,
-            error: error.message
+            error: error instanceof Error ? error.message : String(error)
           }), {
             status: 500,
             headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
@@ -1822,43 +1859,45 @@ var worker_default = {
         try {
           const { supabaseFetch: supabaseFetch2 } = await Promise.resolve().then(() => (init_supabaseFetch(), supabaseFetch_exports));
           console.log("\u{1F50D} Testing isolated insert...");
+          const timestamp = Date.now();
           const testProp = {
-            player_id: "JALEN_HURTS-UNK-PHI",
-            player_name: "Jalen Hurts",
-            team: "PHI",
-            opponent: "DAL",
+            player_id: `TEST_PLAYER_${timestamp}`,
+            player_name: `Test Player ${timestamp}`,
+            team: "TEST",
+            opponent: "TEST2",
             season: 2025,
             date: "2025-10-08",
-            prop_type: "Passing Yards",
-            sportsbook: "Consensus",
-            line: 245.5,
+            prop_type: "Test Prop",
+            sportsbook: "TestBook",
+            line: 100.5,
             over_odds: -110,
             under_odds: -110,
-            league: "nfl"
-            // Removed game_id and conflict_key for now to test basic insert
+            league: "nfl",
+            game_id: `TEST-GAME-${timestamp}`,
+            conflict_key: `TEST_CONFLICT_${timestamp}`
           };
           console.log("\u{1F50D} Test prop:", JSON.stringify(testProp, null, 2));
-          const { data, error } = await supabaseFetch2(env, "proplines", {
+          const response = await supabaseFetch2(env, "proplines", {
             method: "POST",
-            body: [testProp],
-            query: "?on_conflict=conflict_key"
+            body: [testProp]
           });
-          if (error) {
-            console.error("\u274C Insert failed:", error);
-            return new Response(JSON.stringify({
-              success: false,
-              error: error.message,
-              details: error
-            }), {
-              status: 500,
-              headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
-            });
-          } else {
-            console.log("\u2705 Insert successful:", data);
+          if (response === null || response === void 0) {
+            console.log("\u2705 Insert successful - Empty response indicates success");
             return new Response(JSON.stringify({
               success: true,
               message: "Test insert successful",
-              data
+              data: "Record inserted successfully (empty response from Supabase)",
+              testProp
+            }), {
+              headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+            });
+          } else {
+            console.log("\u2705 Insert successful with response:", response);
+            return new Response(JSON.stringify({
+              success: true,
+              message: "Test insert successful",
+              data: response,
+              testProp
             }), {
               headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
             });
@@ -1866,7 +1905,7 @@ var worker_default = {
         } catch (error) {
           return new Response(JSON.stringify({
             success: false,
-            error: error.message
+            error: error instanceof Error ? error.message : String(error)
           }), {
             status: 500,
             headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
@@ -1915,7 +1954,7 @@ var worker_default = {
         } catch (error) {
           return new Response(JSON.stringify({
             success: false,
-            error: error.message
+            error: error instanceof Error ? error.message : String(error)
           }), {
             status: 500,
             headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
@@ -1950,7 +1989,7 @@ var worker_default = {
         } catch (error) {
           return new Response(JSON.stringify({
             success: false,
-            error: error.message
+            error: error instanceof Error ? error.message : String(error)
           }), {
             status: 500,
             headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
@@ -1975,14 +2014,14 @@ var worker_default = {
                 dataType: typeof data,
                 isArray: Array.isArray(data),
                 firstItem: Array.isArray(data) && data.length > 0 ? typeof data[0] : null,
-                responseHeaders: Object.fromEntries(response.headers.entries()),
+                responseHeaders: { contentType: response.headers.get("content-type") || "", status: response.status.toString() },
                 rawResponse: data
                 // Show the actual response
               });
             } catch (error) {
               testResults.push({
                 league,
-                error: error.message
+                error: error instanceof Error ? error.message : String(error)
               });
             }
           }
@@ -2007,7 +2046,7 @@ var worker_default = {
             } catch (error) {
               testResults.push({
                 test: test.name,
-                error: error.message
+                error: error instanceof Error ? error.message : String(error)
               });
             }
           }
@@ -2031,7 +2070,7 @@ var worker_default = {
             } catch (error) {
               testResults.push({
                 endpoint,
-                error: error.message
+                error: error instanceof Error ? error.message : String(error)
               });
             }
           }
@@ -2045,7 +2084,7 @@ var worker_default = {
         } catch (error) {
           return new Response(JSON.stringify({
             success: false,
-            error: error.message
+            error: error instanceof Error ? error.message : String(error)
           }), {
             status: 500,
             headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
@@ -2136,7 +2175,7 @@ var worker_default = {
           console.error("\u274C Debug API failed:", error);
           return new Response(JSON.stringify({
             success: false,
-            error: error.message
+            error: error instanceof Error ? error.message : String(error)
           }), {
             status: 500,
             headers: {
@@ -2202,7 +2241,7 @@ var worker_default = {
       console.error("\u274C Worker fetch error:", error);
       return new Response(JSON.stringify({
         success: false,
-        error: error.message || "Internal Server Error"
+        error: error instanceof Error ? error.message : String(error) || "Internal Server Error"
       }), {
         status: 500,
         headers: {
