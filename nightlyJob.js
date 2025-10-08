@@ -590,12 +590,21 @@ function mapStatTypeToPropType(statType) {
 function normalizeMarketType(market) {
   if (!market) return "";
   const lower = market.toLowerCase();
+  
+  // Receiving props (prioritized order)
+  if (lower.includes('receiving') && lower.includes('yard')) return 'Receiving Yards';
+  if (lower.includes('receptions')) return 'Receptions';
+  
+  // Rushing props
+  if (lower.includes('rush') && lower.includes('yard')) return 'Rushing Yards';
+  
+  // Passing props
   if (lower.includes("pass yard")) return "Passing Yards";
-  if (lower.includes("rush yard")) return "Rushing Yards";
-  if (lower.includes("rec yard")) return "Receiving Yards";
   if (lower.includes("comp")) return "Passing Completions";
   if (lower.includes("att")) return "Passing Attempts";
   if (lower.includes("td")) return "Touchdowns";
+  
+  // Other sports
   if (lower.includes("point")) return "Points";
   if (lower.includes("rebound")) return "Rebounds";
   if (lower.includes("assist")) return "Assists";
@@ -608,6 +617,7 @@ function normalizeMarketType(market) {
   if (lower.includes("goal")) return "Goals";
   if (lower.includes("shot")) return "Shots";
   if (lower.includes("save")) return "Saves";
+  
   return market;
 }
 

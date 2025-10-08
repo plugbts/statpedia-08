@@ -227,10 +227,11 @@ function normalizeMarketType(market) {
   // Try exact match first
   if (marketMap[market]) return marketMap[market];
   
-  // Fallback to pattern matching
-  if (lower.includes('pass') && lower.includes('yard')) return 'Passing Yards';
+  // Fallback to pattern matching (prioritized order)
+  if (lower.includes('receiving') && lower.includes('yard')) return 'Receiving Yards';
+  if (lower.includes('receptions')) return 'Receptions';
   if (lower.includes('rush') && lower.includes('yard')) return 'Rushing Yards';
-  if (lower.includes('rec') && lower.includes('yard')) return 'Receiving Yards';
+  if (lower.includes('pass') && lower.includes('yard')) return 'Passing Yards';
   if (lower.includes('completion')) return 'Passing Completions';
   if (lower.includes('attempt')) return 'Passing Attempts';
   if (lower.includes('touchdown')) return 'Touchdowns';
