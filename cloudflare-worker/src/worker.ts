@@ -4,6 +4,7 @@
 import { runMultiSeasonBackfill, runRecentSeasonsBackfill, runFullHistoricalBackfill, runLeagueSpecificBackfill, runSeasonSpecificBackfill, runProgressiveBackfill } from "./jobs/multiBackfill";
 import { runIngestion, runSingleLeagueIngestion } from "./jobs/ingest";
 import { runPerformanceIngestion, runSingleLeaguePerformanceIngestion, runHistoricalPerformanceIngestion } from "./jobs/performanceIngestion";
+import { fetchAllLeaguesEvents } from "./lib/sportsGameOddsPerformanceFetcher";
 import { LEAGUES, getActiveLeagues, getAllSeasons, getActiveLeagueSeasonPairs } from "./config/leagues";
 
 export default {
@@ -34,7 +35,7 @@ export default {
             analytics: ['/refresh-analytics', '/incremental-analytics-refresh', '/analytics/streaks', '/analytics/defensive-rankings'],
             verification: ['/verify-backfill', '/verify-analytics'],
             status: ['/status', '/leagues', '/seasons'],
-            debug: ['/debug-api', '/debug-comprehensive', '/debug-json', '/debug-extraction', '/debug-insert', '/debug-schema', '/debug-streaks', '/debug-streak-counts', '/debug-insertion', '/debug-env', '/debug-rls']
+            debug: ['/debug-api', '/debug-comprehensive', '/debug-json', '/debug-extraction', '/debug-insert', '/debug-schema', '/debug-streaks', '/debug-streak-counts', '/debug-insertion', '/debug-env', '/debug-rls', '/debug-events']
           },
           leagues: getActiveLeagues().map(l => l.id),
           seasons: getAllSeasons(),
@@ -1829,6 +1830,60 @@ export default {
             success: false,
             error: error instanceof Error ? error.message : String(error),
             duration: `${Date.now() - startTime}ms`
+          }), {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+      }
+
+      // Handle debug events endpoint
+      if (url.pathname === '/debug-events') {
+        const date = url.searchParams.get('date') || new Date().toISOString().split('T')[0];
+        
+        console.log(`🔍 Debug events for date: ${date}`);
+        
+        try {
+          const results = await fetchAllLeaguesEvents(date, env);
+          
+          const summary = {
+            date: date,
+            leagues: {} as Record<string, any>
+          };
+          
+          for (const [league, events] of Object.entries(results)) {
+            summary.leagues[league] = {
+              eventCount: events.length,
+              hasEvents: events.length > 0,
+              sampleEvent: events.length > 0 ? {
+                id: events[0].event_id || events[0].eventID || 'unknown',
+                homeTeam: events[0].home_team?.name || events[0].teams?.home?.names?.long || 'unknown',
+                awayTeam: events[0].away_team?.name || events[0].teams?.away?.names?.long || 'unknown',
+                hasPlayerProps: !!(events[0].player_props && events[0].player_props.length > 0),
+                hasMarkets: !!(events[0].markets && events[0].markets.length > 0)
+              } : null
+            };
+          }
+          
+          return new Response(JSON.stringify({
+            success: true,
+            message: 'Events debug completed',
+            summary: summary,
+            rawResults: results
+          }), {
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+          
+        } catch (error) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
           }), {
             status: 500,
             headers: {

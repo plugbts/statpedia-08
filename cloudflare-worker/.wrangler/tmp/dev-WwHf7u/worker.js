@@ -2004,51 +2004,47 @@ init_modules_watch_stub();
 init_checked_fetch();
 init_strip_cf_connecting_ip_header();
 init_modules_watch_stub();
-
-// src/api.ts
-init_checked_fetch();
-init_strip_cf_connecting_ip_header();
-init_modules_watch_stub();
-function buildUrl2(base, params) {
-  const u = new URL(base);
-  Object.entries(params).filter(([, v]) => v !== void 0 && v !== null && v !== "").forEach(([k, v]) => u.searchParams.set(k, String(v)));
-  return u.toString();
-}
-__name(buildUrl2, "buildUrl");
-async function fetchEventsWithProps2(env, leagueID, opts) {
-  const base = "https://api.sportsgameodds.com/v2/events";
-  const url = buildUrl2(base, {
-    apiKey: env.SPORTS_API_KEY,
-    leagueID,
-    oddsAvailable: true,
-    dateFrom: opts?.dateFrom,
-    dateTo: opts?.dateTo,
-    season: opts?.season,
-    oddIDs: opts?.oddIDs,
-    limit: opts?.limit ?? 250
-  });
-  console.log(`\u{1F50D} Fetching ${leagueID} events from: ${url}`);
-  const res = await fetch(url);
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`SGO ${leagueID} events failed: ${res.status} ${errorText}`);
+init_supabaseFetch();
+async function fetchEventsForLeague(league, date, env) {
+  const baseUrl = "https://api.sportsgameodds.com/v1/events";
+  const headers = { "x-api-key": env.SPORTSGAMEODDS_API_KEY };
+  let url = `${baseUrl}?league=${league}&date=${date}&includeProps=true`;
+  let res = await fetch(url, { headers });
+  if (!res.ok)
+    throw new Error(`\u274C ${league} API error ${res.status}: ${await res.text()}`);
+  let data = await res.json();
+  if (data?.length && data.length > 0) {
+    console.log(`\u2705 ${league}: ${data.length} events found for ${date}`);
+    return data;
   }
-  const data = await res.json();
-  console.log(`\u{1F4CA} ${leagueID} API returned ${data.length || 0} events`);
-  return data;
+  const dateFrom = date;
+  const dateTo = new Date(new Date(date).getTime() + 24 * 60 * 60 * 1e3).toISOString().slice(0, 10);
+  url = `${baseUrl}?league=${league}&dateFrom=${dateFrom}&dateTo=${dateTo}&includeProps=true`;
+  res = await fetch(url, { headers });
+  if (!res.ok)
+    throw new Error(`\u274C ${league} fallback API error ${res.status}: ${await res.text()}`);
+  data = await res.json();
+  if (data?.length > 0) {
+    console.log(`\u26A0\uFE0F ${league}: Fallback succeeded, ${data.length} events found between ${date} and ${dateTo}`);
+    return data;
+  }
+  const yesterday = new Date(new Date(date).getTime() - 24 * 60 * 60 * 1e3).toISOString().slice(0, 10);
+  const cached = await supabaseFetch(env, `proplines?league=eq.${league}&date=eq.${yesterday}&limit=1000`, {
+    method: "GET"
+  });
+  if (cached && cached.length > 0) {
+    console.warn(`\u26A0\uFE0F ${league}: No fresh events, serving ${cached.length} cached props from ${yesterday}`);
+    return cached;
+  }
+  console.warn(`\u26A0\uFE0F ${league}: No events found for ${date}, no cache available`);
+  return [];
 }
-__name(fetchEventsWithProps2, "fetchEventsWithProps");
-
-// src/lib/sportsGameOddsPerformanceFetcher.ts
+__name(fetchEventsForLeague, "fetchEventsForLeague");
 var SportsGameOddsPerformanceFetcher = class {
   async fetchPlayerStats(league, date, env, players) {
     console.log(`\u{1F3C8} Fetching ${league} performance data from SportsGameOdds for ${date}...`);
     try {
-      const events = await fetchEventsWithProps2(env, league, {
-        dateFrom: date,
-        dateTo: date,
-        oddsAvailable: true
-      });
+      const events = await fetchEventsForLeague(league, date, env);
       console.log(`\u{1F4CA} Found ${events.length} events for ${league} on ${date}`);
       const performanceData = [];
       for (const event of events) {
@@ -3118,13 +3114,13 @@ var worker_default = {
       }
       if (url.pathname === "/debug-market-analysis") {
         try {
-          const { fetchEventsWithProps: fetchEventsWithProps3 } = await Promise.resolve().then(() => (init_api(), api_exports));
+          const { fetchEventsWithProps: fetchEventsWithProps2 } = await Promise.resolve().then(() => (init_api(), api_exports));
           const { extractPlayerProps: extractPlayerProps2 } = await Promise.resolve().then(() => (init_extract(), extract_exports));
           console.log("\u{1F50D} Analyzing market patterns...");
           const leagues = ["NFL", "MLB"];
           const analysis = {};
           for (const league of leagues) {
-            const events = await fetchEventsWithProps3(env, league, { limit: 2 });
+            const events = await fetchEventsWithProps2(env, league, { limit: 2 });
             if (events.length > 0) {
               const extracted = extractPlayerProps2(events);
               console.log(`\u{1F4CA} ${league}: Extracted ${extracted.length} props`);
@@ -3233,11 +3229,11 @@ var worker_default = {
       }
       if (url.pathname === "/debug-mapping") {
         try {
-          const { fetchEventsWithProps: fetchEventsWithProps3 } = await Promise.resolve().then(() => (init_api(), api_exports));
+          const { fetchEventsWithProps: fetchEventsWithProps2 } = await Promise.resolve().then(() => (init_api(), api_exports));
           const { extractPlayerProps: extractPlayerProps2 } = await Promise.resolve().then(() => (init_extract(), extract_exports));
           const { createPlayerPropsFromOdd: createPlayerPropsFromOdd2 } = await Promise.resolve().then(() => (init_createPlayerPropsFromOdd(), createPlayerPropsFromOdd_exports));
           console.log("\u{1F50D} Testing mapping function...");
-          const events = await fetchEventsWithProps3(env, "NFL", { limit: 1 });
+          const events = await fetchEventsWithProps2(env, "NFL", { limit: 1 });
           if (events.length > 0) {
             const extracted = extractPlayerProps2(events);
             if (extracted.length > 0) {
@@ -3371,10 +3367,10 @@ var worker_default = {
       }
       if (url.pathname === "/debug-extraction") {
         try {
-          const { fetchEventsWithProps: fetchEventsWithProps3 } = await Promise.resolve().then(() => (init_api(), api_exports));
+          const { fetchEventsWithProps: fetchEventsWithProps2 } = await Promise.resolve().then(() => (init_api(), api_exports));
           const { extractPlayerProps: extractPlayerProps2 } = await Promise.resolve().then(() => (init_extract(), extract_exports));
           console.log("\u{1F50D} Testing extraction...");
-          const events = await fetchEventsWithProps3(env, "NFL", { limit: 1 });
+          const events = await fetchEventsWithProps2(env, "NFL", { limit: 1 });
           console.log(`\u{1F4CA} Fetched ${events.length} events`);
           if (events.length > 0) {
             const extracted = extractPlayerProps2(events);
@@ -3550,7 +3546,7 @@ var worker_default = {
       }
       if (url.pathname === "/debug-api") {
         try {
-          const { fetchEventsWithProps: fetchEventsWithProps3 } = await Promise.resolve().then(() => (init_api(), api_exports));
+          const { fetchEventsWithProps: fetchEventsWithProps2 } = await Promise.resolve().then(() => (init_api(), api_exports));
           console.log("\u{1F50D} Testing API directly...");
           console.log("\u{1F50D} API Key available:", !!env.SPORTSGAMEODDS_API_KEY);
           console.log("\u{1F50D} API Key length:", env.SPORTSGAMEODDS_API_KEY ? env.SPORTSGAMEODDS_API_KEY.length : 0);
@@ -3598,7 +3594,7 @@ var worker_default = {
             console.error("\u274C Date API call failed:", error);
           }
           console.log("\u{1F50D} Test 4: Using fetchEventsWithProps");
-          const events = await fetchEventsWithProps3(env, "NFL", {
+          const events = await fetchEventsWithProps2(env, "NFL", {
             limit: 5
           });
           console.log(`\u{1F4CA} fetchEventsWithProps result: ${events.length} events`);

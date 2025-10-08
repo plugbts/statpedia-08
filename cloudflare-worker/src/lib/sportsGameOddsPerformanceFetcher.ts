@@ -1,8 +1,73 @@
 // SportsGameOdds Performance Data Fetcher
 // Creates realistic performance data based on existing betting lines from SportsGameOdds
 
-import { fetchEventsWithProps } from '../api';
 import { PerformanceData, PerformanceDataFetcher } from './performanceDataFetcher';
+import { supabaseFetch } from '../supabaseFetch';
+
+const LEAGUES = ["NFL", "NBA", "MLB", "NHL"];
+
+async function fetchEventsForLeague(league: string, date: string, env: any) {
+  const baseUrl = "https://api.sportsgameodds.com/v2/events";
+  const headers = { "x-api-key": env.SPORTSGAMEODDS_API_KEY };
+
+  // 1. Primary call (happy path) - using v2 API format
+  let url = `${baseUrl}?apiKey=${env.SPORTSGAMEODDS_API_KEY}&leagueID=${league}&dateFrom=${date}&dateTo=${date}&oddsAvailable=true`;
+  let res = await fetch(url);
+  if (!res.ok) throw new Error(`❌ ${league} API error ${res.status}: ${await res.text()}`);
+  let data = await res.json();
+
+  // Handle v2 API response format
+  const events = data.data || data;
+  if (events?.length && events.length > 0) {
+    console.log(`✅ ${league}: ${events.length} events found for ${date}`);
+    return events;
+  }
+
+  // 2. Fallback: widen window by 1 day
+  const dateFrom = date;
+  const dateTo = new Date(new Date(date).getTime() + 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+
+  url = `${baseUrl}?apiKey=${env.SPORTSGAMEODDS_API_KEY}&leagueID=${league}&dateFrom=${dateFrom}&dateTo=${dateTo}&oddsAvailable=true`;
+  res = await fetch(url);
+  if (!res.ok) throw new Error(`❌ ${league} fallback API error ${res.status}: ${await res.text()}`);
+  data = await res.json();
+
+  // Handle v2 API response format for fallback
+  const fallbackEvents = data.data || data;
+  if (fallbackEvents?.length > 0) {
+    console.log(`⚠️ ${league}: Fallback succeeded, ${fallbackEvents.length} events found between ${date} and ${dateTo}`);
+    return fallbackEvents;
+  }
+
+  // 3. Last-known-good cache: pull yesterday's events from DB
+  const yesterday = new Date(new Date(date).getTime() - 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+
+  const cached = await supabaseFetch(env, `proplines?league=eq.${league}&date=eq.${yesterday}&limit=1000`, {
+    method: 'GET'
+  });
+
+  if (cached && cached.length > 0) {
+    console.warn(`⚠️ ${league}: No fresh events, serving ${cached.length} cached props from ${yesterday}`);
+    return cached;
+  }
+
+  console.warn(`⚠️ ${league}: No events found for ${date}, no cache available`);
+  return [];
+}
+
+export async function fetchAllLeaguesEvents(date: string, env: any) {
+  const results: Record<string, any[]> = {};
+
+  for (const league of LEAGUES) {
+    results[league] = await fetchEventsForLeague(league, date, env);
+  }
+
+  return results;
+}
 
 export class SportsGameOddsPerformanceFetcher implements PerformanceDataFetcher {
   
@@ -10,12 +75,8 @@ export class SportsGameOddsPerformanceFetcher implements PerformanceDataFetcher 
     console.log(`🏈 Fetching ${league} performance data from SportsGameOdds for ${date}...`);
     
     try {
-      // Get events with props from SportsGameOdds for the specified date
-      const events = await fetchEventsWithProps(env, league, {
-        dateFrom: date,
-        dateTo: date,
-        oddsAvailable: true
-      });
+      // Use the robust fetchEventsForLeague function
+      const events = await fetchEventsForLeague(league, date, env);
       
       console.log(`📊 Found ${events.length} events for ${league} on ${date}`);
       
@@ -38,51 +99,64 @@ export class SportsGameOddsPerformanceFetcher implements PerformanceDataFetcher 
   private async extractPerformanceFromEvent(event: any, date: string, league: string): Promise<PerformanceData[]> {
     const performanceData: PerformanceData[] = [];
     
-    if (!event.player_props && !event.markets) {
-      return performanceData;
-    }
-
-    // Extract player props from the event
-    const playerProps = event.player_props || [];
+    // Extract player props from the actual SportsGameOdds structure
+    // Props are individual keys in event.odds, not an array
+    const odds = event?.odds || {};
+    const playerProps = Object.keys(odds).filter(key => 
+      key.includes('-') && 
+      !key.includes('points-') && // Exclude team props
+      !key.includes('bothTeams') && // Exclude team props
+      !key.includes('firstToScore') // Exclude team props
+    );
     
-    // Also extract from markets if available
-    if (event.markets) {
-      for (const market of event.markets) {
-        if (market.playerProps) {
-          playerProps.push(...market.playerProps);
-        }
+    console.log(`📊 Event ${event.eventID}: Found ${playerProps.length} player props`);
+    
+    // Group props by player to avoid duplicates (over/under pairs)
+    const playerPropsMap = new Map();
+    
+    for (const propKey of playerProps) {
+      const prop = odds[propKey];
+      if (!prop || !prop.playerID || !prop.fairOverUnder) continue;
+      
+      const playerId = prop.playerID;
+      const playerName = this.extractPlayerNameFromMarketName(prop.marketName);
+      const line = parseFloat(prop.fairOverUnder);
+      
+      // Only process "over" props to avoid duplicates
+      if (prop.sideID === 'over') {
+        playerPropsMap.set(playerId, {
+          playerId,
+          playerName,
+          propType: this.normalizePropType(prop.statID),
+          line,
+          marketName: prop.marketName
+        });
       }
     }
-
-    for (const prop of playerProps) {
-      if (!prop.player || !prop.line) continue;
-      
-      const playerName = prop.player.name;
-      const playerId = this.generatePlayerId(playerName, event.home_team?.abbreviation || 'UNK');
-      const line = parseFloat(prop.line);
-      
+    
+    // Determine teams from event structure
+    const homeTeam = event.teams?.home?.names?.abbr || event.teams?.home?.abbreviation || 'UNK';
+    const awayTeam = event.teams?.away?.names?.abbr || event.teams?.away?.abbreviation || 'UNK';
+    
+    for (const [playerId, propData] of playerPropsMap) {
       // Generate realistic performance based on the betting line
-      const actualPerformance = this.generateRealisticPerformance(line, prop.marketName || 'Unknown');
+      const actualPerformance = this.generateRealisticPerformance(propData.line, propData.propType);
       
-      // Determine teams
-      const homeTeam = event.home_team?.abbreviation || event.home_team?.names?.abbr || 'UNK';
-      const awayTeam = event.away_team?.abbreviation || event.away_team?.names?.abbr || 'UNK';
-      
-      // Determine which team the player is on (this is a simplified approach)
-      const playerTeam = this.determinePlayerTeam(playerName, homeTeam, awayTeam);
+      // Determine which team the player is on (simplified approach)
+      const playerTeam = this.determinePlayerTeam(propData.playerName, homeTeam, awayTeam);
       const opponent = playerTeam === homeTeam ? awayTeam : homeTeam;
       
       const performanceRecord: PerformanceData = {
         player_id: playerId,
-        player_name: playerName,
+        player_name: propData.playerName,
         team: playerTeam,
         opponent: opponent,
-        date: date,
-        prop_type: this.normalizePropType(prop.marketName || 'Unknown'),
+        date: event.info?.date ? event.info.date.slice(0, 10) : date,
+        prop_type: propData.propType,
         value: actualPerformance,
         league: league.toLowerCase(),
         season: new Date(date).getFullYear(),
-        game_id: event.event_id || event.eventID || `GAME_${date}_${homeTeam}_${awayTeam}`
+        game_id: event.eventID || `GAME_${date}_${homeTeam}_${awayTeam}`
       };
       
       performanceData.push(performanceRecord);
@@ -121,6 +195,34 @@ export class SportsGameOddsPerformanceFetcher implements PerformanceDataFetcher 
     
     const performance = baseLine + variance;
     return Math.max(0, Math.round(performance * 10) / 10); // Round to 1 decimal place
+  }
+
+  private normalizePlayerId(idOrName: string): string {
+    if (!idOrName) return '';
+    return idOrName.toUpperCase().replace(/\s+/g, '_').replace(/[^A-Z0-9_]/g, '');
+  }
+
+  private extractPlayerNameFromMarketName(marketName: string): string {
+    // Extract player name from market names like "Jalen Hurts Passing Yards Over/Under"
+    if (!marketName) return 'Unknown Player';
+    
+    // Remove common suffixes
+    const cleaned = marketName
+      .replace(/\s+(Over\/Under|Yes\/No|Even\/Odd).*$/, '')
+      .replace(/\s+(Passing|Rushing|Receiving|Defense|Kicking).*$/, '')
+      .trim();
+    
+    // Extract just the player name (everything before the first stat type)
+    const words = cleaned.split(' ');
+    const statWords = ['Passing', 'Rushing', 'Receiving', 'Defense', 'Kicking', 'Fantasy', 'Field', 'Extra', 'Touchdown'];
+    
+    for (let i = 0; i < words.length; i++) {
+      if (statWords.includes(words[i])) {
+        return words.slice(0, i).join(' ');
+      }
+    }
+    
+    return cleaned;
   }
 
   private generatePlayerId(name: string, team: string): string {
