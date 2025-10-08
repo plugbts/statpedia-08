@@ -32,7 +32,7 @@ export default {
             analytics: ['/refresh-analytics', '/incremental-analytics-refresh', '/analytics/streaks', '/analytics/defensive-rankings'],
             verification: ['/verify-backfill', '/verify-analytics'],
             status: ['/status', '/leagues', '/seasons'],
-            debug: ['/debug-api', '/debug-comprehensive', '/debug-json', '/debug-extraction', '/debug-insert', '/debug-schema', '/debug-streaks', '/debug-streak-counts']
+            debug: ['/debug-api', '/debug-comprehensive', '/debug-json', '/debug-extraction', '/debug-insert', '/debug-schema', '/debug-streaks', '/debug-streak-counts', '/debug-insertion', '/debug-env', '/debug-rls']
           },
           leagues: getActiveLeagues().map(l => l.id),
           seasons: getAllSeasons(),
@@ -265,6 +265,43 @@ export default {
           });
         } catch (error) {
           console.error("❌ Debug streaks error:", error);
+          return new Response(JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          });
+        }
+      }
+
+      // Handle direct database query for debugging
+      if (url.pathname === "/debug-query") {
+        try {
+          const { supabaseFetch } = await import("./supabaseFetch");
+          const table = url.searchParams.get("table") || "player_game_logs";
+          const limit = parseInt(url.searchParams.get("limit") || "5");
+          
+          console.log(`🔍 Direct query to ${table} table...`);
+          
+          const result = await supabaseFetch(env, `${table}?limit=${limit}`, {
+            method: "GET",
+          });
+          
+          console.log(`📊 Query result:`, JSON.stringify(result, null, 2));
+          
+          return new Response(JSON.stringify({
+            success: true,
+            table: table,
+            limit: limit,
+            count: result?.length || 0,
+            data: result,
+            timestamp: new Date().toISOString()
+          }), {
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          });
+        } catch (error) {
+          console.error("❌ Direct query error:", error);
           return new Response(JSON.stringify({
             success: false,
             error: error instanceof Error ? error.message : String(error)
@@ -1451,6 +1488,195 @@ export default {
             'Access-Control-Allow-Origin': '*',
           },
         });
+      }
+
+      // Handle enhanced insertion debug endpoint
+      if (url.pathname === '/debug-insertion') {
+        try {
+          const { insertPropsWithDebugging } = await import("./lib/enhancedInsertProps");
+          
+          console.log('🔍 Testing enhanced insertion with comprehensive debugging...');
+          
+          // Create test data that matches the exact schema
+          const timestamp = Date.now();
+          const testProps = [
+            {
+              player_id: `TEST_PLAYER_${timestamp}`,
+              player_name: `Test Player ${timestamp}`,
+              team: "TEST",
+              opponent: "TEST2",
+              prop_type: "Passing Yards",
+              line: 275.5,
+              over_odds: -110,
+              under_odds: -110,
+              sportsbook: "TestBook",
+              league: "nfl",
+              season: 2025,
+              date: "2025-01-08",
+              game_id: `TEST-GAME-${timestamp}`,
+              conflict_key: `TEST_CONFLICT_${timestamp}`
+            }
+          ];
+          
+          console.log("🔍 Test props:", JSON.stringify(testProps, null, 2));
+          
+          const result = await insertPropsWithDebugging(env, testProps);
+          
+          return new Response(JSON.stringify({
+            success: true,
+            message: "Enhanced insertion test completed",
+            result: result,
+            testData: testProps,
+            timestamp: new Date().toISOString()
+          }), {
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          });
+          
+        } catch (error) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined
+          }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          });
+        }
+      }
+
+      // Handle environment variables debug endpoint
+      if (url.pathname === '/debug-env') {
+        try {
+          console.log('🔍 Checking environment variables...');
+          
+          const envCheck = {
+            SUPABASE_URL: env.SUPABASE_URL ? '✅ Set' : '❌ Missing',
+            SUPABASE_SERVICE_KEY: env.SUPABASE_SERVICE_KEY ? '✅ Set' : '❌ Missing',
+            SPORTSGAMEODDS_API_KEY: env.SPORTSGAMEODDS_API_KEY ? '✅ Set' : '❌ Missing',
+            SUPABASE_URL_LENGTH: env.SUPABASE_URL ? env.SUPABASE_URL.length : 0,
+            SUPABASE_SERVICE_KEY_LENGTH: env.SUPABASE_SERVICE_KEY ? env.SUPABASE_SERVICE_KEY.length : 0,
+            SPORTSGAMEODDS_API_KEY_LENGTH: env.SPORTSGAMEODDS_API_KEY ? env.SPORTSGAMEODDS_API_KEY.length : 0,
+            SUPABASE_URL_PREFIX: env.SUPABASE_URL ? env.SUPABASE_URL.substring(0, 20) + '...' : 'N/A',
+            SUPABASE_SERVICE_KEY_PREFIX: env.SUPABASE_SERVICE_KEY ? env.SUPABASE_SERVICE_KEY.substring(0, 20) + '...' : 'N/A',
+            // Check if service key has the right role
+            SERVICE_KEY_ROLE: env.SUPABASE_SERVICE_KEY ? 
+              (env.SUPABASE_SERVICE_KEY.includes('service_role') ? '✅ service_role' : '⚠️ May not be service role') : 
+              '❌ No key'
+          };
+          
+          return new Response(JSON.stringify({
+            success: true,
+            message: "Environment variables check completed",
+            envCheck: envCheck,
+            timestamp: new Date().toISOString()
+          }), {
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          });
+          
+        } catch (error) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          });
+        }
+      }
+
+      // Handle RLS permissions debug endpoint
+      if (url.pathname === '/debug-rls') {
+        try {
+          const { supabaseFetch } = await import("./supabaseFetch");
+          
+          console.log('🔍 Testing RLS permissions...');
+          
+          // Test 1: Try to read from proplines
+          let proplinesReadTest = 'Not tested';
+          try {
+            const proplinesData = await supabaseFetch(env, "proplines?limit=1", {
+              method: "GET",
+            });
+            proplinesReadTest = '✅ Success';
+          } catch (error) {
+            proplinesReadTest = `❌ Failed: ${error instanceof Error ? error.message : String(error)}`;
+          }
+          
+          // Test 2: Try to read from player_game_logs
+          let gameLogsReadTest = 'Not tested';
+          try {
+            const gameLogsData = await supabaseFetch(env, "player_game_logs?limit=1", {
+              method: "GET",
+            });
+            gameLogsReadTest = '✅ Success';
+          } catch (error) {
+            gameLogsReadTest = `❌ Failed: ${error instanceof Error ? error.message : String(error)}`;
+          }
+          
+          // Test 3: Try a small insert test
+          let insertTest = 'Not tested';
+          const timestamp = Date.now();
+          const testProp = {
+            player_id: `RLS_TEST_${timestamp}`,
+            player_name: `RLS Test Player`,
+            team: "TEST",
+            opponent: "TEST2",
+            prop_type: "RLS Test",
+            line: 100.0,
+            over_odds: -110,
+            under_odds: -110,
+            sportsbook: "RLSTest",
+            league: "nfl",
+            season: 2025,
+            date: "2025-01-08",
+            game_id: `RLS-TEST-${timestamp}`,
+            conflict_key: `RLS_TEST_${timestamp}`
+          };
+          
+          try {
+            const insertResult = await supabaseFetch(env, "proplines", {
+              method: "POST",
+              body: [testProp],
+              headers: { Prefer: "resolution=merge-duplicates" },
+            });
+            insertTest = '✅ Success';
+            
+            // Clean up test data
+            try {
+              await supabaseFetch(env, `proplines?player_id=eq.RLS_TEST_${timestamp}`, {
+                method: "DELETE",
+              });
+              console.log('🧹 Cleaned up test data');
+            } catch (cleanupError) {
+              console.log('⚠️ Failed to clean up test data:', cleanupError);
+            }
+          } catch (error) {
+            insertTest = `❌ Failed: ${error instanceof Error ? error.message : String(error)}`;
+          }
+          
+          return new Response(JSON.stringify({
+            success: true,
+            message: "RLS permissions test completed",
+            tests: {
+              proplinesRead: proplinesReadTest,
+              gameLogsRead: gameLogsReadTest,
+              insertTest: insertTest
+            },
+            testData: testProp,
+            timestamp: new Date().toISOString()
+          }), {
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          });
+          
+        } catch (error) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          });
+        }
       }
       
       // Default 404 response

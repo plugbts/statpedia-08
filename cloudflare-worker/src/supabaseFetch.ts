@@ -15,18 +15,28 @@ export async function supabaseFetch(env: any, table: string, { method = "GET", b
 
   if (!res.ok) {
     const text = await res.text();
-    console.error(`❌ Supabase ${method} ${table} failed:`, text);
-    throw new Error(text);
+    console.error(`❌ Supabase ${method} ${table} failed:`, {
+      status: res.status,
+      statusText: res.statusText,
+      url: url,
+      method: method,
+      table: table,
+      responseText: text,
+      headers: Object.fromEntries(res.headers.entries())
+    });
+    throw new Error(`Supabase ${method} ${table} failed: ${res.status} ${res.statusText} - ${text}`);
   }
 
   // Handle empty responses (common for successful inserts)
   const contentLength = res.headers.get('content-length');
   if (contentLength === '0' || contentLength === null) {
+    console.log(`✅ Supabase ${method} ${table} successful (empty response)`);
     return null; // Empty response indicates success
   }
 
   const text = await res.text();
   if (text.trim() === '') {
+    console.log(`✅ Supabase ${method} ${table} successful (empty text response)`);
     return null; // Empty response indicates success
   }
 

@@ -7,7 +7,7 @@ import { supabaseFetch } from "../supabaseFetch";
 import { chunk } from "../helpers";
 import { createPlayerPropsFromOdd } from "../createPlayerPropsFromOdd";
 import { getCachedPlayerIdMap } from "../playersLoader";
-import { insertProps } from "../lib/insertProps";
+import { insertPropsWithDebugging as insertProps } from "../lib/enhancedInsertProps";
 import { mapWithDiagnostics } from "../lib/diagnosticMapper";
 
 export interface BackfillResult {

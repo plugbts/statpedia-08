@@ -9,7 +9,7 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
-// .wrangler/tmp/bundle-5tAbBl/checked-fetch.js
+// .wrangler/tmp/bundle-Q4S6Wx/checked-fetch.js
 function checkURL(request, init) {
   const url = request instanceof URL ? request : new URL(
     (typeof request === "string" ? new Request(request, init) : request).url
@@ -27,7 +27,7 @@ function checkURL(request, init) {
 }
 var urls;
 var init_checked_fetch = __esm({
-  ".wrangler/tmp/bundle-5tAbBl/checked-fetch.js"() {
+  ".wrangler/tmp/bundle-Q4S6Wx/checked-fetch.js"() {
     "use strict";
     urls = /* @__PURE__ */ new Set();
     __name(checkURL, "checkURL");
@@ -41,14 +41,14 @@ var init_checked_fetch = __esm({
   }
 });
 
-// .wrangler/tmp/bundle-5tAbBl/strip-cf-connecting-ip-header.js
+// .wrangler/tmp/bundle-Q4S6Wx/strip-cf-connecting-ip-header.js
 function stripCfConnectingIPHeader(input, init) {
   const request = new Request(input, init);
   request.headers.delete("CF-Connecting-IP");
   return request;
 }
 var init_strip_cf_connecting_ip_header = __esm({
-  ".wrangler/tmp/bundle-5tAbBl/strip-cf-connecting-ip-header.js"() {
+  ".wrangler/tmp/bundle-Q4S6Wx/strip-cf-connecting-ip-header.js"() {
     "use strict";
     __name(stripCfConnectingIPHeader, "stripCfConnectingIPHeader");
     globalThis.fetch = new Proxy(globalThis.fetch, {
@@ -507,15 +507,25 @@ async function supabaseFetch(env, table, { method = "GET", body, query = "", hea
   });
   if (!res.ok) {
     const text2 = await res.text();
-    console.error(`\u274C Supabase ${method} ${table} failed:`, text2);
-    throw new Error(text2);
+    console.error(`\u274C Supabase ${method} ${table} failed:`, {
+      status: res.status,
+      statusText: res.statusText,
+      url,
+      method,
+      table,
+      responseText: text2,
+      headers: Object.fromEntries(res.headers.entries())
+    });
+    throw new Error(`Supabase ${method} ${table} failed: ${res.status} ${res.statusText} - ${text2}`);
   }
   const contentLength = res.headers.get("content-length");
   if (contentLength === "0" || contentLength === null) {
+    console.log(`\u2705 Supabase ${method} ${table} successful (empty response)`);
     return null;
   }
   const text = await res.text();
   if (text.trim() === "") {
+    console.log(`\u2705 Supabase ${method} ${table} successful (empty text response)`);
     return null;
   }
   try {
@@ -689,6 +699,266 @@ var init_playersLoader = __esm({
     __name(getCachedPlayerIdMap, "getCachedPlayerIdMap");
     __name(loadPlayerIdMapByLeague, "loadPlayerIdMapByLeague");
     __name(updateMissingPlayersSuccess, "updateMissingPlayersSuccess");
+  }
+});
+
+// src/helpers.ts
+function chunk(arr, size) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size)
+    out.push(arr.slice(i, i + size));
+  return out;
+}
+var init_helpers = __esm({
+  "src/helpers.ts"() {
+    "use strict";
+    init_checked_fetch();
+    init_strip_cf_connecting_ip_header();
+    init_modules_watch_stub();
+    __name(chunk, "chunk");
+  }
+});
+
+// src/lib/enhancedInsertProps.ts
+var enhancedInsertProps_exports = {};
+__export(enhancedInsertProps_exports, {
+  insertProps: () => insertPropsWithDebugging,
+  insertPropsWithDebugging: () => insertPropsWithDebugging
+});
+async function insertPropsWithDebugging(env, mapped) {
+  if (!mapped.length) {
+    console.log("\u26A0\uFE0F No props to insert");
+    return {
+      success: true,
+      proplinesInserted: 0,
+      gameLogsInserted: 0,
+      errors: 0,
+      errorDetails: []
+    };
+  }
+  console.log(`\u{1F504} Starting enhanced insertion of ${mapped.length} props...`);
+  const result = {
+    success: true,
+    proplinesInserted: 0,
+    gameLogsInserted: 0,
+    errors: 0,
+    errorDetails: []
+  };
+  console.log("\u{1F50D} Validating data structure...");
+  const validationErrors = validatePropData(mapped);
+  if (validationErrors.length > 0) {
+    console.error("\u274C Data validation failed:", validationErrors);
+    result.success = false;
+    result.errors += validationErrors.length;
+    result.errorDetails.push(...validationErrors.map((error) => ({
+      table: "validation",
+      batchIndex: -1,
+      error: error.message,
+      sampleData: error.sampleData
+    })));
+    return result;
+  }
+  console.log("\u{1F504} Inserting proplines...");
+  const proplinesBatches = chunk(mapped, 250);
+  for (let i = 0; i < proplinesBatches.length; i++) {
+    const batch = proplinesBatches[i];
+    try {
+      console.log(`\u{1F504} Inserting proplines batch ${i + 1}/${proplinesBatches.length} (${batch.length} props)...`);
+      if (i === 0 && batch.length > 0) {
+        console.log("\u{1F4CA} Sample proplines data:", {
+          player_id: batch[0].player_id,
+          player_name: batch[0].player_name,
+          prop_type: batch[0].prop_type,
+          date: batch[0].date,
+          league: batch[0].league,
+          conflict_key: batch[0].conflict_key,
+          over_odds: batch[0].over_odds,
+          under_odds: batch[0].under_odds
+        });
+      }
+      const response = await supabaseFetch(env, "proplines", {
+        method: "POST",
+        body: batch,
+        headers: {
+          Prefer: "resolution=merge-duplicates",
+          "Content-Type": "application/json"
+        }
+      });
+      if (response === null || response === void 0) {
+        console.log(`\u2705 Inserted proplines batch ${i + 1} (${batch.length} props) - empty response = success`);
+        result.proplinesInserted += batch.length;
+      } else {
+        console.log(`\u2705 Inserted proplines batch ${i + 1} (${batch.length} props) with response:`, response);
+        result.proplinesInserted += batch.length;
+      }
+    } catch (e) {
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      console.error(`\u274C Proplines batch ${i + 1} insert failed:`, {
+        batchIndex: i,
+        batchSize: batch.length,
+        error: errorMsg,
+        sampleProp: batch[0] ? {
+          player_id: batch[0].player_id,
+          player_name: batch[0].player_name,
+          prop_type: batch[0].prop_type,
+          date: batch[0].date,
+          league: batch[0].league,
+          conflict_key: batch[0].conflict_key,
+          over_odds: batch[0].over_odds,
+          under_odds: batch[0].under_odds
+        } : null,
+        fullError: e
+      });
+      result.success = false;
+      result.errors += batch.length;
+      result.errorDetails.push({
+        table: "proplines",
+        batchIndex: i,
+        error: errorMsg,
+        sampleData: batch[0]
+      });
+    }
+  }
+  console.log("\u{1F504} Inserting player_game_logs...");
+  const gamelogRows = mapped.map((row) => ({
+    player_id: row.player_id,
+    player_name: row.player_name,
+    team: row.team,
+    opponent: row.opponent,
+    season: row.season,
+    date: row.date,
+    prop_type: row.prop_type,
+    value: row.line,
+    // Use line as the value for game logs
+    sport: row.league?.toUpperCase() || "NFL",
+    league: row.league,
+    game_id: row.game_id
+  }));
+  const gameLogBatches = chunk(gamelogRows, 250);
+  for (let i = 0; i < gameLogBatches.length; i++) {
+    const batch = gameLogBatches[i];
+    try {
+      console.log(`\u{1F504} Inserting player_game_logs batch ${i + 1}/${gameLogBatches.length} (${batch.length} rows)...`);
+      if (i === 0 && batch.length > 0) {
+        console.log("\u{1F4CA} Sample game log data:", {
+          player_id: batch[0].player_id,
+          player_name: batch[0].player_name,
+          prop_type: batch[0].prop_type,
+          date: batch[0].date,
+          league: batch[0].league,
+          game_id: batch[0].game_id,
+          value: batch[0].value,
+          sport: batch[0].sport
+        });
+      }
+      const response = await supabaseFetch(env, "player_game_logs", {
+        method: "POST",
+        body: batch,
+        headers: {
+          Prefer: "resolution=merge-duplicates",
+          "Content-Type": "application/json"
+        }
+      });
+      if (response === null || response === void 0) {
+        console.log(`\u2705 Inserted player_game_logs batch ${i + 1} (${batch.length} rows) - empty response = success`);
+        result.gameLogsInserted += batch.length;
+      } else {
+        console.log(`\u2705 Inserted player_game_logs batch ${i + 1} (${batch.length} rows) with response:`, response);
+        result.gameLogsInserted += batch.length;
+      }
+    } catch (e) {
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      console.error(`\u274C Player_game_logs batch ${i + 1} insert failed:`, {
+        batchIndex: i,
+        batchSize: batch.length,
+        error: errorMsg,
+        sampleLog: batch[0] ? {
+          player_id: batch[0].player_id,
+          player_name: batch[0].player_name,
+          prop_type: batch[0].prop_type,
+          date: batch[0].date,
+          league: batch[0].league,
+          game_id: batch[0].game_id,
+          value: batch[0].value,
+          sport: batch[0].sport
+        } : null,
+        fullError: e
+      });
+      result.success = false;
+      result.errors += batch.length;
+      result.errorDetails.push({
+        table: "player_game_logs",
+        batchIndex: i,
+        error: errorMsg,
+        sampleData: batch[0]
+      });
+    }
+  }
+  console.log(`\u2705 Enhanced insertion complete:`, {
+    totalProps: mapped.length,
+    proplinesInserted: result.proplinesInserted,
+    gameLogsInserted: result.gameLogsInserted,
+    errors: result.errors,
+    success: result.success
+  });
+  return result;
+}
+function validatePropData(mapped) {
+  const errors = [];
+  for (let i = 0; i < mapped.length; i++) {
+    const prop = mapped[i];
+    const requiredFields = ["player_id", "player_name", "team", "opponent", "prop_type", "line", "over_odds", "under_odds", "sportsbook", "league", "season", "date", "game_id", "conflict_key"];
+    for (const field of requiredFields) {
+      if (prop[field] === void 0 || prop[field] === null || prop[field] === "") {
+        errors.push({
+          message: `Missing required field '${field}' in prop at index ${i}`,
+          sampleData: prop
+        });
+      }
+    }
+    if (typeof prop.line !== "number") {
+      errors.push({
+        message: `Invalid line type: expected number, got ${typeof prop.line} at index ${i}`,
+        sampleData: prop
+      });
+    }
+    if (typeof prop.over_odds !== "number") {
+      errors.push({
+        message: `Invalid over_odds type: expected number, got ${typeof prop.over_odds} at index ${i}`,
+        sampleData: prop
+      });
+    }
+    if (typeof prop.under_odds !== "number") {
+      errors.push({
+        message: `Invalid under_odds type: expected number, got ${typeof prop.under_odds} at index ${i}`,
+        sampleData: prop
+      });
+    }
+    if (typeof prop.season !== "number") {
+      errors.push({
+        message: `Invalid season type: expected number, got ${typeof prop.season} at index ${i}`,
+        sampleData: prop
+      });
+    }
+    if (prop.conflict_key && typeof prop.conflict_key !== "string") {
+      errors.push({
+        message: `Invalid conflict_key type: expected string, got ${typeof prop.conflict_key} at index ${i}`,
+        sampleData: prop
+      });
+    }
+  }
+  return errors;
+}
+var init_enhancedInsertProps = __esm({
+  "src/lib/enhancedInsertProps.ts"() {
+    "use strict";
+    init_checked_fetch();
+    init_strip_cf_connecting_ip_header();
+    init_modules_watch_stub();
+    init_supabaseFetch();
+    init_helpers();
+    __name(insertPropsWithDebugging, "insertPropsWithDebugging");
+    __name(validatePropData, "validatePropData");
   }
 });
 
@@ -1036,12 +1306,12 @@ var init_createPlayerPropsFromOdd = __esm({
   }
 });
 
-// .wrangler/tmp/bundle-5tAbBl/middleware-loader.entry.ts
+// .wrangler/tmp/bundle-Q4S6Wx/middleware-loader.entry.ts
 init_checked_fetch();
 init_strip_cf_connecting_ip_header();
 init_modules_watch_stub();
 
-// .wrangler/tmp/bundle-5tAbBl/middleware-insertion-facade.js
+// .wrangler/tmp/bundle-Q4S6Wx/middleware-insertion-facade.js
 init_checked_fetch();
 init_strip_cf_connecting_ip_header();
 init_modules_watch_stub();
@@ -1063,75 +1333,7 @@ init_modules_watch_stub();
 init_api();
 init_extract();
 init_playersLoader();
-
-// src/lib/insertProps.ts
-init_checked_fetch();
-init_strip_cf_connecting_ip_header();
-init_modules_watch_stub();
-init_supabaseFetch();
-
-// src/helpers.ts
-init_checked_fetch();
-init_strip_cf_connecting_ip_header();
-init_modules_watch_stub();
-function chunk(arr, size) {
-  const out = [];
-  for (let i = 0; i < arr.length; i += size)
-    out.push(arr.slice(i, i + size));
-  return out;
-}
-__name(chunk, "chunk");
-
-// src/lib/insertProps.ts
-async function insertProps(env, mapped) {
-  if (!mapped.length) {
-    console.log("\u26A0\uFE0F No props to insert");
-    return;
-  }
-  console.log(`\u{1F504} Starting insertion of ${mapped.length} props...`);
-  for (const batch of chunk(mapped, 500)) {
-    try {
-      await supabaseFetch(env, "proplines", {
-        method: "POST",
-        body: batch,
-        // Upsert on conflict key
-        headers: { Prefer: "resolution=merge-duplicates" }
-      });
-      console.log(`\u2705 Inserted proplines batch of ${batch.length}`);
-    } catch (e) {
-      console.error("\u274C Proplines insert failed:", e);
-    }
-  }
-  const gamelogRows = mapped.map((row) => ({
-    player_id: row.player_id,
-    player_name: row.player_name,
-    team: row.team,
-    opponent: row.opponent,
-    season: row.season,
-    date: row.date,
-    prop_type: row.prop_type,
-    value: row.line,
-    // Use line as the value for game logs
-    sport: row.league?.toUpperCase() || "NFL",
-    // Default to NFL if league is missing
-    league: row.league,
-    game_id: row.game_id
-  }));
-  for (const batch of chunk(gamelogRows, 500)) {
-    try {
-      await supabaseFetch(env, "player_game_logs", {
-        method: "POST",
-        body: batch,
-        headers: { Prefer: "resolution=merge-duplicates" }
-      });
-      console.log(`\u2705 Inserted gamelog batch of ${batch.length}`);
-    } catch (e) {
-      console.error("\u274C Gamelogs insert failed:", e);
-    }
-  }
-  console.log(`\u2705 Completed insertion of ${mapped.length} props into both tables`);
-}
-__name(insertProps, "insertProps");
+init_enhancedInsertProps();
 
 // src/lib/diagnosticMapper.ts
 init_checked_fetch();
@@ -1418,7 +1620,7 @@ async function runBackfill(env, leagueID, season, days) {
     if (mappedProps.length > 0) {
       console.log(`\u{1F4CA} ${leagueID} ${season}: Inserting ${mappedProps.length} props using new insertProps function`);
       try {
-        await insertProps(env, mappedProps);
+        await insertPropsWithDebugging(env, mappedProps);
         propsInserted += mappedProps.length;
         console.log(`\u2705 ${leagueID} ${season}: Successfully inserted ${mappedProps.length} props`);
       } catch (error) {
@@ -1693,6 +1895,7 @@ init_strip_cf_connecting_ip_header();
 init_modules_watch_stub();
 init_api();
 init_extract();
+init_enhancedInsertProps();
 async function runIngestion(env) {
   console.log(`\u{1F504} Starting current season ingestion...`);
   const startTime = Date.now();
@@ -1732,7 +1935,7 @@ async function runIngestion(env) {
       let leagueErrors = 0;
       if (mappedProps.length > 0) {
         try {
-          await insertProps(env, mappedProps);
+          await insertPropsWithDebugging(env, mappedProps);
           leagueInserted += mappedProps.length;
           console.log(`\u2705 ${leagueID}: Successfully inserted ${mappedProps.length} props using insertProps function`);
         } catch (error) {
@@ -1811,7 +2014,7 @@ var worker_default = {
             analytics: ["/refresh-analytics", "/incremental-analytics-refresh", "/analytics/streaks", "/analytics/defensive-rankings"],
             verification: ["/verify-backfill", "/verify-analytics"],
             status: ["/status", "/leagues", "/seasons"],
-            debug: ["/debug-api", "/debug-comprehensive", "/debug-json", "/debug-extraction", "/debug-insert", "/debug-schema", "/debug-streaks", "/debug-streak-counts"]
+            debug: ["/debug-api", "/debug-comprehensive", "/debug-json", "/debug-extraction", "/debug-insert", "/debug-schema", "/debug-streaks", "/debug-streak-counts", "/debug-insertion", "/debug-env", "/debug-rls"]
           },
           leagues: getActiveLeagues().map((l) => l.id),
           seasons: getAllSeasons(),
@@ -1993,6 +2196,37 @@ var worker_default = {
           });
         } catch (error) {
           console.error("\u274C Debug streaks error:", error);
+          return new Response(JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          }), {
+            status: 500,
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+          });
+        }
+      }
+      if (url.pathname === "/debug-query") {
+        try {
+          const { supabaseFetch: supabaseFetch2 } = await Promise.resolve().then(() => (init_supabaseFetch(), supabaseFetch_exports));
+          const table = url.searchParams.get("table") || "player_game_logs";
+          const limit = parseInt(url.searchParams.get("limit") || "5");
+          console.log(`\u{1F50D} Direct query to ${table} table...`);
+          const result = await supabaseFetch2(env, `${table}?limit=${limit}`, {
+            method: "GET"
+          });
+          console.log(`\u{1F4CA} Query result:`, JSON.stringify(result, null, 2));
+          return new Response(JSON.stringify({
+            success: true,
+            table,
+            limit,
+            count: result?.length || 0,
+            data: result,
+            timestamp: (/* @__PURE__ */ new Date()).toISOString()
+          }), {
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+          });
+        } catch (error) {
+          console.error("\u274C Direct query error:", error);
           return new Response(JSON.stringify({
             success: false,
             error: error instanceof Error ? error.message : String(error)
@@ -2990,6 +3224,165 @@ var worker_default = {
           }
         });
       }
+      if (url.pathname === "/debug-insertion") {
+        try {
+          const { insertPropsWithDebugging: insertPropsWithDebugging2 } = await Promise.resolve().then(() => (init_enhancedInsertProps(), enhancedInsertProps_exports));
+          console.log("\u{1F50D} Testing enhanced insertion with comprehensive debugging...");
+          const timestamp = Date.now();
+          const testProps = [
+            {
+              player_id: `TEST_PLAYER_${timestamp}`,
+              player_name: `Test Player ${timestamp}`,
+              team: "TEST",
+              opponent: "TEST2",
+              prop_type: "Passing Yards",
+              line: 275.5,
+              over_odds: -110,
+              under_odds: -110,
+              sportsbook: "TestBook",
+              league: "nfl",
+              season: 2025,
+              date: "2025-01-08",
+              game_id: `TEST-GAME-${timestamp}`,
+              conflict_key: `TEST_CONFLICT_${timestamp}`
+            }
+          ];
+          console.log("\u{1F50D} Test props:", JSON.stringify(testProps, null, 2));
+          const result = await insertPropsWithDebugging2(env, testProps);
+          return new Response(JSON.stringify({
+            success: true,
+            message: "Enhanced insertion test completed",
+            result,
+            testData: testProps,
+            timestamp: (/* @__PURE__ */ new Date()).toISOString()
+          }), {
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+          });
+        } catch (error) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : void 0
+          }), {
+            status: 500,
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+          });
+        }
+      }
+      if (url.pathname === "/debug-env") {
+        try {
+          console.log("\u{1F50D} Checking environment variables...");
+          const envCheck = {
+            SUPABASE_URL: env.SUPABASE_URL ? "\u2705 Set" : "\u274C Missing",
+            SUPABASE_SERVICE_KEY: env.SUPABASE_SERVICE_KEY ? "\u2705 Set" : "\u274C Missing",
+            SPORTSGAMEODDS_API_KEY: env.SPORTSGAMEODDS_API_KEY ? "\u2705 Set" : "\u274C Missing",
+            SUPABASE_URL_LENGTH: env.SUPABASE_URL ? env.SUPABASE_URL.length : 0,
+            SUPABASE_SERVICE_KEY_LENGTH: env.SUPABASE_SERVICE_KEY ? env.SUPABASE_SERVICE_KEY.length : 0,
+            SPORTSGAMEODDS_API_KEY_LENGTH: env.SPORTSGAMEODDS_API_KEY ? env.SPORTSGAMEODDS_API_KEY.length : 0,
+            SUPABASE_URL_PREFIX: env.SUPABASE_URL ? env.SUPABASE_URL.substring(0, 20) + "..." : "N/A",
+            SUPABASE_SERVICE_KEY_PREFIX: env.SUPABASE_SERVICE_KEY ? env.SUPABASE_SERVICE_KEY.substring(0, 20) + "..." : "N/A",
+            // Check if service key has the right role
+            SERVICE_KEY_ROLE: env.SUPABASE_SERVICE_KEY ? env.SUPABASE_SERVICE_KEY.includes("service_role") ? "\u2705 service_role" : "\u26A0\uFE0F May not be service role" : "\u274C No key"
+          };
+          return new Response(JSON.stringify({
+            success: true,
+            message: "Environment variables check completed",
+            envCheck,
+            timestamp: (/* @__PURE__ */ new Date()).toISOString()
+          }), {
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+          });
+        } catch (error) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          }), {
+            status: 500,
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+          });
+        }
+      }
+      if (url.pathname === "/debug-rls") {
+        try {
+          const { supabaseFetch: supabaseFetch2 } = await Promise.resolve().then(() => (init_supabaseFetch(), supabaseFetch_exports));
+          console.log("\u{1F50D} Testing RLS permissions...");
+          let proplinesReadTest = "Not tested";
+          try {
+            const proplinesData = await supabaseFetch2(env, "proplines?limit=1", {
+              method: "GET"
+            });
+            proplinesReadTest = "\u2705 Success";
+          } catch (error) {
+            proplinesReadTest = `\u274C Failed: ${error instanceof Error ? error.message : String(error)}`;
+          }
+          let gameLogsReadTest = "Not tested";
+          try {
+            const gameLogsData = await supabaseFetch2(env, "player_game_logs?limit=1", {
+              method: "GET"
+            });
+            gameLogsReadTest = "\u2705 Success";
+          } catch (error) {
+            gameLogsReadTest = `\u274C Failed: ${error instanceof Error ? error.message : String(error)}`;
+          }
+          let insertTest = "Not tested";
+          const timestamp = Date.now();
+          const testProp = {
+            player_id: `RLS_TEST_${timestamp}`,
+            player_name: `RLS Test Player`,
+            team: "TEST",
+            opponent: "TEST2",
+            prop_type: "RLS Test",
+            line: 100,
+            over_odds: -110,
+            under_odds: -110,
+            sportsbook: "RLSTest",
+            league: "nfl",
+            season: 2025,
+            date: "2025-01-08",
+            game_id: `RLS-TEST-${timestamp}`,
+            conflict_key: `RLS_TEST_${timestamp}`
+          };
+          try {
+            const insertResult = await supabaseFetch2(env, "proplines", {
+              method: "POST",
+              body: [testProp],
+              headers: { Prefer: "resolution=merge-duplicates" }
+            });
+            insertTest = "\u2705 Success";
+            try {
+              await supabaseFetch2(env, `proplines?player_id=eq.RLS_TEST_${timestamp}`, {
+                method: "DELETE"
+              });
+              console.log("\u{1F9F9} Cleaned up test data");
+            } catch (cleanupError) {
+              console.log("\u26A0\uFE0F Failed to clean up test data:", cleanupError);
+            }
+          } catch (error) {
+            insertTest = `\u274C Failed: ${error instanceof Error ? error.message : String(error)}`;
+          }
+          return new Response(JSON.stringify({
+            success: true,
+            message: "RLS permissions test completed",
+            tests: {
+              proplinesRead: proplinesReadTest,
+              gameLogsRead: gameLogsReadTest,
+              insertTest
+            },
+            testData: testProp,
+            timestamp: (/* @__PURE__ */ new Date()).toISOString()
+          }), {
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+          });
+        } catch (error) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          }), {
+            status: 500,
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+          });
+        }
+      }
       return new Response(JSON.stringify({
         error: "Endpoint not found",
         availableEndpoints: ["/backfill-all", "/backfill-recent", "/backfill-full", "/backfill-league/{league}", "/backfill-season/{season}", "/backfill-progressive", "/ingest", "/ingest/{league}", "/refresh-analytics", "/incremental-analytics-refresh", "/analytics/streaks", "/analytics/defensive-rankings", "/debug-streaks", "/debug-streak-counts", "/status", "/leagues", "/seasons"]
@@ -3067,7 +3460,7 @@ var jsonError = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx)
 }, "jsonError");
 var middleware_miniflare3_json_error_default = jsonError;
 
-// .wrangler/tmp/bundle-5tAbBl/middleware-insertion-facade.js
+// .wrangler/tmp/bundle-Q4S6Wx/middleware-insertion-facade.js
 var __INTERNAL_WRANGLER_MIDDLEWARE__ = [
   middleware_ensure_req_body_drained_default,
   middleware_miniflare3_json_error_default
@@ -3102,7 +3495,7 @@ function __facade_invoke__(request, env, ctx, dispatch, finalMiddleware) {
 }
 __name(__facade_invoke__, "__facade_invoke__");
 
-// .wrangler/tmp/bundle-5tAbBl/middleware-loader.entry.ts
+// .wrangler/tmp/bundle-Q4S6Wx/middleware-loader.entry.ts
 var __Facade_ScheduledController__ = class {
   constructor(scheduledTime, cron, noRetry) {
     this.scheduledTime = scheduledTime;
