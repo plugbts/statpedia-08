@@ -29,7 +29,7 @@ export default {
           endpoints: {
             ingestion: ['/ingest', '/ingest/{league}'],
             backfill: ['/backfill-all', '/backfill-recent', '/backfill-full', '/backfill-league/{league}', '/backfill-season/{season}'],
-            analytics: ['/refresh-analytics', '/incremental-analytics-refresh', '/analytics/streaks', '/analytics/defensive-rankings'],
+            analytics: ['/refresh-analytics', '/incremental-analytics-refresh', '/analytics/performance', '/analytics/defensive-rankings'],
             verification: ['/verify-backfill', '/verify-analytics'],
             status: ['/status', '/leagues', '/seasons'],
             debug: ['/debug-api', '/debug-comprehensive', '/debug-json', '/debug-extraction', '/debug-insert', '/debug-schema']
@@ -109,20 +109,20 @@ export default {
         }
       }
 
-      // Handle streak analysis query
-      if (url.pathname === "/analytics/streaks") {
+      // Handle performance analysis query (replaces streak analysis)
+      if (url.pathname === "/analytics/performance") {
         try {
           const { supabaseFetch } = await import("./supabaseFetch");
           const league = url.searchParams.get("league") || "all";
           const limit = parseInt(url.searchParams.get("limit") || "50");
           
-          console.log(`📊 Fetching streak analysis for ${league}...`);
+          console.log(`📊 Fetching performance analysis for ${league}...`);
           
-          let query = "streak_analysis";
+          let query = "performance_analysis";
           if (league !== "all") {
             query += `?league=eq.${league}`;
           }
-          query += `&order=current_streak.desc&limit=${limit}`;
+          query += `&order=hit_rate.desc&limit=${limit}`;
           
           const result = await supabaseFetch(env, query, {
             method: "GET",
@@ -1287,7 +1287,7 @@ export default {
       // Default 404 response
       return new Response(JSON.stringify({
         error: 'Endpoint not found',
-        availableEndpoints: ['/backfill-all', '/backfill-recent', '/backfill-full', '/backfill-league/{league}', '/backfill-season/{season}', '/backfill-progressive', '/ingest', '/ingest/{league}', '/refresh-analytics', '/incremental-analytics-refresh', '/analytics/streaks', '/analytics/defensive-rankings', '/status', '/leagues', '/seasons']
+        availableEndpoints: ['/backfill-all', '/backfill-recent', '/backfill-full', '/backfill-league/{league}', '/backfill-season/{season}', '/backfill-progressive', '/ingest', '/ingest/{league}', '/refresh-analytics', '/incremental-analytics-refresh', '/analytics/performance', '/analytics/defensive-rankings', '/status', '/leagues', '/seasons']
       }), {
         status: 404,
         headers: {
