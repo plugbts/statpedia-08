@@ -108,9 +108,11 @@ async function fetchEventsWithProps(env, leagueID, opts) {
       const errorText = await res.text();
       throw new Error(`Events fetch failed (${res.status}): ${errorText}`);
     }
-    const data = await res.json();
-    console.log(`\u2705 Fetched ${data?.length || 0} events for ${leagueID}`);
-    return data || [];
+    const response = await res.json();
+    const events = response.data || response;
+    const eventsArray = Array.isArray(events) ? events : [];
+    console.log(`\u2705 Fetched ${eventsArray.length} events for ${leagueID}`);
+    return eventsArray;
   } catch (error) {
     console.error(`\u274C API fetch error for ${leagueID}:`, error);
     throw error;
@@ -306,36 +308,15 @@ var init_api = __esm({
   }
 });
 
-// .wrangler/tmp/bundle-5tAbBl/middleware-loader.entry.ts
-init_checked_fetch();
-init_strip_cf_connecting_ip_header();
-init_modules_watch_stub();
-
-// .wrangler/tmp/bundle-5tAbBl/middleware-insertion-facade.js
-init_checked_fetch();
-init_strip_cf_connecting_ip_header();
-init_modules_watch_stub();
-
-// src/worker.ts
-init_checked_fetch();
-init_strip_cf_connecting_ip_header();
-init_modules_watch_stub();
-
-// src/jobs/multiBackfill.ts
-init_checked_fetch();
-init_strip_cf_connecting_ip_header();
-init_modules_watch_stub();
-
-// src/jobs/backfill.ts
-init_checked_fetch();
-init_strip_cf_connecting_ip_header();
-init_modules_watch_stub();
-init_api();
-
 // src/lib/extract.ts
-init_checked_fetch();
-init_strip_cf_connecting_ip_header();
-init_modules_watch_stub();
+var extract_exports = {};
+__export(extract_exports, {
+  extractPlayerProps: () => extractPlayerProps,
+  extractPlayerPropsWithLogging: () => extractPlayerPropsWithLogging,
+  filterProps: () => filterProps,
+  getUniqueValues: () => getUniqueValues,
+  groupPropsByPlayer: () => groupPropsByPlayer
+});
 function extractPlayerProps(events) {
   const out = [];
   console.log(`\u{1F50D} Extracting player props from ${events?.length || 0} events`);
@@ -409,7 +390,6 @@ function extractPlayerProps(events) {
   console.log(`\u2705 Extracted ${out.length} player props`);
   return out;
 }
-__name(extractPlayerProps, "extractPlayerProps");
 function extractPlayerPropsWithLogging(events) {
   const stats = {
     totalEvents: events?.length || 0,
@@ -442,7 +422,96 @@ function extractPlayerPropsWithLogging(events) {
   console.log(`\u{1F4CA} Extraction stats:`, stats);
   return { props, stats };
 }
-__name(extractPlayerPropsWithLogging, "extractPlayerPropsWithLogging");
+function filterProps(props, filters) {
+  return props.filter((prop) => {
+    if (filters.league && prop.league !== filters.league)
+      return false;
+    if (filters.playerName && !prop.playerName.toLowerCase().includes(filters.playerName.toLowerCase()))
+      return false;
+    if (filters.marketName && !prop.marketName.toLowerCase().includes(filters.marketName.toLowerCase()))
+      return false;
+    if (filters.sportsbook && prop.sportsbook !== filters.sportsbook)
+      return false;
+    if (filters.minLine !== void 0 && (prop.line === null || prop.line < filters.minLine))
+      return false;
+    if (filters.maxLine !== void 0 && (prop.line === null || prop.line > filters.maxLine))
+      return false;
+    if (filters.minOdds !== void 0 && (prop.odds === null || prop.odds < filters.minOdds))
+      return false;
+    if (filters.maxOdds !== void 0 && (prop.odds === null || prop.odds > filters.maxOdds))
+      return false;
+    return true;
+  });
+}
+function groupPropsByPlayer(props) {
+  const grouped = {};
+  for (const prop of props) {
+    const key = prop.playerName.toLowerCase().trim();
+    if (!grouped[key]) {
+      grouped[key] = [];
+    }
+    grouped[key].push(prop);
+  }
+  return grouped;
+}
+function getUniqueValues(props) {
+  const leagues = /* @__PURE__ */ new Set();
+  const players = /* @__PURE__ */ new Set();
+  const markets = /* @__PURE__ */ new Set();
+  const sportsbooks = /* @__PURE__ */ new Set();
+  for (const prop of props) {
+    leagues.add(prop.league);
+    players.add(prop.playerName);
+    markets.add(prop.marketName);
+    sportsbooks.add(prop.sportsbook);
+  }
+  return {
+    leagues: Array.from(leagues).sort(),
+    players: Array.from(players).sort(),
+    markets: Array.from(markets).sort(),
+    sportsbooks: Array.from(sportsbooks).sort()
+  };
+}
+var init_extract = __esm({
+  "src/lib/extract.ts"() {
+    "use strict";
+    init_checked_fetch();
+    init_strip_cf_connecting_ip_header();
+    init_modules_watch_stub();
+    __name(extractPlayerProps, "extractPlayerProps");
+    __name(extractPlayerPropsWithLogging, "extractPlayerPropsWithLogging");
+    __name(filterProps, "filterProps");
+    __name(groupPropsByPlayer, "groupPropsByPlayer");
+    __name(getUniqueValues, "getUniqueValues");
+  }
+});
+
+// .wrangler/tmp/bundle-5tAbBl/middleware-loader.entry.ts
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
+
+// .wrangler/tmp/bundle-5tAbBl/middleware-insertion-facade.js
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
+
+// src/worker.ts
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
+
+// src/jobs/multiBackfill.ts
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
+
+// src/jobs/backfill.ts
+init_checked_fetch();
+init_strip_cf_connecting_ip_header();
+init_modules_watch_stub();
+init_api();
+init_extract();
 
 // src/supabaseFetch.ts
 init_checked_fetch();
@@ -1242,6 +1311,7 @@ init_checked_fetch();
 init_strip_cf_connecting_ip_header();
 init_modules_watch_stub();
 init_api();
+init_extract();
 async function runIngestion(env) {
   console.log(`\u{1F504} Starting current season ingestion...`);
   const startTime = Date.now();
@@ -1401,7 +1471,8 @@ var worker_default = {
             ingestion: ["/ingest", "/ingest/{league}"],
             backfill: ["/backfill-all", "/backfill-recent", "/backfill-full", "/backfill-league/{league}", "/backfill-season/{season}"],
             verification: ["/verify-backfill", "/verify-analytics"],
-            status: ["/status", "/leagues", "/seasons"]
+            status: ["/status", "/leagues", "/seasons"],
+            debug: ["/debug-api", "/debug-comprehensive", "/debug-json", "/debug-extraction"]
           },
           leagues: getActiveLeagues().map((l) => l.id),
           seasons: getAllSeasons(),
@@ -1695,16 +1766,239 @@ var worker_default = {
           });
         }
       }
+      if (url.pathname === "/debug-extraction") {
+        try {
+          const { fetchEventsWithProps: fetchEventsWithProps2 } = await Promise.resolve().then(() => (init_api(), api_exports));
+          const { extractPlayerProps: extractPlayerProps2 } = await Promise.resolve().then(() => (init_extract(), extract_exports));
+          console.log("\u{1F50D} Testing extraction...");
+          const events = await fetchEventsWithProps2(env, "NFL", { limit: 1 });
+          console.log(`\u{1F4CA} Fetched ${events.length} events`);
+          if (events.length > 0) {
+            const extracted = extractPlayerProps2(events);
+            console.log(`\u{1F4CA} Extracted ${extracted.length} props`);
+            return new Response(JSON.stringify({
+              success: true,
+              eventsCount: events.length,
+              extractedPropsCount: extracted.length,
+              firstEvent: events[0] ? {
+                eventID: events[0].eventID,
+                leagueID: events[0].leagueID,
+                oddsKeys: Object.keys(events[0].odds || {}).length,
+                playersKeys: Object.keys(events[0].players || {}).length
+              } : null,
+              firstExtractedProp: extracted.length > 0 ? {
+                playerName: extracted[0].playerName,
+                marketName: extracted[0].marketName,
+                line: extracted[0].line,
+                odds: extracted[0].odds,
+                sportsbook: extracted[0].sportsbook
+              } : null
+            }), {
+              headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+            });
+          } else {
+            return new Response(JSON.stringify({
+              success: false,
+              error: "No events found"
+            }), {
+              status: 500,
+              headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+            });
+          }
+        } catch (error) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: error.message
+          }), {
+            status: 500,
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+          });
+        }
+      }
+      if (url.pathname === "/debug-json") {
+        try {
+          const testUrl = `https://api.sportsgameodds.com/v2/events?apiKey=${env.SPORTSGAMEODDS_API_KEY}&leagueID=NFL`;
+          console.log(`\u{1F50D} Testing JSON parsing: ${testUrl}`);
+          const fetchResponse = await fetch(testUrl);
+          const responseText = await fetchResponse.text();
+          console.log(`\u{1F4CA} Raw response length: ${responseText.length}`);
+          console.log(`\u{1F4CA} Raw response first 100 chars: ${responseText.substring(0, 100)}`);
+          const response = JSON.parse(responseText);
+          const events = response.data || response;
+          const eventsArray = Array.isArray(events) ? events : [];
+          console.log(`\u{1F4CA} Response type: ${typeof response}`);
+          console.log(`\u{1F4CA} Has data field: ${!!response.data}`);
+          console.log(`\u{1F4CA} Events array length: ${eventsArray.length}`);
+          return new Response(JSON.stringify({
+            success: true,
+            responseLength: responseText.length,
+            responseStart: responseText.substring(0, 100),
+            responseType: typeof response,
+            hasDataField: !!response.data,
+            eventsArrayLength: eventsArray.length,
+            firstEvent: eventsArray.length > 0 ? typeof eventsArray[0] : null
+          }), {
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+          });
+        } catch (error) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: error.message
+          }), {
+            status: 500,
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+          });
+        }
+      }
+      if (url.pathname === "/debug-comprehensive") {
+        try {
+          console.log("\u{1F50D} Running comprehensive API debug...");
+          const testResults = [];
+          const leagues = ["NFL", "NBA", "MLB", "NHL"];
+          for (const league of leagues) {
+            const url2 = `https://api.sportsgameodds.com/v2/events?apiKey=${env.SPORTSGAMEODDS_API_KEY}&leagueID=${league}`;
+            console.log(`\u{1F50D} Testing ${league}: ${url2}`);
+            try {
+              const response = await fetch(url2);
+              const data = await response.json();
+              testResults.push({
+                league,
+                status: response.status,
+                eventsCount: Array.isArray(data) ? data.length : "not array",
+                dataType: typeof data,
+                isArray: Array.isArray(data),
+                firstItem: Array.isArray(data) && data.length > 0 ? typeof data[0] : null,
+                responseHeaders: Object.fromEntries(response.headers.entries()),
+                rawResponse: data
+                // Show the actual response
+              });
+            } catch (error) {
+              testResults.push({
+                league,
+                error: error.message
+              });
+            }
+          }
+          const testUrls = [
+            { name: "NFL without oddsAvailable", url: `https://api.sportsgameodds.com/v2/events?apiKey=${env.SPORTSGAMEODDS_API_KEY}&leagueID=NFL` },
+            { name: "NFL with oddsAvailable=true", url: `https://api.sportsgameodds.com/v2/events?apiKey=${env.SPORTSGAMEODDS_API_KEY}&leagueID=NFL&oddsAvailable=true` },
+            { name: "NFL with oddsAvailable=false", url: `https://api.sportsgameodds.com/v2/events?apiKey=${env.SPORTSGAMEODDS_API_KEY}&leagueID=NFL&oddsAvailable=false` }
+          ];
+          for (const test of testUrls) {
+            console.log(`\u{1F50D} Testing ${test.name}: ${test.url}`);
+            try {
+              const response = await fetch(test.url);
+              const data = await response.json();
+              testResults.push({
+                test: test.name,
+                status: response.status,
+                eventsCount: Array.isArray(data) ? data.length : "not array",
+                dataType: typeof data,
+                isArray: Array.isArray(data),
+                firstItem: Array.isArray(data) && data.length > 0 ? typeof data[0] : null
+              });
+            } catch (error) {
+              testResults.push({
+                test: test.name,
+                error: error.message
+              });
+            }
+          }
+          const endpoints = [
+            "/v2/events",
+            "/v2/odds",
+            "/v2/playerprops"
+          ];
+          for (const endpoint of endpoints) {
+            const url2 = `https://api.sportsgameodds.com${endpoint}?apiKey=${env.SPORTSGAMEODDS_API_KEY}&leagueID=NFL`;
+            console.log(`\u{1F50D} Testing ${endpoint}: ${url2}`);
+            try {
+              const response = await fetch(url2);
+              const data = await response.json();
+              testResults.push({
+                endpoint,
+                status: response.status,
+                eventsCount: Array.isArray(data) ? data.length : "not array",
+                dataType: typeof data
+              });
+            } catch (error) {
+              testResults.push({
+                endpoint,
+                error: error.message
+              });
+            }
+          }
+          return new Response(JSON.stringify({
+            success: true,
+            apiKeyLength: env.SPORTSGAMEODDS_API_KEY ? env.SPORTSGAMEODDS_API_KEY.length : 0,
+            testResults
+          }), {
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+          });
+        } catch (error) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: error.message
+          }), {
+            status: 500,
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+          });
+        }
+      }
       if (url.pathname === "/debug-api") {
         try {
           const { fetchEventsWithProps: fetchEventsWithProps2 } = await Promise.resolve().then(() => (init_api(), api_exports));
           console.log("\u{1F50D} Testing API directly...");
           console.log("\u{1F50D} API Key available:", !!env.SPORTSGAMEODDS_API_KEY);
           console.log("\u{1F50D} API Key length:", env.SPORTSGAMEODDS_API_KEY ? env.SPORTSGAMEODDS_API_KEY.length : 0);
+          console.log("\u{1F50D} Test 1: Basic API call without filters");
+          const basicUrl = `https://api.sportsgameodds.com/v2/events?apiKey=${env.SPORTSGAMEODDS_API_KEY}&leagueID=NFL&oddsAvailable=true`;
+          console.log("\u{1F50D} Basic URL:", basicUrl);
+          try {
+            const basicResponse = await fetch(basicUrl);
+            const basicData = await basicResponse.json();
+            console.log("\u{1F4CA} Basic API Response:", {
+              status: basicResponse.status,
+              eventsCount: Array.isArray(basicData) ? basicData.length : "not array",
+              dataType: typeof basicData,
+              firstEvent: Array.isArray(basicData) && basicData.length > 0 ? basicData[0] : null
+            });
+          } catch (error) {
+            console.error("\u274C Basic API call failed:", error);
+          }
+          console.log("\u{1F50D} Test 2: With season filter");
+          const seasonUrl = `https://api.sportsgameodds.com/v2/events?apiKey=${env.SPORTSGAMEODDS_API_KEY}&leagueID=NFL&oddsAvailable=true&season=2024`;
+          console.log("\u{1F50D} Season URL:", seasonUrl);
+          try {
+            const seasonResponse = await fetch(seasonUrl);
+            const seasonData = await seasonResponse.json();
+            console.log("\u{1F4CA} Season API Response:", {
+              status: seasonResponse.status,
+              eventsCount: Array.isArray(seasonData) ? seasonData.length : "not array"
+            });
+          } catch (error) {
+            console.error("\u274C Season API call failed:", error);
+          }
+          console.log("\u{1F50D} Test 3: With date filter");
+          const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+          const dateUrl = `https://api.sportsgameodds.com/v2/events?apiKey=${env.SPORTSGAMEODDS_API_KEY}&leagueID=NFL&oddsAvailable=true&dateFrom=${today}&dateTo=${today}`;
+          console.log("\u{1F50D} Date URL:", dateUrl);
+          try {
+            const dateResponse = await fetch(dateUrl);
+            const dateData = await dateResponse.json();
+            console.log("\u{1F4CA} Date API Response:", {
+              status: dateResponse.status,
+              eventsCount: Array.isArray(dateData) ? dateData.length : "not array",
+              dateUsed: today
+            });
+          } catch (error) {
+            console.error("\u274C Date API call failed:", error);
+          }
+          console.log("\u{1F50D} Test 4: Using fetchEventsWithProps");
           const events = await fetchEventsWithProps2(env, "NFL", {
             limit: 5
           });
-          console.log(`\u{1F4CA} Fetched ${events.length} events`);
+          console.log(`\u{1F4CA} fetchEventsWithProps result: ${events.length} events`);
           if (events.length > 0) {
             const firstEvent = events[0];
             console.log("\u{1F4CA} First event structure:", {

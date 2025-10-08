@@ -37,9 +37,14 @@ export async function fetchEventsWithProps(env: any, leagueID: string, opts?: {
       throw new Error(`Events fetch failed (${res.status}): ${errorText}`);
     }
     
-    const data = await res.json();
-    console.log(`✅ Fetched ${data?.length || 0} events for ${leagueID}`);
-    return data || [];
+    const response = await res.json();
+    
+    // Handle the wrapper structure: { success: true, data: [...events] }
+    const events = response.data || response;
+    const eventsArray = Array.isArray(events) ? events : [];
+    
+    console.log(`✅ Fetched ${eventsArray.length} events for ${leagueID}`);
+    return eventsArray;
     
   } catch (error) {
     console.error(`❌ API fetch error for ${leagueID}:`, error);
