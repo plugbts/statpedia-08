@@ -262,7 +262,7 @@ async function insertPerformanceDataDirectly(env: any, performanceData: Performa
     // Also insert into proplines table
     const { data: proplinesData, error: proplinesError } = await supabase
       .from("proplines")
-      .upsert(propLinesRows);
+      .upsert(propLinesRows, { onConflict: "conflict_key" });
 
     if (proplinesError) {
       console.error(`❌ Proplines upsert failed:`, proplinesError);
