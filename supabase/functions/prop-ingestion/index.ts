@@ -15,7 +15,7 @@ const LEAGUE_CONFIG = {
   FOOTBALL: {
     sportID: 'FOOTBALL',
     leagues: ['NFL', 'NCAAF'],
-    maxEventsPerRequest: 50,
+    maxEventsPerRequest: 10, // Reduced for Edge Function limits
     cacheDuration: 4 * 60 * 60 * 1000 // 4 hours
   },
   BASKETBALL: {
@@ -157,43 +157,42 @@ async function runIngestion(supabaseClient: any, league?: string, season: string
     let totalUpdated = 0
     let totalErrors = 0
 
-    // Process leagues
-    const leaguesToProcess = league ? [league] : Object.keys(LEAGUE_CONFIG)
+    // Process leagues - simplified for debugging
+    const sportID = league === 'NFL' || league === 'NCAAF' ? 'FOOTBALL' : 
+                   league === 'NBA' || league === 'NCAAB' ? 'BASKETBALL' :
+                   league === 'MLB' ? 'BASEBALL' :
+                   league === 'NHL' ? 'HOCKEY' : 'FOOTBALL'
     
-    for (const leagueName of leaguesToProcess) {
-      const config = Object.values(LEAGUE_CONFIG).find(c => c.leagues.includes(leagueName))
-      if (!config) continue
+    console.log(`Processing ${league || 'all leagues'} (${sportID})`)
+    
+    try {
+      // Fetch events from SportsGameOdds API
+      const events = await fetchEvents(sportID, season, week)
+      console.log(`Fetched ${events.length} events for ${league || 'all leagues'}`)
 
-      try {
-        console.log(`Processing ${leagueName} (${config.sportID})`)
-        
-        // Fetch events from SportsGameOdds API
-        const events = await fetchEvents(config.sportID, season, week)
-        console.log(`Fetched ${events.length} events for ${leagueName}`)
-
-        // Extract and process player props
-        for (const event of events) {
-          try {
-            const props = await extractPlayerPropsFromEvent(event, leagueName, season, week)
-            
-            if (props.length > 0) {
-              // Upsert props to database
-              const upsertResult = await upsertProps(supabaseClient, props)
-              totalInserted += upsertResult.inserted
-              totalUpdated += upsertResult.updated
-              totalErrors += upsertResult.errors
-              totalProps += props.length
-            }
-          } catch (error) {
-            console.error(`Error processing event ${event.eventID}:`, error)
-            totalErrors++
+      // Extract and process player props
+      for (const event of events) {
+        try {
+          const props = await extractPlayerPropsFromEvent(event, league || 'NFL', season, week)
+          
+          if (props.length > 0) {
+            console.log(`Found ${props.length} props in event ${event.eventID}`)
+            // Upsert props to database
+            const upsertResult = await upsertProps(supabaseClient, props)
+            totalInserted += upsertResult.inserted
+            totalUpdated += upsertResult.updated
+            totalErrors += upsertResult.errors
+            totalProps += props.length
           }
+        } catch (error) {
+          console.error(`Error processing event ${event.eventID}:`, error)
+          totalErrors++
         }
-        
-      } catch (error) {
-        console.error(`Error processing league ${leagueName}:`, error)
-        totalErrors++
       }
+      
+    } catch (error) {
+      console.error(`Error processing league ${league || 'all leagues'}:`, error)
+      totalErrors++
     }
 
     const duration = Date.now() - startTime
@@ -218,7 +217,7 @@ async function runIngestion(supabaseClient: any, league?: string, season: string
         updated: totalUpdated,
         errors: totalErrors,
         duration: `${duration}ms`,
-        leagues: leaguesToProcess
+        leagues: [league || 'all']
       }
     }
 
@@ -236,11 +235,11 @@ async function fetchEvents(sportID: string, season: string, week?: string): Prom
   let allEvents: any[] = []
   let nextCursor: string | null = null
   let pageCount = 0
-  const maxPages = 5 // Limit pages for edge function
+  const maxPages = 2 // Limit pages for edge function
 
   do {
     try {
-      const endpoint = `/v2/events?sportID=${sportID}&season=${season}&oddsAvailable=true&markets=playerProps&limit=50${nextCursor ? `&cursor=${nextCursor}` : ''}`
+      const endpoint = `/v2/events?sportID=${sportID}&season=${season}&oddsAvailable=true&markets=playerProps&limit=10${nextCursor ? `&cursor=${nextCursor}` : ''}`
       if (week) endpoint += `&week=${week}`
 
       const response = await fetch(`${SPORTSGAMEODDS_BASE_URL}${endpoint}`, {
