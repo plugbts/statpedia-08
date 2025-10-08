@@ -5,6 +5,7 @@ import { runMultiSeasonBackfill, runRecentSeasonsBackfill, runFullHistoricalBack
 import { runIngestion, runSingleLeagueIngestion } from "./jobs/ingest";
 import { runPerformanceIngestion, runSingleLeaguePerformanceIngestion, runHistoricalPerformanceIngestion } from "./jobs/performanceIngestion";
 import { fetchAllLeaguesEvents } from "./lib/sportsGameOddsPerformanceFetcher";
+import { supabaseFetch } from "./supabaseFetch";
 import { LEAGUES, getActiveLeagues, getAllSeasons, getActiveLeagueSeasonPairs } from "./config/leagues";
 
 export default {
@@ -35,7 +36,7 @@ export default {
             analytics: ['/refresh-analytics', '/incremental-analytics-refresh', '/analytics/streaks', '/analytics/defensive-rankings'],
             verification: ['/verify-backfill', '/verify-analytics'],
             status: ['/status', '/leagues', '/seasons'],
-            debug: ['/debug-api', '/debug-comprehensive', '/debug-json', '/debug-extraction', '/debug-insert', '/debug-schema', '/debug-streaks', '/debug-streak-counts', '/debug-insertion', '/debug-env', '/debug-rls', '/debug-events']
+            debug: ['/debug-api', '/debug-comprehensive', '/debug-json', '/debug-extraction', '/debug-insert', '/debug-schema', '/debug-streaks', '/debug-streak-counts', '/debug-insertion', '/debug-env', '/debug-rls', '/debug-events', '/debug-data-check']
           },
           leagues: getActiveLeagues().map(l => l.id),
           seasons: getAllSeasons(),
@@ -1840,8 +1841,55 @@ export default {
         }
       }
 
-      // Handle debug events endpoint
-      if (url.pathname === '/debug-events') {
+    // Handle debug data check endpoint
+    if (url.pathname === '/debug-data-check') {
+      console.log(`🔍 Debug data check...`);
+      
+      try {
+        // Check proplines
+        const proplinesResponse = await supabaseFetch(env, 'proplines?limit=5', {
+          method: 'GET'
+        });
+        
+        // Check player_game_logs
+        const gameLogsResponse = await supabaseFetch(env, 'player_game_logs?limit=5', {
+          method: 'GET'
+        });
+        
+        return new Response(JSON.stringify({
+          success: true,
+          message: 'Data check completed',
+          proplines: {
+            count: proplinesResponse ? proplinesResponse.length : 0,
+            sample: proplinesResponse && proplinesResponse.length > 0 ? proplinesResponse[0] : null
+          },
+          gameLogs: {
+            count: gameLogsResponse ? gameLogsResponse.length : 0,
+            sample: gameLogsResponse && gameLogsResponse.length > 0 ? gameLogsResponse[0] : null
+          }
+        }), {
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+        });
+        
+      } catch (error) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: error instanceof Error ? error.message : String(error)
+        }), {
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+        });
+      }
+    }
+
+    // Handle debug events endpoint
+    if (url.pathname === '/debug-events') {
         const date = url.searchParams.get('date') || new Date().toISOString().split('T')[0];
         
         console.log(`🔍 Debug events for date: ${date}`);
