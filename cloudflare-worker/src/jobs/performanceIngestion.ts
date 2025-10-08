@@ -207,12 +207,20 @@ async function insertPerformanceDataDirectly(env: any, performanceData: Performa
     team: perf.team,
     opponent: perf.opponent,
     season: perf.season,
-    date: perf.date,
+    date: perf.date.slice(0, 10), // Ensure date is properly formatted
     prop_type: perf.prop_type,
     value: perf.value,
     sport: perf.league.toUpperCase(),
     league: perf.league,
-    game_id: perf.game_id
+    game_id: perf.game_id,
+    conflict_key: perf.conflict_key || buildConflictKey({
+      playerId: perf.player_id,
+      gameId: perf.game_id,
+      propType: perf.prop_type,
+      sportsbook: "SportsGameOdds",
+      league: perf.league,
+      season: perf.season
+    })
   }));
 
   // Convert performance data to proplines format
@@ -220,7 +228,7 @@ async function insertPerformanceDataDirectly(env: any, performanceData: Performa
     player_id: perf.player_id,
     player_name: perf.player_name,
     season: perf.season,
-    date: perf.date,
+    date: perf.date.slice(0, 10), // Ensure date is properly formatted
     prop_type: perf.prop_type,
     line: perf.value, // Use the actual performance value as the line
     sportsbook: "SportsGameOdds",
@@ -242,7 +250,7 @@ async function insertPerformanceDataDirectly(env: any, performanceData: Performa
     // Use upsert to handle unique constraints gracefully
     const { data, error } = await supabase
       .from("player_game_logs")
-      .upsert(gameLogRows);
+      .upsert(gameLogRows, { onConflict: "conflict_key" });
 
     if (error) {
       console.error(`❌ Upsert failed:`, error);
@@ -254,7 +262,7 @@ async function insertPerformanceDataDirectly(env: any, performanceData: Performa
     // Also insert into proplines table
     const { data: proplinesData, error: proplinesError } = await supabase
       .from("proplines")
-      .upsert(propLinesRows, { onConflict: "conflict_key" });
+      .upsert(propLinesRows);
 
     if (proplinesError) {
       console.error(`❌ Proplines upsert failed:`, proplinesError);
