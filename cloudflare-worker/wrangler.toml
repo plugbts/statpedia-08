@@ -6,9 +6,9 @@ compatibility_flags = ["nodejs_compat"]
 # Enable workers.dev for subdomain registration
 workers_dev = true
 
-# Cron triggers for automatic ingestion
+# Cron triggers for automatic multi-league ingestion
 [triggers]
-crons = ["*/5 * * * *"]  # Every 5 minutes
+crons = ["*/10 * * * *"]  # Every 10 minutes for all leagues
 
 # Global configuration (will be inherited by all environments)
 [vars]
