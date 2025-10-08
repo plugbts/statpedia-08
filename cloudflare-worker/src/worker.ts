@@ -2027,7 +2027,8 @@ async function runPerformanceDiagnostic(env: any): Promise<any> {
     line: 1.5,
     sportsbook: "SportsGameOdds",
     over_odds: -110,
-    under_odds: 100
+    under_odds: 100,
+    conflict_key: `TEST_PLAYER|TEST_GAME|Test Prop|SportsGameOdds|NFL`
   };
 
   const result: any = {
@@ -2096,7 +2097,7 @@ async function runPerformanceDiagnostic(env: any): Promise<any> {
 
     const { error: gameLogInsertError } = await supabase
       .from("player_game_logs")
-      .insert([gameLogTestRow]);
+      .upsert([gameLogTestRow]);
 
     if (gameLogInsertError) {
       result.gameLogInsertError = gameLogInsertError.message;

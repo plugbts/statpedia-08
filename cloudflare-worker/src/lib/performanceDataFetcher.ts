@@ -15,6 +15,7 @@ export interface PerformanceData {
   league: string;
   season: number;
   game_id: string;
+  conflict_key?: string;
 }
 
 export interface PerformanceDataFetcher {

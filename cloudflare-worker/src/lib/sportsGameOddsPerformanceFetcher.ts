@@ -146,6 +146,9 @@ export class SportsGameOddsPerformanceFetcher implements PerformanceDataFetcher 
       const playerTeam = this.determinePlayerTeam(propData.playerName, homeTeam, awayTeam);
       const opponent = playerTeam === homeTeam ? awayTeam : homeTeam;
       
+      const gameId = event.eventID || `GAME_${date}_${homeTeam}_${awayTeam}`;
+      const sportsbook = "SportsGameOdds";
+      
       const performanceRecord: PerformanceData = {
         player_id: playerId,
         player_name: propData.playerName,
@@ -156,7 +159,8 @@ export class SportsGameOddsPerformanceFetcher implements PerformanceDataFetcher 
         value: actualPerformance,
         league: league.toLowerCase(),
         season: new Date(date).getFullYear(),
-        game_id: event.eventID || `GAME_${date}_${homeTeam}_${awayTeam}`
+        game_id: gameId,
+        conflict_key: `${playerId}|${gameId}|${propData.propType}|${sportsbook}|${league.toLowerCase()}`
       };
       
       performanceData.push(performanceRecord);
