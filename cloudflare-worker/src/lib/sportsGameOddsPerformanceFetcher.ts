@@ -2,6 +2,7 @@
 // Creates realistic performance data based on existing betting lines from SportsGameOdds
 
 import { PerformanceData, PerformanceDataFetcher } from './performanceDataFetcher';
+import { buildConflictKey } from './conflictKeyGenerator';
 import { supabaseFetch } from '../supabaseFetch';
 
 const LEAGUES = ["NFL", "NBA", "MLB", "NHL"];
@@ -148,6 +149,7 @@ export class SportsGameOddsPerformanceFetcher implements PerformanceDataFetcher 
       
       const gameId = event.eventID || `GAME_${date}_${homeTeam}_${awayTeam}`;
       const sportsbook = "SportsGameOdds";
+      const season = new Date(date).getFullYear();
       
       const performanceRecord: PerformanceData = {
         player_id: playerId,
@@ -158,9 +160,16 @@ export class SportsGameOddsPerformanceFetcher implements PerformanceDataFetcher 
         prop_type: propData.propType,
         value: actualPerformance,
         league: league.toLowerCase(),
-        season: new Date(date).getFullYear(),
+        season: season,
         game_id: gameId,
-        conflict_key: `${playerId}|${gameId}|${propData.propType}|${sportsbook}|${league.toLowerCase()}`
+        conflict_key: buildConflictKey({
+          playerId,
+          gameId,
+          propType: propData.propType,
+          sportsbook,
+          league: league.toLowerCase(),
+          season
+        })
       };
       
       performanceData.push(performanceRecord);

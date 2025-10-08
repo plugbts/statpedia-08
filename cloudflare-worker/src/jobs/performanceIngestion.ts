@@ -6,6 +6,7 @@ import { PerformanceDataMatcher } from '../lib/performanceDataMatcher';
 import { getActiveLeagues } from '../config/leagues';
 import { supabaseFetch } from '../supabaseFetch';
 import { createClient } from '@supabase/supabase-js';
+import { buildConflictKey } from '../lib/conflictKeyGenerator';
 
 export interface PerformanceIngestionResult {
   success: boolean;
@@ -194,7 +195,7 @@ async function insertPerformanceDataDirectly(env: any, performanceData: Performa
     return;
   }
 
-  console.log(`📊 Upserting ${performanceData.length} performance records into player_game_logs...`);
+  console.log(`📊 Upserting ${performanceData.length} performance records into both tables...`);
 
   // Create Supabase client
   const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
@@ -214,6 +215,29 @@ async function insertPerformanceDataDirectly(env: any, performanceData: Performa
     game_id: perf.game_id
   }));
 
+  // Convert performance data to proplines format
+  const propLinesRows = performanceData.map(perf => ({
+    player_id: perf.player_id,
+    player_name: perf.player_name,
+    season: perf.season,
+    date: perf.date,
+    prop_type: perf.prop_type,
+    line: perf.value, // Use the actual performance value as the line
+    sportsbook: "SportsGameOdds",
+    over_odds: -110, // Default odds
+    under_odds: 100, // Default odds
+    league: perf.league.toUpperCase(),
+    game_id: perf.game_id,
+    conflict_key: perf.conflict_key || buildConflictKey({
+      playerId: perf.player_id,
+      gameId: perf.game_id,
+      propType: perf.prop_type,
+      sportsbook: "SportsGameOdds",
+      league: perf.league,
+      season: perf.season
+    })
+  }));
+
   try {
     // Use upsert to handle unique constraints gracefully
     const { data, error } = await supabase
@@ -225,7 +249,19 @@ async function insertPerformanceDataDirectly(env: any, performanceData: Performa
       throw new Error(`Database operation failed: ${error.message}`);
     }
 
-    console.log(`✅ Upserted ${performanceData.length} performance records`);
+    console.log(`✅ Upserted ${performanceData.length} performance records to player_game_logs`);
+
+    // Also insert into proplines table
+    const { data: proplinesData, error: proplinesError } = await supabase
+      .from("proplines")
+      .upsert(propLinesRows, { onConflict: "conflict_key" });
+
+    if (proplinesError) {
+      console.error(`❌ Proplines upsert failed:`, proplinesError);
+      throw new Error(`Proplines database operation failed: ${proplinesError.message}`);
+    }
+
+    console.log(`✅ Upserted ${performanceData.length} performance records to proplines`);
 
     // Persistence check
     const { count, error: countError } = await supabase
