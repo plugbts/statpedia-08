@@ -1729,7 +1729,7 @@ var worker_default = {
             analytics: ["/refresh-analytics", "/incremental-analytics-refresh", "/analytics/streaks", "/analytics/defensive-rankings"],
             verification: ["/verify-backfill", "/verify-analytics"],
             status: ["/status", "/leagues", "/seasons"],
-            debug: ["/debug-api", "/debug-comprehensive", "/debug-json", "/debug-extraction", "/debug-insert", "/debug-schema"]
+            debug: ["/debug-api", "/debug-comprehensive", "/debug-json", "/debug-extraction", "/debug-insert", "/debug-schema", "/debug-streaks", "/debug-streak-counts"]
           },
           leagues: getActiveLeagues().map((l) => l.id),
           seasons: getAllSeasons(),
@@ -1823,6 +1823,81 @@ var worker_default = {
             headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
           });
         } catch (error) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          }), {
+            status: 500,
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+          });
+        }
+      }
+      if (url.pathname === "/debug-streaks") {
+        try {
+          const { supabaseFetch: supabaseFetch2 } = await Promise.resolve().then(() => (init_supabaseFetch(), supabaseFetch_exports));
+          const league = url.searchParams.get("league") || "all";
+          const limit = parseInt(url.searchParams.get("limit") || "20");
+          console.log(`\u{1F50D} Fetching debug streak analysis for ${league}...`);
+          let query = "debug_streak_summary";
+          const params = [];
+          if (league !== "all") {
+            params.push(`league=eq.${league}`);
+          }
+          params.push(`order=current_streak.desc`);
+          params.push(`limit=${limit}`);
+          if (params.length > 0) {
+            query += `?${params.join("&")}`;
+          }
+          const result = await supabaseFetch2(env, query, {
+            method: "GET"
+          });
+          return new Response(JSON.stringify({
+            success: true,
+            data: result,
+            league,
+            limit,
+            timestamp: (/* @__PURE__ */ new Date()).toISOString()
+          }), {
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+          });
+        } catch (error) {
+          console.error("\u274C Debug streaks error:", error);
+          return new Response(JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          }), {
+            status: 500,
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+          });
+        }
+      }
+      if (url.pathname === "/debug-streak-counts") {
+        try {
+          const { supabaseFetch: supabaseFetch2 } = await Promise.resolve().then(() => (init_supabaseFetch(), supabaseFetch_exports));
+          const league = url.searchParams.get("league") || "all";
+          console.log(`\u{1F50D} Fetching debug streak counts for ${league}...`);
+          let query = "debug_streak_counts";
+          const params = [];
+          if (league !== "all") {
+            params.push(`league=eq.${league}`);
+          }
+          params.push(`order=current_streak.desc`);
+          if (params.length > 0) {
+            query += `?${params.join("&")}`;
+          }
+          const result = await supabaseFetch2(env, query, {
+            method: "GET"
+          });
+          return new Response(JSON.stringify({
+            success: true,
+            data: result,
+            league,
+            timestamp: (/* @__PURE__ */ new Date()).toISOString()
+          }), {
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+          });
+        } catch (error) {
+          console.error("\u274C Debug streak counts error:", error);
           return new Response(JSON.stringify({
             success: false,
             error: error instanceof Error ? error.message : String(error)
@@ -2786,7 +2861,7 @@ var worker_default = {
       }
       return new Response(JSON.stringify({
         error: "Endpoint not found",
-        availableEndpoints: ["/backfill-all", "/backfill-recent", "/backfill-full", "/backfill-league/{league}", "/backfill-season/{season}", "/backfill-progressive", "/ingest", "/ingest/{league}", "/refresh-analytics", "/incremental-analytics-refresh", "/analytics/streaks", "/analytics/defensive-rankings", "/status", "/leagues", "/seasons"]
+        availableEndpoints: ["/backfill-all", "/backfill-recent", "/backfill-full", "/backfill-league/{league}", "/backfill-season/{season}", "/backfill-progressive", "/ingest", "/ingest/{league}", "/refresh-analytics", "/incremental-analytics-refresh", "/analytics/streaks", "/analytics/defensive-rankings", "/debug-streaks", "/debug-streak-counts", "/status", "/leagues", "/seasons"]
       }), {
         status: 404,
         headers: {
