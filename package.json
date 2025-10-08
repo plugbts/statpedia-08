@@ -46,7 +46,10 @@
     "schedule": "node scheduled-nightly-job.js",
     "ingest-props-v2": "node scripts/prop-ingestion-v2.js",
     "ingest-props-v2:2024": "node scripts/prop-ingestion-v2.js 2024",
-    "ingest-props-v2:2025": "node scripts/prop-ingestion-v2.js 2025"
+    "ingest-props-v2:2025": "node scripts/prop-ingestion-v2.js 2025",
+    "ingest-props-v2-enhanced": "node scripts/prop-ingestion-v2-enhanced.js",
+    "ingest-props-v2-enhanced:2024": "node scripts/prop-ingestion-v2-enhanced.js 2024",
+    "ingest-props-v2-enhanced:2025": "node scripts/prop-ingestion-v2-enhanced.js 2025"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
