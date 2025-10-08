@@ -209,32 +209,42 @@ function normalizeMarketType(market) {
   if (!market) return '';
   const lower = market.toLowerCase();
   
-  const marketMap = {
-    'passing_yards': 'Passing Yards',
-    'rushing_yards': 'Rushing Yards', 
-    'receiving_yards': 'Receiving Yards',
-    'passing_completions': 'Passing Completions',
-    'passing_attempts': 'Passing Attempts',
-    'receiving_receptions': 'Receptions',
-    'rushing_attempts': 'Rushing Attempts',
-    'passing_touchdowns': 'Passing Touchdowns',
-    'rushing_touchdowns': 'Rushing Touchdowns',
-    'receiving_touchdowns': 'Receiving Touchdowns',
-    'interceptions': 'Interceptions',
-    'fantasyScore': 'Fantasy Points'
-  };
+  // Remove common suffixes that don't affect the core prop type
+  const cleaned = lower
+    .replace(/\s+over\/under\s*$/i, '')
+    .replace(/\s+over\s*$/i, '')
+    .replace(/\s+under\s*$/i, '')
+    .replace(/\s+1st\s+half\s*/i, '')
+    .replace(/\s+2nd\s+half\s*/i, '')
+    .replace(/\s+first\s+half\s*/i, '')
+    .replace(/\s+second\s+half\s*/i, '')
+    .trim();
   
-  // Try exact match first
-  if (marketMap[market]) return marketMap[market];
+  // Prioritized pattern matching for core prop types
+  if (cleaned.includes('receiving') && cleaned.includes('yard')) return 'Receiving Yards';
+  if (cleaned.includes('receptions')) return 'Receptions';
+  if (cleaned.includes('rush') && cleaned.includes('yard')) return 'Rushing Yards';
+  if (cleaned.includes('pass') && cleaned.includes('yard')) return 'Passing Yards';
+  if (cleaned.includes('passing') && cleaned.includes('completion')) return 'Passing Completions';
+  if (cleaned.includes('passing') && cleaned.includes('attempt')) return 'Passing Attempts';
+  if (cleaned.includes('receiving') && cleaned.includes('touchdown')) return 'Receiving Touchdowns';
+  if (cleaned.includes('rushing') && cleaned.includes('touchdown')) return 'Rushing Touchdowns';
+  if (cleaned.includes('passing') && cleaned.includes('touchdown')) return 'Passing Touchdowns';
+  if (cleaned.includes('touchdown')) return 'Touchdowns';
   
-  // Fallback to pattern matching (prioritized order)
-  if (lower.includes('receiving') && lower.includes('yard')) return 'Receiving Yards';
-  if (lower.includes('receptions')) return 'Receptions';
-  if (lower.includes('rush') && lower.includes('yard')) return 'Rushing Yards';
-  if (lower.includes('pass') && lower.includes('yard')) return 'Passing Yards';
-  if (lower.includes('completion')) return 'Passing Completions';
-  if (lower.includes('attempt')) return 'Passing Attempts';
-  if (lower.includes('touchdown')) return 'Touchdowns';
+  // Fantasy and other props
+  if (cleaned.includes('fantasy')) return 'Fantasy Points';
+  if (cleaned.includes('point') && cleaned.includes('goal')) return 'Goals';
+  if (cleaned.includes('assist')) return 'Assists';
+  if (cleaned.includes('rebound')) return 'Rebounds';
+  if (cleaned.includes('hit')) return 'Hits';
+  if (cleaned.includes('run')) return 'Runs';
+  if (cleaned.includes('rbi')) return 'RBIs';
+  if (cleaned.includes('home run')) return 'Home Runs';
+  if (cleaned.includes('strikeout')) return 'Strikeouts';
+  if (cleaned.includes('walk')) return 'Walks';
+  if (cleaned.includes('shot')) return 'Shots';
+  if (cleaned.includes('save')) return 'Saves';
   
   return market.trim();
 }

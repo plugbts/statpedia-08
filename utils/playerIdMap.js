@@ -35,7 +35,7 @@ export async function mapPlayerId(source, rawId, playerName, team) {
   }
 
   // 2. If no mapping, create one using rawId as canonical (or name+team heuristic)
-  const canonical = `${playerName?.trim() ?? rawId}-${team ?? ''}`.replace(/\s+/g, "_");
+  const canonical = `${playerName?.trim() ?? rawId}-${team ?? 'UNK'}`.replace(/\s+/g, "_");
 
   const { error: insertError } = await supabase
     .from('player_id_map')
