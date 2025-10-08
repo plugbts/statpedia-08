@@ -41,7 +41,9 @@ export async function supabaseFetch(env: any, table: string, { method = "GET", b
   }
 
   try {
-    return JSON.parse(text);
+    const parsed = JSON.parse(text);
+    console.log(`✅ Supabase ${method} ${table} successful: ${Array.isArray(parsed) ? parsed.length : 'not array'} records`);
+    return parsed;
   } catch (e) {
     console.warn(`⚠️ Failed to parse JSON response: ${text}`);
     return text;

@@ -120,116 +120,182 @@ export default {
           const { calculateStreaks } = await import("./lib/streakCalculator");
           const league = url.searchParams.get("league") || "all";
           const limit = parseInt(url.searchParams.get("limit") || "50");
-          
+
           console.log(`📊 Computing TRUE streaks in Worker for ${league}...`);
-          
-          // Fetch raw game data from Supabase
+
+          // --- Helpers ---
+          const normalizeDate = (d: string) => d.split("T")[0];
+          const inFilter = (values: string[]) =>
+            `in.(${values.map(v => `"${v}"`).join(",")})`;
+
+          // --- Fetch raw game logs ---
           let query = "player_game_logs";
           const params: string[] = [];
           if (league !== "all") {
             params.push(`league=eq.${league}`);
           }
-          // Temporarily remove date filter to see all data
-          // params.push(`date=gte.${new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}`); // Last 30 days
           params.push(`order=date.desc`);
-          
+
           if (params.length > 0) {
-            query += `?${params.join('&')}`;
+            query += `?${params.join("&")}`;
           }
-          
-          const gameLogs = await supabaseFetch(env, query, {
-            method: "GET",
-          });
-          
+
+          const gameLogs = await supabaseFetch(env, query, { method: "GET" });
+
           console.log(`📊 Fetched ${gameLogs?.length || 0} game logs`);
           if (gameLogs && gameLogs.length > 0) {
             console.log(`📊 Sample game log:`, JSON.stringify(gameLogs[0], null, 2));
           }
-          
+
           if (!gameLogs || gameLogs.length === 0) {
-            return new Response(JSON.stringify({
-              success: true,
-              data: [],
-              league: league,
-              limit: limit,
-              message: "No game data found",
-              timestamp: new Date().toISOString()
-            }), {
-              headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-            });
+            return new Response(
+              JSON.stringify({
+                success: true,
+                data: [],
+                league,
+                limit,
+                message: "No game data found",
+                timestamp: new Date().toISOString(),
+              }),
+              {
+                headers: {
+                  "Content-Type": "application/json",
+                  "Access-Control-Allow-Origin": "*",
+                },
+              }
+            );
           }
-          
-          // Fetch corresponding prop lines to get hit/miss results
+
+          // --- Fetch corresponding prop lines ---
           const playerIds = [...new Set(gameLogs.map(g => g.player_id))];
           const propTypes = [...new Set(gameLogs.map(g => g.prop_type))];
-          const dates = [...new Set(gameLogs.map(g => g.date))];
-          
-          const propsQuery = `proplines?player_id=in.(${playerIds.join(',')})&prop_type=in.(${propTypes.join(',')})&date=in.(${dates.join(',')})`;
-          const propLines = await supabaseFetch(env, propsQuery, {
-            method: "GET",
-          });
-          
+          const dates = [...new Set(gameLogs.map(g => normalizeDate(g.date)))];
+
+          const propsQuery = `proplines?player_id=${inFilter(
+            playerIds
+          )}&prop_type=${inFilter(propTypes)}&date=${inFilter(dates)}`;
+
+          const propLines = await supabaseFetch(env, propsQuery, { method: "GET" });
+
           console.log(`📊 Fetched ${propLines?.length || 0} prop lines`);
           if (propLines && propLines.length > 0) {
-            console.log(`📊 Sample prop line:`, JSON.stringify(propLines[0], null, 2));
-          }
-          
-          // Create game results by joining game logs with prop lines
-          const gameResults = gameLogs.map(gameLog => {
-            const propLine = propLines?.find(prop => 
-              prop.player_id === gameLog.player_id &&
-              prop.prop_type === gameLog.prop_type &&
-              prop.date === gameLog.date &&
-              prop.league === gameLog.league
+            console.log(
+              `📊 Sample prop line:`,
+              JSON.stringify(propLines[0], null, 2)
             );
-            
-            if (!propLine) return null;
-            
-            return {
+          }
+
+          // --- Diagnostic helper ---
+          function logMismatch(gameLog: any, propLines: any[]) {
+            // Find "closest" candidates by player_id
+            const candidates = propLines.filter(
+              (p: any) => p.player_id === gameLog.player_id
+            );
+
+            console.log("⚠️ Mismatch detected for player:", gameLog.player_id);
+            console.log("  GameLog:", {
               player_id: gameLog.player_id,
-              player_name: gameLog.player_name,
-              team: gameLog.team,
               prop_type: gameLog.prop_type,
-              league: gameLog.league,
               date: gameLog.date,
-              hit_result: gameLog.value >= propLine.line ? 1 : 0
-            };
-          }).filter(Boolean);
-          
+              league: gameLog.league,
+              value: gameLog.value,
+            });
+
+            if (candidates.length === 0) {
+              console.log("  ❌ No propLines found for this player at all.");
+              return;
+            }
+
+            console.log("  🔎 Closest propLine candidates:");
+            candidates.slice(0, 3).forEach((p: any, idx: number) => {
+              console.log(`   Candidate ${idx + 1}:`, {
+                player_id: p.player_id,
+                prop_type: p.prop_type,
+                date: p.date,
+                league: p.league,
+                line: p.line,
+              });
+            });
+          }
+
+          // --- Join game logs with prop lines ---
+          const gameResults = gameLogs
+            .map(gameLog => {
+              const propLine = propLines?.find(
+                prop =>
+                  prop.player_id === gameLog.player_id &&
+                  prop.prop_type === gameLog.prop_type &&
+                  normalizeDate(prop.date) === normalizeDate(gameLog.date) &&
+                  prop.league === gameLog.league
+              );
+
+              if (!propLine) {
+                logMismatch(gameLog, propLines || []);
+                return null;
+              }
+
+              return {
+                player_id: gameLog.player_id,
+                player_name: gameLog.player_name,
+                team: gameLog.team,
+                prop_type: gameLog.prop_type,
+                league: gameLog.league,
+                date: normalizeDate(gameLog.date),
+                hit_result: gameLog.value >= propLine.line ? 1 : 0,
+              };
+            })
+            .filter(Boolean);
+
           console.log(`📊 Created ${gameResults.length} game results`);
-          
-          // Calculate streaks using TypeScript
+
+          // --- Calculate streaks ---
           const streaks = calculateStreaks(gameResults);
-          
-          // Apply league filter if needed
-          const filteredStreaks = league !== "all" 
-            ? streaks.filter(s => s.league === league)
-            : streaks;
-          
-          // Apply limit
+
+          // --- Apply league filter ---
+          const filteredStreaks =
+            league !== "all" ? streaks.filter(s => s.league === league) : streaks;
+
+          // --- Apply limit ---
           const limitedStreaks = filteredStreaks.slice(0, limit);
-          
-          console.log(`📊 Computed ${limitedStreaks.length} streaks (${filteredStreaks.length} total)`);
-          
-          return new Response(JSON.stringify({
-            success: true,
-            data: limitedStreaks,
-            league: league,
-            limit: limit,
-            total_found: filteredStreaks.length,
-            timestamp: new Date().toISOString()
-          }), {
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-          });
-          
+
+          console.log(
+            `📊 Computed ${limitedStreaks.length} streaks (${filteredStreaks.length} total)`
+          );
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              data: limitedStreaks,
+              league,
+              limit,
+              total_found: filteredStreaks.length,
+              message:
+                limitedStreaks.length === 0
+                  ? "No streaks found"
+                  : "Streaks computed successfully",
+              timestamp: new Date().toISOString(),
+            }),
+            {
+              headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+              },
+            }
+          );
         } catch (error) {
-          return new Response(JSON.stringify({
-            success: false,
-            error: error instanceof Error ? error.message : String(error)
-          }), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-          });
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: error instanceof Error ? error.message : String(error),
+            }),
+            {
+              status: 500,
+              headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+              },
+            }
+          );
         }
       }
 
