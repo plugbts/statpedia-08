@@ -138,6 +138,9 @@ export default {
           });
           
           console.log(`📊 Fetched ${gameLogs?.length || 0} game logs`);
+          if (gameLogs && gameLogs.length > 0) {
+            console.log(`📊 Sample game log:`, JSON.stringify(gameLogs[0], null, 2));
+          }
           
           if (!gameLogs || gameLogs.length === 0) {
             return new Response(JSON.stringify({
@@ -163,6 +166,9 @@ export default {
           });
           
           console.log(`📊 Fetched ${propLines?.length || 0} prop lines`);
+          if (propLines && propLines.length > 0) {
+            console.log(`📊 Sample prop line:`, JSON.stringify(propLines[0], null, 2));
+          }
           
           // Create game results by joining game logs with prop lines
           const gameResults = gameLogs.map(gameLog => {

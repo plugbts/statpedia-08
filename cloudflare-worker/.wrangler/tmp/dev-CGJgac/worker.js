@@ -1896,6 +1896,9 @@ var worker_default = {
             method: "GET"
           });
           console.log(`\u{1F4CA} Fetched ${gameLogs?.length || 0} game logs`);
+          if (gameLogs && gameLogs.length > 0) {
+            console.log(`\u{1F4CA} Sample game log:`, JSON.stringify(gameLogs[0], null, 2));
+          }
           if (!gameLogs || gameLogs.length === 0) {
             return new Response(JSON.stringify({
               success: true,
@@ -1916,6 +1919,9 @@ var worker_default = {
             method: "GET"
           });
           console.log(`\u{1F4CA} Fetched ${propLines?.length || 0} prop lines`);
+          if (propLines && propLines.length > 0) {
+            console.log(`\u{1F4CA} Sample prop line:`, JSON.stringify(propLines[0], null, 2));
+          }
           const gameResults = gameLogs.map((gameLog) => {
             const propLine = propLines?.find(
               (prop) => prop.player_id === gameLog.player_id && prop.prop_type === gameLog.prop_type && prop.date === gameLog.date && prop.league === gameLog.league
