@@ -9,12 +9,16 @@
 
 ## 📋 Manual Deployment Steps
 
-### Step 1: Create Database Schema
+### Step 1: Verify Existing Database Schema
 
-Go to your Supabase Dashboard → SQL Editor and run:
+The `proplines` table already exists in your Supabase database! You can verify this by going to your Supabase Dashboard → Table Editor and looking for the `proplines` table.
+
+If for some reason it doesn't exist, you can create it by running this SQL in your Supabase Dashboard → SQL Editor.
+
+**Important**: You also need to add the `conflict_key` field for efficient upserts:
 
 ```sql
--- Create proplines table for normalized player props data
+-- Create proplines table for normalized player props data (if it doesn't exist)
 CREATE TABLE IF NOT EXISTS public.proplines (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   player_id TEXT NOT NULL,
@@ -186,6 +190,51 @@ GRANT ALL ON public.proplines TO authenticated;
 GRANT ALL ON public.debug_unmapped_markets TO authenticated;
 GRANT ALL ON public.debug_coverage_gaps TO authenticated;
 GRANT ALL ON public.debug_ingestion_stats TO authenticated;
+
+-- Add conflict_key field to existing proplines table
+ALTER TABLE public.proplines 
+ADD COLUMN IF NOT EXISTS conflict_key TEXT;
+
+-- Create a unique index on conflict_key for efficient lookups
+CREATE UNIQUE INDEX IF NOT EXISTS idx_proplines_conflict_key 
+ON public.proplines(conflict_key) 
+WHERE conflict_key IS NOT NULL;
+
+-- Create a function to generate conflict_key from existing data
+CREATE OR REPLACE FUNCTION generate_conflict_key()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Generate conflict_key in format: player_id-prop_type-line-sportsbook-date
+  NEW.conflict_key = CONCAT(
+    NEW.player_id, '-',
+    NEW.prop_type, '-',
+    NEW.line, '-',
+    NEW.sportsbook, '-',
+    NEW.date
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger to automatically generate conflict_key
+CREATE TRIGGER generate_proplines_conflict_key
+  BEFORE INSERT OR UPDATE ON public.proplines
+  FOR EACH ROW
+  EXECUTE FUNCTION generate_conflict_key();
+
+-- Backfill existing records with conflict_key
+UPDATE public.proplines 
+SET conflict_key = CONCAT(
+  player_id, '-',
+  prop_type, '-',
+  line, '-',
+  sportsbook, '-',
+  date
+)
+WHERE conflict_key IS NULL;
+
+-- Add comment explaining the conflict_key field
+COMMENT ON COLUMN public.proplines.conflict_key IS 'Unique identifier for upsert operations combining player_id, prop_type, line, sportsbook, and date';
 ```
 
 ### Step 2: Deploy Edge Function

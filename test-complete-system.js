@@ -287,6 +287,8 @@ async function testDatabaseWrite() {
   
   try {
     // Test inserting a sample record (will be cleaned up)
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+    const conflictKey = `TEST_PLAYER_1_NFL-Passing Yards-250.5-Test Sportsbook-${today}`;
     const sampleRecord = {
       player_id: 'TEST_PLAYER_1_NFL',
       player_name: 'Test Player',
@@ -297,17 +299,14 @@ async function testDatabaseWrite() {
       over_odds: -110,
       under_odds: -110,
       sportsbook: 'Test Sportsbook',
-      sportsbook_key: 'test',
       game_id: 'test-game-123',
-      game_time: new Date().toISOString(),
-      home_team: 'TEST',
-      away_team: 'TEST_OPP',
       league: 'NFL',
-      season: '2025',
-      week: '6',
-      conflict_key: 'TEST_PLAYER_1_NFL-Passing Yards-250.5-test-test-game-123',
+      season: 2025,
+      date: today,
+      position: 'QB',
+      conflict_key: conflictKey,
       last_updated: new Date().toISOString(),
-      is_available: true
+      is_active: true
     };
 
     const insertResponse = await fetch(`${SUPABASE_URL}/rest/v1/proplines`, {
@@ -329,7 +328,7 @@ async function testDatabaseWrite() {
     logTest('Database Write Test', true, 'Sample record inserted successfully');
 
     // Clean up - delete the test record
-    const deleteResponse = await fetch(`${SUPABASE_URL}/rest/v1/proplines?conflict_key=eq.TEST_PLAYER_1_NFL-Passing Yards-250.5-test-test-game-123`, {
+    const deleteResponse = await fetch(`${SUPABASE_URL}/rest/v1/proplines?conflict_key=eq.${encodeURIComponent(conflictKey)}`, {
       method: 'DELETE',
       headers: {
         'apikey': SUPABASE_ANON_KEY,

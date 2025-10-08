@@ -408,8 +408,14 @@ function createIngestedPlayerProp(odd: any, overData: any, underData: any, bookm
       return null
     }
 
-    const conflictKey = `${playerID}-${propType}-${line}-${bookmakerId}-${event.eventID}`
-
+    // Extract date from game time
+    const gameTime = new Date(event.status?.startsAt || new Date());
+    const gameDate = gameTime.toISOString().split('T')[0]; // YYYY-MM-DD format
+    
+    // Generate conflict key for efficient upserts
+    const sportsbookName = mapBookmakerIdToName(bookmakerId);
+    const conflictKey = `${playerID}-${propType}-${line}-${sportsbookName}-${gameDate}`;
+    
     return {
       player_id: playerID,
       player_name: playerName,
@@ -419,18 +425,15 @@ function createIngestedPlayerProp(odd: any, overData: any, underData: any, bookm
       line: line,
       over_odds: overOdds,
       under_odds: underOdds,
-      sportsbook: mapBookmakerIdToName(bookmakerId),
-      sportsbook_key: bookmakerId,
-      game_id: event.eventID,
-      game_time: event.status?.startsAt || new Date().toISOString(),
-      home_team: event.teams?.home?.names?.short || 'HOME',
-      away_team: event.teams?.away?.names?.short || 'AWAY',
+      sportsbook: sportsbookName,
       league: league,
-      season: season,
-      week: week,
+      game_id: event.eventID,
+      season: parseInt(season),
+      date: gameDate,
+      position: extractPosition(playerID, propType), // Extract position if possible
+      is_active: true,
       conflict_key: conflictKey,
-      last_updated: new Date().toISOString(),
-      is_available: true
+      last_updated: new Date().toISOString()
     }
   } catch (error) {
     console.error('Error creating player prop:', error)
@@ -454,6 +457,26 @@ function extractPlayerName(playerID: string): string {
 
 function extractTeam(playerID: string, homeTeam?: string, awayTeam?: string): string {
   return Math.random() > 0.5 ? (homeTeam || 'HOME') : (awayTeam || 'AWAY')
+}
+
+function extractPosition(playerID: string, propType: string): string {
+  // Try to extract position from prop type or player ID
+  const propTypeLower = propType.toLowerCase();
+  
+  if (propTypeLower.includes('passing') || propTypeLower.includes('quarterback')) {
+    return 'QB';
+  } else if (propTypeLower.includes('rushing') || propTypeLower.includes('running')) {
+    return 'RB';
+  } else if (propTypeLower.includes('receiving') || propTypeLower.includes('catches')) {
+    return 'WR';
+  } else if (propTypeLower.includes('kicking') || propTypeLower.includes('field goal')) {
+    return 'K';
+  } else if (propTypeLower.includes('defense') || propTypeLower.includes('tackle')) {
+    return 'DEF';
+  }
+  
+  // Default position based on common patterns
+  return 'UNKNOWN';
 }
 
 function normalizePropType(statID: string): string {
@@ -514,10 +537,10 @@ async function upsertProps(supabaseClient: any, props: any[]): Promise<{ inserte
 
   for (const prop of props) {
     try {
-      // Check if record exists
+      // Use conflict_key for efficient upsert operations
       const { data: existing } = await supabaseClient
         .from('proplines')
-        .select('id, conflict_key, last_updated')
+        .select('id, last_updated')
         .eq('conflict_key', prop.conflict_key)
         .single()
 
@@ -530,15 +553,12 @@ async function upsertProps(supabaseClient: any, props: any[]): Promise<{ inserte
               player_name: prop.player_name,
               team: prop.team,
               opponent: prop.opponent,
-              line: prop.line,
               over_odds: prop.over_odds,
               under_odds: prop.under_odds,
-              game_time: prop.game_time,
-              home_team: prop.home_team,
-              away_team: prop.away_team,
+              game_id: prop.game_id,
+              position: prop.position,
               last_updated: prop.last_updated,
-              is_available: prop.is_available,
-              updated_at: new Date().toISOString()
+              is_active: prop.is_active
             })
             .eq('conflict_key', prop.conflict_key)
 
@@ -551,8 +571,7 @@ async function upsertProps(supabaseClient: any, props: any[]): Promise<{ inserte
           .from('proplines')
           .insert({
             ...prop,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            created_at: new Date().toISOString()
           })
 
         if (error) throw error
