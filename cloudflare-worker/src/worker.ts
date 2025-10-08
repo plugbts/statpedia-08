@@ -566,7 +566,7 @@ export default {
                     analysis[league] = {
                       totalProps: extracted.length,
                       marketCounts: Object.entries(marketCounts)
-                        .sort(([,a], [,b]) => b - a)
+                        .sort(([,a], [,b]) => (b as number) - (a as number))
                         .slice(0, 20), // Top 20 markets
                       unmappedMarkets: Array.from(unmappedMarkets).slice(0, 20), // Top 20 unmapped
                       sampleProps: extracted.slice(0, 5) // Sample props for analysis
