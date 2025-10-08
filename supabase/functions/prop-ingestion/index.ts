@@ -17,7 +17,7 @@ const LEAGUE_CONFIG = {
   FOOTBALL: {
     sportID: 'FOOTBALL',
     leagues: ['NFL', 'NCAAF'],
-    maxEventsPerRequest: 25, // Increased to get more props
+    maxEventsPerRequest: 10, // Conservative for Edge Function limits
     cacheDuration: 4 * 60 * 60 * 1000 // 4 hours
   },
   BASKETBALL: {
@@ -157,15 +157,22 @@ async function runIngestion(supabaseClient: any, league?: string, season: string
     console.log(`Starting prop ingestion for league: ${league || 'all'}, season: ${season}, week: ${week || 'all'}`)
     
     const startTime = Date.now()
+    const MAX_RUNTIME = 25000 // 25 seconds max runtime for Edge Function
     let totalProps = 0
     let totalInserted = 0
     let totalUpdated = 0
     let totalErrors = 0
 
-    // Process all leagues if no specific league provided
-    const leaguesToProcess = league ? [league] : ['NFL', 'NCAAF', 'NBA', 'NCAAB', 'MLB', 'NHL']
+    // Process all leagues if no specific league provided (limited for Edge Function)
+    const leaguesToProcess = league ? [league] : ['NFL', 'NBA'] // Start with 2 leagues to avoid timeout
     
     for (const currentLeague of leaguesToProcess) {
+      // Check if we're approaching timeout
+      if (Date.now() - startTime > MAX_RUNTIME) {
+        console.log(`⏰ Approaching timeout, stopping after ${currentLeague}`)
+        break
+      }
+      
       const sportID = currentLeague === 'NFL' || currentLeague === 'NCAAF' ? 'FOOTBALL' : 
                      currentLeague === 'NBA' || currentLeague === 'NCAAB' ? 'BASKETBALL' :
                      currentLeague === 'MLB' ? 'BASEBALL' :
@@ -242,7 +249,7 @@ async function runIngestion(supabaseClient: any, league?: string, season: string
         updated: totalUpdated,
         errors: totalErrors,
         duration: `${duration}ms`,
-        leagues: league ? [league] : ['NFL', 'NCAAF', 'NBA', 'NCAAB', 'MLB', 'NHL']
+        leagues: league ? [league] : ['NFL', 'NBA']
       }
     }
 
@@ -260,11 +267,11 @@ async function fetchEvents(sportID: string, season: string, week?: string): Prom
   let allEvents: any[] = []
   let nextCursor: string | null = null
   let pageCount = 0
-  const maxPages = 5 // Increased to get more events
+  const maxPages = 2 // Conservative for Edge Function limits
 
   do {
     try {
-      let endpoint = `/v2/events?sportID=${sportID}&season=${season}&oddsAvailable=true&markets=playerProps&limit=25`
+      let endpoint = `/v2/events?sportID=${sportID}&season=${season}&oddsAvailable=true&markets=playerProps&limit=10`
       if (week) endpoint += `&week=${week}`
       if (nextCursor) endpoint += `&cursor=${nextCursor}`
       

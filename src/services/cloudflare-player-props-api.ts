@@ -91,9 +91,9 @@ class CloudflarePlayerPropsAPI {
   private baseUrl: string;
 
   constructor() {
-    // Use Supabase Edge Function for prop ingestion
+    // Use Cloudflare Worker for prop ingestion
     // This will be accessible from your Lovable frontend
-    this.baseUrl = 'https://rfdrifnsfobqlzorcesn.supabase.co/functions/v1/prop-ingestion';
+    this.baseUrl = 'https://statpedia-player-props.statpedia.workers.dev';
   }
 
   /**
@@ -112,38 +112,33 @@ class CloudflarePlayerPropsAPI {
     try {
       console.log(`🚀 Fetching player props from new /api/{league}/player-props endpoint: ${sport}${forceRefresh ? ' (force refresh)' : ''}`);
       
-      // Use Supabase Edge Function with proper parameters
+      // Use Cloudflare Worker for prop ingestion
       const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-      const league = sport.toUpperCase(); // Convert to uppercase for Supabase Edge Function
+      const league = sport.toUpperCase(); // Convert to uppercase for Cloudflare Worker
       
-      const url = new URL(this.baseUrl);
-      url.searchParams.append('action', 'ingest');
-      url.searchParams.append('league', league);
-      url.searchParams.append('season', '2025');
-      
-      // Add week parameter if it's NFL (you can adjust this logic)
-      if (league === 'NFL') {
-        url.searchParams.append('week', '6'); // You might want to calculate this dynamically
-      }
-
       const startTime = Date.now();
       
-      const response = await fetch(url.toString(), {
-        method: 'GET',
+      const response = await fetch(`${this.baseUrl}/ingest`, {
+        method: 'POST',
         mode: 'cors',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          league: league,
+          season: '2025',
+          week: league === 'NFL' ? '6' : undefined
+        })
       });
 
       const responseTime = Date.now() - startTime;
       
-      console.log(`📊 New /api/${league}/player-props response: ${response.status} (${responseTime}ms)`);
+      console.log(`📊 Cloudflare Worker ingestion response: ${response.status} (${responseTime}ms)`);
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.warn(`⚠️ New /api/${league}/player-props endpoint failed: ${response.status} - ${errorData.error || 'Unknown error'}`);
+        console.warn(`⚠️ Cloudflare Worker ingestion failed: ${response.status} - ${errorData.error || 'Unknown error'}`);
         
         // Don't fallback to legacy endpoint - it has CORS issues
         throw new Error(`API request failed: ${response.status} - ${errorData.error || 'Unknown error'}`);
@@ -151,7 +146,7 @@ class CloudflarePlayerPropsAPI {
 
       const data = await response.json();
       
-      console.log(`✅ Player props loaded from Supabase Edge Function:`, {
+      console.log(`✅ Player props loaded from Cloudflare Worker:`, {
         success: data.success,
         totalProps: data.stats?.totalProps || 0,
         inserted: data.stats?.inserted || 0,
@@ -159,7 +154,7 @@ class CloudflarePlayerPropsAPI {
         errors: data.stats?.errors || 0
       });
 
-      // The Supabase Edge Function doesn't return player props directly
+      // The Cloudflare Worker doesn't return player props directly
       // Instead, it ingests them into the database
       // We need to fetch the props from the database after ingestion
       // For now, return an empty array since this is an ingestion endpoint

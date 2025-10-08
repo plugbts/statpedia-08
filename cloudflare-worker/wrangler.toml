@@ -1,5 +1,5 @@
 name = "statpedia-player-props"
-main = "src/index.ts"
+main = "src/simple-ingestion.ts"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
 
@@ -22,7 +22,7 @@ CACHE_TTL_SECONDS = "300"
 MAX_EVENTS_PER_REQUEST = "100"
 MAX_PROPS_PER_REQUEST = "500"
 SUPABASE_URL = "https://rfdrifnsfobqlzorcesn.supabase.co"
-SUPABASE_SERVICE_KEY = "your_supabase_service_key_here"
+SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZHJpZm5zZm9icWx6b3JjZXNuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTA0ODgzNiwiZXhwIjoyMDc0NjI0ODM2fQ.E9LQFvqVs9Z1cXoS34ov5qV3jBkbqCHPCL16GBt480g"
 
 # Production R2 bucket
 [[env.production.r2_buckets]]
@@ -55,7 +55,7 @@ CACHE_TTL_SECONDS = "300"
 MAX_EVENTS_PER_REQUEST = "100"
 MAX_PROPS_PER_REQUEST = "500"
 SUPABASE_URL = "https://rfdrifnsfobqlzorcesn.supabase.co"
-SUPABASE_SERVICE_KEY = "your_supabase_service_key_here"
+SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZHJpZm5zZm9icWx6b3JjZXNuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTA0ODgzNiwiZXhwIjoyMDc0NjI0ODM2fQ.E9LQFvqVs9Z1cXoS34ov5qV3jBkbqCHPCL16GBt480g"
 
 # Staging R2 bucket
 [[env.staging.r2_buckets]]

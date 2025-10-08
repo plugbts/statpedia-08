@@ -278,13 +278,17 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
         try {
           logAPI('PredictionsTab', `Fetching ${endpoint} for ${selectedSport}`);
           
-          // Use Supabase Edge Function for prop ingestion
-          const response = await fetch(`https://rfdrifnsfobqlzorcesn.supabase.co/functions/v1/prop-ingestion?action=ingest&league=${selectedSport.toUpperCase()}&season=2025`, {
-            method: 'GET',
+          // Use Cloudflare Worker for prop ingestion
+          const response = await fetch(`https://statpedia-player-props.statpedia.workers.dev/ingest`, {
+            method: 'POST',
             headers: {
-              'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZHJpZm5zZm9icWx6b3JjZXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwNDg4MzYsImV4cCI6MjA3NDYyNDgzNn0.oUzP1pTapCMEaaPXzia2uqn-m3L9BRR82_RYcUXqykI',
-              'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZHJpZm5zZm9icWx6b3JjZXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwNDg4MzYsImV4cCI6MjA3NDYyNDgzNn0.oUzP1pTapCMEaaPXzia2uqn-m3L9BRR82_RYcUXqykI'
-            }
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              league: selectedSport.toUpperCase(),
+              season: '2025',
+              week: '1'
+            })
           });
           
           if (!response.ok) {
