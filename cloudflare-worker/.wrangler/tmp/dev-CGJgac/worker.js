@@ -1726,7 +1726,7 @@ var worker_default = {
           endpoints: {
             ingestion: ["/ingest", "/ingest/{league}"],
             backfill: ["/backfill-all", "/backfill-recent", "/backfill-full", "/backfill-league/{league}", "/backfill-season/{season}"],
-            analytics: ["/refresh-analytics", "/incremental-analytics-refresh", "/analytics/performance", "/analytics/defensive-rankings"],
+            analytics: ["/refresh-analytics", "/incremental-analytics-refresh", "/analytics/streaks", "/analytics/defensive-rankings"],
             verification: ["/verify-backfill", "/verify-analytics"],
             status: ["/status", "/leagues", "/seasons"],
             debug: ["/debug-api", "/debug-comprehensive", "/debug-json", "/debug-extraction", "/debug-insert", "/debug-schema"]
@@ -1794,17 +1794,17 @@ var worker_default = {
           });
         }
       }
-      if (url.pathname === "/analytics/performance") {
+      if (url.pathname === "/analytics/streaks") {
         try {
           const { supabaseFetch: supabaseFetch2 } = await Promise.resolve().then(() => (init_supabaseFetch(), supabaseFetch_exports));
           const league = url.searchParams.get("league") || "all";
           const limit = parseInt(url.searchParams.get("limit") || "50");
-          console.log(`\u{1F4CA} Fetching performance analysis for ${league}...`);
-          let query = "performance_analysis";
+          console.log(`\u{1F4CA} Fetching TRUE streak analysis for ${league}...`);
+          let query = "streak_analysis";
           if (league !== "all") {
             query += `?league=eq.${league}`;
           }
-          query += `&order=hit_rate.desc&limit=${limit}`;
+          query += `&order=current_streak.desc&limit=${limit}`;
           const result = await supabaseFetch2(env, query, {
             method: "GET"
           });
@@ -2781,7 +2781,7 @@ var worker_default = {
       }
       return new Response(JSON.stringify({
         error: "Endpoint not found",
-        availableEndpoints: ["/backfill-all", "/backfill-recent", "/backfill-full", "/backfill-league/{league}", "/backfill-season/{season}", "/backfill-progressive", "/ingest", "/ingest/{league}", "/refresh-analytics", "/incremental-analytics-refresh", "/analytics/performance", "/analytics/defensive-rankings", "/status", "/leagues", "/seasons"]
+        availableEndpoints: ["/backfill-all", "/backfill-recent", "/backfill-full", "/backfill-league/{league}", "/backfill-season/{season}", "/backfill-progressive", "/ingest", "/ingest/{league}", "/refresh-analytics", "/incremental-analytics-refresh", "/analytics/streaks", "/analytics/defensive-rankings", "/status", "/leagues", "/seasons"]
       }), {
         status: 404,
         headers: {
