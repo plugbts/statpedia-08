@@ -180,8 +180,8 @@ async function runIngestion(supabaseClient: any, league?: string, season: string
         }
       }
 
-      // Extract and process player props (limit to first 5 for debugging)
-      for (const event of events.slice(0, 5)) {
+      // Extract and process player props
+      for (const event of events) {
         try {
           console.log(`Processing event ${event.eventID} with ${Object.keys(event.odds || {}).length} odds`)
           const props = await extractPlayerPropsFromEvent(event, league || 'NFL', season, week)
@@ -189,20 +189,12 @@ async function runIngestion(supabaseClient: any, league?: string, season: string
           
           if (props.length > 0) {
             console.log(`Found ${props.length} props in event ${event.eventID}`)
-            // Upsert props to database (limit to first 3 for debugging)
-            const propsToProcess = props.slice(0, 3)
-            console.log(`Processing first 3 props:`, propsToProcess.map(p => ({ 
-              player_id: p.player_id, 
-              prop_type: p.prop_type, 
-              line: p.line,
-              sportsbook: p.sportsbook,
-              date: p.date
-            })))
-            const upsertResult = await upsertProps(supabaseClient, propsToProcess)
+            // Process all props
+            const upsertResult = await upsertProps(supabaseClient, props)
             totalInserted += upsertResult.inserted
             totalUpdated += upsertResult.updated
             totalErrors += upsertResult.errors
-            totalProps += propsToProcess.length
+            totalProps += props.length
           }
         } catch (error) {
           console.error(`Error processing event ${event.eventID}:`, error)
@@ -393,6 +385,7 @@ async function createPlayerPropsFromOdd(odd: any, oddId: string, event: any, lea
         // Create the player prop
         const prop = createIngestedPlayerProp(
           odd,
+          oddId, // Pass the oddId directly
           overData,
           underData,
           bookmakerId,
@@ -414,12 +407,10 @@ async function createPlayerPropsFromOdd(odd: any, oddId: string, event: any, lea
   return props
 }
 
-function createIngestedPlayerProp(odd: any, overData: any, underData: any, bookmakerId: string, event: any, league: string, season: string, week?: string): any {
+function createIngestedPlayerProp(odd: any, oddId: string, overData: any, underData: any, bookmakerId: string, event: any, league: string, season: string, week?: string): any {
   try {
     // Extract player ID from the odd ID structure
-    const oddIdParts = Object.keys(event.odds).find(key => 
-      event.odds[key] === odd && key.includes('over')
-    )?.split('-') || []
+    const oddIdParts = oddId.split('-')
     
     const playerID = oddIdParts.length >= 2 ? oddIdParts[1] : (odd.playerID || odd.statEntityID)
     const statID = oddIdParts.length >= 1 ? oddIdParts[0] : odd.statID
