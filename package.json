@@ -43,7 +43,10 @@
     "backfill-historical:2023": "node scripts/historical-backfill.js 2023",
     "backfill-historical:2024": "node scripts/historical-backfill.js 2024",
     "start-scheduler": "node scheduled-nightly-job.js",
-    "schedule": "node scheduled-nightly-job.js"
+    "schedule": "node scheduled-nightly-job.js",
+    "ingest-props-v2": "node scripts/prop-ingestion-v2.js",
+    "ingest-props-v2:2024": "node scripts/prop-ingestion-v2.js 2024",
+    "ingest-props-v2:2025": "node scripts/prop-ingestion-v2.js 2025"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
