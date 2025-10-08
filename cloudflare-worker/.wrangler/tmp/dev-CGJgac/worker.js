@@ -1801,10 +1801,15 @@ var worker_default = {
           const limit = parseInt(url.searchParams.get("limit") || "50");
           console.log(`\u{1F4CA} Fetching TRUE streak analysis for ${league}...`);
           let query = "streak_analysis";
+          const params = [];
           if (league !== "all") {
-            query += `?league=eq.${league}`;
+            params.push(`league=eq.${league}`);
           }
-          query += `&order=current_streak.desc&limit=${limit}`;
+          params.push(`order=current_streak.desc`);
+          params.push(`limit=${limit}`);
+          if (params.length > 0) {
+            query += `?${params.join("&")}`;
+          }
           const result = await supabaseFetch2(env, query, {
             method: "GET"
           });
