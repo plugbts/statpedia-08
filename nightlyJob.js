@@ -9,6 +9,7 @@ import { createClient } from '@supabase/supabase-js';
 import fetch from 'node-fetch';
 import { calculateHitRate, calculateStreak } from './scripts/analyticsCalculators.js';
 import { ingestPropsV2WithTeams } from './scripts/prop-ingestion-v2-enhanced.js';
+import { mapPlayerId } from './utils/playerIdMap.js';
 import dotenv from 'dotenv';
 
 // Load both .env and .env.local files
@@ -125,6 +126,11 @@ async function ingestGameLogs() {
             // Extract player name from playerId (format: PLAYER_NAME_1_NFL)
             const playerName = playerId.replace(/_1_NFL$/, '').replace(/_/g, ' ');
             
+            // Map to canonical player ID (normalize team to ensure consistency)
+            const normalizedTeam = 'UNK'; // Game logs don't have team info yet
+            const canonicalPlayerId = await mapPlayerId('logs', playerId, playerName, normalizedTeam);
+            if (!canonicalPlayerId) continue;
+            
               // Process each stat type
               for (const [statType, value] of Object.entries(playerStats)) {
                 if (value === null || value === undefined || value === 'null' || typeof value !== 'number') continue;
@@ -134,7 +140,7 @@ async function ingestGameLogs() {
               if (!propType) continue;
               
               rows.push({
-                player_id: playerId,
+                player_id: canonicalPlayerId,
                 player_name: playerName,
                 team: 'UNK', // We'd need to determine team from game data
                 opponent: 'UNK', // We'd need to determine opponent from game data

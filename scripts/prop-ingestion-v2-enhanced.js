@@ -6,6 +6,7 @@
 import { createClient } from '@supabase/supabase-js';
 import fetch from 'node-fetch';
 import dotenv from 'dotenv';
+import { mapPlayerId } from '../utils/playerIdMap.js';
 
 // Load environment variables
 dotenv.config();
@@ -101,8 +102,13 @@ export async function ingestPropsV2WithTeams(season) {
               opponent = team === home ? away : team === away ? home : (home || away);
             }
 
+            // Map to canonical player ID (normalize team to ensure consistency)
+            const normalizedTeam = team || 'UNK';
+            const canonicalPlayerId = await mapPlayerId('props', oddData.playerID, playerName, normalizedTeam);
+            if (!canonicalPlayerId) continue;
+
             rows.push({
-              player_id: oddData.playerID,
+              player_id: canonicalPlayerId,
               player_name: playerName,
               team: team || null,
               opponent: opponent || null,
