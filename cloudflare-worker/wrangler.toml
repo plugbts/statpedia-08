@@ -6,6 +6,10 @@ compatibility_flags = ["nodejs_compat"]
 # Enable workers.dev for subdomain registration
 workers_dev = true
 
+# Cron triggers for automatic ingestion
+[triggers]
+crons = ["*/5 * * * *"]  # Every 5 minutes
+
 # Global configuration (will be inherited by all environments)
 [vars]
 SPORTSODDS_API_KEY = "d5dc1f00bc42133550bc1605dd8f457f"

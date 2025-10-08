@@ -1,7 +1,7 @@
 var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
-// .wrangler/tmp/bundle-LDFw9b/checked-fetch.js
+// .wrangler/tmp/bundle-QktIh6/checked-fetch.js
 var urls = /* @__PURE__ */ new Set();
 function checkURL(request, init) {
   const url = request instanceof URL ? request : new URL(
@@ -27,7 +27,7 @@ globalThis.fetch = new Proxy(globalThis.fetch, {
   }
 });
 
-// .wrangler/tmp/bundle-LDFw9b/strip-cf-connecting-ip-header.js
+// .wrangler/tmp/bundle-QktIh6/strip-cf-connecting-ip-header.js
 function stripCfConnectingIPHeader(input, init) {
   const request = new Request(input, init);
   request.headers.delete("CF-Connecting-IP");
@@ -64,17 +64,244 @@ async function supabaseFetch(env, table, { method = "GET", body, query = "" } = 
 }
 __name(supabaseFetch, "supabaseFetch");
 
-// src/helpers.ts
-function chunk(arr, size) {
-  const out = [];
-  for (let i = 0; i < arr.length; i += size)
-    out.push(arr.slice(i, i + size));
-  return out;
+// src/missingPlayers.ts
+async function storeMissingPlayer(env, playerName, team, league, generatedId, oddId) {
+  try {
+    const missingPlayer = {
+      player_name: playerName,
+      team,
+      league,
+      normalized_name: normalizePlayerName(playerName),
+      generated_id: generatedId,
+      first_seen: (/* @__PURE__ */ new Date()).toISOString(),
+      last_seen: (/* @__PURE__ */ new Date()).toISOString(),
+      count: 1,
+      sample_odd_id: oddId
+    };
+    await fetch(`${env.SUPABASE_URL}/rest/v1/missing_players`, {
+      method: "POST",
+      headers: {
+        "apikey": env.SUPABASE_SERVICE_KEY,
+        "Authorization": `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+        "Content-Type": "application/json",
+        "Prefer": "resolution=merge-duplicates"
+      },
+      body: JSON.stringify(missingPlayer)
+    });
+    console.log(`\u{1F4DD} Stored missing player: ${playerName} (${team})`);
+  } catch (error) {
+    console.error(`\u274C Failed to store missing player ${playerName}:`, error);
+  }
 }
-__name(chunk, "chunk");
+__name(storeMissingPlayer, "storeMissingPlayer");
+function normalizePlayerName(name) {
+  return name.toLowerCase().replace(/[^\w\s]/g, "").replace(/\s+/g, " ").replace(/\s(jr|sr|iii|iv|v)$/i, "").trim();
+}
+__name(normalizePlayerName, "normalizePlayerName");
+
+// src/normalizeName.ts
+function normalizeName(name) {
+  return name.toLowerCase().replace(/[^\w\s]/g, "").replace(/\s+/g, " ").replace(/\s(jr|sr|iii|iv|v)$/i, "").trim();
+}
+__name(normalizeName, "normalizeName");
+function aggressiveNormalizeName(name) {
+  return name.toLowerCase().replace(/[^\w]/g, "").replace(/\s(jr|sr|iii|iv|v)$/i, "").trim();
+}
+__name(aggressiveNormalizeName, "aggressiveNormalizeName");
+function generateNameVariations(name) {
+  const normalized = normalizeName(name);
+  const variations = [normalized];
+  variations.push(aggressiveNormalizeName(name));
+  const withoutPrefix = normalized.replace(/^(jr|sr|iii|iv|v)\s+/i, "");
+  if (withoutPrefix !== normalized) {
+    variations.push(withoutPrefix);
+  }
+  const firstName = normalized.split(" ")[0];
+  if (firstName && firstName.length > 2) {
+    variations.push(firstName);
+  }
+  const lastName = normalized.split(" ").pop();
+  if (lastName && lastName.length > 2 && lastName !== firstName) {
+    variations.push(lastName);
+  }
+  return [...new Set(variations)];
+}
+__name(generateNameVariations, "generateNameVariations");
+
+// src/playersLoader.ts
+async function loadPlayerIdMap(env) {
+  try {
+    console.log("\u{1F504} Loading players from Supabase...");
+    const players = await supabaseFetch(env, "players", {
+      query: "?select=player_id,full_name,team,league,position&limit=10000"
+    });
+    if (!players || !Array.isArray(players)) {
+      console.error("\u274C Failed to load players from Supabase");
+      return {};
+    }
+    const map = {};
+    let loadedCount = 0;
+    let skippedCount = 0;
+    for (const player of players) {
+      if (!player.full_name || !player.player_id) {
+        skippedCount++;
+        continue;
+      }
+      const normalizedKey = normalizeName(player.full_name);
+      map[normalizedKey] = player.player_id;
+      loadedCount++;
+      const variations = generateNameVariations(player.full_name);
+      for (const variation of variations) {
+        if (variation !== normalizedKey && !map[variation]) {
+          map[variation] = player.player_id;
+        }
+      }
+    }
+    console.log(`\u2705 Loaded ${loadedCount} players into PLAYER_ID_MAP (${Object.keys(map).length} total mappings)`);
+    console.log(`\u26A0\uFE0F Skipped ${skippedCount} players due to missing data`);
+    return map;
+  } catch (error) {
+    console.error("\u274C Error loading player ID map:", error);
+    return {};
+  }
+}
+__name(loadPlayerIdMap, "loadPlayerIdMap");
+var playerMapCache = null;
+var cacheTimestamp = 0;
+var CACHE_TTL = 30 * 60 * 1e3;
+async function getCachedPlayerIdMap(env) {
+  const now = Date.now();
+  if (playerMapCache && now - cacheTimestamp < CACHE_TTL) {
+    return playerMapCache;
+  }
+  playerMapCache = await loadPlayerIdMap(env);
+  cacheTimestamp = now;
+  return playerMapCache;
+}
+__name(getCachedPlayerIdMap, "getCachedPlayerIdMap");
+async function updateMissingPlayersSuccess(env, playerName, canonicalId) {
+  try {
+    const normalizedName = normalizeName(playerName);
+    await fetch(`${env.SUPABASE_URL}/rest/v1/missing_players?normalized_name=eq.${normalizedName}`, {
+      method: "DELETE",
+      headers: {
+        "apikey": env.SUPABASE_SERVICE_KEY,
+        "Authorization": `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+        "Content-Type": "application/json"
+      }
+    });
+    console.log(`\u2705 Removed ${playerName} from missing players (mapped to ${canonicalId})`);
+  } catch (error) {
+    console.error(`\u274C Failed to update missing players for ${playerName}:`, error);
+  }
+}
+__name(updateMissingPlayersSuccess, "updateMissingPlayersSuccess");
 
 // src/createPlayerPropsFromOdd.ts
-function createPlayerPropsFromOdd(odd, oddId, event, league, season, week) {
+var MARKET_MAP = {
+  // NFL Passing
+  "passing yards": "Passing Yards",
+  "pass yards": "Passing Yards",
+  "passing yds": "Passing Yards",
+  "pass yds": "Passing Yards",
+  "passing yards passing": "Passing Yards",
+  "passing touchdowns": "Passing Touchdowns",
+  "pass tds": "Passing Touchdowns",
+  "passing td": "Passing Touchdowns",
+  "pass td": "Passing Touchdowns",
+  "passing attempts": "Passing Attempts",
+  "pass attempts": "Passing Attempts",
+  "pass att": "Passing Attempts",
+  "passing completions": "Passing Completions",
+  "pass completions": "Passing Completions",
+  "pass comp": "Passing Completions",
+  "passing interceptions": "Passing Interceptions",
+  "pass interceptions": "Passing Interceptions",
+  "pass int": "Passing Interceptions",
+  // NFL Rushing
+  "rushing yards": "Rushing Yards",
+  "rush yards": "Rushing Yards",
+  "rushing yds": "Rushing Yards",
+  "rush yds": "Rushing Yards",
+  "rushing touchdowns": "Rushing Touchdowns",
+  "rush tds": "Rushing Touchdowns",
+  "rushing td": "Rushing Touchdowns",
+  "rush td": "Rushing Touchdowns",
+  "rushing attempts": "Rushing Attempts",
+  "rush attempts": "Rushing Attempts",
+  "rush att": "Rushing Attempts",
+  // NFL Receiving
+  "receiving yards": "Receiving Yards",
+  "rec yards": "Receiving Yards",
+  "receiving yds": "Receiving Yards",
+  "rec yds": "Receiving Yards",
+  "receiving touchdowns": "Receiving Touchdowns",
+  "rec tds": "Receiving Touchdowns",
+  "receiving td": "Receiving Touchdowns",
+  "rec td": "Receiving Touchdowns",
+  "receptions": "Receptions",
+  "rec": "Receptions",
+  // NFL Defense
+  "defense sacks": "Defense Sacks",
+  "defense interceptions": "Defense Interceptions",
+  "defense combined tackles": "Defense Combined Tackles",
+  "defense total tackles": "Defense Combined Tackles",
+  // NFL Kicking
+  "field goals made": "Field Goals Made",
+  "kicking total points": "Kicking Total Points",
+  "extra points kicks made": "Extra Points Made",
+  // NBA
+  "points": "Points",
+  "rebounds": "Rebounds",
+  "assists": "Assists",
+  "steals": "Steals",
+  "blocks": "Blocks",
+  "threes made": "Three Pointers Made",
+  "3-pointers made": "Three Pointers Made",
+  // MLB
+  "hits": "Hits",
+  "runs": "Runs",
+  "rbis": "RBIs",
+  "strikeouts": "Strikeouts",
+  "walks": "Walks",
+  "home runs": "Home Runs",
+  // NHL
+  "goals": "Goals",
+  "shots": "Shots",
+  "saves": "Saves"
+};
+async function getPlayerID(playerName, team, league, env) {
+  if (!env) {
+    const canonicalName = playerName.toUpperCase().replace(/[^\w\s]/g, "").replace(/\s+/g, "_").replace(/\s(jr|sr|iii|iv|v)$/i, "").trim();
+    return `${canonicalName}-UNK-${team}`;
+  }
+  try {
+    const playerMap = await getCachedPlayerIdMap(env);
+    const normalizedName = normalizeName(playerName);
+    if (playerMap[normalizedName]) {
+      const canonicalId = playerMap[normalizedName];
+      console.log(`\u2705 Found player mapping: ${playerName} \u2192 ${canonicalId}`);
+      await updateMissingPlayersSuccess(env, playerName, canonicalId);
+      return canonicalId;
+    }
+    for (const [key, value] of Object.entries(playerMap)) {
+      if (key.includes(normalizedName) || normalizedName.includes(key)) {
+        const canonicalId = value;
+        console.log(`\u2705 Found fuzzy player mapping: ${playerName} \u2192 ${canonicalId}`);
+        await updateMissingPlayersSuccess(env, playerName, canonicalId);
+        return canonicalId;
+      }
+    }
+    const canonicalName = playerName.toUpperCase().replace(/[^\w\s]/g, "").replace(/\s+/g, "_").replace(/\s(jr|sr|iii|iv|v)$/i, "").trim();
+    return `${canonicalName}-UNK-${team}`;
+  } catch (error) {
+    console.error(`\u274C Error loading player map for ${playerName}:`, error);
+    const canonicalName = playerName.toUpperCase().replace(/[^\w\s]/g, "").replace(/\s+/g, "_").replace(/\s(jr|sr|iii|iv|v)$/i, "").trim();
+    return `${canonicalName}-UNK-${team}`;
+  }
+}
+__name(getPlayerID, "getPlayerID");
+async function createPlayerPropsFromOdd(odd, oddId, event, league, season, week, env) {
   const props = [];
   const playerName = odd.player?.name;
   const team = odd.player?.team;
@@ -82,38 +309,70 @@ function createPlayerPropsFromOdd(odd, oddId, event, league, season, week) {
     console.log(`Skipping odd ${oddId}: missing player name or team`);
     return props;
   }
-  const playerID = `${playerName.toUpperCase().replace(/\s+/g, "_")}_1_${league}`;
-  if (!playerID || playerID.includes("_1_")) {
+  const playerID = await getPlayerID(playerName, team, league, env);
+  if (!playerID) {
+    console.error("Failed to generate player_id mapping", {
+      playerName,
+      team,
+      league,
+      normalizedName: normalizeName(playerName)
+    });
+    return props;
+  }
+  if (playerID.includes("-UNK-") && env) {
     console.error("Missing player_id mapping", {
       playerName,
       team,
       league,
-      generatedId: playerID
+      generatedId: playerID,
+      normalizedName: normalizeName(playerName)
     });
+    await storeMissingPlayer(env, playerName, team, league, playerID, oddId);
   }
   const gameDate = event.date ? event.date.split("T")[0] : (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
-  const propType = odd.prop?.name;
+  const rawPropType = odd.prop?.name;
   const line = odd.line;
   const overOdds = odd.overOdds;
   const underOdds = odd.underOdds;
   const sportsbook = mapBookmakerIdToName(odd.bookmaker?.id || "unknown") || "Consensus";
-  if (!propType || line == null) {
+  if (!rawPropType || line == null) {
     console.log(`Skipping odd ${oddId}: missing prop type or line`);
     return props;
   }
+  const normalizedPropType = MARKET_MAP[rawPropType.toLowerCase()] || rawPropType;
+  if (!MARKET_MAP[rawPropType.toLowerCase()]) {
+    console.warn("Unmapped market:", {
+      rawMarket: rawPropType,
+      oddId,
+      player: playerName,
+      league
+    });
+  }
+  const gameId = event.eventID || `${team}-${event.teams?.find((t) => t !== team)}-${gameDate}`;
+  const homeTeam = event.homeTeam || event.teams?.[0];
+  const awayTeam = event.awayTeam || event.teams?.[1];
+  const gameTime = event.date ? new Date(event.date) : /* @__PURE__ */ new Date();
   const prop = {
     player_id: playerID,
     player_name: playerName,
     team,
     opponent: event.teams?.find((t) => t !== team) || null,
-    season: parseInt(season),
-    date: gameDate,
-    prop_type: propType,
+    prop_type: normalizedPropType,
     line: parseFloat(line),
     over_odds: overOdds ? parseInt(overOdds) : null,
     under_odds: underOdds ? parseInt(underOdds) : null,
     sportsbook,
-    conflict_key: `${playerID}-${propType}-${line}-${sportsbook}-${gameDate}`
+    sportsbook_key: odd.bookmaker?.id || "consensus",
+    game_id: gameId,
+    game_time: gameTime.toISOString(),
+    home_team: homeTeam || "",
+    away_team: awayTeam || "",
+    league: league.toLowerCase(),
+    season,
+    week: week || null,
+    conflict_key: `${playerID}-${normalizedPropType}-${line}-${sportsbook}-${gameDate}`,
+    last_updated: (/* @__PURE__ */ new Date()).toISOString(),
+    is_available: true
   };
   props.push(prop);
   return props;
@@ -149,16 +408,71 @@ async function fetchEvents(env, sportID, season, week) {
   let nextCursor = null;
   let pageCount = 0;
   const maxPages = 2;
+  try {
+    allEvents = await fetchEventsWithParams(env, sportID, season, week);
+    console.log(`Primary query successful: ${allEvents.length} events`);
+    return allEvents;
+  } catch (error) {
+    console.error("Primary query failed:", error);
+  }
+  if (season === "2025" && allEvents.length === 0) {
+    console.log("Trying fallback: season 2024");
+    try {
+      const fallbackEvents = await fetchEventsWithParams(env, sportID, "2024", week);
+      if (fallbackEvents.length > 0) {
+        console.log(`Fallback successful: found ${fallbackEvents.length} events for season 2024`);
+        return fallbackEvents;
+      }
+    } catch (error) {
+      console.error("Season 2024 fallback failed:", error);
+    }
+  }
+  if (week && allEvents.length === 0) {
+    console.log("Trying fallback: without week filter");
+    try {
+      const fallbackEvents = await fetchEventsWithParams(env, sportID, season);
+      if (fallbackEvents.length > 0) {
+        console.log(`Fallback successful: found ${fallbackEvents.length} events without week filter`);
+        return fallbackEvents;
+      }
+    } catch (error) {
+      console.error("No week filter fallback failed:", error);
+    }
+  }
+  if (allEvents.length === 0) {
+    console.log("Trying fallback: relaxed filters");
+    try {
+      const fallbackEvents = await fetchEventsWithParams(env, sportID, season, week, true);
+      if (fallbackEvents.length > 0) {
+        console.log(`Fallback successful: found ${fallbackEvents.length} events with relaxed filters`);
+        return fallbackEvents;
+      }
+    } catch (error) {
+      console.error("Relaxed filters fallback failed:", error);
+    }
+  }
+  console.log(`All fallback attempts exhausted. Total events: ${allEvents.length}`);
+  return allEvents;
+}
+__name(fetchEvents, "fetchEvents");
+async function fetchEventsWithParams(env, sportID, season, week, relaxed = false) {
+  let allEvents = [];
+  let nextCursor = null;
+  let pageCount = 0;
+  const maxPages = 2;
   do {
     try {
-      let endpoint = `/v2/events?sportID=${sportID}&season=${season}&oddsAvailable=true&markets=playerProps&limit=10`;
+      let endpoint = `/v2/events?sportID=${sportID}&season=${season}&limit=10`;
+      if (!relaxed) {
+        endpoint += `&oddsAvailable=true&markets=playerProps`;
+      }
       if (week) {
         endpoint += `&week=${week}`;
       }
       if (nextCursor) {
         endpoint += `&cursor=${nextCursor}`;
       }
-      console.log(`Fetching events from: ${endpoint}`);
+      console.log(`Fetching events from: ${endpoint}${relaxed ? " (relaxed filters)" : ""}`);
       const response = await fetch(`https://api.sportsgameodds.com${endpoint}`, {
         headers: {
           "Accept": "application/json",
@@ -188,8 +502,8 @@ async function fetchEvents(env, sportID, season, week) {
   console.log(`Total events fetched: ${allEvents.length}`);
   return allEvents;
 }
-__name(fetchEvents, "fetchEvents");
-async function extractPlayerPropsFromEvent(event, league, season, week) {
+__name(fetchEventsWithParams, "fetchEventsWithParams");
+async function extractPlayerPropsFromEvent(event, league, season, week, env) {
   const props = [];
   let playerPropOdds = 0;
   let totalOdds = 0;
@@ -205,7 +519,7 @@ async function extractPlayerPropsFromEvent(event, league, season, week) {
       playerPropOdds++;
       console.log(`Found player prop odd: ${oddId}`);
       try {
-        const playerProps = await createPlayerPropsFromOdd(odd, oddId, event, league, season, week);
+        const playerProps = await createPlayerPropsFromOdd(odd, oddId, event, league, season, week, env);
         if (playerProps && playerProps.length > 0) {
           props.push(...playerProps);
         }
@@ -269,6 +583,14 @@ function isPlayerProp(odd) {
   return isPlayerProp2;
 }
 __name(isPlayerProp, "isPlayerProp");
+function chunk(arr, size) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) {
+    out.push(arr.slice(i, i + size));
+  }
+  return out;
+}
+__name(chunk, "chunk");
 async function upsertProps(env, props) {
   let inserted = 0;
   let updated = 0;
@@ -301,10 +623,21 @@ async function upsertProps(env, props) {
         inserted += batch.length;
         console.log(`\u2705 Successfully upserted batch of ${batch.length} proplines records`);
       } catch (error) {
-        console.error(`\u274C Error upserting batch:`, error);
-        errors += batch.length;
+        console.error(`\u274C Error upserting batch, retrying:`, error);
+        try {
+          await supabaseFetch(env, "proplines", {
+            method: "POST",
+            body: batch
+          });
+          inserted += batch.length;
+          console.log(`\u2705 Successfully upserted batch of ${batch.length} proplines records on retry`);
+        } catch (retryError) {
+          console.error(`\u274C Failed to upsert batch after retry:`, retryError);
+          errors += batch.length;
+        }
       }
     }
+    console.log(`\u{1F4CA} Inserted ${inserted} props, dropped ${props.length - inserted - errors}, errors: ${errors}`);
   } catch (error) {
     console.error("\u274C Exception during proplines upsert:", {
       error,
@@ -316,6 +649,52 @@ async function upsertProps(env, props) {
   return { inserted, updated, errors };
 }
 __name(upsertProps, "upsertProps");
+async function scheduledHandler(env, event) {
+  console.log(`\u{1F550} Scheduled ingestion triggered at ${(/* @__PURE__ */ new Date()).toISOString()}`);
+  try {
+    const leagues = ["NFL", "NBA", "MLB", "NHL"];
+    const season = (/* @__PURE__ */ new Date()).getFullYear().toString();
+    let totalInserted = 0;
+    let totalErrors = 0;
+    for (const league of leagues) {
+      console.log(`\u{1F3C8} Starting scheduled ingestion for ${league}`);
+      try {
+        const sportID = league === "NFL" || league === "NCAAF" ? "FOOTBALL" : league === "NBA" || league === "NCAAB" ? "BASKETBALL" : league === "MLB" ? "BASEBALL" : league === "NHL" ? "HOCKEY" : "FOOTBALL";
+        const events = await fetchEvents(env, sportID, season);
+        console.log(`Fetched ${events.length} events for ${league}`);
+        if (events.length === 0) {
+          console.log(`No events found for ${league}, skipping`);
+          continue;
+        }
+        let leagueInserted = 0;
+        let leagueErrors = 0;
+        for (const event2 of events) {
+          try {
+            const props = await extractPlayerPropsFromEvent(event2, league, season, void 0, env);
+            if (props.length > 0) {
+              const upsertResult = await upsertProps(env, props);
+              leagueInserted += upsertResult.inserted;
+              leagueErrors += upsertResult.errors;
+            }
+          } catch (error) {
+            console.error(`Error processing event ${event2.eventID}:`, error);
+            leagueErrors++;
+          }
+        }
+        totalInserted += leagueInserted;
+        totalErrors += leagueErrors;
+        console.log(`\u2705 ${league}: ${leagueInserted} inserted, ${leagueErrors} errors`);
+      } catch (error) {
+        console.error(`\u274C Error processing ${league}:`, error);
+        totalErrors++;
+      }
+    }
+    console.log(`\u{1F3AF} Scheduled ingestion complete: ${totalInserted} total inserted, ${totalErrors} total errors`);
+  } catch (error) {
+    console.error("\u274C Scheduled ingestion failed:", error);
+  }
+}
+__name(scheduledHandler, "scheduledHandler");
 var worker_default = {
   async fetch(req, env) {
     try {
@@ -340,25 +719,6 @@ var worker_default = {
           console.log(`Processing ${league} (${sportID})`);
           const events = await fetchEvents(env, sportID, season, week);
           console.log(`Fetched ${events.length} events for ${league}`);
-          if (events.length === 0) {
-            console.log(`No events found for ${league} - trying fallback strategies`);
-            if (season === "2025") {
-              console.log(`Trying fallback: season 2024`);
-              const fallbackEvents = await fetchEvents(env, sportID, "2024", week);
-              if (fallbackEvents.length > 0) {
-                console.log(`Fallback successful: found ${fallbackEvents.length} events for season 2024`);
-                events.push(...fallbackEvents);
-              }
-            }
-            if (events.length === 0 && week) {
-              console.log(`Trying fallback: without week filter`);
-              const fallbackEvents = await fetchEvents(env, sportID, season);
-              if (fallbackEvents.length > 0) {
-                console.log(`Fallback successful: found ${fallbackEvents.length} events without week filter`);
-                events.push(...fallbackEvents);
-              }
-            }
-          }
           let totalProps = 0;
           let totalInserted = 0;
           let totalUpdated = 0;
@@ -368,7 +728,7 @@ var worker_default = {
             for (const event of events) {
               try {
                 console.log(`Processing event ${event.eventID} with ${Object.keys(event.odds || {}).length} odds`);
-                const props = await extractPlayerPropsFromEvent(event, league, season, week);
+                const props = await extractPlayerPropsFromEvent(event, league, season, week, env);
                 console.log(`Extracted ${props.length} props from event ${event.eventID}`);
                 if (props.length > 0) {
                   console.log(`Found ${props.length} props in event ${event.eventID}`);
@@ -421,6 +781,10 @@ var worker_default = {
       console.error("Worker error:", err);
       return new Response("Internal error", { status: 500 });
     }
+  },
+  // Scheduled handler for cron jobs
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(scheduledHandler(env, event));
   }
 };
 
@@ -465,7 +829,7 @@ var jsonError = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx)
 }, "jsonError");
 var middleware_miniflare3_json_error_default = jsonError;
 
-// .wrangler/tmp/bundle-LDFw9b/middleware-insertion-facade.js
+// .wrangler/tmp/bundle-QktIh6/middleware-insertion-facade.js
 var __INTERNAL_WRANGLER_MIDDLEWARE__ = [
   middleware_ensure_req_body_drained_default,
   middleware_miniflare3_json_error_default
@@ -497,7 +861,7 @@ function __facade_invoke__(request, env, ctx, dispatch, finalMiddleware) {
 }
 __name(__facade_invoke__, "__facade_invoke__");
 
-// .wrangler/tmp/bundle-LDFw9b/middleware-loader.entry.ts
+// .wrangler/tmp/bundle-QktIh6/middleware-loader.entry.ts
 var __Facade_ScheduledController__ = class {
   constructor(scheduledTime, cron, noRetry) {
     this.scheduledTime = scheduledTime;
