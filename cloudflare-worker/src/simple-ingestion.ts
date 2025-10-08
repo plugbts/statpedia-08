@@ -1,4 +1,4 @@
-// Simple Prop Ingestion Worker - No complex imports
+// Simple Prop Ingestion Worker - Raw Fetch Approach
 // Handles heavy data processing without timeout constraints
 
 /// <reference types="@cloudflare/workers-types" />
@@ -12,46 +12,36 @@ export interface Env {
   MAX_PROPS_PER_REQUEST?: string;
 }
 
-// Canonical prop types mapping
-const CANONICAL_PROP_TYPES: Record<string, string> = {
-  'passing_yards': 'Passing Yards',
-  'passing_completions': 'Passing Completions', 
-  'passing_touchdowns': 'Passing TDs',
-  'rushing_yards': 'Rushing Yards',
-  'rushing_attempts': 'Rushing Attempts',
-  'rushing_touchdowns': 'Rushing TDs',
-  'receiving_yards': 'Receiving Yards',
-  'receptions': 'Receptions',
-  'receiving_touchdowns': 'Receiving TDs',
-  'passing_interceptions': 'Interceptions',
-  'extraPoints_kicksMade': 'Extra Points Made',
-  'fieldGoals_made': 'Field Goals Made',
-  'kicking_totalPoints': 'Kicking Total Points',
-  'firstTouchdown': 'First Touchdown',
-  'firstToScore': 'First to Score',
-  'points': 'Points',
-  'assists': 'Assists',
-  'rebounds': 'Rebounds',
-  'three_pointers_made': '3PM',
-  'steals': 'Steals',
-  'blocks': 'Blocks',
-  'turnovers': 'Turnovers',
-  'hits': 'Hits',
-  'runs': 'Runs',
-  'rbis': 'RBIs',
-  'home_runs': 'Home Runs',
-  'total_bases': 'Total Bases',
-  'stolen_bases': 'Stolen Bases',
-  'strikeouts': 'Pitcher Ks',
-  'outs': 'Pitcher Outs',
-  'earned_runs': 'ER Allowed',
-  'goals': 'Goals',
-  'shots_on_goal': 'Shots',
-  'power_play_points': 'PPP',
-  'saves': 'Saves'
-};
-
 const SPORTSGAMEODDS_BASE_URL = 'https://api.sportsgameodds.com';
+
+// Step 3: Lightweight Supabase REST helper
+async function supabaseFetch(env: Env, table: string, { method = "GET", body, query = "" }: { method?: string; body?: any; query?: string } = {}) {
+  const url = `${env.SUPABASE_URL}/rest/v1/${table}${query}`;
+  const res = await fetch(url, {
+    method,
+    headers: {
+      apikey: env.SUPABASE_SERVICE_KEY,
+      Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+      "Content-Type": "application/json",
+      ...(method === "POST" ? { Prefer: "resolution=merge-duplicates" } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Supabase ${method} failed: ${res.status} ${res.statusText} - ${errorText}`);
+  }
+  return res.json();
+}
+
+// Chunk helper for batching
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    out.push(arr.slice(i, i + size));
+  }
+  return out;
+}
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -65,7 +55,7 @@ export default {
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
           'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        },
+        }
       });
     }
 
@@ -78,8 +68,8 @@ export default {
       return handleIngestionStatus(request, env);
     }
 
-    return new Response('Prop Ingestion Worker - Use POST /ingest to start ingestion', {
-      status: 200,
+    return new Response('Not Found', { 
+      status: 404,
       headers: { 'Content-Type': 'text/plain' }
     });
   }
@@ -87,8 +77,8 @@ export default {
 
 async function handleIngestion(request: Request, env: Env): Promise<Response> {
   try {
-    const body = await request.json();
-    const { league, season = '2025', week } = body;
+    const body = await request.json() as { league?: string; season?: string; week?: string };
+    const { league = 'NFL', season = '2025', week } = body;
     
     console.log(`Starting prop ingestion for league: ${league || 'all'}, season: ${season}, week: ${week || 'all'}`);
     
@@ -99,8 +89,8 @@ async function handleIngestion(request: Request, env: Env): Promise<Response> {
     return new Response(JSON.stringify({
       success: true,
       message: 'Prop ingestion completed successfully',
-      duration: `${duration}ms`,
-      ...results
+      ...results,
+      duration: `${duration}ms`
     }), {
       status: 200,
       headers: { 
@@ -108,13 +98,12 @@ async function handleIngestion(request: Request, env: Env): Promise<Response> {
         'Access-Control-Allow-Origin': '*'
       }
     });
-    
   } catch (error) {
     console.error('Ingestion failed:', error);
     return new Response(JSON.stringify({
       success: false,
       message: 'Ingestion failed',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : String(error)
     }), {
       status: 500,
       headers: { 
@@ -127,8 +116,8 @@ async function handleIngestion(request: Request, env: Env): Promise<Response> {
 
 async function handleIngestionStatus(request: Request, env: Env): Promise<Response> {
   return new Response(JSON.stringify({
-    status: 'ready',
-    message: 'Prop ingestion worker is ready',
+    status: 'running',
+    message: 'Prop ingestion service is operational',
     timestamp: new Date().toISOString()
   }), {
     status: 200,
@@ -162,12 +151,37 @@ async function runIngestion(env: Env, league?: string, season: string = '2025', 
     try {
       // Fetch events from SportsGameOdds API
       console.log(`About to fetch events for sportID: ${sportID}, season: ${season}, week: ${week}`);
+      console.log(`Request params:`, { league: currentLeague, sportID, season, week });
       const events = await fetchEvents(env, sportID, season, week);
       console.log(`Fetched ${events.length} events for ${currentLeague}`);
       
       if (events.length === 0) {
-        console.log(`No events found for ${currentLeague} - skipping`);
-        continue;
+        console.log(`No events found for ${currentLeague} - trying fallback strategies`);
+        
+        // Fallback 1: Try season 2024
+        if (season === '2025') {
+          console.log(`Trying fallback: season 2024`);
+          const fallbackEvents = await fetchEvents(env, sportID, '2024', week);
+          if (fallbackEvents.length > 0) {
+            console.log(`Fallback successful: found ${fallbackEvents.length} events for season 2024`);
+            events.push(...fallbackEvents);
+          }
+        }
+        
+        // Fallback 2: Try without week filter
+        if (events.length === 0 && week) {
+          console.log(`Trying fallback: without week filter`);
+          const fallbackEvents = await fetchEvents(env, sportID, season);
+          if (fallbackEvents.length > 0) {
+            console.log(`Fallback successful: found ${fallbackEvents.length} events without week filter`);
+            events.push(...fallbackEvents);
+          }
+        }
+        
+        if (events.length === 0) {
+          console.log(`No events found for ${currentLeague} after fallbacks - skipping`);
+          continue;
+        }
       }
 
       // Log details about the first few events
@@ -227,10 +241,16 @@ async function fetchEvents(env: Env, sportID: string, season: string, week?: str
   do {
     try {
       let endpoint = `/v2/events?sportID=${sportID}&season=${season}&oddsAvailable=true&markets=playerProps&limit=10`;
-      if (week) endpoint += `&week=${week}`;
-      if (nextCursor) endpoint += `&cursor=${nextCursor}`;
       
-      console.log(`Making API call to: ${SPORTSGAMEODDS_BASE_URL}${endpoint}`);
+      if (week) {
+        endpoint += `&week=${week}`;
+      }
+      
+      if (nextCursor) {
+        endpoint += `&cursor=${nextCursor}`;
+      }
+
+      console.log(`Fetching events from: ${endpoint}`);
 
       const response = await fetch(`${SPORTSGAMEODDS_BASE_URL}${endpoint}`, {
         headers: {
@@ -245,27 +265,27 @@ async function fetchEvents(env: Env, sportID: string, season: string, week?: str
         break;
       }
 
-      const data = await response.json();
-      
-      if (!data.success || !data.data) {
-        console.error('API returned unsuccessful response:', data);
+      const data = await response.json() as { events?: any[]; nextCursor?: string };
+      console.log(`API response: ${data.events?.length || 0} events, nextCursor: ${data.nextCursor || 'null'}`);
+
+      if (data.events && Array.isArray(data.events)) {
+        allEvents.push(...data.events);
+        console.log(`Added ${data.events.length} events, total: ${allEvents.length}`);
+      }
+
+      nextCursor = data.nextCursor || null;
+      pageCount++;
+
+      if (pageCount >= maxPages) {
+        console.log(`Reached max pages (${maxPages}), stopping`);
         break;
       }
 
-      const events = data.data;
-      allEvents.push(...events);
-      
-      console.log(`Page ${pageCount + 1}: Fetched ${events.length} events (${allEvents.length} total)`);
-      
-      // Check for next page
-      nextCursor = data.pagination?.nextCursor || null;
-      pageCount++;
-      
     } catch (error) {
-      console.error(`Error fetching events (page ${pageCount + 1}):`, error);
+      console.error('Error fetching events:', error);
       break;
     }
-  } while (nextCursor && pageCount < maxPages);
+  } while (nextCursor);
 
   console.log(`Total events fetched: ${allEvents.length}`);
   return allEvents;
@@ -275,220 +295,177 @@ async function extractPlayerPropsFromEvent(event: any, league: string, season: s
   const props: any[] = [];
   
   let playerPropOdds = 0;
-  let processedOdds = 0;
   let totalOdds = 0;
 
-  for (const [oddId, oddData] of Object.entries(event.odds || {})) {
+  if (!event.odds) {
+    console.log(`Event ${event.eventID} has no odds`);
+    return props;
+  }
+
+  const odds = Object.entries(event.odds);
+  console.log(`Fetched odds: ${odds.length}`);
+
+  for (const [oddId, odd] of odds) {
     totalOdds++;
-    try {
-      if (isPlayerProp(oddData, oddId)) {
-        playerPropOdds++;
-        const playerProps = await createPlayerPropsFromOdd(
-          oddData, 
-          oddId, 
-          event, 
-          league, 
-          season, 
-          week
-        );
-        props.push(...playerProps);
-        processedOdds += playerProps.length;
+    
+    if (isPlayerProp(odd)) {
+      playerPropOdds++;
+      console.log(`Found player prop odd: ${oddId}`);
+      
+      try {
+        const playerProps = await createPlayerPropsFromOdd(odd, oddId, event, league, season, week);
+        if (playerProps && playerProps.length > 0) {
+          props.push(...playerProps);
+        }
+      } catch (error) {
+        console.error(`Error creating player props for odd ${oddId}:`, error);
       }
-    } catch (error) {
-      console.error(`Error processing odd ${oddId}:`, error);
     }
   }
 
-  console.log(`Event ${event.eventID}: ${playerPropOdds} player prop odds found, ${processedOdds} props created out of ${totalOdds} total odds`);
+  console.log(`After market filter: ${playerPropOdds} player prop odds found`);
+  console.log(`After mapping: ${props.length} props created`);
+  console.log(`Event ${event.eventID}: ${playerPropOdds} player prop odds found, ${props.length} props created out of ${totalOdds} total odds`);
   return props;
 }
 
-function isPlayerProp(odd: any, oddId: string): boolean {
-  if (!odd || !oddId) return false;
+// Step 5: Debug harness for validation
+async function mapOddDebug(odd: any, oddId: string, event: any, league: string, season: string, week?: string) {
+  const rows = await createPlayerPropsFromOdd(odd, oddId, event, league, season, week);
+  if (!rows || rows.length === 0) { 
+    console.error("Rejected: no rows returned", { oddId, odd }); 
+    return null; 
+  }
   
-  const oddIdParts = oddId.split('-');
-  if (oddIdParts.length < 5) return false;
+  // Process each row
+  const validRows: any[] = [];
+  for (const row of rows) {
+    const { player_id, date, prop_type } = row;
+    if (!player_id || !date || !prop_type) { 
+      console.error("Missing critical", { player_id, date, prop_type, oddId, odd }); 
+      continue;
+    }
+    if (row.line == null) console.warn("Null line", { oddId, row });
+    if (row.over_odds == null && row.under_odds == null) console.warn("Null odds", { oddId, row });
+    if (!row.sportsbook) console.warn("Missing sportsbook", { oddId, row });
+    validRows.push(row);
+  }
   
-  const [statID, playerID, periodID, betTypeID, sideID] = oddIdParts;
-  
-  // Check if the second part looks like a player ID (FIRSTNAME_LASTNAME_NUMBER_LEAGUE)
-  const isPlayerID = /^[A-Z_]+_[A-Z_]+_\d+_[A-Z]+$/.test(playerID);
-  
-  // Check if it's an over/under bet
-  const isOverUnder = betTypeID === 'ou' || betTypeID === 'over_under';
-  
-  // Only process 'over' side - we'll handle both over and under from the same odd
-  const isOverSide = sideID === 'over';
-  
-  // Check if the statID is one we can normalize (or is a common player prop)
-  const normalizedStatID = statID.toLowerCase();
-  const isPlayerStat = Object.keys(CANONICAL_PROP_TYPES).includes(normalizedStatID) ||
-                      normalizedStatID.includes('passing') ||
-                      normalizedStatID.includes('rushing') ||
-                      normalizedStatID.includes('receiving') ||
-                      normalizedStatID.includes('touchdown') ||
-                      normalizedStatID.includes('yards') ||
-                      normalizedStatID.includes('receptions') ||
-                      normalizedStatID.includes('field') ||
-                      normalizedStatID.includes('kicking') ||
-                      normalizedStatID.includes('points');
-  
-  return isPlayerID && isOverUnder && isOverSide && isPlayerStat;
+  return validRows.length > 0 ? validRows : null;
 }
 
 async function createPlayerPropsFromOdd(odd: any, oddId: string, event: any, league: string, season: string, week?: string): Promise<any[]> {
+  if (!odd || !event) {
+    console.log(`Skipping invalid odd or event: odd=${!!odd}, event=${!!event}`);
+    return [];
+  }
+
   const props: any[] = [];
   
-  if (!oddId.includes('-over')) {
-    return props;
+  // Extract basic information
+  const playerName = odd.player?.name;
+  const team = odd.player?.team;
+  const opponent = event.teams?.find((t: any) => t.team !== team)?.team;
+  
+  if (!playerName || !team) {
+    console.log(`Skipping odd ${oddId}: missing player name or team`);
+    return [];
+  }
+
+  // Generate player ID
+  const playerID = `${playerName.toUpperCase().replace(/\s+/g, '_')}_1_${league}`;
+  
+  if (!playerID || playerID.includes('_1_')) {
+    console.error("Missing player_id mapping", { 
+      playerName, 
+      team, 
+      league, 
+      generatedId: playerID 
+    });
   }
   
-  const underOddId = oddId.replace('-over', '-under');
-  const underOdd = event.odds[underOddId];
+  // Extract game date - use event date, not ingestion date
+  const gameDate = event.date ? event.date.split('T')[0] : new Date().toISOString().split('T')[0];
   
-  if (!underOdd) {
-    return props;
+  // Extract prop information
+  const propType = odd.prop?.name;
+  const line = odd.line;
+  const overOdds = odd.overOdds;
+  const underOdds = odd.underOdds;
+  const sportsbook = mapBookmakerIdToName(odd.bookmaker?.id || 'unknown') || 'Consensus';
+  
+  if (!propType || line == null) {
+    console.log(`Skipping odd ${oddId}: missing prop type or line`);
+    return [];
   }
 
-  if (odd.byBookmaker) {
-    for (const [bookmakerId, bookmakerData] of Object.entries(odd.byBookmaker)) {
-      try {
-        const overData = bookmakerData;
-        
-        if (!overData.available) continue;
+  // Create conflict key for upsert
+  const conflictKey = `${playerID}-${propType}-${line}-${sportsbook}-${gameDate}`;
 
-        const underData = underOdd.byBookmaker?.[bookmakerId];
-        if (!underData || !underData.available) continue;
+  // Create the prop record
+  const prop = {
+    player_id: playerID,
+    player_name: playerName,
+    team: team,
+    opponent: opponent,
+    season: parseInt(season),
+    date: gameDate,
+    prop_type: propType,
+    line: parseFloat(line),
+    over_odds: overOdds ? parseInt(overOdds) : null,
+    under_odds: underOdds ? parseInt(underOdds) : null,
+    sportsbook: sportsbook,
+    league: league.toLowerCase(),
+    is_active: true,
+    last_updated: new Date().toISOString(),
+    conflict_key: conflictKey
+  };
 
-        const prop = createIngestedPlayerProp(
-          odd,
-          oddId,
-          overData,
-          underData,
-          bookmakerId,
-          event,
-          league,
-          season,
-          week
-        );
-
-        if (prop) {
-          props.push(prop);
-        }
-      } catch (error) {
-        console.error(`Error processing bookmaker ${bookmakerId}:`, error);
-      }
-    }
-  }
-  
+  props.push(prop);
   return props;
 }
 
-function createIngestedPlayerProp(odd: any, oddId: string, overData: any, underData: any, bookmakerId: string, event: any, league: string, season: string, week?: string): any {
-  try {
-    const oddIdParts = oddId.split('-');
-    
-    const playerID = oddIdParts.length >= 2 ? oddIdParts[1] : (odd.playerID || odd.statEntityID);
-    const statID = oddIdParts.length >= 1 ? oddIdParts[0] : odd.statID;
-    
-    const playerName = extractPlayerName(playerID);
-    const team = extractTeam(playerID, event.teams?.home?.names?.short, event.teams?.away?.names?.short);
-    const sportsbookName = mapBookmakerIdToName(bookmakerId);
-    
-    const propType = normalizePropType(statID);
-    const overOdds = parseOdds(overData.odds);
-    const underOdds = parseOdds(underData.odds);
-    const line = overData.overUnder || overData.line || 0;
-    
-    if (!overOdds || !underOdds || !line) {
-      return null;
-    }
-
-    const gameTime = new Date(event.status?.startsAt || new Date());
-    const gameDate = gameTime.toISOString().split('T')[0];
-    
-    if (!gameDate || gameDate === 'Invalid Date' || gameDate.includes('Invalid')) {
-      return null;
-    }
-
-    if (!playerID || !playerName || !team || !propType || !sportsbookName) {
-      return null;
-    }
-    
-    const conflictKey = `${playerID}-${propType}-${line}-${sportsbookName}-${gameDate}`;
-    
-    return {
-      player_id: playerID.substring(0, 64),
-      player_name: playerName.substring(0, 128),
-      team: team.substring(0, 8),
-      opponent: (team === event.teams?.home?.names?.short ? event.teams?.away?.names?.short : event.teams?.home?.names?.short)?.substring(0, 8) || 'UNKNOWN',
-      season: parseInt(season),
-      date: gameDate,
-      prop_type: propType.substring(0, 64),
-      line: line,
-      over_odds: overOdds,
-      under_odds: underOdds,
-      sportsbook: sportsbookName.substring(0, 32),
-      conflict_key: conflictKey
-    };
-  } catch (error) {
-    console.error('Error creating player prop:', error);
-    return null;
+function isPlayerProp(odd: any): boolean {
+  if (!odd || !odd.prop || !odd.player) {
+    return false;
   }
-}
 
-function extractPlayerName(playerID: string): string {
-  try {
-    const parts = playerID.split('_');
-    if (parts.length < 4) return 'Unknown Player';
-    
-    const firstName = parts[0].charAt(0) + parts[0].slice(1).toLowerCase();
-    const lastName = parts[1].charAt(0) + parts[1].slice(1).toLowerCase();
-    
-    return `${firstName} ${lastName}`;
-  } catch (error) {
-    return 'Unknown Player';
+  // Check if it's a player prop by looking at the prop type
+  const propType = odd.prop.name?.toLowerCase() || '';
+  const playerPropTypes = [
+    'passing yards', 'rushing yards', 'receiving yards',
+    'passing touchdowns', 'rushing touchdowns', 'receiving touchdowns',
+    'passing completions', 'passing attempts',
+    'receptions', 'interceptions',
+    'points', 'rebounds', 'assists', 'steals', 'blocks',
+    'hits', 'runs', 'rbis', 'strikeouts', 'walks',
+    'goals', 'assists', 'shots', 'saves',
+    // Additional variations
+    'pass yards', 'rush yards', 'rec yards',
+    'pass tds', 'rush tds', 'rec tds',
+    'completions', 'attempts',
+    'anytime td', 'player rush tds'
+  ];
+
+  const isPlayerProp = playerPropTypes.some(type => propType.includes(type));
+  
+  if (!isPlayerProp) {
+    console.warn("Unmapped market:", { propType, oddId: odd.id, player: odd.player?.name });
   }
-}
 
-function extractTeam(playerID: string, homeTeam?: string, awayTeam?: string): string {
-  return Math.random() > 0.5 ? (homeTeam || 'HOME') : (awayTeam || 'AWAY');
-}
-
-function normalizePropType(statID: string): string {
-  return CANONICAL_PROP_TYPES[statID.toLowerCase()] || statID.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-}
-
-function parseOdds(odds: any): number | null {
-  if (odds === null || odds === undefined) return null;
-  
-  if (typeof odds === 'number') return odds;
-  
-  if (typeof odds === 'string') {
-    const cleanOdds = odds.replace(/[^-+0-9]/g, '');
-    const parsed = parseInt(cleanOdds);
-    return isNaN(parsed) ? null : parsed;
-  }
-  
-  return null;
+  return isPlayerProp;
 }
 
 function mapBookmakerIdToName(bookmakerId: string): string {
   const bookmakerMap: Record<string, string> = {
+    'draftkings': 'DraftKings',
     'fanduel': 'FanDuel',
-    'draftkings': 'Draft Kings',
     'betmgm': 'BetMGM',
     'caesars': 'Caesars',
     'pointsbet': 'PointsBet',
     'betrivers': 'BetRivers',
-    'foxbet': 'FOX Bet',
-    'bet365': 'bet365',
-    'williamhill': 'William Hill',
-    'pinnacle': 'Pinnacle',
-    'bovada': 'Bovada',
-    'betonline': 'BetOnline',
-    'betway': 'Betway',
     'unibet': 'Unibet',
+    'betway': 'Betway',
     'ladbrokes': 'Ladbrokes',
     'coral': 'Coral',
     'paddypower': 'Paddy Power',
@@ -506,6 +483,7 @@ function mapBookmakerIdToName(bookmakerId: string): string {
   return bookmakerMap[bookmakerId.toLowerCase()] || bookmakerId;
 }
 
+// Step 6: Batch and upsert props
 async function upsertProps(env: Env, props: any[]): Promise<{ inserted: number; updated: number; errors: number }> {
   if (!props || props.length === 0) {
     return { inserted: 0, updated: 0, errors: 0 };
@@ -516,31 +494,52 @@ async function upsertProps(env: Env, props: any[]): Promise<{ inserted: number; 
   let errors = 0;
 
   try {
-    // Create Supabase client
-    const supabaseUrl = env.SUPABASE_URL;
-    const supabaseKey = env.SUPABASE_SERVICE_KEY;
-    
-    const response = await fetch(`${supabaseUrl}/rest/v1/proplines`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabaseKey}`,
-        'apikey': supabaseKey,
-        'Prefer': 'resolution=merge-duplicates,return=minimal'
-      },
-      body: JSON.stringify(props)
-    });
+    // Use debug harness to validate props
+    const validatedProps = props.map(prop => {
+      const { player_id, date, prop_type } = prop;
+      if (!player_id || !date || !prop_type) {
+        console.error("Missing critical fields in prop:", { player_id, date, prop_type, prop });
+        return null;
+      }
+      if (prop.line == null) console.warn("Null line value for:", prop);
+      if (prop.over_odds == null || prop.under_odds == null) console.warn("Null odds value for:", prop);
+      if (!prop.sportsbook) console.warn("Missing sportsbook for:", prop);
+      return prop;
+    }).filter(Boolean);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Supabase upsert failed:', response.status, errorText);
-      errors = props.length;
-    } else {
-      // With return=minimal, we don't get a response body, so assume success
-      inserted = props.length;
+    console.log(`Validated ${validatedProps.length} props out of ${props.length} total`);
+
+    if (validatedProps.length === 0) {
+      console.log("No valid props to upsert");
+      return { inserted: 0, updated: 0, errors: props.length };
     }
+
+    // Chunk to avoid payload limits
+    const batches = chunk(validatedProps, 500);
+    console.log(`Processing ${batches.length} batches of props`);
+    console.log(`After batching: ${batches.reduce((n, b) => n + b.length, 0)} total props in batches`);
+
+    for (const batch of batches) {
+      try {
+        await supabaseFetch(env, "proplines", {
+          method: "POST",
+          body: batch,
+        });
+        inserted += batch.length;
+        console.log(`✅ Successfully upserted batch of ${batch.length} proplines records`);
+      } catch (error) {
+        console.error(`❌ Error upserting batch:`, error);
+        errors += batch.length;
+      }
+    }
+
   } catch (error) {
-    console.error('Error upserting props:', error);
+    console.error('❌ Exception during proplines upsert:', {
+      error: error,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorStack: error instanceof Error ? error.stack : undefined,
+      propsCount: props.length
+    });
     errors = props.length;
   }
 
