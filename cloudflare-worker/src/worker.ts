@@ -29,6 +29,7 @@ export default {
           endpoints: {
             ingestion: ['/ingest', '/ingest/{league}'],
             backfill: ['/backfill-all', '/backfill-recent', '/backfill-full', '/backfill-league/{league}', '/backfill-season/{season}'],
+            analytics: ['/refresh-analytics', '/incremental-analytics-refresh', '/analytics/streaks', '/analytics/defensive-rankings'],
             verification: ['/verify-backfill', '/verify-analytics'],
             status: ['/status', '/leagues', '/seasons'],
             debug: ['/debug-api', '/debug-comprehensive', '/debug-json', '/debug-extraction', '/debug-insert', '/debug-schema']
@@ -45,6 +46,158 @@ export default {
         });
       }
       
+      // Handle analytics refresh
+      if (url.pathname === "/refresh-analytics") {
+        try {
+          const { supabaseFetch } = await import("./supabaseFetch");
+          console.log("🔄 Refreshing analytics views...");
+          
+          const result = await supabaseFetch(env, "rpc/refresh_analytics_views", {
+            method: "POST",
+            body: {},
+          });
+          
+          return new Response(JSON.stringify({
+            success: true,
+            message: "Analytics views refreshed successfully",
+            timestamp: new Date().toISOString()
+          }), {
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          });
+          
+        } catch (error) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          });
+        }
+      }
+
+      // Handle incremental analytics refresh
+      if (url.pathname === "/incremental-analytics-refresh") {
+        try {
+          const { supabaseFetch } = await import("./supabaseFetch");
+          const daysBack = parseInt(url.searchParams.get("days") || "2");
+          
+          console.log(`🔄 Running incremental analytics refresh for last ${daysBack} days...`);
+          
+          const result = await supabaseFetch(env, "rpc/incremental_analytics_refresh", {
+            method: "POST",
+            body: { days_back: daysBack },
+          });
+          
+          return new Response(JSON.stringify({
+            success: true,
+            message: `Incremental analytics refresh completed for last ${daysBack} days`,
+            timestamp: new Date().toISOString(),
+            daysBack: daysBack
+          }), {
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          });
+          
+        } catch (error) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          });
+        }
+      }
+
+      // Handle streak analysis query
+      if (url.pathname === "/analytics/streaks") {
+        try {
+          const { supabaseFetch } = await import("./supabaseFetch");
+          const league = url.searchParams.get("league") || "all";
+          const limit = parseInt(url.searchParams.get("limit") || "50");
+          
+          console.log(`📊 Fetching streak analysis for ${league}...`);
+          
+          let query = "streak_analysis";
+          if (league !== "all") {
+            query += `?league=eq.${league}`;
+          }
+          query += `&order=current_streak.desc&limit=${limit}`;
+          
+          const result = await supabaseFetch(env, query, {
+            method: "GET",
+          });
+          
+          return new Response(JSON.stringify({
+            success: true,
+            data: result,
+            league: league,
+            limit: limit,
+            timestamp: new Date().toISOString()
+          }), {
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          });
+          
+        } catch (error) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          });
+        }
+      }
+
+      // Handle defensive rankings query
+      if (url.pathname === "/analytics/defensive-rankings") {
+        try {
+          const { supabaseFetch } = await import("./supabaseFetch");
+          const league = url.searchParams.get("league") || "all";
+          const propType = url.searchParams.get("prop_type") || "all";
+          
+          console.log(`📊 Fetching defensive rankings for ${league} - ${propType}...`);
+          
+          let query = "defensive_matchup_rankings";
+          const filters: string[] = [];
+          
+          if (league !== "all") {
+            filters.push(`league=eq.${league}`);
+          }
+          if (propType !== "all") {
+            filters.push(`prop_type=eq.${propType}`);
+          }
+          
+          if (filters.length > 0) {
+            query += "?" + filters.join("&");
+          }
+          query += "&order=defensive_percentile.desc";
+          
+          const result = await supabaseFetch(env, query, {
+            method: "GET",
+          });
+          
+          return new Response(JSON.stringify({
+            success: true,
+            data: result,
+            league: league,
+            propType: propType,
+            timestamp: new Date().toISOString()
+          }), {
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          });
+          
+        } catch (error) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          });
+        }
+      }
+
       // Handle backfill-all endpoint
       if (url.pathname === '/backfill-all') {
         const days = Number(url.searchParams.get('days') ?? '200');
@@ -1134,7 +1287,7 @@ export default {
       // Default 404 response
       return new Response(JSON.stringify({
         error: 'Endpoint not found',
-        availableEndpoints: ['/backfill-all', '/backfill-recent', '/backfill-full', '/backfill-league/{league}', '/backfill-season/{season}', '/backfill-progressive', '/ingest', '/ingest/{league}', '/status', '/leagues', '/seasons']
+        availableEndpoints: ['/backfill-all', '/backfill-recent', '/backfill-full', '/backfill-league/{league}', '/backfill-season/{season}', '/backfill-progressive', '/ingest', '/ingest/{league}', '/refresh-analytics', '/incremental-analytics-refresh', '/analytics/streaks', '/analytics/defensive-rankings', '/status', '/leagues', '/seasons']
       }), {
         status: 404,
         headers: {
