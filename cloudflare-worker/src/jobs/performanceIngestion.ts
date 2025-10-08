@@ -234,7 +234,7 @@ async function insertPerformanceDataDirectly(env: any, performanceData: Performa
     sportsbook: "SportsGameOdds",
     over_odds: -110, // Default odds
     under_odds: 100, // Default odds
-    league: perf.league.toUpperCase(),
+    league: perf.league.toLowerCase(),
     game_id: perf.game_id,
     conflict_key: perf.conflict_key || buildConflictKey({
       playerId: perf.player_id,
