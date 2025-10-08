@@ -692,6 +692,88 @@ var init_playersLoader = __esm({
   }
 });
 
+// src/lib/streakCalculator.ts
+var streakCalculator_exports = {};
+__export(streakCalculator_exports, {
+  calculateStreaks: () => calculateStreaks
+});
+function calculateStreaks(games) {
+  const playerGroups = /* @__PURE__ */ new Map();
+  games.forEach((game) => {
+    const key = `${game.player_id}|${game.prop_type}|${game.league}`;
+    if (!playerGroups.has(key)) {
+      playerGroups.set(key, []);
+    }
+    playerGroups.get(key).push(game);
+  });
+  const streaks = [];
+  playerGroups.forEach((playerGames, key) => {
+    playerGames.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    if (playerGames.length === 0)
+      return;
+    const firstGame = playerGames[0];
+    const currentResult = firstGame.hit_result;
+    let currentStreak = 1;
+    for (let i = 1; i < playerGames.length; i++) {
+      if (playerGames[i].hit_result === currentResult) {
+        currentStreak++;
+      } else {
+        break;
+      }
+    }
+    const totalGames = playerGames.length;
+    const totalHits = playerGames.filter((g) => g.hit_result === 1).length;
+    const hitRate = totalHits / totalGames;
+    let streakQuality;
+    if (currentStreak >= 7) {
+      streakQuality = currentResult === 1 ? "Extreme Hot" : "Extreme Cold";
+    } else if (currentStreak >= 5) {
+      streakQuality = currentResult === 1 ? "Very Hot" : "Very Cold";
+    } else if (currentStreak >= 3) {
+      streakQuality = currentResult === 1 ? "Hot" : "Cold";
+    } else if (currentStreak >= 2) {
+      streakQuality = "Building";
+    } else {
+      streakQuality = "Single Game";
+    }
+    let bettingSignal;
+    if (currentStreak >= 5 && currentResult === 1 && hitRate > 0.6) {
+      bettingSignal = "Fade Candidate";
+    } else if (currentStreak >= 5 && currentResult === 0 && hitRate > 0.5) {
+      bettingSignal = "Buy Low Candidate";
+    } else if (currentStreak >= 3 && currentResult === 1 && hitRate > 0.7) {
+      bettingSignal = "Ride the Wave";
+    } else if (currentStreak >= 3 && currentResult === 0 && hitRate < 0.4) {
+      bettingSignal = "Avoid";
+    } else {
+      bettingSignal = "Neutral";
+    }
+    streaks.push({
+      player_id: firstGame.player_id,
+      player_name: firstGame.player_name,
+      team: firstGame.team,
+      prop_type: firstGame.prop_type,
+      league: firstGame.league,
+      current_streak: currentStreak,
+      streak_direction: currentResult === 1 ? "hit" : "miss",
+      streak_quality: streakQuality,
+      betting_signal: bettingSignal,
+      total_games: totalGames,
+      hit_rate: Math.round(hitRate * 100) / 100
+    });
+  });
+  return streaks.sort((a, b) => b.current_streak - a.current_streak);
+}
+var init_streakCalculator = __esm({
+  "src/lib/streakCalculator.ts"() {
+    "use strict";
+    init_checked_fetch();
+    init_strip_cf_connecting_ip_header();
+    init_modules_watch_stub();
+    __name(calculateStreaks, "calculateStreaks");
+  }
+});
+
 // src/missingPlayers.ts
 async function storeMissingPlayer(env, playerName, team, league, generatedId, oddId) {
   try {
@@ -1797,27 +1879,70 @@ var worker_default = {
       if (url.pathname === "/analytics/streaks") {
         try {
           const { supabaseFetch: supabaseFetch2 } = await Promise.resolve().then(() => (init_supabaseFetch(), supabaseFetch_exports));
+          const { calculateStreaks: calculateStreaks2 } = await Promise.resolve().then(() => (init_streakCalculator(), streakCalculator_exports));
           const league = url.searchParams.get("league") || "all";
           const limit = parseInt(url.searchParams.get("limit") || "50");
-          console.log(`\u{1F4CA} Fetching TRUE streak analysis for ${league}...`);
-          let query = "streak_analysis";
+          console.log(`\u{1F4CA} Computing TRUE streaks in Worker for ${league}...`);
+          let query = "player_game_logs";
           const params = [];
           if (league !== "all") {
             params.push(`league=eq.${league}`);
           }
-          params.push(`order=current_streak.desc`);
-          params.push(`limit=${limit}`);
+          params.push(`order=date.desc`);
           if (params.length > 0) {
             query += `?${params.join("&")}`;
           }
-          const result = await supabaseFetch2(env, query, {
+          const gameLogs = await supabaseFetch2(env, query, {
             method: "GET"
           });
+          console.log(`\u{1F4CA} Fetched ${gameLogs?.length || 0} game logs`);
+          if (!gameLogs || gameLogs.length === 0) {
+            return new Response(JSON.stringify({
+              success: true,
+              data: [],
+              league,
+              limit,
+              message: "No game data found",
+              timestamp: (/* @__PURE__ */ new Date()).toISOString()
+            }), {
+              headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+            });
+          }
+          const playerIds = [...new Set(gameLogs.map((g) => g.player_id))];
+          const propTypes = [...new Set(gameLogs.map((g) => g.prop_type))];
+          const dates = [...new Set(gameLogs.map((g) => g.date))];
+          const propsQuery = `proplines?player_id=in.(${playerIds.join(",")})&prop_type=in.(${propTypes.join(",")})&date=in.(${dates.join(",")})`;
+          const propLines = await supabaseFetch2(env, propsQuery, {
+            method: "GET"
+          });
+          console.log(`\u{1F4CA} Fetched ${propLines?.length || 0} prop lines`);
+          const gameResults = gameLogs.map((gameLog) => {
+            const propLine = propLines?.find(
+              (prop) => prop.player_id === gameLog.player_id && prop.prop_type === gameLog.prop_type && prop.date === gameLog.date && prop.league === gameLog.league
+            );
+            if (!propLine)
+              return null;
+            return {
+              player_id: gameLog.player_id,
+              player_name: gameLog.player_name,
+              team: gameLog.team,
+              prop_type: gameLog.prop_type,
+              league: gameLog.league,
+              date: gameLog.date,
+              hit_result: gameLog.value >= propLine.line ? 1 : 0
+            };
+          }).filter(Boolean);
+          console.log(`\u{1F4CA} Created ${gameResults.length} game results`);
+          const streaks = calculateStreaks2(gameResults);
+          const filteredStreaks = league !== "all" ? streaks.filter((s) => s.league === league) : streaks;
+          const limitedStreaks = filteredStreaks.slice(0, limit);
+          console.log(`\u{1F4CA} Computed ${limitedStreaks.length} streaks (${filteredStreaks.length} total)`);
           return new Response(JSON.stringify({
             success: true,
-            data: result,
+            data: limitedStreaks,
             league,
             limit,
+            total_found: filteredStreaks.length,
             timestamp: (/* @__PURE__ */ new Date()).toISOString()
           }), {
             headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }

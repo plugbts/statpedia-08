@@ -113,32 +113,100 @@ export default {
       if (url.pathname === "/analytics/streaks") {
         try {
           const { supabaseFetch } = await import("./supabaseFetch");
+          const { calculateStreaks } = await import("./lib/streakCalculator");
           const league = url.searchParams.get("league") || "all";
           const limit = parseInt(url.searchParams.get("limit") || "50");
           
-          console.log(`📊 Fetching TRUE streak analysis for ${league}...`);
+          console.log(`📊 Computing TRUE streaks in Worker for ${league}...`);
           
-          let query = "streak_analysis";
+          // Fetch raw game data from Supabase
+          let query = "player_game_logs";
           const params = [];
           if (league !== "all") {
             params.push(`league=eq.${league}`);
           }
-          params.push(`order=current_streak.desc`);
-          params.push(`limit=${limit}`);
+          // Temporarily remove date filter to see all data
+          // params.push(`date=gte.${new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}`); // Last 30 days
+          params.push(`order=date.desc`);
           
           if (params.length > 0) {
             query += `?${params.join('&')}`;
           }
           
-          const result = await supabaseFetch(env, query, {
+          const gameLogs = await supabaseFetch(env, query, {
             method: "GET",
           });
           
+          console.log(`📊 Fetched ${gameLogs?.length || 0} game logs`);
+          
+          if (!gameLogs || gameLogs.length === 0) {
+            return new Response(JSON.stringify({
+              success: true,
+              data: [],
+              league: league,
+              limit: limit,
+              message: "No game data found",
+              timestamp: new Date().toISOString()
+            }), {
+              headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+            });
+          }
+          
+          // Fetch corresponding prop lines to get hit/miss results
+          const playerIds = [...new Set(gameLogs.map(g => g.player_id))];
+          const propTypes = [...new Set(gameLogs.map(g => g.prop_type))];
+          const dates = [...new Set(gameLogs.map(g => g.date))];
+          
+          const propsQuery = `proplines?player_id=in.(${playerIds.join(',')})&prop_type=in.(${propTypes.join(',')})&date=in.(${dates.join(',')})`;
+          const propLines = await supabaseFetch(env, propsQuery, {
+            method: "GET",
+          });
+          
+          console.log(`📊 Fetched ${propLines?.length || 0} prop lines`);
+          
+          // Create game results by joining game logs with prop lines
+          const gameResults = gameLogs.map(gameLog => {
+            const propLine = propLines?.find(prop => 
+              prop.player_id === gameLog.player_id &&
+              prop.prop_type === gameLog.prop_type &&
+              prop.date === gameLog.date &&
+              prop.league === gameLog.league
+            );
+            
+            if (!propLine) return null;
+            
+            return {
+              player_id: gameLog.player_id,
+              player_name: gameLog.player_name,
+              team: gameLog.team,
+              prop_type: gameLog.prop_type,
+              league: gameLog.league,
+              date: gameLog.date,
+              hit_result: gameLog.value >= propLine.line ? 1 : 0
+            };
+          }).filter(Boolean);
+          
+          console.log(`📊 Created ${gameResults.length} game results`);
+          
+          // Calculate streaks using TypeScript
+          const streaks = calculateStreaks(gameResults);
+          
+          // Apply league filter if needed
+          const filteredStreaks = league !== "all" 
+            ? streaks.filter(s => s.league === league)
+            : streaks;
+          
+          // Apply limit
+          const limitedStreaks = filteredStreaks.slice(0, limit);
+          
+          console.log(`📊 Computed ${limitedStreaks.length} streaks (${filteredStreaks.length} total)`);
+          
           return new Response(JSON.stringify({
             success: true,
-            data: result,
+            data: limitedStreaks,
             league: league,
             limit: limit,
+            total_found: filteredStreaks.length,
             timestamp: new Date().toISOString()
           }), {
             headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
