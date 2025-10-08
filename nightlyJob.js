@@ -91,7 +91,6 @@ async function runNightlyJob() {
    1. Ingest PlayerGameLogs
 --------------------------------*/
 async function ingestGameLogs() {
-  const since = new Date(Date.now() - 24*60*60*1000).toISOString();
   const results = { records: 0, leagues: {} };
   
   for (const league of LEAGUES) {
@@ -101,7 +100,8 @@ async function ingestGameLogs() {
     
     do {
       try {
-        const url = `https://api.sportsgameodds.com/events?league=${league}&since=${since}&limit=100${nextCursor ? `&cursor=${nextCursor}` : ""}`;
+        // Remove date filter and increase limit to get more historical data
+        const url = `https://api.sportsgameodds.com/events?league=${league}&limit=100${nextCursor ? `&cursor=${nextCursor}` : ""}`;
         const res = await fetch(url, { headers: { 'x-api-key': API_KEY } });
         
         if (!res.ok) {
@@ -114,7 +114,8 @@ async function ingestGameLogs() {
         const rows = [];
         // The API returns events in a data array
         for (const event of data.data || []) {
-          if (!event.results || !event.results.game) continue;
+          // Only process completed games with actual player results
+          if (!event.results || !event.results.game || !event.status?.completed) continue;
           
           const gameDate = event.status?.startsAt ? new Date(event.status.startsAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
           const season = new Date(gameDate).getFullYear();
@@ -123,8 +124,13 @@ async function ingestGameLogs() {
           for (const [playerId, playerStats] of Object.entries(event.results.game)) {
             if (playerId === 'away' || playerId === 'home') continue; // Skip team stats
             
-            // Extract player name from playerId (format: PLAYER_NAME_1_NFL)
-            const playerName = playerId.replace(/_1_NFL$/, '').replace(/_/g, ' ');
+            // Extract player name from playerId (handle various formats)
+            let playerName = playerId;
+            if (playerId.includes('_1_NFL')) {
+              playerName = playerId.replace(/_1_NFL$/, '').replace(/_/g, ' ');
+            } else if (playerId.includes('_')) {
+              playerName = playerId.replace(/_/g, ' ');
+            }
             
             // Map to canonical player ID (normalize team to ensure consistency)
             const normalizedTeam = 'UNK'; // Game logs don't have team info yet
