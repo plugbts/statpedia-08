@@ -36,7 +36,7 @@ export default {
             analytics: ['/refresh-analytics', '/incremental-analytics-refresh', '/analytics/streaks', '/analytics/defensive-rankings'],
             verification: ['/verify-backfill', '/verify-analytics'],
             status: ['/status', '/leagues', '/seasons'],
-            debug: ['/debug-api', '/debug-comprehensive', '/debug-json', '/debug-extraction', '/debug-insert', '/debug-schema', '/debug-streaks', '/debug-streak-counts', '/debug-insertion', '/debug-env', '/debug-rls', '/debug-events', '/debug-data-check']
+            debug: ['/debug-api', '/debug-comprehensive', '/debug-json', '/debug-extraction', '/debug-insert', '/debug-schema', '/debug-streaks', '/debug-streak-counts', '/debug-insertion', '/debug-env', '/debug-rls', '/debug-events', '/debug-data-check', '/debug-performance-diagnostic']
           },
           leagues: getActiveLeagues().map(l => l.id),
           seasons: getAllSeasons(),
@@ -125,7 +125,7 @@ export default {
           
           // Fetch raw game data from Supabase
           let query = "player_game_logs";
-          const params = [];
+          const params: string[] = [];
           if (league !== "all") {
             params.push(`league=eq.${league}`);
           }
@@ -243,7 +243,7 @@ export default {
           console.log(`🔍 Fetching debug streak analysis for ${league}...`);
           
           let query = "debug_streak_summary";
-          const params = [];
+          const params: string[] = [];
           if (league !== "all") {
             params.push(`league=eq.${league}`);
           }
@@ -254,7 +254,7 @@ export default {
             query += `?${params.join('&')}`;
           }
           
-          const result = await supabaseFetch(env, query, {
+          const result = await supabaseFetch(env, query as any, {
             method: "GET",
           });
           
@@ -325,7 +325,7 @@ export default {
           console.log(`🔍 Fetching debug streak counts for ${league}...`);
           
           let query = "debug_streak_counts";
-          const params = [];
+          const params: string[] = [];
           if (league !== "all") {
             params.push(`league=eq.${league}`);
           }
@@ -335,7 +335,7 @@ export default {
             query += `?${params.join('&')}`;
           }
           
-          const result = await supabaseFetch(env, query, {
+          const result = await supabaseFetch(env, query as any, {
             method: "GET",
           });
           
@@ -1689,7 +1689,7 @@ export default {
         
         const startTime = Date.now();
         const leagues = url.searchParams.get('leagues')?.split(',');
-        const date = url.searchParams.get('date');
+        const date = url.searchParams.get('date') || undefined;
         const days = parseInt(url.searchParams.get('days') || '1');
         
         try {
@@ -1702,7 +1702,6 @@ export default {
           const duration = Date.now() - startTime;
           
           return new Response(JSON.stringify({
-            success: result.success,
             message: 'Performance data ingestion completed',
             duration: `${duration}ms`,
             ...result
@@ -1734,7 +1733,7 @@ export default {
       // Handle single league performance ingestion
       if (url.pathname.startsWith('/performance-ingest/')) {
         const leagueId = url.pathname.split('/')[2];
-        const date = url.searchParams.get('date');
+        const date = url.searchParams.get('date') || undefined;
         const days = parseInt(url.searchParams.get('days') || '1');
         
         console.log(`🔄 Starting single league performance ingestion for ${leagueId}...`);
@@ -1750,7 +1749,6 @@ export default {
           const duration = Date.now() - startTime;
           
           return new Response(JSON.stringify({
-            success: result.success,
             message: `Single league performance ingestion completed for ${leagueId}`,
             duration: `${duration}ms`,
             ...result
@@ -1812,7 +1810,6 @@ export default {
           const duration = Date.now() - startTime;
           
           return new Response(JSON.stringify({
-            success: result.success,
             message: 'Historical performance ingestion completed',
             duration: `${duration}ms`,
             ...result
@@ -1867,6 +1864,38 @@ export default {
             count: gameLogsResponse ? gameLogsResponse.length : 0,
             sample: gameLogsResponse && gameLogsResponse.length > 0 ? gameLogsResponse[0] : null
           }
+        }), {
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+        });
+        
+      } catch (error) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: error instanceof Error ? error.message : String(error)
+        }), {
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+        });
+      }
+    }
+
+    // Handle performance diagnostic endpoint
+    if (url.pathname === '/debug-performance-diagnostic') {
+      console.log(`🔍 Running performance diagnostic...`);
+      
+      try {
+        const result = await runPerformanceDiagnostic(env);
+        
+        return new Response(JSON.stringify({
+          success: true,
+          message: 'Performance diagnostic completed',
+          result: result
         }), {
           headers: {
             'Content-Type': 'application/json',
@@ -1977,3 +2006,124 @@ export default {
     ctx.waitUntil(runIngestion(env));
   },
 };
+
+// Performance Diagnostic Function
+async function runPerformanceDiagnostic(env: any): Promise<any> {
+  const { createClient } = await import('@supabase/supabase-js');
+  
+  const supabase = createClient(
+    env.SUPABASE_URL,
+    env.SUPABASE_SERVICE_KEY
+  );
+
+  const testRow = {
+    player_id: "TEST_PLAYER",
+    player_name: "Diagnostic Player",
+    date: new Date().toISOString().slice(0, 10), // YYYY-MM-DD
+    league: "NFL",
+    season: 2025,
+    game_id: "TEST_GAME",
+    prop_type: "Test Prop",
+    line: 1.5,
+    sportsbook: "SportsGameOdds",
+    over_odds: -110,
+    under_odds: 100
+  };
+
+  const result: any = {
+    insertSuccess: false,
+    selectSuccess: false,
+    dataFound: false,
+    insertError: null,
+    selectError: null,
+    retrievedData: null
+  };
+
+  try {
+    // 1. Try insert/upsert
+    const { error: insertError } = await supabase
+      .from("proplines")
+      .upsert([testRow]);
+
+    if (insertError) {
+      console.error("❌ Insert failed:", insertError.message);
+      result.insertError = insertError.message;
+      return result;
+    }
+
+    result.insertSuccess = true;
+    console.log("✅ Insert successful");
+
+    // 2. Immediately query back
+    const { data, error: selectError } = await supabase
+      .from("proplines")
+      .select("*")
+      .eq("player_id", "TEST_PLAYER")
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (selectError) {
+      console.error("❌ Select failed:", selectError.message);
+      result.selectError = selectError.message;
+      return result;
+    }
+
+    result.selectSuccess = true;
+
+    if (data && data.length > 0) {
+      console.log("✅ Persistence confirmed:", data[0]);
+      result.dataFound = true;
+      result.retrievedData = data[0];
+    } else {
+      console.warn("⚠️ Insert appeared to succeed, but no row found. Likely RLS or wrong key.");
+      result.dataFound = false;
+    }
+
+    // 3. Try the same with player_game_logs
+    const gameLogTestRow = {
+      player_id: "TEST_PLAYER",
+      player_name: "Diagnostic Player",
+      team: "TEST",
+      opponent: "TEST2",
+      season: 2025,
+      date: new Date().toISOString().slice(0, 10),
+      prop_type: "Test Prop",
+      value: 2.5,
+      sport: "NFL",
+      league: "nfl",
+      game_id: "TEST_GAME"
+    };
+
+    const { error: gameLogInsertError } = await supabase
+      .from("player_game_logs")
+      .insert([gameLogTestRow]);
+
+    if (gameLogInsertError) {
+      result.gameLogInsertError = gameLogInsertError.message;
+    } else {
+      result.gameLogInsertSuccess = true;
+      
+      const { data: gameLogData, error: gameLogSelectError } = await supabase
+        .from("player_game_logs")
+        .select("*")
+        .eq("player_id", "TEST_PLAYER")
+        .limit(1);
+
+      if (gameLogSelectError) {
+        result.gameLogSelectError = gameLogSelectError.message;
+      } else {
+        result.gameLogSelectSuccess = true;
+        result.gameLogDataFound = gameLogData && gameLogData.length > 0;
+        if (gameLogData && gameLogData.length > 0) {
+          result.gameLogRetrievedData = gameLogData[0];
+        }
+      }
+    }
+
+  } catch (error) {
+    console.error("❌ Diagnostic failed:", error);
+    result.diagnosticError = error instanceof Error ? error.message : String(error);
+  }
+
+  return result;
+}
