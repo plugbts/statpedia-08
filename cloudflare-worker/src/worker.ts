@@ -1329,14 +1329,28 @@ export default {
             console.log("🔎 Sample prop:", propLines[0]);
           }
 
-          // --- Join logic ---
+          // --- Join logic using conflict_key matching ---
           const joined = playerGameLogs.map((gameLog: any) => {
+            // Build the expected conflict_key format from gameLog
+            // Game log format: "player_id|game_id|prop_type|league|season"
+            // Prop format: "player_id|game_id|prop_type|sportsbook|league|season"
+            const gameLogParts = gameLog.conflict_key.split('|');
+            const [player_id, game_id, prop_type, league, season] = gameLogParts;
+            
+            // Find prop that matches the gameLog conflict_key pattern
             const propLine = propLines?.find(
-              (p: any) =>
-                p.player_id === gameLog.player_id &&
-                normalizeDate(p.date) === normalizeDate(gameLog.date) &&
-                p.prop_type === gameLog.prop_type &&
-                p.league.toLowerCase() === gameLog.league.toLowerCase()
+              (p: any) => {
+                const propParts = p.conflict_key.split('|');
+                if (propParts.length !== 6) return false;
+                
+                const [p_player_id, p_game_id, p_prop_type, p_sportsbook, p_league, p_season] = propParts;
+                
+                return p_player_id === player_id &&
+                       p_game_id === game_id &&
+                       p_prop_type === prop_type &&
+                       p_league === league &&
+                       p_season === season;
+              }
             );
 
             if (!propLine) {
@@ -1345,9 +1359,20 @@ export default {
                 gameLog_date: gameLog.date,
                 prop_type: gameLog.prop_type,
                 league: gameLog.league,
+                gameLog_conflict_key: gameLog.conflict_key,
+                available_prop_conflict_keys: propLines?.filter(p => p.player_id === gameLog.player_id).map(p => p.conflict_key).slice(0, 3)
               });
               return null;
             }
+
+            console.log("✅ Successful join:", {
+              player_id: gameLog.player_id,
+              prop_type: gameLog.prop_type,
+              line: propLine.line,
+              over_odds: propLine.over_odds,
+              gameLog_conflict_key: gameLog.conflict_key,
+              prop_conflict_key: propLine.conflict_key
+            });
 
             return { ...gameLog, ...propLine };
           }).filter(Boolean);
@@ -1410,6 +1435,239 @@ export default {
             responseTime: 0,
             totalEvents: 0,
             totalProps: 0
+          }, 500);
+        }
+      }
+
+      // Handle join diagnostics endpoint
+      if (url.pathname === '/debug-join-diagnostics') {
+        try {
+          const { createClient } = await import("@supabase/supabase-js");
+          
+          const supabase = createClient(
+            env.SUPABASE_URL,
+            env.SUPABASE_SERVICE_KEY
+          );
+
+          console.log('🔍 Running join diagnostics...');
+
+          // 1. Game logs vs props coverage
+          const { data: gameLogs, error: glErr } = await supabase
+            .from("player_game_logs")
+            .select("conflict_key, league, date");
+
+          const { data: props, error: prErr } = await supabase
+            .from("proplines")
+            .select("conflict_key, league, date_normalized");
+
+          if (glErr || prErr) {
+            console.error("❌ Supabase error:", glErr || prErr);
+            return corsResponse({
+              success: false,
+              error: glErr?.message || prErr?.message
+            }, 500);
+          }
+
+          // Group by league
+          const results: Record<
+            string,
+            { totalLogs: number; matchedProps: number; unmatchedLogs: number }
+          > = {};
+
+          gameLogs!.forEach((g) => {
+            const league = g.league.toLowerCase();
+            if (!results[league]) {
+              results[league] = { totalLogs: 0, matchedProps: 0, unmatchedLogs: 0 };
+            }
+            results[league].totalLogs++;
+
+            const match = props!.find(
+              (p) => {
+                // Use the same conflict_key matching logic as the main API
+                const gameLogParts = g.conflict_key.split('|');
+                const [player_id, game_id, prop_type, league, season] = gameLogParts;
+                
+                const propParts = p.conflict_key.split('|');
+                if (propParts.length !== 6) return false;
+                
+                const [p_player_id, p_game_id, p_prop_type, p_sportsbook, p_league, p_season] = propParts;
+                
+                return p_player_id === player_id &&
+                       p_game_id === game_id &&
+                       p_prop_type === prop_type &&
+                       p_league === league &&
+                       p_season === season;
+              }
+            );
+
+            if (match) {
+              results[league].matchedProps++;
+            } else {
+              results[league].unmatchedLogs++;
+            }
+          });
+
+          console.log("📊 Join Diagnostic Results:");
+          Object.entries(results).forEach(([league, counts]) => {
+            console.log(
+              `${league.toUpperCase()}: totalLogs=${counts.totalLogs}, matchedProps=${counts.matchedProps}, unmatchedLogs=${counts.unmatchedLogs}`
+            );
+          });
+
+          // 2. Reverse coverage: props without matching logs
+          const reverse: Record<
+            string,
+            { totalProps: number; matchedLogs: number; unmatchedProps: number }
+          > = {};
+
+          props!.forEach((p) => {
+            const league = p.league.toLowerCase();
+            if (!reverse[league]) {
+              reverse[league] = { totalProps: 0, matchedLogs: 0, unmatchedProps: 0 };
+            }
+            reverse[league].totalProps++;
+
+            const match = gameLogs!.find(
+              (g) => {
+                // Use the same conflict_key matching logic as the main API
+                const gameLogParts = g.conflict_key.split('|');
+                const [player_id, game_id, prop_type, league, season] = gameLogParts;
+                
+                const propParts = p.conflict_key.split('|');
+                if (propParts.length !== 6) return false;
+                
+                const [p_player_id, p_game_id, p_prop_type, p_sportsbook, p_league, p_season] = propParts;
+                
+                return p_player_id === player_id &&
+                       p_game_id === game_id &&
+                       p_prop_type === prop_type &&
+                       p_league === league &&
+                       p_season === season;
+              }
+            );
+
+            if (match) {
+              reverse[league].matchedLogs++;
+            } else {
+              reverse[league].unmatchedProps++;
+            }
+          });
+
+          console.log("📊 Reverse Diagnostic Results:");
+          Object.entries(reverse).forEach(([league, counts]) => {
+            console.log(
+              `${league.toUpperCase()}: totalProps=${counts.totalProps}, matchedLogs=${counts.matchedLogs}, unmatchedProps=${counts.unmatchedProps}`
+            );
+          });
+
+          return corsResponse({
+            success: true,
+            forwardJoin: results,
+            reverseJoin: reverse,
+            summary: {
+              totalGameLogs: gameLogs?.length || 0,
+              totalProps: props?.length || 0,
+              totalMatched: Object.values(results).reduce((sum, r) => sum + r.matchedProps, 0),
+              totalUnmatched: Object.values(results).reduce((sum, r) => sum + r.unmatchedLogs, 0)
+            },
+            timestamp: new Date().toISOString()
+          });
+
+        } catch (error) {
+          console.error('❌ Join diagnostics error:', error);
+          return corsResponse({
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          }, 500);
+        }
+      }
+
+      // Handle field-level mismatch diagnostics
+      if (url.pathname === '/debug-field-mismatch') {
+        try {
+          const { createClient } = await import("@supabase/supabase-js");
+          
+          const supabase = createClient(
+            env.SUPABASE_URL,
+            env.SUPABASE_SERVICE_KEY
+          );
+
+          console.log('🔍 Running field-level mismatch diagnostics...');
+
+          const { data: gameLogs } = await supabase
+            .from("player_game_logs")
+            .select("player_id, prop_type, league, date, conflict_key");
+
+          const { data: props } = await supabase
+            .from("proplines")
+            .select("player_id, prop_type, league, date_normalized, conflict_key");
+
+          function explainMismatch(gameLog: any, prop: any) {
+            const issues: string[] = [];
+
+            if (gameLog.player_id !== prop.player_id) issues.push("player_id mismatch");
+            if (gameLog.prop_type !== prop.prop_type) issues.push(`prop_type mismatch (${gameLog.prop_type} vs ${prop.prop_type})`);
+            if (gameLog.league.toLowerCase() !== prop.league.toLowerCase()) issues.push(`league mismatch (${gameLog.league} vs ${prop.league})`);
+            if (gameLog.date !== prop.date_normalized) issues.push(`date mismatch (${gameLog.date} vs ${prop.date_normalized})`);
+
+            return issues.length ? issues.join(", ") : "all fields match";
+          }
+
+          console.log("📊 Field‑Level Mismatch Diagnostics");
+
+          const mismatches: any[] = [];
+          const noPropsForPlayer: any[] = [];
+
+          gameLogs!.slice(0, 50).forEach((g) => {
+            const candidates = props!.filter((p) => p.player_id === g.player_id);
+            if (candidates.length === 0) {
+              console.log(`❌ No props at all for player ${g.player_id}`);
+              noPropsForPlayer.push({
+                player_id: g.player_id,
+                prop_type: g.prop_type,
+                league: g.league,
+                date: g.date
+              });
+            } else {
+              const match = candidates.find(
+                (p) =>
+                  p.conflict_key === g.conflict_key &&
+                  p.date_normalized === g.date
+              );
+              if (!match) {
+                // Show first candidate and explain why it failed
+                const reason = explainMismatch(g, candidates[0]);
+                console.log(`⚠️ Mismatch for player ${g.player_id}: ${reason}`);
+                mismatches.push({
+                  gameLog: g,
+                  candidate: candidates[0],
+                  reason: reason,
+                  allCandidates: candidates.slice(0, 3) // Show first 3 candidates
+                });
+              }
+            }
+          });
+
+          return corsResponse({
+            success: true,
+            summary: {
+              totalGameLogsChecked: Math.min(50, gameLogs?.length || 0),
+              totalProps: props?.length || 0,
+              mismatchesFound: mismatches.length,
+              playersWithNoProps: noPropsForPlayer.length
+            },
+            mismatches: mismatches.slice(0, 10), // Limit to first 10 for response size
+            playersWithNoProps: noPropsForPlayer.slice(0, 10),
+            sampleGameLog: gameLogs?.[0],
+            sampleProp: props?.[0],
+            timestamp: new Date().toISOString()
+          });
+
+        } catch (error) {
+          console.error('❌ Field mismatch diagnostics error:', error);
+          return corsResponse({
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
           }, 500);
         }
       }
