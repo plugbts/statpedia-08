@@ -118,15 +118,18 @@ export default {
         try {
           const { supabaseFetch } = await import("./supabaseFetch");
           const { calculateStreaks } = await import("./lib/streakCalculator");
-          const league = url.searchParams.get("league") || "all";
+          const leagueParam = url.searchParams.get("league") || "all";
+          const league = leagueParam.toLowerCase();
           const limit = parseInt(url.searchParams.get("limit") || "50");
 
           console.log(`📊 Computing TRUE streaks in Worker for ${league}...`);
 
           // --- Helpers ---
           const normalizeDate = (d: string) => d.split("T")[0];
-          const inFilter = (values: string[]) =>
-            `in.(${values.map(v => `"${v}"`).join(",")})`;
+          const inFilter = (values: string[]) => {
+            if (!values || values.length === 0) return null;
+            return `in.(${values.map(v => `"${v}"`).join(",")})`;
+          };
 
           // --- Fetch raw game logs ---
           let query = "player_game_logs";
@@ -171,9 +174,18 @@ export default {
           const propTypes = [...new Set(gameLogs.map(g => g.prop_type))];
           const dates = [...new Set(gameLogs.map(g => normalizeDate(g.date)))];
 
-          const propsQuery = `proplines?player_id=${inFilter(
-            playerIds
-          )}&prop_type=${inFilter(propTypes)}&date=${inFilter(dates)}`;
+          // Build props query with proper filter handling
+          const filters = [];
+          const playerFilter = inFilter(playerIds);
+          if (playerFilter) filters.push(`player_id=${playerFilter}`);
+
+          const propFilter = inFilter(propTypes);
+          if (propFilter) filters.push(`prop_type=${propFilter}`);
+
+          const dateFilter = inFilter(dates);
+          if (dateFilter) filters.push(`date=${dateFilter}`);
+
+          const propsQuery = `proplines${filters.length ? "?" + filters.join("&") : ""}`;
 
           const propLines = await supabaseFetch(env, propsQuery, { method: "GET" });
 
