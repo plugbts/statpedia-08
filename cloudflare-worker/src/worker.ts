@@ -1230,6 +1230,115 @@ export default {
         }
       }
 
+      // Handle player props API endpoint
+      if (url.pathname === "/api/player-props") {
+        try {
+          const { supabaseFetch } = await import("./supabaseFetch");
+          const sport = url.searchParams.get("sport")?.toLowerCase() || "nfl";
+          const forceRefresh = url.searchParams.get("force_refresh") === "true";
+          const date = url.searchParams.get("date") || new Date().toISOString().split('T')[0];
+          
+          console.log(`📊 Fetching player props for ${sport} (date: ${date}, forceRefresh: ${forceRefresh})...`);
+          
+          // Map sport to league
+          const leagueMap: Record<string, string> = {
+            'nfl': 'nfl',
+            'nba': 'nba', 
+            'mlb': 'mlb',
+            'nhl': 'nhl'
+          };
+          
+          const league = leagueMap[sport] || 'nfl';
+          
+          // Build query with proper filters - use player_game_logs table
+          let query = "player_game_logs";
+          const filters: string[] = [];
+          
+          // Filter by league
+          filters.push(`league=eq.${league}`);
+          
+          // Filter by date (today's props)
+          filters.push(`date=eq.${date}`);
+          
+          // Add filters to query
+          if (filters.length > 0) {
+            query += "?" + filters.join("&");
+          }
+          
+          // Add ordering
+          query += `${filters.length > 0 ? "&" : "?"}order=player_name.asc,prop_type.asc`;
+          
+          // Add limit for performance
+          query += "&limit=1000";
+          
+          console.log(`📊 Query: ${query}`);
+          
+          const props = await supabaseFetch(env, query, {
+            method: "GET",
+          }) as any[];
+          
+          console.log(`📊 Fetched ${props?.length || 0} player props`);
+          
+          // Transform to expected format from player_game_logs table
+          const transformedProps = props?.map((log: any) => ({
+            id: log.id,
+            playerId: log.player_id,
+            playerName: log.player_name,
+            player_id: log.player_id, // For headshots compatibility
+            team: log.team,
+            opponent: log.opponent,
+            propType: log.prop_type,
+            line: log.value, // Use the actual value as the line
+            overOdds: -110, // Default odds since we don't have odds in game logs
+            underOdds: -110, // Default odds since we don't have odds in game logs
+            sportsbooks: ['Consensus'], // Default sportsbook
+            position: log.position || 'N/A',
+            gameDate: log.date,
+            sport: sport,
+            teamAbbr: log.team,
+            opponentAbbr: log.opponent,
+            gameId: log.game_id,
+            available: true,
+            lastUpdate: log.updated_at,
+            marketName: log.prop_type,
+            market: log.prop_type,
+            marketId: log.prop_type,
+            period: 'full_game',
+            statEntity: log.player_name,
+            // Enhanced fields
+            bestOver: { bookmaker: 'Consensus', side: 'over', price: '-110', line: log.value },
+            bestUnder: { bookmaker: 'Consensus', side: 'under', price: '-110', line: log.value },
+            allBooks: [{ bookmaker: 'Consensus', side: 'over', price: '-110', line: log.value, deeplink: '' }]
+          })) || [];
+          
+          return corsResponse({
+            success: true,
+            data: transformedProps,
+            cached: false,
+            cacheKey: `player-props-${sport}-${date}`,
+            responseTime: Date.now(),
+            totalEvents: 1,
+            totalProps: transformedProps.length,
+            sport: sport,
+            date: date,
+            timestamp: new Date().toISOString()
+          });
+          
+        } catch (error) {
+          console.error('❌ Player props API error:', error);
+          return corsResponse({
+            success: false,
+            error: error instanceof Error ? error.message : String(error),
+            data: [],
+            cached: false,
+            cacheKey: '',
+            responseTime: 0,
+            totalEvents: 0,
+            totalProps: 0
+          }, 500);
+        }
+      }
+
       // Handle backfill-all endpoint
       if (url.pathname === '/backfill-all') {
         const days = Number(url.searchParams.get('days') ?? '200');
