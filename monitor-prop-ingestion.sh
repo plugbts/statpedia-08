@@ -3,29 +3,33 @@
 echo "📊 Prop Ingestion System Monitor"
 echo "================================"
 
-# Check health
-echo "🏥 Checking system health..."
-HEALTH_RESPONSE=$(curl -s -X GET "https://rfdrifnsfobqlzorcesn.supabase.co/functions/v1/prop-ingestion?action=health" \
-  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZHJpZm5zZm9icWx6b3JjZXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwNDg4MzYsImV4cCI6MjA3NDYyNDgzNn0.oUzP1pTapCMEaaPXzia2uqn-m3L9BRR82_RYcUXqykI" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZHJpZm5zZm9icWx6b3JjZXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwNDg4MzYsImV4cCI6MjA3NDYyNDgzNn0.oUzP1pTapCMEaaPXzia2uqn-m3L9BRR82_RYcUXqykI")
+# Check Cloudflare Worker status
+echo "🔍 Checking Cloudflare Worker status..."
+WORKER_STATUS=$(curl -s "https://statpedia-player-props.statpedia.workers.dev/status" \
+  -H "Origin: https://170e7fa8-3f2c-4d31-94b1-17786919492c.lovableproject.com")
 
-echo "Health Response: $HEALTH_RESPONSE"
+echo "Worker Status: $WORKER_STATUS"
 
-# Check status
-echo "📈 Checking ingestion status..."
-STATUS_RESPONSE=$(curl -s -X GET "https://rfdrifnsfobqlzorcesn.supabase.co/functions/v1/prop-ingestion?action=status" \
-  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZHJpZm5zZm9icWx6b3JjZXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwNDg4MzYsImV4cCI6MjA3NDYyNDgzNn0.oUzP1pTapCMEaaPXzia2uqn-m3L9BRR82_RYcUXqykI" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZHJpZm5zZm9icWx6b3JjZXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwNDg4MzYsImV4cCI6MjA3NDYyNDgzNn0.oUzP1pTapCMEaaPXzia2uqn-m3L9BRR82_RYcUXqykI")
+# Check recent ingestion
+echo "📈 Checking recent ingestion..."
+INGEST_STATUS=$(curl -s "https://statpedia-player-props.statpedia.workers.dev/ingest" \
+  -H "Origin: https://170e7fa8-3f2c-4d31-94b1-17786919492c.lovableproject.com")
 
-echo "Status Response: $STATUS_RESPONSE"
+echo "Ingest Status: $INGEST_STATUS"
 
-# Test small ingestion
-echo "🧪 Testing small ingestion..."
-INGEST_RESPONSE=$(curl -s -X GET "https://rfdrifnsfobqlzorcesn.supabase.co/functions/v1/prop-ingestion?action=ingest&league=NFL&season=2025&week=6" \
-  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZHJpZm5zZm9icWx6b3JjZXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwNDg4MzYsImV4cCI6MjA3NDYyNDgzNn0.oUzP1pTapCMEaaPXzia2uqn-m3L9BRR82_RYcUXqykI" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZHJpZm5zZm9icWx6b3JjZXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwNDg4MzYsImV4cCI6MjA3NDYyNDgzNn0.oUzP1pTapCMEaaPXzia2uqn-m3L9BRR82_RYcUXqykI")
+# Check available leagues
+echo "🏈 Checking available leagues..."
+LEAGUES_STATUS=$(curl -s "https://statpedia-player-props.statpedia.workers.dev/leagues" \
+  -H "Origin: https://170e7fa8-3f2c-4d31-94b1-17786919492c.lovableproject.com")
 
-echo "Ingest Response: $INGEST_RESPONSE"
+echo "Leagues: $LEAGUES_STATUS"
+
+# Check seasons
+echo "📅 Checking available seasons..."
+SEASONS_STATUS=$(curl -s "https://statpedia-player-props.statpedia.workers.dev/seasons" \
+  -H "Origin: https://170e7fa8-3f2c-4d31-94b1-17786919492c.lovableproject.com")
+
+echo "Seasons: $SEASONS_STATUS"
 
 echo ""
 echo "✅ Monitoring complete!"

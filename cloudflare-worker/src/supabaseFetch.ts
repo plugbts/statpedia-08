@@ -7,7 +7,13 @@ export async function supabaseFetch(env: any, path: string, options: RequestInit
     ...options.headers,
   };
 
-  const res = await fetch(url, { ...options, headers });
+  // Ensure body is properly JSON stringified if it's an object or array
+  let body = options.body;
+  if (body && typeof body === 'object' && !(body instanceof FormData)) {
+    body = JSON.stringify(body);
+  }
+
+  const res = await fetch(url, { ...options, headers, body });
 
   if (!res.ok) {
     const text = await res.text();
@@ -16,7 +22,12 @@ export async function supabaseFetch(env: any, path: string, options: RequestInit
   }
 
   try {
-    const data = await res.json();
+    const text = await res.text();
+    if (!text || text.trim() === '') {
+      console.log(`✅ supabaseFetch returned empty response for ${path}`);
+      return null;
+    }
+    const data = JSON.parse(text);
     console.log(`✅ supabaseFetch returned ${Array.isArray(data) ? data.length : 0} rows for ${path}`);
     return data;
   } catch (err) {

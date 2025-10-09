@@ -92,7 +92,7 @@ async function ingestAllLeagues(env: any): Promise<{
       
     } catch (error) {
       console.error(`❌ ${league.id}: League processing failed:`, error);
-      leagueResults[league.id] = { error: error.message };
+      leagueResults[league.id] = { error: error instanceof Error ? error.message : String(error) };
       totalErrors++;
     }
   }
@@ -125,10 +125,9 @@ async function upsertProps(env: any, props: any[]): Promise<{ inserted: number; 
     const chunkData = chunks[i];
     
     try {
-      const result = await supabaseFetch(env, "proplines", {
+      const result = await supabaseFetch(env, "proplines?on_conflict=conflict_key", {
         method: "POST",
-        body: chunkData,
-        query: "?on_conflict=conflict_key"
+        body: JSON.stringify(chunkData)
       });
       
       if (Array.isArray(result)) {
@@ -149,10 +148,9 @@ async function upsertProps(env: any, props: any[]): Promise<{ inserted: number; 
         console.log(`🔄 Retrying chunk ${i + 1}...`);
         await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
         
-        const retryResult = await supabaseFetch(env, "proplines", {
+        const retryResult = await supabaseFetch(env, "proplines?on_conflict=conflict_key", {
           method: "POST",
-          body: chunkData,
-          query: "?on_conflict=conflict_key"
+          body: JSON.stringify(chunkData)
         });
         
         if (Array.isArray(retryResult)) {
@@ -174,9 +172,7 @@ async function upsertProps(env: any, props: any[]): Promise<{ inserted: number; 
 // Query analytics for a specific player and prop type
 async function getPlayerAnalytics(env: any, playerId: string, propType: string): Promise<any> {
   try {
-    const analytics = await supabaseFetch(env, "player_prop_analytics", {
-      query: `?player_id=eq.${playerId}&prop_type=eq.${propType}&order=date.desc&limit=1`
-    });
+    const analytics = await supabaseFetch(env, `player_prop_analytics?player_id=eq.${playerId}&prop_type=eq.${propType}&order=date.desc&limit=1`);
     
     return analytics && analytics.length > 0 ? analytics[0] : null;
   } catch (error) {
@@ -224,7 +220,7 @@ export default {
 
       // Handle multi-league ingestion endpoint
       if (url.pathname === '/ingest') {
-        const body = await req.json();
+        const body = await req.json() as { league?: string; season?: string };
         const { league, season } = body;
         
         console.log(`Starting multi-league prop ingestion`);
@@ -253,7 +249,7 @@ export default {
           
           return new Response(JSON.stringify({
             success: false,
-            error: error.message,
+            error: error instanceof Error ? error.message : String(error),
             duration: `${Date.now() - startTime}ms`
           }), {
             status: 500,
@@ -299,7 +295,7 @@ export default {
         } catch (error) {
           return new Response(JSON.stringify({
             success: false,
-            error: error.message
+            error: error instanceof Error ? error.message : String(error)
           }), {
             status: 500,
             headers: {
@@ -321,7 +317,7 @@ export default {
             active: activeLeagues,
             inSeason: inSeasonLeagues,
             total: activeLeagues.length,
-            inSeason: inSeasonLeagues.length
+            inSeasonCount: inSeasonLeagues.length
           }), {
             status: 200,
             headers: {
@@ -333,7 +329,7 @@ export default {
         } catch (error) {
           return new Response(JSON.stringify({
             success: false,
-            error: error.message
+            error: error instanceof Error ? error.message : String(error)
           }), {
             status: 500,
             headers: {
@@ -346,7 +342,7 @@ export default {
 
       // Handle backfill endpoint
       if (url.pathname === '/backfill') {
-        const body = await req.json();
+        const body = await req.json() as { leagueId?: string; season?: number; dateFrom?: string; dateTo?: string; days?: number };
         const { leagueId, season, dateFrom, dateTo, days } = body;
         
         console.log(`Starting backfill: league=${leagueId}, season=${season}, days=${days}`);
@@ -366,12 +362,11 @@ export default {
             });
           } else if (leagueId && leagueId !== 'all') {
             // Single league backfill
-            result = await runBackfill(env, {
-              leagueId,
+            result = await runBackfillWithDateRange(env, {
+              leagueId: leagueId || 'all',
               season: season || 2025,
-              days: days || 90,
-              batchSize: 500,
-              maxEventsPerDay: 50
+              dateFrom: dateFrom || new Date(Date.now() - (days || 90) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+              dateTo: dateTo || new Date().toISOString().split('T')[0]
             });
           } else {
             // Multi-league backfill
@@ -398,7 +393,7 @@ export default {
           
           return new Response(JSON.stringify({
             success: false,
-            error: error.message,
+            error: error instanceof Error ? error.message : String(error),
             duration: `${Date.now() - startTime}ms`
           }), {
             status: 500,
@@ -429,7 +424,7 @@ export default {
         } catch (error) {
           return new Response(JSON.stringify({
             success: false,
-            error: error.message
+            error: error instanceof Error ? error.message : String(error)
           }), {
             status: 500,
             headers: {
@@ -459,7 +454,7 @@ export default {
       
       return new Response(JSON.stringify({
         success: false,
-        error: error.message
+        error: error instanceof Error ? error.message : String(error)
       }), {
         status: 500,
         headers: {

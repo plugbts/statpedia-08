@@ -23,20 +23,6 @@ export interface Env {
 
 // Import prop ingestion functionality
 import { runIngestion } from "./jobs/ingest";
-import { 
-  fetchEvents, 
-  extractPlayerPropsFromEvent,
-  isPlayerProp as isPlayerPropIngestion,
-  createPlayerPropsFromOdd,
-  createIngestedPlayerProp,
-  extractPlayerName,
-  extractTeam,
-  normalizePropType,
-  parseOdds,
-  mapBookmakerIdToName,
-  upsertProps,
-  logIngestionStats
-} from "./prop-ingestion";
 
 // ... existing types and interfaces from original worker ...
 type Player = {
@@ -206,7 +192,7 @@ async function handleIngestion(request: Request, env: Env): Promise<Response> {
     console.log(`Starting prop ingestion for league: ${league || 'all'}, season: ${season}, week: ${week || 'all'}`);
     
     const startTime = Date.now();
-    const results = await runIngestion(env, league, season, week);
+    const results = await runIngestion(env);
     const duration = Date.now() - startTime;
     
     const response = new Response(JSON.stringify({
@@ -241,17 +227,18 @@ async function handleIngestion(request: Request, env: Env): Promise<Response> {
 }
 
 async function handleIngestionStatus(request: Request, env: Env): Promise<Response> {
-  return new Response(JSON.stringify({
+  const response = new Response(JSON.stringify({
     status: 'ready',
     message: 'Prop ingestion worker is ready',
     timestamp: new Date().toISOString()
   }), {
     status: 200,
     headers: { 
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*'
+      'Content-Type': 'application/json'
     }
   });
+  
+  return withCORS(response, request.headers.get("Origin") || "*");
 }
 
 async function handlePlayerPropsAPI(request: Request, env: Env): Promise<Response> {

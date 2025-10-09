@@ -62,7 +62,7 @@ export default {
           
           const result = await supabaseFetch(env, "rpc/refresh_analytics_views", {
             method: "POST",
-            body: {},
+            body: JSON.stringify({}),
           });
           
           return new Response(JSON.stringify({
@@ -94,7 +94,7 @@ export default {
           
           const result = await supabaseFetch(env, "rpc/incremental_analytics_refresh", {
             method: "POST",
-            body: { days_back: daysBack },
+            body: JSON.stringify({ days_back: daysBack }),
           });
           
           return new Response(JSON.stringify({
@@ -352,7 +352,7 @@ export default {
                 hit_result: gameLog.value >= propLine.line ? 1 : 0,
               };
             })
-            .filter(Boolean);
+            .filter((result): result is NonNullable<typeof result> => result !== null);
 
           console.log(`📊 Created ${gameResults.length} game results`);
 
@@ -639,7 +639,10 @@ export default {
               };
             })
             .filter(Boolean)
-            .sort((a, b) => b.hit - a.hit || a.margin - b.margin)
+            .sort((a, b) => {
+              if (!a || !b) return 0;
+              return b.hit - a.hit || a.margin - b.margin;
+            })
             .slice(0, limit);
 
           return new Response(
@@ -1530,33 +1533,21 @@ export default {
           
           const duration = Date.now() - startTime;
           
-          return new Response(JSON.stringify({
+          return corsResponse({
             success: true,
             message: 'Current season ingestion completed successfully',
             duration: `${duration}ms`,
             ...result
-          }), {
-            status: 200,
-            headers: {
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*',
-            },
           });
           
         } catch (error) {
           console.error('❌ Ingestion failed:', error);
           
-          return new Response(JSON.stringify({
+          return corsResponse({
             success: false,
             error: error instanceof Error ? error.message : String(error),
             duration: `${Date.now() - startTime}ms`
-          }), {
-            status: 500,
-            headers: {
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*',
-            },
-          });
+          }, 500);
         }
       }
       
@@ -1611,9 +1602,8 @@ export default {
           console.log('🔍 Checking table schema...');
           
           // Query the table structure
-          const response = await supabaseFetch(env, "proplines", {
-            method: "GET",
-            query: "?limit=1&select=*"
+          const response = await supabaseFetch(env, "proplines?limit=1&select=*", {
+            method: "GET"
           }) as { data?: any; error?: any };
           
           if (response.error) {
@@ -1904,7 +1894,7 @@ export default {
           
           const response = await supabaseFetch(env, "proplines", {
             method: "POST",
-            body: [testProp]
+            body: JSON.stringify([testProp])
           });
           
           // Successful Supabase inserts return null/empty response
@@ -2459,7 +2449,7 @@ export default {
           try {
             const insertResult = await supabaseFetch(env, "proplines", {
               method: "POST",
-              body: [testProp],
+              body: JSON.stringify([testProp]),
               headers: { Prefer: "resolution=merge-duplicates" },
             });
             insertTest = '✅ Success';

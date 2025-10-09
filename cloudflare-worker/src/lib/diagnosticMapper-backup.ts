@@ -1,7 +1,7 @@
-// Clean diagnostic mapping function without duplicate keys
+// Diagnostic mapping function to identify exactly why props are being dropped
 // This replaces the complex createPlayerPropsFromOdd function with a simpler, more transparent approach
 
-// Expanded MARKET_MAP based on diagnostic analysis - NO DUPLICATE KEYS
+// Expanded MARKET_MAP based on diagnostic analysis
 const MARKET_MAP: Record<string, string> = {
   // Core markets
   "Passing Yards": "Passing Yards",

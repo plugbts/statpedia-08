@@ -38,7 +38,7 @@ export async function insertPropsWithDebugging(env: any, mapped: any[]): Promise
   };
 
   // Validate data structure before insertion
-  console.log("🔍 Validating data structure...");
+  // console.log("🔍 Validating data structure..."); // Reduced logging
   const validationErrors = validatePropData(mapped);
   if (validationErrors.length > 0) {
     console.error("❌ Data validation failed:", validationErrors);
@@ -54,13 +54,13 @@ export async function insertPropsWithDebugging(env: any, mapped: any[]): Promise
   }
 
   // Insert into proplines with enhanced error handling
-  console.log("🔄 Inserting proplines...");
+  // console.log("🔄 Inserting proplines..."); // Reduced logging
   const proplinesBatches = chunk(mapped, 250); // Smaller batches for better error isolation
   
   for (let i = 0; i < proplinesBatches.length; i++) {
     const batch = proplinesBatches[i];
     try {
-      console.log(`🔄 Inserting proplines batch ${i + 1}/${proplinesBatches.length} (${batch.length} props)...`);
+      // console.log(`🔄 Inserting proplines batch ${i + 1}/${proplinesBatches.length} (${batch.length} props)...`); // Reduced logging
       
       // Log sample data for debugging
       if (i === 0 && batch.length > 0) {
@@ -126,7 +126,7 @@ export async function insertPropsWithDebugging(env: any, mapped: any[]): Promise
   }
 
   // Insert into player_game_logs with enhanced error handling
-  console.log("🔄 Inserting player_game_logs...");
+  // console.log("🔄 Inserting player_game_logs..."); // Reduced logging
   const gamelogRows = mapped.map(row => ({
     player_id: row.player_id,
     player_name: row.player_name,
@@ -146,7 +146,7 @@ export async function insertPropsWithDebugging(env: any, mapped: any[]): Promise
   for (let i = 0; i < gameLogBatches.length; i++) {
     const batch = gameLogBatches[i];
     try {
-      console.log(`🔄 Inserting player_game_logs batch ${i + 1}/${gameLogBatches.length} (${batch.length} rows)...`);
+      // console.log(`🔄 Inserting player_game_logs batch ${i + 1}/${gameLogBatches.length} (${batch.length} rows)...`); // Reduced logging
       
       // Log sample data for debugging
       if (i === 0 && batch.length > 0) {
@@ -229,8 +229,8 @@ function validatePropData(mapped: any[]): Array<{message: string, sampleData?: a
   for (let i = 0; i < mapped.length; i++) {
     const prop = mapped[i];
     
-    // Check required fields
-    const requiredFields = ['player_id', 'player_name', 'team', 'opponent', 'prop_type', 'line', 'over_odds', 'under_odds', 'sportsbook', 'league', 'season', 'date', 'game_id', 'conflict_key'];
+    // Check required fields (over_odds and under_odds can be null)
+    const requiredFields = ['player_id', 'player_name', 'team', 'opponent', 'prop_type', 'line', 'sportsbook', 'league', 'season', 'date', 'game_id', 'conflict_key'];
     
     for (const field of requiredFields) {
       if (prop[field] === undefined || prop[field] === null || prop[field] === '') {
@@ -241,6 +241,14 @@ function validatePropData(mapped: any[]): Array<{message: string, sampleData?: a
       }
     }
     
+    // Check that at least one odds field is present
+    if (prop.over_odds === null && prop.under_odds === null) {
+      errors.push({
+        message: `At least one odds field (over_odds or under_odds) must be present at index ${i}`,
+        sampleData: prop
+      });
+    }
+    
     // Check data types
     if (typeof prop.line !== 'number') {
       errors.push({
@@ -249,16 +257,16 @@ function validatePropData(mapped: any[]): Array<{message: string, sampleData?: a
       });
     }
     
-    if (typeof prop.over_odds !== 'number') {
+    if (prop.over_odds !== null && typeof prop.over_odds !== 'number') {
       errors.push({
-        message: `Invalid over_odds type: expected number, got ${typeof prop.over_odds} at index ${i}`,
+        message: `Invalid over_odds type: expected number or null, got ${typeof prop.over_odds} at index ${i}`,
         sampleData: prop
       });
     }
     
-    if (typeof prop.under_odds !== 'number') {
+    if (prop.under_odds !== null && typeof prop.under_odds !== 'number') {
       errors.push({
-        message: `Invalid under_odds type: expected number, got ${typeof prop.under_odds} at index ${i}`,
+        message: `Invalid under_odds type: expected number or null, got ${typeof prop.under_odds} at index ${i}`,
         sampleData: prop
       });
     }
