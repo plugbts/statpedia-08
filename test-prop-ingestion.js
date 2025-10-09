@@ -24,7 +24,7 @@ async function testAPIRequest() {
       headers: {
         'Accept': 'application/json',
         'User-Agent': 'Statpedia/1.0',
-        'x-api-key': 'd5dc1f00bc42133550bc1605dd8f457f'
+        'x-api-key': 'f05c244cbea5222d806f91c412350940'
       }
     });
 

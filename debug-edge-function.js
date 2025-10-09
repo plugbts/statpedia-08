@@ -6,7 +6,7 @@
  * This script tests the exact API call that the Edge Function should be making
  */
 
-const SPORTSGAMEODDS_API_KEY = 'd5dc1f00bc42133550bc1605dd8f457f';
+const SPORTSGAMEODDS_API_KEY = 'f05c244cbea5222d806f91c412350940';
 
 async function debugEdgeFunctionCall() {
   console.log('🔍 Debugging Edge Function API Call');

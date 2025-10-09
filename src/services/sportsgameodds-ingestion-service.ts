@@ -3,7 +3,7 @@ import { propNormalizationService } from './prop-normalization-service';
 import { supabase } from '@/integrations/supabase/client';
 
 // SportsGameOdds API Configuration
-const SPORTSGAMEODDS_API_KEY = 'd5dc1f00bc42133550bc1605dd8f457f';
+const SPORTSGAMEODDS_API_KEY = 'f05c244cbea5222d806f91c412350940';
 const SPORTSGAMEODDS_BASE_URL = 'https://api.sportsgameodds.com';
 
 // League configuration for individual processing

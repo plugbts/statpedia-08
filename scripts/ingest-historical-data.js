@@ -9,7 +9,7 @@ import 'dotenv/config';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://rfdrifnsfobqlzorcesn.supabase.co';
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZHJpZm5zZm9icWx6b3JjZXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwNDg4MzYsImV4cCI6MjA3NDYyNDgzNn0.oUzP1pTapCMEaaPXzia2uqn-m3L9BRR82_RYcUXqykI';
-const API_KEY = process.env.SPORTSGAMEODDS_API_KEY || 'd5dc1f00bc42133550bc1605dd8f457f';
+const API_KEY = process.env.SPORTSGAMEODDS_API_KEY || 'f05c244cbea5222d806f91c412350940';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 

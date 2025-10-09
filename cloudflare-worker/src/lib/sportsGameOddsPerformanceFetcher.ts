@@ -13,7 +13,7 @@ async function fetchEventsForLeague(league: string, date: string, env: any) {
   const headers = { "x-api-key": env.SPORTSGAMEODDS_API_KEY };
 
   // 1. Primary call (happy path) - using v2 API format
-  let url = `${baseUrl}?apiKey=${env.SPORTSGAMEODDS_API_KEY}&leagueID=${league}&dateFrom=${date}&dateTo=${date}&oddsAvailable=true`;
+  let url = `${baseUrl}?apiKey=${env.SPORTSGAMEODDS_API_KEY}&leagueID=${league.toUpperCase()}&dateFrom=${date}&dateTo=${date}&oddsAvailable=true`;
   let res = await fetch(url);
   if (!res.ok) throw new Error(`❌ ${league} API error ${res.status}: ${await res.text()}`);
   let data = await res.json();
@@ -31,7 +31,7 @@ async function fetchEventsForLeague(league: string, date: string, env: any) {
     .toISOString()
     .slice(0, 10);
 
-  url = `${baseUrl}?apiKey=${env.SPORTSGAMEODDS_API_KEY}&leagueID=${league}&dateFrom=${dateFrom}&dateTo=${dateTo}&oddsAvailable=true`;
+  url = `${baseUrl}?apiKey=${env.SPORTSGAMEODDS_API_KEY}&leagueID=${league.toUpperCase()}&dateFrom=${dateFrom}&dateTo=${dateTo}&oddsAvailable=true`;
   res = await fetch(url);
   if (!res.ok) throw new Error(`❌ ${league} fallback API error ${res.status}: ${await res.text()}`);
   data = await res.json();
@@ -137,16 +137,24 @@ export class SportsGameOddsPerformanceFetcher implements PerformanceDataFetcher 
     }
     
     // Determine teams from event structure
-    const homeTeam = event.teams?.home?.names?.abbr || event.teams?.home?.abbreviation || 'UNK';
-    const awayTeam = event.teams?.away?.names?.abbr || event.teams?.away?.abbreviation || 'UNK';
+    // Extract team information from players data
+    const players = event.players || {};
+    const teamIds = new Set(Object.values(players).map((p: any) => p.teamID));
+    const teamList = Array.from(teamIds);
+    const homeTeam = teamList[0] || 'UNK';
+    const awayTeam = teamList[1] || 'UNK';
     
     for (const [playerId, propData] of playerPropsMap) {
       // Generate realistic performance based on the betting line
       const actualPerformance = this.generateRealisticPerformance(propData.line, propData.propType);
       
-      // Determine which team the player is on (simplified approach)
-      const playerTeam = this.determinePlayerTeam(propData.playerName, homeTeam, awayTeam);
-      const opponent = playerTeam === homeTeam ? awayTeam : homeTeam;
+      // Get player's team from the players data
+      const playerData = players[playerId];
+      const playerTeamID = playerData?.teamID || 'UNK';
+      // Extract team abbreviation from teamID (e.g., "MINNESOTA_WILD_NHL" -> "MIN")
+      const playerTeam = playerTeamID.split('_')[0].substring(0, 8) || 'UNK';
+      const opponentTeamID = playerTeamID === homeTeam ? awayTeam : homeTeam;
+      const opponent = opponentTeamID.split('_')[0].substring(0, 8) || 'UNK';
       
       const gameId = event.eventID || `GAME_${date}_${homeTeam}_${awayTeam}`;
       const sportsbook = "SportsGameOdds";
