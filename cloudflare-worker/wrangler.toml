@@ -1,5 +1,5 @@
 name = "statpedia-player-props"
-main = "src/worker.ts"
+main = "src/index-with-ingestion.ts"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
 

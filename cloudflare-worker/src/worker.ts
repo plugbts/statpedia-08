@@ -7,27 +7,37 @@ import { runPerformanceIngestion, runSingleLeaguePerformanceIngestion, runHistor
 import { fetchAllLeaguesEvents } from "./lib/sportsGameOddsPerformanceFetcher";
 import { supabaseFetch } from "./supabaseFetch";
 import { LEAGUES, getActiveLeagues, getAllSeasons, getActiveLeagueSeasonPairs } from "./config/leagues";
+import { withCORS, handleOptions } from "./cors";
 
 export default {
   async fetch(req: Request, env: any) {
     try {
       const url = new URL(req.url);
+      const origin = req.headers.get("Origin") || "*";
       
       // Handle CORS preflight
       if (req.method === 'OPTIONS') {
-        return new Response(null, {
-          status: 200,
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
-          },
-        });
+        return handleOptions(req, origin);
       }
+
+      // Helper function to wrap responses with CORS
+      const corsResponse = (body: any, status: number = 200, headers: Record<string, string> = {}) => {
+        const response = new Response(
+          typeof body === 'string' ? body : JSON.stringify(body),
+          {
+            status,
+            headers: {
+              'Content-Type': 'application/json',
+              ...headers
+            }
+          }
+        );
+        return withCORS(response, origin);
+      };
 
       // Default response with available endpoints
       if (url.pathname === '/') {
-        return new Response(JSON.stringify({
+        return corsResponse({
           message: 'Multi-League Multi-Season Props Ingestion Worker',
           endpoints: {
             ingestion: ['/ingest', '/ingest/{league}'],
@@ -41,12 +51,6 @@ export default {
           leagues: getActiveLeagues().map(l => l.id),
           seasons: getAllSeasons(),
           features: ['Multi-league ingestion', 'Multi-season backfill', 'Analytics computation', 'Fallback logic', 'Progressive backfill']
-        }), {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-          },
         });
       }
       

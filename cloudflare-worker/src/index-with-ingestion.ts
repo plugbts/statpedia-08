@@ -22,8 +22,8 @@ export interface Env {
 }
 
 // Import prop ingestion functionality
+import { runIngestion } from "./jobs/ingest";
 import { 
-  runIngestion, 
   fetchEvents, 
   extractPlayerPropsFromEvent,
   isPlayerProp as isPlayerPropIngestion,
@@ -151,7 +151,7 @@ export default {
     
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {
-      return handleOptions();
+      return handleOptions(request, request.headers.get("Origin") || "*");
     }
 
     // Route handling
@@ -198,7 +198,7 @@ async function handleIngestion(request: Request, env: Env): Promise<Response> {
     const results = await runIngestion(env, league, season, week);
     const duration = Date.now() - startTime;
     
-    return new Response(JSON.stringify({
+    const response = new Response(JSON.stringify({
       success: true,
       message: 'Prop ingestion completed successfully',
       duration: `${duration}ms`,
@@ -206,24 +206,26 @@ async function handleIngestion(request: Request, env: Env): Promise<Response> {
     }), {
       status: 200,
       headers: { 
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
+        'Content-Type': 'application/json'
       }
     });
     
+    return withCORS(response, request.headers.get("Origin") || "*");
+    
   } catch (error) {
     console.error('Ingestion failed:', error);
-    return new Response(JSON.stringify({
+    const response = new Response(JSON.stringify({
       success: false,
       message: 'Ingestion failed',
       error: error instanceof Error ? error.message : 'Unknown error'
     }), {
       status: 500,
       headers: { 
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
+        'Content-Type': 'application/json'
       }
     });
+    
+    return withCORS(response, request.headers.get("Origin") || "*");
   }
 }
 
