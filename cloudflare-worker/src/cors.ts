@@ -29,7 +29,7 @@ export function withCORS(resp: Response, origin: string = "*"): Response {
       console.log("CORS: Exact match found", requestOrigin);
     }
     // Check if it's a Lovable subdomain (handles both lovableproject.com and lovable.app)
-    else if (requestOrigin.endsWith('.lovableproject.com') || requestOrigin.endsWith('.lovable.app')) {
+    else if (requestOrigin.includes('.lovableproject.com') || requestOrigin.includes('.lovable.app')) {
       allowedOrigin = requestOrigin;
       console.log("CORS: Lovable subdomain match", requestOrigin);
     }
@@ -90,7 +90,7 @@ export function handleOptions(request: Request, origin: string = "*"): Response 
       allowedOrigin = requestOrigin;
     }
     // Check if it's a Lovable subdomain (handles both lovableproject.com and lovable.app)
-    else if (requestOrigin.endsWith('.lovableproject.com') || requestOrigin.endsWith('.lovable.app')) {
+    else if (requestOrigin.includes('.lovableproject.com') || requestOrigin.includes('.lovable.app')) {
       allowedOrigin = requestOrigin;
     }
     // Check if it's a localhost variant
