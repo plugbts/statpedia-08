@@ -121,7 +121,7 @@ export default {
 
           const { data, error } = await supabase
             .from("player_game_logs")
-            .select("league, conflict_key");
+            .select("league, conflict_key, prop_type");
 
           if (error) {
             console.error("❌ Supabase error:", error);
@@ -141,15 +141,19 @@ export default {
           }
 
           // Aggregate counts
-          const results: Record<string, { bad: number; good: number; total: number }> = {};
+          const results: Record<string, { bad: number; good: number; total: number; badExamples: string[] }> = {};
 
           data.forEach((row: any) => {
             const league = row.league || "unknown";
-            if (!results[league]) results[league] = { bad: 0, good: 0, total: 0 };
+            if (!results[league]) results[league] = { bad: 0, good: 0, total: 0, badExamples: [] };
 
             results[league].total++;
             if (row.conflict_key.includes("|gamelog|")) {
               results[league].bad++;
+              // Collect examples of bad conflict keys with prop types
+              if (results[league].badExamples.length < 3) {
+                results[league].badExamples.push(`${row.prop_type} -> ${row.conflict_key}`);
+              }
             } else {
               results[league].good++;
             }
@@ -160,6 +164,9 @@ export default {
             console.log(
               `${league.toUpperCase()}: total=${counts.total}, good=${counts.good}, bad=${counts.bad}`
             );
+            if (counts.badExamples.length > 0) {
+              console.log(`  Bad examples:`, counts.badExamples);
+            }
           });
 
           return new Response(
