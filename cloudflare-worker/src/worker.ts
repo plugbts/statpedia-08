@@ -33,7 +33,7 @@ export default {
             ingestion: ['/ingest', '/ingest/{league}'],
             backfill: ['/backfill-all', '/backfill-recent', '/backfill-full', '/backfill-league/{league}', '/backfill-season/{season}'],
             performance: ['/performance-ingest', '/performance-ingest/{league}', '/performance-historical'],
-            analytics: ['/refresh-analytics', '/incremental-analytics-refresh', '/analytics/streaks', '/analytics/defensive-rankings'],
+            analytics: ['/refresh-analytics', '/incremental-analytics-refresh', '/analytics/streaks', '/analytics/defensive-rankings', '/analytics/matchup-rank', '/analytics/last-5', '/analytics/last-10', '/analytics/last-20', '/analytics/h2h'],
             verification: ['/verify-backfill', '/verify-analytics'],
             status: ['/status', '/leagues', '/seasons'],
             debug: ['/debug-api', '/debug-comprehensive', '/debug-json', '/debug-extraction', '/debug-insert', '/debug-schema', '/debug-streaks', '/debug-streak-counts', '/debug-insertion', '/debug-env', '/debug-rls', '/debug-events', '/debug-data-check', '/debug-performance-diagnostic']
@@ -230,7 +230,7 @@ export default {
             query += `?${params.join("&")}`;
           }
 
-          const gameLogs = await supabaseFetch(env, query, { method: "GET" });
+          const gameLogs = await supabaseFetch(env, query, { method: "GET" }) as any[];
 
           console.log(`📊 Fetched ${gameLogs?.length || 0} game logs`);
           if (gameLogs && gameLogs.length > 0) {
@@ -274,7 +274,7 @@ export default {
 
           const propsQuery = `proplines${filters.length ? "?" + filters.join("&") : ""}`;
 
-          const propLines = await supabaseFetch(env, propsQuery, { method: "GET" });
+          const propLines = await supabaseFetch(env, propsQuery, { method: "GET" }) as any[];
 
           console.log(`📊 Fetched ${propLines?.length || 0} prop lines`);
           if (propLines && propLines.length > 0) {
@@ -521,6 +521,626 @@ export default {
             status: 500,
             headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
           });
+        }
+      }
+
+      // Handle matchup rankings analytics
+      if (url.pathname === "/analytics/matchup-rank") {
+        try {
+          const { supabaseFetch } = await import("./supabaseFetch");
+          const league = url.searchParams.get("league") || "all";
+          const limit = parseInt(url.searchParams.get("limit") || "50");
+
+          console.log(`📊 Computing matchup rankings for ${league}...`);
+
+          // Fetch game logs and prop lines
+          let gameLogsQuery = "player_game_logs";
+          if (league !== "all") {
+            gameLogsQuery += `?league=eq.${league}`;
+          }
+
+          const gameLogs = await supabaseFetch(env, gameLogsQuery, { method: "GET" }) as any[];
+          
+          if (!gameLogs || gameLogs.length === 0) {
+            return new Response(
+              JSON.stringify({
+                success: true,
+                data: [],
+                league,
+                limit,
+                message: "No game data found",
+                timestamp: new Date().toISOString(),
+              }),
+              {
+                headers: {
+                  "Content-Type": "application/json",
+                  "Access-Control-Allow-Origin": "*",
+                },
+              }
+            );
+          }
+
+          // Fetch corresponding prop lines
+          const playerIds = [...new Set(gameLogs.map(g => g.player_id))];
+          const propTypes = [...new Set(gameLogs.map(g => g.prop_type))];
+          const dates = [...new Set(gameLogs.map(g => g.date.split("T")[0]))];
+
+          const inFilter = (values: string[]) =>
+            `in.(${values.map(v => `"${v}"`).join(",")})`;
+
+          const propsQuery = `proplines?player_id=${inFilter(
+            playerIds
+          )}&prop_type=${inFilter(propTypes)}&date=${inFilter(dates)}`;
+
+          const propLines = await supabaseFetch(env, propsQuery, { method: "GET" }) as any[];
+
+          // Calculate matchup performance
+          const matchupRankings = gameLogs
+            .map(gameLog => {
+              const propLine = propLines?.find(
+                prop =>
+                  prop.player_id === gameLog.player_id &&
+                  prop.prop_type === gameLog.prop_type &&
+                  prop.date.split("T")[0] === gameLog.date.split("T")[0] &&
+                  prop.league === gameLog.league
+              );
+
+              if (!propLine) return null;
+
+              const hit = gameLog.value >= propLine.line ? 1 : 0;
+              const margin = Math.abs(gameLog.value - propLine.line);
+
+              return {
+                player_id: gameLog.player_id,
+                player_name: gameLog.player_name,
+                team: gameLog.team,
+                prop_type: gameLog.prop_type,
+                league: gameLog.league,
+                date: gameLog.date.split("T")[0],
+                line: propLine.line,
+                actual: gameLog.value,
+                hit,
+                margin,
+                opponent: gameLog.opponent || "Unknown",
+              };
+            })
+            .filter(Boolean)
+            .sort((a, b) => b.hit - a.hit || a.margin - b.margin)
+            .slice(0, limit);
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              data: matchupRankings,
+              league,
+              limit,
+              total_found: matchupRankings.length,
+              message: "Matchup rankings computed successfully",
+              timestamp: new Date().toISOString(),
+            }),
+            {
+              headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+              },
+            }
+          );
+        } catch (error) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: error instanceof Error ? error.message : String(error),
+            }),
+            {
+              status: 500,
+              headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+              },
+            }
+          );
+        }
+      }
+
+      // Handle last 5 games analytics
+      if (url.pathname === "/analytics/last-5") {
+        try {
+          const { supabaseFetch } = await import("./supabaseFetch");
+          const league = url.searchParams.get("league") || "all";
+          const limit = parseInt(url.searchParams.get("limit") || "50");
+
+          console.log(`📊 Computing last 5 games performance for ${league}...`);
+
+          // Fetch recent game logs
+          let query = "player_game_logs";
+          const params: string[] = [];
+          if (league !== "all") {
+            params.push(`league=eq.${league}`);
+          }
+          params.push(`order=date.desc`);
+
+          if (params.length > 0) {
+            query += `?${params.join("&")}`;
+          }
+
+          const gameLogs = await supabaseFetch(env, query, { method: "GET" }) as any[];
+
+          if (!gameLogs || gameLogs.length === 0) {
+            return new Response(
+              JSON.stringify({
+                success: true,
+                data: [],
+                league,
+                limit,
+                message: "No game data found",
+                timestamp: new Date().toISOString(),
+              }),
+              {
+                headers: {
+                  "Content-Type": "application/json",
+                  "Access-Control-Allow-Origin": "*",
+                },
+              }
+            );
+          }
+
+          // Group by player and get last 5 games
+          const playerStats = new Map();
+          
+          gameLogs.forEach((log: any) => {
+            const key = `${log.player_id}-${log.prop_type}`;
+            if (!playerStats.has(key)) {
+              playerStats.set(key, {
+                player_id: log.player_id,
+                player_name: log.player_name,
+                team: log.team,
+                prop_type: log.prop_type,
+                league: log.league,
+                games: []
+              });
+            }
+            
+            const stats = playerStats.get(key);
+            if (stats.games.length < 5) {
+              stats.games.push({
+                date: log.date.split("T")[0],
+                value: log.value,
+                opponent: log.opponent || "Unknown"
+              });
+            }
+          });
+
+          // Calculate performance metrics
+          const last5Performance = Array.from(playerStats.values())
+            .map(player => {
+              const games = player.games;
+              const avgValue = games.reduce((sum, game) => sum + game.value, 0) / games.length;
+              const totalGames = games.length;
+              
+              return {
+                ...player,
+                total_games: totalGames,
+                avg_value: Math.round(avgValue * 100) / 100,
+                latest_value: games[0]?.value || 0,
+                latest_date: games[0]?.date || null,
+                trend: games.length >= 2 ? 
+                  (games[0].value > games[1].value ? "up" : games[0].value < games[1].value ? "down" : "stable") : "insufficient_data"
+              };
+            })
+            .filter(player => player.total_games > 0)
+            .sort((a, b) => b.avg_value - a.avg_value)
+            .slice(0, limit);
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              data: last5Performance,
+              league,
+              limit,
+              total_found: last5Performance.length,
+              message: "Last 5 games performance computed successfully",
+              timestamp: new Date().toISOString(),
+            }),
+            {
+              headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+              },
+            }
+          );
+        } catch (error) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: error instanceof Error ? error.message : String(error),
+            }),
+            {
+              status: 500,
+              headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+              },
+            }
+          );
+        }
+      }
+
+      // Handle last 10 games analytics
+      if (url.pathname === "/analytics/last-10") {
+        try {
+          const { supabaseFetch } = await import("./supabaseFetch");
+          const league = url.searchParams.get("league") || "all";
+          const limit = parseInt(url.searchParams.get("limit") || "50");
+
+          console.log(`📊 Computing last 10 games performance for ${league}...`);
+
+          // Fetch recent game logs
+          let query = "player_game_logs";
+          const params: string[] = [];
+          if (league !== "all") {
+            params.push(`league=eq.${league}`);
+          }
+          params.push(`order=date.desc`);
+
+          if (params.length > 0) {
+            query += `?${params.join("&")}`;
+          }
+
+          const gameLogs = await supabaseFetch(env, query, { method: "GET" }) as any[];
+
+          if (!gameLogs || gameLogs.length === 0) {
+            return new Response(
+              JSON.stringify({
+                success: true,
+                data: [],
+                league,
+                limit,
+                message: "No game data found",
+                timestamp: new Date().toISOString(),
+              }),
+              {
+                headers: {
+                  "Content-Type": "application/json",
+                  "Access-Control-Allow-Origin": "*",
+                },
+              }
+            );
+          }
+
+          // Group by player and get last 10 games
+          const playerStats = new Map();
+          
+          gameLogs.forEach((log: any) => {
+            const key = `${log.player_id}-${log.prop_type}`;
+            if (!playerStats.has(key)) {
+              playerStats.set(key, {
+                player_id: log.player_id,
+                player_name: log.player_name,
+                team: log.team,
+                prop_type: log.prop_type,
+                league: log.league,
+                games: []
+              });
+            }
+            
+            const stats = playerStats.get(key);
+            if (stats.games.length < 10) {
+              stats.games.push({
+                date: log.date.split("T")[0],
+                value: log.value,
+                opponent: log.opponent || "Unknown"
+              });
+            }
+          });
+
+          // Calculate performance metrics
+          const last10Performance = Array.from(playerStats.values())
+            .map(player => {
+              const games = player.games;
+              const avgValue = games.reduce((sum, game) => sum + game.value, 0) / games.length;
+              const totalGames = games.length;
+              const recent5 = games.slice(0, Math.min(5, games.length));
+              const earlier5 = games.slice(5, Math.min(10, games.length));
+              
+              const recentAvg = recent5.reduce((sum, game) => sum + game.value, 0) / recent5.length;
+              const earlierAvg = earlier5.length > 0 ? 
+                earlier5.reduce((sum, game) => sum + game.value, 0) / earlier5.length : recentAvg;
+              
+              return {
+                ...player,
+                total_games: totalGames,
+                avg_value: Math.round(avgValue * 100) / 100,
+                recent_5_avg: Math.round(recentAvg * 100) / 100,
+                earlier_5_avg: Math.round(earlierAvg * 100) / 100,
+                improvement: Math.round((recentAvg - earlierAvg) * 100) / 100,
+                latest_value: games[0]?.value || 0,
+                latest_date: games[0]?.date || null
+              };
+            })
+            .filter(player => player.total_games > 0)
+            .sort((a, b) => b.avg_value - a.avg_value)
+            .slice(0, limit);
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              data: last10Performance,
+              league,
+              limit,
+              total_found: last10Performance.length,
+              message: "Last 10 games performance computed successfully",
+              timestamp: new Date().toISOString(),
+            }),
+            {
+              headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+              },
+            }
+          );
+        } catch (error) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: error instanceof Error ? error.message : String(error),
+            }),
+            {
+              status: 500,
+              headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+              },
+            }
+          );
+        }
+      }
+
+      // Handle last 20 games analytics
+      if (url.pathname === "/analytics/last-20") {
+        try {
+          const { supabaseFetch } = await import("./supabaseFetch");
+          const league = url.searchParams.get("league") || "all";
+          const limit = parseInt(url.searchParams.get("limit") || "50");
+
+          console.log(`📊 Computing last 20 games performance for ${league}...`);
+
+          // Fetch recent game logs
+          let query = "player_game_logs";
+          const params: string[] = [];
+          if (league !== "all") {
+            params.push(`league=eq.${league}`);
+          }
+          params.push(`order=date.desc`);
+
+          if (params.length > 0) {
+            query += `?${params.join("&")}`;
+          }
+
+          const gameLogs = await supabaseFetch(env, query, { method: "GET" }) as any[];
+
+          if (!gameLogs || gameLogs.length === 0) {
+            return new Response(
+              JSON.stringify({
+                success: true,
+                data: [],
+                league,
+                limit,
+                message: "No game data found",
+                timestamp: new Date().toISOString(),
+              }),
+              {
+                headers: {
+                  "Content-Type": "application/json",
+                  "Access-Control-Allow-Origin": "*",
+                },
+              }
+            );
+          }
+
+          // Group by player and get last 20 games
+          const playerStats = new Map();
+          
+          gameLogs.forEach((log: any) => {
+            const key = `${log.player_id}-${log.prop_type}`;
+            if (!playerStats.has(key)) {
+              playerStats.set(key, {
+                player_id: log.player_id,
+                player_name: log.player_name,
+                team: log.team,
+                prop_type: log.prop_type,
+                league: log.league,
+                games: []
+              });
+            }
+            
+            const stats = playerStats.get(key);
+            if (stats.games.length < 20) {
+              stats.games.push({
+                date: log.date.split("T")[0],
+                value: log.value,
+                opponent: log.opponent || "Unknown"
+              });
+            }
+          });
+
+          // Calculate performance metrics
+          const last20Performance = Array.from(playerStats.values())
+            .map(player => {
+              const games = player.games;
+              const avgValue = games.reduce((sum, game) => sum + game.value, 0) / games.length;
+              const totalGames = games.length;
+              
+              // Calculate consistency (lower standard deviation = more consistent)
+              const variance = games.reduce((sum, game) => sum + Math.pow(game.value - avgValue, 2), 0) / games.length;
+              const standardDeviation = Math.sqrt(variance);
+              
+              // Calculate trends
+              const recent10 = games.slice(0, Math.min(10, games.length));
+              const earlier10 = games.slice(10, Math.min(20, games.length));
+              
+              const recentAvg = recent10.reduce((sum, game) => sum + game.value, 0) / recent10.length;
+              const earlierAvg = earlier10.length > 0 ? 
+                earlier10.reduce((sum, game) => sum + game.value, 0) / earlier10.length : recentAvg;
+              
+              return {
+                ...player,
+                total_games: totalGames,
+                avg_value: Math.round(avgValue * 100) / 100,
+                recent_10_avg: Math.round(recentAvg * 100) / 100,
+                earlier_10_avg: Math.round(earlierAvg * 100) / 100,
+                improvement: Math.round((recentAvg - earlierAvg) * 100) / 100,
+                consistency: Math.round(standardDeviation * 100) / 100,
+                latest_value: games[0]?.value || 0,
+                latest_date: games[0]?.date || null
+              };
+            })
+            .filter(player => player.total_games > 0)
+            .sort((a, b) => b.avg_value - a.avg_value)
+            .slice(0, limit);
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              data: last20Performance,
+              league,
+              limit,
+              total_found: last20Performance.length,
+              message: "Last 20 games performance computed successfully",
+              timestamp: new Date().toISOString(),
+            }),
+            {
+              headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+              },
+            }
+          );
+        } catch (error) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: error instanceof Error ? error.message : String(error),
+            }),
+            {
+              status: 500,
+              headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+              },
+            }
+          );
+        }
+      }
+
+      // Handle head-to-head analytics
+      if (url.pathname === "/analytics/h2h") {
+        try {
+          const { supabaseFetch } = await import("./supabaseFetch");
+          const league = url.searchParams.get("league") || "all";
+          const limit = parseInt(url.searchParams.get("limit") || "50");
+
+          console.log(`📊 Computing head-to-head analytics for ${league}...`);
+
+          // Fetch game logs
+          let query = "player_game_logs";
+          const params: string[] = [];
+          if (league !== "all") {
+            params.push(`league=eq.${league}`);
+          }
+          params.push(`order=date.desc`);
+
+          if (params.length > 0) {
+            query += `?${params.join("&")}`;
+          }
+
+          const gameLogs = await supabaseFetch(env, query, { method: "GET" }) as any[];
+
+          if (!gameLogs || gameLogs.length === 0) {
+            return new Response(
+              JSON.stringify({
+                success: true,
+                data: [],
+                league,
+                limit,
+                message: "No game data found",
+                timestamp: new Date().toISOString(),
+              }),
+              {
+                headers: {
+                  "Content-Type": "application/json",
+                  "Access-Control-Allow-Origin": "*",
+                },
+              }
+            );
+          }
+
+          // Group by player-opponent combinations
+          const h2hStats = new Map();
+          
+          gameLogs.forEach((log: any) => {
+            const opponent = log.opponent || "Unknown";
+            const key = `${log.player_id}-${opponent}-${log.prop_type}`;
+            
+            if (!h2hStats.has(key)) {
+              h2hStats.set(key, {
+                player_id: log.player_id,
+                player_name: log.player_name,
+                team: log.team,
+                opponent: opponent,
+                prop_type: log.prop_type,
+                league: log.league,
+                games: [],
+                total_games: 0,
+                avg_value: 0
+              });
+            }
+            
+            const stats = h2hStats.get(key);
+            stats.games.push({
+              date: log.date.split("T")[0],
+              value: log.value
+            });
+            stats.total_games = stats.games.length;
+            stats.avg_value = stats.games.reduce((sum, game) => sum + game.value, 0) / stats.games.length;
+          });
+
+          // Convert to array and sort by total games and average value
+          const h2hRankings = Array.from(h2hStats.values())
+            .filter(stats => stats.total_games >= 2) // Only include players with multiple games vs same opponent
+            .sort((a, b) => b.total_games - a.total_games || b.avg_value - a.avg_value)
+            .slice(0, limit);
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              data: h2hRankings,
+              league,
+              limit,
+              total_found: h2hRankings.length,
+              message: "Head-to-head analytics computed successfully",
+              timestamp: new Date().toISOString(),
+            }),
+            {
+              headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+              },
+            }
+          );
+        } catch (error) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: error instanceof Error ? error.message : String(error),
+            }),
+            {
+              status: 500,
+              headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+              },
+            }
+          );
         }
       }
 
@@ -2139,7 +2759,7 @@ export default {
       // Default 404 response
       return new Response(JSON.stringify({
         error: 'Endpoint not found',
-        availableEndpoints: ['/backfill-all', '/backfill-recent', '/backfill-full', '/backfill-league/{league}', '/backfill-season/{season}', '/backfill-progressive', '/ingest', '/ingest/{league}', '/refresh-analytics', '/incremental-analytics-refresh', '/analytics/streaks', '/analytics/defensive-rankings', '/debug-streaks', '/debug-streak-counts', '/status', '/leagues', '/seasons']
+        availableEndpoints: ['/backfill-all', '/backfill-recent', '/backfill-full', '/backfill-league/{league}', '/backfill-season/{season}', '/backfill-progressive', '/ingest', '/ingest/{league}', '/refresh-analytics', '/incremental-analytics-refresh', '/analytics/streaks', '/analytics/defensive-rankings', '/analytics/matchup-rank', '/analytics/last-5', '/analytics/last-10', '/analytics/last-20', '/analytics/h2h', '/debug-streaks', '/debug-streak-counts', '/status', '/leagues', '/seasons']
       }), {
         status: 404,
         headers: {
