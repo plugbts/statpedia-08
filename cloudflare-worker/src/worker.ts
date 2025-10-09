@@ -217,10 +217,10 @@ export default {
 
           // --- Helpers ---
           const normalizeDate = (d: string) => d.split("T")[0];
-          const inFilter = (values: string[]) => {
-            if (!values || values.length === 0) return null;
-            return `in.(${values.map(v => `"${v}"`).join(",")})`;
-          };
+          const inFilter = (values: string[]) =>
+            values && values.length > 0
+              ? `in.(${values.map(v => `"${v}"`).join(",")})`
+              : null;
 
           // --- Fetch raw game logs ---
           let query = "player_game_logs";
@@ -265,8 +265,9 @@ export default {
           const propTypes = [...new Set(gameLogs.map(g => g.prop_type))];
           const dates = [...new Set(gameLogs.map(g => normalizeDate(g.date)))];
 
-          // Build props query with proper filter handling
-          const filters = [];
+          // --- Build filters ---
+          const filters: string[] = [];
+
           const playerFilter = inFilter(playerIds);
           if (playerFilter) filters.push(`player_id=${playerFilter}`);
 
@@ -276,16 +277,20 @@ export default {
           const dateFilter = inFilter(dates);
           if (dateFilter) filters.push(`date=${dateFilter}`);
 
+          // Only add league filter if not "all"
+          if (league !== "all") {
+            filters.push(`league=eq.${league.toLowerCase()}`);
+          }
+
+          // --- Construct query ---
           const propsQuery = `proplines${filters.length ? "?" + filters.join("&") : ""}`;
 
+          // --- Fetch ---
           const propLines = await supabaseFetch(env, propsQuery, { method: "GET" }) as any[];
 
-          console.log(`📊 Fetched ${propLines?.length || 0} prop lines`);
+          console.log(`📊 Player Props fetched: ${propLines?.length || 0}`);
           if (propLines && propLines.length > 0) {
-            console.log(
-              `📊 Sample prop line:`,
-              JSON.stringify(propLines[0], null, 2)
-            );
+            console.log("📊 Sample prop line:", JSON.stringify(propLines[0], null, 2));
           }
 
           // --- Diagnostic helper ---
@@ -564,19 +569,44 @@ export default {
             );
           }
 
-          // Fetch corresponding prop lines
+          // --- Helpers ---
+          const normalizeDate = (d: string) => d.split("T")[0];
+          const inFilter = (values: string[]) =>
+            values && values.length > 0
+              ? `in.(${values.map(v => `"${v}"`).join(",")})`
+              : null;
+
+          // --- Build filters ---
+          const filters: string[] = [];
+
           const playerIds = [...new Set(gameLogs.map(g => g.player_id))];
           const propTypes = [...new Set(gameLogs.map(g => g.prop_type))];
-          const dates = [...new Set(gameLogs.map(g => g.date.split("T")[0]))];
+          const dates = [...new Set(gameLogs.map(g => normalizeDate(g.date)))];
 
-          const inFilter = (values: string[]) =>
-            `in.(${values.map(v => `"${v}"`).join(",")})`;
+          const playerFilter = inFilter(playerIds);
+          if (playerFilter) filters.push(`player_id=${playerFilter}`);
 
-          const propsQuery = `proplines?player_id=${inFilter(
-            playerIds
-          )}&prop_type=${inFilter(propTypes)}&date=${inFilter(dates)}`;
+          const propFilter = inFilter(propTypes);
+          if (propFilter) filters.push(`prop_type=${propFilter}`);
 
+          const dateFilter = inFilter(dates);
+          if (dateFilter) filters.push(`date=${dateFilter}`);
+
+          // Only add league filter if not "all"
+          if (league !== "all") {
+            filters.push(`league=eq.${league.toLowerCase()}`);
+          }
+
+          // --- Construct query ---
+          const propsQuery = `proplines${filters.length ? "?" + filters.join("&") : ""}`;
+
+          // --- Fetch ---
           const propLines = await supabaseFetch(env, propsQuery, { method: "GET" }) as any[];
+
+          console.log(`📊 Player Props fetched: ${propLines?.length || 0}`);
+          if (propLines && propLines.length > 0) {
+            console.log("📊 Sample prop line:", JSON.stringify(propLines[0], null, 2));
+          }
 
           // Calculate matchup performance
           const matchupRankings = gameLogs

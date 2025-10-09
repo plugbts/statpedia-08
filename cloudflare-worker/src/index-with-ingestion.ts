@@ -168,6 +168,15 @@ export default {
       return handlePlayerPropsAPI(request, env);
     }
 
+    // Analytics endpoints
+    if (url.pathname === "/analytics/streaks") {
+      return handleAnalyticsStreaks(request, env);
+    }
+
+    if (url.pathname === "/analytics/matchup-rank") {
+      return handleAnalyticsMatchupRank(request, env);
+    }
+
     // Default response
     return new Response(JSON.stringify({
       message: 'Statpedia Player Props Worker',
@@ -175,7 +184,9 @@ export default {
       endpoints: {
         'POST /ingest': 'Start prop ingestion',
         'GET /ingest': 'Check ingestion status',
-        'GET /api/player-props': 'Get player props data'
+        'GET /api/player-props': 'Get player props data',
+        'GET /analytics/streaks': 'Get player streaks analytics',
+        'GET /analytics/matchup-rank': 'Get matchup rankings analytics'
       }
     }), {
       status: 200,
@@ -256,4 +267,270 @@ async function handlePlayerPropsAPI(request: Request, env: Env): Promise<Respons
       'Access-Control-Allow-Origin': '*'
     }
   });
+}
+
+async function handleAnalyticsStreaks(request: Request, env: Env): Promise<Response> {
+  try {
+    const { supabaseFetch } = await import("./supabaseFetch");
+    const { calculateStreaks } = await import("./lib/streakCalculator");
+    const url = new URL(request.url);
+    const leagueParam = url.searchParams.get("league") || "all";
+    const league = leagueParam.toLowerCase();
+    const limit = parseInt(url.searchParams.get("limit") || "50");
+
+    console.log(`📊 Computing TRUE streaks in Worker for ${league}...`);
+
+    // --- Helpers ---
+    const normalizeDate = (d: string) => d.split("T")[0];
+    const inFilter = (values: string[]) =>
+      values && values.length > 0
+        ? `in.(${values.map(v => `"${v}"`).join(",")})`
+        : null;
+
+    // --- Fetch raw game logs ---
+    let query = "player_game_logs";
+    const params: string[] = [];
+    if (league !== "all") {
+      params.push(`league=eq.${league}`);
+    }
+    params.push(`order=date.desc`);
+
+    if (params.length > 0) {
+      query += `?${params.join("&")}`;
+    }
+
+    const gameLogs = await supabaseFetch(env, query, { method: "GET" }) as any[];
+
+    console.log(`📊 Fetched ${gameLogs?.length || 0} game logs`);
+    if (gameLogs && gameLogs.length > 0) {
+      console.log(`📊 Sample game log:`, JSON.stringify(gameLogs[0], null, 2));
+    }
+
+    if (!gameLogs || gameLogs.length === 0) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: [],
+          league,
+          limit,
+          message: "No game data found",
+          timestamp: new Date().toISOString(),
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+        }
+      );
+    }
+
+    // --- Fetch corresponding prop lines ---
+    const playerIds = [...new Set(gameLogs.map(g => g.player_id))];
+    const propTypes = [...new Set(gameLogs.map(g => g.prop_type))];
+    const dates = [...new Set(gameLogs.map(g => normalizeDate(g.date)))];
+
+    // --- Build filters ---
+    const filters: string[] = [];
+
+    const playerFilter = inFilter(playerIds);
+    if (playerFilter) filters.push(`player_id=${playerFilter}`);
+
+    const propFilter = inFilter(propTypes);
+    if (propFilter) filters.push(`prop_type=${propFilter}`);
+
+    const dateFilter = inFilter(dates);
+    if (dateFilter) filters.push(`date=${dateFilter}`);
+
+    // Only add league filter if not "all"
+    if (league !== "all") {
+      filters.push(`league=eq.${league.toLowerCase()}`);
+    }
+
+    // --- Construct query ---
+    const propsQuery = `proplines${filters.length ? "?" + filters.join("&") : ""}`;
+
+    // --- Fetch ---
+    const propLines = await supabaseFetch(env, propsQuery, { method: "GET" }) as any[];
+
+    console.log(`📊 Player Props fetched: ${propLines?.length || 0}`);
+    if (propLines && propLines.length > 0) {
+      console.log("📊 Sample prop line:", JSON.stringify(propLines[0], null, 2));
+    }
+
+    // Calculate streaks using the existing logic
+    const streaks = calculateStreaks(gameLogs, propLines);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: streaks.slice(0, limit),
+        league,
+        limit,
+        total: streaks.length,
+        timestamp: new Date().toISOString(),
+      }),
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+      }
+    );
+  } catch (error) {
+    console.error("❌ Analytics streaks error:", error);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString(),
+      }),
+      {
+        status: 500,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+      }
+    );
+  }
+}
+
+async function handleAnalyticsMatchupRank(request: Request, env: Env): Promise<Response> {
+  try {
+    const { supabaseFetch } = await import("./supabaseFetch");
+    const url = new URL(request.url);
+    const league = url.searchParams.get("league") || "all";
+    const limit = parseInt(url.searchParams.get("limit") || "50");
+
+    console.log(`📊 Computing matchup rankings for ${league}...`);
+
+    // --- Helpers ---
+    const normalizeDate = (d: string) => d.split("T")[0];
+    const inFilter = (values: string[]) =>
+      values && values.length > 0
+        ? `in.(${values.map(v => `"${v}"`).join(",")})`
+        : null;
+
+    // Fetch game logs and prop lines
+    let gameLogsQuery = "player_game_logs";
+    if (league !== "all") {
+      gameLogsQuery += `?league=eq.${league}`;
+    }
+
+    const gameLogs = await supabaseFetch(env, gameLogsQuery, { method: "GET" }) as any[];
+    
+    if (!gameLogs || gameLogs.length === 0) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: [],
+          league,
+          limit,
+          message: "No game data found",
+          timestamp: new Date().toISOString(),
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+        }
+      );
+    }
+
+    // --- Build filters ---
+    const filters: string[] = [];
+
+    const playerIds = [...new Set(gameLogs.map(g => g.player_id))];
+    const propTypes = [...new Set(gameLogs.map(g => g.prop_type))];
+    const dates = [...new Set(gameLogs.map(g => normalizeDate(g.date)))];
+
+    const playerFilter = inFilter(playerIds);
+    if (playerFilter) filters.push(`player_id=${playerFilter}`);
+
+    const propFilter = inFilter(propTypes);
+    if (propFilter) filters.push(`prop_type=${propFilter}`);
+
+    const dateFilter = inFilter(dates);
+    if (dateFilter) filters.push(`date=${dateFilter}`);
+
+    // Only add league filter if not "all"
+    if (league !== "all") {
+      filters.push(`league=eq.${league.toLowerCase()}`);
+    }
+
+    // --- Construct query ---
+    const propsQuery = `proplines${filters.length ? "?" + filters.join("&") : ""}`;
+
+    // --- Fetch ---
+    const propLines = await supabaseFetch(env, propsQuery, { method: "GET" }) as any[];
+
+    console.log(`📊 Player Props fetched: ${propLines?.length || 0}`);
+    if (propLines && propLines.length > 0) {
+      console.log("📊 Sample prop line:", JSON.stringify(propLines[0], null, 2));
+    }
+
+    // Calculate matchup performance (simplified version)
+    const matchupRankings = gameLogs
+      .map(gameLog => {
+        const propLine = propLines?.find(
+          prop =>
+            prop.player_id === gameLog.player_id &&
+            prop.prop_type === gameLog.prop_type &&
+            normalizeDate(prop.date) === normalizeDate(gameLog.date) &&
+            prop.league === gameLog.league
+        );
+
+        return {
+          player_id: gameLog.player_id,
+          player_name: gameLog.player_name,
+          team: gameLog.team,
+          opponent: gameLog.opponent,
+          prop_type: gameLog.prop_type,
+          league: gameLog.league,
+          date: gameLog.date,
+          actual_value: gameLog.actual_value,
+          prop_line: propLine?.line || null,
+          performance: propLine ? (gameLog.actual_value - propLine.line) : null,
+          hit: propLine ? (gameLog.actual_value > propLine.line ? 1 : 0) : null,
+        };
+      })
+      .filter(item => item.prop_line !== null)
+      .sort((a, b) => (b.performance || 0) - (a.performance || 0))
+      .slice(0, limit);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: matchupRankings,
+        league,
+        limit,
+        total: matchupRankings.length,
+        timestamp: new Date().toISOString(),
+      }),
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+      }
+    );
+  } catch (error) {
+    console.error("❌ Analytics matchup rank error:", error);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString(),
+      }),
+      {
+        status: 500,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+      }
+    );
+  }
 }
