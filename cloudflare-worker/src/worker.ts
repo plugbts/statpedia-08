@@ -113,6 +113,86 @@ export default {
         }
       }
 
+      // Handle conflict key audit
+      if (url.pathname === "/debug-conflict-audit") {
+        try {
+          const { createClient } = await import("@supabase/supabase-js");
+          const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
+
+          const { data, error } = await supabase
+            .from("player_game_logs")
+            .select("league, conflict_key");
+
+          if (error) {
+            console.error("❌ Supabase error:", error);
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: error.message,
+              }),
+              {
+                status: 500,
+                headers: {
+                  "Content-Type": "application/json",
+                  "Access-Control-Allow-Origin": "*",
+                },
+              }
+            );
+          }
+
+          // Aggregate counts
+          const results: Record<string, { bad: number; good: number; total: number }> = {};
+
+          data.forEach((row: any) => {
+            const league = row.league || "unknown";
+            if (!results[league]) results[league] = { bad: 0, good: 0, total: 0 };
+
+            results[league].total++;
+            if (row.conflict_key.includes("|gamelog|")) {
+              results[league].bad++;
+            } else {
+              results[league].good++;
+            }
+          });
+
+          console.log("📊 Conflict Key Audit Results:");
+          Object.entries(results).forEach(([league, counts]) => {
+            console.log(
+              `${league.toUpperCase()}: total=${counts.total}, good=${counts.good}, bad=${counts.bad}`
+            );
+          });
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              results,
+              message: "Conflict key audit completed",
+              timestamp: new Date().toISOString(),
+            }),
+            {
+              headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+              },
+            }
+          );
+        } catch (error) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: error instanceof Error ? error.message : String(error),
+            }),
+            {
+              status: 500,
+              headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+              },
+            }
+          );
+        }
+      }
+
       // Handle TRUE streak analysis query
       if (url.pathname === "/analytics/streaks") {
         try {
