@@ -1329,50 +1329,15 @@ export default {
             console.log("🔎 Sample prop:", propLines[0]);
           }
 
-           // --- Prop type mapping for data normalization ---
-           const propTypeMapping: Record<string, string[]> = {
-             'sacks': ['sacks', 'defense_sacks'],
-             'defense_sacks': ['sacks', 'defense_sacks'],
-             'touchdowns': ['touchdowns', 'fantasyscore'],
-             'fantasyscore': ['touchdowns', 'fantasyscore'],
-             'receptions': ['receptions', 'turnovers'],
-             'turnovers': ['receptions', 'turnovers'],
-             'passing_yards': ['passing_yards', 'passingyards'],
-             'passingyards': ['passing_yards', 'passingyards'],
-             'rushing_yards': ['rushing_yards', 'rushingyards'],
-             'rushingyards': ['rushing_yards', 'rushingyards'],
-             'receiving_yards': ['receiving_yards', 'receivingyards'],
-             'receivingyards': ['receiving_yards', 'receivingyards']
-           };
-
-           // --- Join logic using conflict_key matching with prop type mapping ---
-           const joined = playerGameLogs.map((gameLog: any) => {
-             // Build the expected conflict_key format from gameLog
-             // Game log format: "player_id|game_id|prop_type|league|season"
-             // Prop format: "player_id|game_id|prop_type|sportsbook|league|season"
-             const gameLogParts = gameLog.conflict_key.split('|');
-             const [player_id, game_id, prop_type, league, season] = gameLogParts;
-             
-             // Find prop that matches the gameLog conflict_key pattern
-             const propLine = propLines?.find(
-               (p: any) => {
-                 const propParts = p.conflict_key.split('|');
-                 if (propParts.length !== 6) return false;
-                 
-                 const [p_player_id, p_game_id, p_prop_type, p_sportsbook, p_league, p_season] = propParts;
-                 
-                 // Check if prop types match (with mapping support)
-                 const gameLogPropTypes = propTypeMapping[prop_type] || [prop_type];
-                 const propPropTypes = propTypeMapping[p_prop_type] || [p_prop_type];
-                 const propTypesMatch = gameLogPropTypes.some(glType => propPropTypes.includes(glType));
-                 
-                 return p_player_id === player_id &&
-                        p_game_id === game_id &&
-                        propTypesMatch &&
-                        p_league === league &&
-                        p_season === season;
-               }
-             );
+          // --- Join with player_game_logs ---
+          const joined = playerGameLogs.map((gameLog: any) => {
+            const propLine = propLines?.find(
+              (p: any) =>
+                p.player_id === gameLog.player_id &&
+                normalizeDate(p.date_normalized || p.date) === normalizeDate(gameLog.date) &&
+                p.prop_type === gameLog.prop_type &&
+                p.league.toLowerCase() === gameLog.league.toLowerCase()
+            );
 
             if (!propLine) {
               console.log("⚠️ Prop mismatch:", {
@@ -1380,20 +1345,9 @@ export default {
                 gameLog_date: gameLog.date,
                 prop_type: gameLog.prop_type,
                 league: gameLog.league,
-                gameLog_conflict_key: gameLog.conflict_key,
-                available_prop_conflict_keys: propLines?.filter(p => p.player_id === gameLog.player_id).map(p => p.conflict_key).slice(0, 3)
               });
               return null;
             }
-
-            console.log("✅ Successful join:", {
-              player_id: gameLog.player_id,
-              prop_type: gameLog.prop_type,
-              line: propLine.line,
-              over_odds: propLine.over_odds,
-              gameLog_conflict_key: gameLog.conflict_key,
-              prop_conflict_key: propLine.conflict_key
-            });
 
             return { ...gameLog, ...propLine };
           }).filter(Boolean);
