@@ -1250,66 +1250,141 @@ export default {
           
           const league = leagueMap[sport] || 'nfl';
           
-          // Build query with proper filters - use player_game_logs table
-          let query = "player_game_logs";
-          const filters: string[] = [];
+          // --- Helpers ---
+          const normalizeDate = (d: string) => d.split("T")[0];
+          const inFilter = (values: string[]) =>
+            values && values.length > 0
+              ? `in.(${values.map(v => `"${v}"`).join(",")})`
+              : null;
+
+          // --- Fetch game logs ---
+          let gameLogsQuery = "player_game_logs";
+          const gameLogsFilters: string[] = [];
           
           // Filter by league
-          filters.push(`league=eq.${league}`);
-          
-          // Filter by date (today's props)
-          filters.push(`date=eq.${date}`);
-          
-          // Add filters to query
-          if (filters.length > 0) {
-            query += "?" + filters.join("&");
+          if (league !== "all") {
+            gameLogsFilters.push(`league=eq.${league}`);
           }
           
-          // Add ordering
-          query += `${filters.length > 0 ? "&" : "?"}order=player_name.asc,prop_type.asc`;
+          // Filter by date
+          gameLogsFilters.push(`date=eq.${date}`);
           
-          // Add limit for performance
-          query += "&limit=1000";
+          if (gameLogsFilters.length > 0) {
+            gameLogsQuery += "?" + gameLogsFilters.join("&");
+          }
           
-          console.log(`📊 Query: ${query}`);
+          gameLogsQuery += `${gameLogsFilters.length > 0 ? "&" : "?"}order=player_name.asc,prop_type.asc&limit=1000`;
           
-          const props = await supabaseFetch(env, query, {
-            method: "GET",
-          }) as any[];
+          console.log(`📊 Game logs query: ${gameLogsQuery}`);
           
-          console.log(`📊 Fetched ${props?.length || 0} player props`);
-          
-          // Transform to expected format from player_game_logs table
-          const transformedProps = props?.map((log: any) => ({
-            id: log.id,
-            playerId: log.player_id,
-            playerName: log.player_name,
-            player_id: log.player_id, // For headshots compatibility
-            team: log.team,
-            opponent: log.opponent,
-            propType: log.prop_type,
-            line: log.value, // Use the actual value as the line
-            overOdds: -110, // Default odds since we don't have odds in game logs
-            underOdds: -110, // Default odds since we don't have odds in game logs
-            sportsbooks: ['Consensus'], // Default sportsbook
-            position: log.position || 'N/A',
-            gameDate: log.date,
+          const playerGameLogs = await supabaseFetch(env, gameLogsQuery, { method: "GET" }) as any[];
+          console.log(`📊 Fetched ${playerGameLogs?.length || 0} game logs`);
+
+          if (!playerGameLogs || playerGameLogs.length === 0) {
+            return corsResponse({
+              success: true,
+              data: [],
+              cached: false,
+              cacheKey: `player-props-${sport}-${date}`,
+              responseTime: Date.now(),
+              totalEvents: 0,
+              totalProps: 0,
+              sport: sport,
+              date: date,
+              timestamp: new Date().toISOString()
+            });
+          }
+
+          // --- Fetch corresponding prop lines ---
+          const playerIds = [...new Set(playerGameLogs.map(g => g.player_id))];
+          const propTypes = [...new Set(playerGameLogs.map(g => g.prop_type))];
+          const dates = [...new Set(playerGameLogs.map(g => normalizeDate(g.date)))];
+
+          // --- Build filters ---
+          const filters: string[] = [];
+
+          const playerFilter = inFilter(playerIds);
+          if (playerFilter) filters.push(`player_id=${playerFilter}`);
+
+          const propFilter = inFilter(propTypes);
+          if (propFilter) filters.push(`prop_type=${propFilter}`);
+
+          const dateFilter = inFilter(dates.map(normalizeDate));
+          if (dateFilter) filters.push(`date=${dateFilter}`);
+
+          // Only add league filter if not "all"
+          if (league !== "all") {
+            filters.push(`league=eq.${league.toLowerCase()}`);
+          }
+
+          // --- Construct query ---
+          const propsQuery = `proplines${filters.length ? "?" + filters.join("&") : ""}`;
+
+          // --- Fetch ---
+          const propLines = await supabaseFetch(env, propsQuery, { method: "GET" }) as any[];
+
+          console.log("🔎 Props query:", propsQuery);
+          console.log("🔎 Props returned:", propLines?.length || 0);
+          if (propLines?.length) {
+            console.log("🔎 Sample prop:", propLines[0]);
+          }
+
+          // --- Join logic ---
+          const joined = playerGameLogs.map((gameLog: any) => {
+            const propLine = propLines?.find(
+              (p: any) =>
+                p.player_id === gameLog.player_id &&
+                normalizeDate(p.date) === normalizeDate(gameLog.date) &&
+                p.prop_type === gameLog.prop_type &&
+                p.league.toLowerCase() === gameLog.league.toLowerCase()
+            );
+
+            if (!propLine) {
+              console.log("⚠️ Prop mismatch:", {
+                player_id: gameLog.player_id,
+                gameLog_date: gameLog.date,
+                prop_type: gameLog.prop_type,
+                league: gameLog.league,
+              });
+              return null;
+            }
+
+            return { ...gameLog, ...propLine };
+          }).filter(Boolean);
+
+          console.log(`📊 Joined ${joined.length} props from ${playerGameLogs.length} game logs`);
+
+          // Transform to expected format
+          const transformedProps = joined.map((prop: any) => ({
+            id: prop.id,
+            playerId: prop.player_id,
+            playerName: prop.player_name,
+            player_id: prop.player_id, // For headshots compatibility
+            team: prop.team,
+            opponent: prop.opponent,
+            propType: prop.prop_type,
+            line: prop.line, // Use actual line from proplines
+            overOdds: prop.over_odds,
+            underOdds: prop.under_odds,
+            sportsbooks: [prop.sportsbook],
+            position: prop.position || 'N/A',
+            gameDate: prop.date,
             sport: sport,
-            teamAbbr: log.team,
-            opponentAbbr: log.opponent,
-            gameId: log.game_id,
-            available: true,
-            lastUpdate: log.updated_at,
-            marketName: log.prop_type,
-            market: log.prop_type,
-            marketId: log.prop_type,
+            teamAbbr: prop.team,
+            opponentAbbr: prop.opponent,
+            gameId: prop.game_id,
+            available: prop.is_active !== false,
+            lastUpdate: prop.last_updated || prop.updated_at,
+            marketName: prop.prop_type,
+            market: prop.prop_type,
+            marketId: prop.prop_type,
             period: 'full_game',
-            statEntity: log.player_name,
+            statEntity: prop.player_name,
             // Enhanced fields
-            bestOver: { bookmaker: 'Consensus', side: 'over', price: '-110', line: log.value },
-            bestUnder: { bookmaker: 'Consensus', side: 'under', price: '-110', line: log.value },
-            allBooks: [{ bookmaker: 'Consensus', side: 'over', price: '-110', line: log.value, deeplink: '' }]
-          })) || [];
+            bestOver: prop.over_odds ? { bookmaker: prop.sportsbook, side: 'over', price: prop.over_odds.toString(), line: prop.line } : undefined,
+            bestUnder: prop.under_odds ? { bookmaker: prop.sportsbook, side: 'under', price: prop.under_odds.toString(), line: prop.line } : undefined,
+            allBooks: prop.sportsbook ? [{ bookmaker: prop.sportsbook, side: 'over', price: prop.over_odds?.toString() || '', line: prop.line, deeplink: '' }] : []
+          }));
           
           return corsResponse({
             success: true,
