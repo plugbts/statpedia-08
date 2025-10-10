@@ -21,6 +21,7 @@ import { advancedPredictionService, ComprehensivePrediction } from '@/services/a
 import { evCalculatorService } from '@/services/ev-calculator';
 import { statpediaRatingService } from '@/services/statpedia-rating-service';
 import { formatAmericanOdds } from '@/utils/odds-utils';
+import { AnalyticsIntegration } from './analytics-integration';
 
 // League-aware priority helpers for consistent ordering
 function getPriority(marketType: string): number {
@@ -1724,6 +1725,18 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
           console.log("[PLAYER_PROPS_TAB] Rendering check:", { isLoadingData, orderedPropsLength: orderedProps.length, viewMode });
           return null;
         })()}
+        
+        {/* Analytics Integration */}
+        <div className="px-6">
+          <AnalyticsIntegration 
+            league={sportFilter.toLowerCase()}
+            date={new Date().toISOString().split('T')[0]}
+            onDataUpdate={(data) => {
+              console.log('Analytics data updated:', data.length, 'props');
+            }}
+          />
+        </div>
+        
         {!isLoadingData && orderedProps.length > 0 && (
           <>
             {viewMode === 'column' ? (
