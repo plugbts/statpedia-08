@@ -37,6 +37,7 @@ import { useToast } from '@/hooks/use-toast';
 import { normalizeOpponent, normalizeMarketType, normalizePosition, normalizeTeam } from '@/utils/normalize';
 import { useSimpleAnalytics } from '@/hooks/use-simple-analytics';
 import { formatPropType, getOrdinalSuffix, getTeamAbbreviation } from '@/utils/prop-type-formatter';
+import '@/styles/streak-animations.css';
 
 // Using shared utility functions from prop-type-formatter.ts
 
@@ -853,6 +854,12 @@ export function PlayerPropsColumnView({
             <div className="w-20 text-center px-2 py-3 text-xs font-semibold text-foreground">EV%</div>
             <div className="w-20 text-center px-2 py-3 text-xs font-semibold text-foreground">Streak</div>
             <div className="w-20 text-center px-2 py-3 text-xs font-semibold text-foreground">Rating</div>
+            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">Matchup</div>
+            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">H2H</div>
+            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">2025</div>
+            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">L5</div>
+            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">L10</div>
+            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">L20</div>
       </div>
 
           {/* Fixed Data Rows */}
@@ -985,7 +992,7 @@ export function PlayerPropsColumnView({
 
                 {/* Prop Type */}
                   <div className="w-32 text-center px-2">
-                    <div className="text-xs font-medium text-white group-hover:text-white transition-all duration-300 transform group-hover:scale-105 truncate animate-pulse drop-shadow-[0_0_6px_rgba(255,255,255,0.8)]" style={{ animationDuration: '3s' }}>
+                    <div className="text-xs font-medium text-white group-hover:text-white transition-all duration-300 transform group-hover:scale-105 truncate animate-pulse" style={{ animationDuration: '3s' }}>
                       {formatPropType(prop.marketType || prop.propType)}
                   </div>
                 </div>
@@ -1023,21 +1030,43 @@ export function PlayerPropsColumnView({
 
                   {/* Streak */}
                   <div className="w-20 text-center px-2">
-                    <div className={`text-xs font-bold group-hover:opacity-80 transition-all duration-300 ${
+                    <div className={`text-xs font-bold group-hover:opacity-80 transition-all duration-300 relative ${
                       (() => {
                         if (hasGameLogs && streak > 0) {
-                          return streak >= 2 ? 'text-red-500 animate-pulse drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]' : 'text-green-500';
+                          return streak >= 2 ? 'text-red-500 lava-streak' : 'text-white';
                         }
                         // Mock streak data for demonstration
                         const mockStreak = Math.floor(Math.random() * 5) + 1; // 1-5 game streak
                         const streakType = Math.random() > 0.5 ? 'W' : 'L';
                         if (streakType === 'W') {
-                          return mockStreak >= 2 ? 'text-red-500 animate-pulse drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]' : 'text-green-500';
+                          return mockStreak >= 2 ? 'text-red-500 lava-streak' : 'text-white';
                         } else {
-                          return mockStreak >= 2 ? 'text-blue-400 animate-pulse drop-shadow-[0_0_8px_rgba(59,130,246,0.8)]' : 'text-yellow-500';
+                          return mockStreak >= 2 ? 'text-blue-400 snow-streak' : 'text-white';
                         }
                       })()
-                    }`} style={{ animationDuration: '2s' }}>
+                    }`}>
+                      {/* Snow particles for cold streaks */}
+                      {(() => {
+                        if (hasGameLogs && streak > 0) {
+                          return streak < 0 && Math.abs(streak) >= 2 ? (
+                            <>
+                              {Array.from({ length: 9 }, (_, i) => (
+                                <div key={i} className="snow-particle" />
+                              ))}
+                            </>
+                          ) : null;
+                        }
+                        // Mock streak data for demonstration
+                        const mockStreak = Math.floor(Math.random() * 5) + 1; // 1-5 game streak
+                        const streakType = Math.random() > 0.5 ? 'W' : 'L';
+                        return streakType === 'L' && mockStreak >= 2 ? (
+                          <>
+                            {Array.from({ length: 9 }, (_, i) => (
+                              <div key={i} className="snow-particle" />
+                            ))}
+                          </>
+                        ) : null;
+                      })()}
                       {(() => {
                         if (hasGameLogs && streak > 0) return `${streak}W`;
                         // Mock streak data for demonstration
@@ -1119,6 +1148,139 @@ export function PlayerPropsColumnView({
                   })()}
                 </div>
 
+                {/* Analytics Columns - Now inline with the prop row */}
+                {/* Matchup */}
+                <div className="w-24 text-center px-1 py-3">
+                  <div className="text-xs font-medium text-foreground mb-1">
+                    {prop.opponentAbbr || prop.opponent || '—'}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {(() => {
+                      // Generate defensive ranking based on prop type
+                      const propType = (prop.propType || '').toLowerCase();
+                      const opponent = prop.opponentAbbr || prop.opponent || '—';
+                      
+                      if (propType.includes('pass') || propType.includes('passing')) {
+                        const rank = Math.floor(Math.random() * 10) + 1; // Random rank 1-10
+                        return `Ranked ${rank}${getOrdinalSuffix(rank)}`;
+                      } else if (propType.includes('rush') || propType.includes('rushing')) {
+                        const rank = Math.floor(Math.random() * 10) + 1; // Random rank 1-10
+                        return `Ranked ${rank}${getOrdinalSuffix(rank)}`;
+                      } else if (propType.includes('rec') || propType.includes('receiving')) {
+                        const rank = Math.floor(Math.random() * 10) + 1; // Random rank 1-10
+                        return `Ranked ${rank}${getOrdinalSuffix(rank)}`;
+                      } else if (propType.includes('td') || propType.includes('touchdown')) {
+                        const rank = Math.floor(Math.random() * 10) + 1; // Random rank 1-10
+                        return `Ranked ${rank}${getOrdinalSuffix(rank)}`;
+                      }
+                      
+                      return '—';
+                    })()}
+                  </div>
+                </div>
+
+                {/* H2H */}
+                <div className="w-24 text-center px-1 py-3">
+                  <div className="text-xs font-medium text-foreground">
+                    {(() => {
+                      if (hasGameLogs && h2h.total > 0) return `${h2h.pct.toFixed(0)}%`;
+                      // Mock data for demonstration
+                      const mockPct = Math.floor(Math.random() * 40) + 60; // 60-100%
+                      return `${mockPct}%`;
+                    })()}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {(() => {
+                      if (hasGameLogs && h2h.total > 0) return `${h2h.hits}/${h2h.total}`;
+                      // Mock data for demonstration
+                      const mockHits = Math.floor(Math.random() * 3) + 1;
+                      const mockTotal = mockHits + Math.floor(Math.random() * 2);
+                      return `${mockHits}/${mockTotal}`;
+                    })()}
+                  </div>
+                </div>
+
+                {/* 2025 */}
+                <div className="w-24 text-center px-1 py-3">
+                  <div className="text-xs font-medium text-foreground">
+                    {(() => {
+                      if (hasGameLogs && season.total > 0) return `${season.pct.toFixed(0)}%`;
+                      // Mock data for demonstration
+                      const mockPct = Math.floor(Math.random() * 30) + 70; // 70-100%
+                      return `${mockPct}%`;
+                    })()}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {(() => {
+                      if (hasGameLogs && season.total > 0) return `${season.hits}/${season.total}`;
+                      // Mock data for demonstration
+                      const mockHits = Math.floor(Math.random() * 5) + 3;
+                      const mockTotal = mockHits + Math.floor(Math.random() * 3) + 1;
+                      return `${mockHits}/${mockTotal}`;
+                    })()}
+                  </div>
+                </div>
+
+                {/* L5 */}
+                <div className="w-24 text-center px-1 py-3">
+                  <div className="text-xs font-medium text-foreground">
+                    {(() => {
+                      if (hasGameLogs && l5.total > 0) return `${l5.pct.toFixed(0)}%`;
+                      // Mock data for demonstration
+                      const mockPct = Math.floor(Math.random() * 50) + 50; // 50-100%
+                      return `${mockPct}%`;
+                    })()}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {(() => {
+                      if (hasGameLogs && l5.total > 0) return `${l5.hits}/${l5.total}`;
+                      // Mock data for demonstration
+                      const mockHits = Math.floor(Math.random() * 3) + 2;
+                      return `${mockHits}/5`;
+                    })()}
+                  </div>
+                </div>
+
+                {/* L10 */}
+                <div className="w-24 text-center px-1 py-3">
+                  <div className="text-xs font-medium text-foreground">
+                    {(() => {
+                      if (hasGameLogs && l10.total > 0) return `${l10.pct.toFixed(0)}%`;
+                      // Mock data for demonstration
+                      const mockPct = Math.floor(Math.random() * 40) + 60; // 60-100%
+                      return `${mockPct}%`;
+                    })()}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {(() => {
+                      if (hasGameLogs && l10.total > 0) return `${l10.hits}/${l10.total}`;
+                      // Mock data for demonstration
+                      const mockHits = Math.floor(Math.random() * 4) + 6;
+                      return `${mockHits}/10`;
+                    })()}
+                  </div>
+                </div>
+
+                {/* L20 */}
+                <div className="w-24 text-center px-1 py-3">
+                  <div className="text-xs font-medium text-foreground">
+                    {(() => {
+                      if (hasGameLogs && l20.total > 0) return `${l20.pct.toFixed(0)}%`;
+                      // Mock data for demonstration
+                      const mockPct = Math.floor(Math.random() * 30) + 70; // 70-100%
+                      return `${mockPct}%`;
+                    })()}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {(() => {
+                      if (hasGameLogs && l20.total > 0) return `${l20.hits}/${l20.total}`;
+                      // Mock data for demonstration
+                      const mockHits = Math.floor(Math.random() * 6) + 14;
+                      return `${mockHits}/20`;
+                    })()}
+                  </div>
+                </div>
+
                 </div>
               </CardContent>
             </Card>
@@ -1127,198 +1289,6 @@ export function PlayerPropsColumnView({
           </div>
                 </div>
 
-        {/* Scrollable Analytics Columns */}
-        <div className="flex-1 overflow-x-auto">
-          {/* Analytics Header */}
-          <div className="flex bg-gradient-card border-b border-border/50 sticky top-0 z-20">
-            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">Matchup</div>
-            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">H2H</div>
-            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">2025</div>
-            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">L5</div>
-            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">L10</div>
-            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">L20</div>
-          </div>
-
-          {/* Analytics Data Rows */}
-          <div className="space-y-2">
-            {filteredAndSortedProps.map((prop, index) => {
-              // Get analytics data for this prop (graceful fallback if not available)
-              let analytics = null;
-              try {
-                analytics = getAnalytics(
-                  prop.playerId || prop.player_id || '',
-                  prop.propType,
-                  prop.line || 0,
-                  overUnderFilter
-                );
-              } catch (error) {
-                console.warn('[ANALYTICS_DEBUG] Analytics not available, using fallbacks:', error);
-              }
-              
-              // Debug analytics retrieval
-              console.log(`[ANALYTICS_DEBUG] Prop: ${prop.playerName} ${prop.propType} ${prop.line} ${overUnderFilter}`);
-              console.log(`[ANALYTICS_DEBUG] Analytics result:`, analytics);
-              
-              // Log defense stats keys for debugging
-              if (prop.defenseStats && prop.defenseStats.length > 0) {
-                console.debug("[DEFENSE KEYS]", prop.defenseStats.slice(0, 5));
-              } else {
-                console.debug("[DEFENSE KEYS]", "No defense stats available");
-              }
-              
-              // Use real analytics data or fallback to defaults with UI guardrails
-              const hasGameLogs = prop.gameLogs && prop.gameLogs.length > 0;
-              const hasDefenseStats = prop.defenseStats && prop.defenseStats.length > 0;
-              
-              const h2h = hasGameLogs ? (analytics?.h2h || { hits: 0, total: 0, pct: 0 }) : { hits: 0, total: 0, pct: 0 };
-              const season = hasGameLogs ? (analytics?.season || { hits: 0, total: 0, pct: 0 }) : { hits: 0, total: 0, pct: 0 };
-              const l5 = hasGameLogs ? (analytics?.l5 || { hits: 0, total: 0, pct: 0 }) : { hits: 0, total: 0, pct: 0 };
-              const l10 = hasGameLogs ? (analytics?.l10 || { hits: 0, total: 0, pct: 0 }) : { hits: 0, total: 0, pct: 0 };
-              const l20 = hasGameLogs ? (analytics?.l20 || { hits: 0, total: 0, pct: 0 }) : { hits: 0, total: 0, pct: 0 };
-              const streak = hasGameLogs ? (analytics?.streak?.current || 0) : 0;
-              const defensiveRank = hasDefenseStats ? (analytics?.matchupRank || { rank: 0, display: '—' }) : { rank: 0, display: '—' };
-
-                      return (
-                <div
-                  key={prop.id || `analytics-${prop.playerId}-${prop.propType}-${index}`}
-                  className="flex border-b border-border/20 hover:bg-gray-50/50 transition-colors duration-200"
-                >
-                  {/* Matchup */}
-                  <div className="w-24 text-center px-1 py-3">
-                    <div className="text-xs font-medium text-foreground mb-1">
-                      {prop.opponentAbbr || prop.opponent || '—'}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {(() => {
-                        // Generate defensive ranking based on prop type
-                        const propType = (prop.propType || '').toLowerCase();
-                        const opponent = prop.opponentAbbr || prop.opponent || '—';
-                        
-                        if (propType.includes('pass') || propType.includes('passing')) {
-                          const rank = Math.floor(Math.random() * 10) + 1; // Random rank 1-10
-                          return `Ranked ${rank}${getOrdinalSuffix(rank)}`;
-                        } else if (propType.includes('rush') || propType.includes('rushing')) {
-                          const rank = Math.floor(Math.random() * 10) + 1; // Random rank 1-10
-                          return `Ranked ${rank}${getOrdinalSuffix(rank)}`;
-                        } else if (propType.includes('rec') || propType.includes('receiving')) {
-                          const rank = Math.floor(Math.random() * 10) + 1; // Random rank 1-10
-                          return `Ranked ${rank}${getOrdinalSuffix(rank)}`;
-                        } else if (propType.includes('td') || propType.includes('touchdown')) {
-                          const rank = Math.floor(Math.random() * 10) + 1; // Random rank 1-10
-                          return `Ranked ${rank}${getOrdinalSuffix(rank)}`;
-                        }
-                        
-                        return '—';
-                      })()}
-                    </div>
-                  </div>
-
-                  {/* H2H */}
-                  <div className="w-24 text-center px-1 py-3">
-                    <div className="text-xs font-medium text-foreground">
-                      {(() => {
-                        if (hasGameLogs && h2h.total > 0) return `${h2h.pct.toFixed(0)}%`;
-                        // Mock data for demonstration
-                        const mockPct = Math.floor(Math.random() * 40) + 60; // 60-100%
-                        return `${mockPct}%`;
-                      })()}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {(() => {
-                        if (hasGameLogs && h2h.total > 0) return `${h2h.hits}/${h2h.total}`;
-                        // Mock data for demonstration
-                        const mockHits = Math.floor(Math.random() * 3) + 1;
-                        const mockTotal = mockHits + Math.floor(Math.random() * 2);
-                        return `${mockHits}/${mockTotal}`;
-                      })()}
-                    </div>
-                  </div>
-
-                  {/* 2025 */}
-                  <div className="w-24 text-center px-1 py-3">
-                    <div className="text-xs font-medium text-foreground">
-                      {(() => {
-                        if (hasGameLogs && season.total > 0) return `${season.pct.toFixed(0)}%`;
-                        // Mock data for demonstration
-                        const mockPct = Math.floor(Math.random() * 30) + 70; // 70-100%
-                        return `${mockPct}%`;
-                      })()}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {(() => {
-                        if (hasGameLogs && season.total > 0) return `${season.hits}/${season.total}`;
-                        // Mock data for demonstration
-                        const mockHits = Math.floor(Math.random() * 5) + 3;
-                        const mockTotal = mockHits + Math.floor(Math.random() * 3) + 1;
-                        return `${mockHits}/${mockTotal}`;
-                      })()}
-                    </div>
-                  </div>
-
-                  {/* L5 */}
-                  <div className="w-24 text-center px-1 py-3">
-                    <div className="text-xs font-medium text-foreground">
-                      {(() => {
-                        if (hasGameLogs && l5.total > 0) return `${l5.pct.toFixed(0)}%`;
-                        // Mock data for demonstration
-                        const mockPct = Math.floor(Math.random() * 50) + 50; // 50-100%
-                        return `${mockPct}%`;
-                      })()}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {(() => {
-                        if (hasGameLogs && l5.total > 0) return `${l5.hits}/${l5.total}`;
-                        // Mock data for demonstration
-                        const mockHits = Math.floor(Math.random() * 3) + 2;
-                        return `${mockHits}/5`;
-                      })()}
-                    </div>
-                  </div>
-
-                  {/* L10 */}
-                  <div className="w-24 text-center px-1 py-3">
-                    <div className="text-xs font-medium text-foreground">
-                      {(() => {
-                        if (hasGameLogs && l10.total > 0) return `${l10.pct.toFixed(0)}%`;
-                        // Mock data for demonstration
-                        const mockPct = Math.floor(Math.random() * 40) + 60; // 60-100%
-                        return `${mockPct}%`;
-                      })()}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {(() => {
-                        if (hasGameLogs && l10.total > 0) return `${l10.hits}/${l10.total}`;
-                        // Mock data for demonstration
-                        const mockHits = Math.floor(Math.random() * 4) + 6;
-                        return `${mockHits}/10`;
-                      })()}
-                    </div>
-                  </div>
-
-                  {/* L20 */}
-                  <div className="w-24 text-center px-1 py-3">
-                    <div className="text-xs font-medium text-foreground">
-                      {(() => {
-                        if (hasGameLogs && l20.total > 0) return `${l20.pct.toFixed(0)}%`;
-                        // Mock data for demonstration
-                        const mockPct = Math.floor(Math.random() * 30) + 70; // 70-100%
-                        return `${mockPct}%`;
-                      })()}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {(() => {
-                        if (hasGameLogs && l20.total > 0) return `${l20.hits}/${l20.total}`;
-                        // Mock data for demonstration
-                        const mockHits = Math.floor(Math.random() * 6) + 14;
-                        return `${mockHits}/20`;
-                      })()}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
       </div>
 
       {/* Empty State */}

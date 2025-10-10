@@ -356,7 +356,7 @@ export function PlayerPropCard3D({
             <div className="flex-1 flex flex-col space-y-1">
               {/* Prop Details - Centered */}
               <div className="text-center space-y-1">
-                <div className="text-white text-xs font-semibold tracking-wide uppercase leading-tight animate-pulse drop-shadow-[0_0_6px_rgba(255,255,255,0.8)]" style={{ animationDuration: '3s' }}>
+                <div className="text-white text-xs font-semibold tracking-wide uppercase leading-tight animate-pulse" style={{ animationDuration: '3s' }}>
                   {(() => {
                     const formattedPropType = formatPropType(prop.propType);
                     return formattedPropType.length > 15 ? (
