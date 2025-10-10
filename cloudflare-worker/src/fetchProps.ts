@@ -79,28 +79,63 @@ export type EnrichedProp = {
 
 /**
  * Fetch raw proplines data (lean query)
+ * Falls back to player_props_fixed view if proplines table is empty
  */
 export async function fetchPropLines(
   env: any,
   league: string,
   dateISO: string
 ): Promise<PropLineRow[]> {
-  const { data, error } = await supabaseFetch(
+  // Try proplines table first
+  const { data: proplinesData, error: proplinesError } = await supabaseFetch(
     env,
     `proplines?league=eq.${league.toLowerCase()}&date_normalized=eq.${dateISO}`
   );
 
-  if (error) {
-    console.error("[worker:fetchProps] proplines error:", error);
-    throw error;
+  if (!proplinesError && proplinesData && proplinesData.length > 0) {
+    console.log(`[worker:fetchProps] fetched ${proplinesData.length} proplines for ${league} on ${dateISO}`);
+    return proplinesData as PropLineRow[];
   }
 
-  console.log(`[worker:fetchProps] fetched ${data?.length ?? 0} proplines for ${league} on ${dateISO}`);
-  return (data ?? []) as PropLineRow[];
+  console.log(`[worker:fetchProps] proplines table empty, falling back to player_props_fixed view`);
+  
+  // Fallback to player_props_fixed view
+  const { data: fallbackData, error: fallbackError } = await supabaseFetch(
+    env,
+    `player_props_fixed?league=eq.${league.toLowerCase()}&prop_date=eq.${dateISO}`
+  );
+
+  if (fallbackError) {
+    console.error("[worker:fetchProps] fallback error:", fallbackError);
+    throw fallbackError;
+  }
+
+  console.log(`[worker:fetchProps] fetched ${fallbackData?.length ?? 0} props from fallback for ${league} on ${dateISO}`);
+  
+  // Transform fallback data to match PropLineRow format
+  const transformedData = (fallbackData ?? []).map((row: any) => ({
+    id: row.prop_id || row.id,
+    player_id: row.player_id,
+    player_name: row.player_name,
+    team: row.team,
+    opponent: row.opponent,
+    league: row.league,
+    season: row.season || '2024',
+    game_id: row.game_id,
+    date_normalized: row.prop_date || row.date,
+    prop_type: row.prop_type,
+    line: row.line,
+    over_odds: row.over_odds,
+    under_odds: row.under_odds,
+    odds: row.odds || null
+  }));
+
+  return transformedData as PropLineRow[];
 }
 
 /**
  * Fetch raw player game logs data (lean query)
+ * Falls back to empty array if table is empty or has errors
  */
 export async function fetchPlayerGameLogs(
   env: any,
@@ -108,18 +143,25 @@ export async function fetchPlayerGameLogs(
   dateISO: string,
   limit: number = 10000
 ): Promise<GameLogRow[]> {
-  const { data, error } = await supabaseFetch(
-    env,
-    `player_game_logs?league=eq.${league.toLowerCase()}&date=lte.${dateISO}&order=date.desc&limit=${limit}`
-  );
+  try {
+    const { data, error } = await supabaseFetch(
+      env,
+      `player_game_logs?league=eq.${league.toLowerCase()}&date=lte.${dateISO}&order=date.desc&limit=${limit}`
+    );
 
-  if (error) {
-    console.error("[worker:fetchProps] player_game_logs error:", error);
-    throw error;
+    if (error) {
+      console.warn("[worker:fetchProps] player_game_logs error:", error);
+      console.log("[worker:fetchProps] returning empty game logs array");
+      return [];
+    }
+
+    console.log(`[worker:fetchProps] fetched ${data?.length ?? 0} game logs for ${league} up to ${dateISO}`);
+    return (data ?? []) as GameLogRow[];
+  } catch (error) {
+    console.warn("[worker:fetchProps] player_game_logs exception:", error);
+    console.log("[worker:fetchProps] returning empty game logs array");
+    return [];
   }
-
-  console.log(`[worker:fetchProps] fetched ${data?.length ?? 0} game logs for ${league} up to ${dateISO}`);
-  return (data ?? []) as GameLogRow[];
 }
 
 /**
