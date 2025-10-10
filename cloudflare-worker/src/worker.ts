@@ -1276,6 +1276,56 @@ export default {
         });
       }
 
+      // Debug endpoint to inspect SportsGameOdds API response
+      if (url.pathname === "/debug/sgo-api") {
+        try {
+          const league = url.searchParams.get("league")?.toLowerCase() || "nfl";
+          const { fetchEventsWithProps } = await import("./lib/api");
+          
+          console.log(`🔍 [DEBUG] Fetching SGO API response for ${league}...`);
+          const events = await fetchEventsWithProps(env, league.toUpperCase(), { limit: 5 });
+          
+          return corsResponse({
+            success: true,
+            league,
+            eventsFound: events.length,
+            sampleEvents: events.slice(0, 2).map(event => ({
+              gameId: event.gameId ?? event.id ?? event.eventID ?? null,
+              homeTeamId: event.homeTeamId ?? event.homeTeamID ?? null,
+              awayTeamId: event.awayTeamId ?? event.awayTeamID ?? null,
+              teamId: event.teamId ?? event.teamID ?? null,
+              opponentTeamId: event.opponentTeamId ?? event.opponentTeamID ?? null,
+              homeTeamName: event.homeTeamName ?? event.homeTeam?.name ?? null,
+              awayTeamName: event.awayTeamName ?? event.awayTeam?.name ?? null,
+              teamName: event.teamName ?? event.team?.name ?? null,
+              opponentName: event.opponentName ?? event.opponent?.name ?? null,
+              teams: event.teams ?? null,
+              game: event.game ? {
+                homeTeamId: event.game.homeTeamId ?? event.game.homeTeamID ?? null,
+                awayTeamId: event.game.awayTeamId ?? event.game.awayTeamID ?? null,
+                teams: event.game.teams ?? null
+              } : null,
+              oddsCount: event.odds ? Object.keys(event.odds).length : 0,
+              oddsSample: event.odds ? Object.keys(event.odds).slice(0, 2).map(oddId => {
+                const odd = event.odds[oddId];
+                return {
+                  oddId,
+                  teamID: odd?.teamID ?? null,
+                  playerTeamID: odd?.playerTeamID ?? null,
+                  playerID: odd?.playerID ?? null,
+                  statID: odd?.statID ?? null
+                };
+              }) : null
+            }))
+          });
+        } catch (error) {
+          return corsResponse({
+            success: false,
+            error: error.message
+          }, 500);
+        }
+      }
+
       // Handle player props API endpoint - NEW WORKER-CENTRIC PIPELINE
       if (url.pathname === "/api/player-props") {
         try {
