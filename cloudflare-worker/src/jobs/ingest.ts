@@ -2,7 +2,7 @@
 // Handles real-time ingestion for current season data
 
 import { getEventsWithFallbacks } from "../lib/api";
-import { extractPlayerPropsWithLogging } from "../lib/extract";
+import { extractPlayerProps } from "../lib/extract";
 import { supabaseFetch } from "../supabaseFetch";
 import { chunk } from "../helpers";
 import { createPlayerPropsFromOdd } from "../createPlayerPropsFromOdd";
@@ -56,8 +56,8 @@ export async function runIngestion(env: any): Promise<IngestionResult> {
         continue;
       }
       
-      // Extract player props
-      const { props: extractedProps, stats } = extractPlayerPropsWithLogging(events);
+      // Extract player props with game details fetching
+      const extractedProps = await extractPlayerProps(events, env);
       console.log(`📊 ${leagueID}: Extracted ${extractedProps.length} player props`);
       
       if (extractedProps.length === 0) {
