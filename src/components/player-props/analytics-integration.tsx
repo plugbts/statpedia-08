@@ -7,6 +7,7 @@ import { MatchupBadge, MatchupBadgeCompact } from '../analytics/MatchupBadge';
 import { analyticsApi } from '../../services/analytics-api-service';
 import { PropMatchup } from '../../lib/analytics';
 import { getFixedPlayerPropsWithAnalytics } from '../../lib/player-props-fixes';
+import { EnhancedPlayerPropCard } from './enhanced-player-prop-card';
 
 interface AnalyticsIntegrationProps {
   league: string;
@@ -161,39 +162,25 @@ export function AnalyticsIntegration({ league, date, onDataUpdate }: AnalyticsIn
               <span>Top {topProps.length} Matchups</span>
               <span>{analyticsData.length} total props</span>
             </div>
-            <div className="space-y-1 max-h-60 overflow-y-auto">
-              {topProps.map((prop) => (
-                <div
+            <div className={`grid gap-3 ${compactMode ? 'grid-cols-1' : 'grid-cols-2'}`}>
+              {topProps.slice(0, compactMode ? 3 : 6).map((prop) => (
+                <EnhancedPlayerPropCard
                   key={prop.prop_id}
-                  className={`flex items-center justify-between p-2 rounded border ${
-                    compactMode ? 'text-xs' : 'text-sm'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <span className="font-medium truncate">{prop.player_id}</span>
-                    <Badge variant="secondary" className="text-xs">
-                      {prop.prop_type}
-                    </Badge>
-                    {prop.teamAbbr && (
-                      <Badge variant="outline" className="text-xs">
-                        {prop.teamAbbr}
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs">{prop.line}</span>
-                    {prop.evPercent !== null && (
-                      <span className={`text-xs font-medium ${prop.evPercent >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                        {prop.evPercent > 0 ? '+' : ''}{prop.evPercent}%
-                      </span>
-                    )}
-                    {compactMode ? (
-                      <MatchupBadgeCompact grade={prop.matchup_grade} />
-                    ) : (
-                      <MatchupBadge grade={prop.matchup_grade} />
-                    )}
-                  </div>
-                </div>
+                  playerName={prop.player_id}
+                  teamAbbr={prop.teamAbbr || 'UNK'}
+                  opponentAbbr={prop.opponentAbbr || 'UNK'}
+                  propType={prop.prop_type}
+                  line={prop.line}
+                  overOdds={prop.overOdds || 0}
+                  underOdds={prop.underOdds || 0}
+                  evPercent={prop.evPercent}
+                  last5_streak={prop.last5_streak}
+                  last10_streak={prop.last10_streak}
+                  last20_streak={prop.last20_streak}
+                  h2h_streak={prop.h2h_streak}
+                  teamLogo={prop.teamLogo}
+                  opponentLogo={prop.opponentLogo}
+                />
               ))}
             </div>
             <div className="pt-2 border-t text-xs text-muted-foreground">
