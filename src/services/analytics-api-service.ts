@@ -1,4 +1,4 @@
-import { supabase } from "../lib/supabase";
+import { supabase } from "../integrations/supabase/client";
 import { getPropMatchups, getGameMatchups, getPlayerPropsWithLogs } from "../lib/analytics";
 import { LEAGUE_PROP_CAPS } from "../lib/leagues";
 
