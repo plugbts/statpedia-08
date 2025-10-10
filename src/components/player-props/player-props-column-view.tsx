@@ -843,23 +843,23 @@ export function PlayerPropsColumnView({
         <div className="flex-none">
           {/* Fixed Header */}
           <div className="flex bg-gradient-card border-b border-border/50">
-            <div className="w-64 px-4 py-3 text-xs font-semibold text-foreground flex items-center gap-1">
+            <div className="w-64 px-4 py-3 text-xs font-semibold text-foreground flex items-center justify-center gap-1">
           <Users className="w-3 h-3" />
           Player
         </div>
-            <div className="w-20 text-center px-2 py-3 text-xs font-semibold text-foreground">Team</div>
-            <div className="w-32 text-center px-2 py-3 text-xs font-semibold text-foreground">Prop</div>
-            <div className="w-20 text-center px-2 py-3 text-xs font-semibold text-foreground">Line</div>
-            <div className="w-20 text-center px-2 py-3 text-xs font-semibold text-foreground">Odds</div>
-            <div className="w-20 text-center px-2 py-3 text-xs font-semibold text-foreground">EV%</div>
-            <div className="w-20 text-center px-2 py-3 text-xs font-semibold text-foreground">Streak</div>
-            <div className="w-20 text-center px-2 py-3 text-xs font-semibold text-foreground">Rating</div>
-            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">Matchup</div>
-            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">H2H</div>
-            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">2025</div>
-            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">L5</div>
-            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">L10</div>
-            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">L20</div>
+            <div className="w-20 flex items-center justify-center px-2 py-3 text-xs font-semibold text-foreground">Team</div>
+            <div className="w-32 flex items-center justify-center px-2 py-3 text-xs font-semibold text-foreground">Prop</div>
+            <div className="w-20 flex items-center justify-center px-2 py-3 text-xs font-semibold text-foreground">Line</div>
+            <div className="w-20 flex items-center justify-center px-2 py-3 text-xs font-semibold text-foreground">Odds</div>
+            <div className="w-20 flex items-center justify-center px-2 py-3 text-xs font-semibold text-foreground">EV%</div>
+            <div className="w-20 flex items-center justify-center px-2 py-3 text-xs font-semibold text-foreground">Streak</div>
+            <div className="w-20 flex items-center justify-center px-2 py-3 text-xs font-semibold text-foreground">Rating</div>
+            <div className="w-24 flex items-center justify-center px-1 py-3 text-xs font-semibold text-foreground">Matchup</div>
+            <div className="w-24 flex items-center justify-center px-1 py-3 text-xs font-semibold text-foreground">H2H</div>
+            <div className="w-24 flex items-center justify-center px-1 py-3 text-xs font-semibold text-foreground">2025</div>
+            <div className="w-24 flex items-center justify-center px-1 py-3 text-xs font-semibold text-foreground">L5</div>
+            <div className="w-24 flex items-center justify-center px-1 py-3 text-xs font-semibold text-foreground">L10</div>
+            <div className="w-24 flex items-center justify-center px-1 py-3 text-xs font-semibold text-foreground">L20</div>
       </div>
 
           {/* Fixed Data Rows */}
@@ -1030,77 +1030,91 @@ export function PlayerPropsColumnView({
 
                   {/* Streak */}
                   <div className="w-20 text-center px-2">
-                    <div className={`text-xs font-bold group-hover:opacity-80 transition-all duration-300 relative ${
+                    <div className={`text-xs font-bold group-hover:opacity-80 transition-all duration-300 relative animate-pulse ${
                       (() => {
-                        if (hasGameLogs && streak > 0) {
-                          return streak >= 2 ? 'text-red-500' : 'text-foreground';
-                        }
-                        // Mock streak data for demonstration
-                        const mockStreak = Math.floor(Math.random() * 5) + 1; // 1-5 game streak
-                        const streakType = Math.random() > 0.5 ? 'W' : 'L';
-                        if (streakType === 'W') {
-                          return mockStreak >= 2 ? 'text-red-500' : 'text-foreground';
+                        // Get actual streak data
+                        let actualStreak = 0;
+                        let streakType = 'W';
+                        
+                        if (hasGameLogs && streak !== 0) {
+                          actualStreak = Math.abs(streak);
+                          streakType = streak > 0 ? 'W' : 'L';
                         } else {
-                          return mockStreak >= 2 ? 'text-blue-400' : 'text-foreground';
+                          // Mock streak data for demonstration
+                          actualStreak = Math.floor(Math.random() * 5) + 1; // 1-5 game streak
+                          streakType = Math.random() > 0.5 ? 'W' : 'L';
+                        }
+                        
+                        // Determine streak type and styling
+                        if (streakType === 'W' && actualStreak >= 2) {
+                          return 'text-red-500 streak-hot';
+                        } else if (streakType === 'L' && actualStreak >= 2) {
+                          return 'text-blue-400 streak-cold';
+                        } else {
+                          return 'text-white streak-neutral';
                         }
                       })()
-                    }`}>
-                      {/* Lava lines for hot streaks (2W+) */}
+                    }`} style={{ animationDuration: '3s' }}>
+                      {/* Lava ONLY for hot streaks (2W+) */}
                       {(() => {
-                        if (hasGameLogs && streak > 0) {
-                          return streak >= 2 ? (
-                            <>
-                              {Array.from({ length: 3 }, (_, i) => (
-                                <div key={i} className="lava-line" style={{ animationDelay: `${i * 0.5}s` }} />
-                              ))}
-                              <div className="lava-pool" />
-                            </>
-                          ) : null;
+                        let actualStreak = 0;
+                        let streakType = 'W';
+                        
+                        if (hasGameLogs && streak !== 0) {
+                          actualStreak = Math.abs(streak);
+                          streakType = streak > 0 ? 'W' : 'L';
+                        } else {
+                          actualStreak = Math.floor(Math.random() * 5) + 1;
+                          streakType = Math.random() > 0.5 ? 'W' : 'L';
                         }
-                        // Mock streak data for demonstration
-                        const mockStreak = Math.floor(Math.random() * 5) + 1; // 1-5 game streak
-                        const streakType = Math.random() > 0.5 ? 'W' : 'L';
-                        return streakType === 'W' && mockStreak >= 2 ? (
+                        
+                        return streakType === 'W' && actualStreak >= 2 ? (
                           <>
-                            {Array.from({ length: 3 }, (_, i) => (
-                              <div key={i} className="lava-line" style={{ animationDelay: `${i * 0.5}s` }} />
+                            {Array.from({ length: 5 }, (_, i) => (
+                              <div key={i} className="lava-particle" style={{ 
+                                animationDelay: `${i * 0.4}s`,
+                                left: `${15 + (i * 15)}%`
+                              }} />
                             ))}
                             <div className="lava-pool" />
                           </>
                         ) : null;
                       })()}
                       
-                      {/* Snow particles for cold streaks (2L+) */}
+                      {/* Snow ONLY for cold streaks (2L+) */}
                       {(() => {
-                        if (hasGameLogs && streak > 0) {
-                          return streak < 0 && Math.abs(streak) >= 2 ? (
-                            <>
-                              {Array.from({ length: 6 }, (_, i) => (
-                                <div key={i} className="snow-flake" style={{ animationDelay: `${i * 0.3}s` }} />
-                              ))}
-                              <div className="snow-accumulation" />
-                            </>
-                          ) : null;
+                        let actualStreak = 0;
+                        let streakType = 'W';
+                        
+                        if (hasGameLogs && streak !== 0) {
+                          actualStreak = Math.abs(streak);
+                          streakType = streak > 0 ? 'W' : 'L';
+                        } else {
+                          actualStreak = Math.floor(Math.random() * 5) + 1;
+                          streakType = Math.random() > 0.5 ? 'W' : 'L';
                         }
-                        // Mock streak data for demonstration
-                        const mockStreak = Math.floor(Math.random() * 5) + 1; // 1-5 game streak
-                        const streakType = Math.random() > 0.5 ? 'W' : 'L';
-                        return streakType === 'L' && mockStreak >= 2 ? (
+                        
+                        return streakType === 'L' && actualStreak >= 2 ? (
                           <>
-                            {Array.from({ length: 6 }, (_, i) => (
-                              <div key={i} className="snow-flake" style={{ animationDelay: `${i * 0.3}s` }} />
+                            {Array.from({ length: 8 }, (_, i) => (
+                              <div key={i} className="snow-particle" style={{ 
+                                animationDelay: `${i * 0.2}s`,
+                                left: `${10 + (i * 10)}%`
+                              }} />
                             ))}
-                            <div className="snow-accumulation" />
+                            <div className="snow-pile" />
                           </>
                         ) : null;
                       })()}
                       
                       {(() => {
-                        if (hasGameLogs && streak > 0) return `${streak}W`;
+                        if (hasGameLogs && streak !== 0) {
+                          return `${Math.abs(streak)}${streak > 0 ? 'W' : 'L'}`;
+                        }
                         // Mock streak data for demonstration
                         const mockStreak = Math.floor(Math.random() * 5) + 1; // 1-5 game streak
-                        const streakType = Math.random() > 0.5 ? 'W' : 'L';
-                        return `${mockStreak}${streakType}`;
+                        const mockType = Math.random() > 0.5 ? 'W' : 'L';
+                        return `${mockStreak}${mockType}`;
                       })()}
                     </div>
                   </div>
