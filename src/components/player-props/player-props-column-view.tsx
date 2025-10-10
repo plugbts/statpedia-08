@@ -36,67 +36,14 @@ import { StreakService } from '@/services/streak-service';
 import { useToast } from '@/hooks/use-toast';
 import { normalizeOpponent, normalizeMarketType, normalizePosition, normalizeTeam } from '@/utils/normalize';
 import { useSimpleAnalytics } from '@/hooks/use-simple-analytics';
+import { formatPropType, getOrdinalSuffix, getTeamAbbreviation } from '@/utils/prop-type-formatter';
 
-// Prop name formatter
-const formatPropType = (propType: string): string => {
-  if (!propType) return 'Unknown Prop';
-  
-  // Convert snake_case to Title Case
-  return propType
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ')
-    // Handle special cases
-    .replace(/Rec/g, 'Receiving')
-    .replace(/Rush/g, 'Rushing')
-    .replace(/Pass/g, 'Passing')
-    .replace(/Td/g, 'Touchdown')
-    .replace(/Yd/g, 'Yard')
-    .replace(/Yds/g, 'Yards')
-    .replace(/Int/g, 'Interception')
-    .replace(/Sack/g, 'Sack')
-    .replace(/Tackle/g, 'Tackle')
-    .replace(/Fumble/g, 'Fumble')
-    .replace(/Block/g, 'Block')
-    .replace(/Safety/g, 'Safety')
-    .replace(/Punt/g, 'Punt')
-    .replace(/Kick/g, 'Kick')
-    .replace(/Field Goal/g, 'Field Goal')
-    .replace(/Extra Point/g, 'Extra Point')
-    .replace(/Two Point/g, 'Two Point')
-    .replace(/First/g, 'First')
-    .replace(/Last/g, 'Last')
-    .replace(/Anytime/g, 'Anytime')
-    .replace(/Longest/g, 'Longest')
-    .replace(/Shortest/g, 'Shortest')
-    .replace(/Total/g, 'Total')
-    .replace(/Combined/g, 'Combined')
-    .replace(/Alt/g, 'Alt')
-    .replace(/Line/g, 'Line')
-    .replace(/Spread/g, 'Spread')
-    .replace(/Moneyline/g, 'Moneyline')
-    .replace(/Over/g, 'Over')
-    .replace(/Under/g, 'Under');
-};
+// Using shared utility functions from prop-type-formatter.ts
 
-// Helper function for ordinal suffixes
-const getOrdinalSuffix = (num: number): string => {
-  const j = num % 10;
-  const k = num % 100;
-  if (j === 1 && k !== 11) {
-    return 'st';
-  }
-  if (j === 2 && k !== 12) {
-    return 'nd';
-  }
-  if (j === 3 && k !== 13) {
-    return 'rd';
-  }
-  return 'th';
-};
-
-// Team logo component
+// Team logo component with better fallback handling
 const TeamLogo = ({ team, teamAbbr, sport = 'nfl' }: { team: string, teamAbbr: string, sport?: string }) => {
+  const finalTeamAbbr = getTeamAbbreviation(team, teamAbbr);
+
   const getTeamLogoUrl = (teamAbbr: string, sport: string) => {
     // Return team logo URL based on sport and team abbreviation
     const baseUrl = 'https://a.espncdn.com/i/teamlogos';
@@ -114,18 +61,38 @@ const TeamLogo = ({ team, teamAbbr, sport = 'nfl' }: { team: string, teamAbbr: s
     return `${baseUrl}/nfl/500/${teamAbbr.toLowerCase()}.png`; // Default to NFL
   };
 
+  // Don't show logo if abbreviation is UNK
+  if (finalTeamAbbr === 'UNK') {
+    return (
+      <div className="flex items-center gap-2">
+        <div className="w-6 h-6 rounded bg-muted flex items-center justify-center">
+          <span className="text-xs font-medium text-muted-foreground">?</span>
+        </div>
+        <span className="text-xs font-medium text-muted-foreground">UNK</span>
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center gap-2">
       <img 
-        src={getTeamLogoUrl(teamAbbr, sport)} 
-        alt={teamAbbr}
+        src={getTeamLogoUrl(finalTeamAbbr, sport)} 
+        alt={finalTeamAbbr}
         className="w-6 h-6 object-contain"
         onError={(e) => {
           const target = e.target as HTMLImageElement;
           target.style.display = 'none';
+          // Show fallback icon when image fails to load
+          const parent = target.parentElement;
+          if (parent) {
+            const fallback = document.createElement('div');
+            fallback.className = 'w-6 h-6 rounded bg-muted flex items-center justify-center';
+            fallback.innerHTML = '<span class="text-xs font-medium text-muted-foreground">?</span>';
+            parent.appendChild(fallback);
+          }
         }}
       />
-      <span className="text-xs font-medium text-foreground">{teamAbbr}</span>
+      <span className="text-xs font-medium text-foreground">{finalTeamAbbr}</span>
     </div>
   );
 };
@@ -560,19 +527,7 @@ export function PlayerPropsColumnView({
     return `${(value * 100).toFixed(1)}%`;
   };
 
-  // Format prop type names with proper spacing and line breaks
-  const formatPropType = (propType: string): string => {
-    // Add spaces before capital letters and handle common patterns
-    let formatted = propType
-      .replace(/([a-z])([A-Z])/g, '$1 $2') // Add space before capital letters
-      .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2') // Add space between consecutive capitals
-      .replace(/\b(First|Last|Passing|Rushing|Receiving|Defense|Kicking|Field|Extra|Total|Combined|Longest|Attempts|Completions|Interceptions|Sacks|Tackles|Touchdowns|Yards|Receptions|Points|Made|Kicks)\b/g, (match) => {
-        // Capitalize common words
-        return match.charAt(0).toUpperCase() + match.slice(1).toLowerCase();
-      });
-
-    return formatted;
-  };
+  // Format prop type names with proper spacing and line breaks (using the global formatPropType function)
 
   // Check if text should wrap to multiple lines
   const shouldWrapText = (text: string, maxLength: number = 12): boolean => {
@@ -1030,7 +985,7 @@ export function PlayerPropsColumnView({
 
                 {/* Prop Type */}
                   <div className="w-32 text-center px-2">
-                    <div className="text-xs font-medium text-foreground group-hover:text-primary/90 transition-all duration-300 transform group-hover:scale-105 truncate">
+                    <div className="text-xs font-medium text-foreground group-hover:text-primary/90 transition-all duration-300 transform group-hover:scale-105 truncate animate-pulse" style={{ animationDuration: '3s' }}>
                       {formatPropType(prop.marketType || prop.propType)}
                   </div>
                 </div>
@@ -1068,7 +1023,21 @@ export function PlayerPropsColumnView({
 
                   {/* Streak */}
                   <div className="w-20 text-center px-2">
-                    <div className="text-xs font-bold text-muted-foreground group-hover:opacity-80 transition-colors duration-200">
+                    <div className={`text-xs font-bold group-hover:opacity-80 transition-colors duration-200 ${
+                      (() => {
+                        if (hasGameLogs && streak > 0) {
+                          return streak >= 2 ? 'text-red-500' : 'text-green-500';
+                        }
+                        // Mock streak data for demonstration
+                        const mockStreak = Math.floor(Math.random() * 5) + 1; // 1-5 game streak
+                        const streakType = Math.random() > 0.5 ? 'W' : 'L';
+                        if (streakType === 'W') {
+                          return mockStreak >= 2 ? 'text-red-500' : 'text-green-500';
+                        } else {
+                          return mockStreak >= 2 ? 'text-blue-400' : 'text-yellow-500';
+                        }
+                      })()
+                    }`}>
                       {(() => {
                         if (hasGameLogs && streak > 0) return `${streak}W`;
                         // Mock streak data for demonstration
@@ -1227,16 +1196,16 @@ export function PlayerPropsColumnView({
                         
                         if (propType.includes('pass') || propType.includes('passing')) {
                           const rank = Math.floor(Math.random() * 10) + 1; // Random rank 1-10
-                          return `${rank}${getOrdinalSuffix(rank)} Pass Defense`;
+                          return `Ranked ${rank}${getOrdinalSuffix(rank)}`;
                         } else if (propType.includes('rush') || propType.includes('rushing')) {
                           const rank = Math.floor(Math.random() * 10) + 1; // Random rank 1-10
-                          return `${rank}${getOrdinalSuffix(rank)} Rush Defense`;
+                          return `Ranked ${rank}${getOrdinalSuffix(rank)}`;
                         } else if (propType.includes('rec') || propType.includes('receiving')) {
                           const rank = Math.floor(Math.random() * 10) + 1; // Random rank 1-10
-                          return `${rank}${getOrdinalSuffix(rank)} Pass Defense`;
+                          return `Ranked ${rank}${getOrdinalSuffix(rank)}`;
                         } else if (propType.includes('td') || propType.includes('touchdown')) {
                           const rank = Math.floor(Math.random() * 10) + 1; // Random rank 1-10
-                          return `${rank}${getOrdinalSuffix(rank)} TD Defense`;
+                          return `Ranked ${rank}${getOrdinalSuffix(rank)}`;
                         }
                         
                         return '—';

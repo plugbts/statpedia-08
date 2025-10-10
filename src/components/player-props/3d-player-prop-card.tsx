@@ -22,6 +22,7 @@ import { statpediaRatingService, StatpediaRating } from '@/services/statpedia-ra
 import { toAmericanOdds, getOddsColorClass } from '@/utils/odds';
 import { getPlayerHeadshot, getPlayerInitials, getKnownPlayerHeadshot } from '@/utils/headshots';
 import { StreakService } from '@/services/streak-service';
+import { formatPropType } from '@/utils/prop-type-formatter';
 
 interface SportsbookOdds {
   sportsbook: string;
@@ -355,16 +356,19 @@ export function PlayerPropCard3D({
             <div className="flex-1 flex flex-col space-y-1">
               {/* Prop Details - Centered */}
               <div className="text-center space-y-1">
-                <div className="text-slate-400 text-xs font-semibold tracking-wide uppercase leading-tight">
-                  {prop.propType.length > 15 ? (
-                    <div className="space-y-0.5">
-                      {prop.propType.split(' ').map((word, index) => (
-                        <div key={index}>{word}</div>
-                      ))}
-                    </div>
-                  ) : (
-                    prop.propType
-                  )}
+                <div className="text-slate-400 text-xs font-semibold tracking-wide uppercase leading-tight animate-pulse" style={{ animationDuration: '3s' }}>
+                  {(() => {
+                    const formattedPropType = formatPropType(prop.propType);
+                    return formattedPropType.length > 15 ? (
+                      <div className="space-y-0.5">
+                        {formattedPropType.split(' ').map((word, index) => (
+                          <div key={index}>{word}</div>
+                        ))}
+                      </div>
+                    ) : (
+                      formattedPropType
+                    );
+                  })()}
                 </div>
                 <div className="text-slate-100 text-lg font-bold tracking-tight">
                   {formatNumber(prop.line)}
