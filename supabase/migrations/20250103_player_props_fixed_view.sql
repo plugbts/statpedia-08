@@ -53,7 +53,7 @@ SELECT
   p.league as sport
   
 FROM player_props_api_view p
-LEFT JOIN players pl ON pl.id = p.player_id
+LEFT JOIN players pl ON pl.id::text = p.player_id
 WHERE p.league IS NOT NULL
   AND p.prop_date IS NOT NULL;
 
