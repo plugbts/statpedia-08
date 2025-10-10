@@ -1032,18 +1032,9 @@ export function PlayerPropsColumnView({
                   <div className="w-20 text-center px-2">
                     <div className={`text-xs font-bold group-hover:opacity-80 transition-all duration-300 relative animate-pulse ${
                       (() => {
-                        // Get actual streak data
-                        let actualStreak = 0;
-                        let streakType = 'W';
-                        
-                        if (hasGameLogs && streak !== 0) {
-                          actualStreak = Math.abs(streak);
-                          streakType = streak > 0 ? 'W' : 'L';
-                        } else {
-                          // Mock streak data for demonstration
-                          actualStreak = Math.floor(Math.random() * 5) + 1; // 1-5 game streak
-                          streakType = Math.random() > 0.5 ? 'W' : 'L';
-                        }
+                        // Use REAL streak data only - no mock data
+                        const actualStreak = hasGameLogs ? Math.abs(streak) : 0;
+                        const streakType = hasGameLogs ? (streak > 0 ? 'W' : 'L') : 'N';
                         
                         // Determine streak type and styling
                         if (streakType === 'W' && actualStreak >= 2) {
@@ -1057,16 +1048,8 @@ export function PlayerPropsColumnView({
                     }`} style={{ animationDuration: '3s' }}>
                       {/* Lava ONLY for hot streaks (2W+) */}
                       {(() => {
-                        let actualStreak = 0;
-                        let streakType = 'W';
-                        
-                        if (hasGameLogs && streak !== 0) {
-                          actualStreak = Math.abs(streak);
-                          streakType = streak > 0 ? 'W' : 'L';
-                        } else {
-                          actualStreak = Math.floor(Math.random() * 5) + 1;
-                          streakType = Math.random() > 0.5 ? 'W' : 'L';
-                        }
+                        const actualStreak = hasGameLogs ? Math.abs(streak) : 0;
+                        const streakType = hasGameLogs ? (streak > 0 ? 'W' : 'L') : 'N';
                         
                         return streakType === 'W' && actualStreak >= 2 ? (
                           <>
@@ -1083,16 +1066,8 @@ export function PlayerPropsColumnView({
                       
                       {/* Snow ONLY for cold streaks (2L+) */}
                       {(() => {
-                        let actualStreak = 0;
-                        let streakType = 'W';
-                        
-                        if (hasGameLogs && streak !== 0) {
-                          actualStreak = Math.abs(streak);
-                          streakType = streak > 0 ? 'W' : 'L';
-                        } else {
-                          actualStreak = Math.floor(Math.random() * 5) + 1;
-                          streakType = Math.random() > 0.5 ? 'W' : 'L';
-                        }
+                        const actualStreak = hasGameLogs ? Math.abs(streak) : 0;
+                        const streakType = hasGameLogs ? (streak > 0 ? 'W' : 'L') : 'N';
                         
                         return streakType === 'L' && actualStreak >= 2 ? (
                           <>
@@ -1111,10 +1086,7 @@ export function PlayerPropsColumnView({
                         if (hasGameLogs && streak !== 0) {
                           return `${Math.abs(streak)}${streak > 0 ? 'W' : 'L'}`;
                         }
-                        // Mock streak data for demonstration
-                        const mockStreak = Math.floor(Math.random() * 5) + 1; // 1-5 game streak
-                        const mockType = Math.random() > 0.5 ? 'W' : 'L';
-                        return `${mockStreak}${mockType}`;
+                        return '—';
                       })()}
                     </div>
                   </div>
