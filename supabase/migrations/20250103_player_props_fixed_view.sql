@@ -19,7 +19,7 @@ SELECT
   p.prop_date,
   
   -- Clean player name (no prop concatenation)
-  COALESCE(pl.display_name, p.player_id) as player_name,
+  COALESCE(pl.full_name, p.player_id) as player_name,
   
   -- Team abbreviations (use existing team as abbreviation)
   p.team as team_abbr,
