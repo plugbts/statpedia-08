@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -67,33 +67,32 @@ export function AnalyticsIntegration({ league, date, onDataUpdate }: AnalyticsIn
     }
   };
 
-  useEffect(() => {
-    if (showAnalytics) {
-      debouncedFetchAnalyticsData();
-    }
-  }, [league, date, showAnalytics, debouncedFetchAnalyticsData]);
+  // Simple debounce state
+  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
 
-  // Prevent unnecessary re-fetches by memoizing the fetch function
+  // Memoize the fetch function to prevent unnecessary re-renders
   const memoizedFetchAnalyticsData = useMemo(() => {
     return fetchAnalyticsData;
   }, [league, date]);
 
-  // Add debounce to prevent rapid successive calls
-  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
-  
-  const debouncedFetchAnalyticsData = useMemo(() => {
-    return () => {
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
-      }
-      
-      const timer = setTimeout(() => {
-        fetchAnalyticsData();
-      }, 300); // 300ms debounce
-      
-      setDebounceTimer(timer);
-    };
-  }, [fetchAnalyticsData, debounceTimer]);
+  // Simple debounced fetch function
+  const debouncedFetch = useCallback(() => {
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+    
+    const timer = setTimeout(() => {
+      memoizedFetchAnalyticsData();
+    }, 300);
+    
+    setDebounceTimer(timer);
+  }, [memoizedFetchAnalyticsData, debounceTimer]);
+
+  useEffect(() => {
+    if (showAnalytics) {
+      debouncedFetch();
+    }
+  }, [league, date, showAnalytics, debouncedFetch]);
 
   // Cleanup debounce timer on unmount
   useEffect(() => {
