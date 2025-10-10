@@ -226,7 +226,9 @@ function attachTeams(
           opponent_resolved: false,
           team_strategy: "player_mapping",
           opp_strategy: "fallback",
-          player_team_mapping: playerTeam
+          player_team_mapping: playerTeam,
+          registry_keys_count: Object.keys(registry).length,
+          registry_sample_keys: Object.keys(registry).slice(0, 5)
         }
       };
     }
@@ -280,7 +282,10 @@ function attachTeams(
       team_strategy: "fallback",
       opp_strategy: "fallback",
       game_id: row.game_id,
-      player_id: row.player_id
+      player_id: row.player_id,
+      player_team_mapping: playerTeam,
+      registry_keys_count: Object.keys(registry).length,
+      registry_sample_keys: Object.keys(registry).slice(0, 5)
     }
   };
 }
