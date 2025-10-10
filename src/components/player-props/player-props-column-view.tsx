@@ -1055,8 +1055,8 @@ export function PlayerPropsColumnView({
                           <>
                             {Array.from({ length: 5 }, (_, i) => (
                               <div key={i} className="lava-particle" style={{ 
-                                animationDelay: `${i * 0.4}s`,
-                                left: `${15 + (i * 15)}%`
+                                animationDelay: `${i * 1}s`,
+                                left: `${Math.random() * 60 + 20}%`
                               }} />
                             ))}
                             <div className="lava-pool" />
@@ -1073,8 +1073,8 @@ export function PlayerPropsColumnView({
                           <>
                             {Array.from({ length: 8 }, (_, i) => (
                               <div key={i} className="snow-particle" style={{ 
-                                animationDelay: `${i * 0.2}s`,
-                                left: `${10 + (i * 10)}%`
+                                animationDelay: `${i * 1}s`,
+                                left: `${Math.random() * 70 + 15}%`
                               }} />
                             ))}
                             <div className="snow-pile" />
