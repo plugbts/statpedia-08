@@ -274,8 +274,11 @@ export function mapWithDiagnostics(odds: any[]): { mapped: any[]; stats: any } {
         prop_type: propType,
         sportsbook: odd.sportsbook,
         line: odd.line || 0, // Default to 0 for Yes/No bets
-        over_odds: odd.overUnder === 'over' || odd.overUnder === 'yes' ? odd.odds : (odd.overUnder === 'under' || odd.overUnder === 'no' ? null : odd.odds),
-        under_odds: odd.overUnder === 'under' || odd.overUnder === 'no' ? odd.odds : (odd.overUnder === 'over' || odd.overUnder === 'yes' ? null : null),
+        over_odds: odd.overUnder === 'over' || odd.overUnder === 'yes' ? odd.odds : 
+                   (odd.overUnder === 'under' || odd.overUnder === 'no' ? null : 
+                    (odd.overUnder ? odd.odds : null)), // If overUnder is not 'over'/'yes', try the odds anyway
+        under_odds: odd.overUnder === 'under' || odd.overUnder === 'no' ? odd.odds : 
+                   (odd.overUnder === 'over' || odd.overUnder === 'yes' ? null : null),
         league: (odd.league || 'UNKNOWN').toLowerCase(),
         season: season,
         game_id: odd.eventId || `${playerId}-${date}`,
