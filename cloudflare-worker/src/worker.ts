@@ -1321,7 +1321,7 @@ export default {
         } catch (error) {
           return corsResponse({
             success: false,
-            error: error.message
+            error: error instanceof Error ? error.message : String(error)
           }, 500);
         }
       }
@@ -2502,7 +2502,7 @@ export default {
                 for (const league of leagues) {
                   const events = await fetchEventsWithProps(env, league, { limit: 2 });
                   if (events.length > 0) {
-                    const extracted = extractPlayerProps(events);
+                    const extracted = await extractPlayerProps(events, env);
                     console.log(`📊 ${league}: Extracted ${extracted.length} props`);
                     
                     // Analyze market patterns
@@ -2628,7 +2628,7 @@ export default {
                 
                 const events = await fetchEventsWithProps(env, "NFL", { limit: 1 });
                 if (events.length > 0) {
-                  const extracted = extractPlayerProps(events);
+                  const extracted = await extractPlayerProps(events, env);
                   if (extracted.length > 0) {
                     const prop = extracted[0];
                     console.log('🔍 Testing with prop:', prop);
@@ -2793,7 +2793,7 @@ export default {
           console.log(`📊 Fetched ${events.length} events`);
           
           if (events.length > 0) {
-            const extracted = extractPlayerProps(events);
+            const extracted = await extractPlayerProps(events, env);
             console.log(`📊 Extracted ${extracted.length} props`);
             
             return new Response(JSON.stringify({

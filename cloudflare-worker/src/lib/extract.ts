@@ -1,6 +1,8 @@
 // Player Props Extraction with Schema Normalization
 // Normalizes upstream event schema into ingest shape
 
+import { fetchGameDetails } from "./api";
+
 export interface ExtractedPlayerProp {
   playerName: string;
   playerId?: string | null;
@@ -19,7 +21,7 @@ export interface ExtractedPlayerProp {
   rawData?: any; // Store raw data for debugging
 }
 
-export function extractPlayerProps(events: any[]): ExtractedPlayerProp[] {
+export async function extractPlayerProps(events: any[], env?: any): Promise<ExtractedPlayerProp[]> {
   const out: ExtractedPlayerProp[] = [];
   
   console.log(`🔍 Extracting player props from ${events?.length || 0} events`);
@@ -32,8 +34,23 @@ export function extractPlayerProps(events: any[]): ExtractedPlayerProp[] {
     const eventStartUtc = ev.startTime || ev.commence_time || ev.startUtc || ev.date || new Date().toISOString();
     
     // Extract team information from the event
-    const homeTeam = ev.homeTeam || ev.teams?.home?.names?.short || ev.teams?.home?.names?.long || ev.teams?.[0];
-    const awayTeam = ev.awayTeam || ev.teams?.away?.names?.short || ev.teams?.away?.names?.long || ev.teams?.[1];
+    let homeTeam = ev.homeTeam || ev.teams?.home?.names?.short || ev.teams?.home?.names?.long || ev.teams?.[0];
+    let awayTeam = ev.awayTeam || ev.teams?.away?.names?.short || ev.teams?.away?.names?.long || ev.teams?.[1];
+    
+    // 🔍 If we don't have team info and we have a game ID, try to fetch game details
+    if ((!homeTeam || !awayTeam) && eventId !== 'unknown' && env) {
+      console.log(`🔍 No team info in event, fetching game details for ${eventId}...`);
+      try {
+        const gameDetails = await fetchGameDetails(env, eventId);
+        if (gameDetails) {
+          homeTeam = homeTeam || gameDetails.homeTeam || gameDetails.homeTeamName;
+          awayTeam = awayTeam || gameDetails.awayTeam || gameDetails.awayTeamName;
+          console.log(`✅ Fetched team info: ${homeTeam} vs ${awayTeam}`);
+        }
+      } catch (error) {
+        console.warn(`⚠️ Failed to fetch game details for ${eventId}:`, error);
+      }
+    }
     
     console.log(`🏈 Event ${eventId}: ${homeTeam} vs ${awayTeam}`);
     

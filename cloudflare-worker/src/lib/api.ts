@@ -76,10 +76,45 @@ export async function fetchEventsWithProps(env: any, leagueID: string, opts?: {
     
     console.log(`✅ Fetched ${eventsArray.length} events for ${leagueID}`);
     return eventsArray;
+}
+
+/**
+ * Fetch game details by game ID to get team information
+ */
+export async function fetchGameDetails(env: any, gameId: string): Promise<any> {
+  const url = `https://api.sportsgameodds.com/v2/games/${gameId}`;
+  
+  console.log(`🔍 Fetching game details: ${url}`);
+  
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "Authorization": `Bearer ${env.SPORTSGAMEODDS_API_KEY}`
+      }
+    });
+    
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`Game details fetch failed (${res.status}): ${errorText}`);
+    }
+    
+    const response = await res.json();
+    
+    // Handle the wrapper structure: { success: true, data: {...game} }
+    const game = response.data || response;
+    
+    console.log(`✅ Fetched game details for ${gameId}:`, {
+      homeTeam: game.homeTeam ?? game.homeTeamName ?? null,
+      awayTeam: game.awayTeam ?? game.awayTeamName ?? null,
+      homeTeamId: game.homeTeamId ?? game.homeTeamID ?? null,
+      awayTeamId: game.awayTeamId ?? game.awayTeamID ?? null
+    });
+    
+    return game;
     
   } catch (error) {
-    console.error(`❌ API fetch error for ${leagueID}:`, error);
-    throw error;
+    console.error(`❌ Game details fetch error for ${gameId}:`, error);
+    return null;
   }
 }
 
