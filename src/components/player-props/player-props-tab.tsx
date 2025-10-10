@@ -1311,8 +1311,8 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-background">
+      <div className="w-full space-y-6 px-6">
         
         {/* Header */}
         <div className="flex items-center justify-between">

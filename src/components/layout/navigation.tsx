@@ -173,7 +173,7 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
 
   return (
     <nav className="bg-card/30 backdrop-blur-md border-b border-border/50 sticky top-0 z-50 glass-morphism shadow-3d">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className={`${activeTab === 'player-props' ? 'w-full' : 'max-w-7xl mx-auto'} px-4 sm:px-6 lg:px-8`}>
         <div className="flex items-center justify-between h-14 gap-2">
           {/* Logo with Extras Dropdown */}
           <div className="flex items-center gap-1 animate-fade-in">

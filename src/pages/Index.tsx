@@ -935,7 +935,7 @@ const Index = () => {
         onLogout={handleLogout}
         predictionsCount={predictionsCount}
       />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
+      <main className={`${activeTab === 'player-props' ? 'w-full px-0' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'} py-8 relative z-10`}>
         {/* Header Banner Ad */}
         <HeaderBannerAd userSubscription={userSubscription} />
         
