@@ -12,8 +12,8 @@ SELECT
   p.odds,
   p.stat_value,
   p.game_date,
-  p.team_id,
-  p.opponent_team_id,
+  p.team,
+  p.opponent,
   p.league,
   p.season,
   p.prop_date,
@@ -21,17 +21,17 @@ SELECT
   -- Clean player name (no prop concatenation)
   COALESCE(pl.display_name, p.player_id) as player_name,
   
-  -- Team abbreviations (use existing team_id as abbreviation)
-  p.team_id as team_abbr,
-  p.opponent_team_id as opponent_abbr,
+  -- Team abbreviations (use existing team as abbreviation)
+  p.team as team_abbr,
+  p.opponent as opponent_abbr,
   
   -- Team logos (simple ESPN URLs)
   CASE 
-    WHEN p.team_id IS NOT NULL THEN 'https://a.espncdn.com/i/teamlogos/nfl/500/' || LOWER(p.team_id) || '.png'
+    WHEN p.team IS NOT NULL THEN 'https://a.espncdn.com/i/teamlogos/nfl/500/' || LOWER(p.team) || '.png'
     ELSE NULL
   END as team_logo,
   CASE 
-    WHEN p.opponent_team_id IS NOT NULL THEN 'https://a.espncdn.com/i/teamlogos/nfl/500/' || LOWER(p.opponent_team_id) || '.png'
+    WHEN p.opponent IS NOT NULL THEN 'https://a.espncdn.com/i/teamlogos/nfl/500/' || LOWER(p.opponent) || '.png'
     ELSE NULL
   END as opponent_logo,
   
