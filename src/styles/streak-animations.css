@@ -1,39 +1,7 @@
-/* Lava animation for hot streaks (2W+) */
-@keyframes lava-fire {
+/* Lava lines falling down like fire/lava */
+@keyframes lava-fall {
   0% {
-    box-shadow: 0 0 5px rgba(239, 68, 68, 0.8), 
-                0 0 10px rgba(239, 68, 68, 0.6),
-                0 0 15px rgba(239, 68, 68, 0.4);
-  }
-  25% {
-    box-shadow: 0 0 8px rgba(239, 68, 68, 0.9), 
-                0 0 12px rgba(239, 68, 68, 0.7),
-                0 0 18px rgba(239, 68, 68, 0.5),
-                0 2px 4px rgba(255, 69, 0, 0.6);
-  }
-  50% {
-    box-shadow: 0 0 12px rgba(239, 68, 68, 1), 
-                0 0 15px rgba(239, 68, 68, 0.8),
-                0 0 20px rgba(239, 68, 68, 0.6),
-                0 3px 6px rgba(255, 69, 0, 0.7);
-  }
-  75% {
-    box-shadow: 0 0 8px rgba(239, 68, 68, 0.9), 
-                0 0 12px rgba(239, 68, 68, 0.7),
-                0 0 18px rgba(239, 68, 68, 0.5),
-                0 2px 4px rgba(255, 69, 0, 0.6);
-  }
-  100% {
-    box-shadow: 0 0 5px rgba(239, 68, 68, 0.8), 
-                0 0 10px rgba(239, 68, 68, 0.6),
-                0 0 15px rgba(239, 68, 68, 0.4);
-  }
-}
-
-/* Snow animation for cold streaks (2L+) */
-@keyframes snow-fall {
-  0% {
-    transform: translateY(-10px);
+    transform: translateY(-15px) scaleX(0.8);
     opacity: 0;
   }
   10% {
@@ -43,51 +11,108 @@
     opacity: 1;
   }
   100% {
-    transform: translateY(20px);
+    transform: translateY(25px) scaleX(1.2);
     opacity: 0;
   }
 }
 
-@keyframes snow-accumulate {
+/* Lava pool accumulating under the number */
+@keyframes lava-pool-grow {
   0% {
-    box-shadow: 0 0 5px rgba(59, 130, 246, 0.6);
+    transform: scaleX(0);
+    opacity: 0;
   }
   50% {
-    box-shadow: 0 0 8px rgba(59, 130, 246, 0.8), 
-                0 2px 4px rgba(255, 255, 255, 0.3),
-                0 4px 8px rgba(255, 255, 255, 0.2);
+    opacity: 0.8;
   }
   100% {
-    box-shadow: 0 0 12px rgba(59, 130, 246, 1), 
-                0 2px 4px rgba(255, 255, 255, 0.4),
-                0 4px 8px rgba(255, 255, 255, 0.3),
-                0 6px 12px rgba(255, 255, 255, 0.2);
+    transform: scaleX(1);
+    opacity: 1;
   }
 }
 
-.lava-streak {
-  animation: lava-fire 2s ease-in-out infinite;
+/* Snow flakes falling straight down like Statpedia seasonal snow */
+@keyframes snow-fall-straight {
+  0% {
+    transform: translateY(-20px) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(30px) rotate(360deg);
+    opacity: 0;
+  }
 }
 
-.snow-streak {
-  animation: snow-accumulate 3s ease-in-out infinite;
+/* Snow accumulation growing under the number */
+@keyframes snow-accumulate {
+  0% {
+    transform: scaleY(0);
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
 }
 
-.snow-particle {
+/* Lava line - thin red lines falling down */
+.lava-line {
   position: absolute;
   width: 2px;
-  height: 2px;
-  background: white;
-  border-radius: 50%;
-  animation: snow-fall 2s linear infinite;
+  height: 15px;
+  background: linear-gradient(to bottom, #dc2626, #ef4444);
+  left: 50%;
+  transform: translateX(-50%);
+  animation: lava-fall 2s linear infinite;
+  z-index: -1;
 }
 
-.snow-particle:nth-child(1) { left: 10%; animation-delay: 0s; }
-.snow-particle:nth-child(2) { left: 20%; animation-delay: 0.3s; }
-.snow-particle:nth-child(3) { left: 30%; animation-delay: 0.6s; }
-.snow-particle:nth-child(4) { left: 40%; animation-delay: 0.9s; }
-.snow-particle:nth-child(5) { left: 50%; animation-delay: 1.2s; }
-.snow-particle:nth-child(6) { left: 60%; animation-delay: 1.5s; }
-.snow-particle:nth-child(7) { left: 70%; animation-delay: 1.8s; }
-.snow-particle:nth-child(8) { left: 80%; animation-delay: 2.1s; }
-.snow-particle:nth-child(9) { left: 90%; animation-delay: 2.4s; }
+/* Lava pool - red accumulation under the number */
+.lava-pool {
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 3px;
+  background: linear-gradient(to right, #dc2626, #ef4444, #dc2626);
+  border-radius: 50%;
+  animation: lava-pool-grow 3s ease-in-out infinite;
+  z-index: -1;
+}
+
+/* Snow flake - white flakes falling straight down */
+.snow-flake {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  background: white;
+  border-radius: 50%;
+  left: 50%;
+  transform: translateX(-50%);
+  animation: snow-fall-straight 3s linear infinite;
+  z-index: -1;
+}
+
+/* Snow accumulation - white pile under the number */
+.snow-accumulation {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 18px;
+  height: 4px;
+  background: linear-gradient(to right, #f8fafc, #e2e8f0, #f8fafc);
+  border-radius: 50%;
+  animation: snow-accumulate 4s ease-in-out infinite;
+  z-index: -1;
+}

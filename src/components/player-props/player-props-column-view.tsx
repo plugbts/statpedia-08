@@ -1033,26 +1033,52 @@ export function PlayerPropsColumnView({
                     <div className={`text-xs font-bold group-hover:opacity-80 transition-all duration-300 relative ${
                       (() => {
                         if (hasGameLogs && streak > 0) {
-                          return streak >= 2 ? 'text-red-500 lava-streak' : 'text-white';
+                          return streak >= 2 ? 'text-red-500' : 'text-foreground';
                         }
                         // Mock streak data for demonstration
                         const mockStreak = Math.floor(Math.random() * 5) + 1; // 1-5 game streak
                         const streakType = Math.random() > 0.5 ? 'W' : 'L';
                         if (streakType === 'W') {
-                          return mockStreak >= 2 ? 'text-red-500 lava-streak' : 'text-white';
+                          return mockStreak >= 2 ? 'text-red-500' : 'text-foreground';
                         } else {
-                          return mockStreak >= 2 ? 'text-blue-400 snow-streak' : 'text-white';
+                          return mockStreak >= 2 ? 'text-blue-400' : 'text-foreground';
                         }
                       })()
                     }`}>
-                      {/* Snow particles for cold streaks */}
+                      {/* Lava lines for hot streaks (2W+) */}
+                      {(() => {
+                        if (hasGameLogs && streak > 0) {
+                          return streak >= 2 ? (
+                            <>
+                              {Array.from({ length: 3 }, (_, i) => (
+                                <div key={i} className="lava-line" style={{ animationDelay: `${i * 0.5}s` }} />
+                              ))}
+                              <div className="lava-pool" />
+                            </>
+                          ) : null;
+                        }
+                        // Mock streak data for demonstration
+                        const mockStreak = Math.floor(Math.random() * 5) + 1; // 1-5 game streak
+                        const streakType = Math.random() > 0.5 ? 'W' : 'L';
+                        return streakType === 'W' && mockStreak >= 2 ? (
+                          <>
+                            {Array.from({ length: 3 }, (_, i) => (
+                              <div key={i} className="lava-line" style={{ animationDelay: `${i * 0.5}s` }} />
+                            ))}
+                            <div className="lava-pool" />
+                          </>
+                        ) : null;
+                      })()}
+                      
+                      {/* Snow particles for cold streaks (2L+) */}
                       {(() => {
                         if (hasGameLogs && streak > 0) {
                           return streak < 0 && Math.abs(streak) >= 2 ? (
                             <>
-                              {Array.from({ length: 9 }, (_, i) => (
-                                <div key={i} className="snow-particle" />
+                              {Array.from({ length: 6 }, (_, i) => (
+                                <div key={i} className="snow-flake" style={{ animationDelay: `${i * 0.3}s` }} />
                               ))}
+                              <div className="snow-accumulation" />
                             </>
                           ) : null;
                         }
@@ -1061,12 +1087,14 @@ export function PlayerPropsColumnView({
                         const streakType = Math.random() > 0.5 ? 'W' : 'L';
                         return streakType === 'L' && mockStreak >= 2 ? (
                           <>
-                            {Array.from({ length: 9 }, (_, i) => (
-                              <div key={i} className="snow-particle" />
+                            {Array.from({ length: 6 }, (_, i) => (
+                              <div key={i} className="snow-flake" style={{ animationDelay: `${i * 0.3}s` }} />
                             ))}
+                            <div className="snow-accumulation" />
                           </>
                         ) : null;
                       })()}
+                      
                       {(() => {
                         if (hasGameLogs && streak > 0) return `${streak}W`;
                         // Mock streak data for demonstration
