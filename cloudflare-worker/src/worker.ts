@@ -14,6 +14,7 @@ import { initializeSupportedProps, loadSupportedProps, SupportedProps } from "./
 import { filterPropsByLeague, filterGameLogsByLeague } from "./ingestionFilter";
 import { initializeCoverageReport, generateCoverageReport, getCoverageSummary } from "./coverageReport";
 import { getFixedPlayerPropsWithAnalytics } from "./fixes";
+import { cleanPlayerNames } from "./playerNames";
 // import { getPlayerPropsFixed } from "./player-props-fixed"; // No longer needed - using direct view fetch
 
 // Initialize prop type sync and supported props at worker startup
@@ -1466,13 +1467,18 @@ export default {
             });
           }
 
+          // Clean player names to remove prop type contamination and handle empty names
+          console.log(`🧹 Cleaning player names for ${fixedProps.length} props...`);
+          const cleanedProps = cleanPlayerNames(fixedProps, `[worker:${sport}:${date || 'latest'}]`);
+          console.log(`✅ Player names cleaned: ${cleanedProps.length} props processed`);
+
           // --- OPTIONALLY fetch game logs for enrichment ---
           let playerGameLogs: any[] = [];
           
           // Build game logs query for enrichment
-          const playerIds = [...new Set(fixedProps.map(p => p.player_id))];
-          const propTypes = [...new Set(fixedProps.map(p => p.prop_type))];
-          const dates = [...new Set(fixedProps.map(p => normalizeDate(p.prop_date || p.date)))];
+          const playerIds = [...new Set(cleanedProps.map(p => p.player_id))];
+          const propTypes = [...new Set(cleanedProps.map(p => p.prop_type))];
+          const dates = [...new Set(cleanedProps.map(p => normalizeDate(p.prop_date || p.date || "")))];
 
           if (playerIds.length > 0) {
             let gameLogsQuery = "player_game_logs";
@@ -1509,11 +1515,11 @@ export default {
             }
           }
 
-          // --- USE FIXED PROPS DIRECTLY: The view already has all the data we need ---
-        console.log(`📊 Using fixed props with analytics: ${fixedProps.length} props`);
+          // --- USE CLEANED PROPS DIRECTLY: The view already has all the data we need ---
+        console.log(`📊 Using cleaned props with analytics: ${cleanedProps.length} props`);
         
-        // Use the fixed props directly - no additional processing needed
-        const enrichedProps = fixedProps || [];
+        // Use the cleaned props directly - no additional processing needed
+        const enrichedProps = cleanedProps || [];
 
           console.log(`📊 Enriched ${enrichedProps.length} props (${playerGameLogs.length} game logs available for enrichment)`);
 
@@ -1637,12 +1643,12 @@ export default {
             return teamMap[teamName.toUpperCase()] || teamName;
           };
 
-          // Transform to expected format using new fixed props data
+          // Transform to expected format using cleaned props data
           const transformedProps = limitedProps.map((prop: any) => {
             return {
             id: prop.prop_id,
             playerId: prop.player_id,
-            playerName: prop.player_name, // Fix: use underscore field name from view
+            playerName: prop.clean_player_name, // Use cleaned player name
             player_id: prop.player_id, // For headshots compatibility
             team: prop.team_abbr, // Fix: use underscore field name from view
             opponent: prop.opponent_abbr, // Fix: use underscore field name from view
@@ -1663,7 +1669,7 @@ export default {
             market: prop.prop_type,
             marketId: prop.prop_type,
             period: 'full_game',
-            statEntity: prop.player_name, // Fix: use underscore field name from view
+            statEntity: prop.clean_player_name, // Use cleaned player name
             // New enhanced fields with streaks and EV%
             evPercent: prop.ev_percent,
             last5_streak: prop.last5_streak,
@@ -1680,7 +1686,7 @@ export default {
           });
           
           // Use the actual date that was found/used
-          const actualDate = date || fixedProps[0]?.prop_date || fixedProps[0]?.date;
+          const actualDate = date || cleanedProps[0]?.prop_date || cleanedProps[0]?.date;
           
           const response = {
             success: true,
