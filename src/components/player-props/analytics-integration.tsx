@@ -6,6 +6,7 @@ import { Switch } from '@/components/ui/switch';
 import { MatchupBadge, MatchupBadgeCompact } from '../analytics/MatchupBadge';
 import { analyticsApi } from '../../services/analytics-api-service';
 import { PropMatchup } from '../../lib/analytics';
+import { getFixedPlayerPropsWithAnalytics } from '../../lib/player-props-fixes';
 
 interface AnalyticsIntegrationProps {
   league: string;
@@ -24,15 +25,28 @@ export function AnalyticsIntegration({ league, date, onDataUpdate }: AnalyticsIn
     
     setLoading(true);
     try {
-      const response = await analyticsApi.getProps({
-        league,
-        date,
-        limit: 50
-      });
+      // Use the fixed player props with analytics
+      const fixedProps = await getFixedPlayerPropsWithAnalytics(league, date, 50);
       
-      if (response.ok && response.data) {
-        setAnalyticsData(response.data);
-        onDataUpdate?.(response.data);
+      if (fixedProps && fixedProps.length > 0) {
+        // Convert to the format expected by the component
+        const analyticsData = fixedProps
+          .filter(prop => prop.analytics) // Only show props with analytics
+          .map(prop => ({
+            ...prop.analytics,
+            prop_id: prop.prop_id,
+            player_id: prop.playerName, // Use the fixed player name
+            prop_type: prop.prop_type,
+            line: prop.line,
+            // Add the fixed data
+            teamAbbr: prop.teamAbbr,
+            teamLogo: prop.teamLogo,
+            evPercent: prop.evPercent,
+            streak: prop.streak,
+          }));
+        
+        setAnalyticsData(analyticsData as any);
+        onDataUpdate?.(analyticsData as any);
       }
     } catch (error) {
       console.error('Error fetching analytics data:', error);
@@ -118,9 +132,19 @@ export function AnalyticsIntegration({ league, date, onDataUpdate }: AnalyticsIn
                     <Badge variant="secondary" className="text-xs">
                       {prop.prop_type}
                     </Badge>
+                    {prop.teamAbbr && (
+                      <Badge variant="outline" className="text-xs">
+                        {prop.teamAbbr}
+                      </Badge>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-xs">{prop.line}</span>
+                    {prop.evPercent !== null && (
+                      <span className={`text-xs font-medium ${prop.evPercent >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                        {prop.evPercent > 0 ? '+' : ''}{prop.evPercent}%
+                      </span>
+                    )}
                     {compactMode ? (
                       <MatchupBadgeCompact grade={prop.matchup_grade} />
                     ) : (
