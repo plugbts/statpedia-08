@@ -1312,10 +1312,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="w-full space-y-6 px-6">
+      <div className="w-full space-y-6">
         
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between px-6">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Player Props</h1>
             <p className="text-muted-foreground">
@@ -1360,7 +1360,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         </div>
 
         {/* Enhanced Filters */}
-        <Card className="bg-gradient-card border-border/50 hover:border-primary/30 transition-all duration-300">
+        <Card className="bg-gradient-card border-border/50 hover:border-primary/30 transition-all duration-300 mx-6">
           <CardContent className="p-6">
             {/* Filter Presets */}
             <div className="mb-6">
