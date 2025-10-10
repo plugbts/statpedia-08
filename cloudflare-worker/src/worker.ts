@@ -1529,6 +1529,81 @@ export default {
           const limitedProps = filteredProps.slice(0, maxPropsPerRequest);
           console.log(`📊 Limited to ${limitedProps.length} props (max: ${maxPropsPerRequest})`);
 
+          // Team abbreviation mapping
+          const getTeamAbbr = (teamName: string): string => {
+            if (!teamName) return '—';
+            
+            const teamMap: Record<string, string> = {
+              // NFL
+              'NEW': 'NYJ',
+              'DENVER': 'DEN',
+              'PHILADEL': 'PHI',
+              'ATLANTA': 'ATL',
+              'ARIZONA': 'ARI',
+              'BALTIMORE': 'BAL',
+              'BUFFALO': 'BUF',
+              'CAROLINA': 'CAR',
+              'CHICAGO': 'CHI',
+              'CINCINNATI': 'CIN',
+              'CLEVELAND': 'CLE',
+              'DALLAS': 'DAL',
+              'DETROIT': 'DET',
+              'GREEN BAY': 'GB',
+              'HOUSTON': 'HOU',
+              'INDIANAPOLIS': 'IND',
+              'JACKSONVILLE': 'JAX',
+              'KANSAS CITY': 'KC',
+              'LAS VEGAS': 'LV',
+              'LOS ANGELES CHARGERS': 'LAC',
+              'LOS ANGELES RAMS': 'LAR',
+              'MIAMI': 'MIA',
+              'MINNESOTA': 'MIN',
+              'NEW ENGLAND': 'NE',
+              'NEW ORLEANS': 'NO',
+              'NEW YORK GIANTS': 'NYG',
+              'PITTSBURGH': 'PIT',
+              'SAN FRANCISCO': 'SF',
+              'SEATTLE': 'SEA',
+              'TAMPA BAY': 'TB',
+              'TENNESSEE': 'TEN',
+              'WASHINGTON': 'WAS',
+              
+              // NBA
+              'ATLANTA HAWKS': 'ATL',
+              'BOSTON CELTICS': 'BOS',
+              'BROOKLYN NETS': 'BKN',
+              'CHARLOTTE HORNETS': 'CHA',
+              'CHICAGO BULLS': 'CHI',
+              'CLEVELAND CAVALIERS': 'CLE',
+              'DALLAS MAVERICKS': 'DAL',
+              'DENVER NUGGETS': 'DEN',
+              'DETROIT PISTONS': 'DET',
+              'GOLDEN STATE WARRIORS': 'GSW',
+              'HOUSTON ROCKETS': 'HOU',
+              'INDIANA PACERS': 'IND',
+              'LOS ANGELES CLIPPERS': 'LAC',
+              'LOS ANGELES LAKERS': 'LAL',
+              'MEMPHIS GRIZZLIES': 'MEM',
+              'MIAMI HEAT': 'MIA',
+              'MILWAUKEE BUCKS': 'MIL',
+              'MINNESOTA TIMBERWOLVES': 'MIN',
+              'NEW ORLEANS PELICANS': 'NO',
+              'NEW YORK KNICKS': 'NYK',
+              'OKLAHOMA CITY THUNDER': 'OKC',
+              'ORLANDO MAGIC': 'ORL',
+              'PHILADELPHIA 76ERS': 'PHI',
+              'PHOENIX SUNS': 'PHX',
+              'PORTLAND TRAIL BLAZERS': 'POR',
+              'SACRAMENTO KINGS': 'SAC',
+              'SAN ANTONIO SPURS': 'SA',
+              'TORONTO RAPTORS': 'TOR',
+              'UTAH JAZZ': 'UTA',
+              'WASHINGTON WIZARDS': 'WAS'
+            };
+            
+            return teamMap[teamName.toUpperCase()] || teamName;
+          };
+
           // Transform to expected format
           const transformedProps = limitedProps.map((prop: any) => ({
             id: prop.id,
@@ -1545,8 +1620,8 @@ export default {
             position: prop.position || 'N/A',
             gameDate: prop.date,
             sport: sport,
-            teamAbbr: prop.team,
-            opponentAbbr: prop.opponent,
+            teamAbbr: getTeamAbbr(prop.team),
+            opponentAbbr: getTeamAbbr(prop.opponent),
             gameId: prop.game_id,
             available: prop.is_active !== false,
             lastUpdate: prop.last_updated || prop.updated_at,

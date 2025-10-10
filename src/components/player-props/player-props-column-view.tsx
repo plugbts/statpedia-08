@@ -257,7 +257,11 @@ export function PlayerPropsColumnView({
     if (normalizedProps.length > 0 && normalizedProps.length <= 50) {
       console.log("🚀 [ANALYTICS_LOAD] Loading analytics for", normalizedProps.length, "props");
       console.log("🚀 [ANALYTICS_LOAD] First few props:", normalizedProps.slice(0, 3));
-      loadAnalyticsData(normalizedProps);
+      try {
+        loadAnalyticsData(normalizedProps);
+      } catch (error) {
+        console.warn("⚠️ [ANALYTICS_LOAD] Failed to load analytics, continuing without:", error);
+      }
     } else if (normalizedProps.length > 50) {
       console.warn("⚠️ [ANALYTICS_LOAD] Too many props to load analytics safely:", normalizedProps.length);
     } else if (normalizedProps.length === 0) {
@@ -790,17 +794,17 @@ export function PlayerPropsColumnView({
         <div className="flex-none">
           {/* Fixed Header */}
           <div className="flex bg-gradient-card border-b border-border/50">
-            <div className="w-48 px-4 py-3 text-xs font-semibold text-foreground flex items-center gap-1">
+            <div className="w-64 px-4 py-3 text-xs font-semibold text-foreground flex items-center gap-1">
           <Users className="w-3 h-3" />
           Player
         </div>
-            <div className="w-16 text-center px-2 py-3 text-xs font-semibold text-foreground">Team</div>
-            <div className="w-24 text-center px-2 py-3 text-xs font-semibold text-foreground">Prop</div>
-            <div className="w-16 text-center px-2 py-3 text-xs font-semibold text-foreground">Line</div>
-            <div className="w-16 text-center px-2 py-3 text-xs font-semibold text-foreground">Odds</div>
-            <div className="w-16 text-center px-2 py-3 text-xs font-semibold text-foreground">EV%</div>
-            <div className="w-16 text-center px-2 py-3 text-xs font-semibold text-foreground">Streak</div>
-            <div className="w-16 text-center px-2 py-3 text-xs font-semibold text-foreground">Rating</div>
+            <div className="w-20 text-center px-2 py-3 text-xs font-semibold text-foreground">Team</div>
+            <div className="w-32 text-center px-2 py-3 text-xs font-semibold text-foreground">Prop</div>
+            <div className="w-20 text-center px-2 py-3 text-xs font-semibold text-foreground">Line</div>
+            <div className="w-20 text-center px-2 py-3 text-xs font-semibold text-foreground">Odds</div>
+            <div className="w-20 text-center px-2 py-3 text-xs font-semibold text-foreground">EV%</div>
+            <div className="w-20 text-center px-2 py-3 text-xs font-semibold text-foreground">Streak</div>
+            <div className="w-20 text-center px-2 py-3 text-xs font-semibold text-foreground">Rating</div>
       </div>
 
           {/* Fixed Data Rows */}
@@ -822,13 +826,18 @@ export function PlayerPropsColumnView({
             playerId: prop.playerId
           });
 
-          // Get analytics data for this prop
-          const analytics = getAnalytics(
-            prop.playerId || prop.player_id || '',
-            prop.propType,
-            prop.line || 0,
-            overUnderFilter
-          );
+          // Get analytics data for this prop (graceful fallback if not available)
+          let analytics = null;
+          try {
+            analytics = getAnalytics(
+              prop.playerId || prop.player_id || '',
+              prop.propType,
+              prop.line || 0,
+              overUnderFilter
+            );
+          } catch (error) {
+            console.warn('[ANALYTICS_DEBUG] Analytics not available, using fallbacks:', error);
+          }
           
           // Debug analytics retrieval
           console.log(`[ANALYTICS_DEBUG] Prop: ${prop.playerName} ${prop.propType} ${prop.line} ${overUnderFilter}`);
@@ -871,7 +880,7 @@ export function PlayerPropsColumnView({
               <CardContent className="p-3">
                 <div className="flex items-center">
                 {/* Player Info */}
-                  <div className="w-48 flex items-center gap-3">
+                  <div className="w-64 flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 flex items-center justify-center text-foreground font-bold text-sm overflow-hidden flex-shrink-0">
                     {(() => {
                       const knownHeadshotUrl = getKnownPlayerHeadshot(prop.playerName, prop.sport || 'nfl');
@@ -918,28 +927,28 @@ export function PlayerPropsColumnView({
                 </div>
 
                 {/* Team */}
-                  <div className="w-16 text-center px-2">
+                  <div className="w-20 text-center px-2">
          <div className="text-xs font-medium text-foreground">
-           {prop.teamAbbr || '—'}
+           {prop.teamAbbr || prop.team || '—'}
          </div>
        </div>
 
                 {/* Prop Type */}
-                  <div className="w-24 text-center px-2">
+                  <div className="w-32 text-center px-2">
                     <div className="text-xs font-medium text-foreground group-hover:text-primary/90 transition-colors duration-200 truncate">
                       {formatPropType(prop.marketType || prop.propType)}
                   </div>
                 </div>
 
                 {/* Line */}
-                  <div className="w-16 text-center px-2">
+                  <div className="w-20 text-center px-2">
                     <div className="text-xs font-bold text-foreground group-hover:text-primary transition-colors duration-200">
                     {formatNumber(prop.line, 1)}
                   </div>
                 </div>
 
                   {/* Odds */}
-                  <div className="w-16 text-center px-2">
+                  <div className="w-20 text-center px-2">
                     <div className={`text-xs font-semibold transition-colors duration-200 ${
                       overUnderFilter === 'over' ? 'text-green-500 group-hover:text-green-400' : 
                       overUnderFilter === 'under' ? 'text-red-500 group-hover:text-red-400' : 
@@ -952,7 +961,7 @@ export function PlayerPropsColumnView({
                 </div>
 
                   {/* EV% */}
-                  <div className="w-16 text-center px-2">
+                  <div className="w-20 text-center px-2">
                   {prop.expectedValue ? (
                       <span className="text-xs font-bold text-blue-500 group-hover:text-blue-400 transition-colors duration-200">
                       {prop.expectedValue > 0 ? '+' : ''}{prop.expectedValue.toFixed(1)}%
@@ -963,14 +972,14 @@ export function PlayerPropsColumnView({
                 </div>
 
                   {/* Streak */}
-                  <div className="w-16 text-center px-2">
+                  <div className="w-20 text-center px-2">
                     <div className="text-xs font-bold text-muted-foreground group-hover:opacity-80 transition-colors duration-200">
                       {hasGameLogs && streak > 0 ? `${streak}W` : '—'}
                     </div>
                   </div>
 
                   {/* Rating */}
-                  <div className="w-16 text-center px-2 bg-transparent group-hover:opacity-80 transition-colors duration-200">
+                  <div className="w-20 text-center px-2 bg-transparent group-hover:opacity-80 transition-colors duration-200">
                   {(() => {
                       const propFinderRating = overUnderFilter === 'over' 
                         ? (prop.rating_over_normalized || prop.rating_over_raw)
@@ -1052,24 +1061,29 @@ export function PlayerPropsColumnView({
         <div className="flex-1 overflow-x-auto">
           {/* Analytics Header */}
           <div className="flex bg-gradient-card border-b border-border/50 sticky top-0 z-20">
-            <div className="w-24 text-center px-2 py-3 text-xs font-semibold text-foreground">Matchup</div>
-            <div className="w-24 text-center px-2 py-3 text-xs font-semibold text-foreground">H2H</div>
-            <div className="w-24 text-center px-2 py-3 text-xs font-semibold text-foreground">2025</div>
-            <div className="w-24 text-center px-2 py-3 text-xs font-semibold text-foreground">L5</div>
-            <div className="w-24 text-center px-2 py-3 text-xs font-semibold text-foreground">L10</div>
-            <div className="w-24 text-center px-2 py-3 text-xs font-semibold text-foreground">L20</div>
+            <div className="w-28 text-center px-2 py-3 text-xs font-semibold text-foreground">Matchup</div>
+            <div className="w-28 text-center px-2 py-3 text-xs font-semibold text-foreground">H2H</div>
+            <div className="w-28 text-center px-2 py-3 text-xs font-semibold text-foreground">2025</div>
+            <div className="w-28 text-center px-2 py-3 text-xs font-semibold text-foreground">L5</div>
+            <div className="w-28 text-center px-2 py-3 text-xs font-semibold text-foreground">L10</div>
+            <div className="w-28 text-center px-2 py-3 text-xs font-semibold text-foreground">L20</div>
           </div>
 
           {/* Analytics Data Rows */}
           <div className="space-y-2">
             {filteredAndSortedProps.map((prop, index) => {
-              // Get analytics data for this prop
-              const analytics = getAnalytics(
-                prop.playerId || prop.player_id || '',
-                prop.propType,
-                prop.line || 0,
-                overUnderFilter
-              );
+              // Get analytics data for this prop (graceful fallback if not available)
+              let analytics = null;
+              try {
+                analytics = getAnalytics(
+                  prop.playerId || prop.player_id || '',
+                  prop.propType,
+                  prop.line || 0,
+                  overUnderFilter
+                );
+              } catch (error) {
+                console.warn('[ANALYTICS_DEBUG] Analytics not available, using fallbacks:', error);
+              }
               
               // Debug analytics retrieval
               console.log(`[ANALYTICS_DEBUG] Prop: ${prop.playerName} ${prop.propType} ${prop.line} ${overUnderFilter}`);
@@ -1100,9 +1114,9 @@ export function PlayerPropsColumnView({
                   className="flex border-b border-border/20 hover:bg-gray-50/50 transition-colors duration-200"
                 >
                   {/* Matchup */}
-                  <div className="w-24 text-center px-2 py-3">
+                  <div className="w-28 text-center px-2 py-3">
                     <div className="text-xs font-medium text-foreground">
-                      {prop.opponentAbbr || '—'}
+                      {prop.opponentAbbr || prop.opponent || '—'}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {defensiveRank.display}
@@ -1110,7 +1124,7 @@ export function PlayerPropsColumnView({
                   </div>
 
                   {/* H2H */}
-                  <div className="w-24 text-center px-2 py-3">
+                  <div className="w-28 text-center px-2 py-3">
                     <div className="text-xs font-medium text-foreground">
                       {hasGameLogs && h2h.total > 0 ? `${h2h.pct.toFixed(0)}%` : '—'}
                     </div>
@@ -1120,7 +1134,7 @@ export function PlayerPropsColumnView({
                   </div>
 
                   {/* 2025 */}
-                  <div className="w-24 text-center px-2 py-3">
+                  <div className="w-28 text-center px-2 py-3">
                     <div className="text-xs font-medium text-foreground">
                       {hasGameLogs && season.total > 0 ? `${season.pct.toFixed(0)}%` : '—'}
                     </div>
@@ -1130,7 +1144,7 @@ export function PlayerPropsColumnView({
                   </div>
 
                   {/* L5 */}
-                  <div className="w-24 text-center px-2 py-3">
+                  <div className="w-28 text-center px-2 py-3">
                     <div className="text-xs font-medium text-foreground">
                       {hasGameLogs && l5.total > 0 ? `${l5.pct.toFixed(0)}%` : '—'}
                     </div>
@@ -1140,7 +1154,7 @@ export function PlayerPropsColumnView({
                   </div>
 
                   {/* L10 */}
-                  <div className="w-24 text-center px-2 py-3">
+                  <div className="w-28 text-center px-2 py-3">
                     <div className="text-xs font-medium text-foreground">
                       {hasGameLogs && l10.total > 0 ? `${l10.pct.toFixed(0)}%` : '—'}
                     </div>
@@ -1150,7 +1164,7 @@ export function PlayerPropsColumnView({
                   </div>
 
                   {/* L20 */}
-                  <div className="w-24 text-center px-2 py-3">
+                  <div className="w-28 text-center px-2 py-3">
                     <div className="text-xs font-medium text-foreground">
                       {hasGameLogs && l20.total > 0 ? `${l20.pct.toFixed(0)}%` : '—'}
                     </div>
