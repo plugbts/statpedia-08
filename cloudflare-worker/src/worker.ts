@@ -1259,11 +1259,52 @@ export default {
           const { supabaseFetch } = await import("./supabaseFetch");
           const sport = url.searchParams.get("sport")?.toLowerCase() || "nfl";
           const forceRefresh = url.searchParams.get("force_refresh") === "true";
-          const date = url.searchParams.get("date") || new Date().toISOString().split('T')[0];
+          const date = url.searchParams.get("date"); // Don't default to today's date
           const dateFrom = url.searchParams.get("date_from");
           const dateTo = url.searchParams.get("date_to");
           
-          console.log(`📊 Fetching player props for ${sport} (date: ${date}, forceRefresh: ${forceRefresh})...`);
+          // Get max props per request based on sport (recommended caps)
+          const getMaxPropsForSport = (sport: string): number => {
+            switch (sport.toLowerCase()) {
+              case 'nfl': return 150;
+              case 'nba': return 100;
+              case 'mlb': return 95;
+              case 'nhl': return 70;
+              default: return 150;
+            }
+          };
+          const maxPropsPerRequest = getMaxPropsForSport(sport);
+          const cacheTtlSeconds = parseInt(env.CACHE_TTL_SECONDS || "300");
+          
+          console.log(`📊 Fetching player props for ${sport} (date: ${date}, forceRefresh: ${forceRefresh}, maxProps: ${maxPropsPerRequest})...`);
+          
+          // Generate cache key
+          const cacheKey = `player-props-${sport}-${date || 'all'}-${dateFrom || ''}-${dateTo || ''}`;
+          
+          // Check cache first (unless force refresh)
+          if (!forceRefresh && env.PLAYER_PROPS_CACHE) {
+            try {
+              const cachedData = await env.PLAYER_PROPS_CACHE.get(cacheKey);
+              if (cachedData) {
+                const cached = JSON.parse(cachedData);
+                console.log(`📊 Cache hit for ${cacheKey}`);
+                return corsResponse({
+                  success: true,
+                  data: cached.data,
+                  cached: true,
+                  cacheKey: cacheKey,
+                  responseTime: 0,
+                  totalEvents: cached.totalEvents || 1,
+                  totalProps: cached.totalProps || cached.data.length,
+                  sport: sport,
+                  date: date,
+                  timestamp: cached.timestamp || new Date().toISOString()
+                });
+              }
+            } catch (cacheError) {
+              console.warn("⚠️ Cache read error:", cacheError);
+            }
+          }
           
           // Map sport to league
           const leagueMap: Record<string, string> = {
@@ -1299,6 +1340,7 @@ export default {
           } else if (date) {
             proplinesFilters.push(`date=eq.${date}`);
           }
+          // If no date filters are provided, return ALL proplines (no date filtering)
           
           // Construct proplines query
           const proplinesQuery = `proplines${proplinesFilters.length ? "?" + proplinesFilters.join("&") : ""}`;
@@ -1347,6 +1389,7 @@ export default {
             } else if (date) {
               gameLogsFilters.push(`date=eq.${date}`);
             }
+            // If no date filters are provided, return ALL game logs (no date filtering)
             
             if (gameLogsFilters.length > 0) {
               gameLogsQuery += "?" + gameLogsFilters.join("&");
@@ -1441,8 +1484,53 @@ export default {
 
           console.log(`📊 Enriched ${enrichedProps.length} props (${playerGameLogs.length} game logs available for enrichment)`);
 
+          // Filter out defensive props for NFL and NBA
+          const filteredProps = enrichedProps.filter((prop: any) => {
+            const propType = prop.prop_type?.toLowerCase() || '';
+            const currentSport = sport.toLowerCase();
+            
+            // Remove defensive props for NFL and NBA
+            if (currentSport === 'nfl' || currentSport === 'nba') {
+              const isDefensiveProp = propType.includes('defense') || 
+                                    propType.includes('tackle') || 
+                                    propType.includes('sack') || 
+                                    propType.includes('interception') ||
+                                    propType.includes('pass_defended') ||
+                                    propType.includes('forced_fumble') ||
+                                    propType.includes('fumble_recovery') ||
+                                    propType.includes('defensive_td') ||
+                                    propType.includes('safety') ||
+                                    propType.includes('blocked_kick') ||
+                                    propType.includes('defensive_special_teams') ||
+                                    propType.includes('defensive_combined_tackles') ||
+                                    propType.includes('defensive_solo_tackles') ||
+                                    propType.includes('defensive_assisted_tackles') ||
+                                    propType.includes('defensive_sacks') ||
+                                    propType.includes('defensive_interceptions') ||
+                                    propType.includes('defensive_pass_defended') ||
+                                    propType.includes('defensive_forced_fumbles') ||
+                                    propType.includes('defensive_fumble_recoveries') ||
+                                    propType.includes('defensive_touchdowns') ||
+                                    propType.includes('defensive_safeties') ||
+                                    propType.includes('defensive_blocked_kicks');
+              
+              if (isDefensiveProp) {
+                console.log(`🚫 Filtered out defensive prop: ${prop.prop_type} for ${currentSport}`);
+                return false;
+              }
+            }
+            
+            return true;
+          });
+          
+          console.log(`📊 Filtered to ${filteredProps.length} props (removed defensive props for NFL/NBA)`);
+
+          // Apply max props per request limit
+          const limitedProps = filteredProps.slice(0, maxPropsPerRequest);
+          console.log(`📊 Limited to ${limitedProps.length} props (max: ${maxPropsPerRequest})`);
+
           // Transform to expected format
-          const transformedProps = enrichedProps.map((prop: any) => ({
+          const transformedProps = limitedProps.map((prop: any) => ({
             id: prop.id,
             playerId: prop.player_id,
             playerName: prop.player_name,
@@ -1473,18 +1561,32 @@ export default {
             allBooks: prop.sportsbook ? [{ bookmaker: prop.sportsbook, side: 'over', price: prop.over_odds?.toString() || '', line: prop.line, deeplink: '' }] : []
           }));
           
-          return corsResponse({
+          const response = {
             success: true,
             data: transformedProps,
             cached: false,
-            cacheKey: `player-props-${sport}-${date}`,
+            cacheKey: cacheKey,
             responseTime: Date.now(),
             totalEvents: 1,
             totalProps: transformedProps.length,
             sport: sport,
             date: date,
             timestamp: new Date().toISOString()
-          });
+          };
+
+          // Cache the response (unless force refresh)
+          if (!forceRefresh && env.PLAYER_PROPS_CACHE) {
+            try {
+              await env.PLAYER_PROPS_CACHE.put(cacheKey, JSON.stringify(response), {
+                expirationTtl: cacheTtlSeconds
+              });
+              console.log(`📊 Cached response for ${cacheKey} (TTL: ${cacheTtlSeconds}s)`);
+            } catch (cacheError) {
+              console.warn("⚠️ Cache write error:", cacheError);
+            }
+          }
+
+          return corsResponse(response);
           
         } catch (error) {
           console.error('❌ Player props API error:', error);
