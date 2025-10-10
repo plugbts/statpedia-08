@@ -82,6 +82,8 @@ export type EnrichedProp = {
  * Load team registry from database for a given league
  */
 async function loadTeamRegistry(env: any, league: string): Promise<Record<string, any>> {
+  console.log(`[worker:teams] Loading team registry for ${league}...`);
+  
   const { data, error } = await supabaseFetch(
     env,
     `teams?league=eq.${league.toLowerCase()}`
@@ -92,6 +94,11 @@ async function loadTeamRegistry(env: any, league: string): Promise<Record<string
     return {};
   }
 
+  console.log(`[worker:teams] Raw team data for ${league}:`, data?.length ?? 0, 'teams');
+  if (data && data.length > 0) {
+    console.log(`[worker:teams] Sample team data:`, data[0]);
+  }
+
   const reg: Record<string, any> = {};
   (data ?? []).forEach((t: any) => {
     reg[t.team_name.toLowerCase()] = t;
@@ -100,6 +107,7 @@ async function loadTeamRegistry(env: any, league: string): Promise<Record<string
   });
   
   console.log(`[worker:teams] Loaded team registry for ${league}: ${Object.keys(reg).length} entries`);
+  console.log(`[worker:teams] Registry keys:`, Object.keys(reg).slice(0, 10));
   return reg;
 }
 
@@ -195,9 +203,12 @@ function attachTeams(
   let playerTeam = getPlayerTeam(row.player_id);
   let opponentTeam = null;
   
+  console.log(`[worker:teams] Processing ${row.player_id}: playerTeam=${playerTeam}, registry has ${Object.keys(registry).length} entries`);
+  
   if (playerTeam) {
     // If we have a player team mapping, use it
     const teamInfo = registry[playerTeam.toLowerCase()];
+    console.log(`[worker:teams] Looking up team info for ${playerTeam.toLowerCase()}:`, teamInfo ? 'found' : 'not found');
     if (teamInfo) {
       return {
         ...row,
