@@ -1326,6 +1326,42 @@ export default {
         }
       }
 
+      // Debug endpoint to inspect teams table
+      if (url.pathname === "/debug/teams") {
+        try {
+          const league = url.searchParams.get("league") || "nfl";
+          console.log(`🔍 DEBUG: Checking teams table for ${league}...`);
+          
+          const { data, error } = await supabaseFetch(
+            env,
+            `teams?league=eq.${league.toLowerCase()}`
+          );
+
+          if (error) {
+            return corsResponse({
+              success: false,
+              error: `Teams table error: ${error.message}`,
+              timestamp: new Date().toISOString()
+            }, 500);
+          }
+
+          return corsResponse({
+            success: true,
+            data: data || [],
+            totalTeams: data?.length || 0,
+            league: league,
+            timestamp: new Date().toISOString()
+          });
+        } catch (error) {
+          console.error("❌ Teams debug error:", error);
+          return corsResponse({
+            success: false,
+            error: `Teams debug error: ${error instanceof Error ? error.message : String(error)}`,
+            timestamp: new Date().toISOString()
+          }, 500);
+        }
+      }
+
       // Handle player props API endpoint - NEW WORKER-CENTRIC PIPELINE
       if (url.pathname === "/api/player-props") {
         try {
