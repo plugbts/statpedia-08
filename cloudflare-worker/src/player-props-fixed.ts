@@ -42,14 +42,12 @@ async function getRecentStatValues(
       select: 'value'
     });
 
-    const response = await supabaseFetch(env, `player_game_logs?${params}`);
+    const data = await supabaseFetch(env, `player_game_logs?${params}`);
     
-    if (!response.ok) {
-      console.error("Error fetching recent stats:", await response.text());
+    if (!data) {
+      console.error("Error fetching recent stats: No data returned");
       return [];
     }
-    
-    const data = await response.json();
     return (data || []).map((row: any) => parseFloat(row.value) || 0);
   } catch (error) {
     console.error("Error in getRecentStatValues:", error);
@@ -78,14 +76,12 @@ async function getH2HValues(
       select: 'value'
     });
 
-    const response = await supabaseFetch(env, `player_game_logs?${params}`);
+    const data = await supabaseFetch(env, `player_game_logs?${params}`);
     
-    if (!response.ok) {
-      console.error("Error fetching H2H stats:", await response.text());
+    if (!data) {
+      console.error("Error fetching H2H stats: No data returned");
       return [];
     }
-    
-    const data = await response.json();
     return (data || []).map((row: any) => parseFloat(row.value) || 0);
   } catch (error) {
     console.error("Error in getH2HValues:", error);
@@ -117,13 +113,11 @@ export async function getPlayerPropsFixed(env: any, league: string, dateISO: str
       `.replace(/\s+/g, '')
     });
 
-    const response = await supabaseFetch(env, `player_props_fixed?${params}`);
+    const data = await supabaseFetch(env, `player_props_fixed?${params}`);
     
-    if (!response.ok) {
-      throw new Error(`Failed to fetch player props: ${await response.text()}`);
+    if (!data) {
+      throw new Error(`Failed to fetch player props: No data returned`);
     }
-
-    const data = await response.json();
 
     // Process each row to add streaks and EV%
     const fixedData = await Promise.all((data ?? []).map(async (row: any) => {

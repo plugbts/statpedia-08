@@ -1317,6 +1317,46 @@ export default {
           };
           
           const league = leagueMap[sport] || 'nfl';
+
+          // Helper function to find the most recent date with data
+          async function findMostRecentDateWithData(env: any, league: string): Promise<string | null> {
+            try {
+              const { supabaseFetch } = await import("./supabaseFetch");
+              
+              // Query the player_props_fixed view to find the most recent date with data
+              const params = new URLSearchParams({
+                league: `eq.${league.toLowerCase()}`,
+                select: 'prop_date',
+                order: 'prop_date.desc',
+                limit: '1'
+              });
+              
+              const response = await supabaseFetch(env, `player_props_fixed?${params}`);
+              
+              if (response && response.length > 0) {
+                return response[0].prop_date;
+              }
+              
+              // If no data in the fixed view, try the original view as fallback
+              const fallbackParams = new URLSearchParams({
+                league: `eq.${league.toLowerCase()}`,
+                select: 'prop_date',
+                order: 'prop_date.desc',
+                limit: '1'
+              });
+              
+              const fallbackResponse = await supabaseFetch(env, `player_props_api_view?${fallbackParams}`);
+              
+              if (fallbackResponse && fallbackResponse.length > 0) {
+                return fallbackResponse[0].prop_date;
+              }
+              
+              return null;
+            } catch (error) {
+              console.error("Error finding most recent date:", error);
+              return null;
+            }
+          }
           
           // --- Helpers ---
           const normalizeDate = (d: string) => d.split("T")[0];
@@ -1351,9 +1391,15 @@ export default {
               }
               fixedProps = allProps;
             } else {
-              // No date filter - get today's props
-              const today = new Date().toISOString().split('T')[0];
-              fixedProps = await getPlayerPropsFixed(env, league, today, maxPropsPerRequest);
+              // No date filter - find the most recent date with data
+              const mostRecentDate = await findMostRecentDateWithData(env, league);
+              if (mostRecentDate) {
+                fixedProps = await getPlayerPropsFixed(env, league, mostRecentDate, maxPropsPerRequest);
+                console.log(`📅 Using most recent date with data: ${mostRecentDate}`);
+              } else {
+                console.log(`⚠️ No data found for league ${league}`);
+                fixedProps = [];
+              }
             }
             
             console.log(`📊 Fetched ${fixedProps?.length || 0} fixed props with streaks and EV%`);
@@ -1664,6 +1710,9 @@ export default {
           };
           });
           
+          // Use the actual date that was found/used
+          const actualDate = date || fixedProps[0]?.prop_date || fixedProps[0]?.date;
+          
           const response = {
             success: true,
             data: transformedProps,
@@ -1673,7 +1722,7 @@ export default {
             totalEvents: 1,
             totalProps: transformedProps.length,
             sport: sport,
-            date: date,
+            date: actualDate,
             timestamp: new Date().toISOString()
           };
 
