@@ -40,6 +40,7 @@ export async function buildTeamRegistry(league: string, env: any): Promise<Recor
 
     const reg: Record<string, TeamInfo> = {};
     (data ?? []).forEach((t: any) => {
+      // Handle case where aliases column might not exist
       const aliases = Array.isArray(t.aliases) ? t.aliases.map(norm) : [];
       const info: TeamInfo = {
         name: t.team_name,
@@ -51,13 +52,35 @@ export async function buildTeamRegistry(league: string, env: any): Promise<Recor
       // Add canonical name mapping
       reg[norm(t.team_name)] = info;
       
-      // Add alias mappings
-      aliases.forEach(a => { 
-        reg[a] = info; 
-      });
+      // Add alias mappings (only if aliases exist)
+      if (aliases.length > 0) {
+        aliases.forEach(a => { 
+          reg[a] = info; 
+        });
+      }
       
       // Add abbreviation mapping
       reg[norm(t.abbreviation)] = info;
+      
+      // Add common aliases based on team name patterns
+      const teamName = norm(t.team_name);
+      const parts = teamName.split(' ');
+      
+      // Add city name as alias (e.g., "green bay" from "green bay packers")
+      if (parts.length > 1) {
+        const city = parts.slice(0, -1).join(' ');
+        if (city && city !== teamName) {
+          reg[city] = info;
+        }
+      }
+      
+      // Add last word as alias (e.g., "packers" from "green bay packers")
+      if (parts.length > 1) {
+        const mascot = parts[parts.length - 1];
+        if (mascot && mascot !== teamName) {
+          reg[mascot] = info;
+        }
+      }
     });
 
     // Cache the result
