@@ -106,6 +106,30 @@ async function loadTeamRegistry(env: any, league: string): Promise<Record<string
     reg[t.abbreviation.toLowerCase()] = t;
   });
   
+  // If no teams found in database, create a minimal fallback registry
+  if (Object.keys(reg).length === 0) {
+    console.warn(`[worker:teams] No teams found in database for ${league}, creating fallback registry`);
+    
+    // Create a minimal fallback registry with just the teams we need for player mapping
+    const fallbackTeams = {
+      'nyj': { abbreviation: 'NYJ', team_name: 'New York Jets', logo_url: null },
+      'kc': { abbreviation: 'KC', team_name: 'Kansas City Chiefs', logo_url: null },
+      'buf': { abbreviation: 'BUF', team_name: 'Buffalo Bills', logo_url: null },
+      'bal': { abbreviation: 'BAL', team_name: 'Baltimore Ravens', logo_url: null },
+      'cin': { abbreviation: 'CIN', team_name: 'Cincinnati Bengals', logo_url: null },
+      'no': { abbreviation: 'NO', team_name: 'New Orleans Saints', logo_url: null },
+      'nyg': { abbreviation: 'NYG', team_name: 'New York Giants', logo_url: null },
+      'atl': { abbreviation: 'ATL', team_name: 'Atlanta Falcons', logo_url: null },
+      'lar': { abbreviation: 'LAR', team_name: 'Los Angeles Rams', logo_url: null },
+      'mia': { abbreviation: 'MIA', team_name: 'Miami Dolphins', logo_url: null },
+      'sf': { abbreviation: 'SF', team_name: 'San Francisco 49ers', logo_url: null },
+      'lac': { abbreviation: 'LAC', team_name: 'Los Angeles Chargers', logo_url: null }
+    };
+    
+    Object.assign(reg, fallbackTeams);
+    console.log(`[worker:teams] Created fallback registry with ${Object.keys(reg).length} entries`);
+  }
+  
   console.log(`[worker:teams] Loaded team registry for ${league}: ${Object.keys(reg).length} entries`);
   console.log(`[worker:teams] Registry keys:`, Object.keys(reg).slice(0, 10));
   return reg;
