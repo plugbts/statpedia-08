@@ -985,7 +985,7 @@ export function PlayerPropsColumnView({
 
                 {/* Prop Type */}
                   <div className="w-32 text-center px-2">
-                    <div className="text-xs font-medium text-foreground group-hover:text-primary/90 transition-all duration-300 transform group-hover:scale-105 truncate animate-pulse" style={{ animationDuration: '3s' }}>
+                    <div className="text-xs font-medium text-white group-hover:text-white transition-all duration-300 transform group-hover:scale-105 truncate animate-pulse drop-shadow-[0_0_6px_rgba(255,255,255,0.8)]" style={{ animationDuration: '3s' }}>
                       {formatPropType(prop.marketType || prop.propType)}
                   </div>
                 </div>
@@ -1023,21 +1023,21 @@ export function PlayerPropsColumnView({
 
                   {/* Streak */}
                   <div className="w-20 text-center px-2">
-                    <div className={`text-xs font-bold group-hover:opacity-80 transition-colors duration-200 ${
+                    <div className={`text-xs font-bold group-hover:opacity-80 transition-all duration-300 ${
                       (() => {
                         if (hasGameLogs && streak > 0) {
-                          return streak >= 2 ? 'text-red-500' : 'text-green-500';
+                          return streak >= 2 ? 'text-red-500 animate-pulse drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]' : 'text-green-500';
                         }
                         // Mock streak data for demonstration
                         const mockStreak = Math.floor(Math.random() * 5) + 1; // 1-5 game streak
                         const streakType = Math.random() > 0.5 ? 'W' : 'L';
                         if (streakType === 'W') {
-                          return mockStreak >= 2 ? 'text-red-500' : 'text-green-500';
+                          return mockStreak >= 2 ? 'text-red-500 animate-pulse drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]' : 'text-green-500';
                         } else {
-                          return mockStreak >= 2 ? 'text-blue-400' : 'text-yellow-500';
+                          return mockStreak >= 2 ? 'text-blue-400 animate-pulse drop-shadow-[0_0_8px_rgba(59,130,246,0.8)]' : 'text-yellow-500';
                         }
                       })()
-                    }`}>
+                    }`} style={{ animationDuration: '2s' }}>
                       {(() => {
                         if (hasGameLogs && streak > 0) return `${streak}W`;
                         // Mock streak data for demonstration
@@ -1131,12 +1131,12 @@ export function PlayerPropsColumnView({
         <div className="flex-1 overflow-x-auto">
           {/* Analytics Header */}
           <div className="flex bg-gradient-card border-b border-border/50 sticky top-0 z-20">
-            <div className="w-32 text-center px-2 py-3 text-xs font-semibold text-foreground">Matchup</div>
-            <div className="w-32 text-center px-2 py-3 text-xs font-semibold text-foreground">H2H</div>
-            <div className="w-32 text-center px-2 py-3 text-xs font-semibold text-foreground">2025</div>
-            <div className="w-32 text-center px-2 py-3 text-xs font-semibold text-foreground">L5</div>
-            <div className="w-32 text-center px-2 py-3 text-xs font-semibold text-foreground">L10</div>
-            <div className="w-32 text-center px-2 py-3 text-xs font-semibold text-foreground">L20</div>
+            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">Matchup</div>
+            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">H2H</div>
+            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">2025</div>
+            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">L5</div>
+            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">L10</div>
+            <div className="w-24 text-center px-1 py-3 text-xs font-semibold text-foreground">L20</div>
           </div>
 
           {/* Analytics Data Rows */}
@@ -1184,7 +1184,7 @@ export function PlayerPropsColumnView({
                   className="flex border-b border-border/20 hover:bg-gray-50/50 transition-colors duration-200"
                 >
                   {/* Matchup */}
-                  <div className="w-32 text-center px-2 py-3">
+                  <div className="w-24 text-center px-1 py-3">
                     <div className="text-xs font-medium text-foreground mb-1">
                       {prop.opponentAbbr || prop.opponent || '—'}
                     </div>
@@ -1214,7 +1214,7 @@ export function PlayerPropsColumnView({
                   </div>
 
                   {/* H2H */}
-                  <div className="w-32 text-center px-2 py-3">
+                  <div className="w-24 text-center px-1 py-3">
                     <div className="text-xs font-medium text-foreground">
                       {(() => {
                         if (hasGameLogs && h2h.total > 0) return `${h2h.pct.toFixed(0)}%`;
@@ -1235,7 +1235,7 @@ export function PlayerPropsColumnView({
                   </div>
 
                   {/* 2025 */}
-                  <div className="w-32 text-center px-2 py-3">
+                  <div className="w-24 text-center px-1 py-3">
                     <div className="text-xs font-medium text-foreground">
                       {(() => {
                         if (hasGameLogs && season.total > 0) return `${season.pct.toFixed(0)}%`;
@@ -1256,7 +1256,7 @@ export function PlayerPropsColumnView({
                   </div>
 
                   {/* L5 */}
-                  <div className="w-32 text-center px-2 py-3">
+                  <div className="w-24 text-center px-1 py-3">
                     <div className="text-xs font-medium text-foreground">
                       {(() => {
                         if (hasGameLogs && l5.total > 0) return `${l5.pct.toFixed(0)}%`;
@@ -1276,7 +1276,7 @@ export function PlayerPropsColumnView({
                   </div>
 
                   {/* L10 */}
-                  <div className="w-32 text-center px-2 py-3">
+                  <div className="w-24 text-center px-1 py-3">
                     <div className="text-xs font-medium text-foreground">
                       {(() => {
                         if (hasGameLogs && l10.total > 0) return `${l10.pct.toFixed(0)}%`;
@@ -1296,7 +1296,7 @@ export function PlayerPropsColumnView({
                   </div>
 
                   {/* L20 */}
-                  <div className="w-32 text-center px-2 py-3">
+                  <div className="w-24 text-center px-1 py-3">
                     <div className="text-xs font-medium text-foreground">
                       {(() => {
                         if (hasGameLogs && l20.total > 0) return `${l20.pct.toFixed(0)}%`;

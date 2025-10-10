@@ -3,10 +3,13 @@
 export const formatPropType = (propType: string): string => {
   if (!propType) return 'Unknown Prop';
   
-  // Remove player name if it appears in prop type
+  // Remove player name if it appears in prop type - MORE AGGRESSIVE CLEANING
   let cleanPropType = propType
     .replace(/^[A-Za-z\s]+(?:'s)?\s+/, '') // Remove player name prefix like "Josh Allen's" or "Josh Allen"
-    .replace(/^(Passing|Rushing|Receiving|Defense|Kicking|Field Goal|Extra Point)\s+/, ''); // Remove redundant prefixes
+    .replace(/^[A-Za-z\s]+(?:\s+[A-Za-z]+)?\s+/, '') // Remove any two-word player names
+    .replace(/^(Passing|Rushing|Receiving|Defense|Kicking|Field Goal|Extra Point)\s+/, '') // Remove redundant prefixes
+    .replace(/^[A-Z][a-z]+\s+[A-Z][a-z]+\s+/, '') // Remove any remaining two-word names at start
+    .replace(/^[A-Z][a-z]+\s+/, '') // Remove any remaining single word names at start
   
   // Convert snake_case to Title Case
   let formatted = cleanPropType
@@ -27,6 +30,10 @@ export const formatPropType = (propType: string): string => {
     'receiving yards': 'Receiving Yards',
     'receiving touchdowns': 'Receiving TDs',
     'receiving receptions': 'Receptions',
+    'receivingeptions': 'Receptions', // Fix typo
+    'longest completion': 'Longest Completion',
+    'longest reception': 'Longest Reception',
+    'longest rush': 'Longest Rush',
     'passing + rushing yards': 'Pass + Rush Yards',
     'rushing + receiving yards': 'Rush + Rec Yards',
     'passing + rushing + receiving yards': 'Total Yards',
