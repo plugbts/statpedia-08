@@ -15,6 +15,7 @@ import { filterPropsByLeague, filterGameLogsByLeague } from "./ingestionFilter";
 import { initializeCoverageReport, generateCoverageReport, getCoverageSummary } from "./coverageReport";
 import { getFixedPlayerPropsWithAnalytics } from "./fixes";
 import { cleanPlayerNames } from "./playerNames";
+import { normalizeTeams } from "./teams";
 // import { getPlayerPropsFixed } from "./player-props-fixed"; // No longer needed - using direct view fetch
 
 // Initialize prop type sync and supported props at worker startup
@@ -1474,13 +1475,19 @@ export default {
           console.log(`✅ Player names cleaned: ${cleanedProps.length} props processed`);
           console.log(`🔍 Sample prop after cleaning:`, cleanedProps[0]);
 
+          // Normalize team names and resolve abbreviations
+          console.log(`🏈 Normalizing teams for ${cleanedProps.length} props...`);
+          const normalizedProps = normalizeTeams(cleanedProps, `[worker:${sport}:${date || 'latest'}]`);
+          console.log(`✅ Teams normalized: ${normalizedProps.length} props processed`);
+          console.log(`🔍 Sample prop after team normalization:`, normalizedProps[0]);
+
           // --- OPTIONALLY fetch game logs for enrichment ---
           let playerGameLogs: any[] = [];
           
           // Build game logs query for enrichment
-          const playerIds = [...new Set(cleanedProps.map(p => p.player_id))];
-          const propTypes = [...new Set(cleanedProps.map(p => p.prop_type))];
-          const dates = [...new Set(cleanedProps.map(p => normalizeDate(p.prop_date || p.date || "")))];
+          const playerIds = [...new Set(normalizedProps.map((p: any) => p.player_id))];
+          const propTypes = [...new Set(normalizedProps.map((p: any) => p.prop_type))];
+          const dates = [...new Set(normalizedProps.map((p: any) => normalizeDate(p.prop_date || p.date || "")))];
 
           if (playerIds.length > 0) {
             let gameLogsQuery = "player_game_logs";
@@ -1517,11 +1524,11 @@ export default {
             }
           }
 
-          // --- USE CLEANED PROPS DIRECTLY: The view already has all the data we need ---
-        console.log(`📊 Using cleaned props with analytics: ${cleanedProps.length} props`);
+          // --- USE NORMALIZED PROPS DIRECTLY: The view already has all the data we need ---
+        console.log(`📊 Using normalized props with analytics: ${normalizedProps.length} props`);
         
-        // Use the cleaned props directly - no additional processing needed
-        const enrichedProps = cleanedProps || [];
+        // Use the normalized props directly - no additional processing needed
+        const enrichedProps = normalizedProps || [];
 
           console.log(`📊 Enriched ${enrichedProps.length} props (${playerGameLogs.length} game logs available for enrichment)`);
 
@@ -1652,8 +1659,8 @@ export default {
             playerId: prop.player_id,
             playerName: prop.clean_player_name || prop.player_name || prop.player_id, // Use cleaned player name with fallback
             player_id: prop.player_id, // For headshots compatibility
-            team: prop.team_abbr, // Fix: use underscore field name from view
-            opponent: prop.opponent_abbr, // Fix: use underscore field name from view
+            team: prop.team_abbr || prop.team, // Use normalized abbreviation with fallback
+            opponent: prop.opponent_abbr || prop.opponent, // Use normalized abbreviation with fallback
             propType: prop.prop_type,
             line: prop.line,
             overOdds: prop.over_odds, // Fix: use underscore field name from view
@@ -1662,8 +1669,8 @@ export default {
             position: 'N/A',
             gameDate: prop.date,
             sport: sport,
-            teamAbbr: prop.team_abbr, // Fix: use underscore field name from view
-            opponentAbbr: prop.opponent_abbr, // Fix: use underscore field name from view
+            teamAbbr: prop.team_abbr || prop.team, // Use normalized abbreviation with fallback
+            opponentAbbr: prop.opponent_abbr || prop.opponent, // Use normalized abbreviation with fallback
             gameId: prop.game_id, // Fix: use underscore field name from view
             available: true,
             lastUpdate: new Date().toISOString(),
@@ -1678,19 +1685,23 @@ export default {
             last10_streak: prop.last10_streak,
             last20_streak: prop.last20_streak,
             h2h_streak: prop.h2h_streak,
-            teamLogo: prop.team_logo, // Fix: use underscore field name from view
-            opponentLogo: prop.opponent_logo, // Fix: use underscore field name from view
+            teamLogo: prop.team_logo, // Use normalized team logo
+            opponentLogo: prop.opponent_logo, // Use normalized opponent logo
             // Enhanced fields
             bestOver: prop.over_odds ? { bookmaker: prop.sportsbook || 'Unknown', side: 'over', price: prop.over_odds.toString(), line: prop.line } : undefined,
             bestUnder: prop.under_odds ? { bookmaker: prop.sportsbook || 'Unknown', side: 'under', price: prop.under_odds.toString(), line: prop.line } : undefined,
             allBooks: prop.sportsbook ? [{ bookmaker: prop.sportsbook, side: 'over', price: prop.over_odds?.toString() || '', line: prop.line, deeplink: '' }] : [],
             // Clean player name field for debugging
-            clean_player_name: prop.clean_player_name
+            clean_player_name: prop.clean_player_name,
+            // Team debugging fields
+            team_name: prop.team_name,
+            opponent_name: prop.opponent_name,
+            debug_team: prop.debug_team
           };
           });
           
           // Use the actual date that was found/used
-          const actualDate = date || cleanedProps[0]?.prop_date || cleanedProps[0]?.date;
+          const actualDate = date || normalizedProps[0]?.prop_date || normalizedProps[0]?.date;
           
           const response = {
             success: true,
