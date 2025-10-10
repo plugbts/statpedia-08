@@ -2,6 +2,7 @@
 // Normalizes upstream event schema into ingest shape
 
 import { fetchGameDetails } from "./api";
+import { getPlayerTeam, getOpponentTeam } from "./playerTeamMap";
 
 export interface ExtractedPlayerProp {
   playerName: string;
@@ -111,6 +112,16 @@ export async function extractPlayerProps(events: any[], env?: any): Promise<Extr
           // For immediate fix, let's use a simple approach
           playerTeam = homeTeam; // Default to home team for now
           opponentTeam = awayTeam;
+        }
+      }
+      
+      // 🔍 FALLBACK: Use player team mapping if we still don't have team info
+      if (!playerTeam && playerId) {
+        const mappedTeam = getPlayerTeam(playerId);
+        if (mappedTeam) {
+          playerTeam = mappedTeam;
+          opponentTeam = getOpponentTeam(mappedTeam, eventId);
+          console.log(`🔍 Using player team mapping: ${playerId} -> ${playerTeam} vs ${opponentTeam}`);
         }
       }
       
