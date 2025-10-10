@@ -1605,10 +1605,20 @@ export default {
           };
 
           // Transform to expected format
-          const transformedProps = limitedProps.map((prop: any) => ({
+          const transformedProps = limitedProps.map((prop: any) => {
+            // Extract clean player name (remove prop type if appended)
+            let cleanPlayerName = prop.player_name || '';
+            const propType = prop.prop_type || '';
+            
+            // Remove prop type from player name if it's appended
+            if (cleanPlayerName.toLowerCase().includes(propType.toLowerCase())) {
+              cleanPlayerName = cleanPlayerName.replace(new RegExp(`\\s+${propType}`, 'gi'), '').trim();
+            }
+            
+            return {
             id: prop.id,
             playerId: prop.player_id,
-            playerName: prop.player_name,
+            playerName: cleanPlayerName,
             player_id: prop.player_id, // For headshots compatibility
             team: prop.team,
             opponent: prop.opponent,
@@ -1634,7 +1644,8 @@ export default {
             bestOver: prop.over_odds ? { bookmaker: prop.sportsbook, side: 'over', price: prop.over_odds.toString(), line: prop.line } : undefined,
             bestUnder: prop.under_odds ? { bookmaker: prop.sportsbook, side: 'under', price: prop.under_odds.toString(), line: prop.line } : undefined,
             allBooks: prop.sportsbook ? [{ bookmaker: prop.sportsbook, side: 'over', price: prop.over_odds?.toString() || '', line: prop.line, deeplink: '' }] : []
-          }));
+          };
+          });
           
           const response = {
             success: true,
