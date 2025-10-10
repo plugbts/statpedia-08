@@ -95,29 +95,19 @@ export async function getPlayerPropsFixed(env: any, league: string, dateISO: str
     // Get base data from the new view
     const params = new URLSearchParams({
       league: `eq.${league.toLowerCase()}`,
-      prop_date: `eq.${dateISO}`,
-      limit: limit.toString(),
-      select: `
-        prop_id,
-        player_id,
-        player_name,
-        prop_type,
-        line,
-        odds,
-        team_abbr,
-        opponent_abbr,
-        team_logo,
-        opponent_logo,
-        league,
-        prop_date
-      `.replace(/\s+/g, '')
+      prop_date: `eq.${dateISO}`
     });
 
-    const data = await supabaseFetch(env, `player_props_fixed?${params}`);
+    console.log(`🔍 Fetching player_props_fixed with params: ${params.toString()}`);
+    const data = await supabaseFetch(env, `player_props_fixed?${params}&limit=${limit}`);
+    
+    console.log(`📊 Raw data length: ${data ? data.length : 0}`);
     
     if (!data) {
       throw new Error(`Failed to fetch player props: No data returned`);
     }
+
+    console.log(`Fetched ${league.toUpperCase()} props:`, data.length);
 
     // Process each row to add streaks and EV%
     const fixedData = await Promise.all((data ?? []).map(async (row: any) => {
@@ -187,6 +177,8 @@ export async function getPlayerPropsFixed(env: any, league: string, dateISO: str
         propDate: row.prop_date
       };
     }));
+
+    console.log(`After processing ${league.toUpperCase()} props:`, fixedData.length);
 
     return fixedData;
   } catch (error) {

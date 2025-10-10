@@ -1,8 +1,8 @@
 export async function supabaseFetch(env: any, path: string, options: RequestInit = {}) {
   const url = `${env.SUPABASE_URL}/rest/v1/${path}`;
   const headers = {
-    apikey: env.SUPABASE_ANON_KEY,
-    Authorization: `Bearer ${env.SUPABASE_ANON_KEY}`,
+    apikey: env.SUPABASE_SERVICE_KEY,
+    Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
     "Content-Type": "application/json",
     ...options.headers,
   };
