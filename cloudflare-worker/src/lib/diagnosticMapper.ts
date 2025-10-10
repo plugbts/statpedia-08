@@ -268,8 +268,8 @@ export function mapWithDiagnostics(odds: any[]): { mapped: any[]; stats: any } {
       const mappedProp = {
         player_id: playerId,
         player_name: odd.playerName,
-        team: odd.team || 'UNK',
-        opponent: odd.opponent || 'UNK',
+        team: odd.team || 'UNK', // This will now come from extraction
+        opponent: odd.opponent || 'UNK', // This will now come from extraction
         date: date,
         prop_type: propType,
         sportsbook: odd.sportsbook,

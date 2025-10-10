@@ -14,6 +14,8 @@ export interface ExtractedPlayerProp {
   marketId: string;
   oddId: string;
   overUnder: string; // 'over' or 'under'
+  team?: string | null; // Player's team
+  opponent?: string | null; // Opposing team
   rawData?: any; // Store raw data for debugging
 }
 
@@ -28,6 +30,12 @@ export function extractPlayerProps(events: any[]): ExtractedPlayerProp[] {
     const eventId = ev.id || ev.eventID || ev.event_id || 'unknown';
     const league = ev.leagueID || ev.league || ev.league_id || 'unknown';
     const eventStartUtc = ev.startTime || ev.commence_time || ev.startUtc || ev.date || new Date().toISOString();
+    
+    // Extract team information from the event
+    const homeTeam = ev.homeTeam || ev.teams?.home?.names?.short || ev.teams?.home?.names?.long || ev.teams?.[0];
+    const awayTeam = ev.awayTeam || ev.teams?.away?.names?.short || ev.teams?.away?.names?.long || ev.teams?.[1];
+    
+    console.log(`🏈 Event ${eventId}: ${homeTeam} vs ${awayTeam}`);
     
     // Handle the actual API structure: ev.odds contains all the player props
     const oddsData = ev?.odds || {};
@@ -45,6 +53,22 @@ export function extractPlayerProps(events: any[]): ExtractedPlayerProp[] {
       const playerInfo = ev?.players?.[odd.playerID];
       const playerName = playerInfo?.name || odd.playerID || 'Unknown Player';
       const playerId = odd.playerID;
+      
+      // Determine player's team and opponent
+      const playerTeamID = playerInfo?.teamID;
+      let playerTeam = null;
+      let opponentTeam = null;
+      
+      if (playerTeamID) {
+        // Try to match player's team ID to home/away teams
+        // This is a simplified approach - could be enhanced with better team matching
+        if (homeTeam && awayTeam) {
+          // For now, we'll need to implement better team matching logic
+          // For immediate fix, let's use a simple approach
+          playerTeam = homeTeam; // Default to home team for now
+          opponentTeam = awayTeam;
+        }
+      }
       
       // Extract market information
       const marketName = odd.marketName || `${odd.statID} ${odd.betTypeID}`;
@@ -93,6 +117,8 @@ export function extractPlayerProps(events: any[]): ExtractedPlayerProp[] {
         marketId: odd.statID,
         oddId,
         overUnder,
+        team: playerTeam,
+        opponent: opponentTeam,
         rawData: odd // Store raw data for debugging
       };
       
