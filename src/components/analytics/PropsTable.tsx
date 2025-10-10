@@ -29,42 +29,42 @@ export function PropsTable({
   if (compact) {
     return (
       <div className={`overflow-x-auto scrollbar-thin ${className}`}>
-        <table className="min-w-full divide-y divide-gray-100">
+        <table className="min-w-full divide-y divide-gray-50">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-1 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Player
               </th>
-              <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-1 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Prop
               </th>
-              <th className="px-2 py-1.5 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-1 py-1 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Line
               </th>
-              <th className="px-2 py-1.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-1 py-1 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Grade
               </th>
-              <th className="px-2 py-1.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-1 py-1 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Ranks
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-100">
-            {rows.slice(0, 15).map((row) => (
-              <tr key={row.prop_id} className="hover:bg-gray-50/50">
-                <td className="px-2 py-1.5 whitespace-nowrap text-xs font-medium text-gray-900">
+          <tbody className="bg-white divide-y divide-gray-50">
+            {rows.slice(0, 20).map((row) => (
+              <tr key={row.prop_id} className="hover:bg-gray-50/30">
+                <td className="px-1 py-1 whitespace-nowrap text-xs font-medium text-gray-900">
                   {row.player_id}
                 </td>
-                <td className="px-2 py-1.5 whitespace-nowrap text-xs text-gray-600 capitalize">
+                <td className="px-1 py-1 whitespace-nowrap text-xs text-gray-600 capitalize">
                   {row.prop_type}
                 </td>
-                <td className="px-2 py-1.5 whitespace-nowrap text-xs text-gray-900 text-right font-medium">
+                <td className="px-1 py-1 whitespace-nowrap text-xs text-gray-900 text-right font-medium">
                   {row.line}
                 </td>
-                <td className="px-2 py-1.5 whitespace-nowrap text-center">
+                <td className="px-1 py-1 whitespace-nowrap text-center">
                   <MatchupBadgeCompact grade={row.matchup_grade} />
                 </td>
-                <td className="px-2 py-1.5 whitespace-nowrap text-center text-xs text-gray-600">
+                <td className="px-1 py-1 whitespace-nowrap text-center text-xs text-gray-600">
                   {row.offense_rank}/{row.defense_rank}
                 </td>
               </tr>

@@ -51,7 +51,7 @@ export function MatchupBadgeCompact({ grade, className = "" }: { grade: number; 
   return (
     <span 
       className={`
-        inline-flex items-center justify-center w-12 h-6 rounded text-xs font-bold text-white
+        inline-flex items-center justify-center w-10 h-5 rounded text-xs font-bold text-white
         ${className}
       `}
       style={{ backgroundColor: color }}
