@@ -1333,10 +1333,8 @@ export default {
           const joined = playerGameLogs.map((gameLog: any) => {
             const propLine = propLines?.find(
               (p: any) =>
-                p.player_id === gameLog.player_id &&
-                normalizeDate(p.date_normalized || p.date) === normalizeDate(gameLog.date) &&
-                p.prop_type === gameLog.prop_type &&
-                p.league.toLowerCase() === gameLog.league.toLowerCase()
+                p.conflict_key === gameLog.conflict_key &&
+                p.date_normalized === gameLog.date
             );
 
             if (!propLine) {
@@ -1345,9 +1343,20 @@ export default {
                 gameLog_date: gameLog.date,
                 prop_type: gameLog.prop_type,
                 league: gameLog.league,
+                gameLog_conflict_key: gameLog.conflict_key,
+                available_prop_conflict_keys: propLines?.filter(p => p.player_id === gameLog.player_id).map(p => p.conflict_key).slice(0, 3)
               });
               return null;
             }
+
+            console.log("✅ Successful join:", {
+              player_id: gameLog.player_id,
+              prop_type: gameLog.prop_type,
+              line: propLine.line,
+              over_odds: propLine.over_odds,
+              gameLog_conflict_key: gameLog.conflict_key,
+              prop_conflict_key: propLine.conflict_key
+            });
 
             return { ...gameLog, ...propLine };
           }).filter(Boolean);
