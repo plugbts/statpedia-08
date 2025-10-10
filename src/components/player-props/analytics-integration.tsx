@@ -47,6 +47,18 @@ export function AnalyticsIntegration({ league, date, onDataUpdate }: AnalyticsIn
         
         setAnalyticsData(analyticsData as any);
         onDataUpdate?.(analyticsData as any);
+      } else {
+        // Fallback to original analytics API if no fixed props available
+        const response = await analyticsApi.getProps({
+          league,
+          date,
+          limit: 50
+        });
+        
+        if (response.ok && response.data) {
+          setAnalyticsData(response.data);
+          onDataUpdate?.(response.data);
+        }
       }
     } catch (error) {
       console.error('Error fetching analytics data:', error);

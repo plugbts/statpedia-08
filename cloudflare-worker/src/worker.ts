@@ -13,6 +13,7 @@ import { initializePropTypeSync, normalizePropType } from "./propTypeSync";
 import { initializeSupportedProps, loadSupportedProps, SupportedProps } from "./supportedProps";
 import { filterPropsByLeague, filterGameLogsByLeague } from "./ingestionFilter";
 import { initializeCoverageReport, generateCoverageReport, getCoverageSummary } from "./coverageReport";
+import { getFixedPlayerPropsWithAnalytics } from "./fixes";
 
 // Initialize prop type sync and supported props at worker startup
 let propTypeSyncInitialized = false;
@@ -1323,34 +1324,50 @@ export default {
               ? `in.(${values.map(v => `"${v}"`).join(",")})`
               : null;
 
-          // --- OPTIMIZED APPROACH: Fetch ALL proplines first, then optionally enrich with game logs ---
+          // --- USE FIXED PLAYER PROPS WITH ANALYTICS ---
+          console.log(`📊 Using fixed player props with analytics for ${league} (date: ${date || 'all'})...`);
           
-          // Build proplines filters
-          const proplinesFilters: string[] = [];
-          
-          // Only add league filter if not "all"
-          if (league !== "all") {
-            proplinesFilters.push(`league=eq.${league.toLowerCase()}`);
+          // Use the fixed player props function
+          let fixedProps: any[] = [];
+          try {
+            if (date) {
+              // Single date query
+              fixedProps = await getFixedPlayerPropsWithAnalytics(env, league, date, maxPropsPerRequest);
+            } else if (dateFrom && dateTo) {
+              // Date range query - get props for each date in range
+              const startDate = new Date(dateFrom);
+              const endDate = new Date(dateTo);
+              const allProps: any[] = [];
+              
+              for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+                const dateStr = d.toISOString().split('T')[0];
+                try {
+                  const dayProps = await getFixedPlayerPropsWithAnalytics(env, league, dateStr, maxPropsPerRequest);
+                  allProps.push(...dayProps);
+                } catch (error) {
+                  console.warn(`⚠️ Failed to fetch props for ${dateStr}:`, error);
+                }
+              }
+              fixedProps = allProps;
+            } else {
+              // No date filter - get today's props
+              const today = new Date().toISOString().split('T')[0];
+              fixedProps = await getFixedPlayerPropsWithAnalytics(env, league, today, maxPropsPerRequest);
+            }
+            
+            console.log(`📊 Fetched ${fixedProps?.length || 0} fixed props with analytics`);
+          } catch (error) {
+            console.error("❌ Failed to fetch fixed player props:", error);
+            return corsResponse({
+              success: false,
+              error: `Failed to fetch player props: ${error instanceof Error ? error.message : String(error)}`,
+              sport: sport,
+              date: date,
+              timestamp: new Date().toISOString()
+            }, 500);
           }
-          
-          // Use flexible date range for proplines query
-          if (dateFrom && dateTo) {
-            proplinesFilters.push(`date=gte.${dateFrom}`);
-            proplinesFilters.push(`date=lte.${dateTo}`);
-          } else if (date) {
-            proplinesFilters.push(`date=eq.${date}`);
-          }
-          // If no date filters are provided, return ALL proplines (no date filtering)
-          
-          // Construct proplines query
-          const proplinesQuery = `proplines${proplinesFilters.length ? "?" + proplinesFilters.join("&") : ""}`;
-          console.log(`📊 Proplines query: ${proplinesQuery}`);
-          
-          // Fetch ALL proplines first
-          const propLines = await supabaseFetch(env, proplinesQuery, { method: "GET" }) as any[];
-          console.log(`📊 Fetched ${propLines?.length || 0} proplines`);
 
-          if (!propLines || propLines.length === 0) {
+          if (!fixedProps || fixedProps.length === 0) {
             return corsResponse({
               success: true,
               data: [],
@@ -1369,9 +1386,9 @@ export default {
           let playerGameLogs: any[] = [];
           
           // Build game logs query for enrichment
-          const playerIds = [...new Set(propLines.map(p => p.player_id))];
-          const propTypes = [...new Set(propLines.map(p => p.prop_type))];
-          const dates = [...new Set(propLines.map(p => normalizeDate(p.date_normalized || p.date)))];
+          const playerIds = [...new Set(fixedProps.map(p => p.player_id))];
+          const propTypes = [...new Set(fixedProps.map(p => p.prop_type))];
+          const dates = [...new Set(fixedProps.map(p => normalizeDate(p.prop_date || p.date)))];
 
           if (playerIds.length > 0) {
             let gameLogsQuery = "player_game_logs";
@@ -1409,10 +1426,10 @@ export default {
           }
 
         // --- OPTIMIZED PROGRESSIVE MATCHING: Start with ALL proplines, optionally enrich with game logs ---
-        console.log(`📊 Using optimized progressive matching: ${propLines?.length || 0} proplines, ${playerGameLogs.length} game logs for enrichment`);
+        console.log(`📊 Using fixed props with analytics: ${fixedProps.length} props`);
         
         // --- Progressive matching with flexible date tolerance ---
-        const enrichedProps = propLines?.map((propLine: any) => {
+        const enrichedProps = fixedProps?.map((propLine: any) => {
           // Normalize prop line data
           const normalizedProp = {
             ...propLine,
@@ -1604,34 +1621,28 @@ export default {
             return teamMap[teamName.toUpperCase()] || teamName;
           };
 
-          // Transform to expected format
+          // Transform to expected format using fixed props data
           const transformedProps = limitedProps.map((prop: any) => {
-            // Extract clean player name (remove prop type if appended)
-            let cleanPlayerName = prop.player_name || '';
-            const propType = prop.prop_type || '';
-            
-            // Remove prop type from player name if it's appended
-            if (cleanPlayerName.toLowerCase().includes(propType.toLowerCase())) {
-              cleanPlayerName = cleanPlayerName.replace(new RegExp(`\\s+${propType}`, 'gi'), '').trim();
-            }
+            // Use the already cleaned player name from fixes
+            const cleanPlayerName = prop.playerName || prop.player_name || '';
             
             return {
-            id: prop.id,
+            id: prop.prop_id || prop.id,
             playerId: prop.player_id,
             playerName: cleanPlayerName,
             player_id: prop.player_id, // For headshots compatibility
-            team: prop.team,
-            opponent: prop.opponent,
+            team: prop.team_id || prop.team,
+            opponent: prop.opponent_team_id || prop.opponent,
             propType: prop.prop_type,
             line: prop.line, // Use actual line from proplines
-            overOdds: prop.over_odds,
-            underOdds: prop.under_odds,
-            sportsbooks: [prop.sportsbook],
+            overOdds: prop.odds, // Use odds from fixes
+            underOdds: prop.odds, // Use same odds for both sides
+            sportsbooks: [prop.sportsbook || 'Unknown'],
             position: prop.position || 'N/A',
-            gameDate: prop.date,
+            gameDate: prop.prop_date || prop.date,
             sport: sport,
-            teamAbbr: getTeamAbbr(prop.team),
-            opponentAbbr: getTeamAbbr(prop.opponent),
+            teamAbbr: prop.teamAbbr || 'UNK', // Already fixed by fixes
+            opponentAbbr: 'UNK', // Could be enhanced later
             gameId: prop.game_id,
             available: prop.is_active !== false,
             lastUpdate: prop.last_updated || prop.updated_at,
@@ -1639,11 +1650,16 @@ export default {
             market: prop.prop_type,
             marketId: prop.prop_type,
             period: 'full_game',
-            statEntity: prop.player_name,
-            // Enhanced fields
-            bestOver: prop.over_odds ? { bookmaker: prop.sportsbook, side: 'over', price: prop.over_odds.toString(), line: prop.line } : undefined,
-            bestUnder: prop.under_odds ? { bookmaker: prop.sportsbook, side: 'under', price: prop.under_odds.toString(), line: prop.line } : undefined,
-            allBooks: prop.sportsbook ? [{ bookmaker: prop.sportsbook, side: 'over', price: prop.over_odds?.toString() || '', line: prop.line, deeplink: '' }] : []
+            statEntity: cleanPlayerName,
+            // Enhanced fields with analytics and fixes data
+            analytics: prop.analytics || null,
+            evPercent: prop.evPercent,
+            streak: prop.streak,
+            teamLogo: prop.teamLogo,
+            // Enhanced fields using fixed props data
+            bestOver: prop.odds ? { bookmaker: prop.sportsbook || 'Unknown', side: 'over', price: prop.odds.toString(), line: prop.line } : undefined,
+            bestUnder: prop.odds ? { bookmaker: prop.sportsbook || 'Unknown', side: 'under', price: prop.odds.toString(), line: prop.line } : undefined,
+            allBooks: prop.sportsbook ? [{ bookmaker: prop.sportsbook, side: 'over', price: prop.odds?.toString() || '', line: prop.line, deeplink: '' }] : []
           };
           });
           
