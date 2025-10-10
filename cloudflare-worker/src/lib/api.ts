@@ -43,6 +43,37 @@ export async function fetchEventsWithProps(env: any, leagueID: string, opts?: {
     const events = response.data || response;
     const eventsArray = Array.isArray(events) ? events : [];
     
+    // 🔍 DEBUG: Log team field structure from API response
+    console.log(`🔍 [SGO:DEBUG] Inspecting team fields in ${eventsArray.length} events for ${leagueID}`);
+    eventsArray.slice(0, 3).forEach((event: any, idx: number) => {
+      console.log(`🔍 [SGO:DEBUG] Event ${idx}:`, {
+        gameId: event.gameId ?? event.id ?? event.eventID ?? null,
+        homeTeamId: event.homeTeamId ?? event.homeTeamID ?? null,
+        awayTeamId: event.awayTeamId ?? event.awayTeamID ?? null,
+        teamId: event.teamId ?? event.teamID ?? null,
+        opponentTeamId: event.opponentTeamId ?? event.opponentTeamID ?? null,
+        homeTeamName: event.homeTeamName ?? event.homeTeam?.name ?? null,
+        awayTeamName: event.awayTeamName ?? event.awayTeam?.name ?? null,
+        teamName: event.teamName ?? event.team?.name ?? null,
+        opponentName: event.opponentName ?? event.opponent?.name ?? null,
+        teams: event.teams ?? null,
+        game: event.game ? {
+          homeTeamId: event.game.homeTeamId ?? event.game.homeTeamID ?? null,
+          awayTeamId: event.game.awayTeamId ?? event.game.awayTeamID ?? null,
+          teams: event.game.teams ?? null
+        } : null,
+        // Check if odds contain team info
+        oddsSample: event.odds ? Object.keys(event.odds).slice(0, 2).map(oddId => {
+          const odd = event.odds[oddId];
+          return {
+            oddId,
+            teamId: odd?.teamID ?? odd?.teamId ?? null,
+            playerTeamId: odd?.playerTeamID ?? odd?.playerTeamId ?? null
+          };
+        }) : null
+      });
+    });
+    
     console.log(`✅ Fetched ${eventsArray.length} events for ${leagueID}`);
     return eventsArray;
     

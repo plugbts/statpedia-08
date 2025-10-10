@@ -54,8 +54,35 @@ export function extractPlayerProps(events: any[]): ExtractedPlayerProp[] {
       const playerName = playerInfo?.name || odd.playerID || 'Unknown Player';
       const playerId = odd.playerID;
       
+      // 🔍 DEBUG: Log team data available for this prop
+      if (out.length < 3) { // Only log first 3 props to avoid spam
+        console.log(`🔍 [EXTRACT:DEBUG] Prop ${out.length}:`, {
+          playerId,
+          playerName,
+          playerInfo: playerInfo ? {
+            teamID: playerInfo.teamID,
+            teamId: playerInfo.teamId,
+            team: playerInfo.team,
+            teamName: playerInfo.teamName
+          } : null,
+          oddData: {
+            teamID: odd.teamID,
+            teamId: odd.teamId,
+            playerTeamID: odd.playerTeamID,
+            playerTeamId: odd.playerTeamId
+          },
+          eventTeams: {
+            homeTeam,
+            awayTeam,
+            homeTeamId: ev.homeTeamId ?? ev.homeTeamID,
+            awayTeamId: ev.awayTeamId ?? ev.awayTeamID,
+            teams: ev.teams
+          }
+        });
+      }
+      
       // Determine player's team and opponent
-      const playerTeamID = playerInfo?.teamID;
+      const playerTeamID = playerInfo?.teamID || odd.playerTeamID || odd.teamID;
       let playerTeam = null;
       let opponentTeam = null;
       
