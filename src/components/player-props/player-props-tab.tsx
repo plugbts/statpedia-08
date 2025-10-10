@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -511,6 +511,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const [minOdds, setMinOdds] = useState(-175);
   const [maxOdds, setMaxOdds] = useState(500);
   const [useOddsFilter, setUseOddsFilter] = useState(true);
+
+  // Memoize today's date to prevent constant re-renders in analytics
+  const todayDate = useMemo(() => new Date().toISOString().split('T')[0], []);
 
   // Filter presets
   const filterPresets = {
@@ -1730,7 +1733,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         <div className="px-6">
           <AnalyticsIntegration 
             league={sportFilter.toLowerCase()}
-            date={new Date().toISOString().split('T')[0]}
+            date={todayDate}
             onDataUpdate={(data) => {
               console.log('Analytics data updated:', data.length, 'props');
             }}

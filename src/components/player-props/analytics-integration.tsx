@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -69,9 +69,40 @@ export function AnalyticsIntegration({ league, date, onDataUpdate }: AnalyticsIn
 
   useEffect(() => {
     if (showAnalytics) {
-      fetchAnalyticsData();
+      debouncedFetchAnalyticsData();
     }
-  }, [league, date, showAnalytics]);
+  }, [league, date, showAnalytics, debouncedFetchAnalyticsData]);
+
+  // Prevent unnecessary re-fetches by memoizing the fetch function
+  const memoizedFetchAnalyticsData = useMemo(() => {
+    return fetchAnalyticsData;
+  }, [league, date]);
+
+  // Add debounce to prevent rapid successive calls
+  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+  
+  const debouncedFetchAnalyticsData = useMemo(() => {
+    return () => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+      
+      const timer = setTimeout(() => {
+        fetchAnalyticsData();
+      }, 300); // 300ms debounce
+      
+      setDebounceTimer(timer);
+    };
+  }, [fetchAnalyticsData, debounceTimer]);
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+    };
+  }, [debounceTimer]);
 
   if (!showAnalytics) {
     return (
@@ -111,7 +142,7 @@ export function AnalyticsIntegration({ league, date, onDataUpdate }: AnalyticsIn
             <Button
               variant="outline"
               size="sm"
-              onClick={fetchAnalyticsData}
+              onClick={memoizedFetchAnalyticsData}
               disabled={loading}
             >
               {loading ? 'Loading...' : 'Refresh'}
