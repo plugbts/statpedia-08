@@ -11,6 +11,7 @@
 import { supabaseFetch } from "./supabaseFetch";
 import { cleanPlayerNames, type RawPropRow, type CleanPropRow } from "./playerNames";
 import { enrichTeams, type RawRow, type CleanTeamRow } from "./teams";
+import { getPlayerTeam, getOpponentTeam } from "./lib/playerTeamMap";
 
 export type PropLineRow = {
   id: string;
@@ -78,8 +79,55 @@ export type EnrichedProp = {
 };
 
 /**
- * Fetch raw proplines data (lean query)
- * Falls back to player_props_fixed view if proplines table is empty
+ * Load team registry from database for a given league
+ */
+async function loadTeamRegistry(env: any, league: string): Promise<Record<string, any>> {
+  const { data, error } = await supabaseFetch(
+    env,
+    `teams?league=eq.${league.toLowerCase()}`
+  );
+
+  if (error) {
+    console.warn(`[worker:teams] Failed to load team registry for ${league}:`, error);
+    return {};
+  }
+
+  const reg: Record<string, any> = {};
+  (data ?? []).forEach((t: any) => {
+    reg[t.team_name.toLowerCase()] = t;
+    (t.aliases ?? []).forEach((a: string) => reg[a.toLowerCase()] = t);
+    reg[t.abbreviation.toLowerCase()] = t;
+  });
+  
+  console.log(`[worker:teams] Loaded team registry for ${league}: ${Object.keys(reg).length} entries`);
+  return reg;
+}
+
+/**
+ * Debug logger for team mapping
+ */
+function debugTeamMapping(rows: any[], games: Record<string, any>, logPrefix = "[worker:teams]") {
+  rows.slice(0, 5).forEach((row, idx) => { // Only log first 5 to avoid spam
+    const game = games[row.game_id] ?? null;
+
+    console.log(`${logPrefix} idx=${idx}`, {
+      game_id: row.game_id,
+      league: row.league,
+      raw_team: row.team ?? null,
+      raw_opponent: row.opponent ?? null,
+      game_home: game?.home_team ?? null,
+      game_away: game?.away_team ?? null,
+      resolved_team_abbr: row.team_abbr ?? "UNK",
+      resolved_opp_abbr: row.opponent_abbr ?? "UNK",
+      resolved_team_logo: row.team_logo ?? null,
+      resolved_opp_logo: row.opponent_logo ?? null,
+    });
+  });
+}
+
+/**
+ * Fetch raw proplines data (lean query - no team/opponent from fallback)
+ * Only fetches essential identifiers and odds data
  */
 export async function fetchPropLines(
   env: any,
@@ -99,7 +147,7 @@ export async function fetchPropLines(
 
   console.log(`[worker:fetchProps] proplines table empty, falling back to player_props_fixed view`);
   
-  // Fallback to player_props_fixed view
+  // Fallback to player_props_fixed view - but only fetch raw essentials
   const { data: fallbackData, error: fallbackError } = await supabaseFetch(
     env,
     `player_props_fixed?league=eq.${league.toLowerCase()}&prop_date=eq.${dateISO}`
@@ -112,13 +160,13 @@ export async function fetchPropLines(
 
   console.log(`[worker:fetchProps] fetched ${fallbackData?.length ?? 0} props from fallback for ${league} on ${dateISO}`);
   
-  // Transform fallback data to match PropLineRow format
+  // Transform fallback data to match PropLineRow format - but don't include team/opponent (they're UNK anyway)
   const transformedData = (fallbackData ?? []).map((row: any) => ({
     id: row.prop_id || row.id,
     player_id: row.player_id,
     player_name: row.player_name,
-    team: row.team,
-    opponent: row.opponent,
+    team: null, // Don't use team from fallback view (it's UNK)
+    opponent: null, // Don't use opponent from fallback view (it's UNK)
     league: row.league,
     season: row.season || '2024',
     game_id: row.game_id,
@@ -131,6 +179,99 @@ export async function fetchPropLines(
   }));
 
   return transformedData as PropLineRow[];
+}
+
+/**
+ * Attach team data at runtime using team registry and player mapping
+ */
+function attachTeams(
+  row: any, 
+  registry: Record<string, any>, 
+  games: Record<string, any>
+): any {
+  const game = games[row.game_id];
+  
+  // Try to get team from player mapping first
+  let playerTeam = getPlayerTeam(row.player_id);
+  let opponentTeam = null;
+  
+  if (playerTeam) {
+    // If we have a player team mapping, use it
+    const teamInfo = registry[playerTeam.toLowerCase()];
+    if (teamInfo) {
+      return {
+        ...row,
+        team_abbr: teamInfo.abbreviation,
+        team_logo: teamInfo.logo_url,
+        team_name: teamInfo.team_name,
+        opponent_abbr: "OPP", // Simplified for now
+        opponent_logo: null,
+        opponent_name: "Opponent",
+        debug_team: {
+          league: row.league,
+          raw_team: row.team,
+          raw_opponent: row.opponent,
+          team_resolved: true,
+          opponent_resolved: false,
+          team_strategy: "player_mapping",
+          opp_strategy: "fallback",
+          player_team_mapping: playerTeam
+        }
+      };
+    }
+  }
+  
+  // Fallback: try to resolve from game data if available
+  if (game) {
+    const home = registry[game.home_team?.toLowerCase()] ?? null;
+    const away = registry[game.away_team?.toLowerCase()] ?? null;
+    
+    // For now, assume player is on home team (this could be improved)
+    const teamInfo = home || away;
+    if (teamInfo) {
+      return {
+        ...row,
+        team_abbr: teamInfo.abbreviation,
+        team_logo: teamInfo.logo_url,
+        team_name: teamInfo.team_name,
+        opponent_abbr: home ? (away?.abbreviation ?? "OPP") : (home?.abbreviation ?? "OPP"),
+        opponent_logo: home ? away?.logo_url : home?.logo_url,
+        opponent_name: home ? (away?.team_name ?? "Opponent") : (home?.team_name ?? "Opponent"),
+        debug_team: {
+          league: row.league,
+          raw_team: row.team,
+          raw_opponent: row.opponent,
+          team_resolved: true,
+          opponent_resolved: true,
+          team_strategy: "game_data",
+          opp_strategy: "game_data",
+          game_data: { home: game.home_team, away: game.away_team }
+        }
+      };
+    }
+  }
+  
+  // Final fallback: UNK
+  return {
+    ...row,
+    team_abbr: "UNK",
+    team_logo: null,
+    team_name: "Unknown Team",
+    opponent_abbr: "UNK",
+    opponent_logo: null,
+    opponent_name: "Unknown Opponent",
+    debug_team: {
+      league: row.league,
+      raw_team: row.team,
+      raw_opponent: row.opponent,
+      team_resolved: false,
+      opponent_resolved: false,
+      team_strategy: "fallback",
+      opp_strategy: "fallback",
+      game_id: row.game_id,
+      player_id: row.player_id
+    }
+  };
 }
 
 /**
@@ -301,11 +442,22 @@ export async function fetchPropsForDate(
   console.log(`[worker:fetchProps] Cleaning player names for ${propLines.length} props...`);
   const cleanedProps = cleanPlayerNames(propLines, "[worker:fetchProps:names]");
 
-  // 3. Enrich teams
-  console.log(`[worker:fetchProps] Enriching teams for ${cleanedProps.length} props...`);
-  const enrichedTeams = await enrichTeams(cleanedProps, league, env, "[worker:fetchProps:teams]");
+  // 3. Load team registry and games data for runtime team resolution
+  console.log(`[worker:fetchProps] Loading team registry and games data...`);
+  const [teamRegistry, gamesData] = await Promise.all([
+    loadTeamRegistry(env, league),
+    // For now, we'll create an empty games map since we don't have a games table yet
+    Promise.resolve({})
+  ]);
 
-  // 4. Calculate EV% and streaks
+  // 4. Attach teams at runtime using worker-centric approach
+  console.log(`[worker:fetchProps] Attaching teams at runtime for ${cleanedProps.length} props...`);
+  const enrichedTeams = cleanedProps.map((row: any) => attachTeams(row, teamRegistry, gamesData));
+
+  // 5. Debug team mapping
+  debugTeamMapping(enrichedTeams, gamesData, "[worker:fetchProps:teams]");
+
+  // 6. Calculate EV% and streaks
   console.log(`[worker:fetchProps] Calculating metrics for ${enrichedTeams.length} props...`);
   const enriched = enrichedTeams.map((row: any) => {
     const evResult = calcEV(
@@ -323,7 +475,7 @@ export async function fetchPropsForDate(
       row.prop_type,
       row.line,
       row.date_normalized,
-      row.opponent
+      row.opponent_abbr // Use resolved opponent
     );
 
     return {
@@ -360,6 +512,6 @@ export async function fetchPropsForDate(
     } as EnrichedProp;
   });
 
-  console.log(`[worker:fetchProps] Enrichment complete: ${enriched.length} props with full metrics`);
+  console.log(`[worker:fetchProps] Worker-centric enrichment complete: ${enriched.length} props`);
   return enriched;
 }
