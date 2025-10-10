@@ -166,7 +166,7 @@ export function AnalyticsIntegration({ league, date, onDataUpdate }: AnalyticsIn
               {topProps.slice(0, compactMode ? 3 : 6).map((prop) => (
                 <EnhancedPlayerPropCard
                   key={prop.prop_id}
-                  playerName={prop.player_id}
+                  playerName={prop.playerName || prop.player_id}
                   teamAbbr={prop.teamAbbr || 'UNK'}
                   opponentAbbr={prop.opponentAbbr || 'UNK'}
                   propType={prop.prop_type}

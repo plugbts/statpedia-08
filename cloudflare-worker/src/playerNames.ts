@@ -5,6 +5,7 @@ type RawPropRow = {
   player_id?: string | null;
   player_name?: string | null;
   prop_type?: string | null;
+  propType?: string | null;       // camelCase version
   league?: string | null;
   date?: string | null;           // if using logs
   prop_date?: string | null;      // if using proplines view
@@ -62,15 +63,30 @@ function normalizeName(name: string, propType?: string | null): { value: string;
  * Derive a display name from player_id if needed:
  * - split hyphen/underscore IDs into words
  * - capitalize words
+ * - remove common suffixes like "_1_NFL"
  */
 function deriveNameFromId(playerId: string | null | undefined): string | null {
   if (!playerId) return null;
   const base = String(playerId).trim();
   if (!base) return null;
-  const parts = base.split(/[_\-\.]/).filter(Boolean);
+  
+  // Remove common suffixes like "_1_NFL", "_2_NBA", etc.
+  let cleaned = base.replace(/_\d+_[A-Z]+$/, '');
+  
+  // Split by underscores, hyphens, and dots
+  const parts = cleaned.split(/[_\-\.]/).filter(Boolean);
   if (parts.length === 0) return null;
+  
+  // Capitalize each part properly
   return parts
-    .map((p) => p.length ? p[0].toUpperCase() + p.slice(1) : p)
+    .map((p) => {
+      if (p.length === 0) return p;
+      // Handle all caps (like "NFL") vs mixed case
+      if (p === p.toUpperCase() && p.length > 2) {
+        return p; // Keep acronyms like "NFL", "NBA" as-is
+      }
+      return p[0].toUpperCase() + p.slice(1).toLowerCase();
+    })
     .join(" ");
 }
 
@@ -86,19 +102,39 @@ export function cleanPlayerNames(rows: RawPropRow[], logPrefix = "[worker:names]
   rows.forEach((row, idx) => {
     const originalName = row.player_name ?? null;
     const originalId = row.player_id ?? null;
-    const propType = row.prop_type ?? null;
+    const propType = row.prop_type ?? row.propType ?? null;
 
     let nameSource: CleanPropRow["debug"]["name_source"] = "unknown";
     let baseName: string | null = null;
     let hadPropInName = false;
     let wasEmptyOrNull = false;
 
-    // Prefer player_name when present
+    // Prefer player_name when present, but check if it's just a player ID
     if (originalName && originalName.trim().length > 0) {
-      const { value, hadPropInName: hadProp } = normalizeName(originalName, propType);
-      baseName = value;
-      hadPropInName = hadProp;
-      nameSource = "player_name";
+      // Check if player_name is actually just a player_id (contains underscores/numbers)
+      const isPlayerIdFormat = /^[A-Z_]+_\d+_[A-Z]+$/.test(originalName) || 
+                               /^[A-Z_]+_\d+$/.test(originalName) ||
+                               /^[A-Z_]+_[A-Z]+$/.test(originalName);
+      
+      if (isPlayerIdFormat) {
+        // Treat as player_id and derive a proper name
+        wasEmptyOrNull = true;
+        const derived = deriveNameFromId(originalName);
+        if (derived) {
+          const { value } = normalizeName(derived, propType);
+          baseName = value;
+          nameSource = "derived_from_player_id";
+        } else {
+          baseName = "Unknown Player";
+          nameSource = "unknown";
+        }
+      } else {
+        // It's a real player name, clean it normally
+        const { value, hadPropInName: hadProp } = normalizeName(originalName, propType);
+        baseName = value;
+        hadPropInName = hadProp;
+        nameSource = "player_name";
+      }
     } else {
       wasEmptyOrNull = true;
       const derived = deriveNameFromId(originalId);
@@ -120,7 +156,7 @@ export function cleanPlayerNames(rows: RawPropRow[], logPrefix = "[worker:names]
     if (hadPropInName || wasEmptyOrNull || finalName === "Unknown Player") {
       console.warn(
         `${logPrefix} anomaly idx=${idx} league=${row.league ?? "?"} date=${row.prop_date ?? row.date ?? "?"} ` +
-        `player_id=${originalId ?? "null"} ` +
+        `player_id=${originalId ?? "null"} prop_type="${propType ?? "null"}" ` +
         `hadPropInName=${hadPropInName} wasEmptyOrNull=${wasEmptyOrNull} ` +
         `original_name="${originalName ?? ""}" final="${finalName}"`
       );

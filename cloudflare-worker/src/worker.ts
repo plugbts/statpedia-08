@@ -1469,8 +1469,10 @@ export default {
 
           // Clean player names to remove prop type contamination and handle empty names
           console.log(`🧹 Cleaning player names for ${fixedProps.length} props...`);
+          console.log(`🔍 Sample prop before cleaning:`, fixedProps[0]);
           const cleanedProps = cleanPlayerNames(fixedProps, `[worker:${sport}:${date || 'latest'}]`);
           console.log(`✅ Player names cleaned: ${cleanedProps.length} props processed`);
+          console.log(`🔍 Sample prop after cleaning:`, cleanedProps[0]);
 
           // --- OPTIONALLY fetch game logs for enrichment ---
           let playerGameLogs: any[] = [];
@@ -1648,7 +1650,7 @@ export default {
             return {
             id: prop.prop_id,
             playerId: prop.player_id,
-            playerName: prop.clean_player_name, // Use cleaned player name
+            playerName: prop.clean_player_name || prop.player_name || prop.player_id, // Use cleaned player name with fallback
             player_id: prop.player_id, // For headshots compatibility
             team: prop.team_abbr, // Fix: use underscore field name from view
             opponent: prop.opponent_abbr, // Fix: use underscore field name from view
@@ -1669,7 +1671,7 @@ export default {
             market: prop.prop_type,
             marketId: prop.prop_type,
             period: 'full_game',
-            statEntity: prop.clean_player_name, // Use cleaned player name
+            statEntity: prop.clean_player_name || prop.player_name || prop.player_id, // Use cleaned player name with fallback
             // New enhanced fields with streaks and EV%
             evPercent: prop.ev_percent,
             last5_streak: prop.last5_streak,
@@ -1681,7 +1683,9 @@ export default {
             // Enhanced fields
             bestOver: prop.over_odds ? { bookmaker: prop.sportsbook || 'Unknown', side: 'over', price: prop.over_odds.toString(), line: prop.line } : undefined,
             bestUnder: prop.under_odds ? { bookmaker: prop.sportsbook || 'Unknown', side: 'under', price: prop.under_odds.toString(), line: prop.line } : undefined,
-            allBooks: prop.sportsbook ? [{ bookmaker: prop.sportsbook, side: 'over', price: prop.over_odds?.toString() || '', line: prop.line, deeplink: '' }] : []
+            allBooks: prop.sportsbook ? [{ bookmaker: prop.sportsbook, side: 'over', price: prop.over_odds?.toString() || '', line: prop.line, deeplink: '' }] : [],
+            // Clean player name field for debugging
+            clean_player_name: prop.clean_player_name
           };
           });
           
