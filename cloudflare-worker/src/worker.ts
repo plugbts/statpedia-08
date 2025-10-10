@@ -15,7 +15,7 @@ import { filterPropsByLeague, filterGameLogsByLeague } from "./ingestionFilter";
 import { initializeCoverageReport, generateCoverageReport, getCoverageSummary } from "./coverageReport";
 import { getFixedPlayerPropsWithAnalytics } from "./fixes";
 import { cleanPlayerNames } from "./playerNames";
-import { normalizeTeams } from "./teams";
+import { enrichTeams } from "./teams";
 // import { getPlayerPropsFixed } from "./player-props-fixed"; // No longer needed - using direct view fetch
 
 // Initialize prop type sync and supported props at worker startup
@@ -1475,11 +1475,11 @@ export default {
           console.log(`✅ Player names cleaned: ${cleanedProps.length} props processed`);
           console.log(`🔍 Sample prop after cleaning:`, cleanedProps[0]);
 
-          // Normalize team names and resolve abbreviations
-          console.log(`🏈 Normalizing teams for ${cleanedProps.length} props...`);
-          const normalizedProps = normalizeTeams(cleanedProps, `[worker:${sport}:${date || 'latest'}]`);
-          console.log(`✅ Teams normalized: ${normalizedProps.length} props processed`);
-          console.log(`🔍 Sample prop after team normalization:`, normalizedProps[0]);
+          // Enrich teams with database-backed registry
+          console.log(`🏈 Enriching teams for ${cleanedProps.length} props...`);
+          const normalizedProps = await enrichTeams(cleanedProps, sport, env, `[worker:${sport}:${date || 'latest'}]`);
+          console.log(`✅ Teams enriched: ${normalizedProps.length} props processed`);
+          console.log(`🔍 Sample prop after team enrichment:`, normalizedProps[0]);
 
           // --- OPTIONALLY fetch game logs for enrichment ---
           let playerGameLogs: any[] = [];
