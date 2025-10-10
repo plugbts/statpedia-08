@@ -8,10 +8,33 @@ import { fetchAllLeaguesEvents } from "./lib/sportsGameOddsPerformanceFetcher";
 import { supabaseFetch } from "./supabaseFetch";
 import { LEAGUES, getActiveLeagues, getAllSeasons, getActiveLeagueSeasonPairs } from "./config/leagues";
 import { withCORS, handleOptions } from "./cors";
+import { normalizeDate, normalizeLeague, isDateMatch } from "./normalizers";
+import { initializePropTypeSync, normalizePropType } from "./propTypeSync";
+import { initializeSupportedProps, loadSupportedProps, SupportedProps } from "./supportedProps";
+import { filterPropsByLeague, filterGameLogsByLeague } from "./ingestionFilter";
+import { initializeCoverageReport, generateCoverageReport, getCoverageSummary } from "./coverageReport";
+
+// Initialize prop type sync and supported props at worker startup
+let propTypeSyncInitialized = false;
+let supportedProps: SupportedProps = {};
 
 export default {
   async fetch(req: Request, env: any) {
     try {
+      // Initialize prop type sync and supported props on first request
+      if (!propTypeSyncInitialized) {
+        try {
+          await initializePropTypeSync(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
+          supportedProps = await initializeSupportedProps(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
+          await initializeCoverageReport(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
+          propTypeSyncInitialized = true;
+          console.log("✅ Prop type sync, supported props, and coverage report initialized successfully");
+        } catch (error) {
+          console.warn("⚠️ Failed to initialize prop type sync, supported props, or coverage report:", error);
+          console.warn("⚠️ Falling back to hardcoded normalizers");
+        }
+      }
+      
       const url = new URL(req.url);
       const origin = req.headers.get("Origin") || "*";
       
@@ -132,7 +155,7 @@ export default {
             return new Response(
               JSON.stringify({
                 success: false,
-                error: error.message,
+                error: error instanceof Error ? error.message : String(error),
               }),
               {
                 status: 500,
@@ -1237,6 +1260,8 @@ export default {
           const sport = url.searchParams.get("sport")?.toLowerCase() || "nfl";
           const forceRefresh = url.searchParams.get("force_refresh") === "true";
           const date = url.searchParams.get("date") || new Date().toISOString().split('T')[0];
+          const dateFrom = url.searchParams.get("date_from");
+          const dateTo = url.searchParams.get("date_to");
           
           console.log(`📊 Fetching player props for ${sport} (date: ${date}, forceRefresh: ${forceRefresh})...`);
           
@@ -1257,30 +1282,33 @@ export default {
               ? `in.(${values.map(v => `"${v}"`).join(",")})`
               : null;
 
-          // --- Fetch game logs ---
-          let gameLogsQuery = "player_game_logs";
-          const gameLogsFilters: string[] = [];
+          // --- OPTIMIZED APPROACH: Fetch ALL proplines first, then optionally enrich with game logs ---
           
-          // Filter by league
+          // Build proplines filters
+          const proplinesFilters: string[] = [];
+          
+          // Only add league filter if not "all"
           if (league !== "all") {
-            gameLogsFilters.push(`league=eq.${league}`);
+            proplinesFilters.push(`league=eq.${league.toLowerCase()}`);
           }
           
-          // Filter by date
-          gameLogsFilters.push(`date=eq.${date}`);
-          
-          if (gameLogsFilters.length > 0) {
-            gameLogsQuery += "?" + gameLogsFilters.join("&");
+          // Use flexible date range for proplines query
+          if (dateFrom && dateTo) {
+            proplinesFilters.push(`date=gte.${dateFrom}`);
+            proplinesFilters.push(`date=lte.${dateTo}`);
+          } else if (date) {
+            proplinesFilters.push(`date=eq.${date}`);
           }
           
-          gameLogsQuery += `${gameLogsFilters.length > 0 ? "&" : "?"}order=player_name.asc,prop_type.asc&limit=1000`;
+          // Construct proplines query
+          const proplinesQuery = `proplines${proplinesFilters.length ? "?" + proplinesFilters.join("&") : ""}`;
+          console.log(`📊 Proplines query: ${proplinesQuery}`);
           
-          console.log(`📊 Game logs query: ${gameLogsQuery}`);
-          
-          const playerGameLogs = await supabaseFetch(env, gameLogsQuery, { method: "GET" }) as any[];
-          console.log(`📊 Fetched ${playerGameLogs?.length || 0} game logs`);
+          // Fetch ALL proplines first
+          const propLines = await supabaseFetch(env, proplinesQuery, { method: "GET" }) as any[];
+          console.log(`📊 Fetched ${propLines?.length || 0} proplines`);
 
-          if (!playerGameLogs || playerGameLogs.length === 0) {
+          if (!propLines || propLines.length === 0) {
             return corsResponse({
               success: true,
               data: [],
@@ -1295,76 +1323,126 @@ export default {
             });
           }
 
-          // --- Fetch corresponding prop lines ---
-          const playerIds = [...new Set(playerGameLogs.map(g => g.player_id))];
-          const propTypes = [...new Set(playerGameLogs.map(g => g.prop_type))];
-          const dates = [...new Set(playerGameLogs.map(g => normalizeDate(g.date)))];
+          // --- OPTIONALLY fetch game logs for enrichment ---
+          let playerGameLogs: any[] = [];
+          
+          // Build game logs query for enrichment
+          const playerIds = [...new Set(propLines.map(p => p.player_id))];
+          const propTypes = [...new Set(propLines.map(p => p.prop_type))];
+          const dates = [...new Set(propLines.map(p => normalizeDate(p.date_normalized || p.date)))];
 
-          // --- Build filters ---
-          const filters: string[] = [];
-
-          const playerFilter = inFilter(playerIds);
-          if (playerFilter) filters.push(`player_id=${playerFilter}`);
-
-          const propFilter = inFilter(propTypes);
-          if (propFilter) filters.push(`prop_type=${propFilter}`);
-
-          const dateFilter = inFilter(dates.map(normalizeDate));
-          if (dateFilter) filters.push(`date=${dateFilter}`);
-
-          // Only add league filter if not "all"
-          if (league !== "all") {
-            filters.push(`league=eq.${league.toLowerCase()}`);
-          }
-
-          // --- Construct query ---
-          const propsQuery = `proplines${filters.length ? "?" + filters.join("&") : ""}`;
-
-          // --- Fetch ---
-          const propLines = await supabaseFetch(env, propsQuery, { method: "GET" }) as any[];
-
-          console.log("🔎 Props query:", propsQuery);
-          console.log("🔎 Props returned:", propLines?.length || 0);
-          if (propLines?.length) {
-            console.log("🔎 Sample prop:", propLines[0]);
-          }
-
-          // --- Join with player_game_logs ---
-          const joined = playerGameLogs.map((gameLog: any) => {
-            const propLine = propLines?.find(
-              (p: any) =>
-                p.conflict_key === gameLog.conflict_key &&
-                p.date_normalized === gameLog.date
-            );
-
-            if (!propLine) {
-              console.log("⚠️ Prop mismatch:", {
-                player_id: gameLog.player_id,
-                gameLog_date: gameLog.date,
-                prop_type: gameLog.prop_type,
-                league: gameLog.league,
-                gameLog_conflict_key: gameLog.conflict_key,
-                available_prop_conflict_keys: propLines?.filter(p => p.player_id === gameLog.player_id).map(p => p.conflict_key).slice(0, 3)
-              });
-              return null;
+          if (playerIds.length > 0) {
+            let gameLogsQuery = "player_game_logs";
+            const gameLogsFilters: string[] = [];
+            
+            // Filter by league
+            if (league !== "all") {
+              gameLogsFilters.push(`league=eq.${league}`);
             }
+            
+            // Use flexible date range for game logs
+            if (dateFrom && dateTo) {
+              gameLogsFilters.push(`date=gte.${dateFrom}`);
+              gameLogsFilters.push(`date=lte.${dateTo}`);
+            } else if (date) {
+              gameLogsFilters.push(`date=eq.${date}`);
+            }
+            
+            if (gameLogsFilters.length > 0) {
+              gameLogsQuery += "?" + gameLogsFilters.join("&");
+            }
+            
+            gameLogsQuery += `${gameLogsFilters.length > 0 ? "&" : "?"}order=player_name.asc,prop_type.asc&limit=5000`;
+            
+            console.log(`📊 Game logs query (for enrichment): ${gameLogsQuery}`);
+            
+            try {
+              playerGameLogs = await supabaseFetch(env, gameLogsQuery, { method: "GET" }) as any[];
+              console.log(`📊 Fetched ${playerGameLogs?.length || 0} game logs for enrichment`);
+            } catch (error) {
+              console.warn("⚠️ Failed to fetch game logs for enrichment:", error);
+              playerGameLogs = [];
+            }
+          }
 
-            console.log("✅ Successful join:", {
-              player_id: gameLog.player_id,
-              prop_type: gameLog.prop_type,
+        // --- OPTIMIZED PROGRESSIVE MATCHING: Start with ALL proplines, optionally enrich with game logs ---
+        console.log(`📊 Using optimized progressive matching: ${propLines?.length || 0} proplines, ${playerGameLogs.length} game logs for enrichment`);
+        
+        // --- Progressive matching with flexible date tolerance ---
+        const enrichedProps = propLines?.map((propLine: any) => {
+          // Normalize prop line data
+          const normalizedProp = {
+            ...propLine,
+            player_id: propLine.player_id,
+            prop_type: normalizePropType(propLine.prop_type),
+            date: normalizeDate(propLine.date_normalized || propLine.date),
+            league: normalizeLeague(propLine.league),
+            season: propLine.season
+          };
+          
+          // Find matching game log for enrichment (optional)
+          const gameLog = playerGameLogs?.find((g: any) => {
+            // Normalize game log data
+            const normalizedGameLog = {
+              ...g,
+              player_id: g.player_id,
+              prop_type: normalizePropType(g.prop_type),
+              date: normalizeDate(g.date),
+              league: normalizeLeague(g.league),
+              season: g.season
+            };
+
+            // Progressive matching criteria (ordered by importance)
+            // 1. Player ID must match exactly
+            if (normalizedGameLog.player_id !== normalizedProp.player_id) return false;
+            
+            // 2. League must match exactly (case-insensitive)
+            if (normalizedGameLog.league !== normalizedProp.league) return false;
+            
+            // 3. Season must match exactly
+            if (normalizedGameLog.season !== normalizedProp.season) return false;
+            
+            // 4. Prop type must match exactly (normalized)
+            if (normalizedGameLog.prop_type !== normalizedProp.prop_type) return false;
+            
+            // 5. Date tolerance: allow ±1 day for flexible matching
+            const gameLogDate = new Date(normalizedGameLog.date);
+            const propDate = new Date(normalizedProp.date);
+            const dateDiff = Math.abs(gameLogDate.getTime() - propDate.getTime());
+            const dayDiff = dateDiff / (1000 * 60 * 60 * 24);
+            
+            return dayDiff <= 1; // Allow up to 1 day difference
+          });
+
+          // Return prop with optional game log enrichment
+          if (gameLog) {
+            console.log("✅ Successfully enriched prop with game log:", {
+              player_id: normalizedProp.player_id,
+              prop_type: normalizedProp.prop_type,
               line: propLine.line,
               over_odds: propLine.over_odds,
-              gameLog_conflict_key: gameLog.conflict_key,
-              prop_conflict_key: propLine.conflict_key
+              gameLog_value: gameLog.value,
+              gameLog_date: normalizeDate(gameLog.date),
+              prop_date: normalizeDate(propLine.date_normalized || propLine.date)
             });
+            return { ...propLine, ...gameLog };
+          } else {
+            // Return prop without game log enrichment (still valid)
+            console.log("📊 Prop without game log enrichment:", {
+              player_id: normalizedProp.player_id,
+              prop_type: normalizedProp.prop_type,
+              line: propLine.line,
+              over_odds: propLine.over_odds,
+              date: normalizeDate(propLine.date_normalized || propLine.date)
+            });
+            return propLine;
+          }
+        }) || [];
 
-            return { ...gameLog, ...propLine };
-          }).filter(Boolean);
-
-          console.log(`📊 Joined ${joined.length} props from ${playerGameLogs.length} game logs`);
+          console.log(`📊 Enriched ${enrichedProps.length} props (${playerGameLogs.length} game logs available for enrichment)`);
 
           // Transform to expected format
-          const transformedProps = joined.map((prop: any) => ({
+          const transformedProps = enrichedProps.map((prop: any) => ({
             id: prop.id,
             playerId: prop.player_id,
             playerName: prop.player_name,
@@ -1423,6 +1501,150 @@ export default {
         }
       }
 
+      // Handle prop sync refresh endpoint
+      if (url.pathname === '/refresh-prop-sync') {
+        try {
+          const { refreshPropTypeAliases } = await import("./propTypeSync");
+          const success = await refreshPropTypeAliases();
+          
+          return new Response(JSON.stringify({
+            success: success,
+            message: success ? "Prop type aliases refreshed successfully" : "Failed to refresh prop type aliases",
+            timestamp: new Date().toISOString()
+          }), {
+            headers: { 'Content-Type': 'application/json' }
+          });
+        } catch (error) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+      }
+
+      // Handle supported props refresh endpoint
+      if (url.pathname === '/refresh-supported-props') {
+        try {
+          supportedProps = await loadSupportedProps();
+          
+          return new Response(JSON.stringify({
+            success: true,
+            message: "Supported props refreshed successfully",
+            supportedLeagues: Object.keys(supportedProps),
+            leagueCounts: Object.entries(supportedProps).map(([league, props]) => ({
+              league,
+              count: props.size
+            })),
+            timestamp: new Date().toISOString()
+          }), {
+            headers: { 'Content-Type': 'application/json' }
+          });
+        } catch (error) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+      }
+
+      // Handle supported props debug endpoint
+      if (url.pathname === '/debug-supported-props') {
+        try {
+          const { getSupportedPropsSummary } = await import("./ingestionFilter");
+          const summary = getSupportedPropsSummary(supportedProps);
+          
+          return new Response(JSON.stringify({
+            success: true,
+            supportedProps: summary,
+            totalLeagues: Object.keys(supportedProps).length,
+            totalProps: Object.values(supportedProps).reduce((sum, props) => sum + props.size, 0),
+            timestamp: new Date().toISOString()
+          }), {
+            headers: { 'Content-Type': 'application/json' }
+          });
+        } catch (error) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+      }
+
+      // Handle coverage report endpoint
+      if (url.pathname === '/coverage-report') {
+        try {
+          const coverage = await generateCoverageReport();
+          const summary = getCoverageSummary(coverage);
+          
+          return new Response(JSON.stringify({
+            success: true,
+            coverage: summary,
+            timestamp: new Date().toISOString()
+          }), {
+            headers: { 'Content-Type': 'application/json' }
+          });
+        } catch (error) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+      }
+
+      // Handle prop sync debug endpoint
+      if (url.pathname === '/debug-prop-sync') {
+        try {
+          const { getAliasCache } = await import("./propTypeSync");
+          const aliasCache = getAliasCache();
+          
+          const testCases = [
+            { input: 'pts', expected: 'points' },
+            { input: 'reb', expected: 'rebounds' },
+            { input: 'sacks', expected: 'defense_sacks' },
+            { input: 'td', expected: 'fantasyscore' },
+            { input: 'Goals', expected: 'goals' },
+            { input: 'batting_basesOnBalls', expected: 'walks' }
+          ];
+          
+          const results = testCases.map(test => ({
+            input: test.input,
+            output: normalizePropType(test.input),
+            expected: test.expected,
+            correct: normalizePropType(test.input) === test.expected
+          }));
+          
+          return new Response(JSON.stringify({
+            success: true,
+            aliasCacheSize: Object.keys(aliasCache).length,
+            sampleAliases: Object.entries(aliasCache).slice(0, 5),
+            testResults: results,
+            timestamp: new Date().toISOString()
+          }), {
+            headers: { 'Content-Type': 'application/json' }
+          });
+        } catch (error) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+      }
+
       // Handle join diagnostics endpoint
       if (url.pathname === '/debug-join-diagnostics') {
         try {
@@ -1435,14 +1657,16 @@ export default {
 
           console.log('🔍 Running join diagnostics...');
 
-          // 1. Game logs vs props coverage
+          // 1. Game logs vs props coverage (remove limits to get real data)
           const { data: gameLogs, error: glErr } = await supabase
             .from("player_game_logs")
-            .select("conflict_key, league, date");
+            .select("player_id, game_id, prop_type, league, season, date, conflict_key")
+            .limit(1000);
 
           const { data: props, error: prErr } = await supabase
             .from("proplines")
-            .select("conflict_key, league, date_normalized");
+            .select("player_id, game_id, prop_type, league, season, date, date_normalized, conflict_key")
+            .limit(1000);
 
           if (glErr || prErr) {
             console.error("❌ Supabase error:", glErr || prErr);
@@ -1458,52 +1682,45 @@ export default {
             { totalLogs: number; matchedProps: number; unmatchedLogs: number }
           > = {};
 
-           // Prop type mapping for diagnostics
-           const propTypeMapping: Record<string, string[]> = {
-             'sacks': ['sacks', 'defense_sacks'],
-             'defense_sacks': ['sacks', 'defense_sacks'],
-             'touchdowns': ['touchdowns', 'fantasyscore'],
-             'fantasyscore': ['touchdowns', 'fantasyscore'],
-             'receptions': ['receptions', 'turnovers'],
-             'turnovers': ['receptions', 'turnovers'],
-             'passing_yards': ['passing_yards', 'passingyards'],
-             'passingyards': ['passing_yards', 'passingyards'],
-             'rushing_yards': ['rushing_yards', 'rushingyards'],
-             'rushingyards': ['rushing_yards', 'rushingyards'],
-             'receiving_yards': ['receiving_yards', 'receivingyards'],
-             'receivingyards': ['receiving_yards', 'receivingyards']
-           };
+           // Use normalizers for consistent prop type matching
 
            gameLogs!.forEach((g) => {
-             const league = g.league.toLowerCase();
+             const league = normalizeLeague(g.league);
              if (!results[league]) {
                results[league] = { totalLogs: 0, matchedProps: 0, unmatchedLogs: 0 };
              }
              results[league].totalLogs++;
 
-             const match = props!.find(
-               (p) => {
-                 // Use the same conflict_key matching logic as the main API
-                 const gameLogParts = g.conflict_key.split('|');
-                 const [player_id, game_id, prop_type, league, season] = gameLogParts;
-                 
-                 const propParts = p.conflict_key.split('|');
-                 if (propParts.length !== 6) return false;
-                 
-                 const [p_player_id, p_game_id, p_prop_type, p_sportsbook, p_league, p_season] = propParts;
-                 
-                 // Check if prop types match (with mapping support)
-                 const gameLogPropTypes = propTypeMapping[prop_type] || [prop_type];
-                 const propPropTypes = propTypeMapping[p_prop_type] || [p_prop_type];
-                 const propTypesMatch = gameLogPropTypes.some(glType => propPropTypes.includes(glType));
-                 
-                 return p_player_id === player_id &&
-                        p_game_id === game_id &&
-                        propTypesMatch &&
-                        p_league === league &&
-                        p_season === season;
-               }
-             );
+             // Normalize game log data
+             const normalizedGameLog = {
+               player_id: g.player_id,
+               game_id: g.game_id,
+               prop_type: normalizePropType(g.prop_type),
+               date: normalizeDate(g.date),
+               league: normalizeLeague(g.league),
+               season: g.season
+             };
+
+             const match = props!.find((p) => {
+               // Normalize prop line data
+               const normalizedProp = {
+                 player_id: p.player_id,
+                 game_id: p.game_id,
+                 prop_type: normalizePropType(p.prop_type),
+                 date: normalizeDate(p.date_normalized || p.date),
+                 league: normalizeLeague(p.league),
+                 season: p.season
+               };
+
+               return (
+                 normalizedGameLog.player_id === normalizedProp.player_id &&
+                 normalizedGameLog.game_id === normalizedProp.game_id &&
+                 normalizedGameLog.prop_type === normalizedProp.prop_type &&
+                 normalizedGameLog.date === normalizedProp.date &&
+                 normalizedGameLog.league === normalizedProp.league &&
+                 normalizedGameLog.season === normalizedProp.season
+               );
+             });
 
             if (match) {
               results[league].matchedProps++;
@@ -1543,14 +1760,14 @@ export default {
                  
                  const [p_player_id, p_game_id, p_prop_type, p_sportsbook, p_league, p_season] = propParts;
                  
-                 // Check if prop types match (with mapping support)
-                 const gameLogPropTypes = propTypeMapping[prop_type] || [prop_type];
-                 const propPropTypes = propTypeMapping[p_prop_type] || [p_prop_type];
-                 const propTypesMatch = gameLogPropTypes.some(glType => propPropTypes.includes(glType));
+                 // Use normalizers for consistent prop type matching
+                 const normalizedGameLogPropType = normalizePropType(prop_type);
+                 const normalizedPropPropType = normalizePropType(p_prop_type);
                  
                  return p_player_id === player_id &&
                         p_game_id === game_id &&
-                        propTypesMatch &&
+                        normalizedGameLogPropType === normalizedPropPropType &&
+                        isDateMatch(g.date, p.date_normalized) &&
                         p_league === league &&
                         p_season === season;
                }
@@ -1612,21 +1829,7 @@ export default {
             .from("proplines")
             .select("player_id, prop_type, league, date_normalized, conflict_key");
 
-           // Prop type mapping for field-level diagnostics
-           const propTypeMapping: Record<string, string[]> = {
-             'sacks': ['sacks', 'defense_sacks'],
-             'defense_sacks': ['sacks', 'defense_sacks'],
-             'touchdowns': ['touchdowns', 'fantasyscore'],
-             'fantasyscore': ['touchdowns', 'fantasyscore'],
-             'receptions': ['receptions', 'turnovers'],
-             'turnovers': ['receptions', 'turnovers'],
-             'passing_yards': ['passing_yards', 'passingyards'],
-             'passingyards': ['passing_yards', 'passingyards'],
-             'rushing_yards': ['rushing_yards', 'rushingyards'],
-             'rushingyards': ['rushing_yards', 'rushingyards'],
-             'receiving_yards': ['receiving_yards', 'receivingyards'],
-             'receivingyards': ['receiving_yards', 'receivingyards']
-           };
+           // Use normalizers for field-level diagnostics
 
            function explainMismatch(gameLog: any, prop: any) {
              const issues: string[] = [];
@@ -1646,10 +1849,10 @@ export default {
              if (player_id !== p_player_id) issues.push("player_id mismatch");
              if (game_id !== p_game_id) issues.push("game_id mismatch");
              
-             // Check if prop types match (with mapping support)
-             const gameLogPropTypes = propTypeMapping[prop_type] || [prop_type];
-             const propPropTypes = propTypeMapping[p_prop_type] || [p_prop_type];
-             const propTypesMatch = gameLogPropTypes.some(glType => propPropTypes.includes(glType));
+             // Use normalizers for consistent prop type matching
+             const normalizedGameLogPropType = normalizePropType(prop_type);
+             const normalizedPropPropType = normalizePropType(p_prop_type);
+             const propTypesMatch = normalizedGameLogPropType === normalizedPropPropType;
              
              if (!propTypesMatch) issues.push(`prop_type mismatch (${prop_type} vs ${p_prop_type})`);
              if (league !== p_league) issues.push(`league mismatch (${league} vs ${p_league})`);
@@ -1685,10 +1888,10 @@ export default {
                
                const [p_player_id, p_game_id, p_prop_type, p_sportsbook, p_league, p_season] = propParts;
                
-               // Check if prop types match (with mapping support)
-               const gameLogPropTypes = propTypeMapping[prop_type] || [prop_type];
-               const propPropTypes = propTypeMapping[p_prop_type] || [p_prop_type];
-               const propTypesMatch = gameLogPropTypes.some(glType => propPropTypes.includes(glType));
+               // Use normalizers for consistent prop type matching
+               const normalizedGameLogPropType = normalizePropType(prop_type);
+               const normalizedPropPropType = normalizePropType(p_prop_type);
+               const propTypesMatch = normalizedGameLogPropType === normalizedPropPropType;
                
                return p_player_id === player_id &&
                       p_game_id === game_id &&

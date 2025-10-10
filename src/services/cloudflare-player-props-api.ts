@@ -118,7 +118,8 @@ class CloudflarePlayerPropsAPI {
       
       const startTime = Date.now();
       
-      const response = await fetch(`${this.baseUrl}/ingest`, {
+      // First, trigger ingestion to ensure we have fresh data
+      const ingestResponse = await fetch(`${this.baseUrl}/ingest`, {
         method: 'POST',
         mode: 'cors',
         credentials: 'include',
@@ -132,320 +133,76 @@ class CloudflarePlayerPropsAPI {
         })
       });
 
+      if (!ingestResponse.ok) {
+        const errorData = await ingestResponse.json();
+        console.warn(`⚠️ Cloudflare Worker ingestion failed: ${ingestResponse.status} - ${errorData.error || 'Unknown error'}`);
+      }
+
+      // Now fetch the player props from the database with flexible date tolerance
+      const url = new URL(`${this.baseUrl}/api/player-props`);
+      url.searchParams.append('sport', sport.toLowerCase());
+      if (forceRefresh) {
+        url.searchParams.append('force_refresh', 'true');
+      }
+      if (date) {
+        // Use flexible date range: ±1 day tolerance
+        const targetDate = new Date(date);
+        const dateFrom = new Date(targetDate.getTime() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const dateTo = new Date(targetDate.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        
+        url.searchParams.append('date_from', dateFrom);
+        url.searchParams.append('date_to', dateTo);
+        url.searchParams.append('date', date); // Keep original date for reference
+      }
+
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        mode: 'cors',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
       const responseTime = Date.now() - startTime;
       
-      console.log(`📊 Cloudflare Worker ingestion response: ${response.status} (${responseTime}ms)`);
+      console.log(`📊 Cloudflare Worker player props API response: ${response.status} (${responseTime}ms)`);
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.warn(`⚠️ Cloudflare Worker ingestion failed: ${response.status} - ${errorData.error || 'Unknown error'}`);
+        console.warn(`⚠️ Cloudflare Worker player props API failed: ${response.status} - ${errorData.error || 'Unknown error'}`);
         
-        // Don't fallback to legacy endpoint - it has CORS issues
-        throw new Error(`API request failed: ${response.status} - ${errorData.error || 'Unknown error'}`);
+        // Fallback to Supabase Edge Function
+        console.log('🔄 Falling back to Supabase Edge Function...');
+        return await this.getPlayerPropsFromSupabase(sport, forceRefresh);
       }
 
-      const data = await response.json();
+      const data: APIResponse = await response.json();
       
       console.log(`✅ Player props loaded from Cloudflare Worker:`, {
         success: data.success,
-        totalProps: data.stats?.totalProps || 0,
-        inserted: data.stats?.inserted || 0,
-        updated: data.stats?.updated || 0,
-        errors: data.stats?.errors || 0
+        totalProps: data.totalProps,
+        totalEvents: data.totalEvents,
+        cached: data.cached,
+        responseTime: data.responseTime
       });
 
-      // The Cloudflare Worker doesn't return player props directly
-      // Instead, it ingests them into the database
-      // We need to fetch the props from the database after ingestion
-      // For now, return an empty array since this is an ingestion endpoint
-      // The frontend should use a different method to fetch the ingested props
-      return [];
-
-      // NFL Team mapping for logos
-      const nflTeamMap: Record<string, string> = {
-        'Arizona Cardinals': 'https://a.espncdn.com/i/teamlogos/nfl/500/ari.png',
-        'Atlanta Falcons': 'https://a.espncdn.com/i/teamlogos/nfl/500/atl.png',
-        'Baltimore Ravens': 'https://a.espncdn.com/i/teamlogos/nfl/500/bal.png',
-        'Buffalo Bills': 'https://a.espncdn.com/i/teamlogos/nfl/500/buf.png',
-        'Carolina Panthers': 'https://a.espncdn.com/i/teamlogos/nfl/500/car.png',
-        'Chicago Bears': 'https://a.espncdn.com/i/teamlogos/nfl/500/chi.png',
-        'Cincinnati Bengals': 'https://a.espncdn.com/i/teamlogos/nfl/500/cin.png',
-        'Cleveland Browns': 'https://a.espncdn.com/i/teamlogos/nfl/500/cle.png',
-        'Dallas Cowboys': 'https://a.espncdn.com/i/teamlogos/nfl/500/dal.png',
-        'Denver Broncos': 'https://a.espncdn.com/i/teamlogos/nfl/500/den.png',
-        'Detroit Lions': 'https://a.espncdn.com/i/teamlogos/nfl/500/det.png',
-        'Green Bay Packers': 'https://a.espncdn.com/i/teamlogos/nfl/500/gb.png',
-        'Houston Texans': 'https://a.espncdn.com/i/teamlogos/nfl/500/hou.png',
-        'Indianapolis Colts': 'https://a.espncdn.com/i/teamlogos/nfl/500/ind.png',
-        'Jacksonville Jaguars': 'https://a.espncdn.com/i/teamlogos/nfl/500/jax.png',
-        'Kansas City Chiefs': 'https://a.espncdn.com/i/teamlogos/nfl/500/kc.png',
-        'Las Vegas Raiders': 'https://a.espncdn.com/i/teamlogos/nfl/500/lv.png',
-        'Los Angeles Chargers': 'https://a.espncdn.com/i/teamlogos/nfl/500/lac.png',
-        'Los Angeles Rams': 'https://a.espncdn.com/i/teamlogos/nfl/500/lar.png',
-        'Miami Dolphins': 'https://a.espncdn.com/i/teamlogos/nfl/500/mia.png',
-        'Minnesota Vikings': 'https://a.espncdn.com/i/teamlogos/nfl/500/min.png',
-        'New England Patriots': 'https://a.espncdn.com/i/teamlogos/nfl/500/ne.png',
-        'New Orleans Saints': 'https://a.espncdn.com/i/teamlogos/nfl/500/no.png',
-        'New York Giants': 'https://a.espncdn.com/i/teamlogos/nfl/500/nyg.png',
-        'New York Jets': 'https://a.espncdn.com/i/teamlogos/nfl/500/nyj.png',
-        'Philadelphia Eagles': 'https://a.espncdn.com/i/teamlogos/nfl/500/phi.png',
-        'Pittsburgh Steelers': 'https://a.espncdn.com/i/teamlogos/nfl/500/pit.png',
-        'San Francisco 49ers': 'https://a.espncdn.com/i/teamlogos/nfl/500/sf.png',
-        'Seattle Seahawks': 'https://a.espncdn.com/i/teamlogos/nfl/500/sea.png',
-        'Tampa Bay Buccaneers': 'https://a.espncdn.com/i/teamlogos/nfl/500/tb.png',
-        'Tennessee Titans': 'https://a.espncdn.com/i/teamlogos/nfl/500/ten.png',
-        'Washington Commanders': 'https://a.espncdn.com/i/teamlogos/nfl/500/wsh.png'
-      };
-
-      // Helper function to normalize prop types for deduplication
-      const normalizePropType = (propType: string): string => {
-        if (!propType) return '';
+      if (!data.success) {
+        console.warn(`⚠️ Cloudflare Worker API returned success: false - ${data.error || 'Unknown error'}`);
         
-        return propType
-          .toLowerCase()
-          .replace(/[^a-z0-9\s]/g, '') // Remove special characters
-          .replace(/\s+/g, ' ') // Normalize whitespace
-          .trim()
-          // Handle common variations
-          .replace(/\bpass\b/g, 'passing')
-          .replace(/\brush\b/g, 'rushing')
-          .replace(/\brec\b/g, 'receiving')
-          .replace(/\btd\b/g, 'touchdown')
-          .replace(/\byard\b/g, 'yards')
-          .replace(/\batt\b/g, 'attempts')
-          .replace(/\bcomp\b/g, 'completions')
-          .replace(/\bint\b/g, 'interceptions')
-          .replace(/\bfg\b/g, 'field goal')
-          .replace(/\bxp\b/g, 'extra point');
-      };
-
-      // Helper function to format market names for display
-      const formatMarketName = (marketType: string): string => {
-        // First normalize the market type to proper prop types
-        const normalizedMarketType = normalizeMarketType(marketType);
-        
-        return normalizedMarketType
-          .replace(/_/g, ' ')
-          .split(' ')
-          .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-          .join(' ');
-      };
-
-      // Helper function to normalize market types to proper prop types
-      const normalizeMarketType = (marketType: string): string => {
-        if (!marketType) return 'Unknown';
-        
-        const lowerMarket = marketType.toLowerCase();
-        
-        // Map common market types to proper prop types
-        if (lowerMarket.includes('passing') && lowerMarket.includes('yard')) return 'Passing Yards';
-        if (lowerMarket.includes('rushing') && lowerMarket.includes('yard')) return 'Rushing Yards';
-        if (lowerMarket.includes('receiving') && lowerMarket.includes('yard')) return 'Receiving Yards';
-        if (lowerMarket.includes('passing') && lowerMarket.includes('touchdown')) return 'Passing Touchdowns';
-        if (lowerMarket.includes('rushing') && lowerMarket.includes('touchdown')) return 'Rushing Touchdowns';
-        if (lowerMarket.includes('receiving') && lowerMarket.includes('touchdown')) return 'Receiving Touchdowns';
-        if (lowerMarket.includes('field') && lowerMarket.includes('goal')) return 'Field Goals Made';
-        if (lowerMarket.includes('extra') && lowerMarket.includes('point')) return 'Extra Points Made';
-        
-        // Handle specific cases where API returns wrong market types
-        if (lowerMarket === 'receptions' && marketType.includes('receiving')) return 'Receiving Yards';
-        if (lowerMarket === 'receptions') return 'Receptions';
-        
-        return marketType;
-      };
-
-      // Helper function to get team name from teamID
-      const getTeamNameFromTeamID = (teamID: string): string => {
-        if (!teamID) return 'Unknown';
-        // Convert "CLEVELAND_BROWNS_NFL" to "Cleveland Browns"
-        return teamID
-          .replace(/_NFL$/, '')
-          .split('_')
-          .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-          .join(' ');
-      };
-
-      // Helper function to get team abbreviation from team name
-      const getTeamAbbr = (teamName: string): string => {
-        const abbrMap: Record<string, string> = {
-          'Arizona Cardinals': 'ARI',
-          'Atlanta Falcons': 'ATL',
-          'Baltimore Ravens': 'BAL',
-          'Buffalo Bills': 'BUF',
-          'Carolina Panthers': 'CAR',
-          'Chicago Bears': 'CHI',
-          'Cincinnati Bengals': 'CIN',
-          'Cleveland Browns': 'CLE',
-          'Dallas Cowboys': 'DAL',
-          'Denver Broncos': 'DEN',
-          'Detroit Lions': 'DET',
-          'Green Bay Packers': 'GB',
-          'Houston Texans': 'HOU',
-          'Indianapolis Colts': 'IND',
-          'Jacksonville Jaguars': 'JAX',
-          'Kansas City Chiefs': 'KC',
-          'Las Vegas Raiders': 'LV',
-          'Los Angeles Chargers': 'LAC',
-          'Los Angeles Rams': 'LAR',
-          'Miami Dolphins': 'MIA',
-          'Minnesota Vikings': 'MIN',
-          'New England Patriots': 'NE',
-          'New Orleans Saints': 'NO',
-          'New York Giants': 'NYG',
-          'New York Jets': 'NYJ',
-          'Philadelphia Eagles': 'PHI',
-          'Pittsburgh Steelers': 'PIT',
-          'San Francisco 49ers': 'SF',
-          'Seattle Seahawks': 'SEA',
-          'Tampa Bay Buccaneers': 'TB',
-          'Tennessee Titans': 'TEN',
-          'Washington Commanders': 'WSH'
-        };
-        return abbrMap[teamName] || teamName.split(' ').pop() || 'UNK';
-      };
-
-      // Transform the new format to the expected PlayerProp format with deduplication
-      const playerProps: PlayerProp[] = [];
-      const propMap = new Map<string, PlayerProp>(); // For deduplication
-      
-      if (data.events) {
-        for (const event of data.events) {
-          if (event.player_props) {
-            for (const prop of event.player_props) {
-              // Only include props with actual odds
-              if (prop.best_over || prop.best_under) {
-                // Helper function to parse odds string to number
-                const parseOdds = (oddsStr: string | null): number | null => {
-                  if (!oddsStr) return null;
-                  // Don't remove + sign, just parse as-is
-                  const num = parseFloat(oddsStr);
-                  return isNaN(num) ? null : num;
-                };
-
-                // Find the player's team from the players object
-                const playerKey = Object.keys(event.players || {}).find(key => 
-                  event.players[key].name === prop.player_name
-                );
-                const player = playerKey ? event.players[playerKey] : null;
-                let playerTeam = 'Unknown';
-                let opponentTeam = 'Unknown';
-                
-                if (player && player.teamID) {
-                  // Player has teamID, use it
-                  playerTeam = getTeamNameFromTeamID(player.teamID);
-                  opponentTeam = playerTeam === event.home_team ? event.away_team : event.home_team;
-                } else {
-                  // Player doesn't have teamID, try to infer from player name patterns
-                  // This is a fallback - in most cases we should have teamID
-                  console.warn(`Player ${prop.player_name} missing teamID, using fallback logic`);
-                  
-                  // For now, assign to home team as fallback
-                  // In a real scenario, you might want to use a more sophisticated mapping
-                  playerTeam = event.home_team;
-                  opponentTeam = event.away_team;
-                }
-
-                // Create deduplication key
-                const normalizedPropType = normalizePropType(prop.market_type);
-                const dedupeKey = `${prop.player_name}-${normalizedPropType}-${playerTeam}-${opponentTeam}`;
-                
-                const newProp: PlayerProp = {
-                  id: `${prop.market_type}-${prop.player_name}`,
-                  playerId: prop.player_name,
-                  playerName: prop.player_name,
-                  player_id: prop.player_id, // Add player_id for headshots
-                  team: playerTeam,
-                  opponent: opponentTeam || 'Unknown',
-                  propType: formatMarketName(prop.market_type),
-                  // marketType: normalizeMarketType(prop.market_type), // Add normalized market type
-                  line: prop.line,
-                  overOdds: parseOdds(prop.best_over),
-                  underOdds: parseOdds(prop.best_under),
-                  confidence: 0.5, // Default fallback
-                  expectedValue: 0, // Default fallback
-                  position: prop.position || 'N/A', // Use position from API
-                  gameDate: event.start_time?.split('T')[0] || today,
-                  gameTime: event.start_time || new Date().toISOString(),
-                  sport: sport,
-                  availableSportsbooks: prop.books || [],
-                  teamAbbr: getTeamAbbr(playerTeam),
-                  opponentAbbr: getTeamAbbr(opponentTeam || 'Unknown'),
-                  gameId: event.eventID,
-                  allSportsbookOdds: prop.books?.map((bookName: string) => ({
-                    sportsbook: bookName,
-                    odds: parseOdds(prop.best_over) || 0,
-                    lastUpdate: new Date().toISOString()
-                  })) || [],
-                  available: true,
-                  awayTeam: event.away_team,
-                  homeTeam: event.home_team,
-                  betType: 'player_prop',
-                  isExactAPIData: true,
-                  lastUpdate: new Date().toISOString(),
-                  marketName: formatMarketName(prop.market_type),
-                  market: formatMarketName(prop.market_type),
-                  marketId: prop.market_type,
-                  period: 'full_game',
-                  statEntity: prop.player_name,
-                  // New fields for enhanced display
-                  bestOver: prop.best_over,
-                  bestUnder: prop.best_under,
-                  allBooks: prop.books,
-                  // Assign logos based on player's team
-                  homeTeamLogo: nflTeamMap[playerTeam],
-                  awayTeamLogo: nflTeamMap[opponentTeam]
-                };
-
-                // Check for duplicates and merge if found
-                if (propMap.has(dedupeKey)) {
-                  const existingProp = propMap.get(dedupeKey)!;
-                  
-                  // Merge sportsbooks and odds
-                  const mergedSportsbooks = [...new Set([
-                    ...(existingProp.availableSportsbooks || []),
-                    ...(newProp.availableSportsbooks || [])
-                  ])];
-                  
-                  const mergedOdds = [
-                    ...(existingProp.allSportsbookOdds || []),
-                    ...(newProp.allSportsbookOdds || [])
-                  ];
-
-                  // Update existing prop with merged data
-                  existingProp.availableSportsbooks = mergedSportsbooks;
-                  existingProp.allSportsbookOdds = mergedOdds;
-                  
-                  // Keep the better odds (closer to -110)
-                  const existingOverOdds = existingProp.overOdds || 0;
-                  const newOverOdds = newProp.overOdds || 0;
-                  const existingUnderOdds = existingProp.underOdds || 0;
-                  const newUnderOdds = newProp.underOdds || 0;
-                  
-                  // Choose odds closer to -110 (better value)
-                  if (Math.abs(existingOverOdds + 110) > Math.abs(newOverOdds + 110)) {
-                    existingProp.overOdds = newOverOdds;
-                  }
-                  if (Math.abs(existingUnderOdds + 110) > Math.abs(newUnderOdds + 110)) {
-                    existingProp.underOdds = newUnderOdds;
-                  }
-                } else {
-                  // Add new prop to map and array
-                  propMap.set(dedupeKey, newProp);
-                  playerProps.push(newProp);
-                }
-              }
-            }
-          }
-        }
+        // Fallback to Supabase Edge Function
+        console.log('🔄 Falling back to Supabase Edge Function...');
+        return await this.getPlayerPropsFromSupabase(sport, forceRefresh);
       }
 
-      console.log(`✅ Transformed ${playerProps.length} player props from new endpoint`);
+      const props = data.data || [];
+      console.log(`✅ Retrieved ${props.length} player props from Cloudflare Worker`);
       
-      // Apply pagination to the deduplicated props
-      console.log(`🔧 Enriching ${playerProps.length} player props with gameLogs and defenseStats...`);
+      // Apply pagination to the props
+      console.log(`🔧 Enriching ${props.length} player props with gameLogs and defenseStats...`);
       
       // Enrich props with gameLogs and defenseStats for analytics
-      const enrichedProps = await playerPropsEnricher.enrichPlayerProps(playerProps);
+      const enrichedProps = await playerPropsEnricher.enrichPlayerProps(props);
       
       console.log(`✅ Enriched ${enrichedProps.length} player props with analytics data`);
       return enrichedProps;
