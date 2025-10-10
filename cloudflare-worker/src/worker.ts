@@ -16,6 +16,7 @@ import { initializeCoverageReport, generateCoverageReport, getCoverageSummary } 
 import { getFixedPlayerPropsWithAnalytics } from "./fixes";
 import { cleanPlayerNames } from "./playerNames";
 import { enrichTeams } from "./teams";
+import { fetchPropsForDate, type EnrichedProp } from "./fetchProps";
 // import { getPlayerPropsFixed } from "./player-props-fixed"; // No longer needed - using direct view fetch
 
 // Initialize prop type sync and supported props at worker startup
@@ -1275,10 +1276,9 @@ export default {
         });
       }
 
-      // Handle player props API endpoint
+      // Handle player props API endpoint - NEW WORKER-CENTRIC PIPELINE
       if (url.pathname === "/api/player-props") {
         try {
-          const { supabaseFetch } = await import("./supabaseFetch");
           const sport = url.searchParams.get("sport")?.toLowerCase() || "nfl";
           const forceRefresh = url.searchParams.get("force_refresh") === "true";
           const date = url.searchParams.get("date"); // Don't default to today's date
@@ -1298,7 +1298,7 @@ export default {
           const maxPropsPerRequest = getMaxPropsForSport(sport);
           const cacheTtlSeconds = parseInt(env.CACHE_TTL_SECONDS || "300");
           
-          console.log(`📊 Fetching player props for ${sport} (date: ${date}, forceRefresh: ${forceRefresh}, maxProps: ${maxPropsPerRequest})...`);
+          console.log(`📊 NEW PIPELINE: Fetching player props for ${sport} (date: ${date}, forceRefresh: ${forceRefresh}, maxProps: ${maxPropsPerRequest})...`);
           
           // Generate cache key
           const cacheKey = `player-props-${sport}-${date || 'all'}-${dateFrom || ''}-${dateTo || ''}`;
@@ -1338,112 +1338,77 @@ export default {
           
           const league = leagueMap[sport] || 'nfl';
 
-          // Helper function to find the most recent date with data
-          async function findMostRecentDateWithData(env: any, league: string): Promise<string | null> {
-            try {
-              const { supabaseFetch } = await import("./supabaseFetch");
-              
-              // Query the player_props_fixed view to find the most recent date with data
-              const params = new URLSearchParams({
-                league: `eq.${league.toLowerCase()}`,
-                select: 'prop_date',
-                order: 'prop_date.desc',
-                limit: '1'
-              });
-              
-              const response = await supabaseFetch(env, `player_props_fixed?${params}`);
-              
-              if (response && response.length > 0) {
-                return response[0].prop_date;
-              }
-              
-              // If no data in the fixed view, try the original view as fallback
-              const fallbackParams = new URLSearchParams({
-                league: `eq.${league.toLowerCase()}`,
-                select: 'prop_date',
-                order: 'prop_date.desc',
-                limit: '1'
-              });
-              
-              const fallbackResponse = await supabaseFetch(env, `player_props_api_view?${fallbackParams}`);
-              
-              if (fallbackResponse && fallbackResponse.length > 0) {
-                return fallbackResponse[0].prop_date;
-              }
-              
-              return null;
-            } catch (error) {
-              console.error("Error finding most recent date:", error);
-              return null;
-            }
-          }
+          // Use our new worker-centric pipeline
+          let enrichedProps: EnrichedProp[] = [];
           
-          // --- Helpers ---
-          const normalizeDate = (d: string) => d.split("T")[0];
-          const inFilter = (values: string[]) =>
-            values && values.length > 0
-              ? `in.(${values.map(v => `"${v}"`).join(",")})`
-              : null;
-
-          // --- USE NEW PLAYER PROPS FIXED SYSTEM ---
-          console.log(`📊 Using new player props fixed system for ${league} (date: ${date || 'all'})...`);
-          
-          // Use the new fixed player props function
-          let fixedProps: any[] = [];
           try {
-            // Simple direct fetch from the view - no complex processing
-            const { supabaseFetch } = await import("./supabaseFetch");
-            
             if (date) {
               // Single date query
-              const params = new URLSearchParams({
-                league: `eq.${league.toLowerCase()}`,
-                prop_date: `eq.${date}`,
-                limit: maxPropsPerRequest.toString()
-              });
-              fixedProps = await supabaseFetch(env, `player_props_fixed?${params}`) || [];
+              console.log(`📊 NEW PIPELINE: Fetching props for ${league} on ${date}...`);
+              enrichedProps = await fetchPropsForDate(env, league, date);
             } else if (dateFrom && dateTo) {
               // Date range query - get props for each date in range
               const startDate = new Date(dateFrom);
               const endDate = new Date(dateTo);
-              const allProps: any[] = [];
+              const allProps: EnrichedProp[] = [];
               
               for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
                 const dateStr = d.toISOString().split('T')[0];
                 try {
-                  const params = new URLSearchParams({
-                    league: `eq.${league.toLowerCase()}`,
-                    prop_date: `eq.${dateStr}`,
-                    limit: maxPropsPerRequest.toString()
-                  });
-                  const dayProps = await supabaseFetch(env, `player_props_fixed?${params}`) || [];
+                  console.log(`📊 NEW PIPELINE: Fetching props for ${league} on ${dateStr}...`);
+                  const dayProps = await fetchPropsForDate(env, league, dateStr);
                   allProps.push(...dayProps);
                 } catch (error) {
                   console.warn(`⚠️ Failed to fetch props for ${dateStr}:`, error);
                 }
               }
-              fixedProps = allProps;
+              enrichedProps = allProps;
             } else {
               // No date filter - find the most recent date with data
-              const mostRecentDate = await findMostRecentDateWithData(env, league);
-              if (mostRecentDate) {
-                const params = new URLSearchParams({
-                  league: `eq.${league.toLowerCase()}`,
-                  prop_date: `eq.${mostRecentDate}`,
-                  limit: maxPropsPerRequest.toString()
-                });
-                fixedProps = await supabaseFetch(env, `player_props_fixed?${params}`) || [];
-                console.log(`📅 Using most recent date with data: ${mostRecentDate}`);
-              } else {
-                console.log(`⚠️ No data found for league ${league}`);
-                fixedProps = [];
+              console.log(`📊 NEW PIPELINE: Finding most recent date with data for ${league}...`);
+              
+              // Try to find a recent date with data by checking the last few days
+              const today = new Date();
+              let foundData = false;
+              
+              for (let i = 0; i < 7; i++) {
+                const checkDate = new Date(today);
+                checkDate.setDate(checkDate.getDate() - i);
+                const dateStr = checkDate.toISOString().split('T')[0];
+                
+                try {
+                  const testProps = await fetchPropsForDate(env, league, dateStr);
+                  if (testProps.length > 0) {
+                    console.log(`📅 NEW PIPELINE: Found data for ${league} on ${dateStr} (${testProps.length} props)`);
+                    enrichedProps = testProps;
+                    foundData = true;
+                    break;
+                  }
+                } catch (error) {
+                  console.warn(`⚠️ Failed to check ${dateStr}:`, error);
+                }
+              }
+              
+              if (!foundData) {
+                console.log(`⚠️ NEW PIPELINE: No data found for league ${league} in last 7 days`);
+                enrichedProps = [];
               }
             }
             
-            console.log(`📊 Fetched ${fixedProps?.length || 0} fixed props from view`);
-            console.log(`📊 Sample fixed prop:`, fixedProps?.[0]);
+            console.log(`📊 NEW PIPELINE: Fetched ${enrichedProps.length} enriched props`);
+            if (enrichedProps.length > 0) {
+              console.log(`📊 NEW PIPELINE: Sample enriched prop:`, {
+                player_id: enrichedProps[0].player_id,
+                clean_player_name: enrichedProps[0].clean_player_name,
+                team_abbr: enrichedProps[0].team_abbr,
+                opponent_abbr: enrichedProps[0].opponent_abbr,
+                prop_type: enrichedProps[0].prop_type,
+                ev_percent: enrichedProps[0].ev_percent,
+                last5_hits: enrichedProps[0].last5_hits
+              });
+            }
           } catch (error) {
-            console.error("❌ Failed to fetch fixed player props:", error);
+            console.error("❌ NEW PIPELINE: Failed to fetch enriched player props:", error);
             return corsResponse({
               success: false,
               error: `Failed to fetch player props: ${error instanceof Error ? error.message : String(error)}`,
@@ -1453,7 +1418,7 @@ export default {
             }, 500);
           }
 
-          if (!fixedProps || fixedProps.length === 0) {
+          if (!enrichedProps || enrichedProps.length === 0) {
             return corsResponse({
               success: true,
               data: [],
@@ -1468,72 +1433,8 @@ export default {
             });
           }
 
-          // Clean player names to remove prop type contamination and handle empty names
-          console.log(`🧹 Cleaning player names for ${fixedProps.length} props...`);
-          console.log(`🔍 Sample prop before cleaning:`, fixedProps[0]);
-          const cleanedProps = cleanPlayerNames(fixedProps, `[worker:${sport}:${date || 'latest'}]`);
-          console.log(`✅ Player names cleaned: ${cleanedProps.length} props processed`);
-          console.log(`🔍 Sample prop after cleaning:`, cleanedProps[0]);
-
-          // Enrich teams with database-backed registry
-          console.log(`🏈 Enriching teams for ${cleanedProps.length} props...`);
-          const normalizedProps = await enrichTeams(cleanedProps, sport, env, `[worker:${sport}:${date || 'latest'}]`);
-          console.log(`✅ Teams enriched: ${normalizedProps.length} props processed`);
-          console.log(`🔍 Sample prop after team enrichment:`, normalizedProps[0]);
-
-          // --- OPTIONALLY fetch game logs for enrichment ---
-          let playerGameLogs: any[] = [];
-          
-          // Build game logs query for enrichment
-          const playerIds = [...new Set(normalizedProps.map((p: any) => p.player_id))];
-          const propTypes = [...new Set(normalizedProps.map((p: any) => p.prop_type))];
-          const dates = [...new Set(normalizedProps.map((p: any) => normalizeDate(p.prop_date || p.date || "")))];
-
-          if (playerIds.length > 0) {
-            let gameLogsQuery = "player_game_logs";
-            const gameLogsFilters: string[] = [];
-            
-            // Filter by league
-            if (league !== "all") {
-              gameLogsFilters.push(`league=eq.${league}`);
-            }
-            
-            // Use flexible date range for game logs
-            if (dateFrom && dateTo) {
-              gameLogsFilters.push(`date=gte.${dateFrom}`);
-              gameLogsFilters.push(`date=lte.${dateTo}`);
-            } else if (date) {
-              gameLogsFilters.push(`date=eq.${date}`);
-            }
-            // If no date filters are provided, return ALL game logs (no date filtering)
-            
-            if (gameLogsFilters.length > 0) {
-              gameLogsQuery += "?" + gameLogsFilters.join("&");
-            }
-            
-            gameLogsQuery += `${gameLogsFilters.length > 0 ? "&" : "?"}order=player_name.asc,prop_type.asc&limit=5000`;
-            
-            console.log(`📊 Game logs query (for enrichment): ${gameLogsQuery}`);
-            
-            try {
-              playerGameLogs = await supabaseFetch(env, gameLogsQuery, { method: "GET" }) as any[];
-              console.log(`📊 Fetched ${playerGameLogs?.length || 0} game logs for enrichment`);
-            } catch (error) {
-              console.warn("⚠️ Failed to fetch game logs for enrichment:", error);
-              playerGameLogs = [];
-            }
-          }
-
-          // --- USE NORMALIZED PROPS DIRECTLY: The view already has all the data we need ---
-        console.log(`📊 Using normalized props with analytics: ${normalizedProps.length} props`);
-        
-        // Use the normalized props directly - no additional processing needed
-        const enrichedProps = normalizedProps || [];
-
-          console.log(`📊 Enriched ${enrichedProps.length} props (${playerGameLogs.length} game logs available for enrichment)`);
-
           // Filter out defensive props for NFL and NBA
-          const filteredProps = enrichedProps.filter((prop: any) => {
+          const filteredProps = enrichedProps.filter((prop: EnrichedProp) => {
             const propType = prop.prop_type?.toLowerCase() || '';
             const currentSport = sport.toLowerCase();
             
@@ -1571,137 +1472,83 @@ export default {
             return true;
           });
           
-          console.log(`📊 Filtered to ${filteredProps.length} props (removed defensive props for NFL/NBA)`);
+          console.log(`📊 NEW PIPELINE: Filtered to ${filteredProps.length} props (removed defensive props for NFL/NBA)`);
 
           // Apply max props per request limit
           const limitedProps = filteredProps.slice(0, maxPropsPerRequest);
           console.log(`📊 Limited to ${limitedProps.length} props (max: ${maxPropsPerRequest})`);
 
-          // Team abbreviation mapping
-          const getTeamAbbr = (teamName: string): string => {
-            if (!teamName) return '—';
-            
-            const teamMap: Record<string, string> = {
-              // NFL
-              'NEW': 'NYJ',
-              'DENVER': 'DEN',
-              'PHILADEL': 'PHI',
-              'ATLANTA': 'ATL',
-              'ARIZONA': 'ARI',
-              'BALTIMORE': 'BAL',
-              'BUFFALO': 'BUF',
-              'CAROLINA': 'CAR',
-              'CHICAGO': 'CHI',
-              'CINCINNATI': 'CIN',
-              'CLEVELAND': 'CLE',
-              'DALLAS': 'DAL',
-              'DETROIT': 'DET',
-              'GREEN BAY': 'GB',
-              'HOUSTON': 'HOU',
-              'INDIANAPOLIS': 'IND',
-              'JACKSONVILLE': 'JAX',
-              'KANSAS CITY': 'KC',
-              'LAS VEGAS': 'LV',
-              'LOS ANGELES CHARGERS': 'LAC',
-              'LOS ANGELES RAMS': 'LAR',
-              'MIAMI': 'MIA',
-              'MINNESOTA': 'MIN',
-              'NEW ENGLAND': 'NE',
-              'NEW ORLEANS': 'NO',
-              'NEW YORK GIANTS': 'NYG',
-              'PITTSBURGH': 'PIT',
-              'SAN FRANCISCO': 'SF',
-              'SEATTLE': 'SEA',
-              'TAMPA BAY': 'TB',
-              'TENNESSEE': 'TEN',
-              'WASHINGTON': 'WAS',
-              
-              // NBA
-              'ATLANTA HAWKS': 'ATL',
-              'BOSTON CELTICS': 'BOS',
-              'BROOKLYN NETS': 'BKN',
-              'CHARLOTTE HORNETS': 'CHA',
-              'CHICAGO BULLS': 'CHI',
-              'CLEVELAND CAVALIERS': 'CLE',
-              'DALLAS MAVERICKS': 'DAL',
-              'DENVER NUGGETS': 'DEN',
-              'DETROIT PISTONS': 'DET',
-              'GOLDEN STATE WARRIORS': 'GSW',
-              'HOUSTON ROCKETS': 'HOU',
-              'INDIANA PACERS': 'IND',
-              'LOS ANGELES CLIPPERS': 'LAC',
-              'LOS ANGELES LAKERS': 'LAL',
-              'MEMPHIS GRIZZLIES': 'MEM',
-              'MIAMI HEAT': 'MIA',
-              'MILWAUKEE BUCKS': 'MIL',
-              'MINNESOTA TIMBERWOLVES': 'MIN',
-              'NEW ORLEANS PELICANS': 'NO',
-              'NEW YORK KNICKS': 'NYK',
-              'OKLAHOMA CITY THUNDER': 'OKC',
-              'ORLANDO MAGIC': 'ORL',
-              'PHILADELPHIA 76ERS': 'PHI',
-              'PHOENIX SUNS': 'PHX',
-              'PORTLAND TRAIL BLAZERS': 'POR',
-              'SACRAMENTO KINGS': 'SAC',
-              'SAN ANTONIO SPURS': 'SA',
-              'TORONTO RAPTORS': 'TOR',
-              'UTAH JAZZ': 'UTA',
-              'WASHINGTON WIZARDS': 'WAS'
-            };
-            
-            return teamMap[teamName.toUpperCase()] || teamName;
-          };
-
-          // Transform to expected format using cleaned props data
-          const transformedProps = limitedProps.map((prop: any) => {
+          // Transform to expected format using our enriched props data
+          const transformedProps = limitedProps.map((prop: EnrichedProp) => {
             return {
-            id: prop.prop_id,
-            playerId: prop.player_id,
-            playerName: prop.clean_player_name || prop.player_name || prop.player_id, // Use cleaned player name with fallback
-            player_id: prop.player_id, // For headshots compatibility
-            team: prop.team_abbr || prop.team, // Use normalized abbreviation with fallback
-            opponent: prop.opponent_abbr || prop.opponent, // Use normalized abbreviation with fallback
-            propType: prop.prop_type,
-            line: prop.line,
-            overOdds: prop.over_odds, // Fix: use underscore field name from view
-            underOdds: prop.under_odds, // Fix: use underscore field name from view
-            sportsbooks: [prop.sportsbook || 'Unknown'],
-            position: 'N/A',
-            gameDate: prop.date,
-            sport: sport,
-            teamAbbr: prop.team_abbr || prop.team, // Use normalized abbreviation with fallback
-            opponentAbbr: prop.opponent_abbr || prop.opponent, // Use normalized abbreviation with fallback
-            gameId: prop.game_id, // Fix: use underscore field name from view
-            available: true,
-            lastUpdate: new Date().toISOString(),
-            marketName: prop.prop_type,
-            market: prop.prop_type,
-            marketId: prop.prop_type,
-            period: 'full_game',
-            statEntity: prop.clean_player_name || prop.player_name || prop.player_id, // Use cleaned player name with fallback
-            // New enhanced fields with streaks and EV%
-            evPercent: prop.ev_percent,
-            last5_streak: prop.last5_streak,
-            last10_streak: prop.last10_streak,
-            last20_streak: prop.last20_streak,
-            h2h_streak: prop.h2h_streak,
-            teamLogo: prop.team_logo, // Use normalized team logo
-            opponentLogo: prop.opponent_logo, // Use normalized opponent logo
-            // Enhanced fields
-            bestOver: prop.over_odds ? { bookmaker: prop.sportsbook || 'Unknown', side: 'over', price: prop.over_odds.toString(), line: prop.line } : undefined,
-            bestUnder: prop.under_odds ? { bookmaker: prop.sportsbook || 'Unknown', side: 'under', price: prop.under_odds.toString(), line: prop.line } : undefined,
-            allBooks: prop.sportsbook ? [{ bookmaker: prop.sportsbook, side: 'over', price: prop.over_odds?.toString() || '', line: prop.line, deeplink: '' }] : [],
-            // Clean player name field for debugging
-            clean_player_name: prop.clean_player_name,
-            // Team debugging fields
-            team_name: prop.team_name,
-            opponent_name: prop.opponent_name,
-            debug_team: prop.debug_team
-          };
+              id: prop.player_id, // Use player_id as ID
+              playerId: prop.player_id,
+              playerName: prop.clean_player_name,
+              player_id: prop.player_id, // For headshots compatibility
+              team: prop.team_abbr,
+              opponent: prop.opponent_abbr,
+              propType: prop.prop_type,
+              line: prop.line,
+              overOdds: prop.over_odds,
+              underOdds: prop.under_odds,
+              sportsbooks: ['SportsGameOdds'], // Default sportsbook
+              position: 'N/A',
+              gameDate: prop.date_normalized,
+              sport: sport,
+              teamAbbr: prop.team_abbr,
+              opponentAbbr: prop.opponent_abbr,
+              gameId: prop.game_id,
+              available: true,
+              lastUpdate: new Date().toISOString(),
+              marketName: prop.prop_type,
+              market: prop.prop_type,
+              marketId: prop.prop_type,
+              period: 'full_game',
+              statEntity: prop.clean_player_name,
+              
+              // NEW PIPELINE: Enhanced fields with calculated metrics
+              evPercent: prop.ev_percent,
+              last5_streak: prop.last5_hits,
+              last10_streak: prop.last10_hits,
+              last20_streak: prop.last20_hits,
+              h2h_streak: prop.h2h_hits,
+              
+              // Team data with logos
+              teamLogo: prop.team_logo,
+              opponentLogo: prop.opponent_logo,
+              team_name: prop.team_name,
+              opponent_name: prop.opponent_name,
+              
+              // Enhanced fields
+              bestOver: prop.over_odds ? { 
+                bookmaker: 'SportsGameOdds', 
+                side: 'over', 
+                price: prop.over_odds.toString(), 
+                line: prop.line 
+              } : undefined,
+              bestUnder: prop.under_odds ? { 
+                bookmaker: 'SportsGameOdds', 
+                side: 'under', 
+                price: prop.under_odds.toString(), 
+                line: prop.line 
+              } : undefined,
+              allBooks: prop.over_odds ? [{ 
+                bookmaker: 'SportsGameOdds', 
+                side: 'over', 
+                price: prop.over_odds.toString(), 
+                line: prop.line, 
+                deeplink: '' 
+              }] : [],
+              
+              // Debug fields
+              clean_player_name: prop.clean_player_name,
+              debug_team: prop.debug_team,
+              debug_ev: prop.debug_ev
+            };
           });
           
           // Use the actual date that was found/used
-          const actualDate = date || normalizedProps[0]?.prop_date || normalizedProps[0]?.date;
+          const actualDate = date || limitedProps[0]?.date_normalized;
           
           const response = {
             success: true,

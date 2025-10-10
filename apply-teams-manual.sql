@@ -38,7 +38,10 @@ returns text language sql immutable as $$
   select regexp_replace(lower(trim(s)), '\s+', ' ', 'g')
 $$;
 
--- Seed NFL data
+-- Clear any existing teams data first
+DELETE FROM teams WHERE league = 'nfl';
+
+-- Seed NFL data with corrected abbreviations
 insert into teams (league, team_name, abbreviation, logo_url, aliases)
 values
 ('nfl','Arizona Cardinals','ARI','https://a.espncdn.com/i/teamlogos/nfl/500/ari.png','["cardinals","ari","az"]'),
@@ -62,7 +65,7 @@ values
 ('nfl','Los Angeles Rams','LAR','https://a.espncdn.com/i/teamlogos/nfl/500/lar.png','["rams","lar"]'),
 ('nfl','Miami Dolphins','MIA','https://a.espncdn.com/i/teamlogos/nfl/500/mia.png','["dolphins","mia"]'),
 ('nfl','Minnesota Vikings','MIN','https://a.espncdn.com/i/teamlogos/nfl/500/min.png','["vikings","min"]'),
-('nfl','New England Patriots','NE','https://a.espncdn.com/i/teamlogos/nfl/500/ne.png','["patriots","ne","patriots"]'),
+('nfl','New England Patriots','NE','https://a.espncdn.com/i/teamlogos/nfl/500/ne.png','["patriots","ne"]'),
 ('nfl','New Orleans Saints','NO','https://a.espncdn.com/i/teamlogos/nfl/500/no.png','["saints","nola saints","no"]'),
 ('nfl','New York Giants','NYG','https://a.espncdn.com/i/teamlogos/nfl/500/nyg.png','["giants","nyg","ny giants"]'),
 ('nfl','New York Jets','NYJ','https://a.espncdn.com/i/teamlogos/nfl/500/nyj.png','["jets","ny jets","nyj"]'),
@@ -72,8 +75,7 @@ values
 ('nfl','Seattle Seahawks','SEA','https://a.espncdn.com/i/teamlogos/nfl/500/sea.png','["seahawks","sea"]'),
 ('nfl','Tampa Bay Buccaneers','TB','https://a.espncdn.com/i/teamlogos/nfl/500/tb.png','["buccaneers","tb","bucs"]'),
 ('nfl','Tennessee Titans','TEN','https://a.espncdn.com/i/teamlogos/nfl/500/ten.png','["titans","ten"]'),
-('nfl','Washington Commanders','WAS','https://a.espncdn.com/i/teamlogos/nfl/500/wsh.png','["commanders","was","washington football team","redskins"]')
-on conflict (league, lower(team_name)) do nothing;
+('nfl','Washington Commanders','WAS','https://a.espncdn.com/i/teamlogos/nfl/500/wsh.png','["commanders","was","washington football team","redskins"]');
 
 -- Verification
 select league, count(*) as teams from teams group by league order by league;
