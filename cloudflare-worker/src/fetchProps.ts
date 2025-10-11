@@ -80,13 +80,34 @@ export type EnrichedProp = {
 };
 
 /**
+ * Get player prop oddIDs for a given league
+ */
+function getPlayerPropOddIDs(league: string): string {
+  const oddIDsMap: Record<string, string> = {
+    'nfl': 'rushing_yards-PLAYER_ID-game-ou-over,passing_yards-PLAYER_ID-game-ou-over,receiving_yards-PLAYER_ID-game-ou-over,touchdowns-PLAYER_ID-game-ou-over',
+    'nba': 'points-PLAYER_ID-game-ou-over,rebounds-PLAYER_ID-game-ou-over,assists-PLAYER_ID-game-ou-over,steals-PLAYER_ID-game-ou-over,blocks-PLAYER_ID-game-ou-over',
+    'mlb': 'hits-PLAYER_ID-game-ou-over,runs-PLAYER_ID-game-ou-over,rbis-PLAYER_ID-game-ou-over,strikeouts-PLAYER_ID-game-ou-over',
+    'nhl': 'shots_on_goal-PLAYER_ID-game-ou-over,goals-PLAYER_ID-game-ou-over,assists-PLAYER_ID-game-ou-over,points-PLAYER_ID-game-ou-over',
+    'epl': 'goals-PLAYER_ID-game-ou-over,assists-PLAYER_ID-game-ou-over,shots-PLAYER_ID-game-ou-over',
+    'ncaaf': 'rushing_yards-PLAYER_ID-game-ou-over,passing_yards-PLAYER_ID-game-ou-over,receiving_yards-PLAYER_ID-game-ou-over',
+    'ncaab': 'points-PLAYER_ID-game-ou-over,rebounds-PLAYER_ID-game-ou-over,assists-PLAYER_ID-game-ou-over'
+  };
+  
+  return oddIDsMap[league.toLowerCase()] || oddIDsMap['nfl'];
+}
+
+/**
  * Fetch raw props directly from SportsGameOdds API
  */
 async function fetchRawProps(env: any, league: string, dateISO: string): Promise<any[]> {
   console.log(`🔍 Fetching raw props from SportsGameOdds API for ${league} on ${dateISO}`);
   
-  // Use the same API structure as the existing ingestion code
-  const url = `https://api.sportsgameodds.com/v2/events?apiKey=${env.SPORTSGAMEODDS_API_KEY}&leagueID=${league}&oddsAvailable=true&dateFrom=${dateISO}&dateTo=${dateISO}&limit=250`;
+  // Get the appropriate oddIDs for player props based on league
+  const playerPropOddIDs = getPlayerPropOddIDs(league);
+  console.log(`🔍 Using player prop oddIDs for ${league}: ${playerPropOddIDs}`);
+  
+  // Use the same API structure as the existing ingestion code, but with player prop oddIDs
+  const url = `https://api.sportsgameodds.com/v2/events?apiKey=${env.SPORTSGAMEODDS_API_KEY}&leagueID=${league}&oddsAvailable=true&dateFrom=${dateISO}&dateTo=${dateISO}&oddIDs=${encodeURIComponent(playerPropOddIDs)}&limit=250`;
   
   try {
     const res = await fetch(url, {
