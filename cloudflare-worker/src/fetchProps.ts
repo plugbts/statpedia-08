@@ -599,7 +599,7 @@ export async function buildProps(env: any, league: string, dateISO: string): Pro
   for (const event of rawEvents) {
     try {
       console.log(`[worker:buildProps] Processing event ${event.gameId} with ${Object.keys(event.odds || {}).length} odds...`);
-      const extractedProps = await extractPlayerProps(env, event);
+      const extractedProps = await extractPlayerProps([event], env);
       console.log(`[worker:buildProps] Extracted ${extractedProps.length} props from event ${event.gameId}`);
       rawProps.push(...extractedProps);
     } catch (error) {
