@@ -610,22 +610,44 @@ export async function buildProps(env: any, league: string, dateISO: string): Pro
   console.log(`🚀 Starting pure worker-centric props build for ${league} on ${dateISO}`);
 
   // 1. Fetch raw events directly from SportsGameOdds API
-  const rawEvents = await fetchRawProps(env, league, dateISO);
+  // TEMPORARILY: Try reading from database first to test if data is there
+  console.log(`🔍 TEMPORARY: Checking if data is in database first...`);
+  const { data: dbProps, error: dbError } = await supabaseFetch(env, `proplines?league=eq.${league.toLowerCase()}&limit=10`);
   
+  if (!dbError && dbProps && dbProps.length > 0) {
+    console.log(`✅ Found ${dbProps.length} props in database, using database data temporarily`);
+    // Convert database props to the format expected by the rest of the pipeline
+    const rawEvents = dbProps.map((prop: any) => ({
+      gameId: prop.game_id,
+      odds: { [prop.id]: prop }, // Create a fake odds structure
+      players: { [prop.player_id]: { name: prop.player_name } }
+    }));
+    return await processRawEvents(rawEvents, env, league, dateISO);
+  } else {
+    console.log(`❌ No data in database (${dbError?.message || 'empty'}), falling back to API`);
+    const rawEvents = await fetchRawProps(env, league, dateISO);
+    return await processRawEvents(rawEvents, env, league, dateISO);
+  }
+}
+
+/**
+ * Process raw events through the enrichment pipeline
+ */
+async function processRawEvents(rawEvents: any[], env: any, league: string, dateISO: string): Promise<EnrichedProp[]> {
   if (rawEvents.length === 0) {
-    console.log(`[worker:buildProps] No raw events found for ${league} on ${dateISO}`);
+    console.log(`[worker:processRawEvents] No raw events found for ${league} on ${dateISO}`);
     return [];
   }
 
   // 2. Extract player props from events
-  console.log(`[worker:buildProps] Extracting player props from ${rawEvents.length} events...`);
+  console.log(`[worker:processRawEvents] Extracting player props from ${rawEvents.length} events...`);
   const rawProps: any[] = [];
   
   for (const event of rawEvents) {
     try {
-      console.log(`[worker:buildProps] Processing event ${event.gameId} with ${Object.keys(event.odds || {}).length} odds...`);
+      console.log(`[worker:processRawEvents] Processing event ${event.gameId} with ${Object.keys(event.odds || {}).length} odds...`);
       const extractedProps = await extractPlayerProps([event], env);
-      console.log(`[worker:buildProps] Extracted ${extractedProps.length} props from event ${event.gameId}`);
+      console.log(`[worker:processRawEvents] Extracted ${extractedProps.length} props from event ${event.gameId}`);
       rawProps.push(...extractedProps);
     } catch (error) {
       console.warn(`⚠️ Failed to extract props from event ${event.gameId}:`, error);
@@ -633,26 +655,26 @@ export async function buildProps(env: any, league: string, dateISO: string): Pro
   }
   
   if (rawProps.length === 0) {
-    console.log(`[worker:buildProps] No player props extracted from ${rawEvents.length} events`);
+    console.log(`[worker:processRawEvents] No player props extracted from ${rawEvents.length} events`);
     return [];
   }
   
-  console.log(`[worker:buildProps] Extracted ${rawProps.length} player props from ${rawEvents.length} events`);
+  console.log(`[worker:processRawEvents] Extracted ${rawProps.length} player props from ${rawEvents.length} events`);
 
   // 3. Load team registry for runtime team resolution
-  console.log(`[worker:buildProps] Loading team registry...`);
+  console.log(`[worker:processRawEvents] Loading team registry...`);
   const teamRegistry = await loadTeamRegistry(env, league);
 
   // 4. Clean player names
-  console.log(`[worker:buildProps] Cleaning player names for ${rawProps.length} props...`);
-  const cleanedProps = cleanPlayerNames(rawProps, "[worker:buildProps:names]");
+  console.log(`[worker:processRawEvents] Cleaning player names for ${rawProps.length} props...`);
+  const cleanedProps = cleanPlayerNames(rawProps, "[worker:processRawEvents:names]");
 
   // 5. Attach teams at runtime using worker-centric approach
-  console.log(`[worker:buildProps] Attaching teams at runtime for ${cleanedProps.length} props...`);
+  console.log(`[worker:processRawEvents] Attaching teams at runtime for ${cleanedProps.length} props...`);
   const enrichedTeams = cleanedProps.map((row: any) => attachTeams(row, teamRegistry, {}));
 
   // 6. Calculate EV% and streaks (simplified for now - no historical data)
-  console.log(`[worker:buildProps] Calculating metrics for ${enrichedTeams.length} props...`);
+  console.log(`[worker:processRawEvents] Calculating metrics for ${enrichedTeams.length} props...`);
   const enriched = enrichedTeams.map((row: any) => {
     const evResult = calcEV(
       row.over_odds,
