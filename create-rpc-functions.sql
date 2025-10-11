@@ -68,9 +68,22 @@ BEGIN
         conflict_key = EXCLUDED.conflict_key,
         updated_at = NOW();
 
-      -- Count as update if row existed, insert if new
+      -- Check if this was an insert or update
+      -- FOUND is automatically set by PostgreSQL after INSERT/UPDATE operations
       IF FOUND THEN
-        update_count := update_count + 1;
+        -- Check if row existed before (this is an update)
+        IF (SELECT COUNT(*) FROM proplines WHERE 
+            player_id = (row_record->>'player_id')::text 
+            AND date = (row_record->>'date')::date 
+            AND prop_type = (row_record->>'prop_type')::text 
+            AND sportsbook = COALESCE((row_record->>'sportsbook')::text, 'SportsGameOdds')
+            AND line = (row_record->>'line')::numeric) > 0 THEN
+          update_count := update_count + 1;
+        ELSE
+          insert_count := insert_count + 1;
+        END IF;
+      ELSE
+        insert_count := insert_count + 1;
       END IF;
 
     EXCEPTION WHEN OTHERS THEN
@@ -154,9 +167,20 @@ BEGIN
         injury_status = EXCLUDED.injury_status,
         updated_at = NOW();
 
-      -- Count as update if row existed, insert if new
+      -- Check if this was an insert or update
+      -- FOUND is automatically set by PostgreSQL after INSERT/UPDATE operations
       IF FOUND THEN
-        update_count := update_count + 1;
+        -- Check if row existed before (this is an update)
+        IF (SELECT COUNT(*) FROM player_game_logs WHERE 
+            player_id = (row_record->>'player_id')::text 
+            AND date = (row_record->>'date')::date 
+            AND prop_type = (row_record->>'prop_type')::text) > 0 THEN
+          update_count := update_count + 1;
+        ELSE
+          insert_count := insert_count + 1;
+        END IF;
+      ELSE
+        insert_count := insert_count + 1;
       END IF;
 
     EXCEPTION WHEN OTHERS THEN

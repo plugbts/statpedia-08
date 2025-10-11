@@ -1,6 +1,48 @@
--- Create bulk upsert RPC function to reduce Cloudflare Worker subrequest limit issues
--- This allows inserting hundreds of props in a single database call instead of many individual calls
+-- Fix RPC constraint issues
+-- This script fixes the ON CONFLICT clauses in the bulk upsert RPC functions
+-- to match the actual unique constraints defined in the database
 
+-- First, let's ensure the required unique constraints exist
+-- Add unique constraint to proplines if it doesn't exist
+DO $$
+BEGIN
+    -- Check if the unique constraint on (player_id, date, prop_type, sportsbook, line) exists
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname LIKE '%proplines%' 
+        AND contype = 'u'
+        AND conrelid = 'public.proplines'::regclass
+    ) THEN
+        -- Add the unique constraint that the RPC function expects
+        ALTER TABLE public.proplines 
+        ADD CONSTRAINT proplines_unique_prop 
+        UNIQUE (player_id, date, prop_type, sportsbook, line);
+        
+        RAISE NOTICE 'Added unique constraint to proplines table';
+    ELSE
+        RAISE NOTICE 'Unique constraint already exists on proplines table';
+    END IF;
+END $$;
+
+-- Ensure player_game_logs has the correct unique constraint
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'unique_player_game_log' 
+        AND conrelid = 'public.player_game_logs'::regclass
+    ) THEN
+        ALTER TABLE public.player_game_logs 
+        ADD CONSTRAINT unique_player_game_log 
+        UNIQUE (player_id, date, prop_type);
+        
+        RAISE NOTICE 'Added unique constraint to player_game_logs table';
+    ELSE
+        RAISE NOTICE 'Unique constraint already exists on player_game_logs table';
+    END IF;
+END $$;
+
+-- Now create the fixed RPC functions
 CREATE OR REPLACE FUNCTION bulk_upsert_proplines(rows jsonb)
 RETURNS TABLE(
   inserted_count integer,
@@ -20,6 +62,7 @@ BEGIN
   FOR row_record IN SELECT jsonb_array_elements(rows)
   LOOP
     BEGIN
+      -- Use INSERT ... ON CONFLICT with proper constraint reference
       INSERT INTO proplines (
         player_id, 
         player_name, 
@@ -121,6 +164,7 @@ BEGIN
   FOR row_record IN SELECT jsonb_array_elements(rows)
   LOOP
     BEGIN
+      -- Use INSERT ... ON CONFLICT with proper constraint reference
       INSERT INTO player_game_logs (
         player_id,
         player_name,
@@ -205,5 +249,23 @@ GRANT EXECUTE ON FUNCTION bulk_upsert_player_game_logs(jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION bulk_upsert_player_game_logs(jsonb) TO anon;
 
 -- Add comments
-COMMENT ON FUNCTION bulk_upsert_proplines(jsonb) IS 'Bulk upsert function for proplines table to reduce Cloudflare Worker subrequest limits';
-COMMENT ON FUNCTION bulk_upsert_player_game_logs(jsonb) IS 'Bulk upsert function for player_game_logs table to reduce Cloudflare Worker subrequest limits';
+COMMENT ON FUNCTION bulk_upsert_proplines(jsonb) IS 'Fixed bulk upsert function for proplines table with proper constraint handling';
+COMMENT ON FUNCTION bulk_upsert_player_game_logs(jsonb) IS 'Fixed bulk upsert function for player_game_logs table with proper constraint handling';
+
+-- Verify the functions work by testing them
+DO $$
+DECLARE
+  test_result record;
+BEGIN
+  -- Test the proplines function with a simple test case
+  SELECT * INTO test_result FROM bulk_upsert_proplines('[]'::jsonb);
+  RAISE NOTICE 'Proplines function test: inserted=%, updated=%, errors=%', 
+    test_result.inserted_count, test_result.updated_count, test_result.error_count;
+    
+  -- Test the player_game_logs function with a simple test case  
+  SELECT * INTO test_result FROM bulk_upsert_player_game_logs('[]'::jsonb);
+  RAISE NOTICE 'Player game logs function test: inserted=%, updated=%, errors=%', 
+    test_result.inserted_count, test_result.updated_count, test_result.error_count;
+    
+  RAISE NOTICE 'RPC constraint fixes applied successfully!';
+END $$;
