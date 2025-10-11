@@ -84,14 +84,15 @@ export type EnrichedProp = {
  * Get player prop oddIDs for a given league
  */
 function getPlayerPropOddIDs(league: string): string {
+  // Use the exact same oddIDs as the ingestion system from config/leagues.ts
   const oddIDsMap: Record<string, string> = {
-    'nfl': 'rushing_yards-PLAYER_ID-game-ou-over,passing_yards-PLAYER_ID-game-ou-over,receiving_yards-PLAYER_ID-game-ou-over,touchdowns-PLAYER_ID-game-ou-over',
-    'nba': 'points-PLAYER_ID-game-ou-over,rebounds-PLAYER_ID-game-ou-over,assists-PLAYER_ID-game-ou-over,steals-PLAYER_ID-game-ou-over,blocks-PLAYER_ID-game-ou-over',
-    'mlb': 'hits-PLAYER_ID-game-ou-over,runs-PLAYER_ID-game-ou-over,rbis-PLAYER_ID-game-ou-over,strikeouts-PLAYER_ID-game-ou-over',
-    'nhl': 'shots_on_goal-PLAYER_ID-game-ou-over,goals-PLAYER_ID-game-ou-over,assists-PLAYER_ID-game-ou-over,points-PLAYER_ID-game-ou-over',
-    'epl': 'goals-PLAYER_ID-game-ou-over,assists-PLAYER_ID-game-ou-over,shots-PLAYER_ID-game-ou-over',
-    'ncaaf': 'rushing_yards-PLAYER_ID-game-ou-over,passing_yards-PLAYER_ID-game-ou-over,receiving_yards-PLAYER_ID-game-ou-over',
-    'ncaab': 'points-PLAYER_ID-game-ou-over,rebounds-PLAYER_ID-game-ou-over,assists-PLAYER_ID-game-ou-over'
+    'nfl': 'passing_yards-PLAYER_ID-game-ou-over,rushing_yards-PLAYER_ID-game-ou-over,receiving_yards-PLAYER_ID-game-ou-over,receptions-PLAYER_ID-game-ou-over,passing_touchdowns-PLAYER_ID-game-ou-over,rushing_touchdowns-PLAYER_ID-game-ou-over,receiving_touchdowns-PLAYER_ID-game-ou-over',
+    'nba': 'points-PLAYER_ID-game-ou-over,rebounds-PLAYER_ID-game-ou-over,assists-PLAYER_ID-game-ou-over,steals-PLAYER_ID-game-ou-over,blocks-PLAYER_ID-game-ou-over,threes_made-PLAYER_ID-game-ou-over,points_rebounds_assists-PLAYER_ID-game-ou-over',
+    'mlb': 'hits-PLAYER_ID-game-ou-over,runs-PLAYER_ID-game-ou-over,rbis-PLAYER_ID-game-ou-over,total_bases-PLAYER_ID-game-ou-over,strikeouts-PLAYER_ID-game-ou-over,pitching_outs-PLAYER_ID-game-ou-over',
+    'nhl': 'shots_on_goal-PLAYER_ID-game-ou-over,points-PLAYER_ID-game-ou-over,goals-PLAYER_ID-game-ou-over,assists-PLAYER_ID-game-ou-over,saves-PLAYER_ID-game-ou-over',
+    'epl': 'shots-PLAYER_ID-game-ou-over,shots_on_target-PLAYER_ID-game-ou-over,goals-PLAYER_ID-game-ou-over,assists-PLAYER_ID-game-ou-over,passes-PLAYER_ID-game-ou-over,tackles-PLAYER_ID-game-ou-over',
+    'ncaaf': 'passing_yards-PLAYER_ID-game-ou-over,rushing_yards-PLAYER_ID-game-ou-over,receiving_yards-PLAYER_ID-game-ou-over,receptions-PLAYER_ID-game-ou-over',
+    'ncaab': 'points-PLAYER_ID-game-ou-over,rebounds-PLAYER_ID-game-ou-over,assists-PLAYER_ID-game-ou-over,threes_made-PLAYER_ID-game-ou-over'
   };
   
   return oddIDsMap[league.toLowerCase()] || oddIDsMap['nfl'];
