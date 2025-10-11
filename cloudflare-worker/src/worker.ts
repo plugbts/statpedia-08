@@ -1301,8 +1301,8 @@ export default {
           const playerPropOddIDs = getPlayerPropOddIDs(league);
           console.log(`🔍 [DEBUG] Using oddIDs: ${playerPropOddIDs}`);
           const events = await fetchEventsWithProps(env, league.toUpperCase(), { 
-            limit: 5,
-            oddIDs: playerPropOddIDs
+            limit: 5
+            // oddIDs: playerPropOddIDs  // Temporarily remove filter to see all odds
           });
           
           return corsResponse({
