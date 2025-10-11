@@ -103,35 +103,9 @@ function getPlayerPropOddIDs(league: string): string {
  * Fetch raw props directly from SportsGameOdds API
  * Uses the dual-mode approach: fetch from API, extract props, serve live data
  */
-async function fetchRawProps(env: any, league: string, dateISO: string): Promise<any[]> {
-  console.log(`🔍 Fetching raw props from SportsGameOdds API for ${league} on ${dateISO}`);
+async function fetchRawPropsFromEvents(env: any, league: string, dateISO: string): Promise<any[]> {
+  console.log(`🔍 Fetching raw events from SportsGameOdds API for ${league} on ${dateISO}`);
   
-  // Try the user's suggested /props endpoint first
-  try {
-    const propsUrl = `https://api.sportsgameodds.com/v2/props?league=${league}&date=${dateISO}`;
-    console.log(`🔍 Trying /props endpoint: ${propsUrl}`);
-    
-    const res = await fetch(propsUrl, {
-      headers: { 
-        "Authorization": `Bearer ${env.SPORTSGAMEODDS_API_KEY}`,
-        "Content-Type": "application/json"
-      }
-    });
-    
-    if (res.ok) {
-      const json = await res.json();
-      const props = json?.data ?? [];
-      console.log(`✅ Fetched ${props.length} props from /props endpoint`);
-      return props;
-    } else {
-      console.log(`❌ /props endpoint failed: ${res.status} ${res.statusText}`);
-    }
-  } catch (error) {
-    console.log(`❌ /props endpoint error:`, error);
-  }
-  
-  // Fallback to the events approach (same as ingestion system)
-  console.log(`🔍 Falling back to /events endpoint approach...`);
   try {
     // Get the league configuration from the same source as ingestion
     const activeLeagues = getActiveLeagues();
@@ -148,24 +122,64 @@ async function fetchRawProps(env: any, league: string, dateISO: string): Promise
     const { events, tier } = await getEventsWithFallbacks(env, leagueConfig.id, leagueConfig.seasons[0], leagueConfig.oddIDs);
     console.log(`✅ Fetched ${events.length} events from SportsGameOdds API (tier ${tier})`);
     
-    // Filter events by the requested date if needed
-    if (dateISO && events.length > 0) {
-      const filteredEvents = events.filter(event => {
-        const eventDate = event.startTime || event.commence_time || event.date;
-        if (!eventDate) return false;
-        
-        // Convert to date string for comparison
+    // Debug: Log the raw events response structure
+    console.log(`[debug:/events] Raw events structure:`, {
+      eventsLength: events.length,
+      firstEvent: events[0] ? Object.keys(events[0]) : [],
+      hasMarkets: events[0]?.markets ? events[0].markets.length : 0,
+      sampleEvent: events[0],
+      allMarketTypes: events[0]?.markets?.map((m: any) => m.marketType) ?? []
+    });
+    
+    // Extract props directly from events structure (like ingestion system)
+    const props: any[] = [];
+    
+    for (const event of events) {
+      // Check if this event matches our date filter (be more flexible with dates)
+      const eventDate = event.startTime || event.commence_time || event.date || event.status?.startsAt;
+      if (dateISO && eventDate) {
         const eventDateStr = new Date(eventDate).toISOString().split('T')[0];
-        return eventDateStr === dateISO;
-      });
+        // Allow events within a few days of the requested date
+        const eventDateObj = new Date(eventDateStr);
+        const requestedDateObj = new Date(dateISO);
+        const daysDiff = Math.abs((eventDateObj.getTime() - requestedDateObj.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (daysDiff > 3) { // Allow up to 3 days difference
+          continue;
+        }
+      }
       
-      console.log(`🔍 Filtered ${filteredEvents.length} events for date ${dateISO} from ${events.length} total events`);
-      return filteredEvents;
+      // Extract props from the event.odds structure (same as ingestion system)
+      if (event.odds && typeof event.odds === 'object') {
+        for (const [oddId, oddData] of Object.entries(event.odds)) {
+          // Check if this is a player prop (contains player name pattern like BO_NIX_1_NFL)
+          if (oddId.includes('_1_NFL') && oddData && typeof oddData === 'object') {
+            // This is a player prop - extract it
+            const parts = oddId.split('-');
+            const marketName = parts[0]; // e.g., "passing_yards"
+            const playerId = parts[1]; // e.g., "BO_NIX_1_NFL"
+            
+            const prop = {
+              oddId: oddId,
+              playerId: playerId,
+              marketName: marketName,
+              gameId: event.eventID || event.id,
+              eventDate: eventDate,
+              homeTeam: event.teams?.home?.teamID || event.teams?.home?.names?.short,
+              awayTeam: event.teams?.away?.teamID || event.teams?.away?.names?.short,
+              league: event.leagueID || league,
+              ...oddData
+            };
+            props.push(prop);
+          }
+        }
+      }
     }
     
-    return events;
+    console.log(`[worker:/events] Extracted ${props.length} props for ${league} ${dateISO} from ${events.length} events`);
+    return props;
   } catch (error) {
-    console.error(`❌ Failed to fetch raw props from SportsGameOdds API:`, error);
+    console.error(`❌ Failed to fetch raw events from SportsGameOdds API:`, error);
     return [];
   }
 }
@@ -177,15 +191,15 @@ export async function ingestAndEnrich(env: any, league: string, dateISO: string)
   console.log(`🚀 Starting dual-mode ingestion for ${league} on ${dateISO}`);
   
   // Step 1: Fetch raw props from SportsGameOdds API
-  const rawEvents = await fetchRawProps(env, league, dateISO);
+  const rawProps = await fetchRawPropsFromEvents(env, league, dateISO);
   
-  if (rawEvents.length === 0) {
-    console.log(`[worker:ingestAndEnrich] No raw events found for ${league} on ${dateISO}`);
+  if (rawProps.length === 0) {
+    console.log(`[worker:ingestAndEnrich] No raw props found for ${league} on ${dateISO}`);
     return [];
   }
 
-  // Step 2: Extract and enrich props
-  const enriched = await processRawEvents(rawEvents, env, league, dateISO);
+  // Step 2: Process and enrich props
+  const enriched = await processRawProps(rawProps, env, league, dateISO);
   
   console.log(`✅ Dual-mode ingestion complete: ${enriched.length} enriched props`);
   return enriched;
@@ -716,48 +730,65 @@ export async function buildProps(env: any, league: string, dateISO: string): Pro
 /**
  * Process raw events through the enrichment pipeline
  */
-async function processRawEvents(rawEvents: any[], env: any, league: string, dateISO: string): Promise<EnrichedProp[]> {
-  if (rawEvents.length === 0) {
-    console.log(`[worker:processRawEvents] No raw events found for ${league} on ${dateISO}`);
-    return [];
-  }
-
-  // 2. Extract player props from events
-  console.log(`[worker:processRawEvents] Extracting player props from ${rawEvents.length} events...`);
-  const rawProps: any[] = [];
-  
-  for (const event of rawEvents) {
-    try {
-      console.log(`[worker:processRawEvents] Processing event ${event.gameId} with ${Object.keys(event.odds || {}).length} odds...`);
-      const extractedProps = await extractPlayerProps([event], env);
-      console.log(`[worker:processRawEvents] Extracted ${extractedProps.length} props from event ${event.gameId}`);
-      rawProps.push(...extractedProps);
-    } catch (error) {
-      console.warn(`⚠️ Failed to extract props from event ${event.gameId}:`, error);
-    }
-  }
-  
+async function processRawProps(rawProps: any[], env: any, league: string, dateISO: string): Promise<EnrichedProp[]> {
   if (rawProps.length === 0) {
-    console.log(`[worker:processRawEvents] No player props extracted from ${rawEvents.length} events`);
+    console.log(`[worker:processRawProps] No raw props found for ${league} on ${dateISO}`);
     return [];
   }
-  
-  console.log(`[worker:processRawEvents] Extracted ${rawProps.length} player props from ${rawEvents.length} events`);
 
-  // 3. Load team registry for runtime team resolution
-  console.log(`[worker:processRawEvents] Loading team registry...`);
+  console.log(`[worker:processRawProps] Processing ${rawProps.length} raw props...`);
+  
+  // Debug: Log the structure of the first prop
+  if (rawProps.length > 0) {
+    console.log(`[worker:processRawProps] Sample prop structure:`, {
+      oddId: rawProps[0].oddId,
+      playerId: rawProps[0].playerId,
+      marketName: rawProps[0].marketName,
+      gameId: rawProps[0].gameId,
+      homeTeam: rawProps[0].homeTeam,
+      awayTeam: rawProps[0].awayTeam,
+      keys: Object.keys(rawProps[0])
+    });
+  }
+  
+  // Transform raw props to our enriched format
+  const transformedProps = rawProps.map(prop => ({
+    player_id: prop.playerId || `unknown_${Math.random()}`,
+    player_name: prop.playerId, // Will be cleaned in next step
+    clean_player_name: prop.playerId, // Will be cleaned in next step
+    team: prop.homeTeam, // Will be resolved in next step
+    opponent: prop.awayTeam, // Will be resolved in next step
+    league: prop.league?.toLowerCase() || league.toLowerCase(),
+    season: "2025", // TODO: Extract from event
+    game_id: prop.gameId,
+    date_normalized: new Date(prop.eventDate || dateISO).toISOString().split('T')[0],
+    prop_type: prop.marketName,
+    line: prop.line || prop.overUnder?.line || null,
+    over_odds: prop.overUnder === 'over' ? prop.odds : null,
+    under_odds: prop.overUnder === 'under' ? prop.odds : null,
+    odds: prop.odds,
+    sportsbook: prop.sportsbook || "SportsGameOdds",
+    raw_team: prop.homeTeam,
+    raw_opponent: prop.awayTeam,
+    raw_player_name: prop.playerId
+  }));
+  
+  console.log(`[worker:processRawProps] Transformed ${transformedProps.length} props to enriched format`);
+
+  // Load team registry for runtime team resolution
+  console.log(`[worker:processRawProps] Loading team registry...`);
   const teamRegistry = await loadTeamRegistry(env, league);
 
-  // 4. Clean player names
-  console.log(`[worker:processRawEvents] Cleaning player names for ${rawProps.length} props...`);
-  const cleanedProps = cleanPlayerNames(rawProps, "[worker:processRawEvents:names]");
+  // Clean player names
+  console.log(`[worker:processRawProps] Cleaning player names for ${transformedProps.length} props...`);
+  const cleanedProps = cleanPlayerNames(transformedProps, "[worker:processRawProps:names]");
 
-  // 5. Attach teams at runtime using worker-centric approach
-  console.log(`[worker:processRawEvents] Attaching teams at runtime for ${cleanedProps.length} props...`);
+  // Attach teams at runtime using worker-centric approach
+  console.log(`[worker:processRawProps] Attaching teams at runtime for ${cleanedProps.length} props...`);
   const enrichedTeams = cleanedProps.map((row: any) => attachTeams(row, teamRegistry, {}));
 
-  // 6. Calculate EV% and streaks (simplified for now - no historical data)
-  console.log(`[worker:processRawEvents] Calculating metrics for ${enrichedTeams.length} props...`);
+  // Calculate EV% and streaks (simplified for now - no historical data)
+  console.log(`[worker:processRawProps] Calculating metrics for ${enrichedTeams.length} props...`);
   const enriched = enrichedTeams.map((row: any) => {
     const evResult = calcEV(
       row.over_odds,
@@ -810,6 +841,6 @@ async function processRawEvents(rawEvents: any[], env: any, league: string, date
     } as EnrichedProp;
   });
 
-  console.log(`🚀 Pure worker-centric props build complete: ${enriched.length} props`);
+  console.log(`🚀 Dual-mode props build complete: ${enriched.length} props`);
   return enriched;
 }
