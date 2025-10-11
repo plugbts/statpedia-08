@@ -76,6 +76,10 @@ export async function fetchEventsWithProps(env: any, leagueID: string, opts?: {
     
     console.log(`✅ Fetched ${eventsArray.length} events for ${leagueID}`);
     return eventsArray;
+  } catch (error) {
+    console.error(`❌ Events fetch error for ${leagueID}:`, error);
+    return [];
+  }
 }
 
 /**
