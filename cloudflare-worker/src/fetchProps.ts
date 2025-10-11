@@ -106,7 +106,32 @@ function getPlayerPropOddIDs(league: string): string {
 async function fetchRawProps(env: any, league: string, dateISO: string): Promise<any[]> {
   console.log(`🔍 Fetching raw props from SportsGameOdds API for ${league} on ${dateISO}`);
   
-  // Use the exact same approach as the ingestion system
+  // Try the user's suggested /props endpoint first
+  try {
+    const propsUrl = `https://api.sportsgameodds.com/v2/props?league=${league}&date=${dateISO}`;
+    console.log(`🔍 Trying /props endpoint: ${propsUrl}`);
+    
+    const res = await fetch(propsUrl, {
+      headers: { 
+        "Authorization": `Bearer ${env.SPORTSGAMEODDS_API_KEY}`,
+        "Content-Type": "application/json"
+      }
+    });
+    
+    if (res.ok) {
+      const json = await res.json();
+      const props = json?.data ?? [];
+      console.log(`✅ Fetched ${props.length} props from /props endpoint`);
+      return props;
+    } else {
+      console.log(`❌ /props endpoint failed: ${res.status} ${res.statusText}`);
+    }
+  } catch (error) {
+    console.log(`❌ /props endpoint error:`, error);
+  }
+  
+  // Fallback to the events approach (same as ingestion system)
+  console.log(`🔍 Falling back to /events endpoint approach...`);
   try {
     // Get the league configuration from the same source as ingestion
     const activeLeagues = getActiveLeagues();
