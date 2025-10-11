@@ -1425,6 +1425,56 @@ export default {
         }
       }
 
+      // Debug endpoint to check what's actually in the database
+      if (url.pathname === "/debug/database-check") {
+        try {
+          const league = url.searchParams.get("league") || "nfl";
+          
+          // Check proplines table
+          const { data: proplinesData, error: proplinesError } = await supabaseFetch(
+            env,
+            `proplines?league=eq.${league.toLowerCase()}&limit=5`
+          );
+          
+          // Check player_game_logs table
+          const { data: logsData, error: logsError } = await supabaseFetch(
+            env,
+            `player_game_logs?league=eq.${league.toLowerCase()}&limit=5`
+          );
+          
+          return corsResponse({
+            success: true,
+            proplines: {
+              count: proplinesData?.length || 0,
+              error: proplinesError?.message || null,
+              sample: proplinesData?.[0] ? {
+                id: proplinesData[0].id,
+                player_id: proplinesData[0].player_id,
+                date_normalized: proplinesData[0].date_normalized,
+                league: proplinesData[0].league
+              } : null
+            },
+            player_game_logs: {
+              count: logsData?.length || 0,
+              error: logsError?.message || null,
+              sample: logsData?.[0] ? {
+                id: logsData[0].id,
+                player_id: logsData[0].player_id,
+                date: logsData[0].date,
+                league: logsData[0].league
+              } : null
+            },
+            timestamp: new Date().toISOString()
+          });
+        } catch (error) {
+          return corsResponse({
+            success: false,
+            error: `Database check error: ${error instanceof Error ? error.message : String(error)}`,
+            timestamp: new Date().toISOString()
+          }, 500);
+        }
+      }
+
       // Handle player props API endpoint - NEW WORKER-CENTRIC PIPELINE
       if (url.pathname === "/api/player-props") {
         try {
@@ -1631,32 +1681,32 @@ export default {
           const transformedProps = limitedProps.map((prop: EnrichedProp) => {
             return {
               id: prop.player_id, // Use player_id as ID
-              playerId: prop.player_id,
+            playerId: prop.player_id,
               playerName: prop.clean_player_name,
-              player_id: prop.player_id, // For headshots compatibility
+            player_id: prop.player_id, // For headshots compatibility
               team: prop.team_abbr,
               opponent: prop.opponent_abbr,
-              propType: prop.prop_type,
-              line: prop.line,
+            propType: prop.prop_type,
+            line: prop.line,
               overOdds: prop.over_odds,
               underOdds: prop.under_odds,
               sportsbooks: ['SportsGameOdds'], // Default sportsbook
-              position: 'N/A',
+            position: 'N/A',
               gameDate: prop.date_normalized,
-              sport: sport,
+            sport: sport,
               teamAbbr: prop.team_abbr,
               opponentAbbr: prop.opponent_abbr,
               gameId: prop.game_id,
-              available: true,
-              lastUpdate: new Date().toISOString(),
-              marketName: prop.prop_type,
-              market: prop.prop_type,
-              marketId: prop.prop_type,
-              period: 'full_game',
+            available: true,
+            lastUpdate: new Date().toISOString(),
+            marketName: prop.prop_type,
+            market: prop.prop_type,
+            marketId: prop.prop_type,
+            period: 'full_game',
               statEntity: prop.clean_player_name,
               
               // NEW PIPELINE: Enhanced fields with calculated metrics
-              evPercent: prop.ev_percent,
+            evPercent: prop.ev_percent,
               last5_streak: prop.last5_hits,
               last10_streak: prop.last10_hits,
               last20_streak: prop.last20_hits,
@@ -1668,7 +1718,7 @@ export default {
               team_name: prop.team_name,
               opponent_name: prop.opponent_name,
               
-              // Enhanced fields
+            // Enhanced fields
               bestOver: prop.over_odds ? { 
                 bookmaker: 'SportsGameOdds', 
                 side: 'over', 
@@ -1693,7 +1743,7 @@ export default {
               clean_player_name: prop.clean_player_name,
               debug_team: prop.debug_team,
               debug_ev: prop.debug_ev
-            };
+          };
           });
           
           // Use the actual date that was found/used
