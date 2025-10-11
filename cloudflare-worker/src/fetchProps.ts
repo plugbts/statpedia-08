@@ -801,28 +801,61 @@ async function processRawProps(rawProps: any[], env: any, league: string, dateIS
   }
   
   // Transform raw props from ingestion system format to our enriched format
-  const transformedProps = rawProps.map(prop => ({
-    player_id: prop.playerId || prop.player_id || `unknown_${Math.random()}`,
-    player_name: prop.playerName || prop.player_name, // Will be cleaned in next step
-    clean_player_name: prop.playerName || prop.player_name, // Will be cleaned in next step
-    team: prop.team, // Will be resolved in next step
-    opponent: prop.opponent, // Will be resolved in next step
-    league: prop.league?.toLowerCase() || league.toLowerCase(),
-    season: "2025", // TODO: Extract from event
-    game_id: prop.eventId || prop.game_id,
-    date_normalized: new Date(prop.eventStartUtc || prop.date || dateISO).toISOString().split('T')[0],
-    prop_type: prop.marketName || prop.prop_type, // Use marketName from ingestion system
-    prop_type_display: formatPropName(prop.marketName || prop.prop_type), // Clean display name
-    bet_type: prop.overUnder || prop.bet_type, // "over" or "under"
-    line: prop.line || null,
-    over_odds: prop.overUnder === 'over' ? prop.odds : null,
-    under_odds: prop.overUnder === 'under' ? prop.odds : null,
-    odds: prop.odds,
-    sportsbook: prop.sportsbook || "SportsGameOdds",
-    raw_team: prop.team,
-    raw_opponent: prop.opponent,
-    raw_player_name: prop.playerName || prop.player_name
-  }));
+  const transformedProps = rawProps.map(prop => {
+    // Extract player name with fallback logic
+    let playerName = prop.playerName || prop.player_name;
+    
+    // If no player name, try to derive from playerId
+    if (!playerName && prop.playerId) {
+      // Remove common suffixes and format as proper name
+      playerName = prop.playerId
+        .replace(/_1_NFL$/, '') // Remove _1_NFL suffix
+        .replace(/_/g, ' ') // Replace underscores with spaces
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+    }
+    
+    // Extract clean prop type from marketName
+    let cleanPropType = prop.marketName || prop.prop_type;
+    let cleanPropTypeDisplay = formatPropName(cleanPropType);
+    
+    // If marketName is verbose like "Bo Nix Passing Yards Over/Under", extract just the stat type
+    if (prop.marketName && prop.marketName.includes('Over/Under')) {
+      // Try to extract stat type from marketName (remove player name and "Over/Under")
+      // Pattern: "Player Name Stat Type Over/Under" -> extract "Stat Type"
+      // Handle cases like "Bo Nix Passing Yards Over/Under" -> "Passing Yards"
+      const match = prop.marketName.match(/\w+\s+\w+\s+(\w+(?:\s+\w+)*)\s+Over\/Under/);
+      if (match) {
+        const statType = match[1].toLowerCase().replace(/\s+/g, '_');
+        cleanPropType = statType;
+        cleanPropTypeDisplay = formatPropName(statType);
+      }
+    }
+    
+    return {
+      player_id: prop.playerId || prop.player_id || `unknown_${Math.random()}`,
+      player_name: playerName, // Now properly extracted/derived
+      clean_player_name: playerName, // Will be cleaned in next step
+      team: prop.team, // Will be resolved in next step
+      opponent: prop.opponent, // Will be resolved in next step
+      league: prop.league?.toLowerCase() || league.toLowerCase(),
+      season: "2025", // TODO: Extract from event
+      game_id: prop.eventId || prop.game_id,
+      date_normalized: new Date(prop.eventStartUtc || prop.date || dateISO).toISOString().split('T')[0],
+      prop_type: cleanPropType, // Clean stat type
+      prop_type_display: cleanPropTypeDisplay, // Clean display name
+      bet_type: prop.overUnder || prop.bet_type, // "over" or "under"
+      line: prop.line || null,
+      over_odds: prop.overUnder === 'over' ? prop.odds : null,
+      under_odds: prop.overUnder === 'under' ? prop.odds : null,
+      odds: prop.odds,
+      sportsbook: prop.sportsbook || "SportsGameOdds",
+      raw_team: prop.team,
+      raw_opponent: prop.opponent,
+      raw_player_name: playerName
+    };
+  });
   
   console.log(`[worker:processRawProps] Transformed ${transformedProps.length} props to enriched format`);
 
