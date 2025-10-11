@@ -166,10 +166,23 @@ export async function fetchPropLines(
   league: string,
   dateISO: string
 ): Promise<PropLineRow[]> {
-  // Try proplines table first
+  console.log(`[worker:fetchProps] Fetching props for ${league} on ${dateISO}`);
+  
+  // Use range filter to handle date normalization mismatches
+  // This works whether ingestion stored DATE, TIMESTAMP, or with timezone
+  const start = new Date(dateISO);
+  const end = new Date(dateISO);
+  end.setDate(end.getDate() + 1);
+  
+  const startISO = start.toISOString();
+  const endISO = end.toISOString();
+  
+  console.log(`[worker:fetchProps] Using date range: ${startISO} to ${endISO}`);
+  
+  // Try proplines table with range filter
   const { data: proplinesData, error: proplinesError } = await supabaseFetch(
     env,
-    `proplines?league=eq.${league.toLowerCase()}&date_normalized=eq.${dateISO}`
+    `proplines?league=eq.${league.toLowerCase()}&date_normalized=gte.${startISO}&date_normalized=lt.${endISO}`
   );
 
   if (!proplinesError && proplinesData && proplinesData.length > 0) {
@@ -177,40 +190,8 @@ export async function fetchPropLines(
     return proplinesData as PropLineRow[];
   }
 
-  console.log(`[worker:fetchProps] proplines table empty, falling back to player_props_fixed view`);
-  
-  // Fallback to player_props_fixed view - but only fetch raw essentials
-  const { data: fallbackData, error: fallbackError } = await supabaseFetch(
-    env,
-    `player_props_fixed?league=eq.${league.toLowerCase()}&prop_date=eq.${dateISO}`
-  );
-
-  if (fallbackError) {
-    console.error("[worker:fetchProps] fallback error:", fallbackError);
-    throw fallbackError;
-  }
-
-  console.log(`[worker:fetchProps] fetched ${fallbackData?.length ?? 0} props from fallback for ${league} on ${dateISO}`);
-  
-  // Transform fallback data to match PropLineRow format - but don't include team/opponent (they're UNK anyway)
-  const transformedData = (fallbackData ?? []).map((row: any) => ({
-    id: row.prop_id || row.id,
-    player_id: row.player_id,
-    player_name: row.player_name,
-    team: null, // Don't use team from fallback view (it's UNK)
-    opponent: null, // Don't use opponent from fallback view (it's UNK)
-    league: row.league,
-    season: row.season || '2024',
-    game_id: row.game_id,
-    date_normalized: row.prop_date || row.date,
-    prop_type: row.prop_type,
-    line: row.line,
-    over_odds: row.over_odds,
-    under_odds: row.under_odds,
-    odds: row.odds || null
-  }));
-
-  return transformedData as PropLineRow[];
+  console.log(`[worker:fetchProps] No data found in proplines for ${league} on ${dateISO}`);
+  return [];
 }
 
 /**
