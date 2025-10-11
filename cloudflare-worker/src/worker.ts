@@ -1442,6 +1442,12 @@ export default {
             `player_game_logs?league=eq.${league.toLowerCase()}&limit=5`
           );
           
+          // Also check player_props_fixed view
+          const { data: fixedData, error: fixedError } = await supabaseFetch(
+            env,
+            `player_props_fixed?league=eq.${league.toLowerCase()}&limit=5`
+          );
+
           return corsResponse({
             success: true,
             proplines: {
@@ -1462,6 +1468,16 @@ export default {
                 player_id: logsData[0].player_id,
                 date: logsData[0].date,
                 league: logsData[0].league
+              } : null
+            },
+            player_props_fixed: {
+              count: fixedData?.length || 0,
+              error: fixedError?.message || null,
+              sample: fixedData?.[0] ? {
+                prop_id: fixedData[0].prop_id,
+                player_id: fixedData[0].player_id,
+                prop_date: fixedData[0].prop_date,
+                league: fixedData[0].league
               } : null
             },
             timestamp: new Date().toISOString()
