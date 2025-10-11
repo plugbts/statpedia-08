@@ -1817,6 +1817,22 @@ export default {
           // Apply max props per request limit
           const limitedProps = filteredProps.slice(0, maxPropsPerRequest);
           console.log(`📊 Limited to ${limitedProps.length} props (max: ${maxPropsPerRequest})`);
+          
+          // Debug: Log sample enriched prop structure
+          if (limitedProps.length > 0) {
+            console.log(`📊 [API response sample] Enriched prop structure:`, {
+              player_id: limitedProps[0].player_id,
+              clean_player_name: limitedProps[0].clean_player_name,
+              prop_type: limitedProps[0].prop_type,
+              prop_type_display: limitedProps[0].prop_type_display,
+              bet_type: limitedProps[0].bet_type,
+              line: limitedProps[0].line,
+              over_odds: limitedProps[0].over_odds,
+              under_odds: limitedProps[0].under_odds,
+              team_abbr: limitedProps[0].team_abbr,
+              opponent_abbr: limitedProps[0].opponent_abbr
+            });
+          }
 
           // Transform to expected format using our enriched props data
           const transformedProps = limitedProps.map((prop: EnrichedProp) => {
@@ -1828,9 +1844,14 @@ export default {
               team: prop.team_abbr,
               opponent: prop.opponent_abbr,
             propType: prop.prop_type,
+            prop_type: prop.prop_type, // NEW: Clean prop type
+            prop_type_display: prop.prop_type_display, // NEW: Clean display name
+            bet_type: prop.bet_type, // NEW: Separated bet type
             line: prop.line,
               overOdds: prop.over_odds,
               underOdds: prop.under_odds,
+              over_odds: prop.over_odds, // NEW: Clean field name
+              under_odds: prop.under_odds, // NEW: Clean field name
               sportsbooks: ['SportsGameOdds'], // Default sportsbook
             position: 'N/A',
               gameDate: prop.date_normalized,
