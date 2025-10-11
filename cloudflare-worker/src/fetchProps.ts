@@ -1,8 +1,8 @@
 /**
  * Worker-centric pipeline for fetching and enriching player props
  * 
- * This module implements a lean approach:
- * 1. Fetch raw data from proplines and player_game_logs (no joins, no aggregates)
+ * This module implements a pure worker approach:
+ * 1. Fetch raw data directly from SportsGameOdds API (no database dependency)
  * 2. Enrich data in the worker using our existing modules
  * 3. Calculate EV% and streaks in the worker
  * 4. Return fully enriched prop objects
@@ -77,6 +77,38 @@ export type EnrichedProp = {
     raw_ev: number | null;
   };
 };
+
+/**
+ * Fetch raw props directly from SportsGameOdds API
+ */
+async function fetchRawProps(env: any, league: string, dateISO: string): Promise<any[]> {
+  console.log(`🔍 Fetching raw props from SportsGameOdds API for ${league} on ${dateISO}`);
+  
+  const url = `https://api.sportsgameodds.com/v2/props?league=${league}&date=${dateISO}`;
+  
+  try {
+    const res = await fetch(url, {
+      headers: { 
+        "Authorization": `Bearer ${env.SPORTSGAMEODDS_API_KEY}`,
+        "Content-Type": "application/json"
+      }
+    });
+    
+    if (!res.ok) {
+      throw new Error(`SportsGameOdds API failed: ${res.status} ${res.statusText}`);
+    }
+    
+    const json = await res.json();
+    const data = json?.data ?? [];
+    
+    console.log(`✅ Fetched ${data.length} raw props from SportsGameOdds API`);
+    return data;
+    
+  } catch (error) {
+    console.error(`❌ Failed to fetch raw props from SportsGameOdds API:`, error);
+    return [];
+  }
+}
 
 /**
  * Load team registry from database for a given league
@@ -534,5 +566,89 @@ export async function fetchPropsForDate(
   });
 
   console.log(`[worker:fetchProps] Worker-centric enrichment complete: ${enriched.length} props`);
+  return enriched;
+}
+
+/**
+ * Pure worker-centric props builder - no database dependency
+ */
+export async function buildProps(env: any, league: string, dateISO: string): Promise<EnrichedProp[]> {
+  console.log(`🚀 Starting pure worker-centric props build for ${league} on ${dateISO}`);
+
+  // 1. Fetch raw props directly from SportsGameOdds API
+  const rawProps = await fetchRawProps(env, league, dateISO);
+  
+  if (rawProps.length === 0) {
+    console.log(`[worker:buildProps] No raw props found for ${league} on ${dateISO}`);
+    return [];
+  }
+
+  // 2. Load team registry for runtime team resolution
+  console.log(`[worker:buildProps] Loading team registry...`);
+  const teamRegistry = await loadTeamRegistry(env, league);
+
+  // 3. Clean player names
+  console.log(`[worker:buildProps] Cleaning player names for ${rawProps.length} props...`);
+  const cleanedProps = cleanPlayerNames(rawProps, "[worker:buildProps:names]");
+
+  // 4. Attach teams at runtime using worker-centric approach
+  console.log(`[worker:buildProps] Attaching teams at runtime for ${cleanedProps.length} props...`);
+  const enrichedTeams = cleanedProps.map((row: any) => attachTeams(row, teamRegistry, {}));
+
+  // 5. Calculate EV% and streaks (simplified for now - no historical data)
+  console.log(`[worker:buildProps] Calculating metrics for ${enrichedTeams.length} props...`);
+  const enriched = enrichedTeams.map((row: any) => {
+    const evResult = calcEV(
+      row.over_odds,
+      row.under_odds,
+      row.line,
+      [], // No historical logs for now
+      row.player_id,
+      row.prop_type
+    );
+
+    // Simplified streaks - no historical data for now
+    const streaks = {
+      last5_hits: "N/A",
+      last10_hits: "N/A", 
+      last20_hits: "N/A",
+      h2h_hits: "N/A"
+    };
+
+    return {
+      // Core prop data
+      player_id: row.player_id,
+      clean_player_name: row.clean_player_name,
+      team_abbr: row.team_abbr,
+      team_logo: row.team_logo,
+      team_name: row.team_name,
+      opponent_abbr: row.opponent_abbr,
+      opponent_logo: row.opponent_logo,
+      opponent_name: row.opponent_name,
+      prop_type: row.prop_type,
+      line: row.line,
+      over_odds: row.over_odds,
+      under_odds: row.under_odds,
+      
+      // Calculated metrics
+      ev_percent: evResult.ev_percent,
+      last5_hits: streaks.last5_hits,
+      last10_hits: streaks.last10_hits,
+      last20_hits: streaks.last20_hits,
+      h2h_hits: streaks.h2h_hits,
+      
+      // Additional data
+      game_id: row.game_id || `${row.player_id}-${dateISO}`,
+      date_normalized: dateISO,
+      league: league,
+      season: "2025",
+      
+      // Debug info
+      debug_team: row.debug_team,
+      debug_ev: evResult.debug_ev,
+    } as EnrichedProp;
+  });
+
+  console.log(`🚀 Pure worker-centric props build complete: ${enriched.length} props`);
   return enriched;
 }

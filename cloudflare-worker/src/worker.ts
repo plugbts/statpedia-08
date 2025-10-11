@@ -16,7 +16,7 @@ import { initializeCoverageReport, generateCoverageReport, getCoverageSummary } 
 import { getFixedPlayerPropsWithAnalytics } from "./fixes";
 import { cleanPlayerNames } from "./playerNames";
 import { enrichTeams } from "./teams";
-import { fetchPropsForDate, type EnrichedProp } from "./fetchProps";
+import { buildProps, type EnrichedProp } from "./fetchProps";
 // import { getPlayerPropsFixed } from "./player-props-fixed"; // No longer needed - using direct view fetch
 
 // Initialize prop type sync and supported props at worker startup
@@ -1425,6 +1425,32 @@ export default {
         }
       }
 
+      // Debug endpoint to test pure worker-centric approach
+      if (url.pathname === "/debug/pure-worker") {
+        try {
+          const league = url.searchParams.get("league") || "nfl";
+          const date = url.searchParams.get("date") || "2025-10-10";
+          
+          console.log(`🧪 Testing pure worker-centric approach for ${league} on ${date}...`);
+          const props = await buildProps(env, league, date);
+          
+          return corsResponse({
+            success: true,
+            league: league,
+            date: date,
+            propsCount: props.length,
+            sampleProps: props.slice(0, 3),
+            timestamp: new Date().toISOString()
+          });
+        } catch (error) {
+          return corsResponse({
+            success: false,
+            error: `Pure worker test error: ${error instanceof Error ? error.message : String(error)}`,
+            timestamp: new Date().toISOString()
+          }, 500);
+        }
+      }
+
       // Debug endpoint to test a simple insert
       if (url.pathname === "/debug/test-insert") {
         try {
@@ -1446,6 +1472,12 @@ export default {
           }];
           
           console.log("🧪 Testing insert with sample data...");
+          
+          // First, try to query the table to see if it exists
+          console.log("🔍 Testing table query first...");
+          const queryResponse = await supabaseFetch(env, "proplines?limit=1");
+          console.log("Query response:", queryResponse);
+          
           const response = await supabaseFetch(env, "proplines", {
             method: "POST",
             body: testData,
@@ -1605,7 +1637,7 @@ export default {
             if (date) {
               // Single date query
               console.log(`📊 NEW PIPELINE: Fetching props for ${league} on ${date}...`);
-              enrichedProps = await fetchPropsForDate(env, league, date);
+              enrichedProps = await buildProps(env, league, date);
             } else if (dateFrom && dateTo) {
               // Date range query - get props for each date in range
               const startDate = new Date(dateFrom);
@@ -1616,7 +1648,7 @@ export default {
                 const dateStr = d.toISOString().split('T')[0];
                 try {
                   console.log(`📊 NEW PIPELINE: Fetching props for ${league} on ${dateStr}...`);
-                  const dayProps = await fetchPropsForDate(env, league, dateStr);
+                  const dayProps = await buildProps(env, league, dateStr);
                   allProps.push(...dayProps);
                 } catch (error) {
                   console.warn(`⚠️ Failed to fetch props for ${dateStr}:`, error);
@@ -1637,7 +1669,7 @@ export default {
                 const dateStr = checkDate.toISOString().split('T')[0];
                 
                 try {
-                  const testProps = await fetchPropsForDate(env, league, dateStr);
+                  const testProps = await buildProps(env, league, dateStr);
                   if (testProps.length > 0) {
                     console.log(`📅 NEW PIPELINE: Found data for ${league} on ${dateStr} (${testProps.length} props)`);
                     enrichedProps = testProps;
