@@ -12,6 +12,7 @@ import { supabaseFetch } from "./supabaseFetch";
 import { cleanPlayerNames, type RawPropRow, type CleanPropRow } from "./playerNames";
 import { enrichTeams, type RawRow, type CleanTeamRow } from "./teams";
 import { getPlayerTeam, getOpponentTeam } from "./lib/playerTeamMap";
+import { extractPlayerProps } from "./lib/extract";
 
 export type PropLineRow = {
   id: string;
@@ -105,10 +106,12 @@ async function fetchRawProps(env: any, league: string, dateISO: string): Promise
       fullResponse: json
     });
     
-    const data = json?.data ?? [];
+    // The API returns events directly, not wrapped in a data array
+    const events = json?.data ?? json ?? [];
+    const eventsArray = Array.isArray(events) ? events : [];
     
-    console.log(`✅ Fetched ${data.length} raw props from SportsGameOdds API`);
-    return data;
+    console.log(`✅ Fetched ${eventsArray.length} events from SportsGameOdds API`);
+    return eventsArray;
     
   } catch (error) {
     console.error(`❌ Failed to fetch raw props from SportsGameOdds API:`, error);
@@ -581,27 +584,47 @@ export async function fetchPropsForDate(
 export async function buildProps(env: any, league: string, dateISO: string): Promise<EnrichedProp[]> {
   console.log(`🚀 Starting pure worker-centric props build for ${league} on ${dateISO}`);
 
-  // 1. Fetch raw props directly from SportsGameOdds API
-  const rawProps = await fetchRawProps(env, league, dateISO);
+  // 1. Fetch raw events directly from SportsGameOdds API
+  const rawEvents = await fetchRawProps(env, league, dateISO);
   
-  if (rawProps.length === 0) {
-    console.log(`[worker:buildProps] No raw props found for ${league} on ${dateISO}`);
+  if (rawEvents.length === 0) {
+    console.log(`[worker:buildProps] No raw events found for ${league} on ${dateISO}`);
     return [];
   }
 
-  // 2. Load team registry for runtime team resolution
+  // 2. Extract player props from events
+  console.log(`[worker:buildProps] Extracting player props from ${rawEvents.length} events...`);
+  const rawProps: any[] = [];
+  
+  for (const event of rawEvents) {
+    try {
+      const extractedProps = await extractPlayerProps(env, event);
+      rawProps.push(...extractedProps);
+    } catch (error) {
+      console.warn(`⚠️ Failed to extract props from event ${event.gameId}:`, error);
+    }
+  }
+  
+  if (rawProps.length === 0) {
+    console.log(`[worker:buildProps] No player props extracted from ${rawEvents.length} events`);
+    return [];
+  }
+  
+  console.log(`[worker:buildProps] Extracted ${rawProps.length} player props from ${rawEvents.length} events`);
+
+  // 3. Load team registry for runtime team resolution
   console.log(`[worker:buildProps] Loading team registry...`);
   const teamRegistry = await loadTeamRegistry(env, league);
 
-  // 3. Clean player names
+  // 4. Clean player names
   console.log(`[worker:buildProps] Cleaning player names for ${rawProps.length} props...`);
   const cleanedProps = cleanPlayerNames(rawProps, "[worker:buildProps:names]");
 
-  // 4. Attach teams at runtime using worker-centric approach
+  // 5. Attach teams at runtime using worker-centric approach
   console.log(`[worker:buildProps] Attaching teams at runtime for ${cleanedProps.length} props...`);
   const enrichedTeams = cleanedProps.map((row: any) => attachTeams(row, teamRegistry, {}));
 
-  // 5. Calculate EV% and streaks (simplified for now - no historical data)
+  // 6. Calculate EV% and streaks (simplified for now - no historical data)
   console.log(`[worker:buildProps] Calculating metrics for ${enrichedTeams.length} props...`);
   const enriched = enrichedTeams.map((row: any) => {
     const evResult = calcEV(
