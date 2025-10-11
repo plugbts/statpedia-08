@@ -1282,8 +1282,28 @@ export default {
           const league = url.searchParams.get("league")?.toLowerCase() || "nfl";
           const { fetchEventsWithProps } = await import("./lib/api");
           
+          // Import the getPlayerPropOddIDs function
+          const getPlayerPropOddIDs = (league: string): string => {
+            const oddIDsMap: Record<string, string> = {
+              'nfl': 'rushing_yards-PLAYER_ID-game-ou-over,passing_yards-PLAYER_ID-game-ou-over,receiving_yards-PLAYER_ID-game-ou-over,touchdowns-PLAYER_ID-game-ou-over',
+              'nba': 'points-PLAYER_ID-game-ou-over,rebounds-PLAYER_ID-game-ou-over,assists-PLAYER_ID-game-ou-over,steals-PLAYER_ID-game-ou-over,blocks-PLAYER_ID-game-ou-over',
+              'mlb': 'hits-PLAYER_ID-game-ou-over,runs-PLAYER_ID-game-ou-over,rbis-PLAYER_ID-game-ou-over,strikeouts-PLAYER_ID-game-ou-over',
+              'nhl': 'shots_on_goal-PLAYER_ID-game-ou-over,goals-PLAYER_ID-game-ou-over,assists-PLAYER_ID-game-ou-over,points-PLAYER_ID-game-ou-over',
+              'epl': 'goals-PLAYER_ID-game-ou-over,assists-PLAYER_ID-game-ou-over,shots-PLAYER_ID-game-ou-over',
+              'ncaaf': 'rushing_yards-PLAYER_ID-game-ou-over,passing_yards-PLAYER_ID-game-ou-over,receiving_yards-PLAYER_ID-game-ou-over',
+              'ncaab': 'points-PLAYER_ID-game-ou-over,rebounds-PLAYER_ID-game-ou-over,assists-PLAYER_ID-game-ou-over'
+            };
+            return oddIDsMap[league.toLowerCase()] || oddIDsMap['nfl'];
+          };
+          
           console.log(`🔍 [DEBUG] Fetching SGO API response for ${league}...`);
-          const events = await fetchEventsWithProps(env, league.toUpperCase(), { limit: 5 });
+          // Get player prop oddIDs for this league
+          const playerPropOddIDs = getPlayerPropOddIDs(league);
+          console.log(`🔍 [DEBUG] Using oddIDs: ${playerPropOddIDs}`);
+          const events = await fetchEventsWithProps(env, league.toUpperCase(), { 
+            limit: 5,
+            oddIDs: playerPropOddIDs
+          });
           
           return corsResponse({
             success: true,
