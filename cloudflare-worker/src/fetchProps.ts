@@ -199,65 +199,27 @@ async function fetchRawPropsFromEvents(env: any, league: string, dateISO: string
       allMarketTypes: events[0]?.markets?.map((m: any) => m.marketType) ?? []
     });
     
-    // Extract props directly from events structure (like ingestion system)
-    const props: any[] = [];
-    
-    for (const event of events) {
-      // Check if this event matches our date filter (be more flexible with dates)
-      const eventDate = event.startTime || event.commence_time || event.date || event.status?.startsAt;
-      if (dateISO && eventDate) {
-        const eventDateStr = new Date(eventDate).toISOString().split('T')[0];
-        // Allow events within a few days of the requested date
-        const eventDateObj = new Date(eventDateStr);
-        const requestedDateObj = new Date(dateISO);
-        const daysDiff = Math.abs((eventDateObj.getTime() - requestedDateObj.getTime()) / (1000 * 60 * 60 * 24));
-        
-        if (daysDiff > 3) { // Allow up to 3 days difference
-          continue;
-        }
-      }
+    // Filter events by date if specified
+    const filteredEvents = events.filter(event => {
+      if (!dateISO) return true;
       
-      // Extract props from the event.odds structure (same as ingestion system)
-      if (event.odds && typeof event.odds === 'object') {
-        for (const [oddId, oddData] of Object.entries(event.odds)) {
-          // Check if this is a player prop (contains player name pattern like BO_NIX_1_NFL)
-          if (oddId.includes('_1_NFL') && oddData && typeof oddData === 'object') {
-            // Parse the oddId to extract components
-            const parts = oddId.split('-');
-            const statType = parts[0]; // e.g., "passing_yards"
-            const playerId = parts[1]; // e.g., "BO_NIX_1_NFL"
-            const isOver = oddId.includes('-over');
-            
-            // Extract player name from playerId (remove _1_NFL suffix)
-            const playerName = playerId.replace(/_1_NFL$/, '').replace(/_/g, ' ');
-            
-            // This is a player prop - extract it
-            const prop = {
-              player_id: playerId,
-              player_name: playerName,
-              game_id: event.eventID || event.id,
-              league: event.leagueID || event.league,
-              date: event.startTime || event.commence_time || event.date,
-
-              // ✅ Use statType as the prop_type
-              prop_type: statType,
-              prop_type_display: formatPropName(statType),
-
-              // ✅ Keep bet_type separate
-              bet_type: isOver ? 'over' : 'under',
-
-              line: oddData.line || null,
-              odds: oddData.odds || null,
-
-              // Enrich with teams (resolved later)
-              raw_home_team: event.teams?.home?.teamID || event.teams?.home?.names?.short,
-              raw_away_team: event.teams?.away?.teamID || event.teams?.away?.names?.short,
-            };
-            props.push(prop);
-          }
-        }
-      }
-    }
+      const eventDate = event.startTime || event.commence_time || event.date || event.status?.startsAt;
+      if (!eventDate) return true;
+      
+      const eventDateStr = new Date(eventDate).toISOString().split('T')[0];
+      // Allow events within a few days of the requested date
+      const eventDateObj = new Date(eventDateStr);
+      const requestedDateObj = new Date(dateISO);
+      const daysDiff = Math.abs((eventDateObj.getTime() - requestedDateObj.getTime()) / (1000 * 60 * 60 * 24));
+      
+      return daysDiff <= 3; // Allow up to 3 days difference
+    });
+    
+    console.log(`🔍 Filtered to ${filteredEvents.length} events matching date ${dateISO}`);
+    
+    // Use the same extraction logic as the ingestion system
+    const props = await extractPlayerProps(filteredEvents, env);
+    console.log(`🔍 Extracted ${props.length} props using ingestion extractor`);
     
     console.log(`[worker:/events] Extracted ${props.length} props for ${league} ${dateISO} from ${events.length} events`);
     return props;
@@ -838,28 +800,28 @@ async function processRawProps(rawProps: any[], env: any, league: string, dateIS
     });
   }
   
-  // Transform raw props to our enriched format
+  // Transform raw props from ingestion system format to our enriched format
   const transformedProps = rawProps.map(prop => ({
-    player_id: prop.player_id || `unknown_${Math.random()}`,
-    player_name: prop.player_name, // Will be cleaned in next step
-    clean_player_name: prop.player_name, // Will be cleaned in next step
-    team: prop.raw_home_team, // Will be resolved in next step
-    opponent: prop.raw_away_team, // Will be resolved in next step
+    player_id: prop.playerId || prop.player_id || `unknown_${Math.random()}`,
+    player_name: prop.playerName || prop.player_name, // Will be cleaned in next step
+    clean_player_name: prop.playerName || prop.player_name, // Will be cleaned in next step
+    team: prop.team, // Will be resolved in next step
+    opponent: prop.opponent, // Will be resolved in next step
     league: prop.league?.toLowerCase() || league.toLowerCase(),
     season: "2025", // TODO: Extract from event
-    game_id: prop.game_id,
-    date_normalized: new Date(prop.date || dateISO).toISOString().split('T')[0],
-    prop_type: prop.prop_type, // Now using the clean statType
-    prop_type_display: prop.prop_type_display, // Clean display name
-    bet_type: prop.bet_type, // "over" or "under"
+    game_id: prop.eventId || prop.game_id,
+    date_normalized: new Date(prop.eventStartUtc || prop.date || dateISO).toISOString().split('T')[0],
+    prop_type: prop.marketName || prop.prop_type, // Use marketName from ingestion system
+    prop_type_display: formatPropName(prop.marketName || prop.prop_type), // Clean display name
+    bet_type: prop.overUnder || prop.bet_type, // "over" or "under"
     line: prop.line || null,
-    over_odds: prop.bet_type === 'over' ? prop.odds : null,
-    under_odds: prop.bet_type === 'under' ? prop.odds : null,
+    over_odds: prop.overUnder === 'over' ? prop.odds : null,
+    under_odds: prop.overUnder === 'under' ? prop.odds : null,
     odds: prop.odds,
-    sportsbook: "SportsGameOdds",
-    raw_team: prop.raw_home_team,
-    raw_opponent: prop.raw_away_team,
-    raw_player_name: prop.player_name
+    sportsbook: prop.sportsbook || "SportsGameOdds",
+    raw_team: prop.team,
+    raw_opponent: prop.opponent,
+    raw_player_name: prop.playerName || prop.player_name
   }));
   
   console.log(`[worker:processRawProps] Transformed ${transformedProps.length} props to enriched format`);
