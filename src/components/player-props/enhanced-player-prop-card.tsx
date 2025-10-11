@@ -69,16 +69,19 @@ export function EnhancedPlayerPropCard({
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {teamLogo && (
-              <img 
-                src={teamLogo} 
-                alt={teamAbbr}
-                className="w-6 h-6 rounded-full"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-                }}
-              />
-            )}
+            <div className="flex flex-col items-center gap-1">
+              {teamLogo && (
+                <img 
+                  src={teamLogo} 
+                  alt={teamAbbr}
+                  className="w-6 h-6 rounded-full"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              )}
+              <span className="text-xs font-medium">{teamAbbr}</span>
+            </div>
             <div>
               <CardTitle className="text-sm font-medium">{playerName}</CardTitle>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">

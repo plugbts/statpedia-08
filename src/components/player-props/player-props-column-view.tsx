@@ -65,7 +65,7 @@ const TeamLogo = ({ team, teamAbbr, sport = 'nfl' }: { team: string, teamAbbr: s
   // Don't show logo if abbreviation is UNK
   if (finalTeamAbbr === 'UNK') {
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col items-center gap-1">
         <div className="w-6 h-6 rounded bg-muted flex items-center justify-center">
           <span className="text-xs font-medium text-muted-foreground">?</span>
         </div>
@@ -75,7 +75,7 @@ const TeamLogo = ({ team, teamAbbr, sport = 'nfl' }: { team: string, teamAbbr: s
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-col items-center gap-1">
       <img 
         src={getTeamLogoUrl(finalTeamAbbr, sport)} 
         alt={finalTeamAbbr}
