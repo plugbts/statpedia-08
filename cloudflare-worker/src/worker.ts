@@ -1665,6 +1665,54 @@ export default {
         }
       }
 
+      // Debug endpoint to test diagnostic insert wrapper
+      if (url.pathname === "/debug/test-diagnostic-insert") {
+        try {
+          // Get a few real extracted rows for testing
+          const { getEventsWithFallbacks } = await import("./lib/api.js");
+          const { extractPlayerProps } = await import("./lib/extract.js");
+          const { mapWithDiagnostics } = await import("./lib/diagnosticMapper.js");
+          const { getActiveLeagues } = await import("./config/leagues.js");
+          
+          // Get first league config
+          const activeLeagues = getActiveLeagues();
+          const leagueConfig = activeLeagues[0];
+          const { id: leagueID, oddIDs } = leagueConfig;
+          const season = 2025; // Use current season
+          
+          // Fetch events and extract props
+          const { events } = await getEventsWithFallbacks(env, leagueID, season, oddIDs);
+          const extractedProps = await extractPlayerProps(events, env);
+          const { mapped: mappedProps } = mapWithDiagnostics(extractedProps.slice(0, 3)); // Just first 3 rows
+          
+          if (mappedProps.length === 0) {
+            return corsResponse({
+              success: false,
+              error: "No mapped props available for testing",
+              timestamp: new Date().toISOString()
+            });
+          }
+
+          // Import diagnostic insert function
+          const { insertPropsWithDebugging } = await import("./lib/enhancedInsertProps.js");
+          const diagnosticResult = await insertPropsWithDebugging(env, mappedProps);
+          
+          return corsResponse({
+            success: true,
+            testRows: mappedProps.length,
+            diagnosticResult,
+            message: "Diagnostic insert test completed",
+            timestamp: new Date().toISOString()
+          });
+        } catch (error) {
+          return corsResponse({
+            success: false,
+            error: `Diagnostic insert test failed: ${error instanceof Error ? error.message : String(error)}`,
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
+
       // Debug endpoint to test ingestion pipeline directly
       if (url.pathname === "/debug/test-ingestion-pipeline") {
         try {
@@ -1795,6 +1843,32 @@ export default {
           return corsResponse({
             success: false,
             error: `Database read test failed: ${error instanceof Error ? error.message : String(error)}`,
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
+
+      // Debug endpoint to check for October 2025 data
+      if (url.pathname === "/debug/check-october-data") {
+        try {
+          // Check for October 2025 data specifically
+          const octoberData = await supabaseFetch(env, "proplines?date=gte.2025-10-01&date=lt.2025-11-01");
+          const boNixData = await supabaseFetch(env, "proplines?player_id=eq.BO_NIX");
+          const allData = await supabaseFetch(env, "proplines?limit=100");
+          
+          return corsResponse({
+            success: true,
+            octoberData: octoberData,
+            boNixData: boNixData,
+            allDataCount: Array.isArray(allData) ? allData.length : 0,
+            allDataDates: Array.isArray(allData) ? [...new Set(allData.map(r => r.date))].sort() : [],
+            message: "October data check completed",
+            timestamp: new Date().toISOString()
+          });
+        } catch (error) {
+          return corsResponse({
+            success: false,
+            error: `October data check failed: ${error instanceof Error ? error.message : String(error)}`,
             timestamp: new Date().toISOString()
           });
         }

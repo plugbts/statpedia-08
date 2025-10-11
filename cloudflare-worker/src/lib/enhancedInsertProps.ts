@@ -15,6 +15,76 @@ export interface InsertResult {
   }>;
 }
 
+// Diagnostic insert wrapper to identify failing rows
+async function diagnosticInsert(env: any, rows: any[], table: string): Promise<{ success: boolean; inserted: number; error?: string }> {
+  if (!rows.length) {
+    console.log(`[diagnostic] skipped empty batch for ${table}`);
+    return { success: true, inserted: 0 };
+  }
+
+  console.log(`[diagnostic] attempting batch insert of ${rows.length} rows into ${table}`);
+
+  // Try batch insert first
+  try {
+    // Use proper upsert with correct conflict resolution
+    const response = await supabaseFetch(env, table, {
+      method: "POST",
+      body: rows as any,
+      headers: { 
+        Prefer: "resolution=merge-duplicates",
+        "Content-Type": "application/json"
+      },
+    });
+
+    if (response && typeof response === 'object' && 'error' in response) {
+      console.error(`[diagnostic] batch insert failed for ${table}`, JSON.stringify(response.error, null, 2));
+
+      // Retry row-by-row to find the culprit(s)
+      let successCount = 0;
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        try {
+          const rowResponse = await supabaseFetch(env, table, {
+            method: "POST",
+            body: [row] as any,
+            headers: { 
+              Prefer: "resolution=merge-duplicates",
+              "Content-Type": "application/json"
+            },
+          });
+
+          if (rowResponse && typeof rowResponse === 'object' && 'error' in rowResponse) {
+            console.error(`[diagnostic] row ${i} failed`, {
+              row: {
+                player_id: row.player_id,
+                date: row.date,
+                prop_type: row.prop_type,
+                sportsbook: row.sportsbook,
+                league: row.league,
+                season: row.season
+              },
+              error: rowResponse.error
+            });
+          } else {
+            console.log(`[diagnostic] row ${i} inserted OK`);
+            successCount++;
+          }
+        } catch (rowError) {
+          console.error(`[diagnostic] row ${i} exception:`, rowError);
+        }
+      }
+
+      return { success: successCount > 0, inserted: successCount };
+    } else {
+      console.log(`[diagnostic] batch insert succeeded: ${rows.length} rows`);
+      return { success: true, inserted: rows.length };
+    }
+  } catch (error) {
+    console.error(`[diagnostic] batch insert exception for ${table}:`, error);
+    return { success: false, inserted: 0, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 // Bulletproof batch persistence function
 async function persistBatch(env: any, rows: any[], table: string): Promise<{ success: boolean; inserted: number; error?: string }> {
   if (!rows.length) {
@@ -127,67 +197,67 @@ export async function insertPropsWithDebugging(env: any, mapped: any[]): Promise
     return result;
   }
 
-  // Insert into proplines using bulletproof persistBatch
-  console.log("🔄 Inserting proplines using bulletproof persistence...");
-  const proplinesBatches = chunk(mapped, 50); // Much smaller batches to test
-  
-  for (let i = 0; i < proplinesBatches.length; i++) {
-    const batch = proplinesBatches[i];
-    const persistResult = await persistBatch(env, batch, "proplines");
+    // Insert into proplines using diagnostic insert wrapper
+    console.log("🔄 Inserting proplines using diagnostic insert wrapper...");
+    const proplinesBatches = chunk(mapped, 50); // Much smaller batches to test
     
-    if (persistResult.success) {
-      result.proplinesInserted += persistResult.inserted;
-      console.log(`✅ Proplines batch ${i + 1}/${proplinesBatches.length}: ${persistResult.inserted} rows inserted`);
-    } else {
-      result.success = false;
-      result.errors += batch.length;
-      result.errorDetails.push({
-        table: 'proplines',
-        batchIndex: i,
-        error: persistResult.error || 'Unknown error',
-        sampleData: batch[0]
-      });
-      console.error(`❌ Proplines batch ${i + 1}/${proplinesBatches.length} failed:`, persistResult.error);
+    for (let i = 0; i < proplinesBatches.length; i++) {
+      const batch = proplinesBatches[i];
+      const diagnosticResult = await diagnosticInsert(env, batch, "proplines");
+      
+      if (diagnosticResult.success) {
+        result.proplinesInserted += diagnosticResult.inserted;
+        console.log(`✅ Proplines batch ${i + 1}/${proplinesBatches.length}: ${diagnosticResult.inserted} rows inserted`);
+      } else {
+        result.success = false;
+        result.errors += batch.length;
+        result.errorDetails.push({
+          table: 'proplines',
+          batchIndex: i,
+          error: diagnosticResult.error || 'Unknown error',
+          sampleData: batch[0]
+        });
+        console.error(`❌ Proplines batch ${i + 1}/${proplinesBatches.length} failed:`, diagnosticResult.error);
+      }
     }
-  }
 
-  // Insert into player_game_logs using bulletproof persistBatch
-  console.log("🔄 Inserting player_game_logs using bulletproof persistence...");
-  const gamelogRows = mapped.map(row => ({
-    player_id: row.player_id,
-    player_name: row.player_name,
-    team: row.team,
-    opponent: row.opponent,
-    season: row.season,
-    date: row.date,
-    prop_type: row.prop_type,
-    value: row.line, // Use line as the value for game logs
-    sport: row.league?.toUpperCase() || 'NFL',
-    league: row.league,
-    game_id: row.game_id,
-  }));
+    // Insert into player_game_logs using diagnostic insert wrapper
+    console.log("🔄 Inserting player_game_logs using diagnostic insert wrapper...");
+    const gamelogRows = mapped.map(row => ({
+      player_id: row.player_id,
+      player_name: row.player_name,
+      team: row.team,
+      opponent: row.opponent,
+      season: row.season,
+      date: row.date,
+      prop_type: row.prop_type,
+      value: row.line, // Use line as the value for game logs
+      sport: row.league?.toUpperCase() || 'NFL',
+      league: row.league,
+      game_id: row.game_id,
+    }));
 
-  const gameLogBatches = chunk(gamelogRows, 50); // Much smaller batches to test
-  
-  for (let i = 0; i < gameLogBatches.length; i++) {
-    const batch = gameLogBatches[i];
-    const persistResult = await persistBatch(env, batch, "player_game_logs");
+    const gameLogBatches = chunk(gamelogRows, 50); // Much smaller batches to test
     
-    if (persistResult.success) {
-      result.gameLogsInserted += persistResult.inserted;
-      console.log(`✅ Player game logs batch ${i + 1}/${gameLogBatches.length}: ${persistResult.inserted} rows inserted`);
-    } else {
-      result.success = false;
-      result.errors += batch.length;
-      result.errorDetails.push({
-        table: 'player_game_logs',
-        batchIndex: i,
-        error: persistResult.error || 'Unknown error',
-        sampleData: batch[0]
-      });
-      console.error(`❌ Player game logs batch ${i + 1}/${gameLogBatches.length} failed:`, persistResult.error);
+    for (let i = 0; i < gameLogBatches.length; i++) {
+      const batch = gameLogBatches[i];
+      const diagnosticResult = await diagnosticInsert(env, batch, "player_game_logs");
+      
+      if (diagnosticResult.success) {
+        result.gameLogsInserted += diagnosticResult.inserted;
+        console.log(`✅ Player game logs batch ${i + 1}/${gameLogBatches.length}: ${diagnosticResult.inserted} rows inserted`);
+      } else {
+        result.success = false;
+        result.errors += batch.length;
+        result.errorDetails.push({
+          table: 'player_game_logs',
+          batchIndex: i,
+          error: diagnosticResult.error || 'Unknown error',
+          sampleData: batch[0]
+        });
+        console.error(`❌ Player game logs batch ${i + 1}/${gameLogBatches.length} failed:`, diagnosticResult.error);
+      }
     }
-  }
 
   console.log(`✅ Enhanced insertion complete:`, {
     totalProps: mapped.length,
