@@ -108,9 +108,26 @@ async function fetchRawProps(env: any, league: string, dateISO: string): Promise
   console.log(`🔍 Using player prop oddIDs for ${league}: ${playerPropOddIDs}`);
   
   // Use the same fallback strategy as the ingestion system
+  // Note: getEventsWithFallbacks uses a ±7 day range, not specific dates
   try {
     const { events, tier } = await getEventsWithFallbacks(env, league.toUpperCase(), 2025, playerPropOddIDs);
     console.log(`✅ Fetched ${events.length} events from SportsGameOdds API (tier ${tier})`);
+    
+    // Filter events by the requested date if needed
+    if (dateISO && events.length > 0) {
+      const filteredEvents = events.filter(event => {
+        const eventDate = event.startTime || event.commence_time || event.date;
+        if (!eventDate) return false;
+        
+        // Convert to date string for comparison
+        const eventDateStr = new Date(eventDate).toISOString().split('T')[0];
+        return eventDateStr === dateISO;
+      });
+      
+      console.log(`🔍 Filtered ${filteredEvents.length} events for date ${dateISO} from ${events.length} total events`);
+      return filteredEvents;
+    }
+    
     return events;
   } catch (error) {
     console.error(`❌ Failed to fetch raw props from SportsGameOdds API:`, error);
