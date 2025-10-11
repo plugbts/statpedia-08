@@ -64,6 +64,18 @@ export async function extractPlayerProps(events: any[], env?: any): Promise<Extr
       
       const odd = oddData as any;
       
+      // 🔍 DEBUG: Log the structure of the first few odds to understand the format
+      if (out.length < 3 && Object.keys(oddsData).indexOf(oddId) < 5) {
+        console.log(`🔍 [EXTRACT:ODDS] Odd ${oddId}:`, {
+          hasPlayerID: !!odd.playerID,
+          hasStatID: !!odd.statID,
+          hasPlayerId: !!odd.playerId,
+          hasStatId: !!odd.statId,
+          oddKeys: Object.keys(odd),
+          sampleOdd: odd
+        });
+      }
+      
       // Check if this is a player prop (has playerID and statID)
       if (!odd.playerID || !odd.statID) continue;
       
