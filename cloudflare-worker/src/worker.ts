@@ -16,7 +16,7 @@ import { initializeCoverageReport, generateCoverageReport, getCoverageSummary } 
 import { getFixedPlayerPropsWithAnalytics } from "./fixes";
 import { cleanPlayerNames } from "./playerNames";
 import { enrichTeams } from "./teams";
-import { buildProps, type EnrichedProp } from "./fetchProps";
+import { buildProps, ingestAndEnrich, persistProps, type EnrichedProp } from "./fetchProps";
 // import { getPlayerPropsFixed } from "./player-props-fixed"; // No longer needed - using direct view fetch
 
 // Initialize prop type sync and supported props at worker startup
@@ -1460,8 +1460,8 @@ export default {
           const league = url.searchParams.get("league") || "nfl";
           const date = url.searchParams.get("date") || "2025-10-10";
           
-          console.log(`🧪 Testing pure worker-centric approach for ${league} on ${date}...`);
-          const props = await buildProps(env, league, date);
+          console.log(`🧪 Testing dual-mode approach for ${league} on ${date}...`);
+          const props = await ingestAndEnrich(env, league, date);
           
           return corsResponse({
             success: true,
@@ -1664,9 +1664,16 @@ export default {
           
           try {
             if (date) {
-              // Single date query
-              console.log(`📊 NEW PIPELINE: Fetching props for ${league} on ${date}...`);
-              enrichedProps = await buildProps(env, league, date);
+              // Single date query - dual-mode approach
+              console.log(`📊 DUAL-MODE: Fetching and enriching props for ${league} on ${date}...`);
+              enrichedProps = await ingestAndEnrich(env, league, date);
+              
+              // Persist in background (don't block response)
+              if (enrichedProps.length > 0) {
+                persistProps(env, enrichedProps).catch(err => 
+                  console.error("Background persist failed:", err)
+                );
+              }
             } else if (dateFrom && dateTo) {
               // Date range query - get props for each date in range
               const startDate = new Date(dateFrom);
@@ -1676,8 +1683,15 @@ export default {
               for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
                 const dateStr = d.toISOString().split('T')[0];
                 try {
-                  console.log(`📊 NEW PIPELINE: Fetching props for ${league} on ${dateStr}...`);
-                  const dayProps = await buildProps(env, league, dateStr);
+                  console.log(`📊 DUAL-MODE: Fetching props for ${league} on ${dateStr}...`);
+                  const dayProps = await ingestAndEnrich(env, league, dateStr);
+                  
+                  // Persist each day's props
+                  if (dayProps.length > 0) {
+                    persistProps(env, dayProps).catch(err => 
+                      console.error(`Background persist failed for ${dateStr}:`, err)
+                    );
+                  }
                   allProps.push(...dayProps);
                 } catch (error) {
                   console.warn(`⚠️ Failed to fetch props for ${dateStr}:`, error);
@@ -1698,11 +1712,16 @@ export default {
                 const dateStr = checkDate.toISOString().split('T')[0];
                 
                 try {
-                  const testProps = await buildProps(env, league, dateStr);
+                  const testProps = await ingestAndEnrich(env, league, dateStr);
                   if (testProps.length > 0) {
-                    console.log(`📅 NEW PIPELINE: Found data for ${league} on ${dateStr} (${testProps.length} props)`);
+                    console.log(`📅 DUAL-MODE: Found data for ${league} on ${dateStr} (${testProps.length} props)`);
                     enrichedProps = testProps;
                     foundData = true;
+                    
+                    // Persist the found data
+                    persistProps(env, testProps).catch(err => 
+                      console.error(`Background persist failed for ${dateStr}:`, err)
+                    );
                     break;
                   }
                 } catch (error) {

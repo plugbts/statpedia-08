@@ -101,6 +101,7 @@ function getPlayerPropOddIDs(league: string): string {
 
 /**
  * Fetch raw props directly from SportsGameOdds API
+ * Uses the dual-mode approach: fetch from API, extract props, serve live data
  */
 async function fetchRawProps(env: any, league: string, dateISO: string): Promise<any[]> {
   console.log(`🔍 Fetching raw props from SportsGameOdds API for ${league} on ${dateISO}`);
@@ -141,6 +142,78 @@ async function fetchRawProps(env: any, league: string, dateISO: string): Promise
   } catch (error) {
     console.error(`❌ Failed to fetch raw props from SportsGameOdds API:`, error);
     return [];
+  }
+}
+
+/**
+ * Dual-mode worker ingestion: fetch, enrich, and optionally persist
+ */
+export async function ingestAndEnrich(env: any, league: string, dateISO: string): Promise<EnrichedProp[]> {
+  console.log(`🚀 Starting dual-mode ingestion for ${league} on ${dateISO}`);
+  
+  // Step 1: Fetch raw props from SportsGameOdds API
+  const rawEvents = await fetchRawProps(env, league, dateISO);
+  
+  if (rawEvents.length === 0) {
+    console.log(`[worker:ingestAndEnrich] No raw events found for ${league} on ${dateISO}`);
+    return [];
+  }
+
+  // Step 2: Extract and enrich props
+  const enriched = await processRawEvents(rawEvents, env, league, dateISO);
+  
+  console.log(`✅ Dual-mode ingestion complete: ${enriched.length} enriched props`);
+  return enriched;
+}
+
+/**
+ * Persist enriched props to database (background operation)
+ */
+export async function persistProps(env: any, enriched: EnrichedProp[]): Promise<void> {
+  if (!enriched.length) {
+    console.log(`[worker:persistProps] No props to persist`);
+    return;
+  }
+
+  console.log(`[worker:persistProps] Persisting ${enriched.length} props to database...`);
+  
+  try {
+    // Transform enriched props to database format
+    const dbProps = enriched.map(prop => ({
+      id: `${prop.player_id}-${prop.date_normalized}-${prop.prop_type}`,
+      player_id: prop.player_id,
+      player_name: prop.clean_player_name,
+      team: prop.team_abbr,
+      opponent: prop.opponent_abbr,
+      league: prop.league,
+      season: prop.season,
+      game_id: prop.game_id,
+      date_normalized: prop.date_normalized,
+      prop_type: prop.prop_type,
+      line: prop.line,
+      over_odds: prop.over_odds,
+      under_odds: prop.under_odds,
+      odds: null,
+      conflict_key: `${prop.player_id}|${prop.date_normalized}|${prop.prop_type}|SportsGameOdds|${prop.league}|${prop.season}`
+    }));
+
+    // Batch insert with upsert
+    const { error, status } = await supabaseFetch(env, "proplines", {
+      method: "POST",
+      body: dbProps,
+      headers: { 
+        Prefer: "resolution=merge-duplicates",
+        "Content-Type": "application/json"
+      },
+    });
+
+    if (error) {
+      console.error(`[worker:persistProps] Database error:`, error, "status:", status);
+    } else {
+      console.log(`✅ [worker:persistProps] Successfully persisted ${enriched.length} props`);
+    }
+  } catch (error) {
+    console.error(`❌ [worker:persistProps] Persist failed:`, error);
   }
 }
 
@@ -604,30 +677,15 @@ export async function fetchPropsForDate(
 }
 
 /**
- * Pure worker-centric props builder - no database dependency
+ * Dual-mode worker props builder: fetch from API, enrich, serve live data
  */
 export async function buildProps(env: any, league: string, dateISO: string): Promise<EnrichedProp[]> {
-  console.log(`🚀 Starting pure worker-centric props build for ${league} on ${dateISO}`);
+  console.log(`🚀 Starting dual-mode props build for ${league} on ${dateISO}`);
 
-  // 1. Fetch raw events directly from SportsGameOdds API
-  // TEMPORARILY: Try reading from database first to test if data is there
-  console.log(`🔍 TEMPORARY: Checking if data is in database first...`);
-  const { data: dbProps, error: dbError } = await supabaseFetch(env, `proplines?league=eq.${league.toLowerCase()}&limit=10`);
+  // Use the dual-mode ingestion approach
+  const enriched = await ingestAndEnrich(env, league, dateISO);
   
-  if (!dbError && dbProps && dbProps.length > 0) {
-    console.log(`✅ Found ${dbProps.length} props in database, using database data temporarily`);
-    // Convert database props to the format expected by the rest of the pipeline
-    const rawEvents = dbProps.map((prop: any) => ({
-      gameId: prop.game_id,
-      odds: { [prop.id]: prop }, // Create a fake odds structure
-      players: { [prop.player_id]: { name: prop.player_name } }
-    }));
-    return await processRawEvents(rawEvents, env, league, dateISO);
-  } else {
-    console.log(`❌ No data in database (${dbError?.message || 'empty'}), falling back to API`);
-    const rawEvents = await fetchRawProps(env, league, dateISO);
-    return await processRawEvents(rawEvents, env, league, dateISO);
-  }
+  return enriched;
 }
 
 /**
