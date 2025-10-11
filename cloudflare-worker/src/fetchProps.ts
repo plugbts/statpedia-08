@@ -13,6 +13,7 @@ import { cleanPlayerNames, type RawPropRow, type CleanPropRow } from "./playerNa
 import { enrichTeams, type RawRow, type CleanTeamRow } from "./teams";
 import { getPlayerTeam, getOpponentTeam } from "./lib/playerTeamMap";
 import { extractPlayerProps } from "./lib/extract";
+import { getEventsWithFallbacks } from "./lib/api";
 
 export type PropLineRow = {
   id: string;
@@ -106,34 +107,11 @@ async function fetchRawProps(env: any, league: string, dateISO: string): Promise
   const playerPropOddIDs = getPlayerPropOddIDs(league);
   console.log(`🔍 Using player prop oddIDs for ${league}: ${playerPropOddIDs}`);
   
-  // Use the same API structure as the existing ingestion code, but with player prop oddIDs
-  const url = `https://api.sportsgameodds.com/v2/events?apiKey=${env.SPORTSGAMEODDS_API_KEY}&leagueID=${league}&oddsAvailable=true&dateFrom=${dateISO}&dateTo=${dateISO}&oddIDs=${encodeURIComponent(playerPropOddIDs)}&limit=250`;
-  
+  // Use the same fallback strategy as the ingestion system
   try {
-    const res = await fetch(url, {
-      headers: { 
-        "Content-Type": "application/json"
-      }
-    });
-    
-    if (!res.ok) {
-      throw new Error(`SportsGameOdds API failed: ${res.status} ${res.statusText}`);
-    }
-    
-    const json = await res.json();
-    console.log(`🔍 Raw SportsGameOdds API response:`, {
-      hasData: !!json?.data,
-      dataLength: json?.data?.length ?? 0,
-      fullResponse: json
-    });
-    
-    // The API returns events directly, not wrapped in a data array
-    const events = json?.data ?? json ?? [];
-    const eventsArray = Array.isArray(events) ? events : [];
-    
-    console.log(`✅ Fetched ${eventsArray.length} events from SportsGameOdds API`);
-    return eventsArray;
-    
+    const { events, tier } = await getEventsWithFallbacks(env, league.toUpperCase(), 2025, playerPropOddIDs);
+    console.log(`✅ Fetched ${events.length} events from SportsGameOdds API (tier ${tier})`);
+    return events;
   } catch (error) {
     console.error(`❌ Failed to fetch raw props from SportsGameOdds API:`, error);
     return [];
