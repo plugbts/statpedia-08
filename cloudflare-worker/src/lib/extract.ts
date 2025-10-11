@@ -31,6 +31,7 @@ export async function extractPlayerProps(events: any[], env?: any): Promise<Extr
     if (!ev) continue;
     
     const eventId = ev.id || ev.eventID || ev.event_id || 'unknown';
+    // Normalize league with proper fallbacks
     const league = ev.leagueID || ev.league || ev.league_id || 'unknown';
     const eventStartUtc = ev.startTime || ev.commence_time || ev.startUtc || ev.date || new Date().toISOString();
     
@@ -152,14 +153,12 @@ export async function extractPlayerProps(events: any[], env?: any): Promise<Extr
       const odds = odd.bookOdds || odd.fairOdds || null;
       const oddsValue = odds ? parseInt(odds.replace('+', '').replace('-', '')) : null;
       
-      // Extract sportsbook from byBookmaker
-      let sportsbook = 'Consensus';
-      if (odd.byBookmaker && typeof odd.byBookmaker === 'object') {
-        const bookmakers = Object.keys(odd.byBookmaker);
-        if (bookmakers.length > 0) {
-          sportsbook = bookmakers[0]; // Use first available sportsbook
-        }
-      }
+      // Extract sportsbook with proper normalization
+      const sportsbook = odd.sportsbook?.name 
+                      || odd.bookmaker?.name 
+                      || odd.sportsbook 
+                      || (odd.byBookmaker && typeof odd.byBookmaker === 'object' ? Object.keys(odd.byBookmaker)[0] : null)
+                      || 'SportsGameOdds'; // Default fallback
       
       // Determine over/under
       let overUnder = 'over';

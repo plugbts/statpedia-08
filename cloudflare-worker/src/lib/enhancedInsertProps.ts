@@ -15,6 +15,80 @@ export interface InsertResult {
   }>;
 }
 
+// Bulletproof batch persistence function
+async function persistBatch(env: any, rows: any[], table: string): Promise<{ success: boolean; inserted: number; error?: string }> {
+  if (!rows.length) {
+    console.log(`[persist] skipped empty batch for ${table}`);
+    return { success: true, inserted: 0 };
+  }
+
+  console.log(`[persist] inserting ${rows.length} rows into ${table}`);
+  console.log(`[persist] sample row:`, {
+    table,
+    sampleKeys: Object.keys(rows[0]),
+    sampleRow: rows[0]
+  });
+  
+  // Row-level debug logging for first row to catch hidden mismatches
+  if (rows.length > 0) {
+    console.log(`[persist] first row debug:`, {
+      table,
+      rowKeys: Object.keys(rows[0]),
+      rowValues: Object.entries(rows[0]).map(([key, value]) => ({
+        key,
+        value,
+        type: typeof value,
+        isNull: value === null,
+        isUndefined: value === undefined
+      }))
+    });
+  }
+
+  try {
+    const response = await supabaseFetch(env, table, {
+      method: "POST",
+      body: rows,
+      headers: { 
+        Prefer: "resolution=ignore-duplicates", // Use ignore-duplicates to skip conflicts
+        "Content-Type": "application/json"
+      },
+    });
+
+    // Detailed response logging
+    console.log(`[persist] Supabase response for ${table}:`, {
+      responseType: typeof response,
+      responseIsNull: response === null,
+      responseIsUndefined: response === undefined,
+      responseIsArray: Array.isArray(response),
+      responseLength: Array.isArray(response) ? response.length : 'N/A',
+      responseKeys: response && typeof response === 'object' ? Object.keys(response) : 'N/A',
+      fullResponse: response
+    });
+
+    // Check for explicit errors in response
+    if (response && typeof response === 'object' && 'error' in response) {
+      console.error(`[persist] insert error in ${table}:`, JSON.stringify(response.error, null, 2));
+      return { success: false, inserted: 0, error: JSON.stringify(response.error, null, 2) };
+    }
+
+    // Success - check if we got data back
+    if (response === null || response === undefined) {
+      console.log(`[persist] inserted ${rows.length} rows into ${table} (empty response = success)`);
+      return { success: true, inserted: rows.length };
+    } else if (Array.isArray(response) && response.length > 0) {
+      console.log(`[persist] inserted ${response.length} rows into ${table} (returned data)`);
+      return { success: true, inserted: response.length };
+    } else {
+      console.log(`[persist] inserted ${rows.length} rows into ${table} (response:`, response, ')');
+      return { success: true, inserted: rows.length };
+    }
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(`[persist] insert failed for ${table}:`, errorMsg);
+    return { success: false, inserted: 0, error: errorMsg };
+  }
+}
+
 export async function insertPropsWithDebugging(env: any, mapped: any[]): Promise<InsertResult> {
   if (!mapped.length) {
     console.log("⚠️ No props to insert");
@@ -53,89 +127,32 @@ export async function insertPropsWithDebugging(env: any, mapped: any[]): Promise
     return result;
   }
 
-  // Insert into proplines with enhanced error handling
-  // console.log("🔄 Inserting proplines..."); // Reduced logging
-  const proplinesBatches = chunk(mapped, 250); // Smaller batches for better error isolation
+  // Insert into proplines using bulletproof persistBatch
+  console.log("🔄 Inserting proplines using bulletproof persistence...");
+  const proplinesBatches = chunk(mapped, 50); // Much smaller batches to test
   
   for (let i = 0; i < proplinesBatches.length; i++) {
     const batch = proplinesBatches[i];
-    try {
-      // console.log(`🔄 Inserting proplines batch ${i + 1}/${proplinesBatches.length} (${batch.length} props)...`); // Reduced logging
-      
-      // Log sample data for debugging
-      if (i === 0 && batch.length > 0) {
-        console.log("📊 Sample proplines data:", {
-          player_id: batch[0].player_id,
-          player_name: batch[0].player_name,
-          prop_type: batch[0].prop_type,
-          date: batch[0].date,
-          league: batch[0].league,
-          conflict_key: batch[0].conflict_key,
-          over_odds: batch[0].over_odds,
-          under_odds: batch[0].under_odds
-        });
-      }
-      
-      const response = await supabaseFetch(env, "proplines", {
-        method: "POST",
-        body: batch,
-        headers: { 
-          Prefer: "resolution=merge-duplicates",
-          "Content-Type": "application/json"
-        },
-      });
-      
-      // Check if the response indicates success
-      if (response === null || response === undefined) {
-        console.log(`✅ Inserted proplines batch ${i + 1} (${batch.length} props) - empty response = success`);
-        result.proplinesInserted += batch.length;
-      } else if (Array.isArray(response) && response.length > 0) {
-        console.log(`✅ Inserted proplines batch ${i + 1} (${batch.length} props) - returned ${response.length} rows`);
-        result.proplinesInserted += response.length;
-      } else {
-        // Check for error in response
-        if (response && typeof response === 'object' && 'error' in response) {
-          throw new Error(`Supabase insert error: ${JSON.stringify(response.error)}`);
-        } else {
-          console.log(`✅ Inserted proplines batch ${i + 1} (${batch.length} props) with response:`, response);
-          result.proplinesInserted += batch.length;
-        }
-      }
-      
-    } catch (e) {
-      const errorMsg = e instanceof Error ? e.message : String(e);
-      console.error(`❌ Proplines batch ${i + 1} insert failed:`, {
-        batchIndex: i,
-        batchSize: batch.length,
-        error: errorMsg,
-        sampleProp: batch[0] ? {
-          player_id: batch[0].player_id,
-          player_name: batch[0].player_name,
-          prop_type: batch[0].prop_type,
-          date: batch[0].date,
-          league: batch[0].league,
-          conflict_key: batch[0].conflict_key,
-          over_odds: batch[0].over_odds,
-          under_odds: batch[0].under_odds
-        } : null,
-        fullError: e
-      });
-      
+    const persistResult = await persistBatch(env, batch, "proplines");
+    
+    if (persistResult.success) {
+      result.proplinesInserted += persistResult.inserted;
+      console.log(`✅ Proplines batch ${i + 1}/${proplinesBatches.length}: ${persistResult.inserted} rows inserted`);
+    } else {
       result.success = false;
       result.errors += batch.length;
       result.errorDetails.push({
         table: 'proplines',
         batchIndex: i,
-        error: errorMsg,
+        error: persistResult.error || 'Unknown error',
         sampleData: batch[0]
       });
-      
-      // Continue with other batches instead of throwing
+      console.error(`❌ Proplines batch ${i + 1}/${proplinesBatches.length} failed:`, persistResult.error);
     }
   }
 
-  // Insert into player_game_logs with enhanced error handling
-  // console.log("🔄 Inserting player_game_logs..."); // Reduced logging
+  // Insert into player_game_logs using bulletproof persistBatch
+  console.log("🔄 Inserting player_game_logs using bulletproof persistence...");
   const gamelogRows = mapped.map(row => ({
     player_id: row.player_id,
     player_name: row.player_name,
@@ -150,73 +167,25 @@ export async function insertPropsWithDebugging(env: any, mapped: any[]): Promise
     game_id: row.game_id,
   }));
 
-  const gameLogBatches = chunk(gamelogRows, 250);
+  const gameLogBatches = chunk(gamelogRows, 50); // Much smaller batches to test
   
   for (let i = 0; i < gameLogBatches.length; i++) {
     const batch = gameLogBatches[i];
-    try {
-      // console.log(`🔄 Inserting player_game_logs batch ${i + 1}/${gameLogBatches.length} (${batch.length} rows)...`); // Reduced logging
-      
-      // Log sample data for debugging
-      if (i === 0 && batch.length > 0) {
-        console.log("📊 Sample game log data:", {
-          player_id: batch[0].player_id,
-          player_name: batch[0].player_name,
-          prop_type: batch[0].prop_type,
-          date: batch[0].date,
-          league: batch[0].league,
-          game_id: batch[0].game_id,
-          value: batch[0].value,
-          sport: batch[0].sport
-        });
-      }
-      
-      const response = await supabaseFetch(env, "player_game_logs", {
-        method: "POST",
-        body: batch,
-        headers: { 
-          Prefer: "resolution=merge-duplicates",
-          "Content-Type": "application/json"
-        },
-      });
-      
-      if (response === null || response === undefined) {
-        console.log(`✅ Inserted player_game_logs batch ${i + 1} (${batch.length} rows) - empty response = success`);
-        result.gameLogsInserted += batch.length;
-      } else {
-        console.log(`✅ Inserted player_game_logs batch ${i + 1} (${batch.length} rows) with response:`, response);
-        result.gameLogsInserted += batch.length;
-      }
-      
-    } catch (e) {
-      const errorMsg = e instanceof Error ? e.message : String(e);
-      console.error(`❌ Player_game_logs batch ${i + 1} insert failed:`, {
-        batchIndex: i,
-        batchSize: batch.length,
-        error: errorMsg,
-        sampleLog: batch[0] ? {
-          player_id: batch[0].player_id,
-          player_name: batch[0].player_name,
-          prop_type: batch[0].prop_type,
-          date: batch[0].date,
-          league: batch[0].league,
-          game_id: batch[0].game_id,
-          value: batch[0].value,
-          sport: batch[0].sport
-        } : null,
-        fullError: e
-      });
-      
+    const persistResult = await persistBatch(env, batch, "player_game_logs");
+    
+    if (persistResult.success) {
+      result.gameLogsInserted += persistResult.inserted;
+      console.log(`✅ Player game logs batch ${i + 1}/${gameLogBatches.length}: ${persistResult.inserted} rows inserted`);
+    } else {
       result.success = false;
       result.errors += batch.length;
       result.errorDetails.push({
         table: 'player_game_logs',
         batchIndex: i,
-        error: errorMsg,
+        error: persistResult.error || 'Unknown error',
         sampleData: batch[0]
       });
-      
-      // Continue with other batches instead of throwing
+      console.error(`❌ Player game logs batch ${i + 1}/${gameLogBatches.length} failed:`, persistResult.error);
     }
   }
 

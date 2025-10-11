@@ -84,9 +84,59 @@ export async function runIngestion(env: any): Promise<IngestionResult> {
       
       if (mappedProps.length > 0) {
         try {
-          await insertProps(env, mappedProps);
-          leagueInserted += mappedProps.length;
-          console.log(`✅ ${leagueID}: Successfully inserted ${mappedProps.length} props using insertProps function`);
+          // Schema diff logger to compare test vs real data
+          function logRowDiff(testRow: any, realRow: any) {
+            const testKeys = Object.keys(testRow);
+            const realKeys = Object.keys(realRow);
+
+            console.log("🔍 [SCHEMA DIFF] Missing in real:", testKeys.filter(k => !(k in realRow)));
+            console.log("🔍 [SCHEMA DIFF] Extra in real:", realKeys.filter(k => !(k in testRow)));
+
+            for (const key of testKeys) {
+              if (key in realRow && typeof testRow[key] !== typeof realRow[key]) {
+                console.log(`🔍 [SCHEMA DIFF] Type mismatch on ${key}: test=${typeof testRow[key]} (${testRow[key]}) vs real=${typeof realRow[key]} (${realRow[key]})`);
+              }
+            }
+          }
+
+          // Test row structure (known good) - match real data structure
+          const testRow = {
+            player_id: "TEST_PERSIST_2",
+            player_name: "Test Persist Player 2",
+            team: "TEST",
+            opponent: "OPP",
+            league: "nfl",
+            season: 2025,
+            game_id: "test-persist-game-2",
+            date: "2025-10-11",
+            prop_type: "test_persist_prop_2",
+            line: 100,
+            over_odds: -110,
+            under_odds: null, // Match real data - null is valid
+            odds: null,
+            sportsbook: "SportsGameOdds",
+            conflict_key: "TEST_PERSIST_2|2025-10-11|test_persist_prop_2|SportsGameOdds|nfl|2025"
+          };
+
+          // Compare first real row with test row
+          console.log(`🔍 [SCHEMA DIFF] Comparing test vs real row for ${leagueID}:`);
+          logRowDiff(testRow, mappedProps[0]);
+
+          // Add diagnostic log for first row
+          console.log(`[ingest sample row] ${leagueID}:`, {
+            keys: Object.keys(mappedProps[0]),
+            sampleRow: mappedProps[0]
+          });
+          
+          const insertResult = await insertProps(env, mappedProps);
+          
+          if (insertResult.success) {
+            leagueInserted += insertResult.proplinesInserted + insertResult.gameLogsInserted;
+            console.log(`✅ ${leagueID}: Successfully inserted ${insertResult.proplinesInserted} proplines + ${insertResult.gameLogsInserted} game logs`);
+          } else {
+            leagueErrors += insertResult.errors;
+            console.error(`❌ ${leagueID}: Insert failed with ${insertResult.errors} errors:`, insertResult.errorDetails);
+          }
         } catch (error) {
           console.error(`❌ ${leagueID}: Insert props failed:`, error);
           leagueErrors += mappedProps.length;

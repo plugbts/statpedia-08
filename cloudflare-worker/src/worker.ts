@@ -1480,6 +1480,326 @@ export default {
         }
       }
 
+      // Debug endpoint to test single real row insert
+      if (url.pathname === "/debug/test-single-real-row") {
+        try {
+          // Get a real extracted row
+          const { getEventsWithFallbacks } = await import("./lib/api.js");
+          const { extractPlayerProps } = await import("./lib/extract.js");
+          const { mapWithDiagnostics } = await import("./lib/diagnosticMapper.js");
+          const { getActiveLeagues } = await import("./config/leagues.js");
+          
+          // Get first league config
+          const activeLeagues = getActiveLeagues();
+          const leagueConfig = activeLeagues[0];
+          const { id: leagueID, oddIDs } = leagueConfig;
+          const season = 2025; // Use current season
+          
+          // Fetch events and extract props
+          const { events } = await getEventsWithFallbacks(env, leagueID, season, oddIDs);
+          const extractedProps = await extractPlayerProps(events, env);
+          const { mapped: mappedProps } = mapWithDiagnostics(extractedProps.slice(0, 1)); // Just first row
+          
+          if (mappedProps.length === 0) {
+            return corsResponse({
+              success: false,
+              error: "No mapped props available for testing",
+              timestamp: new Date().toISOString()
+            });
+          }
+
+          const realRow = mappedProps[0];
+          
+          // Test direct insert of single real row
+          const insertResponse = await supabaseFetch(env, "proplines", {
+            method: "POST",
+            body: [realRow] as any,
+            headers: { 
+              Prefer: "resolution=merge-duplicates",
+              "Content-Type": "application/json"
+            },
+          });
+          
+          return corsResponse({
+            success: true,
+            realRow,
+            insertResponse,
+            message: "Single real row insert test completed",
+            timestamp: new Date().toISOString()
+          });
+        } catch (error) {
+          return corsResponse({
+            success: false,
+            error: `Single real row insert test failed: ${error instanceof Error ? error.message : String(error)}`,
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
+
+      // Debug endpoint to test single row insert
+      if (url.pathname === "/debug/test-single-row") {
+        try {
+          const testData = [{
+            player_id: "SINGLE_TEST_1",
+            player_name: "Single Test Player",
+            team: "TEST",
+            opponent: "OPP",
+            league: "nfl",
+            season: 2025,
+            game_id: "single-test-game-1",
+            date: "2025-10-11",
+            prop_type: "single_test_prop",
+            line: 100,
+            over_odds: -110,
+            under_odds: -110,
+            odds: null,
+            sportsbook: "SportsGameOdds",
+            conflict_key: "SINGLE_TEST_1|2025-10-11|single_test_prop|SportsGameOdds|nfl|2025"
+          }];
+
+          // Test direct supabaseFetch call
+          const response = await supabaseFetch(env, "proplines", {
+            method: "POST",
+            body: testData as any,
+            headers: { 
+              Prefer: "resolution=merge-duplicates",
+              "Content-Type": "application/json"
+            },
+          });
+          
+          return corsResponse({
+            success: true,
+            singleRowResult: response,
+            message: "Single row insert test completed",
+            timestamp: new Date().toISOString()
+          });
+        } catch (error) {
+          return corsResponse({
+            success: false,
+            error: `Single row insert test failed: ${error instanceof Error ? error.message : String(error)}`,
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
+
+      // Debug endpoint to test schema diff
+      if (url.pathname === "/debug/test-schema-diff") {
+        try {
+          // Get a real extracted row for comparison
+          const { getEventsWithFallbacks } = await import("./lib/api.js");
+          const { extractPlayerProps } = await import("./lib/extract.js");
+          const { mapWithDiagnostics } = await import("./lib/diagnosticMapper.js");
+          const { getActiveLeagues } = await import("./config/leagues.js");
+          
+          // Get first league config
+          const activeLeagues = getActiveLeagues();
+          const leagueConfig = activeLeagues[0];
+          const { id: leagueID, oddIDs } = leagueConfig;
+          const season = 2025; // Use current season
+          
+          // Fetch events and extract props
+          const { events } = await getEventsWithFallbacks(env, leagueID, season, oddIDs);
+          const extractedProps = await extractPlayerProps(events, env);
+          const { mapped: mappedProps } = mapWithDiagnostics(extractedProps.slice(0, 1)); // Just first row
+          
+          // Test row structure (known good) - match real data structure
+          const testRow = {
+            player_id: "TEST_PERSIST_2",
+            player_name: "Test Persist Player 2",
+            team: "TEST",
+            opponent: "OPP",
+            league: "nfl",
+            season: 2025,
+            game_id: "test-persist-game-2",
+            date: "2025-10-11",
+            prop_type: "test_persist_prop_2",
+            line: 100,
+            over_odds: -110,
+            under_odds: null, // Match real data - null is valid
+            odds: null,
+            sportsbook: "SportsGameOdds",
+            conflict_key: "TEST_PERSIST_2|2025-10-11|test_persist_prop_2|SportsGameOdds|nfl|2025"
+          };
+
+          // Schema diff function
+          function logRowDiff(testRow: any, realRow: any) {
+            const testKeys = Object.keys(testRow);
+            const realKeys = Object.keys(realRow);
+
+            const missing = testKeys.filter(k => !(k in realRow));
+            const extra = realKeys.filter(k => !(k in testRow));
+            const typeMismatches: any[] = [];
+
+            for (const key of testKeys) {
+              if (key in realRow && typeof testRow[key] !== typeof realRow[key]) {
+                typeMismatches.push({
+                  key,
+                  testType: typeof testRow[key],
+                  testValue: testRow[key],
+                  realType: typeof realRow[key],
+                  realValue: realRow[key]
+                });
+              }
+            }
+
+            return { missing, extra, typeMismatches };
+          }
+
+          const realRow = mappedProps[0] || {};
+          const diff = logRowDiff(testRow, realRow);
+          
+          return corsResponse({
+            success: true,
+            testRow,
+            realRow,
+            schemaDiff: diff,
+            message: "Schema diff comparison completed",
+            timestamp: new Date().toISOString()
+          });
+        } catch (error) {
+          return corsResponse({
+            success: false,
+            error: `Schema diff test failed: ${error instanceof Error ? error.message : String(error)}`,
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
+
+      // Debug endpoint to test ingestion pipeline directly
+      if (url.pathname === "/debug/test-ingestion-pipeline") {
+        try {
+          // Import and test the ingestion pipeline directly
+          const { runIngestion } = await import("./jobs/ingest.js");
+          const result = await runIngestion(env);
+          
+          return corsResponse({
+            success: true,
+            ingestionResult: result,
+            message: "Ingestion pipeline test completed",
+            timestamp: new Date().toISOString()
+          });
+        } catch (error) {
+          return corsResponse({
+            success: false,
+            error: `Ingestion pipeline test failed: ${error instanceof Error ? error.message : String(error)}`,
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
+
+      // Debug endpoint to test bulletproof persistence
+      if (url.pathname === "/debug/test-persist") {
+        try {
+          const testData = [{
+            player_id: "TEST_PERSIST_2",
+            player_name: "Test Persist Player 2",
+            team: "TEST",
+            opponent: "OPP",
+            league: "nfl",
+            season: 2025, // Number, not string
+            game_id: "test-persist-game-2",
+            date: "2025-10-11",
+            prop_type: "test_persist_prop_2",
+            line: 100,
+            over_odds: -110,
+            under_odds: -110,
+            odds: null,
+            sportsbook: "SportsGameOdds", // Add required field
+            conflict_key: "TEST_PERSIST_2|2025-10-11|test_persist_prop_2|SportsGameOdds|nfl|2025"
+          }];
+
+          // Import the persistBatch function (we'll need to make it exportable)
+          const { insertPropsWithDebugging } = await import("./lib/enhancedInsertProps.js");
+          const result = await insertPropsWithDebugging(env, testData);
+          
+          return corsResponse({
+            success: true,
+            persistResult: result,
+            message: "Bulletproof persistence test completed",
+            timestamp: new Date().toISOString()
+          });
+        } catch (error) {
+          return corsResponse({
+            success: false,
+            error: `Bulletproof persistence test failed: ${error instanceof Error ? error.message : String(error)}`,
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
+
+      // Debug endpoint to check database constraints
+      if (url.pathname === "/debug/check-constraints") {
+        try {
+          // Check proplines constraints
+          const proplinesConstraints = await supabaseFetch(env, "rpc/check_table_constraints", {
+            method: "POST",
+            body: { table_name: "proplines" } as any
+          });
+          
+          // Check player_game_logs constraints  
+          const gameLogsConstraints = await supabaseFetch(env, "rpc/check_table_constraints", {
+            method: "POST", 
+            body: { table_name: "player_game_logs" } as any
+          });
+          
+          return corsResponse({
+            success: true,
+            proplinesConstraints,
+            gameLogsConstraints,
+            message: "Constraints check completed",
+            timestamp: new Date().toISOString()
+          });
+        } catch (error) {
+          return corsResponse({
+            success: false,
+            error: `Constraints check failed: ${error instanceof Error ? error.message : String(error)}`,
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
+
+      // Debug endpoint to check database schema
+      if (url.pathname === "/debug/check-schema") {
+        try {
+          // Check proplines table structure
+          const proplinesSchema = await supabaseFetch(env, "proplines?limit=0");
+          
+          return corsResponse({
+            success: true,
+            proplinesSchema: proplinesSchema,
+            message: "Schema check completed",
+            timestamp: new Date().toISOString()
+          });
+        } catch (error) {
+          return corsResponse({
+            success: false,
+            error: `Schema check failed: ${error instanceof Error ? error.message : String(error)}`,
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
+
+      // Debug endpoint to test database read access
+      if (url.pathname === "/debug/test-read") {
+        try {
+          // Try to read from proplines using service key
+          const readResponse = await supabaseFetch(env, "proplines?limit=5");
+          
+          return corsResponse({
+            success: true,
+            readResponse: readResponse,
+            message: "Database read test completed",
+            timestamp: new Date().toISOString()
+          });
+        } catch (error) {
+          return corsResponse({
+            success: false,
+            error: `Database read test failed: ${error instanceof Error ? error.message : String(error)}`,
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
+
       // Debug endpoint to test a simple insert
       if (url.pathname === "/debug/test-insert") {
         try {
@@ -1491,7 +1811,7 @@ export default {
             league: "nfl",
             season: "2025",
             game_id: "test-game-1",
-            date_normalized: "2025-10-10",
+            date: "2025-10-10",
             prop_type: "test_prop",
             line: 100,
             over_odds: -110,

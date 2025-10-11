@@ -250,8 +250,8 @@ export function mapWithDiagnostics(odds: any[]): { mapped: any[]; stats: any } {
         return null;
       }
 
-      // Check for required fields
-      if (!odd.eventStartUtc || !odd.sportsbook) {
+      // Check for required fields (eventStartUtc can be missing, we'll use fallback)
+      if (!odd.sportsbook) {
         // console.log(`❌ Incomplete odd data:`, { // Reduced logging
         //   eventStartUtc: odd.eventStartUtc, 
         //   sportsbook: odd.sportsbook,
@@ -261,10 +261,30 @@ export function mapWithDiagnostics(odds: any[]): { mapped: any[]; stats: any } {
         return null;
       }
 
-      // Extract date from eventStartUtc
-      const date = odd.eventStartUtc.split('T')[0];
-      const season = new Date(date).getFullYear();
+      // Extract date from eventStartUtc with fallback
+      let date: string;
+      if (odd.eventStartUtc && typeof odd.eventStartUtc === 'string') {
+        date = odd.eventStartUtc.split('T')[0];
+      } else {
+        // Fallback to current date if eventStartUtc is missing
+        date = new Date().toISOString().split('T')[0];
+        console.warn(`⚠️ Missing eventStartUtc for ${odd.playerName}, using current date: ${date}`);
+      }
+      // Normalize season with proper type handling
+      const season = typeof odd.season === "string" 
+        ? parseInt(odd.season, 10) 
+        : odd.season ?? new Date(date).getFullYear();
       
+      // Debug logging for validation issues
+      if (index < 3) {
+        console.log("[mapper debug]", {
+          sportsbook: odd.sportsbook,
+          league: odd.league,
+          season: odd.season,
+          seasonType: typeof odd.season
+        });
+      }
+
       const mappedProp = {
         player_id: playerId,
         player_name: odd.playerName,
@@ -272,13 +292,14 @@ export function mapWithDiagnostics(odds: any[]): { mapped: any[]; stats: any } {
         opponent: odd.opponent || 'UNK', // This will now come from extraction
         date: date,
         prop_type: propType,
-        sportsbook: odd.sportsbook,
+        sportsbook: odd.sportsbook || 'SportsGameOdds', // Add fallback
         line: odd.line || 0, // Default to 0 for Yes/No bets
         over_odds: odd.overUnder === 'over' || odd.overUnder === 'yes' ? odd.odds : 
                    (odd.overUnder === 'under' || odd.overUnder === 'no' ? null : 
                     (odd.overUnder ? odd.odds : null)), // If overUnder is not 'over'/'yes', try the odds anyway
         under_odds: odd.overUnder === 'under' || odd.overUnder === 'no' ? odd.odds : 
                    (odd.overUnder === 'over' || odd.overUnder === 'yes' ? null : null),
+        odds: null, // Add missing odds field
         league: (odd.league || 'UNKNOWN').toLowerCase(),
         season: season,
         game_id: odd.eventId || `${playerId}-${date}`,
