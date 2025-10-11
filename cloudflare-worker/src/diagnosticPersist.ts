@@ -51,7 +51,7 @@ export async function diagnosticPersistProps(env: any, enriched: any[]): Promise
     try {
       const { error } = await supabase
         .from("proplines")
-        .insert([row]);
+        .upsert([row], { onConflict: 'player_id,date,prop_type,sportsbook,line' });
 
       if (error) {
         console.error(`❌ Insert failed at row ${i + 1}`);
@@ -116,7 +116,7 @@ export async function testManualInsert(env: any): Promise<any> {
   try {
     const { error } = await supabase
       .from("proplines")
-      .insert([testRow]);
+      .upsert([testRow], { onConflict: 'player_id,date,prop_type,sportsbook,line' });
 
     if (error) {
       console.error(`❌ Manual test failed:`, error.message);

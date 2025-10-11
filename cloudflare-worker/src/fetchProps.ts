@@ -263,13 +263,11 @@ export async function persistProps(env: any, enriched: EnrichedProp[]): Promise<
   console.log(`[worker:persistProps] Persisting ${enriched.length} props to database...`);
   
   try {
-    // Import Supabase client for direct database operations
-    const { createClient } = await import("@supabase/supabase-js");
-    const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
+    // Import bulk persistence functions
+    const { bulkUpsertProps } = await import("./bulkPersist");
 
     // Transform enriched props to database format
     const dbProps = enriched.map(prop => ({
-      id: `${prop.player_id}-${prop.date_normalized}-${prop.prop_type}`,
       player_id: prop.player_id,
       player_name: prop.clean_player_name,
       team: prop.team_abbr,
@@ -278,25 +276,30 @@ export async function persistProps(env: any, enriched: EnrichedProp[]): Promise<
       season: prop.season,
       game_id: prop.game_id,
       date_normalized: prop.date_normalized,
-      date: prop.date_normalized, // Add the missing date field
+      date: prop.date_normalized,
       prop_type: prop.prop_type,
       line: prop.line,
       over_odds: prop.over_odds,
       under_odds: prop.under_odds,
       odds: null,
+      sportsbook: 'SportsGameOdds',
       conflict_key: `${prop.player_id}|${prop.date_normalized}|${prop.prop_type}|SportsGameOdds|${prop.league}|${prop.season}`
     }));
 
-    // Batch insert using direct Supabase client
-    const { error, data } = await supabase
-      .from("proplines")
-      .insert(dbProps);
+    // Use bulk upsert to avoid subrequest limits
+    const result = await bulkUpsertProps(env, dbProps);
 
-    if (error) {
-      console.error(`[worker:persistProps] Database error:`, error);
-    } else {
-      console.log(`✅ [worker:persistProps] Successfully persisted ${enriched.length} props`);
+    console.log(`✅ [worker:persistProps] Bulk persistence completed:`, {
+      inserted: result.inserted_count,
+      updated: result.updated_count,
+      errors: result.error_count,
+      total: enriched.length
+    });
+
+    if (result.error_count > 0) {
+      console.warn(`⚠️ [worker:persistProps] ${result.error_count} props failed to persist:`, result.errors);
     }
+
   } catch (error) {
     console.error(`❌ [worker:persistProps] Persist failed:`, error);
   }

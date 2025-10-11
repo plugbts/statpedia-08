@@ -41,7 +41,7 @@ const NFL_TEAMS: Record<string, string> = {
   "Washington Commanders": "WAS"
 };
 
-// NFL Nicknames
+// NFL Nicknames and Variations
 const NFL_NICKNAMES: Record<string, string> = {
   "Cardinals": "ARI",
   "Falcons": "ATL",
@@ -74,7 +74,18 @@ const NFL_NICKNAMES: Record<string, string> = {
   "Seahawks": "SEA",
   "Buccaneers": "TB",
   "Titans": "TEN",
-  "Commanders": "WAS"
+  "Commanders": "WAS",
+  // Additional variations
+  "San Francisco": "SF",
+  "New York": "NYG", // Default to Giants for ambiguous "New York"
+  "Las Vegas": "LV",
+  "Los Angeles": "LAR", // Default to Rams for ambiguous "Los Angeles"
+  "Washington": "WAS",
+  "Tampa Bay": "TB",
+  "Green Bay": "GB",
+  "New England": "NE",
+  "New Orleans": "NO",
+  "Kansas City": "KC"
 };
 
 // NBA Teams
@@ -287,6 +298,19 @@ const NHL_NICKNAMES: Record<string, string> = {
   "Jets": "WPG"
 };
 
+// Player-specific team mappings for edge cases
+const PLAYER_TEAM_MAPPINGS: Record<string, string> = {
+  // NFL Players
+  "STEFON_DIGGS": "NE", // Stefon Diggs plays for New England Patriots
+  "STEFON_DIGGS_1_NFL": "NE",
+  "STEFON_DIGGS_NFL": "NE",
+  
+  // Add other player mappings as needed
+  "AARON_RODGERS": "NYJ",
+  "AARON_RODGERS_1_NFL": "NYJ",
+  "AARON_RODGERS_NFL": "NYJ",
+};
+
 /**
  * Normalize team name to abbreviation
  */
@@ -346,15 +370,42 @@ export function enrichTeams(event: any, prop: any, playersById: Record<string, a
   console.log(`🔍 [TEAM_ENRICHMENT] Event data:`, {
     league: event.league,
     homeTeam: event.homeTeam,
-    awayTeam: event.awayTeam
+    awayTeam: event.awayTeam,
+    homeTeamName: event.homeTeamName,
+    awayTeamName: event.awayTeamName
   });
 
-  // Try to resolve player's team from registry or prop
+  // Try multiple sources for player's team
+  const playerId = prop.playerId || prop.player_id;
+  
+  // First check player-specific mappings
+  const playerSpecificTeam = PLAYER_TEAM_MAPPINGS[playerId];
+  if (playerSpecificTeam) {
+    console.log(`🔍 [TEAM_ENRICHMENT] Found player-specific team mapping: ${playerId} -> ${playerSpecificTeam}`);
+    
+    // Get opponent from event context
+    const homeTeamName = event.homeTeam?.name || event.homeTeamName || event.homeTeam;
+    const awayTeamName = event.awayTeam?.name || event.awayTeamName || event.awayTeam;
+    
+    let opponentAbbr = "UNK";
+    if (homeTeamName && awayTeamName) {
+      const homeAbbr = normalizeTeam(event.league, homeTeamName);
+      const awayAbbr = normalizeTeam(event.league, awayTeamName);
+      opponentAbbr = playerSpecificTeam === homeAbbr ? awayAbbr : homeAbbr;
+    }
+    
+    console.log(`🔍 [TEAM_ENRICHMENT] Player-specific result: ${playerSpecificTeam} vs ${opponentAbbr}`);
+    return { team: playerSpecificTeam, opponent: opponentAbbr };
+  }
+  
   const rawTeamName =
-    playersById[prop.playerId]?.teamName ||
+    playersById[playerId]?.teamName ||
+    playersById[playerId]?.team_abbr ||
     prop.teamName ||
     prop.team ||
+    prop.team_abbr ||
     event.homeTeam?.name ||
+    event.homeTeamName ||
     null;
 
   console.log(`🔍 [TEAM_ENRICHMENT] Raw team name: ${rawTeamName}`);
@@ -362,14 +413,51 @@ export function enrichTeams(event: any, prop: any, playersById: Record<string, a
   const teamAbbr = normalizeTeam(event.league, rawTeamName);
   console.log(`🔍 [TEAM_ENRICHMENT] Normalized team: ${teamAbbr}`);
 
-  // Opponent is the other team in the event
+  // Enhanced opponent resolution
   let opponentAbbr = "UNK";
-  if (event.homeTeam && event.awayTeam) {
-    const homeAbbr = normalizeTeam(event.league, event.homeTeam.name);
-    const awayAbbr = normalizeTeam(event.league, event.awayTeam.name);
+  
+  // Try multiple sources for home/away team names
+  const homeTeamName = event.homeTeam?.name || event.homeTeamName || event.homeTeam;
+  const awayTeamName = event.awayTeam?.name || event.awayTeamName || event.awayTeam;
+  
+  if (homeTeamName && awayTeamName) {
+    const homeAbbr = normalizeTeam(event.league, homeTeamName);
+    const awayAbbr = normalizeTeam(event.league, awayTeamName);
     console.log(`🔍 [TEAM_ENRICHMENT] Home: ${homeAbbr}, Away: ${awayAbbr}`);
     
-    opponentAbbr = teamAbbr === homeAbbr ? awayAbbr : homeAbbr;
+    // Determine opponent based on player's team
+    if (teamAbbr === homeAbbr) {
+      opponentAbbr = awayAbbr;
+    } else if (teamAbbr === awayAbbr) {
+      opponentAbbr = homeAbbr;
+    } else {
+      // If player's team doesn't match either, try to infer from context
+      console.log(`⚠️ [TEAM_ENRICHMENT] Player team ${teamAbbr} doesn't match home ${homeAbbr} or away ${awayAbbr}`);
+      
+      // Check if player's team is already an abbreviation that matches
+      if (Object.values(NFL_TEAMS).includes(teamAbbr) || 
+          Object.values(NBA_TEAMS).includes(teamAbbr) ||
+          Object.values(MLB_TEAMS).includes(teamAbbr) ||
+          Object.values(NHL_TEAMS).includes(teamAbbr)) {
+        // Player has a valid team, pick the other team as opponent
+        opponentAbbr = teamAbbr === homeAbbr ? awayAbbr : homeAbbr;
+      } else {
+        // Try to find team from player context
+        const playerTeamFromContext = playersById[prop.playerId]?.team_abbr || 
+                                     playersById[prop.playerId]?.team ||
+                                     prop.team_abbr ||
+                                     prop.team;
+        
+        if (playerTeamFromContext) {
+          const contextTeamAbbr = normalizeTeam(event.league, playerTeamFromContext);
+          if (contextTeamAbbr !== "UNK") {
+            opponentAbbr = contextTeamAbbr === homeAbbr ? awayAbbr : homeAbbr;
+          }
+        }
+      }
+    }
+  } else {
+    console.log(`⚠️ [TEAM_ENRICHMENT] Missing home/away team data: home=${homeTeamName}, away=${awayTeamName}`);
   }
 
   console.log(`🔍 [TEAM_ENRICHMENT] Final result: ${teamAbbr} vs ${opponentAbbr}`);

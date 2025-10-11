@@ -1750,6 +1750,58 @@ export default {
         }
       }
 
+      // Debug endpoint to check database data
+      if (url.pathname === "/debug/check-db") {
+        try {
+          console.log("🔍 DIAGNOSTIC: Checking database data...");
+          
+          // Import Supabase client for direct database operations
+          const { createClient } = await import("@supabase/supabase-js");
+          const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
+          
+          // Check proplines table
+          const { data: proplinesData, error: proplinesError } = await supabase
+            .from("proplines")
+            .select("player_name, team, opponent, prop_type, date")
+            .eq("league", "nfl")
+            .eq("date", "2025-10-11")
+            .limit(10);
+          
+          // Check player_props_fixed view
+          const { data: viewData, error: viewError } = await supabase
+            .from("player_props_fixed")
+            .select("player_name, team_abbr, opponent_abbr, prop_type, prop_date")
+            .eq("league", "nfl")
+            .eq("prop_date", "2025-10-11")
+            .limit(10);
+          
+          return corsResponse({
+            success: true,
+            message: "Database check completed",
+            proplines: {
+              count: proplinesData?.length || 0,
+              sample: proplinesData?.slice(0, 5) || [],
+              error: proplinesError?.message || null
+            },
+            view: {
+              count: viewData?.length || 0,
+              sample: viewData?.slice(0, 5) || [],
+              error: viewError?.message || null
+            },
+            timestamp: new Date().toISOString()
+          });
+        } catch (error) {
+          console.error("❌ Database check failed:", error);
+          
+          return corsResponse({
+            success: false,
+            error: error instanceof Error ? error.message : String(error),
+            message: "Database check failed",
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
+
       // Diagnostic endpoint to test data persistence
       if (url.pathname === "/debug/test-persistence") {
         try {
@@ -1779,7 +1831,7 @@ export default {
           
           return corsResponse({
             success: false,
-            error: error.message,
+            error: error instanceof Error ? error.message : String(error),
             message: "Persistence diagnostic failed",
             timestamp: new Date().toISOString()
           });
@@ -2111,32 +2163,46 @@ export default {
             if (date) {
               // Single date query - dual-mode approach
               console.log(`📊 DUAL-MODE: Fetching and enriching props for ${league} on ${date}...`);
-              // Query existing data from player_props_fixed instead of fetching fresh data
-              const { data: dbProps, error: dbError } = await supabaseFetch(env, `player_props_fixed?league=eq.${league}&prop_date=eq.${date}&limit=150`);
+              // Query existing data from player_props_fixed using direct Supabase client
+              const { createClient } = await import("@supabase/supabase-js");
+              const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
+              
+              const { data: dbProps, error: dbError } = await supabase
+                .from("player_props_fixed")
+                .select("*")
+                .eq("league", league)
+                .eq("prop_date", date)
+                .limit(150);
+              
               if (dbError) {
                 console.error(`❌ Database query failed:`, dbError);
                 enrichedProps = [];
               } else {
                 enrichedProps = (dbProps || []).map((prop: any) => ({
                   player_id: prop.player_id,
-                  clean_player_name: prop.player_name,
-                  team_abbr: prop.team_abbr,
-                  opponent_abbr: prop.opponent_abbr,
+                  clean_player_name: prop.clean_player_name || prop.player_name,
+                  team_abbr: prop.team_abbr || "UNK",
+                  team_logo: prop.team_logo,
+                  team_name: prop.team_abbr || "Unknown",
+                  opponent_abbr: prop.opponent_abbr || "UNK",
+                  opponent_logo: prop.opponent_logo,
+                  opponent_name: prop.opponent_abbr || "Unknown",
                   prop_type: prop.prop_type,
+                  prop_type_display: prop.prop_type?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || prop.prop_type,
+                  bet_type: "over_under",
                   line: prop.line,
                   over_odds: prop.over_odds,
                   under_odds: prop.under_odds,
-                  league: prop.league,
-                  season: prop.season,
+                  ev_percent: prop.ev_percent,
+                  last5_hits: prop.last5_streak || "0/5",
+                  last10_hits: prop.last10_streak || "0/10",
+                  last20_hits: prop.last20_streak || "0/20",
+                  h2h_hits: prop.h2h_streak || "0/0",
                   game_id: prop.game_id,
                   date_normalized: prop.prop_date,
-                  ev_percent: prop.ev_percent,
-                  team_logo: prop.team_logo,
-                  opponent_logo: prop.opponent_logo,
-                  last5_streak: prop.last5_streak,
-                  last10_streak: prop.last10_streak,
-                  last20_streak: prop.last20_streak,
-                  h2h_streak: prop.h2h_streak
+                  league: prop.league,
+                  season: prop.season,
+                  debug_team: { team_abbr: prop.team_abbr, opponent_abbr: prop.opponent_abbr }
                 }));
                 console.log(`📊 DATABASE: Retrieved ${enrichedProps.length} props from player_props_fixed for ${date}`);
               }
@@ -2185,28 +2251,42 @@ export default {
                 const dateStr = checkDate.toISOString().split('T')[0];
                 
                 try {
-                  // Query existing data from player_props_fixed for this date
-                  const { data: testDbProps, error: testDbError } = await supabaseFetch(env, `player_props_fixed?league=eq.${league}&prop_date=eq.${dateStr}&limit=150`);
+                  // Query existing data from player_props_fixed for this date using direct Supabase client
+                  const { createClient } = await import("@supabase/supabase-js");
+                  const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
+                  
+                  const { data: testDbProps, error: testDbError } = await supabase
+                    .from("player_props_fixed")
+                    .select("*")
+                    .eq("league", league)
+                    .eq("prop_date", dateStr)
+                    .limit(150);
+                  
                   const testProps = testDbError ? [] : (testDbProps || []).map((prop: any) => ({
                     player_id: prop.player_id,
-                    clean_player_name: prop.player_name,
-                    team_abbr: prop.team_abbr,
-                    opponent_abbr: prop.opponent_abbr,
+                    clean_player_name: prop.clean_player_name || prop.player_name,
+                    team_abbr: prop.team_abbr || "UNK",
+                    team_logo: prop.team_logo,
+                    team_name: prop.team_abbr || "Unknown",
+                    opponent_abbr: prop.opponent_abbr || "UNK",
+                    opponent_logo: prop.opponent_logo,
+                    opponent_name: prop.opponent_abbr || "Unknown",
                     prop_type: prop.prop_type,
+                    prop_type_display: prop.prop_type?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || prop.prop_type,
+                    bet_type: "over_under",
                     line: prop.line,
                     over_odds: prop.over_odds,
                     under_odds: prop.under_odds,
-                    league: prop.league,
-                    season: prop.season,
+                    ev_percent: prop.ev_percent,
+                    last5_hits: prop.last5_streak || "0/5",
+                    last10_hits: prop.last10_streak || "0/10",
+                    last20_hits: prop.last20_streak || "0/20",
+                    h2h_hits: prop.h2h_streak || "0/0",
                     game_id: prop.game_id,
                     date_normalized: prop.prop_date,
-                    ev_percent: prop.ev_percent,
-                    team_logo: prop.team_logo,
-                    opponent_logo: prop.opponent_logo,
-                    last5_streak: prop.last5_streak,
-                    last10_streak: prop.last10_streak,
-                    last20_streak: prop.last20_streak,
-                    h2h_streak: prop.h2h_streak
+                    league: prop.league,
+                    season: prop.season,
+                    debug_team: { team_abbr: prop.team_abbr, opponent_abbr: prop.opponent_abbr }
                   }));
                   if (testProps.length > 0) {
                     console.log(`📅 DUAL-MODE: Found data for ${league} on ${dateStr} (${testProps.length} props)`);
