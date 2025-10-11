@@ -1315,7 +1315,16 @@ export default {
                   playerID: odd?.playerID ?? null,
                   statID: odd?.statID ?? null
                 };
-              }) : null
+              }) : null,
+              // Look specifically for player props
+              playerPropsOdds: event.odds ? Object.entries(event.odds).filter(([oddId, odd]: [string, any]) => 
+                odd?.playerID || odd?.playerId
+              ).slice(0, 5).map(([oddId, odd]: [string, any]) => ({
+                oddId,
+                playerID: odd?.playerID ?? odd?.playerId ?? null,
+                statID: odd?.statID ?? odd?.statId ?? null,
+                teamID: odd?.teamID ?? odd?.teamId ?? null
+              })) : []
             }))
           });
         } catch (error) {
