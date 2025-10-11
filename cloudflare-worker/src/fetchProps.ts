@@ -16,6 +16,72 @@ import { extractPlayerProps } from "./lib/extract";
 import { getEventsWithFallbacks } from "./lib/api";
 import { getActiveLeagues } from "./config/leagues";
 
+/**
+ * Prop labels mapping for clean UI display
+ */
+const PROP_LABELS: Record<string, string> = {
+  passing_yards: "Passing Yards",
+  rushing_yards: "Rushing Yards", 
+  receiving_yards: "Receiving Yards",
+  receptions: "Receptions",
+  pass_attempts: "Pass Attempts",
+  pass_completions: "Pass Completions",
+  interceptions: "Interceptions",
+  passing_touchdowns: "Passing Touchdowns",
+  rushing_touchdowns: "Rushing Touchdowns",
+  receiving_touchdowns: "Receiving Touchdowns",
+  points: "Points",
+  rebounds: "Rebounds",
+  assists: "Assists",
+  steals: "Steals",
+  blocks: "Blocks",
+  threes_made: "3-Pointers Made",
+  points_rebounds_assists: "Points + Rebounds + Assists",
+  hits: "Hits",
+  runs: "Runs",
+  rbis: "RBIs",
+  total_bases: "Total Bases",
+  strikeouts: "Strikeouts",
+  pitching_outs: "Pitching Outs",
+  shots_on_goal: "Shots on Goal",
+  goals: "Goals",
+  saves: "Saves"
+};
+
+/**
+ * Format prop name for display
+ */
+function formatPropName(statType: string): string {
+  return PROP_LABELS[statType] ?? statType.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+}
+
+/**
+ * Extract prop row from event data
+ */
+function extractPropRow(event: any, market: any, prop: any) {
+  return {
+    player_id: prop.playerId,
+    player_name: prop.playerName,
+    game_id: event.id || event.eventID,
+    league: event.leagueID || event.league,
+    date: event.startDate || event.startTime || event.commence_time,
+
+    // ✅ Use statType (or market name) as the prop_type
+    prop_type: prop.statType || market.name || "unknown",
+    prop_type_display: formatPropName(prop.statType || market.name || "unknown"),
+
+    // ✅ Keep bet_type separate
+    bet_type: prop.betType, // "over" | "under"
+
+    line: prop.line,
+    odds: prop.odds,
+
+    // Enrich with teams (resolved later)
+    raw_home_team: event.teams?.home?.teamID || event.teams?.home?.names?.short,
+    raw_away_team: event.teams?.away?.teamID || event.teams?.away?.names?.short,
+  };
+}
+
 export type PropLineRow = {
   id: string;
   player_id: string;
@@ -54,6 +120,8 @@ export type EnrichedProp = {
   opponent_logo: string | null;
   opponent_name: string;
   prop_type: string;
+  prop_type_display: string;
+  bet_type: string;
   line: number | null;
   over_odds: number | null;
   under_odds: number | null;
@@ -154,21 +222,36 @@ async function fetchRawPropsFromEvents(env: any, league: string, dateISO: string
         for (const [oddId, oddData] of Object.entries(event.odds)) {
           // Check if this is a player prop (contains player name pattern like BO_NIX_1_NFL)
           if (oddId.includes('_1_NFL') && oddData && typeof oddData === 'object') {
-            // This is a player prop - extract it
+            // Parse the oddId to extract components
             const parts = oddId.split('-');
-            const marketName = parts[0]; // e.g., "passing_yards"
+            const statType = parts[0]; // e.g., "passing_yards"
             const playerId = parts[1]; // e.g., "BO_NIX_1_NFL"
+            const isOver = oddId.includes('-over');
             
+            // Extract player name from playerId (remove _1_NFL suffix)
+            const playerName = playerId.replace(/_1_NFL$/, '').replace(/_/g, ' ');
+            
+            // This is a player prop - extract it
             const prop = {
-              oddId: oddId,
-              playerId: playerId,
-              marketName: marketName,
-              gameId: event.eventID || event.id,
-              eventDate: eventDate,
-              homeTeam: event.teams?.home?.teamID || event.teams?.home?.names?.short,
-              awayTeam: event.teams?.away?.teamID || event.teams?.away?.names?.short,
-              league: event.leagueID || league,
-              ...oddData
+              player_id: playerId,
+              player_name: playerName,
+              game_id: event.eventID || event.id,
+              league: event.leagueID || event.league,
+              date: event.startTime || event.commence_time || event.date,
+
+              // ✅ Use statType as the prop_type
+              prop_type: statType,
+              prop_type_display: formatPropName(statType),
+
+              // ✅ Keep bet_type separate
+              bet_type: isOver ? 'over' : 'under',
+
+              line: oddData.line || null,
+              odds: oddData.odds || null,
+
+              // Enrich with teams (resolved later)
+              raw_home_team: event.teams?.home?.teamID || event.teams?.home?.names?.short,
+              raw_away_team: event.teams?.away?.teamID || event.teams?.away?.names?.short,
             };
             props.push(prop);
           }
@@ -741,36 +824,42 @@ async function processRawProps(rawProps: any[], env: any, league: string, dateIS
   // Debug: Log the structure of the first prop
   if (rawProps.length > 0) {
     console.log(`[worker:processRawProps] Sample prop structure:`, {
-      oddId: rawProps[0].oddId,
-      playerId: rawProps[0].playerId,
-      marketName: rawProps[0].marketName,
-      gameId: rawProps[0].gameId,
-      homeTeam: rawProps[0].homeTeam,
-      awayTeam: rawProps[0].awayTeam,
+      player_id: rawProps[0].player_id,
+      player_name: rawProps[0].player_name,
+      prop_type: rawProps[0].prop_type,
+      prop_type_display: rawProps[0].prop_type_display,
+      bet_type: rawProps[0].bet_type,
+      line: rawProps[0].line,
+      odds: rawProps[0].odds,
+      game_id: rawProps[0].game_id,
+      raw_home_team: rawProps[0].raw_home_team,
+      raw_away_team: rawProps[0].raw_away_team,
       keys: Object.keys(rawProps[0])
     });
   }
   
   // Transform raw props to our enriched format
   const transformedProps = rawProps.map(prop => ({
-    player_id: prop.playerId || `unknown_${Math.random()}`,
-    player_name: prop.playerId, // Will be cleaned in next step
-    clean_player_name: prop.playerId, // Will be cleaned in next step
-    team: prop.homeTeam, // Will be resolved in next step
-    opponent: prop.awayTeam, // Will be resolved in next step
+    player_id: prop.player_id || `unknown_${Math.random()}`,
+    player_name: prop.player_name, // Will be cleaned in next step
+    clean_player_name: prop.player_name, // Will be cleaned in next step
+    team: prop.raw_home_team, // Will be resolved in next step
+    opponent: prop.raw_away_team, // Will be resolved in next step
     league: prop.league?.toLowerCase() || league.toLowerCase(),
     season: "2025", // TODO: Extract from event
-    game_id: prop.gameId,
-    date_normalized: new Date(prop.eventDate || dateISO).toISOString().split('T')[0],
-    prop_type: prop.marketName,
-    line: prop.line || prop.overUnder?.line || null,
-    over_odds: prop.overUnder === 'over' ? prop.odds : null,
-    under_odds: prop.overUnder === 'under' ? prop.odds : null,
+    game_id: prop.game_id,
+    date_normalized: new Date(prop.date || dateISO).toISOString().split('T')[0],
+    prop_type: prop.prop_type, // Now using the clean statType
+    prop_type_display: prop.prop_type_display, // Clean display name
+    bet_type: prop.bet_type, // "over" or "under"
+    line: prop.line || null,
+    over_odds: prop.bet_type === 'over' ? prop.odds : null,
+    under_odds: prop.bet_type === 'under' ? prop.odds : null,
     odds: prop.odds,
-    sportsbook: prop.sportsbook || "SportsGameOdds",
-    raw_team: prop.homeTeam,
-    raw_opponent: prop.awayTeam,
-    raw_player_name: prop.playerId
+    sportsbook: "SportsGameOdds",
+    raw_team: prop.raw_home_team,
+    raw_opponent: prop.raw_away_team,
+    raw_player_name: prop.player_name
   }));
   
   console.log(`[worker:processRawProps] Transformed ${transformedProps.length} props to enriched format`);
@@ -818,6 +907,8 @@ async function processRawProps(rawProps: any[], env: any, league: string, dateIS
       opponent_logo: row.opponent_logo,
       opponent_name: row.opponent_name,
       prop_type: row.prop_type,
+      prop_type_display: row.prop_type_display,
+      bet_type: row.bet_type,
       line: row.line,
       over_odds: row.over_odds,
       under_odds: row.under_odds,

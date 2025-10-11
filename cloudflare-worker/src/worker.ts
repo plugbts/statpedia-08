@@ -1509,7 +1509,7 @@ export default {
           
           const response = await supabaseFetch(env, "proplines", {
             method: "POST",
-            body: testData,
+            body: testData as any,
             headers: { 
               Prefer: "resolution=merge-duplicates",
               "Content-Type": "application/json"
