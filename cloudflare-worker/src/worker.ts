@@ -1750,6 +1750,42 @@ export default {
         }
       }
 
+      // Diagnostic endpoint to test data persistence
+      if (url.pathname === "/debug/test-persistence") {
+        try {
+          console.log("🔍 DIAGNOSTIC: Testing data persistence...");
+          
+          // Import diagnostic functions
+          const { diagnosticPersistProps, testManualInsert } = await import("./diagnosticPersist.js");
+          
+          // Test manual insert first and capture result
+          const manualResult = await testManualInsert(env);
+          
+          // Test with real NFL data using the same flow as the ingestion job
+          const { runSingleLeagueIngestion } = await import("./jobs/ingest.js");
+          const ingestionResult = await runSingleLeagueIngestion(env, "NFL");
+          
+          console.log(`📊 Ingestion job result:`, ingestionResult);
+          
+          return corsResponse({
+            success: true,
+            message: "Persistence diagnostic completed",
+            manualTestResult: manualResult,
+            ingestionResult: ingestionResult,
+            timestamp: new Date().toISOString()
+          });
+        } catch (error) {
+          console.error("❌ Persistence diagnostic failed:", error);
+          
+          return corsResponse({
+            success: false,
+            error: error.message,
+            message: "Persistence diagnostic failed",
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
+
       // Debug endpoint to test bulletproof persistence
       if (url.pathname === "/debug/test-persist") {
         try {

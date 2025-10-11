@@ -263,6 +263,10 @@ export async function persistProps(env: any, enriched: EnrichedProp[]): Promise<
   console.log(`[worker:persistProps] Persisting ${enriched.length} props to database...`);
   
   try {
+    // Import Supabase client for direct database operations
+    const { createClient } = await import("@supabase/supabase-js");
+    const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
+
     // Transform enriched props to database format
     const dbProps = enriched.map(prop => ({
       id: `${prop.player_id}-${prop.date_normalized}-${prop.prop_type}`,
@@ -274,6 +278,7 @@ export async function persistProps(env: any, enriched: EnrichedProp[]): Promise<
       season: prop.season,
       game_id: prop.game_id,
       date_normalized: prop.date_normalized,
+      date: prop.date_normalized, // Add the missing date field
       prop_type: prop.prop_type,
       line: prop.line,
       over_odds: prop.over_odds,
@@ -282,18 +287,13 @@ export async function persistProps(env: any, enriched: EnrichedProp[]): Promise<
       conflict_key: `${prop.player_id}|${prop.date_normalized}|${prop.prop_type}|SportsGameOdds|${prop.league}|${prop.season}`
     }));
 
-    // Batch insert with upsert
-    const { error, status } = await supabaseFetch(env, "proplines", {
-      method: "POST",
-      body: dbProps,
-      headers: { 
-        Prefer: "resolution=merge-duplicates",
-        "Content-Type": "application/json"
-      },
-    });
+    // Batch insert using direct Supabase client
+    const { error, data } = await supabase
+      .from("proplines")
+      .insert(dbProps);
 
     if (error) {
-      console.error(`[worker:persistProps] Database error:`, error, "status:", status);
+      console.error(`[worker:persistProps] Database error:`, error);
     } else {
       console.log(`✅ [worker:persistProps] Successfully persisted ${enriched.length} props`);
     }

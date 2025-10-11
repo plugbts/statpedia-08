@@ -24,36 +24,30 @@ async function diagnosticInsert(env: any, rows: any[], table: string): Promise<{
 
   console.log(`[diagnostic] attempting batch insert of ${rows.length} rows into ${table}`);
 
-  // Try batch insert first
+  // Try batch insert first using direct Supabase client
   try {
-    // Use proper upsert with correct conflict resolution
-    const response = await supabaseFetch(env, table, {
-      method: "POST",
-      body: rows as any,
-      headers: { 
-        Prefer: "resolution=merge-duplicates",
-        "Content-Type": "application/json"
-      },
-    });
+    // Import Supabase client for direct database operations
+    const { createClient } = await import("@supabase/supabase-js");
+    const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
 
-    if (response && typeof response === 'object' && 'error' in response) {
-      console.error(`[diagnostic] batch insert failed for ${table}`, JSON.stringify(response.error, null, 2));
+    // Use direct insert (no upsert due to missing constraint)
+    const { error, data } = await supabase
+      .from(table)
+      .insert(rows);
+
+    if (error) {
+      console.error(`[diagnostic] batch insert failed for ${table}`, error);
 
       // Retry row-by-row to find the culprit(s)
       let successCount = 0;
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         try {
-          const rowResponse = await supabaseFetch(env, table, {
-            method: "POST",
-            body: [row] as any,
-            headers: { 
-              Prefer: "resolution=merge-duplicates",
-              "Content-Type": "application/json"
-            },
-          });
+          const { error: rowError } = await supabase
+            .from(table)
+            .insert([row]);
 
-          if (rowResponse && typeof rowResponse === 'object' && 'error' in rowResponse) {
+          if (rowError) {
             console.error(`[diagnostic] row ${i} failed`, {
               row: {
                 player_id: row.player_id,
@@ -63,7 +57,7 @@ async function diagnosticInsert(env: any, rows: any[], table: string): Promise<{
                 league: row.league,
                 season: row.season
               },
-              error: rowResponse.error
+              error: rowError
             });
           } else {
             console.log(`[diagnostic] row ${i} inserted OK`);
