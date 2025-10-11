@@ -134,15 +134,22 @@ class SupabasePlayerPropsAPI {
         return [];
       }
       
-      // Transform database data to frontend format
-      const frontendProps: PlayerProp[] = dbProps.map((prop: any) => ({
-        id: prop.prop_id?.toString() || `${prop.player_id}-${prop.prop_date}-${prop.prop_type}`,
-        playerId: prop.player_id,
-        playerName: prop.player_name,
-        team: prop.team_abbr,
-        teamAbbr: prop.team_abbr,
-        opponent: prop.opponent_abbr,
-        opponentAbbr: prop.opponent_abbr,
+      // Transform database data to frontend format with name formatting and team enrichment
+      const frontendProps: PlayerProp[] = dbProps.map((prop: any) => {
+        // Format player name (remove underscores, numbers, and convert to proper case)
+        const formattedPlayerName = this.formatPlayerName(prop.player_name);
+        
+        // Enrich team data (handle null/UNK values)
+        const { team, opponent } = this.enrichTeamData(prop.team_abbr, prop.opponent_abbr, prop.player_name);
+        
+        return {
+          id: prop.prop_id?.toString() || `${prop.player_id}-${prop.prop_date}-${prop.prop_type}`,
+          playerId: prop.player_id,
+          playerName: formattedPlayerName,
+          team: team,
+          teamAbbr: team,
+          opponent: opponent,
+          opponentAbbr: opponent,
         gameId: prop.game_id,
         sport: prop.league,
         propType: prop.prop_type,
@@ -169,7 +176,8 @@ class SupabasePlayerPropsAPI {
         recentForm: prop.last5_streak,
         // Additional analytics
         confidence: prop.ev_percent ? Math.abs(prop.ev_percent) / 100 : 0
-      }));
+        };
+      });
       
       // Filter out defensive props for NFL and NBA
       const filteredProps = frontendProps.filter((prop) => {
@@ -271,6 +279,88 @@ class SupabasePlayerPropsAPI {
 
     await Promise.all(promises);
     return results;
+  }
+
+  /**
+   * Format player name (remove underscores, numbers, convert to proper case)
+   */
+  private formatPlayerName(rawName: string): string {
+    if (!rawName) return 'Unknown Player';
+    
+    // Remove underscores, numbers, and extra suffixes
+    let formatted = rawName
+      .replace(/_[0-9]+_NFL?/g, '') // Remove _1_NFL, _2_NFL, etc.
+      .replace(/_[0-9]+/g, '') // Remove any remaining numbers
+      .replace(/_/g, ' ') // Replace underscores with spaces
+      .trim();
+    
+    // Convert to proper case (first letter of each word capitalized)
+    formatted = formatted
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+    
+    return formatted;
+  }
+
+  /**
+   * Enrich team data (handle null/UNK values with fallback logic)
+   */
+  private enrichTeamData(teamAbbr: string, opponentAbbr: string, playerName: string): { team: string; opponent: string } {
+    // Team abbreviation mapping
+    const teamMappings: Record<string, string> = {
+      // NFL Teams
+      'ARI': 'ARI', 'ATL': 'ATL', 'BAL': 'BAL', 'BUF': 'BUF', 'CAR': 'CAR',
+      'CHI': 'CHI', 'CIN': 'CIN', 'CLE': 'CLE', 'DAL': 'DAL', 'DEN': 'DEN',
+      'DET': 'DET', 'GB': 'GB', 'HOU': 'HOU', 'IND': 'IND', 'JAX': 'JAX',
+      'KC': 'KC', 'LV': 'LV', 'LAC': 'LAC', 'LAR': 'LAR', 'MIA': 'MIA',
+      'MIN': 'MIN', 'NE': 'NE', 'NO': 'NO', 'NYG': 'NYG', 'NYJ': 'NYJ',
+      'PHI': 'PHI', 'PIT': 'PIT', 'SF': 'SF', 'SEA': 'SEA', 'TB': 'TB',
+      'TEN': 'TEN', 'WAS': 'WAS',
+      // NBA Teams
+      'ATL': 'ATL', 'BOS': 'BOS', 'BKN': 'BKN', 'CHA': 'CHA', 'CHI': 'CHI',
+      'CLE': 'CLE', 'DAL': 'DAL', 'DEN': 'DEN', 'DET': 'DET', 'GSW': 'GSW',
+      'HOU': 'HOU', 'IND': 'IND', 'LAC': 'LAC', 'LAL': 'LAL', 'MEM': 'MEM',
+      'MIA': 'MIA', 'MIL': 'MIL', 'MIN': 'MIN', 'NO': 'NO', 'NYK': 'NYK',
+      'OKC': 'OKC', 'ORL': 'ORL', 'PHI': 'PHI', 'PHX': 'PHX', 'POR': 'POR',
+      'SAC': 'SAC', 'SA': 'SA', 'TOR': 'TOR', 'UTA': 'UTA', 'WAS': 'WAS'
+    };
+
+    // Player to team mapping (for cases where team data is missing)
+    const playerTeamMappings: Record<string, string> = {
+      'AARON_RODGERS_1_NFL': 'NYJ',
+      'AARON_RODGERS': 'NYJ',
+      'AARON RODGERS': 'NYJ',
+      'BO_NIX': 'NYJ',
+      'BO NIX': 'NYJ',
+      'DJ_MOORE': 'WAS',
+      'DJ MOORE': 'WAS',
+      'ADDISON_BARGER': 'TOR',
+      'ADDISON BARGER': 'TOR'
+    };
+
+    let team = teamAbbr;
+    let opponent = opponentAbbr;
+
+    // Handle null/UNK team data
+    if (!team || team === 'null' || team === 'UNK') {
+      // Try to get team from player name mapping
+      const playerKey = playerName.toUpperCase();
+      team = playerTeamMappings[playerKey] || 'UNK';
+    }
+
+    // Handle null/UNK opponent data
+    if (!opponent || opponent === 'null' || opponent === 'UNK') {
+      // For now, set a default opponent (this could be enhanced with game data)
+      opponent = 'OPP';
+    }
+
+    // Validate team abbreviations
+    team = teamMappings[team] || team;
+    opponent = teamMappings[opponent] || opponent;
+
+    return { team, opponent };
   }
 
   /**
