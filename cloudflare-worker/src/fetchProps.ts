@@ -81,7 +81,7 @@ export type EnrichedProp = {
 /**
  * Load team registry from database for a given league
  */
-async function loadTeamRegistry(env: any, league: string): Promise<Record<string, any>> {
+export async function loadTeamRegistry(env: any, league: string): Promise<Record<string, any>> {
   console.log(`[worker:teams] Loading team registry for ${league}...`);
   
   const { data, error } = await supabaseFetch(

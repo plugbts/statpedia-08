@@ -1362,6 +1362,39 @@ export default {
         }
       }
 
+      // Debug endpoint to test team resolution directly
+      if (url.pathname === "/debug/team-resolution") {
+        try {
+          const league = url.searchParams.get("league") || "nfl";
+          console.log(`🔍 DEBUG: Testing team resolution for ${league}...`);
+          
+          // Test the team resolution logic directly
+          const { loadTeamRegistry } = await import("./fetchProps");
+          const { getPlayerTeam } = await import("./lib/playerTeamMap");
+          
+          const registry = await loadTeamRegistry(env, league);
+          const testPlayerId = "AARON_RODGERS_1_NFL";
+          const playerTeam = getPlayerTeam(testPlayerId);
+          
+          return corsResponse({
+            success: true,
+            testPlayerId: testPlayerId,
+            playerTeam: playerTeam,
+            registryKeys: Object.keys(registry),
+            registryCount: Object.keys(registry).length,
+            league: league,
+            timestamp: new Date().toISOString()
+          });
+        } catch (error) {
+          console.error("❌ Team resolution debug error:", error);
+          return corsResponse({
+            success: false,
+            error: `Team resolution debug error: ${error instanceof Error ? error.message : String(error)}`,
+            timestamp: new Date().toISOString()
+          }, 500);
+        }
+      }
+
       // Handle player props API endpoint - NEW WORKER-CENTRIC PIPELINE
       if (url.pathname === "/api/player-props") {
         try {
