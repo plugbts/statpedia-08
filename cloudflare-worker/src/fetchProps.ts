@@ -11,7 +11,7 @@
 import { supabaseFetch } from "./supabaseFetch";
 import { cleanPlayerNames, type RawPropRow, type CleanPropRow } from "./playerNames";
 import { enrichTeams, type RawRow, type CleanTeamRow } from "./teams";
-import { enrichTeams as enhancedEnrichTeams } from "./enhancedTeamEnrichment";
+import { enrichTeams as enhancedEnrichTeams } from "./teamEnrichment";
 import { getPlayerTeam, getOpponentTeam } from "./lib/playerTeamMap";
 import { extractPlayerProps } from "./lib/extract";
 import { getEventsWithFallbacks } from "./lib/api";
@@ -430,14 +430,8 @@ function attachTeams(
   
   // Build event context from available data
   const eventContext = {
-    homeTeam: row.raw_home_team,
-    awayTeam: row.raw_away_team,
-    homeTeamName: row.raw_home_team,
-    awayTeamName: row.raw_away_team,
-    teams: game ? {
-      home: { names: { short: game.home_team } },
-      away: { names: { short: game.away_team } }
-    } : undefined,
+    homeTeam: { name: row.raw_home_team },
+    awayTeam: { name: row.raw_away_team },
     league: row.league,
     id: row.game_id
   };
@@ -454,7 +448,7 @@ function attachTeams(
   };
   
   // Use enhanced team enrichment
-  const enrichmentResult = enhancedEnrichTeams(eventContext, propContext);
+  const enrichmentResult = enhancedEnrichTeams(eventContext, propContext, {});
   
   // Try to get additional team info from registry
   const teamInfo = registry[enrichmentResult.team.toLowerCase()] || 
@@ -478,11 +472,8 @@ function attachTeams(
       raw_opponent: row.opponent,
       team_resolved: enrichmentResult.team !== 'UNK',
       opponent_resolved: enrichmentResult.opponent !== 'UNK',
-      team_strategy: enrichmentResult.strategy.team,
-      opp_strategy: enrichmentResult.strategy.opponent,
       game_id: row.game_id,
       player_id: row.player_id,
-      enrichment_debug: enrichmentResult.debug,
       registry_keys_count: Object.keys(registry).length,
       registry_sample_keys: Object.keys(registry).slice(0, 5)
     }
