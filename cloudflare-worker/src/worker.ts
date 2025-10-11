@@ -1326,7 +1326,7 @@ export default {
                 teams: event.game.teams ?? null
               } : null,
               oddsCount: event.odds ? Object.keys(event.odds).length : 0,
-              oddsSample: event.odds ? Object.keys(event.odds).slice(0, 2).map(oddId => {
+              oddsSample: event.odds ? Object.keys(event.odds).slice(0, 10).map(oddId => {
                 const odd = event.odds[oddId];
                 return {
                   oddId,
