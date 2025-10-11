@@ -84,12 +84,12 @@ export type EnrichedProp = {
 async function fetchRawProps(env: any, league: string, dateISO: string): Promise<any[]> {
   console.log(`🔍 Fetching raw props from SportsGameOdds API for ${league} on ${dateISO}`);
   
-  const url = `https://api.sportsgameodds.com/v2/props?league=${league}&date=${dateISO}`;
+  // Use the same API structure as the existing ingestion code
+  const url = `https://api.sportsgameodds.com/v2/events?apiKey=${env.SPORTSGAMEODDS_API_KEY}&leagueID=${league}&oddsAvailable=true&dateFrom=${dateISO}&dateTo=${dateISO}&limit=250`;
   
   try {
     const res = await fetch(url, {
       headers: { 
-        "Authorization": `Bearer ${env.SPORTSGAMEODDS_API_KEY}`,
         "Content-Type": "application/json"
       }
     });
@@ -99,6 +99,12 @@ async function fetchRawProps(env: any, league: string, dateISO: string): Promise
     }
     
     const json = await res.json();
+    console.log(`🔍 Raw SportsGameOdds API response:`, {
+      hasData: !!json?.data,
+      dataLength: json?.data?.length ?? 0,
+      fullResponse: json
+    });
+    
     const data = json?.data ?? [];
     
     console.log(`✅ Fetched ${data.length} raw props from SportsGameOdds API`);
