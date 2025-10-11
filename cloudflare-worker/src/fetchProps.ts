@@ -11,6 +11,7 @@
 import { supabaseFetch } from "./supabaseFetch";
 import { cleanPlayerNames, type RawPropRow, type CleanPropRow } from "./playerNames";
 import { enrichTeams, type RawRow, type CleanTeamRow } from "./teams";
+import { enrichTeams as enhancedEnrichTeams } from "./enhancedTeamEnrichment";
 import { getPlayerTeam, getOpponentTeam } from "./lib/playerTeamMap";
 import { extractPlayerProps } from "./lib/extract";
 import { getEventsWithFallbacks } from "./lib/api";
@@ -418,7 +419,7 @@ export async function fetchPropLines(
 }
 
 /**
- * Attach team data at runtime using team registry and player mapping
+ * Enhanced attach team data using comprehensive fallback logic
  */
 function attachTeams(
   row: any, 
@@ -427,91 +428,61 @@ function attachTeams(
 ): any {
   const game = games[row.game_id];
   
-  // Try to get team from player mapping first
-  let playerTeam = getPlayerTeam(row.player_id);
-  let opponentTeam = null;
+  // Build event context from available data
+  const eventContext = {
+    homeTeam: row.raw_home_team,
+    awayTeam: row.raw_away_team,
+    homeTeamName: row.raw_home_team,
+    awayTeamName: row.raw_away_team,
+    teams: game ? {
+      home: { names: { short: game.home_team } },
+      away: { names: { short: game.away_team } }
+    } : undefined,
+    league: row.league,
+    id: row.game_id
+  };
   
-  console.log(`[worker:teams] Processing ${row.player_id}: playerTeam=${playerTeam}, registry has ${Object.keys(registry).length} entries`);
+  const propContext = {
+    playerId: row.player_id,
+    playerName: row.player_name,
+    playerTeamID: row.team_id,
+    playerTeam: row.team,
+    playerTeamName: row.team_name,
+    teamID: row.team_id,
+    team: row.team,
+    teamName: row.team_name
+  };
   
-  if (playerTeam) {
-    // If we have a player team mapping, use it
-    const teamInfo = registry[playerTeam.toLowerCase()];
-    console.log(`[worker:teams] Looking up team info for ${playerTeam.toLowerCase()}:`, teamInfo ? 'found' : 'not found');
-    if (teamInfo) {
-      return {
-        ...row,
-        team_abbr: teamInfo.abbreviation,
-        team_logo: teamInfo.logo_url,
-        team_name: teamInfo.team_name,
-        opponent_abbr: "OPP", // Simplified for now
-        opponent_logo: null,
-        opponent_name: "Opponent",
-        debug_team: {
-          league: row.league,
-          raw_team: row.team,
-          raw_opponent: row.opponent,
-          team_resolved: true,
-          opponent_resolved: false,
-          team_strategy: "player_mapping",
-          opp_strategy: "fallback",
-          player_team_mapping: playerTeam,
-          registry_keys_count: Object.keys(registry).length,
-          registry_sample_keys: Object.keys(registry).slice(0, 5)
-        }
-      };
-    }
-  }
+  // Use enhanced team enrichment
+  const enrichmentResult = enhancedEnrichTeams(eventContext, propContext);
   
-  // Fallback: try to resolve from game data if available
-  if (game) {
-    const home = registry[game.home_team?.toLowerCase()] ?? null;
-    const away = registry[game.away_team?.toLowerCase()] ?? null;
-    
-    // For now, assume player is on home team (this could be improved)
-    const teamInfo = home || away;
-    if (teamInfo) {
-      return {
-        ...row,
-        team_abbr: teamInfo.abbreviation,
-        team_logo: teamInfo.logo_url,
-        team_name: teamInfo.team_name,
-        opponent_abbr: home ? (away?.abbreviation ?? "OPP") : (home?.abbreviation ?? "OPP"),
-        opponent_logo: home ? away?.logo_url : home?.logo_url,
-        opponent_name: home ? (away?.team_name ?? "Opponent") : (home?.team_name ?? "Opponent"),
-        debug_team: {
-          league: row.league,
-          raw_team: row.team,
-          raw_opponent: row.opponent,
-          team_resolved: true,
-          opponent_resolved: true,
-          team_strategy: "game_data",
-          opp_strategy: "game_data",
-          game_data: { home: game.home_team, away: game.away_team }
-        }
-      };
-    }
-  }
+  // Try to get additional team info from registry
+  const teamInfo = registry[enrichmentResult.team.toLowerCase()] || 
+                   registry[enrichmentResult.team.toUpperCase()];
+  const opponentInfo = registry[enrichmentResult.opponent.toLowerCase()] || 
+                       registry[enrichmentResult.opponent.toUpperCase()];
   
-  // Final fallback: UNK
+  console.log(`[worker:teams] Enhanced enrichment for ${row.player_id}: ${enrichmentResult.team} vs ${enrichmentResult.opponent}`);
+  
   return {
     ...row,
-    team_abbr: "UNK",
-    team_logo: null,
-    team_name: "Unknown Team",
-    opponent_abbr: "UNK",
-    opponent_logo: null,
-    opponent_name: "Unknown Opponent",
+    team_abbr: enrichmentResult.team,
+    team_logo: teamInfo?.logo_url || null,
+    team_name: teamInfo?.team_name || enrichmentResult.team,
+    opponent_abbr: enrichmentResult.opponent,
+    opponent_logo: opponentInfo?.logo_url || null,
+    opponent_name: opponentInfo?.team_name || enrichmentResult.opponent,
     debug_team: {
       league: row.league,
       raw_team: row.team,
       raw_opponent: row.opponent,
-      team_resolved: false,
-      opponent_resolved: false,
-      team_strategy: "fallback",
-      opp_strategy: "fallback",
+      team_resolved: enrichmentResult.team !== 'UNK',
+      opponent_resolved: enrichmentResult.opponent !== 'UNK',
+      team_strategy: enrichmentResult.strategy.team,
+      opp_strategy: enrichmentResult.strategy.opponent,
       game_id: row.game_id,
       player_id: row.player_id,
-      player_team_mapping: playerTeam,
+      enrichment_debug: enrichmentResult.debug,
       registry_keys_count: Object.keys(registry).length,
       registry_sample_keys: Object.keys(registry).slice(0, 5)
     }

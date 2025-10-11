@@ -3,6 +3,7 @@
 
 import { fetchGameDetails } from "./api";
 import { getPlayerTeam, getOpponentTeam } from "./playerTeamMap";
+import { enrichTeams } from "../enhancedTeamEnrichment";
 
 export interface ExtractedPlayerProp {
   playerName: string;
@@ -112,31 +113,32 @@ export async function extractPlayerProps(events: any[], env?: any): Promise<Extr
         });
       }
       
-      // Determine player's team and opponent
-      const playerTeamID = playerInfo?.teamID || odd.playerTeamID || odd.teamID;
-      let playerTeam = null;
-      let opponentTeam = null;
+      // Enhanced team enrichment using comprehensive fallback logic
+      const eventContext = {
+        homeTeam,
+        awayTeam,
+        homeTeamName: homeTeam,
+        awayTeamName: awayTeam,
+        teams: ev.teams,
+        league,
+        id: eventId
+      };
       
-      if (playerTeamID) {
-        // Try to match player's team ID to home/away teams
-        // This is a simplified approach - could be enhanced with better team matching
-        if (homeTeam && awayTeam) {
-          // For now, we'll need to implement better team matching logic
-          // For immediate fix, let's use a simple approach
-          playerTeam = homeTeam; // Default to home team for now
-          opponentTeam = awayTeam;
-        }
-      }
+      const propContext = {
+        playerId,
+        playerName,
+        playerTeamID: playerInfo?.teamID || odd.playerTeamID || odd.teamID,
+        playerTeam: playerInfo?.team || odd.playerTeam,
+        playerTeamName: playerInfo?.teamName || odd.playerTeamName,
+        teamID: odd.teamID,
+        team: odd.team,
+        teamName: odd.teamName
+      };
       
-      // 🔍 FALLBACK: Use player team mapping if we still don't have team info
-      if (!playerTeam && playerId) {
-        const mappedTeam = getPlayerTeam(playerId);
-        if (mappedTeam) {
-          playerTeam = mappedTeam;
-          opponentTeam = getOpponentTeam(mappedTeam, eventId);
-          console.log(`🔍 Using player team mapping: ${playerId} -> ${playerTeam} vs ${opponentTeam}`);
-        }
-      }
+      // Use enhanced team enrichment
+      const { team: playerTeam, opponent: opponentTeam } = enrichTeams(eventContext, propContext);
+      
+      console.log(`🔍 Enhanced team enrichment: ${playerId} -> ${playerTeam} vs ${opponentTeam}`);
       
       // Extract market information
       const marketName = odd.marketName || `${odd.statID} ${odd.betTypeID}`;
