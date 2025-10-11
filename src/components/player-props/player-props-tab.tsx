@@ -490,10 +490,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const [minEV, setMinEV] = useState(0);
   const [showOnlyPositiveEV, setShowOnlyPositiveEV] = useState(false);
   const [minLine, setMinLine] = useState(0);
-  const [maxLine, setMaxLine] = useState(100);
+  const [maxLine, setMaxLine] = useState(1000);
   const [showSelection, setShowSelection] = useState(false);
   const [viewMode, setViewMode] = useState<'column' | 'cards'>('column');
-  const [overUnderFilter, setOverUnderFilter] = useState<'over' | 'under' | 'both'>('over');
+  const [overUnderFilter, setOverUnderFilter] = useState<'over' | 'under' | 'both'>('both');
   
   // Handle view parameter from URL
   useEffect(() => {
@@ -510,7 +510,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   // Odds range filter state
   const [minOdds, setMinOdds] = useState(-175);
   const [maxOdds, setMaxOdds] = useState(500);
-  const [useOddsFilter, setUseOddsFilter] = useState(true);
+  const [useOddsFilter, setUseOddsFilter] = useState(false);
 
   // Memoize today's date to prevent constant re-renders in analytics
   const todayDate = useMemo(() => new Date().toISOString().split('T')[0], []);
@@ -581,12 +581,12 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     setPropTypeFilter('all');
     setSortBy('api');
     setSortOrder('desc');
-    setOverUnderFilter('over');
+    setOverUnderFilter('both');
     setSelectedSportsbook('all');
     setSearchQuery('');
     setMinOdds(-175);
     setMaxOdds(500);
-    setUseOddsFilter(true);
+    setUseOddsFilter(false);
     localStorage.removeItem(`player-props-filters-${sportFilter}`);
     toast({
       title: "Filters Reset",
@@ -942,7 +942,8 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                            prop.playerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            prop.team.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            prop.propType.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesPropType = propTypeFilter === 'all' || prop.propType === propTypeFilter;
+      const matchesPropType = propTypeFilter === 'all' || 
+        prop.propType.replace(/_/g, ' ').toLowerCase() === propTypeFilter.toLowerCase();
       const matchesConfidence = (prop.confidence || 0.5) >= (minConfidence / 100);
       const matchesEV = (prop.expectedValue || 0) >= (minEV / 100);
       const matchesPositiveEV = !showOnlyPositiveEV || (prop.expectedValue || 0) >= 0;
@@ -1279,7 +1280,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   };
 
   // Get unique prop types for filter (exclude defense and kicking for NFL)
-  const propTypes = Array.from(new Set(mixedProps.map(prop => prop.propType)))
+  const propTypes = Array.from(new Set(mixedProps.map(prop => prop.propType.replace(/_/g, ' '))))
     .filter(propType => {
       // Filter out defense and kicking props for NFL
       if (sportFilter.toLowerCase() === 'nfl') {
