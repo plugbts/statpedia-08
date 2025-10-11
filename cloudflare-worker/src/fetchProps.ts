@@ -14,6 +14,7 @@ import { enrichTeams, type RawRow, type CleanTeamRow } from "./teams";
 import { getPlayerTeam, getOpponentTeam } from "./lib/playerTeamMap";
 import { extractPlayerProps } from "./lib/extract";
 import { getEventsWithFallbacks } from "./lib/api";
+import { getActiveLeagues } from "./config/leagues";
 
 export type PropLineRow = {
   id: string;
@@ -104,14 +105,21 @@ function getPlayerPropOddIDs(league: string): string {
 async function fetchRawProps(env: any, league: string, dateISO: string): Promise<any[]> {
   console.log(`🔍 Fetching raw props from SportsGameOdds API for ${league} on ${dateISO}`);
   
-  // Get the appropriate oddIDs for player props based on league
-  const playerPropOddIDs = getPlayerPropOddIDs(league);
-  console.log(`🔍 Using player prop oddIDs for ${league}: ${playerPropOddIDs}`);
-  
-  // Use the same fallback strategy as the ingestion system
-  // Note: getEventsWithFallbacks uses a ±7 day range, not specific dates
+  // Use the exact same approach as the ingestion system
   try {
-    const { events, tier } = await getEventsWithFallbacks(env, league.toUpperCase(), 2025, playerPropOddIDs);
+    // Get the league configuration from the same source as ingestion
+    const activeLeagues = getActiveLeagues();
+    const leagueConfig = activeLeagues.find(l => l.id.toLowerCase() === league.toLowerCase());
+    
+    if (!leagueConfig) {
+      console.error(`❌ League ${league} not found in active leagues`);
+      return [];
+    }
+    
+    console.log(`🔍 Using league config: ${leagueConfig.id} ${leagueConfig.seasons[0]} with oddIDs: ${leagueConfig.oddIDs}`);
+    
+    // Use the exact same call as the ingestion system
+    const { events, tier } = await getEventsWithFallbacks(env, leagueConfig.id, leagueConfig.seasons[0], leagueConfig.oddIDs);
     console.log(`✅ Fetched ${events.length} events from SportsGameOdds API (tier ${tier})`);
     
     // Filter events by the requested date if needed
