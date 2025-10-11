@@ -85,12 +85,21 @@ export async function insertPropsWithDebugging(env: any, mapped: any[]): Promise
         },
       });
       
+      // Check if the response indicates success
       if (response === null || response === undefined) {
         console.log(`✅ Inserted proplines batch ${i + 1} (${batch.length} props) - empty response = success`);
         result.proplinesInserted += batch.length;
+      } else if (Array.isArray(response) && response.length > 0) {
+        console.log(`✅ Inserted proplines batch ${i + 1} (${batch.length} props) - returned ${response.length} rows`);
+        result.proplinesInserted += response.length;
       } else {
-        console.log(`✅ Inserted proplines batch ${i + 1} (${batch.length} props) with response:`, response);
-        result.proplinesInserted += batch.length;
+        // Check for error in response
+        if (response && typeof response === 'object' && 'error' in response) {
+          throw new Error(`Supabase insert error: ${JSON.stringify(response.error)}`);
+        } else {
+          console.log(`✅ Inserted proplines batch ${i + 1} (${batch.length} props) with response:`, response);
+          result.proplinesInserted += batch.length;
+        }
       }
       
     } catch (e) {

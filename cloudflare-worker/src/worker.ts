@@ -1425,6 +1425,51 @@ export default {
         }
       }
 
+      // Debug endpoint to test a simple insert
+      if (url.pathname === "/debug/test-insert") {
+        try {
+          const testData = [{
+            player_id: "TEST_PLAYER_1",
+            player_name: "Test Player",
+            team: "TEST",
+            opponent: "OPP",
+            league: "nfl",
+            season: "2025",
+            game_id: "test-game-1",
+            date_normalized: "2025-10-10",
+            prop_type: "test_prop",
+            line: 100,
+            over_odds: -110,
+            under_odds: -110,
+            odds: null,
+            conflict_key: "TEST_PLAYER_1|2025-10-10|test_prop|SportsGameOdds|nfl|2025"
+          }];
+          
+          console.log("🧪 Testing insert with sample data...");
+          const response = await supabaseFetch(env, "proplines", {
+            method: "POST",
+            body: testData,
+            headers: { 
+              Prefer: "resolution=merge-duplicates",
+              "Content-Type": "application/json"
+            },
+          });
+          
+          return corsResponse({
+            success: true,
+            testData: testData[0],
+            response: response,
+            timestamp: new Date().toISOString()
+          });
+        } catch (error) {
+          return corsResponse({
+            success: false,
+            error: `Test insert error: ${error instanceof Error ? error.message : String(error)}`,
+            timestamp: new Date().toISOString()
+          }, 500);
+        }
+      }
+
       // Debug endpoint to check what's actually in the database
       if (url.pathname === "/debug/database-check") {
         try {
