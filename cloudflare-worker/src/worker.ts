@@ -1259,6 +1259,21 @@ export default {
       }
 
       // Handle simple test endpoint for debugging
+      if (url.pathname === "/api/test-nfl") {
+        const { supabaseFetch } = await import("./supabaseFetch");
+        // Test NFL data query
+        const data = await supabaseFetch(env, `player_props_fixed?league=eq.nfl&limit=5`);
+        
+        return corsResponse({
+          success: true,
+          query: "player_props_fixed?league=eq.nfl&limit=5",
+          dataCount: data?.length || 0,
+          sampleData: data?.[0] || null,
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // Handle simple test endpoint for debugging
       if (url.pathname === "/api/test-mlb") {
         const { supabaseFetch } = await import("./supabaseFetch");
         // Try different query formats
@@ -2060,7 +2075,35 @@ export default {
             if (date) {
               // Single date query - dual-mode approach
               console.log(`📊 DUAL-MODE: Fetching and enriching props for ${league} on ${date}...`);
-              enrichedProps = await ingestAndEnrich(env, league, date);
+              // Query existing data from player_props_fixed instead of fetching fresh data
+              const { data: dbProps, error: dbError } = await supabaseFetch(env, `player_props_fixed?league=eq.${league}&prop_date=eq.${date}&limit=150`);
+              if (dbError) {
+                console.error(`❌ Database query failed:`, dbError);
+                enrichedProps = [];
+              } else {
+                enrichedProps = (dbProps || []).map((prop: any) => ({
+                  player_id: prop.player_id,
+                  clean_player_name: prop.player_name,
+                  team_abbr: prop.team_abbr,
+                  opponent_abbr: prop.opponent_abbr,
+                  prop_type: prop.prop_type,
+                  line: prop.line,
+                  over_odds: prop.over_odds,
+                  under_odds: prop.under_odds,
+                  league: prop.league,
+                  season: prop.season,
+                  game_id: prop.game_id,
+                  date_normalized: prop.prop_date,
+                  ev_percent: prop.ev_percent,
+                  team_logo: prop.team_logo,
+                  opponent_logo: prop.opponent_logo,
+                  last5_streak: prop.last5_streak,
+                  last10_streak: prop.last10_streak,
+                  last20_streak: prop.last20_streak,
+                  h2h_streak: prop.h2h_streak
+                }));
+                console.log(`📊 DATABASE: Retrieved ${enrichedProps.length} props from player_props_fixed for ${date}`);
+              }
               
               // Persist in background (don't block response)
               if (enrichedProps.length > 0) {
@@ -2106,7 +2149,29 @@ export default {
                 const dateStr = checkDate.toISOString().split('T')[0];
                 
                 try {
-                  const testProps = await ingestAndEnrich(env, league, dateStr);
+                  // Query existing data from player_props_fixed for this date
+                  const { data: testDbProps, error: testDbError } = await supabaseFetch(env, `player_props_fixed?league=eq.${league}&prop_date=eq.${dateStr}&limit=150`);
+                  const testProps = testDbError ? [] : (testDbProps || []).map((prop: any) => ({
+                    player_id: prop.player_id,
+                    clean_player_name: prop.player_name,
+                    team_abbr: prop.team_abbr,
+                    opponent_abbr: prop.opponent_abbr,
+                    prop_type: prop.prop_type,
+                    line: prop.line,
+                    over_odds: prop.over_odds,
+                    under_odds: prop.under_odds,
+                    league: prop.league,
+                    season: prop.season,
+                    game_id: prop.game_id,
+                    date_normalized: prop.prop_date,
+                    ev_percent: prop.ev_percent,
+                    team_logo: prop.team_logo,
+                    opponent_logo: prop.opponent_logo,
+                    last5_streak: prop.last5_streak,
+                    last10_streak: prop.last10_streak,
+                    last20_streak: prop.last20_streak,
+                    h2h_streak: prop.h2h_streak
+                  }));
                   if (testProps.length > 0) {
                     console.log(`📅 DUAL-MODE: Found data for ${league} on ${dateStr} (${testProps.length} props)`);
                     enrichedProps = testProps;
@@ -2124,8 +2189,35 @@ export default {
               }
               
               if (!foundData) {
-                console.log(`⚠️ NEW PIPELINE: No data found for league ${league} in last 7 days`);
-                enrichedProps = [];
+                console.log(`⚠️ NEW PIPELINE: No data found for league ${league} in last 7 days, trying most recent data`);
+                // Fallback: get most recent data regardless of date
+                const { data: recentProps, error: recentError } = await supabaseFetch(env, `player_props_fixed?league=eq.${league}&limit=150&order=prop_date.desc`);
+                if (!recentError && recentProps && recentProps.length > 0) {
+                  enrichedProps = recentProps.map((prop: any) => ({
+                    player_id: prop.player_id,
+                    clean_player_name: prop.player_name,
+                    team_abbr: prop.team_abbr,
+                    opponent_abbr: prop.opponent_abbr,
+                    prop_type: prop.prop_type,
+                    line: prop.line,
+                    over_odds: prop.over_odds,
+                    under_odds: prop.under_odds,
+                    league: prop.league,
+                    season: prop.season,
+                    game_id: prop.game_id,
+                    date_normalized: prop.prop_date,
+                    ev_percent: prop.ev_percent,
+                    team_logo: prop.team_logo,
+                    opponent_logo: prop.opponent_logo,
+                    last5_streak: prop.last5_streak,
+                    last10_streak: prop.last10_streak,
+                    last20_streak: prop.last20_streak,
+                    h2h_streak: prop.h2h_streak
+                  }));
+                  console.log(`📊 FALLBACK: Retrieved ${enrichedProps.length} most recent props for ${league}`);
+                } else {
+                  enrichedProps = [];
+                }
               }
             }
             
