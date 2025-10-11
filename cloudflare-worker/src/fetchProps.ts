@@ -424,60 +424,118 @@ export async function fetchPropLines(
 function attachTeams(
   row: any, 
   registry: Record<string, any>, 
-  games: Record<string, any>
+  games: Record<string, any>,
+  playersById: Record<string, any> = {}
 ): any {
   const game = games[row.game_id];
   
-  // Build event context from available data
-  const eventContext = {
-    homeTeam: { name: row.raw_home_team },
-    awayTeam: { name: row.raw_away_team },
-    league: row.league,
-    id: row.game_id
-  };
+  // NEW: Direct team lookup from players table (no more guessing!)
+  const player = playersById[row.player_id];
+  const teamAbbr = player?.team || player?.team_abbr || "UNK";
   
-  const propContext = {
-    playerId: row.player_id,
-    playerName: row.player_name,
-    playerTeamID: row.team_id,
-    playerTeam: row.team,
-    playerTeamName: row.team_name,
-    teamID: row.team_id,
-    team: row.team,
-    teamName: row.team_name
-  };
-  
-  // Use enhanced team enrichment
-  const enrichmentResult = enhancedEnrichTeams(eventContext, propContext, {});
+  // Opponent still comes from event context
+  let opponentAbbr = "UNK";
+  if (game && game.homeTeam && game.awayTeam) {
+    const homeAbbr = normalizeTeamFromEvent(game.homeTeam);
+    const awayAbbr = normalizeTeamFromEvent(game.awayTeam);
+    opponentAbbr = teamAbbr === homeAbbr ? awayAbbr : homeAbbr;
+  }
   
   // Try to get additional team info from registry
-  const teamInfo = registry[enrichmentResult.team.toLowerCase()] || 
-                   registry[enrichmentResult.team.toUpperCase()];
-  const opponentInfo = registry[enrichmentResult.opponent.toLowerCase()] || 
-                       registry[enrichmentResult.opponent.toUpperCase()];
-  
-  console.log(`[worker:teams] Enhanced enrichment for ${row.player_id}: ${enrichmentResult.team} vs ${enrichmentResult.opponent}`);
-  
+  const teamInfo = registry[teamAbbr.toLowerCase()] || registry[teamAbbr.toUpperCase()];
+  const opponentInfo = registry[opponentAbbr.toLowerCase()] || registry[opponentAbbr.toUpperCase()];
+
+  console.log(`[worker:teams] Direct lookup for ${row.player_id}: ${teamAbbr} vs ${opponentAbbr} (from players table)`);
+
   return {
     ...row,
-    team_abbr: enrichmentResult.team,
+    team_abbr: teamAbbr,
     team_logo: teamInfo?.logo_url || null,
-    team_name: teamInfo?.team_name || enrichmentResult.team,
-    opponent_abbr: enrichmentResult.opponent,
+    team_name: teamInfo?.team_name || teamAbbr,
+    opponent_abbr: opponentAbbr,
     opponent_logo: opponentInfo?.logo_url || null,
-    opponent_name: opponentInfo?.team_name || enrichmentResult.opponent,
+    opponent_name: opponentInfo?.team_name || opponentAbbr,
     debug_team: {
       league: row.league,
       raw_team: row.team,
       raw_opponent: row.opponent,
-      team_resolved: enrichmentResult.team !== 'UNK',
-      opponent_resolved: enrichmentResult.opponent !== 'UNK',
+      team_resolved: teamAbbr !== 'UNK',
+      opponent_resolved: opponentAbbr !== 'UNK',
       game_id: row.game_id,
       player_id: row.player_id,
-      registry_keys_count: Object.keys(registry).length,
-      registry_sample_keys: Object.keys(registry).slice(0, 5)
+      player_lookup_success: !!player,
+      players_table_used: true,
+      registry_keys_count: Object.keys(registry).length
     }
   };
+}
+
+// Helper function to normalize team names from event data
+function normalizeTeamFromEvent(teamName: string): string {
+  if (!teamName) return "UNK";
+  
+  // Simple normalization - could be enhanced with full team mapping
+  const upper = teamName.toUpperCase();
+  if (upper.includes('PHILADEL') || upper.includes('PHILADEPHIA')) return 'PHI';
+  if (upper.includes('NEW YORK')) return 'NYG';
+  if (upper.includes('PITTSBUR')) return 'PIT';
+  if (upper.includes('SEATTLE')) return 'SEA';
+  if (upper.includes('DENVER')) return 'DEN';
+  if (upper.includes('CHICAGO')) return 'CHI';
+  if (upper.includes('WASHING')) return 'WAS';
+  if (upper.includes('ATLANTA')) return 'ATL';
+  if (upper.includes('BUFFALO')) return 'BUF';
+  if (upper.includes('CAROLIN')) return 'CAR';
+  if (upper.includes('CINCINN')) return 'CIN';
+  if (upper.includes('CLEVELA')) return 'CLE';
+  if (upper.includes('DALLAS')) return 'DAL';
+  if (upper.includes('DETROIT')) return 'DET';
+  if (upper.includes('GREEN')) return 'GB';
+  if (upper.includes('HOUSTON')) return 'HOU';
+  if (upper.includes('INDIANA')) return 'IND';
+  if (upper.includes('JACKSON')) return 'JAX';
+  if (upper.includes('KANSAS')) return 'KC';
+  if (upper.includes('LAS')) return 'LV';
+  if (upper.includes('LOS')) return 'LAC';
+  if (upper.includes('MIAMI')) return 'MIA';
+  if (upper.includes('MINNESO')) return 'MIN';
+  if (upper.includes('NEW ENGLAND')) return 'NE';
+  if (upper.includes('NEW ORLEANS')) return 'NO';
+  if (upper.includes('NEW YORK JETS')) return 'NYJ';
+  if (upper.includes('SAN FRANCISCO')) return 'SF';
+  if (upper.includes('TAMPA')) return 'TB';
+  if (upper.includes('TENNESSE')) return 'TEN';
+  
+  return upper; // Return as-is if no mapping found
+}
+
+/**
+ * Fetch players data from database for team lookup
+ * Returns a map of player_id -> player data for fast lookup
+ */
+async function fetchPlayersData(env: any, league: string): Promise<Record<string, any>> {
+  try {
+    console.log(`[worker:fetchPlayersData] Fetching players data for ${league}...`);
+    
+    const data = await supabaseFetch(env, `players?league=eq.${league.toUpperCase()}`);
+    
+    if (!Array.isArray(data)) {
+      console.log(`[worker:fetchPlayersData] No players data for ${league}`);
+      return {};
+    }
+    
+    // Convert array to map for fast lookup
+    const playersById: Record<string, any> = {};
+    data.forEach(player => {
+      playersById[player.player_id] = player;
+    });
+    
+    console.log(`[worker:fetchPlayersData] Loaded ${Object.keys(playersById).length} players for ${league}`);
+    return playersById;
+  } catch (error) {
+    console.error(`[worker:fetchPlayersData] Error fetching players for ${league}:`, error);
+    return {};
+  }
 }
 
 /**
@@ -656,9 +714,12 @@ export async function fetchPropsForDate(
     Promise.resolve({})
   ]);
 
-  // 4. Attach teams at runtime using worker-centric approach
+  // 4. Fetch players data for team lookup
+  const playersById = await fetchPlayersData(env, league);
+  
+  // 5. Attach teams at runtime using worker-centric approach with players table lookup
   console.log(`[worker:fetchProps] Attaching teams at runtime for ${cleanedProps.length} props...`);
-  const enrichedTeams = cleanedProps.map((row: any) => attachTeams(row, teamRegistry, gamesData));
+  const enrichedTeams = cleanedProps.map((row: any) => attachTeams(row, teamRegistry, gamesData, playersById));
 
   // 5. Debug team mapping
   debugTeamMapping(enrichedTeams, gamesData, "[worker:fetchProps:teams]");
@@ -829,9 +890,12 @@ async function processRawProps(rawProps: any[], env: any, league: string, dateIS
   console.log(`[worker:processRawProps] Cleaning player names for ${transformedProps.length} props...`);
   const cleanedProps = cleanPlayerNames(transformedProps, "[worker:processRawProps:names]");
 
-  // Attach teams at runtime using worker-centric approach
+  // Fetch players data for team lookup
+  const playersById = await fetchPlayersData(env, league);
+  
+  // Attach teams at runtime using worker-centric approach with players table lookup
   console.log(`[worker:processRawProps] Attaching teams at runtime for ${cleanedProps.length} props...`);
-  const enrichedTeams = cleanedProps.map((row: any) => attachTeams(row, teamRegistry, {}));
+  const enrichedTeams = cleanedProps.map((row: any) => attachTeams(row, teamRegistry, {}, playersById));
 
   // Calculate EV% and streaks (simplified for now - no historical data)
   console.log(`[worker:processRawProps] Calculating metrics for ${enrichedTeams.length} props...`);
