@@ -18,7 +18,7 @@ export async function supabaseFetch(env: any, path: string, options: RequestInit
   if (!res.ok) {
     const text = await res.text();
     console.error(`❌ Supabase fetch failed: ${res.status} ${res.statusText}`, text);
-    throw new Error(`Supabase fetch failed: ${res.status} ${res.statusText}`);
+    throw new Error(`Supabase fetch failed: ${res.status} ${res.statusText} - ${text}`);
   }
 
   try {
