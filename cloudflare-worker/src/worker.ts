@@ -1395,6 +1395,36 @@ export default {
         }
       }
 
+      // Simple test endpoint to verify player mapping works
+      if (url.pathname === "/debug/player-mapping") {
+        try {
+          const { getPlayerTeam } = await import("./lib/playerTeamMap");
+          
+          const testPlayers = [
+            "AARON_RODGERS_1_NFL",
+            "PATRICK_MAHOMES_1_NFL", 
+            "JOSH_ALLEN_1_NFL"
+          ];
+          
+          const results = testPlayers.map(playerId => ({
+            playerId,
+            team: getPlayerTeam(playerId)
+          }));
+          
+          return corsResponse({
+            success: true,
+            playerMappings: results,
+            timestamp: new Date().toISOString()
+          });
+        } catch (error) {
+          return corsResponse({
+            success: false,
+            error: `Player mapping test error: ${error instanceof Error ? error.message : String(error)}`,
+            timestamp: new Date().toISOString()
+          }, 500);
+        }
+      }
+
       // Handle player props API endpoint - NEW WORKER-CENTRIC PIPELINE
       if (url.pathname === "/api/player-props") {
         try {
