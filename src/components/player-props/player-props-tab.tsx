@@ -177,7 +177,7 @@ const getPropPriority = (propType: string): number => {
   const coreProps = [
     'passing yards', 'passing touchdowns', 'passing attempts', 'passing completions', 'passing interceptions',
     'rushing yards', 'rushing touchdowns', 'rushing attempts',
-    'receiving yards', 'receiving touchdowns', 'receiving receptions',
+    'receiving yards', 'receiving touchdowns', 'receptions',
     'defense sacks', 'defense interceptions', 'defense combined tackles',
     'field goals made', 'kicking total points', 'extra points kicks made'
   ];

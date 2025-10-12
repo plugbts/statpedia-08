@@ -79,7 +79,7 @@ export function normalizeMarketType(market: string): string {
   if (lower.includes("receiving touchdowns")) return "Receiving Touchdowns";
   if (lower.includes("passing completions")) return "Passing Completions";
   if (lower.includes("passing attempts")) return "Passing Attempts";
-  if (lower.includes("receiving receptions")) return "Receiving Receptions";
+  if (lower.includes("receptions")) return "Receptions";
   if (lower.includes("field goals made")) return "Field Goals Made";
   if (lower.includes("field goals attempted")) return "Field Goals Attempted";
   if (lower.includes("extra points made")) return "Extra Points Made";

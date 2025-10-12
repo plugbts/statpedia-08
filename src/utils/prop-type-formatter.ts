@@ -1,7 +1,14 @@
 // Prop type formatting utility for consistent display across components
+import { displayPropType } from './prop-display-map';
 
 export const formatPropType = (propType: string): string => {
   if (!propType) return 'Unknown Prop';
+  
+  // Use the clean display mapping first (prevents concatenation bugs)
+  const cleanDisplay = displayPropType(propType);
+  if (cleanDisplay !== propType) {
+    return cleanDisplay;
+  }
   
   // Remove player name if it appears in prop type - MORE AGGRESSIVE CLEANING
   let cleanPropType = propType
@@ -29,8 +36,7 @@ export const formatPropType = (propType: string): string => {
     'rushing attempts': 'Rush Attempts',
     'receiving yards': 'Receiving Yards',
     'receiving touchdowns': 'Receiving TDs',
-    'receiving receptions': 'Receptions',
-    'receivingeptions': 'Receptions', // Fix typo
+    'receptions': 'Receptions',
     'longest completion': 'Longest Completion',
     'longest reception': 'Longest Reception',
     'longest rush': 'Longest Rush',
