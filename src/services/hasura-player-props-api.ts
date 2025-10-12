@@ -222,13 +222,8 @@ class HasuraPlayerPropsAPI {
         };
       });
 
-      // Filter by sport and ensure props have valid player relationships
+      // Filter by sport only - show all props for debugging
       const filteredProps = frontendProps.filter((prop) => {
-        // Skip props without proper player relationships
-        if (!prop.playerName || prop.playerName === 'Unknown Player' || !prop.playerId) {
-          return false;
-        }
-        
         // Filter by sport if specified
         if (sport && prop.sport !== sport.toLowerCase()) {
           return false;
@@ -237,7 +232,16 @@ class HasuraPlayerPropsAPI {
         return true;
       });
 
+      // Debug info about prop relationships
+      const propsWithPlayers = filteredProps.filter(p => p.playerName && p.playerName !== 'Unknown Player');
+      const propsWithoutPlayers = filteredProps.filter(p => !p.playerName || p.playerName === 'Unknown Player');
+      
       console.log(`📊 HASURA: Filtered to ${filteredProps.length} props for ${sport} (limit applied: ${propLimit})`);
+      console.log(`🔍 DEBUG: ${propsWithPlayers.length} props with players, ${propsWithoutPlayers.length} props without players`);
+      
+      if (filteredProps.length > 0) {
+        console.log(`🔍 DEBUG: Sample prop - Player: "${filteredProps[0].playerName}", Team: "${filteredProps[0].team}", Prop: "${filteredProps[0].propType}"`);
+      }
 
       const responseTime = Date.now() - startTime;
       console.log(`✅ HASURA: Successfully retrieved ${filteredProps.length} props (${responseTime}ms)`);
