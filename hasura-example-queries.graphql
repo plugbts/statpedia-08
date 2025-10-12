@@ -1,0 +1,361 @@
+# StatPedia Hasura GraphQL Example Queries
+
+# 1. Get active players with their teams
+query GetActivePlayers {
+  players(where: {isActive: {_eq: true}}, limit: 20) {
+    id
+    firstName
+    lastName
+    position
+    positionCategory
+    jerseyNumber
+    team {
+      name
+      abbreviation
+      city
+      conference
+      division
+    }
+  }
+}
+
+# 2. Get games for today
+query GetTodaysGames {
+  games(
+    where: {
+      gameDate: {_eq: "2024-01-15"}
+      status: {_in: ["scheduled", "in_progress"]}
+    }
+    orderBy: {gameTime: asc}
+  ) {
+    id
+    gameDate
+    gameTime
+    status
+    homeTeam {
+      name
+      abbreviation
+    }
+    awayTeam {
+      name
+      abbreviation
+    }
+    homeScore
+    awayScore
+    totalOverUnder
+    homeTeamSpread
+  }
+}
+
+# 3. Get player props for a specific game
+query GetGameProps($gameId: uuid!) {
+  playerProps(
+    where: {
+      gameId: {_eq: $gameId}
+      isActive: {_eq: true}
+    }
+    orderBy: {hitRate: desc}
+  ) {
+    id
+    line
+    odds
+    overOdds
+    underOdds
+    hitRate
+    gamesTracked
+    avgActualValue
+    seasonAvg
+    player {
+      firstName
+      lastName
+      position
+      team {
+        abbreviation
+      }
+    }
+    propType {
+      name
+      category
+      unit
+    }
+    game {
+      gameDate
+      homeTeam {
+        abbreviation
+      }
+      awayTeam {
+        abbreviation
+      }
+    }
+  }
+}
+
+# 4. Get player analytics and streaks
+query GetPlayerAnalytics($playerId: uuid!) {
+  playerAnalytics(
+    where: {playerId: {_eq: $playerId}}
+    orderBy: {createdAt: desc}
+    limit: 10
+  ) {
+    id
+    actualValue
+    propLine
+    result
+    margin
+    minutesPlayed
+    usageRate
+    efficiency
+    game {
+      gameDate
+      homeTeam {
+        abbreviation
+      }
+      awayTeam {
+        abbreviation
+      }
+    }
+  }
+  
+  playerStreaks(
+    where: {
+      playerId: {_eq: $playerId}
+      isActive: {_eq: true}
+    }
+  ) {
+    id
+    propTypeId
+    currentStreak
+    longestStreak
+    streakType
+    gamesInStreak
+    avgMargin
+    season
+  }
+}
+
+# 5. Get team standings
+query GetTeamStandings($leagueId: uuid!) {
+  teams(
+    where: {leagueId: {_eq: $leagueId}}
+    orderBy: [
+      {winPercentage: desc}
+      {wins: desc}
+    ]
+  ) {
+    id
+    name
+    abbreviation
+    city
+    conference
+    division
+    wins
+    losses
+    ties
+    winPercentage
+  }
+}
+
+# 6. Get prop types by sport
+query GetPropTypesBySport($sport: String!) {
+  propTypes(
+    where: {
+      sport: {_eq: $sport}
+      isActive: {_eq: true}
+    }
+    orderBy: {category: asc}
+  ) {
+    id
+    name
+    category
+    unit
+    isOverUnder
+  }
+}
+
+# 7. Get user predictions with results
+query GetUserPredictions($userId: uuid!) {
+  userPredictions(
+    where: {userId: {_eq: $userId}}
+    orderBy: {createdAt: desc}
+    limit: 20
+  ) {
+    id
+    propId
+    prediction
+    isCorrect
+    gameDate
+    createdAt
+  }
+}
+
+# 8. Get social posts with comments
+query GetSocialPosts($limit: Int = 10) {
+  socialPosts(
+    orderBy: {createdAt: desc}
+    limit: $limit
+  ) {
+    id
+    content
+    upvotes
+    downvotes
+    createdAt
+    user {
+      displayName
+      avatarUrl
+    }
+    comments(
+      orderBy: {createdAt: asc}
+      limit: 5
+    ) {
+      id
+      content
+      upvotes
+      downvotes
+      createdAt
+      user {
+        displayName
+        avatarUrl
+      }
+    }
+  }
+}
+
+# 9. Get betting trends for a prop type
+query GetPropTrends($propTypeId: uuid!) {
+  propAnalytics(
+    where: {propTypeId: {_eq: $propTypeId}}
+    orderBy: {hitRate: desc}
+    limit: 10
+  ) {
+    id
+    playerId
+    season
+    totalGames
+    hitRate
+    overRate
+    underRate
+    avgMargin
+    avgActualValue
+    player {
+      firstName
+      lastName
+      position
+      team {
+        abbreviation
+      }
+    }
+  }
+}
+
+# 10. Get upcoming games with props count
+query GetUpcomingGamesWithProps {
+  games(
+    where: {
+      gameDate: {_gte: "2024-01-15"}
+      status: {_eq: "scheduled"}
+    }
+    orderBy: {gameDate: asc}
+    limit: 10
+  ) {
+    id
+    gameDate
+    gameTime
+    homeTeam {
+      name
+      abbreviation
+    }
+    awayTeam {
+      name
+      abbreviation
+    }
+    playerPropsAggregate {
+      aggregate {
+        count
+      }
+    }
+    playerProps(
+      where: {isActive: {_eq: true}}
+      limit: 5
+    ) {
+      id
+      line
+      hitRate
+      player {
+        firstName
+        lastName
+        position
+      }
+      propType {
+        name
+        category
+      }
+    }
+  }
+}
+
+# Mutations
+
+# 1. Create a new user prediction
+mutation CreateUserPrediction($userId: uuid!, $propId: String!, $prediction: String!, $gameDate: timestamptz!) {
+  insertUserPredictionsOne(object: {
+    userId: $userId
+    propId: $propId
+    prediction: $prediction
+    gameDate: $gameDate
+  }) {
+    id
+    userId
+    propId
+    prediction
+    gameDate
+    createdAt
+  }
+}
+
+# 2. Create a social post
+mutation CreateSocialPost($userId: uuid!, $content: String!) {
+  insertSocialPostsOne(object: {
+    userId: $userId
+    content: $content
+  }) {
+    id
+    content
+    upvotes
+    downvotes
+    createdAt
+  }
+}
+
+# 3. Vote on a post
+mutation VoteOnPost($userId: uuid!, $postId: uuid!, $voteType: String!) {
+  insertVotesOne(object: {
+    userId: $userId
+    postId: $postId
+    voteType: $voteType
+  }) {
+    id
+    voteType
+    createdAt
+  }
+}
+
+# 4. Update user profile
+mutation UpdateUserProfile($userId: uuid!, $displayName: String, $bio: String, $roiVisible: Boolean) {
+  updateProfiles(
+    where: {userId: {_eq: $userId}}
+    _set: {
+      displayName: $displayName
+      bio: $bio
+      roiVisible: $roiVisible
+    }
+  ) {
+    affected_rows
+    returning {
+      id
+      displayName
+      bio
+      roiVisible
+      updatedAt
+    }
+  }
+}

@@ -1,0 +1,31 @@
+version: 3
+endpoint: https://graphql-engine-latest-statpedia.onrender.com
+metadata_directory: hasura/metadata
+seeds_directory: hasura/seeds
+migrations_directory: hasura/migrations
+
+databases:
+  - name: default
+    kind: postgres
+    configuration:
+      connection_info:
+        database_url:
+          from_env: NEON_DATABASE_URL
+        isolation_level: read-committed
+        pool_settings:
+          connection_lifetime: 600
+          idle_timeout: 180
+          max_connections: 50
+          retries: 1
+
+admin_secret: ${HASURA_ADMIN_SECRET}
+
+actions:
+  kind: synchronous
+  handler_webhook_baseurl: ${HASURA_ACTIONS_BASE_URL}
+
+remote_schemas:
+  - name: weather
+    definition:
+      url: https://api.openweathermap.org/data/2.5/weather
+      timeout_seconds: 60
