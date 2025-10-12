@@ -293,40 +293,68 @@ export function normalizePropType(propType: string): string {
   if (PROP_TYPE_MAP[key]) return PROP_TYPE_MAP[key];
 
   // Fuzzy contains matching (catch variations) - order matters for specificity
-  if (key.includes("passing yards") || key.includes("pass yards")) return "passing_yards";
-  if (key.includes("rushing yards") || key.includes("rush yards")) return "rushing_yards";
-  if (key.includes("receiving yards") || key.includes("rec yards")) return "receiving_yards";
+  // NFL
+  if (key.includes("passing yards")) return "passing_yards";
+  if (key.includes("rushing yards")) return "rushing_yards";
+  if (key.includes("receiving yards")) return "receiving_yards";
+  if (key.includes("receptions")) return "receptions";
+  if (key.includes("strikeouts")) return "strikeouts";
+  if (key.includes("total bases")) return "total_bases";
+  if (key.includes("home runs")) return "home_runs";
+  if (key.includes("rbis")) return "rbis";
+  
+  // Combo props - check these before individual terms
+  if (key.includes("rush") && key.includes("rec")) return "rush_rec_yards";
+  if (key.includes("pass") && key.includes("rush")) return "pass_rush_yards";
+  if (key.includes("pass") && key.includes("rec")) return "pass_rec_yards";
+  
+  // Touchdowns
+  if (key.includes("passing touchdown")) return "passing_touchdowns";
+  if (key.includes("rushing touchdown")) return "rushing_touchdowns";
+  if (key.includes("receiving touchdown")) return "receiving_touchdowns";
+  if (key.includes("anytime touchdown")) return "anytime_td";
+  if (key.includes("first touchdown")) return "first_td";
+  if (key.includes("last touchdown")) return "last_td";
+  
+  // Other NFL
+  if (key.includes("completions")) return "completions";
+  if (key.includes("attempts")) return "pass_attempts";
+  if (key.includes("interceptions")) return "passing_interceptions";
   if (key.includes("longest completion")) return "passing_longestcompletion";
   if (key.includes("longest reception")) return "receiving_longestreception";
   if (key.includes("longest rush")) return "rushing_longest";
-  if (key.includes("passing touchdown") || key.includes("pass td")) return "passing_touchdowns";
-  if (key.includes("rushing touchdown") || key.includes("rush td")) return "rushing_touchdowns";
-  if (key.includes("receiving touchdown") || key.includes("rec td")) return "receiving_touchdowns";
-  if (key.includes("passing + rushing") || key.includes("pass + rush") || key.includes("passing rushing")) return "passing_rushing_yards";
-  if (key.includes("rushing + receiving") || key.includes("rush + rec") || key.includes("rushing receiving")) return "rushing_receiving_yards";
-  if (key.includes("completion")) return "passing_completions";
-  if (key.includes("attempt")) return "passing_attempts";
-  if (key.includes("interception")) return "passing_interceptions";
-  if (key.includes("reception") || key.includes("catch")) return "receiving_receptions";
-  if (key.includes("sacks") || key.includes("sack")) return "defense_sacks";
-  if (key.includes("tackles") || key.includes("tackle")) return "defense_combined_tackles";
-  if (key.includes("field goals made") || key.includes("fgm")) return "field_goals_made";
-  if (key.includes("extra points made") || key.includes("xp made")) return "extra_points_kicks_made";
-  if (key.includes("strikeouts") || key.includes("strikeout") || key.includes("so")) return "strikeouts";
-  if (key.includes("home runs") || key.includes("home run") || key.includes("hr")) return "home_runs";
-  if (key.includes("runs batted in") || key.includes("rbi")) return "runs_batted_in";
-  if (key.includes("total bases") || key.includes("total base")) return "total_bases";
-  if (key.includes("stolen bases") || key.includes("stolen base") || key.includes("sb")) return "stolen_bases";
-  if (key.includes("walks") || key.includes("walk")) return "walks";
-  if (key.includes("singles") || key.includes("single")) return "singles";
-  if (key.includes("doubles") || key.includes("double")) return "doubles";
-  if (key.includes("triples") || key.includes("triple")) return "triples";
-  if (key.includes("hits") || key.includes("hit")) return "hits";
-  if (key.includes("runs") || key.includes("run")) return "runs";
-  if (key.includes("points") || key.includes("point") || key.includes("pts")) return "points";
-  if (key.includes("rebounds") || key.includes("rebound") || key.includes("reb")) return "rebounds";
-  if (key.includes("assists") || key.includes("assist") || key.includes("ast")) return "assists";
-  if (key.includes("steals") || key.includes("steal") || key.includes("stl")) return "steals";
+  if (key.includes("sacks")) return "defense_sacks";
+  if (key.includes("tackles")) return "defense_combined_tackles";
+  if (key.includes("field goals made")) return "field_goals_made";
+  if (key.includes("extra points made")) return "extra_points_kicks_made";
+  
+  // MLB
+  if (key.includes("hits")) return "hits";
+  if (key.includes("runs")) return "runs";
+  if (key.includes("walks")) return "walks";
+  if (key.includes("stolen bases")) return "stolen_bases";
+  if (key.includes("outs recorded")) return "outs_recorded";
+  if (key.includes("earned runs")) return "earned_runs";
+  if (key.includes("runs batted in")) return "runs_batted_in";
+  
+  // NBA
+  if (key.includes("points")) return "points";
+  if (key.includes("rebounds")) return "rebounds";
+  if (key.includes("assists")) return "assists";
+  if (key.includes("steals")) return "steals";
+  if (key.includes("blocks")) return "blocks";
+  if (key.includes("turnovers")) return "turnovers";
+  if (key.includes("three pointers")) return "three_pointers_made";
+  if (key.includes("field goals")) return "field_goals_made";
+  if (key.includes("free throws")) return "free_throws_made";
+  
+  // NHL
+  if (key.includes("goals")) return "goals";
+  if (key.includes("shots")) return "shots";
+  if (key.includes("saves")) return "saves";
+  if (key.includes("hits")) return "hits";
+  if (key.includes("blocks")) return "blocks";
+  if (key.includes("penalty minutes")) return "penalty_minutes";
   if (key.includes("blocks") || key.includes("block") || key.includes("blk")) return "blocks";
   if (key.includes("three pointers made") || key.includes("three pointer made") || key.includes("3pm")) return "three_pointers_made";
   if (key.includes("three pointers attempted") || key.includes("three pointer attempted") || key.includes("3pa")) return "three_pointers_attempted";
@@ -346,8 +374,8 @@ export function normalizePropType(propType: string): string {
   if (key.includes("last touchdown") || key.includes("last td")) return "lasttouchdown";
   if (key.includes("anytime touchdown") || key.includes("anytime td")) return "anytime_touchdown";
 
-  // Return original key if no match found (instead of defaulting to over/under)
-  return key;
+  // Return over_under fallback only if truly unknown
+  return "over_under";
 }
 
 export function getAliasCache() {
