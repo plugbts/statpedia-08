@@ -33,7 +33,7 @@ const PLAYERS_DATA = [
   // NFL Wide Receivers
   { player_id: 'STEFON_DIGGS-WR-BUF', full_name: 'Stefon Diggs', first_name: 'Stefon', last_name: 'Diggs', team: 'BUF', league: 'NFL', position: 'WR', sport: 'football' },
   { player_id: 'TYREEK_HILL-WR-MIA', full_name: 'Tyreek Hill', first_name: 'Tyreek', last_name: 'Hill', team: 'MIA', league: 'NFL', position: 'WR', sport: 'football' },
-  { player_id: 'DAVANTE_ADAMS-WR-LV', full_name: 'Davante Adams', first_name: 'Davante', last_name: 'Adams', team: 'LV', league: 'NFL', position: 'WR', sport: 'football' },
+  { player_id: 'DAVANTE_ADAMS-WR-LAR', full_name: 'Davante Adams', first_name: 'Davante', last_name: 'Adams', team: 'LAR', league: 'NFL', position: 'WR', sport: 'football' },
   { player_id: 'COOPER_KUPP-WR-LAR', full_name: 'Cooper Kupp', first_name: 'Cooper', last_name: 'Kupp', team: 'LAR', league: 'NFL', position: 'WR', sport: 'football' },
   { player_id: 'JAXON_SMITHNJIGBA-WR-SEA', full_name: 'Jaxon Smith-Njigba', first_name: 'Jaxon', last_name: 'Smith-Njigba', team: 'SEA', league: 'NFL', position: 'WR', sport: 'football' },
   { player_id: 'CEEDEE_LAMB-WR-DAL', full_name: 'CeeDee Lamb', first_name: 'CeeDee', last_name: 'Lamb', team: 'DAL', league: 'NFL', position: 'WR', sport: 'football' },

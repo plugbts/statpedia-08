@@ -333,7 +333,7 @@ export class NFLPerformanceFetcher implements PerformanceDataFetcher {
       { name: 'Patrick Mahomes', team: 'KC', position: 'QB' },
       { name: 'Josh Allen', team: 'BUF', position: 'QB' },
       { name: 'Derrick Henry', team: 'TEN', position: 'RB' },
-      { name: 'Davante Adams', team: 'LV', position: 'WR' },
+      { name: 'Davante Adams', team: 'LAR', position: 'WR' },
       { name: 'Travis Kelce', team: 'KC', position: 'TE' }
     ];
 
