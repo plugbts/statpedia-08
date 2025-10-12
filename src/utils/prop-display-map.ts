@@ -4,72 +4,32 @@
 export const PROP_DISPLAY_MAP: Record<string, string> = {
   // NFL
   passing_yards: "Passing Yards",
-  rushing_yards: "Rushing Yards", 
+  rushing_yards: "Rushing Yards",
   receiving_yards: "Receiving Yards",
   receptions: "Receptions",
-  passing_touchdowns: "Passing TDs",
-  rushing_touchdowns: "Rushing TDs",
-  receiving_touchdowns: "Receiving TDs",
-  completions: "Completions",
-  pass_attempts: "Pass Attempts",
-  passing_interceptions: "Interceptions",
-  passing_longestcompletion: "Longest Completion",
-  receiving_longestreception: "Longest Reception",
-  rushing_longest: "Longest Rush",
-  field_goals_made: "Field Goals Made",
-  extra_points_kicks_made: "Extra Points Made",
-  defense_combined_tackles: "Tackles + Assists",
-  defense_sacks: "Sacks",
-  
-  // Combo props
   rush_rec_yards: "Rush + Rec Yards",
   pass_rush_yards: "Pass + Rush Yards",
   pass_rec_yards: "Pass + Rec Yards",
-  
-  // Touchdown variants
-  anytime_td: "Anytime TD",
-  anytime_touchdown: "Anytime TD",
-  first_td: "First TD",
-  firsttouchdown: "First TD",
-  last_td: "Last TD",
-  lasttouchdown: "Last TD",
-  
-  // MLB
+  passing_tds: "Passing TDs",
+  rushing_tds: "Rushing TDs",
+  receiving_tds: "Receiving TDs",
+  completions: "Completions",
+  pass_attempts: "Pass Attempts",
+  interceptions: "Interceptions",
+  longest_completion: "Longest Completion",
+  longest_reception: "Longest Reception",
+  longest_rush: "Longest Rush",
   strikeouts: "Strikeouts",
   hits: "Hits",
   home_runs: "Home Runs",
   rbis: "RBIs",
-  runs: "Runs",
   total_bases: "Total Bases",
-  walks: "Walks",
-  stolen_bases: "Stolen Bases",
-  outs_recorded: "Outs Recorded",
-  earned_runs: "Earned Runs",
   hits_allowed: "Hits Allowed",
-  runs_allowed: "Runs Allowed",
-  
-  // NBA
-  points: "Points",
-  rebounds: "Rebounds",
-  assists: "Assists",
-  steals: "Steals",
-  blocks: "Blocks",
-  turnovers: "Turnovers",
-  three_pointers_made: "Three Pointers",
-  three_pointers_attempted: "3PA",
-  field_goals_attempted: "FGA",
-  free_throws_made: "Free Throws Made",
-  free_throws_attempted: "FTA",
-  
-  // NHL
-  goals: "Goals",
-  shots_on_goal: "Shots on Goal",
-  goalie_saves: "Saves",
-  penalty_minutes: "Penalty Minutes",
-  powerplay_goals_assists: "PP Goals + Assists",
-  goals_assists: "Goals + Assists",
-  firsttoscore: "First to Score",
-  lasttoscore: "Last to Score"
+  earned_runs: "Earned Runs",
+  outs_recorded: "Outs Recorded",
+  anytime_td: "Anytime TD",
+  first_td: "First TD",
+  last_td: "Last TD"
 };
 
 /**
