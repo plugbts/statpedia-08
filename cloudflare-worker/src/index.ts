@@ -5,6 +5,7 @@
 import { withCORS, handleOptions } from "./cors";
 import { isPlayerProp, extractPlayerInfo } from "./market-mapper";
 import { DateTime } from "luxon";
+import { formatLine, normalizeOdds, normalizePropData } from "./oddsNormalizer";
 
 export interface Env {
   SPORTSODDS_API_KEY: string;
@@ -1375,8 +1376,8 @@ function json(body: unknown, status = 200, request?: Request): Response {
 
 function calculateEV(prop: any): number {
   try {
-    const overOdds = parseFloat(prop.best_over || prop.over_odds || '0');
-    const underOdds = parseFloat(prop.best_under || prop.under_odds || '0');
+    const overOdds = normalizeOdds(prop.best_over || prop.over_odds);
+    const underOdds = normalizeOdds(prop.best_under || prop.under_odds);
     
     // Skip if no valid odds
     if (!overOdds || !underOdds || overOdds === 0 || underOdds === 0) {
@@ -1670,9 +1671,9 @@ async function normalizeEvent(ev: SGEvent) {
       
       // Extract line from bookOverUnder or fairOverUnder
       if (oddsData.bookOverUnder !== undefined) {
-        prop.line = parseFloat(oddsData.bookOverUnder);
+        prop.line = formatLine(oddsData.bookOverUnder);
       } else if (oddsData.fairOverUnder !== undefined) {
-        prop.line = parseFloat(oddsData.fairOverUnder);
+        prop.line = formatLine(oddsData.fairOverUnder);
       }
       
       // Map sportsbooks and odds - handle both direct and nested formats
@@ -1918,7 +1919,7 @@ async function normalizePlayerGroup(markets: any[], players: Record<string, any>
     player_id: player?.playerID || base.statEntityID || null,
     teamID: teamID,
     market_type: formatMarketType(formatMarketTypeWithLeague(base.statID, league)),
-    line: Number(base.bookOverUnder ?? null),
+    line: formatLine(base.bookOverUnder ?? null),
     best_over: best_over,
     best_under: best_under,
     books: allBooks,
@@ -2039,7 +2040,7 @@ function collectBooks(side: any) {
       bookmaker: "consensus",
       side: normalizeSide(side.sideID),
       price: side.bookOdds ?? null,
-      line: Number(side.bookOverUnder ?? null),
+      line: formatLine(side.bookOverUnder ?? null),
     });
   }
   for (const [book, data] of Object.entries(side.byBookmaker || {})) {
@@ -2049,7 +2050,7 @@ function collectBooks(side: any) {
       bookmaker: book,
       side: normalizeSide(side.sideID),
       price: bookData.odds ?? side.bookOdds ?? null,
-      line: Number(bookData.overUnder ?? side.bookOverUnder ?? null),
+      line: formatLine(bookData.overUnder ?? side.bookOverUnder ?? null),
       deeplink: bookData.deeplink,
     });
   }
@@ -2067,7 +2068,7 @@ function collectBooksFromMarket(market: any): any[] {
       bookmaker: "consensus",
       side: normalizeSide(market.sideID),
       price: market.bookOdds || market.fairOdds || null,
-      line: Number(market.bookOverUnder || market.fairOverUnder || null),
+      line: formatLine(market.bookOverUnder || market.fairOverUnder || null),
     });
   }
   
@@ -2081,7 +2082,7 @@ function collectBooksFromMarket(market: any): any[] {
         bookmaker: book,
         side: normalizeSide(market.sideID),
         price: bookData.odds || market.bookOdds || market.fairOdds || null,
-        line: Number(bookData.overUnder || market.bookOverUnder || market.fairOverUnder || null),
+        line: formatLine(bookData.overUnder || market.bookOverUnder || market.fairOverUnder || null),
         deeplink: bookData.deeplink,
       });
     }
@@ -2130,7 +2131,7 @@ function normalizeTeamGroup(markets: MarketSide[]) {
     
     return {
       market_type: marketType,
-      line: toNumberOrNull(base.bookOverUnder || base.fairOverUnder),
+      line: formatLine(base.bookOverUnder || base.fairOverUnder),
       best_over: null,
       best_under: null,
       books,
@@ -2942,7 +2943,7 @@ function debugNormalizePlayerGroup(markets: any[], players: Record<string, any>)
         bookmaker: "consensus",
         side: String(side.sideID).toLowerCase(),
         price: side.bookOdds ?? side.fairOdds ?? "",
-        line: toNumberOrNull(side.bookOverUnder ?? side.fairOverUnder),
+        line: formatLine(side.bookOverUnder ?? side.fairOverUnder),
       });
     }
 
@@ -2954,7 +2955,7 @@ function debugNormalizePlayerGroup(markets: any[], players: Record<string, any>)
         bookmaker: book,
         side: String(side.sideID).toLowerCase(),
         price: bookData.odds ?? side.bookOdds ?? "",
-        line: toNumberOrNull(bookData.overUnder ?? side.bookOverUnder),
+        line: formatLine(bookData.overUnder ?? side.bookOverUnder),
         deeplink: bookData.deeplink,
       });
     }
@@ -2992,7 +2993,7 @@ function debugNormalizeTeamGroup(markets: any[]) {
         bookmaker: "consensus",
         side: String(side.sideID).toLowerCase(),
         price: side.bookOdds ?? side.fairOdds ?? "",
-        line: toNumberOrNull(side.bookOverUnder ?? side.fairOverUnder),
+        line: formatLine(side.bookOverUnder ?? side.fairOverUnder),
       });
     }
     for (const [book, data] of Object.entries(side.byBookmaker || {})) {
@@ -3002,7 +3003,7 @@ function debugNormalizeTeamGroup(markets: any[]) {
         bookmaker: book,
         side: String(side.sideID).toLowerCase(),
         price: bookData.odds ?? side.bookOdds ?? "",
-        line: toNumberOrNull(bookData.overUnder ?? side.bookOverUnder),
+        line: formatLine(bookData.overUnder ?? side.bookOverUnder),
         deeplink: bookData.deeplink,
       });
     }

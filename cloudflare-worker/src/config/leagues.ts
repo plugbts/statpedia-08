@@ -17,7 +17,7 @@ export const LEAGUES: LeagueConfig[] = [
     sport: "football",
     seasons: [2023, 2024, 2025],
     isActive: true,
-    oddIDs: "passing_yards-PLAYER_ID-game-ou-over,rushing_yards-PLAYER_ID-game-ou-over,receiving_yards-PLAYER_ID-game-ou-over,receptions-PLAYER_ID-game-ou-over,passing_touchdowns-PLAYER_ID-game-ou-over,rushing_touchdowns-PLAYER_ID-game-ou-over,receiving_touchdowns-PLAYER_ID-game-ou-over"
+    oddIDs: "passing_yards-PLAYER_ID-game-ou-over,rushing_yards-PLAYER_ID-game-ou-over,receiving_yards-PLAYER_ID-game-ou-over,receptions-PLAYER_ID-game-ou-over,passing_touchdowns-PLAYER_ID-game-ou-over,rushing_touchdowns-PLAYER_ID-game-ou-over,receiving_touchdowns-PLAYER_ID-game-ou-over,passing+rushing_yards-PLAYER_ID-game-ou-over,rushing+receiving_yards-PLAYER_ID-game-ou-over"
   },
   {
     id: "NBA",

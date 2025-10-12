@@ -2,6 +2,7 @@ import { toYmd } from "./helpers";
 import { storeMissingPlayer } from "./missingPlayers";
 import { getCachedPlayerIdMap, updateMissingPlayersSuccess } from "./playersLoader";
 import { normalizeName } from "./normalizeName";
+import { normalizePropData } from "./oddsNormalizer";
 
 // Market mapping for prop types
 const MARKET_MAP: Record<string, string> = {
@@ -202,8 +203,22 @@ export async function createPlayerPropsFromOdd(odd: any, oddId: string, event: a
     return props;
   }
   
-  // Handle props without lines (Yes/No bets, etc.)
-  const finalLine = line != null ? parseFloat(line) : 0;
+  
+  // Normalize prop data with proper formatting
+  const normalizedData = normalizePropData({
+    line: line,
+    overOdds: overOdds,
+    underOdds: underOdds,
+    playerName: playerName,
+    marketName: rawPropType,
+    source: 'createPlayerPropsFromOdd'
+  });
+  
+  // Skip if data is invalid
+  if (!normalizedData.isValid) {
+    console.log(`Skipping odd ${oddId}: invalid normalized data`);
+    return props;
+  }
 
   // Normalize prop type using market mapping
   const normalizedPropType = MARKET_MAP[rawPropType.toLowerCase()] || rawPropType;
@@ -233,9 +248,9 @@ export async function createPlayerPropsFromOdd(odd: any, oddId: string, event: a
     season: parseInt(season),
     date: gameDate, // ✅ REQUIRED field that was missing!
     prop_type: normalizedPropType,
-    line: finalLine,
-    over_odds: overOdds ? parseInt(overOdds) : null,
-    under_odds: underOdds ? parseInt(underOdds) : null,
+    line: normalizedData.line,
+    over_odds: normalizedData.over_odds,
+    under_odds: normalizedData.under_odds,
     sportsbook: sportsbook,
     league: league.toLowerCase(),
     game_id: gameId,

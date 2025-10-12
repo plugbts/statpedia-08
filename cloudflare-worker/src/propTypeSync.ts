@@ -27,7 +27,9 @@ export async function loadPropTypeAliases() {
 
     aliasCache = {};
     data?.forEach((row: any) => {
-      aliasCache[row.alias.toLowerCase()] = row.canonical.toLowerCase();
+      if (row.canonical && row.canonical !== 'undefined') {
+        aliasCache[row.alias.toLowerCase()] = row.canonical.toLowerCase();
+      }
     });
 
     // Add comprehensive fallback mappings for 100% coverage
@@ -134,6 +136,14 @@ export const PROP_TYPE_MAP: Record<string, string> = {
   "receiving td": "receiving_touchdowns",
   "rec touchdowns": "receiving_touchdowns",
   "rec td": "receiving_touchdowns",
+  
+  // Combo props
+  "passing + rushing yards": "passing_rushing_yards",
+  "pass + rush yards": "passing_rushing_yards",
+  "passing rushing yards": "passing_rushing_yards",
+  "rushing + receiving yards": "rushing_receiving_yards",
+  "rush + rec yards": "rushing_receiving_yards",
+  "rushing receiving yards": "rushing_receiving_yards",
   "completions": "passing_completions",
   "completion": "passing_completions",
   "pass completions": "passing_completions",
@@ -292,6 +302,8 @@ export function normalizePropType(propType: string): string {
   if (key.includes("passing touchdown") || key.includes("pass td")) return "passing_touchdowns";
   if (key.includes("rushing touchdown") || key.includes("rush td")) return "rushing_touchdowns";
   if (key.includes("receiving touchdown") || key.includes("rec td")) return "receiving_touchdowns";
+  if (key.includes("passing + rushing") || key.includes("pass + rush") || key.includes("passing rushing")) return "passing_rushing_yards";
+  if (key.includes("rushing + receiving") || key.includes("rush + rec") || key.includes("rushing receiving")) return "rushing_receiving_yards";
   if (key.includes("completion")) return "passing_completions";
   if (key.includes("attempt")) return "passing_attempts";
   if (key.includes("interception")) return "passing_interceptions";

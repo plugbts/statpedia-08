@@ -1,6 +1,8 @@
 // Clean diagnostic mapping function without duplicate keys
 // This replaces the complex createPlayerPropsFromOdd function with a simpler, more transparent approach
 
+import { normalizePropType } from '../propTypeSync';
+
 // Expanded MARKET_MAP based on diagnostic analysis - NO DUPLICATE KEYS
 const MARKET_MAP: Record<string, string> = {
   // Core markets
@@ -227,24 +229,10 @@ export function mapWithDiagnostics(odds: any[]): { mapped: any[]; stats: any } {
         return null;
       }
 
-      // Try multiple market name variations
-      let propType = MARKET_MAP[odd.marketName];
-      if (!propType) {
-        // Try lowercase
-        propType = MARKET_MAP[odd.marketName?.toLowerCase()];
-      }
-      if (!propType) {
-        // Try extracting key words
-        const marketWords = odd.marketName?.toLowerCase().split(' ') || [];
-        for (const word of marketWords) {
-          if (MARKET_MAP[word]) {
-            propType = MARKET_MAP[word];
-            break;
-          }
-        }
-      }
+      // Use proper prop type normalization
+      const propType = normalizePropType(odd.marketName || '');
       
-      if (!propType) {
+      if (!propType || propType === 'over/under') {
         // console.log(`❌ Unmapped market:`, odd.marketName); // Reduced logging
         stats.unmappedMarket++;
         return null;

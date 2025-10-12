@@ -957,9 +957,13 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
          (underOdds >= minOdds && underOdds <= maxOdds));
       
       // Over/Under filter
-      const matchesOverUnder = overUnderFilter === 'both' || 
-        (overUnderFilter === 'over' && overOdds !== null && overOdds !== undefined && !isNaN(Number(overOdds))) || 
-        (overUnderFilter === 'under' && underOdds !== null && underOdds !== undefined && !isNaN(Number(underOdds)));
+      let matchesOverUnder = true; // Default to true
+      if (overUnderFilter === 'over') {
+        matchesOverUnder = overOdds !== null && overOdds !== undefined && !isNaN(Number(overOdds));
+      } else if (overUnderFilter === 'under') {
+        matchesOverUnder = underOdds !== null && underOdds !== undefined && !isNaN(Number(underOdds));
+      }
+      // If overUnderFilter === 'both', matchesOverUnder stays true (shows all props)
       
       const passes = matchesSearch && matchesPropType && matchesConfidence && matchesEV && matchesPositiveEV && matchesLine && matchesOddsRange && matchesOverUnder;
       
