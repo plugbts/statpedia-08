@@ -80,9 +80,9 @@ export class NBAPerformanceFetcher implements PerformanceDataFetcher {
       console.log('⚠️ NBA.com stats fetch failed');
     }
 
-    // Fallback: Create mock data for testing
-    console.log('⚠️ All NBA data sources failed, creating mock data for testing');
-    return this.createMockNBAData(date);
+    // No fallback - return empty array if all data sources fail
+    console.log('❌ All NBA data sources failed, returning empty data');
+    return [];
   }
 
   private async fetchFromESPN(date: string): Promise<PerformanceData[]> {
@@ -215,52 +215,6 @@ export class NBAPerformanceFetcher implements PerformanceDataFetcher {
     return [];
   }
 
-  private createMockNBAData(date: string): PerformanceData[] {
-    // Create realistic mock NBA data for testing
-    const mockPlayers = [
-      { name: 'LeBron James', team: 'LAL', position: 'SF' },
-      { name: 'Stephen Curry', team: 'GSW', position: 'PG' },
-      { name: 'Kevin Durant', team: 'PHX', position: 'SF' },
-      { name: 'Giannis Antetokounmpo', team: 'MIL', position: 'PF' },
-      { name: 'Nikola Jokic', team: 'DEN', position: 'C' }
-    ];
-
-    const mockOpponents = ['BOS', 'MIA', 'PHI', 'ATL', 'CHI'];
-    const performanceData: PerformanceData[] = [];
-
-    for (const player of mockPlayers) {
-      const opponent = mockOpponents[Math.floor(Math.random() * mockOpponents.length)];
-      
-      // Generate realistic stats
-      const points = Math.floor(Math.random() * 30) + 10;
-      const assists = Math.floor(Math.random() * 12) + 3;
-      const rebounds = Math.floor(Math.random() * 15) + 5;
-
-      // Create multiple prop type records for each player
-      const propTypes = [
-        { type: 'Points', value: points },
-        { type: 'Assists', value: assists },
-        { type: 'Rebounds', value: rebounds }
-      ];
-
-      for (const prop of propTypes) {
-        performanceData.push({
-          player_id: this.generatePlayerId(player.name, player.team),
-          player_name: player.name,
-          team: player.team,
-          opponent: opponent,
-          date: date,
-          prop_type: prop.type,
-          value: prop.value,
-          league: 'nba',
-          season: new Date(date).getFullYear(),
-          game_id: `MOCK_${player.team}_${opponent}_${date}`
-        });
-      }
-    }
-
-    return performanceData;
-  }
 
   private generatePlayerId(name: string, team: string): string {
     return `${name.toUpperCase().replace(/\s+/g, '_')}_${team}`;
@@ -297,8 +251,9 @@ export class NFLPerformanceFetcher implements PerformanceDataFetcher {
       return data;
     } catch (error) {
       console.error('❌ NFL performance fetch failed:', error);
-      // Return mock data for testing
-      return this.createMockNFLData(date);
+      // No fallback - return empty array if data fetch fails
+      console.log('❌ NFL performance fetch failed, returning empty data');
+      return [];
     }
   }
 
@@ -328,50 +283,6 @@ export class NFLPerformanceFetcher implements PerformanceDataFetcher {
     return performanceData;
   }
 
-  private createMockNFLData(date: string): PerformanceData[] {
-    const mockPlayers = [
-      { name: 'Patrick Mahomes', team: 'KC', position: 'QB' },
-      { name: 'Josh Allen', team: 'BUF', position: 'QB' },
-      { name: 'Derrick Henry', team: 'TEN', position: 'RB' },
-      { name: 'Davante Adams', team: 'LAR', position: 'WR' },
-      { name: 'Travis Kelce', team: 'KC', position: 'TE' }
-    ];
-
-    const mockOpponents = ['NE', 'MIA', 'NYJ', 'DEN', 'LAC'];
-    const performanceData: PerformanceData[] = [];
-
-    for (const player of mockPlayers) {
-      const opponent = mockOpponents[Math.floor(Math.random() * mockOpponents.length)];
-      
-      // Generate realistic NFL stats
-      const passingYards = Math.floor(Math.random() * 300) + 150;
-      const rushingYards = Math.floor(Math.random() * 100) + 20;
-      const receivingYards = Math.floor(Math.random() * 120) + 30;
-
-      const propTypes = [
-        { type: 'Passing Yards', value: passingYards },
-        { type: 'Rushing Yards', value: rushingYards },
-        { type: 'Receiving Yards', value: receivingYards }
-      ];
-
-      for (const prop of propTypes) {
-        performanceData.push({
-          player_id: this.generatePlayerId(player.name, player.team),
-          player_name: player.name,
-          team: player.team,
-          opponent: opponent,
-          date: date,
-          prop_type: prop.type,
-          value: prop.value,
-          league: 'nfl',
-          season: new Date(date).getFullYear(),
-          game_id: `MOCK_${player.team}_${opponent}_${date}`
-        });
-      }
-    }
-
-    return performanceData;
-  }
 
   private generatePlayerId(name: string, team: string): string {
     return `${name.toUpperCase().replace(/\s+/g, '_')}_${team}`;
