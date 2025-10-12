@@ -327,6 +327,7 @@ export function normalizePropType(raw: string): string {
   // Touchdowns (before individual stat patterns)
   if (key.includes("anytime") && (key.includes("td") || key.includes("touchdown"))) return "anytime_td";
   if (key.includes("first") && (key.includes("td") || key.includes("touchdown"))) return "first_td";
+  if (key.includes("firsttouchdown") || key.includes("first touchdown")) return "first_td";
   if (key.includes("last") && (key.includes("td") || key.includes("touchdown"))) return "last_td";
   if ((key.includes("pass") || key.includes("qb")) && (key.includes("td") || key.includes("touchdown"))) return "passing_tds";
   if (key.includes("rush") && (key.includes("td") || key.includes("touchdown"))) return "rushing_tds";
