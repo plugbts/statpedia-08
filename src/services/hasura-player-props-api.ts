@@ -113,7 +113,7 @@ class HasuraPlayerPropsAPI {
       // Build GraphQL query using new clean schema with relationships and limit
       const query = `
         query GetPlayerProps($limit: Int) {
-          props(limit: $limit) {
+          props(limit: $limit, order_by: {created_at: desc}) {
             id
             prop_type
             line

@@ -215,22 +215,37 @@ export async function ingestAllLeagues() {
           
           console.log(`🎯 Processing player: ${playerName} (${odd.statEntityID})`);
           
-          // For now, we'll need to determine team from the game context
-          // This is a limitation - we'll use the home team as default
-          const teamData = {
-            abbreviation: game.homeTeam?.abbreviation || 'UNK',
-            name: game.homeTeam?.name || 'Unknown Team',
-            logo: game.homeTeam?.logo || `https://a.espncdn.com/i/teamlogos/${leagueInfo.code.toLowerCase()}/500/default.png`
-          };
+          // Try to find existing player first to get correct team
+          const existingPlayer = await db.select().from(players)
+            .where(eq(players.name, playerName))
+            .limit(1);
           
-          const playerTeamId = await getOrCreateTeam(leagueId, teamData);
-          if (!playerTeamId) continue;
+          let playerId;
+          let playerTeamId;
+          
+          if (existingPlayer.length > 0) {
+            // Use existing player and their team
+            playerId = existingPlayer[0].id;
+            playerTeamId = existingPlayer[0].team_id;
+            console.log(`✅ Found existing player: ${playerName} -> ${existingPlayer[0].name} (Team: ${playerTeamId})`);
+          } else {
+            // For new players, we'll need to determine team from the game context
+            // This is a limitation - we'll use the home team as default
+            const teamData = {
+              abbreviation: game.homeTeam?.abbreviation || 'UNK',
+              name: game.homeTeam?.name || 'Unknown Team',
+              logo: game.homeTeam?.logo || `https://a.espncdn.com/i/teamlogos/${leagueInfo.code.toLowerCase()}/500/default.png`
+            };
+            
+            playerTeamId = await getOrCreateTeam(leagueId, teamData);
+            if (!playerTeamId) continue;
 
-          // Create or find player
-          const playerId = await getOrCreatePlayer(playerTeamId, {
-            name: playerName,
-            position: 'UNK' // We don't have position info in this API structure
-          });
+            // Create new player
+            playerId = await getOrCreatePlayer(playerTeamId, {
+              name: playerName,
+              position: 'UNK' // We don't have position info in this API structure
+            });
+          }
           
           if (!playerId) continue;
           processedPlayers.add(playerName);
