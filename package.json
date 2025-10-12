@@ -20,6 +20,7 @@
     "ingest:enhanced": "tsx scripts/run-enhanced-ingestion.ts",
     "ingest:upcoming": "tsx scripts/run-upcoming-props-ingestion.ts",
     "seed:players": "tsx scripts/seed-real-players.ts",
+    "ingest:full": "tsx scripts/run-full-ingestion.ts",
     "git-sync": "node scripts/git-sync.js",
     "git-sync:watch": "node scripts/git-sync.js watch",
     "git-sync:setup": "node scripts/git-sync.js setup-hooks",
