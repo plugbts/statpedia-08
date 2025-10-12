@@ -4,6 +4,74 @@ import { createClient } from "@supabase/supabase-js";
 let supabase: any = null;
 let aliasCache: Record<string, string> = {};
 
+// Canonical display labels for clean UI
+export const DISPLAY_MAP: Record<string, string> = {
+  passing_yards: "Passing Yards",
+  rushing_yards: "Rushing Yards", 
+  receiving_yards: "Receiving Yards",
+  receptions: "Receptions",
+  rush_rec_yards: "Rush + Rec Yards",
+  pass_rush_yards: "Pass + Rush Yards",
+  pass_rec_yards: "Pass + Rec Yards",
+  passing_touchdowns: "Passing TDs",
+  rushing_touchdowns: "Rushing TDs",
+  receiving_touchdowns: "Receiving TDs",
+  completions: "Completions",
+  pass_attempts: "Pass Attempts",
+  passing_interceptions: "Interceptions",
+  passing_longestcompletion: "Longest Completion",
+  receiving_longestreception: "Longest Reception",
+  rushing_longest: "Longest Rush",
+  field_goals_made: "Field Goals Made",
+  extra_points_kicks_made: "Extra Points Made",
+  defense_combined_tackles: "Tackles + Assists",
+  defense_sacks: "Sacks",
+  strikeouts: "Strikeouts",
+  hits: "Hits",
+  home_runs: "Home Runs",
+  rbis: "RBIs",
+  runs: "Runs",
+  total_bases: "Total Bases",
+  walks: "Walks",
+  stolen_bases: "Stolen Bases",
+  outs_recorded: "Outs Recorded",
+  earned_runs: "Earned Runs",
+  hits_allowed: "Hits Allowed",
+  runs_allowed: "Runs Allowed",
+  anytime_td: "Anytime TD",
+  anytime_touchdown: "Anytime TD",
+  first_td: "First TD",
+  firsttouchdown: "First TD",
+  last_td: "Last TD",
+  lasttouchdown: "Last TD",
+  // NBA
+  points: "Points",
+  rebounds: "Rebounds",
+  assists: "Assists",
+  steals: "Steals",
+  blocks: "Blocks",
+  turnovers: "Turnovers",
+  three_pointers_made: "Three Pointers",
+  three_pointers_attempted: "3PA",
+  field_goals_attempted: "FGA",
+  free_throws_made: "Free Throws Made",
+  free_throws_attempted: "FTA",
+  // NHL
+  goals: "Goals",
+  shots_on_goal: "Shots on Goal",
+  goalie_saves: "Saves",
+  penalty_minutes: "Penalty Minutes",
+  powerplay_goals_assists: "PP Goals + Assists",
+  goals_assists: "Goals + Assists",
+  firsttoscore: "First to Score",
+  lasttoscore: "Last to Score"
+};
+
+// Clean display function to prevent concatenation typos
+export function displayPropType(key: string): string {
+  return DISPLAY_MAP[key] ?? key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+}
+
 export async function initializePropTypeSync(supabaseUrl: string, supabaseKey: string) {
   supabase = createClient(supabaseUrl, supabaseKey);
   await loadPropTypeAliases();
@@ -292,90 +360,90 @@ export function normalizePropType(propType: string): string {
   // Exact match in our comprehensive map
   if (PROP_TYPE_MAP[key]) return PROP_TYPE_MAP[key];
 
-  // Fuzzy contains matching (catch variations) - order matters for specificity
-  // NFL
-  if (key.includes("passing yards") || key.includes("pass yards")) return "passing_yards";
-  if (key.includes("rushing yards") || key.includes("rush yards")) return "rushing_yards";
-  if (key.includes("receiving yards") || key.includes("rec yards")) return "receiving_yards";
-  if (key.includes("receptions")) return "receptions";
-  if (key.includes("strikeouts")) return "strikeouts";
-  if (key.includes("total bases")) return "total_bases";
-  if (key.includes("home runs")) return "home_runs";
-  if (key.includes("rbis")) return "rbis";
+  // Enhanced fuzzy matching - order matters for specificity
+  // Combo props first (most specific)
+  if (key.includes("rush") && key.includes("rec") && key.includes("yard")) return "rush_rec_yards";
+  if (key.includes("pass") && key.includes("rush") && key.includes("yard")) return "pass_rush_yards";
+  if (key.includes("pass") && key.includes("rec") && key.includes("yard")) return "pass_rec_yards";
   
-  // Combo props - check these before individual terms
-  if (key.includes("rush") && key.includes("rec")) return "rush_rec_yards";
-  if (key.includes("pass") && key.includes("rush")) return "pass_rush_yards";
-  if (key.includes("pass") && key.includes("rec")) return "pass_rec_yards";
+  // NFL passing
+  if (key.includes("passing") && key.includes("yard")) return "passing_yards";
+  if (key.includes("pass") && key.includes("yard")) return "passing_yards";
+  if (key.includes("pass") && key.includes("yds")) return "passing_yards";
+  
+  // NFL rushing  
+  if (key.includes("rushing") && key.includes("yard")) return "rushing_yards";
+  if (key.includes("rush") && key.includes("yard")) return "rushing_yards";
+  if (key.includes("rush") && key.includes("yds")) return "rushing_yards";
+  
+  // NFL receiving
+  if (key.includes("receiving") && key.includes("yard")) return "receiving_yards";
+  if (key.includes("rec") && key.includes("yard")) return "receiving_yards";
+  if (key.includes("rec") && key.includes("yds")) return "receiving_yards";
+  
+  // Receptions (separate from receiving yards)
+  if (key.includes("receptions") || key.includes("catches")) return "receptions";
   
   // Touchdowns
-  if (key.includes("passing touchdown")) return "passing_touchdowns";
-  if (key.includes("rushing touchdown")) return "rushing_touchdowns";
-  if (key.includes("receiving touchdown")) return "receiving_touchdowns";
-  if (key.includes("anytime touchdown")) return "anytime_td";
-  if (key.includes("first touchdown")) return "first_td";
-  if (key.includes("last touchdown")) return "last_td";
+  if (key.includes("passing touchdown") || key.includes("pass td")) return "passing_touchdowns";
+  if (key.includes("rushing touchdown") || key.includes("rush td")) return "rushing_touchdowns";
+  if (key.includes("receiving touchdown") || key.includes("rec td")) return "receiving_touchdowns";
+  if (key.includes("anytime touchdown") || key.includes("anytime td")) return "anytime_td";
+  if (key.includes("first touchdown") || key.includes("first td")) return "first_td";
+  if (key.includes("last touchdown") || key.includes("last td")) return "last_td";
   
-  // Other NFL
+  // Other NFL stats
   if (key.includes("completions")) return "completions";
-  if (key.includes("attempts")) return "pass_attempts";
-  if (key.includes("interceptions")) return "passing_interceptions";
+  if (key.includes("pass") && key.includes("attempt")) return "pass_attempts";
+  if (key.includes("interceptions") || key.includes("picks")) return "passing_interceptions";
   if (key.includes("longest completion")) return "passing_longestcompletion";
   if (key.includes("longest reception")) return "receiving_longestreception";
   if (key.includes("longest rush")) return "rushing_longest";
   if (key.includes("sacks")) return "defense_sacks";
   if (key.includes("tackles")) return "defense_combined_tackles";
-  if (key.includes("field goals made")) return "field_goals_made";
-  if (key.includes("extra points made")) return "extra_points_kicks_made";
+  if (key.includes("field goal") && key.includes("made")) return "field_goals_made";
+  if (key.includes("extra point") && key.includes("made")) return "extra_points_kicks_made";
   
-  // MLB
+  // MLB - enhanced matching
+  if (key.includes("strikeout") || key.includes("strike outs") || key.includes("k's")) return "strikeouts";
+  if (key.includes("total bases")) return "total_bases";
+  if (key.includes("home run")) return "home_runs";
+  if (key.includes("rbis") || key.includes("runs batted in")) return "rbis";
   if (key.includes("hits")) return "hits";
   if (key.includes("runs")) return "runs";
-  if (key.includes("walks")) return "walks";
-  if (key.includes("stolen bases")) return "stolen_bases";
+  if (key.includes("walks") || key.includes("bb")) return "walks";
+  if (key.includes("stolen bases") || key.includes("stolen base")) return "stolen_bases";
   if (key.includes("outs recorded")) return "outs_recorded";
   if (key.includes("earned runs")) return "earned_runs";
-  if (key.includes("runs batted in")) return "runs_batted_in";
   
-  // NBA
+  // NBA - enhanced matching
   if (key.includes("points")) return "points";
   if (key.includes("rebounds")) return "rebounds";
   if (key.includes("assists")) return "assists";
   if (key.includes("steals")) return "steals";
-  if (key.includes("blocks")) return "blocks";
-  if (key.includes("turnovers")) return "turnovers";
-  if (key.includes("three pointers")) return "three_pointers_made";
-  if (key.includes("field goals")) return "field_goals_made";
-  if (key.includes("free throws")) return "free_throws_made";
-  
-  // NHL
-  if (key.includes("goals")) return "goals";
-  if (key.includes("shots")) return "shots";
-  if (key.includes("saves")) return "saves";
-  if (key.includes("hits")) return "hits";
-  if (key.includes("blocks")) return "blocks";
-  if (key.includes("penalty minutes")) return "penalty_minutes";
   if (key.includes("blocks") || key.includes("block") || key.includes("blk")) return "blocks";
+  if (key.includes("turnovers")) return "turnovers";
   if (key.includes("three pointers made") || key.includes("three pointer made") || key.includes("3pm")) return "three_pointers_made";
   if (key.includes("three pointers attempted") || key.includes("three pointer attempted") || key.includes("3pa")) return "three_pointers_attempted";
+  if (key.includes("field goals made") || key.includes("field goal made") || key.includes("fgm")) return "field_goals_made";
   if (key.includes("field goals attempted") || key.includes("field goal attempted") || key.includes("fga")) return "field_goals_attempted";
   if (key.includes("free throws made") || key.includes("free throw made") || key.includes("ftm")) return "free_throws_made";
   if (key.includes("free throws attempted") || key.includes("free throw attempted") || key.includes("fta")) return "free_throws_attempted";
+  
+  // NHL - clean matching
   if (key.includes("goals") || key.includes("goal")) return "goals";
   if (key.includes("shots on goal") || key.includes("shot on goal") || key.includes("sog")) return "shots_on_goal";
   if (key.includes("goalie saves") || key.includes("goalie save") || key.includes("saves") || key.includes("save")) return "goalie_saves";
+  if (key.includes("hits")) return "hits";
+  if (key.includes("blocks") || key.includes("block") || key.includes("blk")) return "blocks";
   if (key.includes("penalty minutes") || key.includes("penalty minute") || key.includes("pims")) return "penalty_minutes";
-  if (key.includes("powerplay goals assists") || key.includes("powerplay goals+assists")) return "powerplay_goals+assists";
-  if (key.includes("goals assists") || key.includes("goals+assists")) return "goals+assists";
+  if (key.includes("powerplay goals assists") || key.includes("powerplay goals+assists")) return "powerplay_goals_assists";
+  if (key.includes("goals assists") || key.includes("goals+assists")) return "goals_assists";
   if (key.includes("first to score") || key.includes("firsttoscore")) return "firsttoscore";
   if (key.includes("last to score") || key.includes("lasttoscore")) return "lasttoscore";
-  if (key.includes("turnovers") || key.includes("turnover")) return "turnovers";
-  if (key.includes("first touchdown") || key.includes("first td")) return "firsttouchdown";
-  if (key.includes("last touchdown") || key.includes("last td")) return "lasttouchdown";
-  if (key.includes("anytime touchdown") || key.includes("anytime td")) return "anytime_touchdown";
 
-  // Return over_under fallback only if truly unknown
-  return "over_under";
+  // If we get here, it's truly unknown - return the cleaned key instead of "over_under"
+  return key.replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') || "unknown";
 }
 
 export function getAliasCache() {
