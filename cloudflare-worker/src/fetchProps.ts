@@ -13,6 +13,7 @@ import { cleanPlayerNames, type RawPropRow, type CleanPropRow } from "./playerNa
 import { enrichTeams, type RawRow, type CleanTeamRow } from "./teams";
 import { enrichTeams as enhancedEnrichTeams } from "./teamEnrichment";
 import { getPlayerTeam, getOpponentTeam } from "./lib/playerTeamMap";
+import { normalizePropType, displayPropType } from "./propTypeSync";
 import { extractPlayerProps } from "./lib/extract";
 import { getEventsWithFallbacks } from "./lib/api";
 import { getActiveLeagues } from "./config/leagues";
@@ -67,9 +68,9 @@ function extractPropRow(event: any, market: any, prop: any) {
     league: event.leagueID || event.league,
     date: event.startDate || event.startTime || event.commence_time,
 
-    // ✅ Use statType (or market name) as the prop_type
-    prop_type: prop.statType || market.name || "unknown",
-    prop_type_display: formatPropName(prop.statType || market.name || "unknown"),
+    // ✅ Use normalized statType (or market name) as the prop_type
+    prop_type: normalizePropType(prop.statType || market.name || "unknown"),
+    prop_type_display: displayPropType(normalizePropType(prop.statType || market.name || "unknown")),
 
     // ✅ Keep bet_type separate
     bet_type: prop.betType, // "over" | "under"
@@ -842,9 +843,8 @@ async function processRawProps(rawProps: any[], env: any, league: string, dateIS
         .join(' ');
     }
     
-    // Extract clean prop type from marketName
-    let cleanPropType = prop.marketName || prop.prop_type;
-    let cleanPropTypeDisplay = formatPropName(cleanPropType);
+    // Extract clean prop type from marketName and normalize it
+    let rawPropType = prop.marketName || prop.prop_type;
     
     // If marketName is verbose like "Bo Nix Passing Yards Over/Under", extract just the stat type
     if (prop.marketName && prop.marketName.includes('Over/Under')) {
@@ -853,11 +853,13 @@ async function processRawProps(rawProps: any[], env: any, league: string, dateIS
       // Handle cases like "Bo Nix Passing Yards Over/Under" -> "Passing Yards"
       const match = prop.marketName.match(/\w+\s+\w+\s+(\w+(?:\s+\w+)*)\s+Over\/Under/);
       if (match) {
-        const statType = match[1].toLowerCase().replace(/\s+/g, '_');
-        cleanPropType = statType;
-        cleanPropTypeDisplay = formatPropName(statType);
+        rawPropType = match[1]; // Keep original case for normalization
       }
     }
+    
+    // Apply normalization to get consistent prop_type
+    const cleanPropType = normalizePropType(rawPropType);
+    const cleanPropTypeDisplay = displayPropType(cleanPropType);
     
     return {
       player_id: prop.playerId || prop.player_id || `unknown_${Math.random()}`,

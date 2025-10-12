@@ -3,6 +3,7 @@ import { storeMissingPlayer } from "./missingPlayers";
 import { getCachedPlayerIdMap, updateMissingPlayersSuccess } from "./playersLoader";
 import { normalizeName } from "./normalizeName";
 import { normalizePropData } from "./oddsNormalizer";
+import { normalizePropType } from "./propTypeSync";
 
 // Market mapping for prop types
 const MARKET_MAP: Record<string, string> = {
@@ -220,13 +221,14 @@ export async function createPlayerPropsFromOdd(odd: any, oddId: string, event: a
     return props;
   }
 
-  // Normalize prop type using market mapping
-  const normalizedPropType = MARKET_MAP[rawPropType.toLowerCase()] || rawPropType;
+  // Normalize prop type using comprehensive normalization
+  const normalizedPropType = normalizePropType(rawPropType);
   
   // Log unmapped markets for manual review
-  if (!MARKET_MAP[rawPropType.toLowerCase()]) {
+  if (normalizedPropType === "unknown" || normalizedPropType === rawPropType.toLowerCase().replace(/[^a-z0-9_]/g, '_')) {
     console.warn("Unmapped market:", {
       rawMarket: rawPropType,
+      normalizedType: normalizedPropType,
       oddId: oddId,
       player: playerName,
       league: league
