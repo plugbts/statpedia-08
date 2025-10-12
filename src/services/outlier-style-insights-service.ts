@@ -56,7 +56,7 @@ export interface BettingTrend {
 class OutlierStyleInsightsService {
   private cache = new Map<string, { data: any; timestamp: number }>();
   private cacheTimeout = 10 * 60 * 1000; // 10 minutes cache
-  private baseUrl = 'https://statpedia-player-props.statpedia.workers.dev';
+  private baseUrl = 'https://statpedia-proxy.statpedia.workers.dev';
 
   // Fetch data from our analytics endpoints
   private async fetchAnalyticsData(endpoint: string, params: Record<string, string> = {}): Promise<any> {

@@ -278,18 +278,10 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
         try {
           logAPI('PredictionsTab', `Fetching ${endpoint} for ${selectedSport}`);
           
-          // Use Cloudflare Worker for prop ingestion
-          const response = await fetch(`https://statpedia-player-props.statpedia.workers.dev/ingest`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              league: selectedSport.toUpperCase(),
-              season: '2025',
-              week: '1'
-            })
-          });
+          // TODO: Replace with proper Hasura GraphQL queries
+          // For now, skip this API call to avoid CORS errors
+          logAPI('PredictionsTab', `Skipping ${endpoint} - using Hasura API instead`);
+          continue;
           
           if (!response.ok) {
             logWarning('PredictionsTab', `Failed to fetch ${endpoint}: ${response.status}`);

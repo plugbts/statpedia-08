@@ -93,7 +93,7 @@ class CloudflarePlayerPropsAPI {
   constructor() {
     // Use Cloudflare Worker for prop ingestion
     // This will be accessible from your Lovable frontend
-    this.baseUrl = 'https://statpedia-player-props.statpedia.workers.dev';
+    this.baseUrl = 'https://statpedia-storage.statpedia.workers.dev';
   }
 
   /**

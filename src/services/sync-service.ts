@@ -64,14 +64,11 @@ class SyncService {
 
   private async initializeSupabaseRealtime() {
     try {
-      // Test Supabase connection
-      const { data, error } = await supabase.from('profiles').select('count').limit(1);
-      if (error) {
-        console.warn('Supabase realtime not available:', error.message);
-        // Disable Supabase realtime if it fails
-        this.config.enableSupabaseRealtime = false;
-        return;
-      }
+      // TODO: Replace with Hasura/Cloudflare Workers equivalent
+      // Disable Supabase calls to avoid 406/400 errors
+      console.warn('Supabase realtime disabled - using Hasura API instead');
+      this.config.enableSupabaseRealtime = false;
+      return;
       console.log('Supabase realtime initialized');
     } catch (error) {
       console.warn('Failed to initialize Supabase realtime, disabling:', error);

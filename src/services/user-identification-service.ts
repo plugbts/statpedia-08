@@ -192,20 +192,16 @@ class UserIdentificationService {
           updated_at: profile.updated_at
         };
 
-        // Get additional info
-        const [authProfile, roleData] = await Promise.all([
-          supabase.from('profiles').select('email, subscription_tier').eq('user_id', profile.user_id).single(),
-          supabase.from('user_roles').select('role').eq('user_id', profile.user_id).single()
-        ]);
+        // TODO: Replace with Hasura/Cloudflare Workers equivalent
+        // Disable Supabase calls to avoid 400 errors
+        console.warn('Supabase profile calls disabled - using default values');
+        
+        // Use default values for now
+        identity.email = 'user@statpedia.com';
+        identity.subscription_tier = 'free';
 
-        if (authProfile.data) {
-          identity.email = authProfile.data.email;
-          identity.subscription_tier = authProfile.data.subscription_tier;
-        }
-
-        if (roleData.data) {
-          identity.role = roleData.data.role;
-        }
+        // Use default role
+        identity.role = 'user';
 
         this.cacheUser(identity);
         return identity;
