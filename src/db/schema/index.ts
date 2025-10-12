@@ -45,13 +45,11 @@ export const players = pgTable("players", {
 export const props = pgTable("props", {
   id: uuid("id").primaryKey().defaultRandom(),
   player_id: uuid("player_id")
-    .references(() => players.id, { onDelete: "cascade" })
-    .notNull(),
+    .references(() => players.id, { onDelete: "cascade" }),
   team_id: uuid("team_id")
-    .references(() => teams.id, { onDelete: "cascade" })
-    .notNull(),
+    .references(() => teams.id, { onDelete: "cascade" }),
   game_id: text("game_id"),
-  prop_type: text("prop_type").notNull(), // e.g. "Passing Yards", "Receptions"
+  prop_type: text("prop_type"), // e.g. "Passing Yards", "Receptions"
   line: numeric("line"), // betting line
   odds: text("odds"), // e.g. "-115", "+120"
   created_at: timestamp("created_at").defaultNow(),

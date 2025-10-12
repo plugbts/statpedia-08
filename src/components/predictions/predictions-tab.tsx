@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { LEAGUE_PROP_CAPS } from '@/lib/leagues';
 import { seasonService } from '@/services/season-service';
 import { cloudflarePlayerPropsAPI } from '@/services/cloudflare-player-props-api';
 import { evCalculatorService } from '@/services/ev-calculator';
@@ -295,9 +296,17 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
             
               // Limit player props to avoid overwhelming the predictions tab
               const isPlayerPropsEndpoint = endpoint === 'player-props' || endpoint === '1q-player-props';
-              const limitedData = isPlayerPropsEndpoint ? data.data.slice(0, 6) : data.data;
-              if (isPlayerPropsEndpoint && data.data.length > 6) {
-                logInfo('PredictionsTab', `Limited ${endpoint} from ${data.data.length} to 6 to prioritize other markets`);
+              let limitedData = data.data;
+              
+              if (isPlayerPropsEndpoint) {
+                // Use league-specific limits from LEAGUE_PROP_CAPS
+                const leagueKey = selectedSport.toLowerCase();
+                const propLimit = LEAGUE_PROP_CAPS[leagueKey] || 50; // Default to 50 for unknown leagues
+                limitedData = data.data.slice(0, propLimit);
+                
+                if (data.data.length > propLimit) {
+                  logInfo('PredictionsTab', `Limited ${endpoint} from ${data.data.length} to ${propLimit} for ${selectedSport} to respect league limits`);
+                }
               }
             
             // Process and add EV calculations for each market

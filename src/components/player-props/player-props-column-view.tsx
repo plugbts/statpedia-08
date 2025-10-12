@@ -1198,18 +1198,15 @@ export function PlayerPropsColumnView({
                   <div className="text-xs font-medium text-foreground">
                     {(() => {
                       if (hasGameLogs && h2h.total > 0) return `${h2h.pct.toFixed(0)}%`;
-                      // Mock data for demonstration
-                      const mockPct = Math.floor(Math.random() * 40) + 60; // 60-100%
-                      return `${mockPct}%`;
+                      // Use real data only - no mock data
+                      return 'N/A';
                     })()}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {(() => {
                       if (hasGameLogs && h2h.total > 0) return `${h2h.hits}/${h2h.total}`;
-                      // Mock data for demonstration
-                      const mockHits = Math.floor(Math.random() * 3) + 1;
-                      const mockTotal = mockHits + Math.floor(Math.random() * 2);
-                      return `${mockHits}/${mockTotal}`;
+                      // Use real data only - no mock data
+                      return 'N/A';
                     })()}
                   </div>
                 </div>
@@ -1219,18 +1216,15 @@ export function PlayerPropsColumnView({
                   <div className="text-xs font-medium text-foreground">
                     {(() => {
                       if (hasGameLogs && season.total > 0) return `${season.pct.toFixed(0)}%`;
-                      // Mock data for demonstration
-                      const mockPct = Math.floor(Math.random() * 30) + 70; // 70-100%
-                      return `${mockPct}%`;
+                      // Use real data only - no mock data
+                      return 'N/A';
                     })()}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {(() => {
                       if (hasGameLogs && season.total > 0) return `${season.hits}/${season.total}`;
-                      // Mock data for demonstration
-                      const mockHits = Math.floor(Math.random() * 5) + 3;
-                      const mockTotal = mockHits + Math.floor(Math.random() * 3) + 1;
-                      return `${mockHits}/${mockTotal}`;
+                      // Use real data only - no mock data
+                      return 'N/A';
                     })()}
                   </div>
                 </div>
@@ -1240,17 +1234,15 @@ export function PlayerPropsColumnView({
                   <div className="text-xs font-medium text-foreground">
                     {(() => {
                       if (hasGameLogs && l5.total > 0) return `${l5.pct.toFixed(0)}%`;
-                      // Mock data for demonstration
-                      const mockPct = Math.floor(Math.random() * 50) + 50; // 50-100%
-                      return `${mockPct}%`;
+                      // Use real data only - no mock data
+                      return 'N/A';
                     })()}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {(() => {
                       if (hasGameLogs && l5.total > 0) return `${l5.hits}/${l5.total}`;
-                      // Mock data for demonstration
-                      const mockHits = Math.floor(Math.random() * 3) + 2;
-                      return `${mockHits}/5`;
+                      // Use real data only - no mock data
+                      return 'N/A';
                     })()}
                   </div>
                 </div>
@@ -1260,17 +1252,15 @@ export function PlayerPropsColumnView({
                   <div className="text-xs font-medium text-foreground">
                     {(() => {
                       if (hasGameLogs && l10.total > 0) return `${l10.pct.toFixed(0)}%`;
-                      // Mock data for demonstration
-                      const mockPct = Math.floor(Math.random() * 40) + 60; // 60-100%
-                      return `${mockPct}%`;
+                      // Use real data only - no mock data
+                      return 'N/A';
                     })()}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {(() => {
                       if (hasGameLogs && l10.total > 0) return `${l10.hits}/${l10.total}`;
-                      // Mock data for demonstration
-                      const mockHits = Math.floor(Math.random() * 4) + 6;
-                      return `${mockHits}/10`;
+                      // Use real data only - no mock data
+                      return 'N/A';
                     })()}
                   </div>
                 </div>
@@ -1280,17 +1270,15 @@ export function PlayerPropsColumnView({
                   <div className="text-xs font-medium text-foreground">
                     {(() => {
                       if (hasGameLogs && l20.total > 0) return `${l20.pct.toFixed(0)}%`;
-                      // Mock data for demonstration
-                      const mockPct = Math.floor(Math.random() * 30) + 70; // 70-100%
-                      return `${mockPct}%`;
+                      // Use real data only - no mock data
+                      return 'N/A';
                     })()}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {(() => {
                       if (hasGameLogs && l20.total > 0) return `${l20.hits}/${l20.total}`;
-                      // Mock data for demonstration
-                      const mockHits = Math.floor(Math.random() * 6) + 14;
-                      return `${mockHits}/20`;
+                      // Use real data only - no mock data
+                      return 'N/A';
                     })()}
                   </div>
                 </div>

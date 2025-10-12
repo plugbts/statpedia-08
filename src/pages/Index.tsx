@@ -64,7 +64,7 @@ const Index = () => {
   });
   const predictionsPerPage = 16;
 
-  // Use real sports data instead of mock data
+  // Use real sports data only
   const {
     games,
     players,
@@ -463,47 +463,7 @@ const Index = () => {
     return <AuthPage onAuthSuccess={() => {}} />;
   }
 
-  const mockWins = [
-    {
-      id: '1',
-      sport: 'nba',
-      player: 'Stephen Curry',
-      team: 'GSW',
-      opponent: 'LAL',
-      prop: '3-Pointers Made',
-      line: 4.5,
-      prediction: 'over' as const,
-      odds: '-110',
-      result: '6 made',
-      profit: 91.00
-    },
-    {
-      id: '2',
-      sport: 'nfl',
-      player: 'Travis Kelce',
-      team: 'KC',
-      opponent: 'BUF',
-      prop: 'Receiving Yards',
-      line: 67.5,
-      prediction: 'over' as const,
-      odds: '+100',
-      result: '89 yards',
-      profit: 100.00
-    },
-    {
-      id: '3',
-      sport: 'hockey',
-      player: 'Connor McDavid',
-      team: 'EDM',
-      opponent: 'CGY',
-      prop: 'Points',
-      line: 1.5,
-      prediction: 'over' as const,
-      odds: '-125',
-      result: '2 points',
-      profit: 80.00
-    }
-  ];
+  // Using real prediction data from API instead of mock data
 
   const renderAltProps = () => (
     <div className="space-y-8">

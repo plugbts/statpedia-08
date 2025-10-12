@@ -88,7 +88,7 @@ interface APIResponse {
 }
 
 class HasuraPlayerPropsAPI {
-  private readonly graphqlEndpoint = 'https://statpedia-proxy.statpedia.workers.dev/v1/graphql';
+  private readonly graphqlEndpoint = 'https://graphql-engine-latest-statpedia.onrender.com/v1/graphql';
 
   /**
    * Get player props from Hasura GraphQL API with league-specific limits
@@ -154,6 +154,7 @@ class HasuraPlayerPropsAPI {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-hasura-admin-secret': process.env.HASURA_ADMIN_SECRET || '',
         },
         body: JSON.stringify({
           query,
@@ -222,18 +223,11 @@ class HasuraPlayerPropsAPI {
         };
       });
 
-      // Filter by sport and ensure props have valid player relationships
+      // Filter by sport if specified
       const filteredProps = frontendProps.filter((prop) => {
-        // Skip props without proper player relationships
-        if (!prop.playerName || prop.playerName === 'Unknown Player' || !prop.playerId) {
-          return false;
-        }
-        
-        // Filter by sport if specified
         if (sport && prop.sport !== sport.toLowerCase()) {
           return false;
         }
-        
         return true;
       });
 
@@ -349,6 +343,7 @@ class HasuraPlayerPropsAPI {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-hasura-admin-secret': process.env.HASURA_ADMIN_SECRET || '',
         },
         body: JSON.stringify({
           query
