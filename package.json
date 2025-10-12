@@ -16,6 +16,7 @@
     "db:seed": "tsx src/db/seed.ts",
     "hasura:setup": "node setup-hasura.js",
     "hasura:console": "echo 'Open Hasura Console: https://graphql-engine-latest-statpedia.onrender.com/console'",
+    "ingest:props": "tsx scripts/ingest-props.ts",
     "git-sync": "node scripts/git-sync.js",
     "git-sync:watch": "node scripts/git-sync.js watch",
     "git-sync:setup": "node scripts/git-sync.js setup-hooks",

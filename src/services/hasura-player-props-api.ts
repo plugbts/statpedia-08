@@ -102,16 +102,42 @@ class HasuraPlayerPropsAPI {
       
       const startTime = Date.now();
       
-      // Build GraphQL query using existing schema (no variables needed for now)
+      // Build GraphQL query using new clean schema with relationships
       const query = `
         query GetPlayerProps {
-          player_props {
+          props {
             id
+            prop_type
             line
             odds
-            over_odds
-            under_odds
-            created_at
+            game_id
+            player {
+              id
+              name
+              position
+              team {
+                id
+                name
+                abbreviation
+                logo_url
+                league {
+                  id
+                  code
+                  name
+                }
+              }
+            }
+            team {
+              id
+              name
+              abbreviation
+              logo_url
+              league {
+                id
+                code
+                name
+              }
+            }
           }
         }
       `;
@@ -137,54 +163,51 @@ class HasuraPlayerPropsAPI {
         throw new Error(`GraphQL errors: ${JSON.stringify(result.errors)}`);
       }
 
-      const dbProps = result.data?.player_props || [];
+      const dbProps = result.data?.props || [];
       console.log(`📊 HASURA: Retrieved ${dbProps.length} props from GraphQL API`);
 
       if (dbProps.length === 0) {
-        console.log(`⚠️ HASURA: No props found for ${sport}, using sample data from new schema`);
-        
-        // Since we don't have data in the old table, let's use our new schema data
-        // This is a temporary solution until we migrate the data
-        const sampleProps = await this.getSamplePropsFromNewSchema(sport);
-        return sampleProps;
+        console.log(`⚠️ HASURA: No props found for ${sport}`);
+        return [];
       }
 
-      // Transform GraphQL data to frontend format
+      // Transform GraphQL data to frontend format using real relationships
       const frontendProps: PlayerProp[] = dbProps.map((prop: any) => {
-        // For now, create mock data that uses our new team structure
-        const mockPlayer = this.getMockPlayerForSport(sport);
+        const player = prop.player;
+        const team = player?.team || prop.team;
+        const league = team?.league;
         
         return {
           id: prop.id,
-          playerId: prop.id,
-          playerName: mockPlayer.name,
-          team: mockPlayer.team,
-          teamAbbr: mockPlayer.teamAbbr,
-          opponent: 'OPP',
+          playerId: player?.id,
+          playerName: player?.name || 'Unknown Player',
+          team: team?.abbreviation || 'UNK',
+          teamAbbr: team?.abbreviation || 'UNK',
+          opponent: 'OPP', // TODO: Add opponent relationship
           opponentAbbr: 'OPP',
-          gameId: 'game_' + prop.id,
-          sport: sport.toLowerCase(),
-          propType: this.getMockPropTypeForSport(sport),
+          gameId: prop.game_id,
+          sport: league?.code?.toLowerCase() || sport.toLowerCase(),
+          propType: prop.prop_type || 'Unknown',
           line: prop.line ? parseFloat(prop.line) : null,
-          overOdds: prop.over_odds ? parseInt(prop.over_odds.replace(/[^\d-]/g, '')) : null,
-          underOdds: prop.under_odds ? parseInt(prop.under_odds.replace(/[^\d-]/g, '')) : null,
+          overOdds: prop.odds ? parseInt(prop.odds.replace(/[^\d-]/g, '')) : null,
+          underOdds: prop.odds ? parseInt(prop.odds.replace(/[^\d-]/g, '')) : null,
           gameDate: new Date().toISOString().split('T')[0],
           gameTime: new Date().toISOString(),
           availableSportsbooks: ['StatPedia'],
           allSportsbookOdds: [{
             sportsbook: 'StatPedia',
-            odds: prop.over_odds ? parseInt(prop.over_odds.replace(/[^\d-]/g, '')) : 0,
+            odds: prop.odds ? parseInt(prop.odds.replace(/[^\d-]/g, '')) : 0,
             lastUpdate: new Date().toISOString()
           }],
           available: true,
           isExactAPIData: true,
-          lastUpdate: prop.created_at || new Date().toISOString(),
-          market: this.getMockPropTypeForSport(sport),
-          marketName: this.getMockPropTypeForSport(sport),
+          lastUpdate: new Date().toISOString(),
+          market: prop.prop_type,
+          marketName: prop.prop_type,
           confidence: 75,
-          position: mockPlayer.position,
-          homeTeamLogo: mockPlayer.logoUrl,
-          awayTeamLogo: mockPlayer.logoUrl,
+          position: player?.position,
+          homeTeamLogo: team?.logo_url || '',
+          awayTeamLogo: team?.logo_url || '',
         };
       });
 
