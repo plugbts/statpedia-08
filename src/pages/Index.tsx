@@ -33,6 +33,7 @@ import { ParlayGen } from '@/components/parlay/parlay-gen';
 import { AnalyticsTab } from '@/components/analytics/analytics-tab';
 import { HeaderBannerAd, InFeedAd, FooterBannerAd, MobileBannerAd } from '@/components/ads/ad-placements';
 import { useUser } from '@/contexts/user-context';
+import { HasuraPropsTest } from '@/components/debug/hasura-props-test';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -599,6 +600,9 @@ const Index = () => {
                 <Settings className="w-5 h-5 mr-2" />
                 Customize Alerts
               </Button>
+              <Button size="lg" variant="secondary" className="hover-scale" onClick={() => setActiveTab('hasura-test')}>
+                🧪 Test Hasura Props
+              </Button>
             </div>
           </div>
         </div>
@@ -957,6 +961,7 @@ const Index = () => {
         {activeTab === 'parlay-gen' && <ParlayGen />}
         {activeTab === 'analytics' && <AnalyticsTab userRole={userRole} userSubscription={userSubscription} />}
         {activeTab === 'sync-test' && renderSyncTest()}
+        {activeTab === 'hasura-test' && <HasuraPropsTest onBack={() => setActiveTab('dashboard')} />}
         {activeTab !== 'dashboard' && activeTab !== 'predictions' && activeTab !== 'player-props' && activeTab !== 'insights' && activeTab !== 'bet-tracking' && activeTab !== 'social' && activeTab !== 'strikeout-center' && activeTab !== 'most-likely' && activeTab !== 'parlay-gen' && activeTab !== 'analytics' && activeTab !== 'sync-test' && (
           <div className="text-center py-16">
             <h2 className="text-2xl font-bold text-foreground mb-4">

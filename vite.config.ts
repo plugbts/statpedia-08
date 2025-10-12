@@ -34,9 +34,11 @@ export default defineConfig(({ mode }) => ({
     },
   },
   define: {
-    // Ensure environment variables are available
-    'import.meta.env.VITE_SUPABASE_URL': JSON.stringify("https://rfdrifnsfobqlzorcesn.supabase.co"),
-    'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZHJpZm5zZm9icWx6b3JjZXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwNDg4MzYsImV4cCI6MjA3NDYyNDgzNn0.oUzP1pTapCMEaaPXzia2uqn-m3L9BRR82_RYcUXqykI"),
+    // StatPedia API endpoints
+    'import.meta.env.VITE_GRAPHQL_ENDPOINT': JSON.stringify("https://statpedia-proxy.statpedia.workers.dev/v1/graphql"),
+    'import.meta.env.VITE_AUTH_ENDPOINT': JSON.stringify("https://statpedia-auth.statpedia.workers.dev"),
+    'import.meta.env.VITE_STORAGE_ENDPOINT': JSON.stringify("https://statpedia-storage.statpedia.workers.dev"),
+    'import.meta.env.VITE_HASURA_CONSOLE': JSON.stringify("https://graphql-engine-latest-statpedia.onrender.com/console"),
     'import.meta.env.VITE_LOVEABLE_PROJECT_ID': JSON.stringify("statpedia-08"),
     'import.meta.env.VITE_LOVEABLE_API_URL': JSON.stringify("https://api.loveable.dev"),
     // Sportsbook API keys
