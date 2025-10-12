@@ -317,40 +317,48 @@ export function normalizePropType(raw: string): string {
   if (!raw) return "unknown";
   const key = raw.trim().toLowerCase();
 
-  // --- NFL ---
-  if (key.includes("passing") && key.includes("yard")) return "passing_yards";
-  if (key.includes("rushing") && key.includes("yard")) return "rushing_yards";
-  if (key.includes("receiving") && key.includes("yard")) return "receiving_yards";
+  // --- NFL - Expanded Coverage (order matters: most specific first) ---
+  
+  // Combo props FIRST (before individual stat patterns)
+  if ((key.includes("rush") && key.includes("rec")) || key.includes("rush+rec") || key.includes("rush + rec")) return "rush_rec_yards";
+  if ((key.includes("pass") && key.includes("rush")) || key.includes("pass+rush") || key.includes("pass + rush") || (key.includes("qb") && key.includes("rush"))) return "pass_rush_yards";
+  if ((key.includes("pass") && key.includes("rec")) || key.includes("pass+rec") || key.includes("pass + rec")) return "pass_rec_yards";
+
+  // Touchdowns (before individual stat patterns)
+  if (key.includes("anytime") && (key.includes("td") || key.includes("touchdown"))) return "anytime_td";
+  if (key.includes("first") && (key.includes("td") || key.includes("touchdown"))) return "first_td";
+  if (key.includes("last") && (key.includes("td") || key.includes("touchdown"))) return "last_td";
+  if ((key.includes("pass") || key.includes("qb")) && (key.includes("td") || key.includes("touchdown"))) return "passing_tds";
+  if (key.includes("rush") && (key.includes("td") || key.includes("touchdown"))) return "rushing_tds";
+  if ((key.includes("receiv") || key.includes("rec")) && (key.includes("td") || key.includes("touchdown"))) return "receiving_tds";
+  
+  // Individual stat patterns (after combos and TDs)
+  if ((key.includes("pass") || key.includes("qb")) && (key.includes("yard") || key.includes("yd"))) return "passing_yards";
+  if (key.includes("rush") && (key.includes("yard") || key.includes("yd"))) return "rushing_yards";
+  if ((key.includes("receiv") || key.includes("rec")) && (key.includes("yard") || key.includes("yd"))) return "receiving_yards";
+  
+  // Receptions (must be after receiving yards check)
   if (key.includes("receptions") || key.includes("catches")) return "receptions";
+  if (key.includes("rec") && !key.includes("yard") && !key.includes("yd") && !key.includes("td")) return "receptions";
 
-  if (key.includes("rush") && key.includes("rec")) return "rush_rec_yards";
-  if (key.includes("pass") && key.includes("rush")) return "pass_rush_yards";
-  if (key.includes("pass") && key.includes("rec")) return "pass_rec_yards";
+  // Other NFL stats - catch all variations
+  if (key.includes("completions") || key.includes("completion")) return "completions";
+  if (key.includes("attempts") || key.includes("attempt")) return "pass_attempts";
+  if (key.includes("interceptions") || key.includes("interception") || key.includes("int")) return "interceptions";
 
-  if (key.includes("passing td")) return "passing_tds";
-  if (key.includes("rushing td")) return "rushing_tds";
-  if (key.includes("receiving td")) return "receiving_tds";
-  if (key.includes("anytime td")) return "anytime_td";
-  if (key.includes("first td")) return "first_td";
-  if (key.includes("last td")) return "last_td";
+  if (key.includes("longest") && key.includes("completion")) return "longest_completion";
+  if (key.includes("longest") && key.includes("reception")) return "longest_reception";
+  if (key.includes("longest") && key.includes("rush")) return "longest_rush";
 
-  if (key.includes("completions")) return "completions";
-  if (key.includes("attempts")) return "pass_attempts";
-  if (key.includes("interceptions")) return "interceptions";
-
-  if (key.includes("longest completion")) return "longest_completion";
-  if (key.includes("longest reception")) return "longest_reception";
-  if (key.includes("longest rush")) return "longest_rush";
-
-  // --- MLB ---
-  if (key.includes("strikeout") || key === "ks") return "strikeouts";
-  if (key.includes("total bases")) return "total_bases";
-  if (key.includes("home run")) return "home_runs";
-  if (key.includes("rbis")) return "rbis";
-  if (key.includes("hits allowed")) return "hits_allowed";
-  if (key.includes("earned runs")) return "earned_runs";
-  if (key.includes("outs recorded")) return "outs_recorded";
-  if (key.includes("hits")) return "hits";
+  // --- MLB - Expanded Coverage ---
+  if (key.includes("strikeout") || key.includes("strike out") || key === "ks" || key === "k") return "strikeouts";
+  if (key.includes("total bases") || key.includes("total base")) return "total_bases";
+  if (key.includes("home run") || key.includes("homer") || key.includes("hr")) return "home_runs";
+  if (key.includes("rbis") || key.includes("rbi") || key.includes("runs batted in")) return "rbis";
+  if (key.includes("hits allowed") || key.includes("hits allow")) return "hits_allowed";
+  if (key.includes("earned runs") || key.includes("earned run") || key.includes("er")) return "earned_runs";
+  if (key.includes("outs recorded") || key.includes("out recorded")) return "outs_recorded";
+  if (key.includes("hits") && !key.includes("allowed")) return "hits";
 
   return "unknown"; // only fallback if truly exotic
 }
