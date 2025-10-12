@@ -186,7 +186,6 @@ const MARKET_MAP: Record<string, string> = {
   "saves over/under": "Saves",
   
   // Common patterns that might appear in any league
-  "over/under": "Over/Under",
   "yes/no": "Yes/No"
 };
 
