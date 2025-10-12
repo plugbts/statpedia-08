@@ -297,7 +297,7 @@ const formatCompactTime = (gameTime: string, gameDate: string) => {
   }
 };
 
-import { supabasePlayerPropsAPI } from '@/services/supabase-player-props-api';
+import { hasuraPlayerPropsAPI } from '@/services/hasura-player-props-api';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   TrendingUp, 
@@ -707,17 +707,17 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       
       try {
         // Use Cloudflare Workers API without pagination
-        logAPI('PlayerPropsTab', `Calling Supabase API for ${sport} player props`);
+        logAPI('PlayerPropsTab', `Calling Hasura API for ${sport} player props`);
         const viewParam = searchParams.get('view');
         const dateParam = searchParams.get('date');
-        const result = await supabasePlayerPropsAPI.getPlayerProps(
+        const result = await hasuraPlayerPropsAPI.getPlayerProps(
           sport, 
           true, // Force refresh for debugging
-          dateParam || undefined, 
+          dateParam || undefined,
           viewParam || undefined
         );
         
-        logAPI('PlayerPropsTab', `Supabase API returned ${result?.length || 0} props`);
+        logAPI('PlayerPropsTab', `Hasura API returned ${result?.length || 0} props`);
         console.log('🔍 [API_DEBUG] API result:', result);
         
         // 🔍 COMPREHENSIVE FRONTEND DEBUG LOGGING
