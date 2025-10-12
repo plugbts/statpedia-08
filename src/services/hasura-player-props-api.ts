@@ -102,10 +102,10 @@ class HasuraPlayerPropsAPI {
       
       const startTime = Date.now();
       
-      // Build GraphQL query
+      // Build GraphQL query with sport filtering
       const query = `
-        query GetPlayerProps {
-          player_props {
+        query GetPlayerProps($sport: String!) {
+          player_props(where: { propType: { sport: { _eq: $sport } } }) {
             id
             line
             odds
@@ -146,7 +146,8 @@ class HasuraPlayerPropsAPI {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          query
+          query,
+          variables: { sport }
         }),
       });
 
@@ -305,9 +306,11 @@ class HasuraPlayerPropsAPI {
    */
   async getPropTypes(sport?: string): Promise<any[]> {
     try {
+      // Build query with optional sport filtering
+      const whereClause = sport ? `(where: { sport: { _eq: "${sport}" } })` : '';
       const query = `
         query GetPropTypes {
-          prop_types {
+          prop_types${whereClause} {
             id
             name
             category
