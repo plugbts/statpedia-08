@@ -294,9 +294,9 @@ export function normalizePropType(propType: string): string {
 
   // Fuzzy contains matching (catch variations) - order matters for specificity
   // NFL
-  if (key.includes("passing yards")) return "passing_yards";
-  if (key.includes("rushing yards")) return "rushing_yards";
-  if (key.includes("receiving yards")) return "receiving_yards";
+  if (key.includes("passing yards") || key.includes("pass yards")) return "passing_yards";
+  if (key.includes("rushing yards") || key.includes("rush yards")) return "rushing_yards";
+  if (key.includes("receiving yards") || key.includes("rec yards")) return "receiving_yards";
   if (key.includes("receptions")) return "receptions";
   if (key.includes("strikeouts")) return "strikeouts";
   if (key.includes("total bases")) return "total_bases";
