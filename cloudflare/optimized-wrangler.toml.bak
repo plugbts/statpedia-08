@@ -1,0 +1,35 @@
+name = "statpedia-optimized-proxy"
+main = "optimized-graphql-proxy.js"
+compatibility_date = "2024-01-15"
+
+# Environment variables
+[vars]
+JWT_SECRET = "statpedia-super-secret-jwt-key-2024"
+HASURA_GRAPHQL_ENDPOINT = "https://graphql-engine-latest-statpedia.onrender.com"
+
+# KV namespace for GraphQL caching
+[[kv_namespaces]]
+binding = "GRAPHQL_CACHE"
+id = "your-graphql-cache-kv-namespace-id"  # Will be created during deployment
+
+# Custom domain (optional)
+# routes = [
+#   { pattern = "api.statpedia.com/v1/*", zone_name = "statpedia.com" }
+# ]
+
+# Cache settings for optimal performance
+[build]
+command = ""
+
+# Worker settings
+[placement]
+mode = "smart"
+
+# Cache configuration
+[cache]
+# Enable aggressive caching for static resources
+[cache.browser]
+ttl = 86400  # 24 hours for browser cache
+
+[cache.edge]
+ttl = 300    # 5 minutes for edge cache

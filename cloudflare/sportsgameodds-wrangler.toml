@@ -1,0 +1,25 @@
+name = "statpedia-sportsgameodds-cache"
+main = "sportsgameodds-cache-worker.js"
+compatibility_date = "2024-01-15"
+
+# Environment variables
+[vars]
+SPORTSGAMEODDS_API_KEY = "f05c244cbea5222d806f91c412350940"
+
+# KV namespace for props caching
+[[kv_namespaces]]
+binding = "PROPS_CACHE"
+id = "7f0f0bcc58bb48508574080e484a3186"  # Will be created during deployment
+
+# Custom domain (optional)
+# routes = [
+#   { pattern = "sportsgameodds.statpedia.com/*", zone_name = "statpedia.com" }
+# ]
+
+# Cache settings
+[build]
+command = ""
+
+# Worker settings
+[placement]
+mode = "smart"
