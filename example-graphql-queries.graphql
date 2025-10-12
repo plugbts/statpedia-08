@@ -1,0 +1,216 @@
+# Step 5: GraphQL Query Examples
+# League-aware props with nested relationships
+
+# Query all props with full team and league information
+query GetAllProps {
+  props {
+    id
+    prop_type
+    line
+    odds
+    game_id
+    player {
+      id
+      name
+      position
+      team {
+        id
+        name
+        abbreviation
+        logo_url
+        league {
+          id
+          code
+          name
+        }
+      }
+    }
+    team {
+      id
+      name
+      abbreviation
+      logo_url
+      league {
+        id
+        code
+        name
+      }
+    }
+  }
+}
+
+# Query props filtered by league
+query GetNFLProps {
+  props(where: { team: { league: { code: { _eq: "NFL" } } } }) {
+    id
+    prop_type
+    line
+    odds
+    player {
+      name
+      position
+      team {
+        abbreviation
+        logo_url
+      }
+    }
+  }
+}
+
+# Query props filtered by team
+query GetLakersProps {
+  props(where: { team: { abbreviation: { _eq: "LAL" } } }) {
+    id
+    prop_type
+    line
+    odds
+    player {
+      name
+      position
+    }
+  }
+}
+
+# Query teams with their league and player count
+query GetTeamsWithLeague {
+  teams {
+    id
+    name
+    abbreviation
+    logo_url
+    league {
+      id
+      code
+      name
+    }
+    players {
+      id
+      name
+      position
+    }
+  }
+}
+
+# Query leagues with team counts
+query GetLeaguesWithTeams {
+  leagues {
+    id
+    code
+    name
+    teams {
+      id
+      name
+      abbreviation
+      logo_url
+    }
+  }
+}
+
+# Query players with their team and league
+query GetPlayersWithTeam {
+  players {
+    id
+    name
+    position
+    team {
+      id
+      name
+      abbreviation
+      logo_url
+      league {
+        id
+        code
+        name
+      }
+    }
+  }
+}
+
+# Query specific prop types across leagues
+query GetPassingYardsProps {
+  props(where: { prop_type: { _eq: "Passing Yards" } }) {
+    id
+    line
+    odds
+    player {
+      name
+      position
+      team {
+        name
+        abbreviation
+        logo_url
+        league {
+          code
+          name
+        }
+      }
+    }
+  }
+}
+
+# Query props with over/under odds
+query GetPropsWithOdds {
+  props(where: { odds: { _is_null: false } }) {
+    id
+    prop_type
+    line
+    odds
+    player {
+      name
+      position
+      team {
+        abbreviation
+        logo_url
+        league {
+          code
+        }
+      }
+    }
+  }
+}
+
+# Insert new prop
+mutation InsertProp {
+  insert_props_one(object: {
+    player_id: 1
+    team_id: 1
+    game_id: "game123"
+    prop_type: "Receptions"
+    line: 4.5
+    odds: "-115"
+  }) {
+    id
+    prop_type
+    line
+    odds
+    player {
+      name
+      team {
+        abbreviation
+        league {
+          code
+        }
+      }
+    }
+  }
+}
+
+# Insert new player
+mutation InsertPlayer {
+  insert_players_one(object: {
+    team_id: 1
+    name: "Troy Franklin"
+    position: "WR"
+  }) {
+    id
+    name
+    position
+    team {
+      name
+      abbreviation
+      league {
+        code
+      }
+    }
+  }
+}
