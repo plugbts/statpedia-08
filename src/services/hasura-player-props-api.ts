@@ -178,6 +178,16 @@ class HasuraPlayerPropsAPI {
 
       const dbProps = result.data?.props || [];
       console.log(`📊 HASURA: Retrieved ${dbProps.length} props from GraphQL API (limit: ${propLimit})`);
+      
+      // 🔍 DEBUG: Log first few props to see what we're getting
+      if (dbProps.length > 0) {
+        console.log('🔍 DEBUG: First 3 props from API:', dbProps.slice(0, 3).map(p => ({
+          id: p.id,
+          prop_type: p.prop_type,
+          line: p.line,
+          odds: p.odds
+        })));
+      }
 
       if (dbProps.length === 0) {
         console.log(`⚠️ HASURA: No props found for ${sport}`);
@@ -189,6 +199,12 @@ class HasuraPlayerPropsAPI {
         const player = prop.player;
         const team = player?.team || prop.team;
         const league = team?.league;
+        
+        // 🔍 DEBUG: Log the transformation
+        console.log('🔍 DEBUG: Transforming prop:', {
+          original_prop_type: prop.prop_type,
+          transformed_propType: prop.prop_type || 'Unknown'
+        });
         
         return {
           id: prop.id,
