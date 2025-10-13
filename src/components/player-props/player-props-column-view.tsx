@@ -428,12 +428,11 @@ export function PlayerPropsColumnView({
     }
   };
 
-  // Format number helper with .5 and .0 intervals for lines
+  // Format number helper - display lines exactly as they are
   const formatNumber = (value: number, decimals: number = 1): string => {
-    // For lines, round to nearest .5 or .0 interval
+    // For lines, display exactly as stored in database (no artificial rounding)
     if (value < 1000) { // Assuming lines are typically under 1000
-      const rounded = Math.round(value * 2) / 2;
-      return rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
+      return value.toFixed(decimals);
     }
     
     // For larger numbers, use compact formatting

@@ -119,8 +119,8 @@ class HasuraPlayerPropsAPI {
       console.log(`📊 HASURA: Using prop limit of ${propLimit} for ${sport}`);
       
       // Build GraphQL query using new clean schema with relationships and limit
-      // Add sport filtering at the GraphQL level
-      const sportFilter = sport ? `, where: { player: { team: { league: { code: { _eq: "${sport.toUpperCase()}" } } } } }` : '';
+      // Add sport filtering and source filtering at the GraphQL level
+      const sportFilter = sport ? `, where: { player: { team: { league: { code: { _eq: "${sport.toUpperCase()}" } } } }, source: { _eq: "sportsbook" } }` : ', where: { source: { _eq: "sportsbook" } }';
       const query = `
         query GetPlayerProps($limit: Int) {
           props(limit: $limit, order_by: {priority: desc, created_at: desc}${sportFilter}) {

@@ -630,6 +630,7 @@ async function ingestLeague(league: string) {
           }).onConflictDoUpdate({
             target: [props.conflict_key],
             set: {
+              source: 'sportsbook',
               best_odds_over: propEntry.bestOddsOver,
               best_odds_under: propEntry.bestOddsUnder,
               books_over: JSON.stringify(propEntry.booksOver),
