@@ -374,6 +374,8 @@ async function ingestLeague(league: string) {
         const oddsStr: string | undefined = odd.fairOdds || odd.bookOdds || undefined;
         if (!oddsStr) continue;
 
+        const side: string = odd.sideID || odd.side || 'over'; // Extract side (over/under)
+
         const gameId: string = event.eventID || event.id || event.game_id || '';
         if (!gameId) continue;
 
