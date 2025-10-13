@@ -1,5 +1,5 @@
 export const LEAGUE_PROP_CAPS: Record<string, number> = {
-  nfl: 150,
+  nfl: 200,
   nba: 100,
   mlb: 95,
   nhl: 70,
