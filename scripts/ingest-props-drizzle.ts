@@ -72,16 +72,21 @@ const PRIORITY_PROPS = new Set([
   
   // MLB Priority Props
   'Hits',
+  'Singles',
+  'Doubles',
+  'Triples',
   'Home Runs',
-  'RBIs',
-  'Stolen Bases',
   'Total Bases',
   'Runs',
-  'Strikeouts',
+  'RBIs',
   'Walks',
+  'Stolen Bases',
+  'Strikeouts',
   'Pitcher Strikeouts',
   'Earned Runs',
   'Hits Allowed',
+  'Pitcher Walks',
+  'Innings Pitched',
   
   // NHL Priority Props
   'Goals',
@@ -149,31 +154,58 @@ function normalizePropType(market: string): string {
     case 'points_assists_rebounds':
     case 'pts_ast_reb': return 'Points+Assists+Rebounds';
     
-    // MLB
+    // MLB Batting
     case 'batting_hits':
-    case 'hits': return 'Hits';
+    case 'hits':
+    case 'total_hits':
+    case 'over_0.5_hits': return 'Hits';
+    case 'batting_singles':
+    case 'singles':
+    case '1b': return 'Singles';
+    case 'batting_doubles':
+    case 'doubles':
+    case '2b': return 'Doubles';
+    case 'batting_triples':
+    case 'triples':
+    case '3b': return 'Triples';
     case 'batting_homeruns':
-    case 'home_runs': return 'Home Runs';
-    case 'batting_rbis':
-    case 'rbis': return 'RBIs';
-    case 'batting_stolenbases':
-    case 'stolen_bases': return 'Stolen Bases';
+    case 'batting_home_runs':
+    case 'home_runs':
+    case 'hr': return 'Home Runs';
     case 'batting_totalbases':
-    case 'total_bases': return 'Total Bases';
+    case 'total_bases':
+    case 'tb': return 'Total Bases';
     case 'batting_runs':
-    case 'runs': return 'Runs';
+    case 'runs':
+    case 'runs_scored': return 'Runs';
+    case 'batting_rbis':
+    case 'batting_rbi':
+    case 'rbis':
+    case 'rbi':
+    case 'runs_batted_in': return 'RBIs';
+    case 'batting_walks':
+    case 'batting_basesonballs':
+    case 'walks':
+    case 'bb': return 'Walks';
+    case 'batting_stolenbases':
+    case 'stolen_bases':
+    case 'sb': return 'Stolen Bases';
     case 'batting_strikeouts':
     case 'strikeouts': return 'Strikeouts';
-    case 'batting_walks':
-    case 'walks': return 'Walks';
+    
+    // MLB Pitching
     case 'pitching_strikeouts':
-    case 'pitcher_strikeouts': return 'Pitcher Strikeouts';
+    case 'pitcher_strikeouts':
+    case 'pitcher_outs': return 'Pitcher Strikeouts';
     case 'pitching_earnedruns':
-    case 'earned_runs': return 'Earned Runs';
+    case 'earned_runs':
+    case 'er': return 'Earned Runs';
     case 'pitching_hitsallowed':
     case 'hits_allowed': return 'Hits Allowed';
-    case 'batting_doubles': return 'Doubles';
-    case 'batting_triples': return 'Triples';
+    case 'pitching_walks':
+    case 'pitcher_walks': return 'Pitcher Walks';
+    case 'pitching_innings':
+    case 'innings_pitched': return 'Innings Pitched';
     
     // NHL
     case 'goals': return 'Goals';

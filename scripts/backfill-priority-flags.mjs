@@ -20,10 +20,9 @@ const PRIORITY_PROPS = new Set([
   'Points+Assists', 'Points+Rebounds', 'Assists+Rebounds', 'Points+Assists+Rebounds',
   
   // MLB
-  'Hits', 'Home Runs', 'RBIs', 'Stolen Bases', 'Total Bases', 'Runs',
-  'Strikeouts', 'Walks',
-  'Pitcher Strikeouts', 'Earned Runs', 'Hits Allowed',
-  'Doubles', 'Triples',
+  'Hits', 'Singles', 'Doubles', 'Triples', 'Home Runs', 'Total Bases',
+  'Runs', 'RBIs', 'Walks', 'Stolen Bases', 'Strikeouts',
+  'Pitcher Strikeouts', 'Earned Runs', 'Hits Allowed', 'Pitcher Walks', 'Innings Pitched',
   
   // NHL
   'Goals', 'Assists', 'Shots on Goal', 'Blocked Shots', 'Saves', 'Goals Against',
