@@ -279,7 +279,6 @@ import {
   RefreshCw, 
   AlertCircle,
   AlertTriangle,
-  Target,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
@@ -464,8 +463,6 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const [showSelection, setShowSelection] = useState(false);
   const [viewMode, setViewMode] = useState<'column' | 'cards'>('column');
   const [overUnderFilter, setOverUnderFilter] = useState<'over' | 'under' | 'both'>('over');
-  const [showPickemProps, setShowPickemProps] = useState(false);
-  const [pickemProps, setPickemProps] = useState<ConsistentPlayerProp[]>([]);
   
   // Handle view parameter from URL
   useEffect(() => {
@@ -656,28 +653,6 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     }
   }, [sportFilter, maxLine, minLine]);
 
-  // Fetch Pick'em props when toggle is enabled
-  useEffect(() => {
-    const fetchPickemData = async () => {
-      if (!sportFilter || !showPickemProps) {
-        setPickemProps([]);
-        return;
-      }
-      
-      try {
-        console.log(`🔄 Fetching ${sportFilter} pickem props...`);
-        const result = await hasuraPlayerPropsAPI.getPickemProps(sportFilter);
-        
-        console.log(`✅ Fetched ${result.length} pickem props for ${sportFilter}`);
-        setPickemProps(result as ConsistentPlayerProp[]);
-      } catch (error) {
-        console.error('❌ Error fetching pickem props:', error);
-        setPickemProps([]);
-      }
-    };
-
-    fetchPickemData();
-  }, [sportFilter, showPickemProps]);
 
   // Load available sportsbooks for the selected sport
   const loadAvailableSportsbooks = async (sport: string) => {
@@ -953,18 +928,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     logWarning('PlayerPropsTab', 'No realProps available');
   }
 
-  // Combine sportsbook and pickem props when toggle is enabled
-  // IMPORTANT: Only show Pick'em props when explicitly enabled by user
-  const allProps = showPickemProps ? [...realProps, ...pickemProps] : realProps;
-  
-  // Safety check: Ensure no pickem props leak into default view
-  const safeAllProps = showPickemProps ? allProps : realProps.filter(prop => (prop as any).source !== 'pickem');
-  
-  // 🔍 DEBUG: Log prop combination
-  console.log(`🔍 PROPS DEBUG: showPickemProps=${showPickemProps}, realProps=${realProps.length}, pickemProps=${pickemProps.length}, allProps=${allProps.length}`);
+  // Only show sportsbook props - no Pick'em props
+  const allProps = realProps;
   
   // PropFinder-style dual rating system
-  const propsWithRatings = safeAllProps.map(prop => ({
+  const propsWithRatings = allProps.map(prop => ({
     ...prop,
     ...computeDualRatings(prop)
   }));
@@ -1439,7 +1407,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                     onClick={() => applyPreset(key as keyof typeof filterPresets)}
                     className="hover:bg-primary/10 hover:border-primary/30 transition-all duration-200"
                   >
-                    <Target className="w-4 h-4 mr-1" />
+                    <BarChart3 className="w-4 h-4 mr-1" />
                     {preset.name}
                   </Button>
                 ))}
@@ -1532,30 +1500,6 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
                 </Select>
               </div>
 
-              {/* Pick'em Toggle */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground flex items-center gap-1">
-                  <Target className="w-4 h-4" />
-                  Pick'em Props
-                </label>
-                <Button
-                  variant={showPickemProps ? "default" : "outline"}
-                  onClick={() => setShowPickemProps(!showPickemProps)}
-                  className="w-full"
-                >
-                  {showPickemProps ? (
-                    <>
-                      <Target className="w-4 h-4 mr-2" />
-                      Hide Pick'em
-                    </>
-                  ) : (
-                    <>
-                      <Target className="w-4 h-4 mr-2" />
-                      Show Pick'em
-                    </>
-                  )}
-                </Button>
-              </div>
 
             </div>
 
