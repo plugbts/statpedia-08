@@ -406,7 +406,7 @@ export class StatpediaRatingService {
     else if (percentDiff < -5) score += 10; // Line moderately lower
     else if (percentDiff > 10) score -= 20; // Line significantly higher
     else if (percentDiff > 5) score -= 10; // Line moderately higher
-    
+
     return Math.max(0, Math.min(100, score));
   }
 
