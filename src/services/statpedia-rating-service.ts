@@ -90,9 +90,9 @@ export class StatpediaRatingService {
       overall: clampedRating,
       grade: this.getGrade(clampedRating),
       color: this.getColor(clampedRating),
-      confidence: this.getConfidence(factors),
+      confidence: this.getConfidenceLevel(statpediaRating, factors),
       factors,
-      reasoning: this.generateReasoning(factors),
+      reasoning: this.generateReasoning(factors, prop),
       breakdown: {
         evPercent: factors.evPercent,
         hitRateWeighted: factors.hitRateWeighted,
