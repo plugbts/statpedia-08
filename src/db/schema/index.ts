@@ -55,6 +55,10 @@ export const props = pgTable("props", {
   priority: boolean("priority").default(false), // true for priority props (90% of users care about)
   side: text("side"), // 'over' or 'under'
   source: text("source"), // 'sportsbook' or 'pickem'
+  best_odds_over: text("best_odds_over"), // best over odds across all books
+  best_odds_under: text("best_odds_under"), // best under odds across all books
+  books_over: text("books_over"), // JSONB tracking all over books
+  books_under: text("books_under"), // JSONB tracking all under books
   conflict_key: text("conflict_key"), // unique deduplication key
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),

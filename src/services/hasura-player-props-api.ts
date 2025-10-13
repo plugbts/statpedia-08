@@ -18,6 +18,10 @@ interface PlayerProp {
   line: number | null;
   overOdds: number | null;
   underOdds: number | null;
+  bestOddsOver?: string | null;
+  bestOddsUnder?: string | null;
+  booksOver?: string;
+  booksUnder?: string;
   sportsbooks?: string[];
   position?: string;
   gameDate: string;
@@ -123,6 +127,10 @@ class HasuraPlayerPropsAPI {
             odds
             priority
             source
+            best_odds_over
+            best_odds_under
+            books_over
+            books_under
             game_id
             player {
               id
@@ -222,8 +230,12 @@ class HasuraPlayerPropsAPI {
           propType: prop.prop_type || 'Unknown',
           line: prop.line ? parseFloat(prop.line) : null,
           source: prop.source || 'pickem', // Default to pickem if source is missing
-          overOdds: prop.odds ? parseInt(prop.odds.replace(/[^\d-]/g, '')) : null,
-          underOdds: prop.odds ? parseInt(prop.odds.replace(/[^\d-]/g, '')) : null,
+          overOdds: prop.best_odds_over ? parseInt(prop.best_odds_over.replace(/[^\d-]/g, '')) : null,
+          underOdds: prop.best_odds_under ? parseInt(prop.best_odds_under.replace(/[^\d-]/g, '')) : null,
+          bestOddsOver: prop.best_odds_over,
+          bestOddsUnder: prop.best_odds_under,
+          booksOver: prop.books_over,
+          booksUnder: prop.books_under,
           gameDate: new Date().toISOString().split('T')[0],
           gameTime: new Date().toISOString(),
           availableSportsbooks: ['StatPedia'],

@@ -239,8 +239,35 @@ function normalizePropType(market: string): string {
   }
 }
 
-function isPriorityProp(propType: string): boolean {
-  return PRIORITY_PROPS.has(propType);
+// League-specific priority sets
+const leaguePrioritySets: Record<string, Set<string>> = {
+  NFL: new Set([
+    "Passing Yards","Passing TDs","Pass Attempts","Passing Completions","Interceptions",
+    "Rushing Yards","Rushing TDs","Rush Attempts","Longest Rush",
+    "Receiving Yards","Receptions","Receiving TDs","Longest Reception",
+    "Rush + Rec Yards","Pass + Rush Yards"
+  ]),
+  NBA: new Set([
+    "Points","Assists","Rebounds","Points + Assists","Points + Rebounds","Points + Rebounds + Assists",
+    "3-Pointers Made","Steals","Blocks"
+  ]),
+  MLB: new Set([
+    "Hits","Singles","Doubles","Triples","Home Runs","Total Bases","Runs","RBIs","Walks","Stolen Bases",
+    "Strikeouts","Pitcher Outs Recorded"
+  ]),
+  NHL: new Set([
+    "Shots on Goal","Goals","Assists","Points","Saves"
+  ]),
+  WNBA: new Set([
+    "Points","Assists","Rebounds","Points + Rebounds + Assists","3-Pointers Made"
+  ]),
+  CBB: new Set([
+    "Points","Assists","Rebounds","Points + Rebounds + Assists","3-Pointers Made"
+  ])
+};
+
+function isPriorityProp(propType: string, league: string): boolean {
+  return leaguePrioritySets[league]?.has(propType) ?? false;
 }
 
 function mapStatIdToPropType(statId?: string | null): string | null {
@@ -401,6 +428,9 @@ async function ingestLeague(league: string) {
         playerTeamMap.set(pid, teamId);
       }
 
+      // PropFinder-style aggregation: collect all odds by (player, prop_type, line)
+      const propMap = new Map<string, any>();
+
       for (const [oddId, odd] of oddEntries) {
         // Only OU player props with a playerID
         if (!odd?.playerID) continue;
@@ -419,51 +449,90 @@ async function ingestLeague(league: string) {
         const oddsStr: string | undefined = odd.fairOdds || odd.bookOdds || undefined;
         if (!oddsStr) continue;
 
-        const side: string = odd.sideID || odd.side || 'over'; // Extract side (over/under)
-
+        const side: string = odd.sideID || odd.side || 'over';
         const gameId: string = event.eventID || event.id || event.game_id || '';
         if (!gameId) continue;
 
-        // Resolve team for player (may be undefined)
+        // Resolve team for player
         const teamIdForPlayer = playerTeamMap.get(playerIdRaw) || null;
-
-        // Upsert player (by name; our schema lacks externalId)
         const playerRowId = await getOrCreatePlayerId(playerName, teamIdForPlayer, odd?.position || null);
 
-        const conflictKey = buildConflictKey(league, gameId, playerRowId, propType, line);
+        // Create aggregation key: player + prop_type + line
+        const key = `${playerRowId}:${propType}:${line}`;
+        
+        // Initialize prop entry if not exists
+        if (!propMap.has(key)) {
+          propMap.set(key, {
+            playerId: playerRowId,
+            teamId: teamIdForPlayer,
+            gameId: gameId,
+            propType: propType,
+            line: line,
+            bestOddsOver: null,
+            bestOddsUnder: null,
+            booksOver: {},
+            booksUnder: {},
+            source: odd?.bookmaker || odd?.book ? 'sportsbook' : 'pickem',
+            priority: isPriorityProp(propType, league)
+          });
+        }
+
+        const propEntry = propMap.get(key);
+        const bookName = odd?.bookmaker || odd?.book || 'Unknown';
+        
+        // Aggregate odds by side
+        if (side === 'over') {
+          propEntry.booksOver[bookName] = oddsStr;
+          // Pick the best (highest) odds for Over
+          if (!propEntry.bestOddsOver || Number(oddsStr) > Number(propEntry.bestOddsOver)) {
+            propEntry.bestOddsOver = oddsStr;
+          }
+        } else if (side === 'under') {
+          propEntry.booksUnder[bookName] = oddsStr;
+          // Pick the best (highest) odds for Under
+          if (!propEntry.bestOddsUnder || Number(oddsStr) > Number(propEntry.bestOddsUnder)) {
+            propEntry.bestOddsUnder = oddsStr;
+          }
+        }
+      }
+
+      // Insert aggregated props
+      for (const [key, propEntry] of propMap) {
+        const conflictKey = buildConflictKey(league, propEntry.gameId, propEntry.playerId, propEntry.propType, propEntry.line);
         if (seen.has(conflictKey)) continue;
         seen.add(conflictKey);
 
-        // Determine if this is a priority prop
-        const priority = isPriorityProp(propType);
-
-        // Determine source: sportsbook if odds are from a bookmaker, pickem if not
-        const source = odd?.bookmaker || odd?.book ? 'sportsbook' : 'pickem';
-
         try {
           await db.insert(props).values({
-            player_id: playerRowId,
-            team_id: teamIdForPlayer,
-            game_id: gameId,
-            prop_type: propType,
-            line: String(line),
-            odds: String(oddsStr),
-            priority: priority,
-            side: side as 'over' | 'under',
-            source: source,
+            player_id: propEntry.playerId,
+            team_id: propEntry.teamId,
+            game_id: propEntry.gameId,
+            prop_type: propEntry.propType,
+            line: String(propEntry.line),
+            odds: propEntry.bestOddsOver || propEntry.bestOddsUnder || '0', // Fallback odds
+            priority: propEntry.priority,
+            side: 'both', // Indicates this prop has both over and under
+            source: propEntry.source,
+            best_odds_over: propEntry.bestOddsOver,
+            best_odds_under: propEntry.bestOddsUnder,
+            books_over: JSON.stringify(propEntry.booksOver),
+            books_under: JSON.stringify(propEntry.booksUnder),
             conflict_key: conflictKey,
           }).onConflictDoUpdate({
             target: [props.conflict_key],
             set: {
-              odds: String(oddsStr), // Update to latest odds
+              best_odds_over: propEntry.bestOddsOver,
+              best_odds_under: propEntry.bestOddsUnder,
+              books_over: JSON.stringify(propEntry.booksOver),
+              books_under: JSON.stringify(propEntry.booksUnder),
               updated_at: new Date(),
             }
           });
           totalInserted += 1;
-          if (priority) totalPriorityInserted += 1;
+          if (propEntry.priority) totalPriorityInserted += 1;
         } catch (e) {
           // Best-effort insert; continue on errors
-          // console.error('Insert failed for prop', e);
+          console.error('Insert failed for aggregated prop', e);
         }
       }
     }
