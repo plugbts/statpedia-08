@@ -1,0 +1,21 @@
+[Unit]
+Description=StatPedia Props Ingestion Scheduler
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/statpedia-08
+Environment="NODE_ENV=production"
+Environment="DATABASE_URL=postgresql://neondb_owner:npg_vdkFqWJVi42j@ep-broad-waterfall-a8uchv9a-pooler.eastus2.azure.neon.tech/neondb?sslmode=require&channel_binding=require"
+Environment="SPORTSGAMEODDS_API_KEY=f05c244cbea5222d806f91c412350940"
+Environment="ENABLE_LIVE_PROPS=false"
+ExecStart=/usr/bin/node /opt/statpedia-08/scripts/schedule-props-ingestion.js
+Restart=always
+RestartSec=10
+StandardOutput=append:/var/log/statpedia-props-scheduler.log
+StandardError=append:/var/log/statpedia-props-scheduler-error.log
+
+[Install]
+WantedBy=multi-user.target
+
