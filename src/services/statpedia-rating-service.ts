@@ -68,31 +68,61 @@ export class StatpediaRatingService {
   }
 
   /**
-   * Pre-compute composite score without normalization/boosts
+   * Calculate rating using the new 6-factor system with real analytics data
    */
-  private preComposite(prop: any, mode: 'over' | 'under'): number {
-    const factors = {
-      hitRateScore: this.calculateHitRateScore(prop, mode),
-      projectionGapScore: this.calculateProjectionGapScore(prop, mode),
-      aiPredictionScore: this.calculateAIPredictionScore(prop, mode),
-      opponentScore: this.calculateOpponentScore(prop, mode),
-      marketConfidenceScore: this.calculateMarketConfidenceScore(prop),
-      recencyScore: this.calculateRecencyScore(prop)
-    };
+  calculateRating(prop: any, overUnderContext: 'over' | 'under' | 'both' = 'both'): StatpediaRating {
+    const factors = this.calculateFactors(prop, overUnderContext);
+    
+    // Apply the 6-factor weighted formula
+    const statpediaRating = (
+      factors.evPercent * 0.30 +
+      factors.hitRateWeighted * 0.20 +
+      factors.matchupGrade * 0.15 +
+      factors.streakFactor * 0.10 +
+      factors.lineSensitivity * 0.10 +
+      factors.aiPrediction * 0.15
+    );
 
-    return (0.35 * this.safeScore(factors.hitRateScore)) +
-           (0.25 * this.safeScore(factors.projectionGapScore)) +
-           (0.15 * this.safeScore(factors.aiPredictionScore)) +
-           (0.15 * this.safeScore(factors.opponentScore)) +
-           (0.07 * this.safeScore(factors.marketConfidenceScore)) +
-           (0.03 * this.safeScore(factors.recencyScore));
+    // Clamp to 40-95 range
+    const clampedRating = Math.max(40, Math.min(95, statpediaRating));
+
+    return {
+      overall: clampedRating,
+      grade: this.getGrade(clampedRating),
+      color: this.getColor(clampedRating),
+      confidence: this.getConfidence(factors),
+      factors,
+      reasoning: this.generateReasoning(factors),
+      breakdown: {
+        evPercent: factors.evPercent,
+        hitRateWeighted: factors.hitRateWeighted,
+        matchupGrade: factors.matchupGrade,
+        streakFactor: factors.streakFactor,
+        lineSensitivity: factors.lineSensitivity,
+        aiPrediction: factors.aiPrediction
+      }
+    };
+  }
+
+  /**
+   * Calculate all 6 factors for the new rating system
+   */
+  private calculateFactors(prop: any, overUnderContext: 'over' | 'under' | 'both' = 'both'): StatpediaRatingFactors {
+    return {
+      evPercent: this.calculateEVPercent(prop, overUnderContext),
+      hitRateWeighted: this.calculateHitRateWeighted(prop, overUnderContext),
+      matchupGrade: this.calculateMatchupGrade(prop, overUnderContext),
+      streakFactor: this.calculateStreakFactor(prop, overUnderContext),
+      lineSensitivity: this.calculateLineSensitivity(prop, overUnderContext),
+      aiPrediction: this.calculateAIPrediction(prop, overUnderContext)
+    };
   }
   
   /**
    * Calculate comprehensive Statpedia Rating for a player prop
    * Updated 6-factor system with new weights
    */
-  calculateRating(prop: any, overUnderContext: 'over' | 'under' | 'both' = 'both'): StatpediaRating {
+  calculateStatpediaRating(prop: any, overUnderContext: 'over' | 'under' | 'both' = 'both'): StatpediaRating {
     // Compute new 6-factor scores
     const factors: StatpediaRatingFactors = {
       evPercent: this.calculateEVPercent(prop, overUnderContext),              // 30% weight - Expected Value
@@ -149,23 +179,18 @@ export class StatpediaRatingService {
       return;
     }
 
-    // Calculate composite scores for all props in slate
+    // Calculate composite scores for all props in slate using new 6-factor system
     const compositeScores = this.slateProps.map(prop => {
-      const factors = {
-        hitRateScore: this.calculateHitRateScore(prop),
-        projectionGapScore: this.calculateProjectionGapScore(prop, 'both'),
-        aiPredictionScore: this.calculateAIPredictionScore(prop, 'both'),
-        opponentScore: this.calculateOpponentScore(prop),
-        marketConfidenceScore: this.calculateMarketConfidenceScore(prop),
-        recencyScore: this.calculateRecencyScore(prop)
-      };
-
-      return (0.30 * factors.hitRateScore) +
-             (0.20 * factors.projectionGapScore) +
-             (0.20 * factors.aiPredictionScore) +
-             (0.15 * factors.opponentScore) +
-             (0.10 * factors.marketConfidenceScore) +
-             (0.05 * factors.recencyScore);
+      const factors = this.calculateFactors(prop, 'both');
+      
+      return (
+        factors.evPercent * 0.30 +
+        factors.hitRateWeighted * 0.20 +
+        factors.matchupGrade * 0.15 +
+        factors.streakFactor * 0.10 +
+        factors.lineSensitivity * 0.10 +
+        factors.aiPrediction * 0.15
+      );
     });
 
     const min = Math.min(...compositeScores);
@@ -206,17 +231,15 @@ export class StatpediaRatingService {
     // Cap volatility: if std dev is huge, reduce rating
     if (this.slateProps.length > 10) {
       const compositeScores = this.slateProps.map(p => {
-        const factors = {
-          hitRateScore: this.calculateHitRateScore(p),
-          projectionGapScore: this.calculateProjectionGapScore(p, 'both'),
-          aiPredictionScore: this.calculateAIPredictionScore(p, 'both'),
-          opponentScore: this.calculateOpponentScore(p),
-          marketConfidenceScore: this.calculateMarketConfidenceScore(p),
-          recencyScore: this.calculateRecencyScore(p)
-        };
-        return (0.30 * factors.hitRateScore) + (0.20 * factors.projectionGapScore) + 
-               (0.20 * factors.aiPredictionScore) + (0.15 * factors.opponentScore) + 
-               (0.10 * factors.marketConfidenceScore) + (0.05 * factors.recencyScore);
+        const factors = this.calculateFactors(p, 'both');
+        return (
+          factors.evPercent * 0.30 +
+          factors.hitRateWeighted * 0.20 +
+          factors.matchupGrade * 0.15 +
+          factors.streakFactor * 0.10 +
+          factors.lineSensitivity * 0.10 +
+          factors.aiPrediction * 0.15
+        );
       });
       
       const mean = compositeScores.reduce((a, b) => a + b, 0) / compositeScores.length;
