@@ -243,8 +243,10 @@ function mapStatIdToPropType(statId?: string | null): string | null {
   return map[statId] || toTitleCase(statId.replace(/_/g, ' '));
 }
 
-function buildConflictKey(league: string, gameId: string, playerId: string, market: string, line: number | string, odds: string) {
-  return `${league}:${gameId}:${playerId}:${normalizePropType(market)}:${line}:${odds}`;
+function buildConflictKey(league: string, gameId: string, playerId: string, market: string, line: number | string) {
+  // Dedupe on league + game + player + prop_type + line only
+  // This collapses multiple books offering the same market into one row
+  return `${league}:${gameId}:${playerId}:${normalizePropType(market)}:${line}`;
 }
 
 async function getOrCreateLeagueId(leagueCode: string): Promise<string> {
@@ -381,7 +383,7 @@ async function ingestLeague(league: string) {
         // Upsert player (by name; our schema lacks externalId)
         const playerRowId = await getOrCreatePlayerId(playerName, teamIdForPlayer, odd?.position || null);
 
-        const conflictKey = buildConflictKey(league, gameId, playerRowId, propType, line, String(oddsStr));
+        const conflictKey = buildConflictKey(league, gameId, playerRowId, propType, line);
         if (seen.has(conflictKey)) continue;
         seen.add(conflictKey);
 
@@ -399,6 +401,12 @@ async function ingestLeague(league: string) {
             priority: priority,
             side: side as 'over' | 'under',
             conflict_key: conflictKey,
+          }).onConflictDoUpdate({
+            target: [props.conflict_key],
+            set: {
+              odds: String(oddsStr), // Update to latest odds
+              updated_at: new Date(),
+            }
           });
           totalInserted += 1;
           if (priority) totalPriorityInserted += 1;
