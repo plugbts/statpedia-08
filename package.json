@@ -17,6 +17,7 @@
     "hasura:setup": "node setup-hasura.js",
     "hasura:console": "echo 'Open Hasura Console: https://graphql-engine-latest-statpedia.onrender.com/console'",
     "ingest:props": "tsx scripts/ingest-props.ts",
+    "ingest:props:drizzle": "tsx scripts/ingest-props-drizzle.ts",
     "ingest:enhanced": "tsx scripts/run-enhanced-ingestion.ts",
     "ingest:upcoming": "tsx scripts/run-upcoming-props-ingestion.ts",
     "seed:players": "tsx scripts/seed-real-players.ts",

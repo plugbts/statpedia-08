@@ -138,8 +138,8 @@ async function fetchEventsWithBoxScores(league, season, limit = 100) {
   console.log(`📡 Fetching events for ${league} ${season} (limit: ${limit})...`);
   
   try {
-    // Try the v2 events endpoint first
-    const url = `https://api.sportsgameodds.com/v2/events?leagueID=${league}&season=${season}&marketOddsAvailable=true&limit=${limit}`;
+    // Try the v2 events endpoint first with player props
+    const url = `https://api.sportsgameodds.com/v2/events?leagueID=${league}&season=${season}&marketOddsAvailable=true&playerProps=true&limit=${limit}`;
     
     const response = await fetch(url, {
       headers: {
@@ -155,14 +155,19 @@ async function fetchEventsWithBoxScores(league, season, limit = 100) {
     const data = await response.json();
     console.log(`✅ Fetched ${data.data?.length || 0} events from v2 API`);
     
+    // Add debug logging to see API response structure
+    if (data.data && data.data.length > 0) {
+      console.log('🔍 DEBUG: Found', data.data.length, 'events with markets data');
+    }
+    
     return data.data || [];
     
   } catch (error) {
     console.warn(`⚠️ v2 API failed, trying v1: ${error.message}`);
     
     try {
-      // Fallback to v1 events endpoint
-      const url = `https://api.sportsgameodds.com/v1/${league}/events?season=${season}&limit=${limit}`;
+      // Fallback to v1 events endpoint with player props
+      const url = `https://api.sportsgameodds.com/v1/${league}/events?season=${season}&playerProps=true&limit=${limit}`;
       
       const response = await fetch(url, {
         headers: {
@@ -178,6 +183,11 @@ async function fetchEventsWithBoxScores(league, season, limit = 100) {
       const data = await response.json();
       console.log(`✅ Fetched ${data.events?.length || 0} events from v1 API`);
       
+      // Add debug logging to see API response structure
+      if (data.events && data.events.length > 0) {
+        console.log('🔍 DEBUG: Found', data.events.length, 'events with markets data (v1)');
+      }
+      
       return data.events || [];
       
     } catch (v1Error) {
@@ -188,7 +198,13 @@ async function fetchEventsWithBoxScores(league, season, limit = 100) {
 }
 
 async function processEventForPlayerLogs(event, season) {
-  const gameLogs = [];
+  const props = [];
+  
+  // Filter events by status as you suggested
+  // Skip cancelled events, but allow completed events (they have player props)
+  if (event.status?.cancelled) {
+    return props;
+  }
   
   // Extract basic game info
   const gameDate = event.status?.startsAt ? 
@@ -200,105 +216,121 @@ async function processEventForPlayerLogs(event, season) {
   const homeTeamAbbr = normalizeOpponent(homeTeam);
   const awayTeamAbbr = normalizeOpponent(awayTeam);
   
-  console.log(`🏈 Processing game: ${awayTeamAbbr} @ ${homeTeamAbbr} (${gameDate})`);
+  console.log(`🏈 Processing game: ${awayTeamAbbr} @ ${homeTeamAbbr} (${gameDate}) - Status: ${JSON.stringify(event.status)}`);
   
-  // Process player stats if available
-  if (event.playerStats) {
-    for (const [playerId, playerStats] of Object.entries(event.playerStats)) {
-      const playerName = playerStats.name || playerId;
-      const normalizedPlayerId = normalizePlayerId(playerName);
-      
-      // Determine which team the player is on
-      const playerTeam = playerStats.team === homeTeam || playerStats.team === homeTeamAbbr ? homeTeamAbbr : awayTeamAbbr;
-      const opponent = playerStats.team === homeTeam || playerStats.team === homeTeamAbbr ? awayTeamAbbr : homeTeamAbbr;
-      
-      // Process each stat category
-      const statCategories = ['passing', 'rushing', 'receiving', 'kicking'];
-      
-      for (const category of statCategories) {
-        if (playerStats[category] && typeof playerStats[category] === 'object') {
-          const stats = playerStats[category];
-          
-          // Map stats to prop types
-          const statMappings = {
-            passing: {
-              'Passing Yards': stats.yards,
-              'Passing Touchdowns': stats.touchdowns,
-              'Passing Completions': stats.completions,
-              'Passing Attempts': stats.attempts,
-              'Longest Completion': stats.longestCompletion
-            },
-            rushing: {
-              'Rushing Yards': stats.yards,
-              'Rushing Touchdowns': stats.touchdowns,
-              'Rushing Attempts': stats.attempts,
-              'Longest Rush': stats.longestRush
-            },
-            receiving: {
-              'Receiving Yards': stats.yards,
-              'Receiving Receptions': stats.receptions,
-              'Receiving Touchdowns': stats.touchdowns,
-              'Longest Reception': stats.longestReception
-            },
-            kicking: {
-              'Field Goals Made': stats.fieldGoalsMade,
-              'Field Goals Attempted': stats.fieldGoalsAttempted,
-              'Extra Points Made': stats.extraPointsMade
-            }
-          };
-          
-          const mappings = statMappings[category] || {};
-          
-          for (const [propType, value] of Object.entries(mappings)) {
-            if (value !== undefined && value !== null && !isNaN(value) && value >= 0) {
-              gameLogs.push({
-                player_id: normalizedPlayerId,
-                player_name: playerName,
-                team: playerTeam,
-                opponent: opponent,
-                season: season,
-                date: gameDate,
-                prop_type: normalizeMarketType(propType),
-                value: parseFloat(value),
-                position: normalizePosition(playerStats.position),
-                sport: 'nfl'
-              });
-            }
-          }
-        }
+  // Process markets (player props) as you suggested
+  // The markets are in event.odds, not directly in the event object
+  const odds = event.odds || {};
+  const oddsKeys = Object.keys(odds);
+  console.log(`🔍 Odds keys: ${oddsKeys.slice(0, 10).join(', ')}...`);
+  
+  // Let's check if there are player prop keys in the entire event object
+  const allEventKeys = Object.keys(event);
+  const playerPropKeys = allEventKeys.filter(key => 
+    key.includes('_NFL') && key.includes('-')
+  );
+  
+  console.log(`🔍 Found ${playerPropKeys.length} player prop keys in event`);
+  if (playerPropKeys.length > 0) {
+    console.log(`🔍 Sample player prop keys: ${playerPropKeys.slice(0, 3).join(', ')}`);
+  }
+  
+  for (const marketKey of playerPropKeys) {
+    const market = event[marketKey];
+    
+    // Skip if not a player prop market
+    if (!market.playerID || !market.statID || !market.marketName) {
+      continue;
+    }
+    
+    console.log(`📊 Processing market: ${market.marketName} (${market.statID})`);
+    
+    // Extract player info
+    const playerId = market.playerID;
+    const playerName = market.marketName.split(' ')[0] + ' ' + (market.marketName.split(' ')[1] || '');
+    const statId = market.statID;
+    const line = parseFloat(market.fairOverUnder || market.bookOverUnder || '0');
+    const overOdds = market.fairOdds || market.bookOdds;
+    const underOdds = market.opposingOddID ? event[market.opposingOddID]?.fairOdds || event[market.opposingOddID]?.bookOdds : null;
+    
+    // Determine team from player stats or market name
+    let playerTeam = homeTeamAbbr;
+    if (event.playerStats && event.playerStats[playerId]) {
+      const playerStats = event.playerStats[playerId];
+      if (playerStats.team === awayTeam || playerStats.team === awayTeamAbbr) {
+        playerTeam = awayTeamAbbr;
       }
+    }
+    
+    const opponent = playerTeam === homeTeamAbbr ? awayTeamAbbr : homeTeamAbbr;
+    
+    // Normalize prop type
+    const propType = normalizePropType(statId);
+    
+    // Create prop entries for both over and under
+    if (overOdds && line > 0) {
+      props.push({
+        player_id: playerId,
+        player_name: playerName,
+        team: playerTeam,
+        opponent: opponent,
+        season: season,
+        date: gameDate,
+        prop_type: propType,
+        line: line,
+        odds: overOdds,
+        side: 'over',
+        market_key: marketKey,
+        sport: 'nfl'
+      });
+    }
+    
+    if (underOdds && line > 0) {
+      props.push({
+        player_id: playerId,
+        player_name: playerName,
+        team: playerTeam,
+        opponent: opponent,
+        season: season,
+        date: gameDate,
+        prop_type: propType,
+        line: line,
+        odds: underOdds,
+        side: 'under',
+        market_key: marketKey,
+        sport: 'nfl'
+      });
     }
   }
   
-  // Process player props from odds if available
-  if (event.odds && event.odds.playerProps) {
-    for (const prop of event.odds.playerProps) {
-      if (prop.playerName && prop.statValue !== undefined && prop.statValue !== null) {
-        const normalizedPlayerId = normalizePlayerId(prop.playerName);
-        const propType = normalizeMarketType(prop.statName || prop.propType);
-        
-        // Try to determine team from player name or prop context
-        const playerTeam = homeTeamAbbr; // Default fallback
-        const opponent = awayTeamAbbr;
-        
-        gameLogs.push({
-          player_id: normalizedPlayerId,
-          player_name: prop.playerName,
-          team: playerTeam,
-          opponent: opponent,
-          season: season,
-          date: gameDate,
-          prop_type: propType,
-          value: parseFloat(prop.statValue),
-          position: normalizePosition(prop.position),
-          sport: 'nfl'
-        });
-      }
-    }
-  }
+  console.log(`📊 Generated ${props.length} player props for this event`);
+  return props;
+}
+
+// Helper function to normalize prop types
+function normalizePropType(statId) {
+  const mappings = {
+    'passing_yards': 'Passing Yards',
+    'passing_touchdowns': 'Passing Touchdowns',
+    'passing_completions': 'Passing Completions',
+    'passing_attempts': 'Passing Attempts',
+    'passing_interceptions': 'Passing Interceptions',
+    'rushing_yards': 'Rushing Yards',
+    'rushing_touchdowns': 'Rushing Touchdowns',
+    'rushing_attempts': 'Rushing Attempts',
+    'receiving_yards': 'Receiving Yards',
+    'receiving_touchdowns': 'Receiving Touchdowns',
+    'receiving_receptions': 'Receptions',
+    'defense_sacks': 'Sacks',
+    'defense_interceptions': 'Interceptions',
+    'defense_combinedTackles': 'Combined Tackles',
+    'fieldGoals_made': 'Field Goals Made',
+    'extraPoints_kicksMade': 'Extra Points Made',
+    'kicking_totalPoints': 'Kicking Total Points',
+    'touchdowns': 'Any Touchdowns'
+  };
   
-  console.log(`📊 Generated ${gameLogs.length} player game logs for this event`);
-  return gameLogs;
+  return mappings[statId] || statId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 }
 
 async function savePlayerGameLogs(gameLogs) {
@@ -351,27 +383,28 @@ async function ingestPlayerGameLogs(league = 'NFL', season = 2025, limit = 100) 
     console.log(`📈 Processing ${events.length} events...`);
     
     // Process each event
-    let totalGameLogs = [];
+    let totalProps = [];
     let processedEvents = 0;
     
     for (const event of events) {
       try {
-        const gameLogs = await processEventForPlayerLogs(event, season);
-        totalGameLogs = totalGameLogs.concat(gameLogs);
+        const props = await processEventForPlayerLogs(event, season);
+        totalProps = totalProps.concat(props);
         processedEvents++;
         
         if (processedEvents % 10 === 0) {
-          console.log(`📊 Processed ${processedEvents}/${events.length} events (${totalGameLogs.length} game logs so far)`);
+          console.log(`📊 Processed ${processedEvents}/${events.length} events (${totalProps.length} props so far)`);
+    if (processedEvents >= 5) break; // Stop after 5 events for debugging
         }
       } catch (error) {
         console.error(`❌ Error processing event ${event.eventID || 'unknown'}:`, error.message);
       }
     }
     
-    console.log(`📈 Total game logs generated: ${totalGameLogs.length} from ${processedEvents} events`);
+    console.log(`📈 Total props generated: ${totalProps.length} from ${processedEvents} events`);
     
     // Save to database
-    const savedCount = await savePlayerGameLogs(totalGameLogs);
+    const savedCount = await savePlayerGameLogs(totalProps);
     
     // Verify data was saved
     const { data: savedData, error: verifyError } = await supabase
@@ -392,7 +425,7 @@ async function ingestPlayerGameLogs(league = 'NFL', season = 2025, limit = 100) 
     await testAnalyticsWithRealData();
     
     console.log('🎉 Real data ingestion completed!');
-    console.log(`📊 Saved ${savedCount} game logs for ${league} ${season}`);
+    console.log(`📊 Saved ${savedCount} props for ${league} ${season}`);
     
   } catch (error) {
     console.error('❌ Ingestion failed:', error);

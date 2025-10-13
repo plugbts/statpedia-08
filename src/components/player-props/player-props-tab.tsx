@@ -463,7 +463,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const [maxLine, setMaxLine] = useState(1000);
   const [showSelection, setShowSelection] = useState(false);
   const [viewMode, setViewMode] = useState<'column' | 'cards'>('column');
-  const [overUnderFilter, setOverUnderFilter] = useState<'over' | 'under' | 'both'>('both');
+  const [overUnderFilter, setOverUnderFilter] = useState<'over' | 'under' | 'both'>('over');
   
   // Handle view parameter from URL
   useEffect(() => {
@@ -480,7 +480,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   // Odds range filter state
   const [minOdds, setMinOdds] = useState(-175);
   const [maxOdds, setMaxOdds] = useState(500);
-  const [useOddsFilter, setUseOddsFilter] = useState(false);
+  const [useOddsFilter, setUseOddsFilter] = useState(true);
 
   // Memoize today's date to prevent constant re-renders in analytics
   const todayDate = useMemo(() => new Date().toISOString().split('T')[0], []);
@@ -556,7 +556,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     setSearchQuery('');
     setMinOdds(-175);
     setMaxOdds(500);
-    setUseOddsFilter(false);
+    setUseOddsFilter(true);
     localStorage.removeItem(`player-props-filters-${sportFilter}`);
     toast({
       title: "Filters Reset",
@@ -564,6 +564,35 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     });
     logInfo('PlayerPropsTab', 'Reset all filters to default');
   };
+
+  // Auto-reset restrictive filters on first load
+  useEffect(() => {
+    const hasResetFilters = localStorage.getItem(`player-props-auto-reset-${sportFilter}`);
+    if (!hasResetFilters) {
+      // Check if saved filters are too restrictive
+      const savedFilters = localStorage.getItem(`player-props-filters-${sportFilter}`);
+      if (savedFilters) {
+        try {
+          const filters = JSON.parse(savedFilters);
+          const isRestrictive = filters.minConfidence > 70 || 
+                               filters.minEV > 10 || 
+                               filters.showOnlyPositiveEV === true ||
+                               filters.overUnderFilter === 'over' ||
+                               filters.useOddsFilter === true;
+          
+          if (isRestrictive) {
+            console.log('🔧 Auto-resetting restrictive filters for', sportFilter);
+            resetFilters();
+            localStorage.setItem(`player-props-auto-reset-${sportFilter}`, 'true');
+          }
+        } catch (error) {
+          // If filters are corrupted, reset them
+          resetFilters();
+          localStorage.setItem(`player-props-auto-reset-${sportFilter}`, 'true');
+        }
+      }
+    }
+  }, [sportFilter]);
 
   // Apply filter preset
   const applyPreset = (presetKey: keyof typeof filterPresets) => {

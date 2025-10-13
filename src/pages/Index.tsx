@@ -48,7 +48,7 @@ const Index = () => {
     getUserUsername,
     getUserInitials
   } = useUser();
-  const [selectedSport, setSelectedSport] = useState('nfl');
+  const [selectedSport, setSelectedSport] = useState('nhl');
   const [realPredictions, setRealPredictions] = useState<any[]>([]);
   const [isLoadingPredictions, setIsLoadingPredictions] = useState(false);
   const [predictionsCount, setPredictionsCount] = useState(0);

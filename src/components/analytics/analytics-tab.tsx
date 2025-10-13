@@ -16,7 +16,7 @@ interface AnalyticsTabProps {
 }
 
 export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ userRole, userSubscription }) => {
-  const [selectedSport, setSelectedSport] = useState<string>('nfl');
+  const [selectedSport, setSelectedSport] = useState<string>('nhl');
   const [selectedSportsbook, setSelectedSportsbook] = useState<string>('all');
   const [pastProps, setPastProps] = useState<PlayerProp[]>([]);
   const [isLoading, setIsLoading] = useState(false);

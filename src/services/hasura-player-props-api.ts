@@ -111,9 +111,11 @@ class HasuraPlayerPropsAPI {
       console.log(`📊 HASURA: Using prop limit of ${propLimit} for ${sport}`);
       
       // Build GraphQL query using new clean schema with relationships and limit
+      // Add sport filtering at the GraphQL level
+      const sportFilter = sport ? `, where: { player: { team: { league: { code: { _eq: "${sport.toUpperCase()}" } } } } }` : '';
       const query = `
         query GetPlayerProps($limit: Int) {
-          props(limit: $limit, order_by: {created_at: desc}) {
+          props(limit: $limit, order_by: {created_at: desc}${sportFilter}) {
             id
             prop_type
             line
@@ -197,7 +199,7 @@ class HasuraPlayerPropsAPI {
           opponent: 'OPP', // TODO: Add opponent relationship
           opponentAbbr: 'OPP',
           gameId: prop.game_id,
-          sport: league?.code?.toLowerCase() || sport.toLowerCase(),
+          sport: league?.code || sport.toUpperCase(),
           propType: prop.prop_type || 'Unknown',
           line: prop.line ? parseFloat(prop.line) : null,
           overOdds: prop.odds ? parseInt(prop.odds.replace(/[^\d-]/g, '')) : null,
@@ -224,8 +226,8 @@ class HasuraPlayerPropsAPI {
 
       // Filter by sport only - show all props for debugging
       const filteredProps = frontendProps.filter((prop) => {
-        // Filter by sport if specified
-        if (sport && prop.sport !== sport.toLowerCase()) {
+        // Filter by sport if specified - convert both to uppercase for comparison
+        if (sport && prop.sport.toUpperCase() !== sport.toUpperCase()) {
           return false;
         }
         

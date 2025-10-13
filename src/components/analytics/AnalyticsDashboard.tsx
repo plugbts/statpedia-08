@@ -10,7 +10,7 @@ interface AnalyticsDashboardProps {
 }
 
 export function AnalyticsDashboard({ className = "" }: AnalyticsDashboardProps) {
-  const [selectedLeague, setSelectedLeague] = useState("nfl");
+  const [selectedLeague, setSelectedLeague] = useState("nhl");
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedPropType, setSelectedPropType] = useState<string>("");
   const [props, setProps] = useState<PropMatchup[]>([]);
