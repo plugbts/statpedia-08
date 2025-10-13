@@ -115,11 +115,12 @@ class HasuraPlayerPropsAPI {
       const sportFilter = sport ? `, where: { player: { team: { league: { code: { _eq: "${sport.toUpperCase()}" } } } } }` : '';
       const query = `
         query GetPlayerProps($limit: Int) {
-          props(limit: $limit, order_by: {created_at: desc}${sportFilter}) {
+          props(limit: $limit, order_by: {priority: desc, created_at: desc}${sportFilter}) {
             id
             prop_type
             line
             odds
+            priority
             game_id
             player {
               id
@@ -261,10 +262,42 @@ class HasuraPlayerPropsAPI {
         console.log(`🔍 DEBUG: Sample prop - Player: "${filteredProps[0].playerName}", Team: "${filteredProps[0].team}", Prop: "${filteredProps[0].propType}"`);
       }
 
-      const responseTime = Date.now() - startTime;
-      console.log(`✅ HASURA: Successfully retrieved ${filteredProps.length} props (${responseTime}ms)`);
+      // Custom sorting to prioritize Passing Yards and other key props
+      const sortedProps = filteredProps.sort((a, b) => {
+        // Priority order for prop types
+        const propPriority = (propType: string) => {
+          const lower = propType.toLowerCase();
+          if (lower.includes('passing yards')) return 1;
+          if (lower.includes('rushing yards')) return 2;
+          if (lower.includes('receiving yards')) return 3;
+          if (lower.includes('receptions')) return 4;
+          if (lower.includes('passing tds')) return 5;
+          if (lower.includes('rushing tds')) return 6;
+          if (lower.includes('receiving tds')) return 7;
+          return 8; // Other props
+        };
+        
+        const aPriority = propPriority(a.propType);
+        const bPriority = propPriority(b.propType);
+        
+        // First sort by prop priority
+        if (aPriority !== bPriority) {
+          return aPriority - bPriority;
+        }
+        
+        // Then sort by priority flag (true first)
+        if (a.priority !== b.priority) {
+          return a.priority ? -1 : 1;
+        }
+        
+        // Finally sort by created_at (newest first)
+        return new Date(b.lastUpdate || 0).getTime() - new Date(a.lastUpdate || 0).getTime();
+      });
 
-      return filteredProps;
+      const responseTime = Date.now() - startTime;
+      console.log(`✅ HASURA: Successfully retrieved and sorted ${sortedProps.length} props (${responseTime}ms)`);
+
+      return sortedProps;
 
     } catch (error) {
       console.error('❌ HASURA: Failed to fetch player props:', error);

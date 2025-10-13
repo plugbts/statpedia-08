@@ -34,9 +34,9 @@ import { toAmericanOdds, getOddsColorClass } from '@/utils/odds';
 import { getPlayerHeadshot, getPlayerInitials, getKnownPlayerHeadshot } from '@/utils/headshots';
 import { StreakService } from '@/services/streak-service';
 import { useToast } from '@/hooks/use-toast';
-import { normalizeOpponent, normalizeMarketType, normalizePosition, normalizeTeam } from '@/utils/normalize';
+import { normalizeOpponent, normalizePosition, normalizeTeam } from '@/utils/normalize';
 import { useSimpleAnalytics } from '@/hooks/use-simple-analytics';
-import { formatPropType, getOrdinalSuffix, getTeamAbbreviation } from '@/utils/prop-type-formatter';
+import { getOrdinalSuffix, getTeamAbbreviation } from '@/utils/prop-type-formatter';
 import '@/styles/streak-animations.css';
 
 // Using shared utility functions from prop-type-formatter.ts
@@ -253,7 +253,6 @@ export function PlayerPropsColumnView({
     team: normalizeTeam(prop.team),
     opponent: normalizeOpponent(prop.opponent),
     opponentAbbr: normalizeOpponent(prop.opponentAbbr || prop.opponent),
-    marketType: normalizeMarketType(prop.marketType || prop.propType),
     position: normalizePosition(prop.position),
   }));
 
@@ -870,14 +869,12 @@ export function PlayerPropsColumnView({
             player: prop.playerName,
             opponentRaw: prop.opponent,
             opponentNorm: normalizeOpponent(prop.opponent),
-            market: prop.marketType || prop.propType,
-            marketNorm: normalizeMarketType(prop.marketType || prop.propType),
+            propType: prop.propType,
             position: prop.position,
             positionNorm: normalizePosition(prop.position),
             line: prop.line,
             logsCount: prop.gameLogs?.length || 0,
             sampleLog: prop.gameLogs?.[0],
-            propType: prop.propType,
             playerId: prop.playerId
           });
 
@@ -993,7 +990,7 @@ export function PlayerPropsColumnView({
                 {/* Prop Type */}
                   <div className="w-32 text-center px-2">
                     <div className="text-xs font-medium text-white group-hover:text-white transition-all duration-300 transform group-hover:scale-105 truncate animate-pulse" style={{ animationDuration: '3s' }}>
-                      {formatPropType(prop.marketType || prop.propType)}
+                      {prop.propType}
                   </div>
                 </div>
 
