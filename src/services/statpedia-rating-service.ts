@@ -50,8 +50,28 @@ export class StatpediaRatingService {
     }
 
     // Calculate composite scores for over and under modes
-    const overComposites = this.slateProps.map(prop => this.preComposite(prop, 'over'));
-    const underComposites = this.slateProps.map(prop => this.preComposite(prop, 'under'));
+    const overComposites = this.slateProps.map(prop => {
+      const factors = this.calculateFactors(prop, 'over');
+      return (
+        factors.evPercent * 0.30 +
+        factors.hitRateWeighted * 0.20 +
+        factors.matchupGrade * 0.15 +
+        factors.streakFactor * 0.10 +
+        factors.lineSensitivity * 0.10 +
+        factors.aiPrediction * 0.15
+      );
+    });
+    const underComposites = this.slateProps.map(prop => {
+      const factors = this.calculateFactors(prop, 'under');
+      return (
+        factors.evPercent * 0.30 +
+        factors.hitRateWeighted * 0.20 +
+        factors.matchupGrade * 0.15 +
+        factors.streakFactor * 0.10 +
+        factors.lineSensitivity * 0.10 +
+        factors.aiPrediction * 0.15
+      );
+    });
 
     this.slateStats = {
       over: { 
