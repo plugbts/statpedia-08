@@ -529,11 +529,11 @@ class HasuraPlayerPropsAPI {
         }
       `;
 
-      const response = await fetch(`${HASURA_ENDPOINT}/v1/graphql`, {
+      const response = await fetch(this.graphqlEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-hasura-admin-secret': HASURA_ADMIN_SECRET,
+          'x-hasura-admin-secret': 'Tkinggaming!',
         },
         body: JSON.stringify({
           query,

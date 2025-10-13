@@ -954,10 +954,17 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   }
 
   // Combine sportsbook and pickem props when toggle is enabled
+  // IMPORTANT: Only show Pick'em props when explicitly enabled by user
   const allProps = showPickemProps ? [...realProps, ...pickemProps] : realProps;
   
+  // Safety check: Ensure no pickem props leak into default view
+  const safeAllProps = showPickemProps ? allProps : realProps.filter(prop => (prop as any).source !== 'pickem');
+  
+  // 🔍 DEBUG: Log prop combination
+  console.log(`🔍 PROPS DEBUG: showPickemProps=${showPickemProps}, realProps=${realProps.length}, pickemProps=${pickemProps.length}, allProps=${allProps.length}`);
+  
   // PropFinder-style dual rating system
-  const propsWithRatings = allProps.map(prop => ({
+  const propsWithRatings = safeAllProps.map(prop => ({
     ...prop,
     ...computeDualRatings(prop)
   }));
