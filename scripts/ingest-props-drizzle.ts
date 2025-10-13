@@ -460,16 +460,26 @@ async function ingestLeague(league: string) {
         const gameId: string = event.eventID || event.id || event.game_id || '';
         if (!gameId) continue;
 
-        // 🔍 DEBUG: Log raw prop data for Xavier Worthy specifically
-        if (playerName.toLowerCase().includes('worthy')) {
-          console.log("🔍 XAVIER WORTHY DEBUG:", {
+        // 🔍 DEBUG: Log raw prop data for Xavier Worthy and other key players
+        if (playerName.toLowerCase().includes('worthy') || 
+            playerName.toLowerCase().includes('mahomes') || 
+            playerName.toLowerCase().includes('allen')) {
+          console.log("🔍 RAW MARKET DEBUG:", {
             player: playerName,
             statId: statId,
             propType: propType,
             rawLine: lineStr,
             parsedLine: line,
             odds: oddsStr,
-            side: side
+            side: side,
+            rawOdd: {
+              oddID: odd.oddID,
+              marketName: odd.marketName,
+              fairOverUnder: odd.fairOverUnder,
+              bookOverUnder: odd.bookOverUnder,
+              fairOdds: odd.fairOdds,
+              bookOdds: odd.bookOdds
+            }
           });
         }
 
@@ -478,8 +488,24 @@ async function ingestLeague(league: string) {
         const playerRowId = await getOrCreatePlayerId(playerName, teamIdForPlayer, odd?.position || null);
 
         // Determine if this is sportsbook or pickem
-        const isSportsbook = odd?.bookmaker || odd?.book;
-        const bookName = odd?.bookmaker || odd?.book || 'Unknown';
+        // Since the API doesn't have bookmaker/book fields, we'll treat all props as sportsbook
+        // unless they have specific pickem indicators
+        const isSportsbook = true; // All props from this API are sportsbook props
+        const bookName = 'SportsGameOdds'; // Default book name
+        
+        // 🔍 DEBUG: Log sportsbook detection
+        if (playerName.toLowerCase().includes('worthy') || 
+            playerName.toLowerCase().includes('allen')) {
+          console.log("🔍 SPORTSBOOK DEBUG:", {
+            player: playerName,
+            propType: propType,
+            line: line,
+            isSportsbook: isSportsbook,
+            bookName: bookName,
+            bookmaker: odd?.bookmaker,
+            book: odd?.book
+          });
+        }
         
         if (isSportsbook) {
           // Handle sportsbook props (existing logic)
@@ -508,10 +534,34 @@ async function ingestLeague(league: string) {
             if (!propEntry.bestOddsOver || Number(oddsStr) > Number(propEntry.bestOddsOver)) {
               propEntry.bestOddsOver = oddsStr;
             }
+            
+            // 🔍 DEBUG: Log over odds aggregation
+            if (playerName.toLowerCase().includes('worthy') || 
+                playerName.toLowerCase().includes('allen')) {
+              console.log("🔍 OVER AGGREGATION:", {
+                player: playerName,
+                propType: propType,
+                line: line,
+                odds: oddsStr,
+                bestOddsOver: propEntry.bestOddsOver
+              });
+            }
           } else if (side === 'under') {
             propEntry.booksUnder[bookName] = oddsStr;
             if (!propEntry.bestOddsUnder || Number(oddsStr) > Number(propEntry.bestOddsUnder)) {
               propEntry.bestOddsUnder = oddsStr;
+            }
+            
+            // 🔍 DEBUG: Log under odds aggregation
+            if (playerName.toLowerCase().includes('worthy') || 
+                playerName.toLowerCase().includes('allen')) {
+              console.log("🔍 UNDER AGGREGATION:", {
+                player: playerName,
+                propType: propType,
+                line: line,
+                odds: oddsStr,
+                bestOddsUnder: propEntry.bestOddsUnder
+              });
             }
           }
         } else {
@@ -549,6 +599,19 @@ async function ingestLeague(league: string) {
         seen.add(conflictKey);
 
         try {
+          // 🔍 DEBUG: Log insertion data
+          if (propEntry.playerId && propEntry.propType && propEntry.propType.includes('Passing Yards')) {
+            console.log("🔍 INSERTION DEBUG:", {
+              playerId: propEntry.playerId,
+              propType: propEntry.propType,
+              line: propEntry.line,
+              bestOddsOver: propEntry.bestOddsOver,
+              bestOddsUnder: propEntry.bestOddsUnder,
+              booksOver: Object.keys(propEntry.booksOver),
+              booksUnder: Object.keys(propEntry.booksUnder)
+            });
+          }
+          
           await db.insert(props).values({
             player_id: propEntry.playerId,
             team_id: propEntry.teamId,
