@@ -35,24 +35,160 @@ function toTitleCase(input: string): string {
     .join(' ');
 }
 
+// Priority props that 90% of users care about
+const PRIORITY_PROPS = new Set([
+  // NFL Priority Props
+  'Passing Yards',
+  'Passing TDs',
+  'Passing Attempts',
+  'Passing Completions',
+  'Rushing Yards',
+  'Rushing TDs',
+  'Rushing Attempts',
+  'Receiving Yards',
+  'Receiving TDs',
+  'Receptions',
+  'Rush+Rec Yards',
+  'Pass+Rush Yards',
+  'Anytime TD',
+  'First TD',
+  'Interceptions',
+  'Sacks',
+  'Tackles',
+  'Fantasy Score',
+  
+  // NBA Priority Props
+  'Points',
+  'Assists',
+  'Rebounds',
+  '3-Pointers Made',
+  'Steals',
+  'Blocks',
+  'Turnovers',
+  'Points+Assists',
+  'Points+Rebounds',
+  'Assists+Rebounds',
+  'Points+Assists+Rebounds',
+  
+  // MLB Priority Props
+  'Hits',
+  'Home Runs',
+  'RBIs',
+  'Stolen Bases',
+  'Total Bases',
+  'Runs',
+  'Strikeouts',
+  'Walks',
+  'Pitcher Strikeouts',
+  'Earned Runs',
+  'Hits Allowed',
+  
+  // NHL Priority Props
+  'Goals',
+  'Assists',
+  'Shots on Goal',
+  'Blocked Shots',
+  'Saves',
+  'Goals Against',
+]);
+
 function normalizePropType(market: string): string {
   const key = market.toLowerCase().replace(/\s+/g, '_');
   switch (key) {
+    // NFL
     case 'passing_yards': return 'Passing Yards';
-    case 'rushing_yards': return 'Rushing Yards';
-    case 'receiving_yards': return 'Receiving Yards';
-    case 'receptions': return 'Receptions';
-    case 'rush_attempts': return 'Rushing Attempts';
+    case 'passing_touchdowns':
     case 'passing_tds': return 'Passing TDs';
+    case 'passing_attempts': return 'Passing Attempts';
+    case 'passing_completions': return 'Passing Completions';
+    case 'rushing_yards': return 'Rushing Yards';
+    case 'rushing_touchdowns':
     case 'rushing_tds': return 'Rushing TDs';
+    case 'rushing_attempts': return 'Rushing Attempts';
+    case 'receiving_yards': return 'Receiving Yards';
+    case 'receiving_touchdowns':
     case 'receiving_tds': return 'Receiving TDs';
+    case 'receiving_receptions':
+    case 'receptions': return 'Receptions';
+    case 'rushing_receiving_yards':
+    case 'rush_rec_yards': return 'Rush+Rec Yards';
+    case 'passing_rushing_yards':
+    case 'pass_rush_yards': return 'Pass+Rush Yards';
+    case 'anytime_touchdown':
+    case 'anytime_td':
+    case 'touchdowns': return 'Anytime TD';
+    case 'first_touchdown':
+    case 'first_td': return 'First TD';
+    case 'defense_interceptions':
+    case 'interceptions': return 'Interceptions';
+    case 'defense_sacks':
+    case 'sacks': return 'Sacks';
+    case 'defense_combinedtackles':
+    case 'tackles': return 'Tackles';
+    case 'defense_solo_tackles': return 'Solo Tackles';
+    case 'defense_assisted_tackles': return 'Assisted Tackles';
+    case 'fantasyscore':
+    case 'fantasy_score': return 'Fantasy Score';
+    
+    // NBA
     case 'points': return 'Points';
     case 'assists': return 'Assists';
     case 'rebounds': return 'Rebounds';
+    case 'three_pointers_made':
+    case '3pm':
+    case 'threes': return '3-Pointers Made';
+    case 'steals': return 'Steals';
+    case 'blocks': return 'Blocks';
+    case 'turnovers': return 'Turnovers';
+    case 'points_assists':
+    case 'pts_ast': return 'Points+Assists';
+    case 'points_rebounds':
+    case 'pts_reb': return 'Points+Rebounds';
+    case 'assists_rebounds':
+    case 'ast_reb': return 'Assists+Rebounds';
+    case 'points_assists_rebounds':
+    case 'pts_ast_reb': return 'Points+Assists+Rebounds';
+    
+    // MLB
+    case 'batting_hits':
+    case 'hits': return 'Hits';
+    case 'batting_homeruns':
+    case 'home_runs': return 'Home Runs';
+    case 'batting_rbis':
+    case 'rbis': return 'RBIs';
+    case 'batting_stolenbases':
+    case 'stolen_bases': return 'Stolen Bases';
+    case 'batting_totalbases':
+    case 'total_bases': return 'Total Bases';
+    case 'batting_runs':
+    case 'runs': return 'Runs';
+    case 'batting_strikeouts':
+    case 'strikeouts': return 'Strikeouts';
+    case 'batting_walks':
+    case 'walks': return 'Walks';
+    case 'pitching_strikeouts':
+    case 'pitcher_strikeouts': return 'Pitcher Strikeouts';
+    case 'pitching_earnedruns':
+    case 'earned_runs': return 'Earned Runs';
+    case 'pitching_hitsallowed':
+    case 'hits_allowed': return 'Hits Allowed';
+    case 'batting_doubles': return 'Doubles';
+    case 'batting_triples': return 'Triples';
+    
+    // NHL
+    case 'goals': return 'Goals';
     case 'shots_on_goal': return 'Shots on Goal';
+    case 'blocked_shots': return 'Blocked Shots';
     case 'saves': return 'Saves';
-    default: return market;
+    case 'goals_against': return 'Goals Against';
+    
+    // Fallback: title case the input
+    default: return toTitleCase(market);
   }
+}
+
+function isPriorityProp(propType: string): boolean {
+  return PRIORITY_PROPS.has(propType);
 }
 
 function mapStatIdToPropType(statId?: string | null): string | null {
@@ -143,6 +279,7 @@ async function ingestLeague(league: string) {
   let nextCursor: string | null = null;
   const seen = new Set<string>();
   let totalInserted = 0;
+  let totalPriorityInserted = 0;
 
   do {
     const url = `https://api.sportsgameodds.com/v2/events?leagueID=${encodeURIComponent(league)}&oddsAvailable=true&limit=100${nextCursor ? `&cursor=${encodeURIComponent(nextCursor)}` : ''}`;
@@ -216,6 +353,9 @@ async function ingestLeague(league: string) {
         if (seen.has(conflictKey)) continue;
         seen.add(conflictKey);
 
+        // Determine if this is a priority prop
+        const priority = isPriorityProp(propType);
+
         try {
           await db.insert(props).values({
             player_id: playerRowId,
@@ -224,8 +364,12 @@ async function ingestLeague(league: string) {
             prop_type: propType,
             line: String(line),
             odds: String(oddsStr),
+            priority: priority,
+            side: side as 'over' | 'under',
+            conflict_key: conflictKey,
           });
           totalInserted += 1;
+          if (priority) totalPriorityInserted += 1;
         } catch (e) {
           // Best-effort insert; continue on errors
           // console.error('Insert failed for prop', e);
@@ -236,7 +380,7 @@ async function ingestLeague(league: string) {
     nextCursor = payload.nextCursor || null;
   } while (nextCursor);
 
-  console.log(`✅ ${league}: inserted ${totalInserted} props`);
+  console.log(`✅ ${league}: inserted ${totalInserted} props (${totalPriorityInserted} priority, ${totalInserted - totalPriorityInserted} extended)`);
 }
 
 async function main() {

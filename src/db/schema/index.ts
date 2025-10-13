@@ -5,7 +5,7 @@
  * with the clean leagues → teams → players → props hierarchy.
  */
 
-import { pgTable, serial, text, numeric, varchar, uuid, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, numeric, varchar, uuid, timestamp, boolean } from "drizzle-orm/pg-core";
 
 // Leagues table
 export const leagues = pgTable("leagues", {
@@ -52,6 +52,9 @@ export const props = pgTable("props", {
   prop_type: text("prop_type"), // e.g. "Passing Yards", "Receptions"
   line: numeric("line"), // betting line
   odds: text("odds"), // e.g. "-115", "+120"
+  priority: boolean("priority").default(false), // true for priority props (90% of users care about)
+  side: text("side"), // 'over' or 'under'
+  conflict_key: text("conflict_key"), // unique deduplication key
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
