@@ -101,24 +101,44 @@ function normalizePropType(market: string): string {
   const key = market.toLowerCase().replace(/\s+/g, '_');
   switch (key) {
     // NFL
-    case 'passing_yards': return 'Passing Yards';
+    case 'passing_yards':
+    case 'pass_yards':
+    case 'pass_yds': return 'Passing Yards';
     case 'passing_touchdowns':
-    case 'passing_tds': return 'Passing TDs';
+    case 'passing_tds':
+    case 'pass_tds': return 'Passing TDs';
     case 'passing_attempts': return 'Passing Attempts';
+    case 'completions':
+    case 'pass_completions':
     case 'passing_completions': return 'Passing Completions';
-    case 'rushing_yards': return 'Rushing Yards';
+    case 'rushing_yards':
+    case 'rush_yards':
+    case 'rush_yds': return 'Rushing Yards';
     case 'rushing_touchdowns':
-    case 'rushing_tds': return 'Rushing TDs';
+    case 'rushing_tds':
+    case 'rush_tds': return 'Rushing TDs';
     case 'rushing_attempts': return 'Rushing Attempts';
-    case 'receiving_yards': return 'Receiving Yards';
+    case 'longest_rush':
+    case 'long_rush': return 'Longest Rush';
+    case 'receiving_yards':
+    case 'rec_yards':
+    case 'rec_yds': return 'Receiving Yards';
     case 'receiving_touchdowns':
-    case 'receiving_tds': return 'Receiving TDs';
+    case 'receiving_tds':
+    case 'rec_tds': return 'Receiving TDs';
     case 'receiving_receptions':
-    case 'receptions': return 'Receptions';
+    case 'receptions':
+    case 'catches': return 'Receptions';
+    case 'longest_reception':
+    case 'long_rec': return 'Longest Reception';
     case 'rushing_receiving_yards':
-    case 'rush_rec_yards': return 'Rush+Rec Yards';
+    case 'rush_rec_yards':
+    case 'rushing+receiving_yards':
+    case 'rush+rec': return 'Rush + Rec Yards';
     case 'passing_rushing_yards':
-    case 'pass_rush_yards': return 'Pass+Rush Yards';
+    case 'pass_rush_yards':
+    case 'pass+rush':
+    case 'passing+rushing_yards': return 'Pass + Rush Yards';
     case 'anytime_touchdown':
     case 'anytime_td':
     case 'touchdowns': return 'Anytime TD';
@@ -230,6 +250,9 @@ function mapStatIdToPropType(statId?: string | null): string | null {
     rushing_yards: 'Rushing Yards',
     receiving_yards: 'Receiving Yards',
     receiving_receptions: 'Receptions',
+    receiving_longestreception: 'Longest Reception',
+    rushing_longestrush: 'Longest Rush',
+    passing_longestcompletion: 'Longest Completion',
     rushing_attempts: 'Rushing Attempts',
     passing_touchdowns: 'Passing TDs',
     rushing_touchdowns: 'Rushing TDs',
