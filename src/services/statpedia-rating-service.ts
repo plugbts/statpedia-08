@@ -1,12 +1,12 @@
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
 
 export interface StatpediaRatingFactors {
-  hitRateScore: number;           // 0-100 points (30% weight)
-  projectionGapScore: number;     // 0-100 points (20% weight)
-  aiPredictionScore: number;      // 0-100 points (20% weight)
-  opponentScore: number;          // 0-100 points (15% weight)
-  marketConfidenceScore: number;  // 0-100 points (10% weight)
-  recencyScore: number;           // 0-100 points (5% weight)
+  evPercent: number;              // 0-100 points (30% weight) - Expected Value
+  hitRateWeighted: number;        // 0-100 points (20% weight) - Hit Rate History (L2G/L5/L10/L20)
+  matchupGrade: number;           // 0-100 points (15% weight) - Opponent rank normalized
+  streakFactor: number;           // 0-100 points (10% weight) - Momentum adjustment
+  lineSensitivity: number;        // 0-100 points (10% weight) - Current line vs historical average
+  aiPrediction: number;           // 0-100 points (15% weight) - AI Model confidence
 }
 
 export interface StatpediaRating {
@@ -17,12 +17,12 @@ export interface StatpediaRating {
   factors: StatpediaRatingFactors;
   reasoning: string[];
   breakdown: {
-    hitRate: number;
-    projectionGap: number;
+    evPercent: number;
+    hitRateWeighted: number;
+    matchupGrade: number;
+    streakFactor: number;
+    lineSensitivity: number;
     aiPrediction: number;
-    opponent: number;
-    marketConfidence: number;
-    recency: number;
   };
 }
 
@@ -90,57 +90,48 @@ export class StatpediaRatingService {
   
   /**
    * Calculate comprehensive Statpedia Rating for a player prop
-   * New side-aware composite with per-mode slate normalization
+   * Updated 6-factor system with new weights
    */
   calculateRating(prop: any, overUnderContext: 'over' | 'under' | 'both' = 'both'): StatpediaRating {
-    // Compute factor scores (existing factor functions are reused)
+    // Compute new 6-factor scores
     const factors: StatpediaRatingFactors = {
-      hitRateScore: this.calculateHitRateScore(prop, overUnderContext),               // side-aware if possible
-      projectionGapScore: this.calculateProjectionGapScore(prop, overUnderContext),   // side-aware gap
-      aiPredictionScore: this.calculateAIPredictionScore(prop, overUnderContext),     // side-aware model delta
-      opponentScore: this.calculateOpponentScore(prop, overUnderContext),             // flip for Under if needed
-      marketConfidenceScore: this.calculateMarketConfidenceScore(prop),
-      recencyScore: this.calculateRecencyScore(prop)
+      evPercent: this.calculateEVPercent(prop, overUnderContext),              // 30% weight - Expected Value
+      hitRateWeighted: this.calculateHitRateWeighted(prop, overUnderContext),  // 20% weight - Hit Rate History
+      matchupGrade: this.calculateMatchupGrade(prop, overUnderContext),        // 15% weight - Opponent rank
+      streakFactor: this.calculateStreakFactor(prop, overUnderContext),        // 10% weight - Momentum
+      lineSensitivity: this.calculateLineSensitivity(prop, overUnderContext),  // 10% weight - Line vs historical
+      aiPrediction: this.calculateAIPrediction(prop, overUnderContext)         // 15% weight - AI confidence
     };
 
-    // Rebalanced weights:
-    // - Hit rate and projection gap should lead
-    // - AI prediction supports gap but shouldn't dominate
-    // - Opponent and market confidence provide context
-    // - Recency is a small nudge
-    const compositeScore =
-      (0.35 * this.safeScore(factors.hitRateScore)) +
-      (0.25 * this.safeScore(factors.projectionGapScore)) +
-      (0.15 * this.safeScore(factors.aiPredictionScore)) +
-      (0.15 * this.safeScore(factors.opponentScore)) +
-      (0.07 * this.safeScore(factors.marketConfidenceScore)) +
-      (0.03 * this.safeScore(factors.recencyScore));
+    // New weight formula as specified:
+    // EV% → 30%, Hit Rate → 20%, Matchup Grade → 15%, 
+    // Streak Factor → 10%, Line Sensitivity → 10%, AI Model → 15%
+    const statpediaRating = (
+      factors.evPercent * 0.30 +
+      factors.hitRateWeighted * 0.20 +
+      factors.matchupGrade * 0.15 +
+      factors.streakFactor * 0.10 +
+      factors.lineSensitivity * 0.10 +
+      factors.aiPrediction * 0.15
+    );
 
-    // Normalize to mode-specific slate into 40–95 band.
-    // IMPORTANT: normalize using the distribution of current slate scores for the selected mode.
-    const normalizedScore = this.normalizeToSlateMode(compositeScore, overUnderContext, { min: 40, max: 95 });
-
-    // Apply bounded boosts/penalties WITHOUT shrinking the spread:
-    // - Volatility penalty (reduce up to 7 points)
-    // - Consensus boost (increase up to 5 points)
-    const adjustedScore = this.applyBoundedAdjustments(normalizedScore, prop);
-
-    const final = Math.round(this.clamp(adjustedScore, 40, 95));
+    // Normalize all inputs to a 0–100 scale, then clamp final result to 0-95 (95 is max)
+    const final = Math.round(this.clamp(statpediaRating, 0, 95));
 
     const rating: StatpediaRating = {
       overall: final,
-      grade: this.getGrade(final),                     // updated thresholds below
-      color: this.getColor(final),                     // keep your existing color function
+      grade: this.getGrade(final),
+      color: this.getColor(final),
       confidence: this.getConfidenceLevel(final, factors),
       factors,
       reasoning: this.generateReasoning(factors, prop),
       breakdown: {
-        hitRate: Math.round(this.safeScore(factors.hitRateScore)),
-        projectionGap: Math.round(this.safeScore(factors.projectionGapScore)),
-        aiPrediction: Math.round(this.safeScore(factors.aiPredictionScore)),
-        opponent: Math.round(this.safeScore(factors.opponentScore)),
-        marketConfidence: Math.round(this.safeScore(factors.marketConfidenceScore)),
-        recency: Math.round(this.safeScore(factors.recencyScore))
+        evPercent: Math.round(this.safeScore(factors.evPercent)),
+        hitRateWeighted: Math.round(this.safeScore(factors.hitRateWeighted)),
+        matchupGrade: Math.round(this.safeScore(factors.matchupGrade)),
+        streakFactor: Math.round(this.safeScore(factors.streakFactor)),
+        lineSensitivity: Math.round(this.safeScore(factors.lineSensitivity)),
+        aiPrediction: Math.round(this.safeScore(factors.aiPrediction))
       }
     };
 
@@ -251,38 +242,88 @@ export class StatpediaRatingService {
   }
 
   /**
-   * Hit Rate Score (0-100 points, 35% weight)
-   * Based on player's historical performance on this prop type
+   * EV% (Expected Value) - 0-100 points, 30% weight
+   * Sportsbook odds vs. model probability
    */
-  private calculateHitRateScore(prop: any, overUnderContext: 'over' | 'under' | 'both' = 'both'): number {
-    // Use confidence as proxy for hit rate if available
-    const baseConfidence = prop.confidence || 0.5;
-    let score = baseConfidence * 100;
-
-    // Bonus for high hit rate
-    if (prop.hitRate) {
-      score = prop.hitRate * 100;
+  private calculateEVPercent(prop: any, overUnderContext: 'over' | 'under' | 'both' = 'both'): number {
+    // Calculate expected value based on odds and probability
+    const odds = this.parseOdds(prop.odds || prop.best_odds_over || prop.best_odds_under);
+    const probability = prop.probability || prop.modelProbability || 0.5;
+    
+    if (!odds || !probability) return 50; // Neutral if no data
+    
+    // Calculate EV: (probability * payout) - (1 - probability)
+    const payout = odds > 0 ? (odds / 100) : (100 / Math.abs(odds));
+    const ev = (probability * payout) - (1 - probability);
+    
+    // Convert EV to 0-100 scale (positive EV = higher score)
+    const evPercent = Math.max(0, Math.min(100, 50 + (ev * 100)));
+    
+    // Context-aware: boost if EV aligns with over/under context
+    if (overUnderContext !== 'both') {
+      const shouldBoost = (ev > 0 && overUnderContext === 'over') || (ev < 0 && overUnderContext === 'under');
+      return shouldBoost ? Math.min(100, evPercent + 10) : Math.max(0, evPercent - 5);
     }
+    
+    return evPercent;
+  }
 
-    // Season stats bonus
-    if (prop.seasonStats?.hitRate) {
-      const seasonHitRate = prop.seasonStats.hitRate;
-      if (seasonHitRate > 0.65) score += 10;
-      else if (seasonHitRate > 0.55) score += 5;
-      else if (seasonHitRate < 0.35) score -= 10;
-      else if (seasonHitRate < 0.45) score -= 5;
-    }
+  /**
+   * Hit Rate Weighted - 0-100 points, 20% weight
+   * Weighted L2G/L5/L10/L20 history
+   */
+  private calculateHitRateWeighted(prop: any, overUnderContext: 'over' | 'under' | 'both' = 'both'): number {
+    // Weight recent games more heavily: L2G (40%), L5 (30%), L10 (20%), L20 (10%)
+    const l2g = prop.last2Games?.hitRate || prop.recentHitRate || 0.5;
+    const l5 = prop.last5Games?.hitRate || 0.5;
+    const l10 = prop.last10Games?.hitRate || prop.seasonHitRate || 0.5;
+    const l20 = prop.last20Games?.hitRate || prop.seasonHitRate || 0.5;
+    
+    const weightedHitRate = (l2g * 0.4) + (l5 * 0.3) + (l10 * 0.2) + (l20 * 0.1);
+    
+    // Convert to 0-100 scale
+    let score = weightedHitRate * 100;
+    
+    // Bonus for consistency across timeframes
+    const variance = Math.abs(l2g - l20);
+    if (variance < 0.1) score += 10; // Very consistent
+    else if (variance > 0.3) score -= 10; // High variance
+    
+    return Math.max(0, Math.min(100, score));
+  }
 
-    // Recent form adjustment
+  /**
+   * Matchup Grade - 0-100 points, 15% weight
+   * Opponent rank normalized 0-100
+   */
+  private calculateMatchupGrade(prop: any, overUnderContext: 'over' | 'under' | 'both' = 'both'): number {
+    const rank = Number(prop.opponentRank ?? 16); // 1=best defense, 32=worst
+    const base = this.scale(32 - rank, 0, 31, 20, 100); // worse defense -> higher score
+    
+    if (overUnderContext === 'both') return this.clamp(base, 0, 100);
+    
+    // Under: strong defense should be helpful -> invert around midpoint
+    const inverted = 100 - base;
+    return this.clamp(overUnderContext === 'under' ? inverted : base, 0, 100);
+  }
+
+  /**
+   * Streak Factor - 0-100 points, 10% weight
+   * Momentum adjustment
+   */
+  private calculateStreakFactor(prop: any, overUnderContext: 'over' | 'under' | 'both' = 'both'): number {
+    let score = 50; // Neutral base
+    
+    // Factor in recent form
     if (prop.recentForm) {
       switch (prop.recentForm.toLowerCase()) {
         case 'hot':
         case 'excellent':
-          score += 15;
+          score += 30;
           break;
         case 'good':
         case 'strong':
-          score += 10;
+          score += 20;
           break;
         case 'average':
         case 'neutral':
@@ -290,19 +331,47 @@ export class StatpediaRatingService {
           break;
         case 'cold':
         case 'poor':
-          score -= 15;
+          score -= 20;
           break;
       }
     }
-
+    
+    // Streak bonus/penalty
+    const streak = prop.currentStreak || 0;
+    if (streak >= 3) score += 15; // Hot streak
+    else if (streak <= -3) score -= 15; // Cold streak
+    
     return Math.max(0, Math.min(100, score));
   }
 
   /**
-   * AI Prediction Score (0-100 points, 20% weight)
-   * Based on AI recommendation confidence and alignment
+   * Line Sensitivity - 0-100 points, 10% weight
+   * Current line vs player's historical average
    */
-  private calculateAIPredictionScore(prop: any, overUnderContext: 'over' | 'under' | 'both' = 'both'): number {
+  private calculateLineSensitivity(prop: any, overUnderContext: 'over' | 'under' | 'both' = 'both'): number {
+    const currentLine = Number(prop.line ?? 0);
+    const historicalAvg = prop.historicalAverage || prop.seasonAverage || currentLine;
+    
+    if (!currentLine || !historicalAvg) return 50;
+    
+    const difference = currentLine - historicalAvg;
+    const percentDiff = (difference / historicalAvg) * 100;
+    
+    // Favor lines that are lower than historical (easier to hit over)
+    let score = 50;
+    if (percentDiff < -10) score += 20; // Line significantly lower
+    else if (percentDiff < -5) score += 10; // Line moderately lower
+    else if (percentDiff > 10) score -= 20; // Line significantly higher
+    else if (percentDiff > 5) score -= 10; // Line moderately higher
+    
+    return Math.max(0, Math.min(100, score));
+  }
+
+  /**
+   * AI Model Prediction - 0-100 points, 15% weight
+   * AI model's confidence (0-100 scale)
+   */
+  private calculateAIPrediction(prop: any, overUnderContext: 'over' | 'under' | 'both' = 'both'): number {
     if (!prop.aiPrediction) return 50; // Neutral if no AI prediction
 
     const baseConfidence = prop.aiPrediction.confidence || 0.5;
@@ -330,155 +399,22 @@ export class StatpediaRatingService {
     if (baseConfidence < 0.4) score -= 20;
     else if (baseConfidence < 0.5) score -= 10;
 
-    // TODO: Add more sophisticated AI factors here
-    // - Historical accuracy of AI predictions for this player/prop type
-    // - Market consensus vs AI prediction
-    // - Player-specific AI model performance
-    // - Situational factors (weather, injuries, etc.)
-
     return Math.max(0, Math.min(100, score));
   }
 
   /**
-   * Projection Gap Score (0-100 points, 25% weight)
-   * Analyzes the gap between our projection and the line
-   * Side-aware: favors Over for positive gap, Under for negative gap
+   * Helper method to parse odds from various formats
    */
-  private calculateProjectionGapScore(prop: any, overUnderContext: 'over' | 'under' | 'both' = 'both'): number {
-    const projection = Number(prop.projection ?? prop.modelProjection ?? 0);
-    const line = Number(prop.line ?? 0);
-    const gap = projection - line; // + favors Over, - favors Under
-
-    // Magnitude is useful; direction matters with side:
-    const mag = Math.abs(gap);
-    const base = this.scale(mag, 0.5, 15, 20, 100); // small gap -> 20, large -> 100
-
-    if (overUnderContext === 'both') return base;
-    
-    const directionalBonus = this.clamp(this.scale(gap, -20, 20, -10, 10), -10, 10);
-    // Over: positive gap should get a small boost; Under: negative gap gets a boost
-    return this.clamp(overUnderContext === 'over' ? (base + Math.max(0, directionalBonus)) : (base + Math.max(0, -directionalBonus)), 0, 100);
+  private parseOdds(odds: any): number {
+    if (typeof odds === 'number') return odds;
+    if (typeof odds === 'string') {
+      const num = parseFloat(odds);
+      if (!isNaN(num)) return num;
+    }
+    return 0;
   }
 
-  /**
-   * Opponent Score (0-100 points, 15% weight)
-   * Based on opponent's defensive strength against this prop type
-   * Side-aware: strong defense benefits Under, weak defense benefits Over
-   */
-  private calculateOpponentScore(prop: any, overUnderContext: 'over' | 'under' | 'both' = 'both'): number {
-    const rank = Number(prop.opponentRank ?? 16); // 1=best defense, 32=worst
-    const base = this.scale(32 - rank, 0, 31, 20, 100); // worse defense -> higher score
-    if (overUnderContext === 'both') return this.clamp(base, 0, 100);
-    
-    // Under: strong defense should be helpful -> invert around midpoint
-    const inverted = 100 - base;
-    return this.clamp(overUnderContext === 'under' ? inverted : base, 0, 100);
-  }
 
-  /**
-   * Market Confidence Score (0-100 points, 7% weight)
-   * Based on market consensus and data quality
-   */
-  private calculateMarketConfidenceScore(prop: any): number {
-    const baseConfidence = prop.confidence || 0.5;
-    let score = baseConfidence * 100;
-
-    // Bonus for high confidence
-    if (baseConfidence >= 0.9) score += 20;
-    else if (baseConfidence >= 0.8) score += 15;
-    else if (baseConfidence >= 0.7) score += 10;
-
-    // Bonus for exact API data
-    if (prop.isExactAPIData) score += 10;
-
-    // Bonus for multiple sportsbooks (consensus)
-    const sportsbookCount = prop.availableSportsbooks?.length || 1;
-    if (sportsbookCount >= 8) score += 20;
-    else if (sportsbookCount >= 5) score += 15;
-    else if (sportsbookCount >= 3) score += 10;
-    else if (sportsbookCount >= 2) score += 5;
-
-    // Factor in odds consistency across books
-    if (prop.allSportsbookOdds && prop.allSportsbookOdds.length > 1) {
-      const overOdds = prop.allSportsbookOdds.map(o => o.overOdds).filter(o => o);
-      const underOdds = prop.allSportsbookOdds.map(o => o.underOdds).filter(o => o);
-      
-      if (overOdds.length > 1) {
-        const overRange = Math.max(...overOdds) - Math.min(...overOdds);
-        if (overRange < 20) score += 15; // Tight consensus
-        else if (overRange > 50) score -= 10; // Wide disagreement
-      }
-    }
-
-    // Penalty for stale data
-    if (prop.lastUpdate) {
-      const updateAge = Date.now() - new Date(prop.lastUpdate).getTime();
-      const hoursOld = updateAge / (1000 * 60 * 60);
-      
-      if (hoursOld > 24) score -= 20;
-      else if (hoursOld > 12) score -= 15;
-      else if (hoursOld > 6) score -= 10;
-      else if (hoursOld < 1) score += 10; // Fresh data bonus
-    }
-
-    return Math.max(0, Math.min(100, score));
-  }
-
-  /**
-   * Recency Score (0-100 points, 3% weight)
-   * Player's recent performance and trends
-   */
-  private calculateRecencyScore(prop: any): number {
-    let score = 50; // Neutral base
-
-    // Factor in recent form
-    if (prop.recentForm) {
-      switch (prop.recentForm.toLowerCase()) {
-        case 'hot':
-        case 'excellent':
-          score += 30;
-          break;
-        case 'good':
-        case 'strong':
-          score += 20;
-          break;
-        case 'average':
-        case 'neutral':
-          score += 5;
-          break;
-        case 'cold':
-        case 'poor':
-          score -= 20;
-          break;
-      }
-    }
-
-    // Factor in last 5 games performance
-    if (prop.last5Games && Array.isArray(prop.last5Games)) {
-      const avg = prop.last5Games.reduce((a, b) => a + b, 0) / prop.last5Games.length;
-      if (avg > prop.line * 1.2) score += 20; // Consistently over
-      else if (avg > prop.line * 1.1) score += 10;
-      else if (avg < prop.line * 0.8) score -= 15; // Consistently under
-      else if (avg < prop.line * 0.9) score -= 10;
-    }
-
-    // Season stats bonus
-    if (prop.seasonStats?.hitRate) {
-      if (prop.seasonStats.hitRate > 0.65) score += 15;
-      else if (prop.seasonStats.hitRate > 0.55) score += 10;
-      else if (prop.seasonStats.hitRate < 0.35) score -= 15;
-      else if (prop.seasonStats.hitRate < 0.45) score -= 10;
-    }
-
-    // Rest days factor
-    if (prop.restDays !== undefined) {
-      if (prop.restDays >= 7) score += 10; // Well rested
-      else if (prop.restDays >= 4) score += 5;
-      else if (prop.restDays <= 2) score -= 10; // Short rest
-    }
-
-    return Math.max(0, Math.min(100, score));
-  }
 
 
   /**
@@ -563,11 +499,12 @@ export class StatpediaRatingService {
   }
 
   /**
-   * Get color coding based on score (40-95 range)
+   * Get color coding based on score (0-95 range)
+   * 80-95 is green, 70-79 is yellow, 69 and below is RED
    */
   private getColor(score: number): StatpediaRating['color'] {
-    if (score >= 70) return 'green';
-    if (score >= 55) return 'yellow';
+    if (score >= 80) return 'green';
+    if (score >= 70) return 'yellow';
     return 'red';
   }
 
@@ -588,46 +525,46 @@ export class StatpediaRatingService {
   private generateReasoning(factors: StatpediaRatingFactors, prop: any): string[] {
     const reasoning: string[] = [];
 
-    // Hit Rate reasoning
-    if (factors.hitRateScore >= 80) {
-      reasoning.push(`Excellent hit rate (${Math.round(factors.hitRateScore)}%)`);
-    } else if (factors.hitRateScore <= 30) {
-      reasoning.push(`Low hit rate - proceed with caution`);
+    // EV% reasoning
+    if (factors.evPercent >= 80) {
+      reasoning.push(`Excellent expected value (${Math.round(factors.evPercent)}%)`);
+    } else if (factors.evPercent <= 30) {
+      reasoning.push(`Poor expected value - proceed with caution`);
     }
 
-    // Projection Gap reasoning
-    if (factors.projectionGapScore >= 80) {
-      reasoning.push(`Strong value vs. market line`);
-    } else if (factors.projectionGapScore <= 30) {
-      reasoning.push(`Poor value - high vig detected`);
+    // Hit Rate Weighted reasoning
+    if (factors.hitRateWeighted >= 80) {
+      reasoning.push(`Strong weighted hit rate across recent games`);
+    } else if (factors.hitRateWeighted <= 30) {
+      reasoning.push(`Low weighted hit rate - inconsistent performance`);
+    }
+
+    // Matchup Grade reasoning
+    if (factors.matchupGrade >= 80) {
+      reasoning.push(`Favorable matchup vs. ${prop.opponentAbbr || 'opponent'}`);
+    } else if (factors.matchupGrade <= 30) {
+      reasoning.push(`Tough matchup vs. ${prop.opponentAbbr || 'opponent'}`);
+    }
+
+    // Streak Factor reasoning
+    if (factors.streakFactor >= 80) {
+      reasoning.push(`Player in excellent recent form`);
+    } else if (factors.streakFactor <= 30) {
+      reasoning.push(`Player struggling recently`);
+    }
+
+    // Line Sensitivity reasoning
+    if (factors.lineSensitivity >= 80) {
+      reasoning.push(`Favorable line vs. historical average`);
+    } else if (factors.lineSensitivity <= 30) {
+      reasoning.push(`Challenging line vs. historical average`);
     }
 
     // AI Prediction reasoning
-    if (factors.aiPredictionScore >= 80) {
+    if (factors.aiPrediction >= 80) {
       reasoning.push(`Strong AI confidence (${Math.round((prop.aiPrediction?.confidence || 0.5) * 100)}%)`);
-    } else if (factors.aiPredictionScore <= 30) {
+    } else if (factors.aiPrediction <= 30) {
       reasoning.push(`Low AI confidence - proceed with caution`);
-    }
-
-    // Opponent reasoning
-    if (factors.opponentScore >= 80) {
-      reasoning.push(`Favorable matchup vs. ${prop.opponentAbbr}`);
-    } else if (factors.opponentScore <= 30) {
-      reasoning.push(`Tough matchup vs. ${prop.opponentAbbr}`);
-    }
-
-    // Market Confidence reasoning
-    if (factors.marketConfidenceScore >= 80) {
-      reasoning.push(`High market consensus (${prop.availableSportsbooks?.length || 0} books)`);
-    } else if (factors.marketConfidenceScore <= 30) {
-      reasoning.push(`Limited market data or disagreement`);
-    }
-
-    // Recency reasoning
-    if (factors.recencyScore >= 80) {
-      reasoning.push(`Player in excellent recent form`);
-    } else if (factors.recencyScore <= 30) {
-      reasoning.push(`Player struggling recently`);
     }
 
     // Default reasoning if none specific
