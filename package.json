@@ -61,7 +61,18 @@
     "ingest-props-v2:2025": "node scripts/prop-ingestion-v2.js 2025",
     "ingest-props-v2-enhanced": "node scripts/prop-ingestion-v2-enhanced.js",
     "ingest-props-v2-enhanced:2024": "node scripts/prop-ingestion-v2-enhanced.js 2024",
-    "ingest-props-v2-enhanced:2025": "node scripts/prop-ingestion-v2-enhanced.js 2025"
+    "ingest-props-v2-enhanced:2025": "node scripts/prop-ingestion-v2-enhanced.js 2025",
+    "real-data:pipeline": "tsx scripts/run-real-data-pipeline.ts",
+    "real-data:nfl": "tsx scripts/run-real-data-pipeline.ts NFL",
+    "real-data:nba": "tsx scripts/run-real-data-pipeline.ts NBA",
+    "real-data:enrich": "tsx scripts/enrich-props-real-analytics.ts",
+    "real-data:skeleton": "tsx scripts/real-data-ingestion-skeleton.ts",
+    "real-data:nfl-skeleton": "tsx scripts/real-data-ingestion-skeleton.ts nfl",
+    "real-data:nba-skeleton": "tsx scripts/real-data-ingestion-skeleton.ts nba",
+    "real-data:wnba-skeleton": "tsx scripts/real-data-ingestion-skeleton.ts wnba",
+    "real-data:mlb-skeleton": "tsx scripts/real-data-ingestion-skeleton.ts mlb",
+    "real-data:nhl-skeleton": "tsx scripts/real-data-ingestion-skeleton.ts nhl",
+    "real-data:all-skeleton": "tsx scripts/real-data-ingestion-skeleton.ts all"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -100,6 +111,7 @@
     "@types/node-fetch": "^2.6.13",
     "@types/pg": "^8.15.5",
     "@types/react-window": "^1.8.8",
+    "@types/uuid": "^10.0.0",
     "cheerio": "^1.1.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -131,6 +143,7 @@
     "swr": "^2.3.6",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
+    "uuid": "^13.0.0",
     "vaul": "^0.9.9",
     "zod": "^3.25.76"
   },
