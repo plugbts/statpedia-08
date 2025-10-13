@@ -232,7 +232,7 @@ class HasuraPlayerPropsAPI {
           sport: league?.code || sport.toUpperCase(),
           propType: prop.prop_type || 'Unknown',
           line: prop.line ? parseFloat(prop.line) : null,
-          source: prop.source || 'pickem', // Default to pickem if source is missing
+          source: prop.source || 'sportsbook', // Default to sportsbook for getPlayerProps (props table)
           overOdds: prop.best_odds_over ? parseInt(prop.best_odds_over.replace(/[^\d-]/g, '')) : null,
           underOdds: prop.best_odds_under ? parseInt(prop.best_odds_under.replace(/[^\d-]/g, '')) : null,
           bestOddsOver: prop.best_odds_over,
