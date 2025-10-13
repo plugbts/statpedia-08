@@ -453,6 +453,19 @@ async function ingestLeague(league: string) {
         const gameId: string = event.eventID || event.id || event.game_id || '';
         if (!gameId) continue;
 
+        // 🔍 DEBUG: Log raw prop data for Xavier Worthy specifically
+        if (playerName.toLowerCase().includes('worthy')) {
+          console.log("🔍 XAVIER WORTHY DEBUG:", {
+            player: playerName,
+            statId: statId,
+            propType: propType,
+            rawLine: lineStr,
+            parsedLine: line,
+            odds: oddsStr,
+            side: side
+          });
+        }
+
         // Resolve team for player
         const teamIdForPlayer = playerTeamMap.get(playerIdRaw) || null;
         const playerRowId = await getOrCreatePlayerId(playerName, teamIdForPlayer, odd?.position || null);
