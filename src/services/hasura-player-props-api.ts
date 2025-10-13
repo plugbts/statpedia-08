@@ -25,6 +25,7 @@ interface PlayerProp {
   sport?: string;
   teamAbbr: string;
   opponentAbbr: string;
+  source?: string; // 'sportsbook' or 'pickem'
   confidence?: number;
   expectedValue?: number;
   recentForm?: string;
@@ -121,6 +122,7 @@ class HasuraPlayerPropsAPI {
             line
             odds
             priority
+            source
             game_id
             player {
               id
@@ -219,6 +221,7 @@ class HasuraPlayerPropsAPI {
           sport: league?.code || sport.toUpperCase(),
           propType: prop.prop_type || 'Unknown',
           line: prop.line ? parseFloat(prop.line) : null,
+          source: prop.source || 'pickem', // Default to pickem if source is missing
           overOdds: prop.odds ? parseInt(prop.odds.replace(/[^\d-]/g, '')) : null,
           underOdds: prop.odds ? parseInt(prop.odds.replace(/[^\d-]/g, '')) : null,
           gameDate: new Date().toISOString().split('T')[0],
@@ -262,9 +265,23 @@ class HasuraPlayerPropsAPI {
         console.log(`🔍 DEBUG: Sample prop - Player: "${filteredProps[0].playerName}", Team: "${filteredProps[0].team}", Prop: "${filteredProps[0].propType}"`);
       }
 
-      // Custom sorting to prioritize Passing Yards and other key props
+      // Custom sorting to prioritize Sportsbook > Pick'em, then Passing Yards and other key props
       const sortedProps = filteredProps.sort((a, b) => {
-        // Priority order for prop types
+        // First: Source priority (sportsbook > pickem)
+        const sourcePriority = (source: string) => {
+          if (source === 'sportsbook') return 1;
+          if (source === 'pickem') return 2;
+          return 3; // Unknown source
+        };
+        
+        const aSourcePriority = sourcePriority(a.source);
+        const bSourcePriority = sourcePriority(b.source);
+        
+        if (aSourcePriority !== bSourcePriority) {
+          return aSourcePriority - bSourcePriority;
+        }
+        
+        // Second: Priority order for prop types
         const propPriority = (propType: string) => {
           const lower = propType.toLowerCase();
           if (lower.includes('passing yards')) return 1;
@@ -280,17 +297,17 @@ class HasuraPlayerPropsAPI {
         const aPriority = propPriority(a.propType);
         const bPriority = propPriority(b.propType);
         
-        // First sort by prop priority
+        // Third: Sort by prop priority
         if (aPriority !== bPriority) {
           return aPriority - bPriority;
         }
         
-        // Then sort by priority flag (true first)
+        // Fourth: Sort by priority flag (true first)
         if (a.priority !== b.priority) {
           return a.priority ? -1 : 1;
         }
         
-        // Finally sort by created_at (newest first)
+        // Finally: Sort by created_at (newest first)
         return new Date(b.lastUpdate || 0).getTime() - new Date(a.lastUpdate || 0).getTime();
       });
 

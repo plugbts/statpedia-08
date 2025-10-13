@@ -54,6 +54,7 @@ export const props = pgTable("props", {
   odds: text("odds"), // e.g. "-115", "+120"
   priority: boolean("priority").default(false), // true for priority props (90% of users care about)
   side: text("side"), // 'over' or 'under'
+  source: text("source"), // 'sportsbook' or 'pickem'
   conflict_key: text("conflict_key"), // unique deduplication key
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),

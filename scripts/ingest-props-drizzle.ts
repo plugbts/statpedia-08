@@ -437,6 +437,9 @@ async function ingestLeague(league: string) {
         // Determine if this is a priority prop
         const priority = isPriorityProp(propType);
 
+        // Determine source: sportsbook if odds are from a bookmaker, pickem if not
+        const source = odd?.bookmaker || odd?.book ? 'sportsbook' : 'pickem';
+
         try {
           await db.insert(props).values({
             player_id: playerRowId,
@@ -447,6 +450,7 @@ async function ingestLeague(league: string) {
             odds: String(oddsStr),
             priority: priority,
             side: side as 'over' | 'under',
+            source: source,
             conflict_key: conflictKey,
           }).onConflictDoUpdate({
             target: [props.conflict_key],
