@@ -262,6 +262,28 @@ function mapStatIdToPropType(statId?: string | null): string | null {
     rebounds: 'Rebounds',
     shots_on_goal: 'Shots on Goal',
     saves: 'Saves',
+    // MLB Batting
+    batting_totalbases: 'Total Bases',
+    batting_homeruns: 'Home Runs',
+    batting_hits: 'Hits',
+    batting_doubles: 'Doubles',
+    batting_singles: 'Singles',
+    batting_triples: 'Triples',
+    batting_rbi: 'RBIs',
+    batting_hits_runs_rbi: 'Hits + Runs + RBIs',
+    // MLB Pitching
+    pitching_strikeouts: 'Pitcher Strikeouts',
+    pitching_outs: 'Innings Pitched',
+    pitching_hits: 'Hits Allowed',
+    // NHL
+    shots_ongoal: 'Shots on Goal',
+    goals_assists: 'Goals + Assists',
+    powerplay_goals_assists: 'Power Play Goals + Assists',
+    minutesplayed: 'Minutes Played',
+    // Defense
+    defense_combinedtackles: 'Tackles',
+    defense_solo_tackles: 'Solo Tackles',
+    defense_assisted_tackles: 'Assisted Tackles',
   };
   return map[statId] || toTitleCase(statId.replace(/_/g, ' '));
 }
