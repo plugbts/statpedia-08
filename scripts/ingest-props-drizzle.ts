@@ -7,7 +7,7 @@ import fetch from 'node-fetch';
 import { and, eq } from 'drizzle-orm';
 
 // Drizzle schema (Neon/PG)
-import { leagues, teams, players, props } from '../src/db/schema/index';
+import { leagues, teams, players, props, pickemProps } from '../src/db/schema/index';
 
 type V2Event = any; // Use loose type for resilience to API shape changes
 
@@ -321,6 +321,12 @@ function buildConflictKey(league: string, gameId: string, playerId: string, mark
   return `${league}:${gameId}:${playerId}:${normalizePropType(market)}:${line}`;
 }
 
+function buildPickemConflictKey(league: string, gameId: string, playerId: string, market: string, line: number | string, site: string) {
+  // Dedupe on league + game + player + prop_type + line + site
+  // This allows multiple pickem sites for the same prop
+  return `${league}:${gameId}:${playerId}:${normalizePropType(market)}:${line}:${site}`;
+}
+
 async function getOrCreateLeagueId(leagueCode: string): Promise<string> {
   const upper = leagueCode.toUpperCase();
   const existing = await db.select({ id: leagues.id }).from(leagues).where(eq(leagues.code, upper)).limit(1);
@@ -429,7 +435,8 @@ async function ingestLeague(league: string) {
       }
 
       // PropFinder-style aggregation: collect all odds by (player, prop_type, line)
-      const propMap = new Map<string, any>();
+      const sportsbookPropMap = new Map<string, any>();
+      const pickemPropMap = new Map<string, any>();
 
       for (const [oddId, odd] of oddEntries) {
         // Only OU player props with a playerID
@@ -470,47 +477,73 @@ async function ingestLeague(league: string) {
         const teamIdForPlayer = playerTeamMap.get(playerIdRaw) || null;
         const playerRowId = await getOrCreatePlayerId(playerName, teamIdForPlayer, odd?.position || null);
 
-        // Create aggregation key: player + prop_type + line
-        const key = `${playerRowId}:${propType}:${line}`;
-        
-        // Initialize prop entry if not exists
-        if (!propMap.has(key)) {
-          propMap.set(key, {
-            playerId: playerRowId,
-            teamId: teamIdForPlayer,
-            gameId: gameId,
-            propType: propType,
-            line: line,
-            bestOddsOver: null,
-            bestOddsUnder: null,
-            booksOver: {},
-            booksUnder: {},
-            source: odd?.bookmaker || odd?.book ? 'sportsbook' : 'pickem',
-            priority: isPriorityProp(propType, league)
-          });
-        }
-
-        const propEntry = propMap.get(key);
+        // Determine if this is sportsbook or pickem
+        const isSportsbook = odd?.bookmaker || odd?.book;
         const bookName = odd?.bookmaker || odd?.book || 'Unknown';
         
-        // Aggregate odds by side
-        if (side === 'over') {
-          propEntry.booksOver[bookName] = oddsStr;
-          // Pick the best (highest) odds for Over
-          if (!propEntry.bestOddsOver || Number(oddsStr) > Number(propEntry.bestOddsOver)) {
-            propEntry.bestOddsOver = oddsStr;
+        if (isSportsbook) {
+          // Handle sportsbook props (existing logic)
+          const key = `${playerRowId}:${propType}:${line}`;
+          
+          if (!sportsbookPropMap.has(key)) {
+            sportsbookPropMap.set(key, {
+              playerId: playerRowId,
+              teamId: teamIdForPlayer,
+              gameId: gameId,
+              propType: propType,
+              line: line,
+              bestOddsOver: null,
+              bestOddsUnder: null,
+              booksOver: {},
+              booksUnder: {},
+              priority: isPriorityProp(propType, league)
+            });
           }
-        } else if (side === 'under') {
-          propEntry.booksUnder[bookName] = oddsStr;
-          // Pick the best (highest) odds for Under
-          if (!propEntry.bestOddsUnder || Number(oddsStr) > Number(propEntry.bestOddsUnder)) {
-            propEntry.bestOddsUnder = oddsStr;
+
+          const propEntry = sportsbookPropMap.get(key);
+          
+          // Aggregate odds by side
+          if (side === 'over') {
+            propEntry.booksOver[bookName] = oddsStr;
+            if (!propEntry.bestOddsOver || Number(oddsStr) > Number(propEntry.bestOddsOver)) {
+              propEntry.bestOddsOver = oddsStr;
+            }
+          } else if (side === 'under') {
+            propEntry.booksUnder[bookName] = oddsStr;
+            if (!propEntry.bestOddsUnder || Number(oddsStr) > Number(propEntry.bestOddsUnder)) {
+              propEntry.bestOddsUnder = oddsStr;
+            }
+          }
+        } else {
+          // Handle pickem props (new logic)
+          const key = `${playerRowId}:${propType}:${line}:${bookName}`;
+          
+          if (!pickemPropMap.has(key)) {
+            pickemPropMap.set(key, {
+              playerId: playerRowId,
+              teamId: teamIdForPlayer,
+              gameId: gameId,
+              propType: propType,
+              line: line,
+              site: bookName,
+              overProjection: null,
+              underProjection: null
+            });
+          }
+
+          const propEntry = pickemPropMap.get(key);
+          
+          // Store projections by side
+          if (side === 'over') {
+            propEntry.overProjection = parseFloat(oddsStr);
+          } else if (side === 'under') {
+            propEntry.underProjection = parseFloat(oddsStr);
           }
         }
       }
 
-      // Insert aggregated props
-      for (const [key, propEntry] of propMap) {
+      // Insert sportsbook props
+      for (const [key, propEntry] of sportsbookPropMap) {
         const conflictKey = buildConflictKey(league, propEntry.gameId, propEntry.playerId, propEntry.propType, propEntry.line);
         if (seen.has(conflictKey)) continue;
         seen.add(conflictKey);
@@ -525,7 +558,7 @@ async function ingestLeague(league: string) {
             odds: propEntry.bestOddsOver || propEntry.bestOddsUnder || '0', // Fallback odds
             priority: propEntry.priority,
             side: 'both', // Indicates this prop has both over and under
-            source: propEntry.source,
+            source: 'sportsbook',
             best_odds_over: propEntry.bestOddsOver,
             best_odds_under: propEntry.bestOddsUnder,
             books_over: JSON.stringify(propEntry.booksOver),
@@ -545,7 +578,37 @@ async function ingestLeague(league: string) {
           if (propEntry.priority) totalPriorityInserted += 1;
         } catch (e) {
           // Best-effort insert; continue on errors
-          console.error('Insert failed for aggregated prop', e);
+          console.error('Insert failed for sportsbook prop', e);
+        }
+      }
+
+      // Insert pickem props
+      for (const [key, propEntry] of pickemPropMap) {
+        const conflictKey = buildPickemConflictKey(league, propEntry.gameId, propEntry.playerId, propEntry.propType, propEntry.line, propEntry.site);
+        
+        try {
+          await db.insert(pickemProps).values({
+            player_id: propEntry.playerId,
+            team_id: propEntry.teamId,
+            game_id: propEntry.gameId,
+            prop_type: propEntry.propType,
+            line: String(propEntry.line),
+            pickem_site: propEntry.site,
+            over_projection: propEntry.overProjection ? String(propEntry.overProjection) : null,
+            under_projection: propEntry.underProjection ? String(propEntry.underProjection) : null,
+            conflict_key: conflictKey,
+          }).onConflictDoUpdate({
+            target: [pickemProps.conflict_key],
+            set: {
+              over_projection: propEntry.overProjection ? String(propEntry.overProjection) : null,
+              under_projection: propEntry.underProjection ? String(propEntry.underProjection) : null,
+              updated_at: new Date(),
+            }
+          });
+          totalInserted += 1;
+        } catch (e) {
+          // Best-effort insert; continue on errors
+          console.error('Insert failed for pickem prop', e);
         }
       }
     }

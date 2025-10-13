@@ -64,10 +64,28 @@ export const props = pgTable("props", {
   updated_at: timestamp("updated_at").defaultNow(),
 });
 
+// Pick'em props table (parallel to sportsbook props)
+export const pickemProps = pgTable("pickem_props", {
+  id: serial("id").primaryKey(),
+  player_id: uuid("player_id")
+    .references(() => players.id, { onDelete: "cascade" }),
+  team_id: uuid("team_id")
+    .references(() => teams.id, { onDelete: "cascade" }),
+  game_id: text("game_id"),
+  prop_type: text("prop_type"), // e.g. "Passing Yards", "Receptions"
+  line: numeric("line"), // betting line
+  pickem_site: text("pickem_site"), // e.g. "PrizePicks", "Underdog"
+  over_projection: numeric("over_projection"), // over projection value
+  under_projection: numeric("under_projection"), // under projection value
+  updated_at: timestamp("updated_at").defaultNow(),
+  conflict_key: text("conflict_key").unique(), // unique deduplication key
+});
+
 // Export all tables for easy importing
 export const schema = {
   leagues,
   teams,
   players,
   props,
+  pickemProps,
 };
