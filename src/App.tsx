@@ -13,6 +13,7 @@ import NotFound from "./pages/NotFound";
 import { SubscriptionPlans } from "./components/auth/subscription-plans";
 import { SupportCenter } from "./components/support/support-center";
 import { UserProvider } from "@/contexts/user-context";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
@@ -90,8 +91,9 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <UserProvider>
-          <SyncProvider>
+        <AuthProvider>
+          <UserProvider>
+            <SyncProvider>
             <Toaster />
             <Sonner />
             <BrowserRouter>
@@ -145,8 +147,9 @@ const App = () => {
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
-          </SyncProvider>
-        </UserProvider>
+            </SyncProvider>
+          </UserProvider>
+        </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { BarChart3, TrendingUp, Zap, Mail, Lock, User } from 'lucide-react';
 import { SubscriptionPlans } from './subscription-plans';
 import { toast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { z } from 'zod';
 import { 
   validateEmail, 
@@ -32,8 +32,9 @@ const passwordSchema = z.string().min(6, 'Password must be at least 6 characters
 const displayNameSchema = z.string().trim().min(1, 'Display name required').max(100, 'Display name too long');
 
 export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
+  const { user, isAuthenticated, isLoading, login, signup } = useAuth();
   const [authMode, setAuthMode] = useState<'login' | 'signup' | 'plans'>('login');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -42,34 +43,17 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
   });
 
   useEffect(() => {
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        // User already logged in, fetch profile and redirect
-        fetchProfileAndRedirect(session.user);
-      }
-    });
-
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        fetchProfileAndRedirect(session.user);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+    // If user is already authenticated, redirect them
+    if (isAuthenticated && user) {
+      fetchProfileAndRedirect(user);
+    }
+  }, [isAuthenticated, user]);
 
   const fetchProfileAndRedirect = async (user: any) => {
     try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('subscription_tier')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      const subscription = profile?.subscription_tier || 'free';
-      onAuthSuccess(user, subscription);
+      // For now, we'll use the user data directly from our auth context
+      // In the future, we can fetch additional profile data from Hasura
+      onAuthSuccess(user, 'free'); // Default to free subscription
     } catch (error) {
       console.error('Error fetching profile:', error);
       onAuthSuccess(user, 'free');
@@ -202,103 +186,26 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
       return;
     }
     
-    setIsLoading(true);
+    setIsSubmitting(true);
     
     try {
       if (authMode === 'login') {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: formData.email,
-          password: formData.password,
-        });
-
-        if (error) {
-          if (error.message.includes('Invalid login credentials')) {
-            toast({
-              title: "Login Failed",
-              description: "Invalid email or password",
-              variant: "destructive",
-            });
-          } else {
-            toast({
-              title: "Login Failed",
-              description: error.message,
-              variant: "destructive",
-            });
-          }
-          return;
-        }
-
-        if (data.user) {
-          toast({
-            title: "Login Successful",
-            description: "Welcome back to Statpedia!",
-          });
-          // fetchProfileAndRedirect will be called by onAuthStateChange
-        }
-      } else {
-        // Check if display name is already taken
-        const { data: existingProfile, error: checkError } = await supabase
-          .from('profiles')
-          .select('display_name')
-          .eq('display_name', formData.displayName)
-          .maybeSingle();
-
-        if (checkError && checkError.code !== 'PGRST116') {
-          toast({
-            title: "Error",
-            description: "Failed to verify display name availability",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        if (existingProfile) {
-          toast({
-            title: "Display Name Unavailable",
-            description: "This display name is already in use. Please choose a different one.",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        // Signup
-        const redirectUrl = `${window.location.origin}/`;
+        await login(formData.email, formData.password);
         
-        const { data, error } = await supabase.auth.signUp({
-          email: formData.email,
-          password: formData.password,
-          options: {
-            emailRedirectTo: redirectUrl,
-            data: {
-              display_name: formData.displayName,
-            }
-          }
+        toast({
+          title: "Login Successful",
+          description: "Welcome back to Statpedia!",
         });
-
-        if (error) {
-          if (error.message.includes('already registered')) {
-            toast({
-              title: "Signup Failed",
-              description: "This email is already registered. Please login instead.",
-              variant: "destructive",
-            });
-          } else {
-            toast({
-              title: "Signup Failed",
-              description: error.message,
-              variant: "destructive",
-            });
-          }
-          return;
-        }
-
-        if (data.user) {
-          toast({
-            title: "Account Created",
-            description: "Please choose your subscription plan",
-          });
-          setAuthMode('plans');
-        }
+        // fetchProfileAndRedirect will be called by useEffect
+      } else {
+        // Signup with our custom auth system
+        await signup(formData.email, formData.password, formData.displayName);
+        
+        toast({
+          title: "Account Created",
+          description: "Welcome to Statpedia! Please choose your subscription plan",
+        });
+        setAuthMode('plans');
       }
     } catch (error) {
       toast({
@@ -307,13 +214,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
   const handleSubscriptionSuccess = async (plan: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      // User is already authenticated from our auth context
       
       if (!user) {
         toast({
@@ -324,19 +231,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
         return;
       }
 
-      // Update profile with subscription
-      const { error } = await supabase
-        .from('profiles')
-        .update({ 
-          subscription_tier: plan,
-          subscription_start_date: new Date().toISOString(),
-        })
-        .eq('user_id', user.id);
-
-      if (error) {
-        console.error('Error updating subscription:', error);
-      }
-
+      // For now, we'll just redirect with the plan
+      // In the future, we can store subscription data in our custom auth system
+      
       toast({
         title: "Welcome to Statpedia!",
         description: `Your ${plan} plan is now active`,
@@ -502,10 +399,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
             
             <Button 
               onClick={handleAuth}
-              disabled={isLoading}
+              disabled={isSubmitting || isLoading}
               className="w-full bg-gradient-primary hover:shadow-glow transition-all duration-300"
             >
-              {isLoading ? 'Processing...' : (authMode === 'login' ? 'Sign In' : 'Create Account')}
+              {(isSubmitting || isLoading) ? 'Processing...' : (authMode === 'login' ? 'Sign In' : 'Create Account')}
             </Button>
           </CardContent>
         </Card>
