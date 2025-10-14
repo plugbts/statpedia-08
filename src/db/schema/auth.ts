@@ -7,6 +7,7 @@ export const auth_user = pgTable('auth_user', {
   email: text('email').notNull().unique(),
   email_verified: boolean('email_verified').notNull().default(false),
   display_name: text('display_name'),
+  username: text('username').unique(),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   disabled: boolean('disabled').notNull().default(false)

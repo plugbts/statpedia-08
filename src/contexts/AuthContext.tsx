@@ -8,6 +8,7 @@ export interface User {
   email: string;
   email_verified: boolean;
   display_name?: string;
+  username?: string;
   created_at: string;
   updated_at: string;
   disabled: boolean;

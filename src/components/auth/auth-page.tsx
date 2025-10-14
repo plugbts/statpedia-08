@@ -10,6 +10,7 @@ import { BarChart3, TrendingUp, Zap, Mail, Lock, User } from 'lucide-react';
 import { SubscriptionPlans } from './subscription-plans';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { getUserDisplayName } from '@/utils/user-display';
 import { z } from 'zod';
 import { 
   validateEmail, 
@@ -51,8 +52,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
 
   const fetchProfileAndRedirect = async (user: any) => {
     try {
-      // Show personalized greeting
-      const userDisplayName = user?.display_name || user?.email?.split('@')[0] || 'there';
+      // Show personalized greeting using the new display logic
+      const userDisplayName = getUserDisplayName(user);
       
       toast({
         title: `Hey, ${userDisplayName}!`,

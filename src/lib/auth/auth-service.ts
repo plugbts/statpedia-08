@@ -5,6 +5,7 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { auth_user, auth_credential, auth_session, auth_audit, auth_verification_token } from '../../db/schema/auth';
 import { eq, and, lt } from 'drizzle-orm';
+import { generateUsername } from '../../utils/username-generator';
 
 // Types
 export interface AuthUser {
@@ -12,6 +13,7 @@ export interface AuthUser {
   email: string;
   email_verified: boolean;
   display_name?: string;
+  username?: string;
   created_at: Date;
   updated_at: Date;
   disabled: boolean;
@@ -21,6 +23,7 @@ export interface SignupData {
   email: string;
   password: string;
   display_name?: string;
+  username?: string;
 }
 
 export interface LoginData {
@@ -89,13 +92,19 @@ export class AuthService {
   /**
    * Generate JWT token with Hasura claims
    */
-  private generateJWT(userId: string, role: string = 'user'): string {
+  private generateJWT(user: AuthUser | { id: string; display_name?: string; username?: string }, role: string = 'user'): string {
+    const userId = typeof user === 'string' ? user : user.id;
+    const displayName = typeof user === 'string' ? undefined : user.display_name;
+    const username = typeof user === 'string' ? undefined : user.username;
+    
     const payload: JWTPayload = {
       sub: userId,
       'https://hasura.io/jwt/claims': {
         'x-hasura-default-role': role,
         'x-hasura-allowed-roles': [role, 'admin'],
-        'x-hasura-user-id': userId
+        'x-hasura-user-id': userId,
+        ...(displayName && { 'x-hasura-display-name': displayName }),
+        ...(username && { 'x-hasura-username': username })
       }
     };
 
@@ -181,10 +190,27 @@ export class AuthService {
         parallelism: 1
       });
 
+      // Generate unique username if not provided
+      let username = data.username;
+      if (!username) {
+        let attempts = 0;
+        do {
+          username = generateUsername();
+          const existingUsername = await db.select().from(auth_user).where(eq(auth_user.username, username)).limit(1);
+          if (existingUsername.length === 0) break;
+          attempts++;
+        } while (attempts < 10); // Prevent infinite loop
+        
+        if (attempts >= 10) {
+          throw new Error('Unable to generate unique username. Please try again.');
+        }
+      }
+
       // Create user
       const [user] = await db.insert(auth_user).values({
         email: data.email,
         display_name: data.display_name,
+        username: username,
         email_verified: false // Require email verification
       }).returning();
 
@@ -196,7 +222,7 @@ export class AuthService {
       });
 
       // Generate tokens
-      const token = this.generateJWT(user.id);
+      const token = this.generateJWT(user);
       const refreshToken = this.generateRefreshToken();
 
       // Store session
@@ -275,7 +301,7 @@ export class AuthService {
       }
 
       // Generate tokens
-      const token = this.generateJWT(row.user.id);
+      const token = this.generateJWT(row.user);
       const refreshToken = this.generateRefreshToken();
 
       // Store new session
@@ -346,7 +372,7 @@ export class AuthService {
       }
 
       // Generate new access token
-      const token = this.generateJWT(row.user.id);
+      const token = this.generateJWT(row.user);
 
       // Log successful refresh
       await this.logAuditEvent({

@@ -34,6 +34,7 @@ import { AnalyticsTab } from '@/components/analytics/analytics-tab';
 import { HeaderBannerAd, InFeedAd, FooterBannerAd, MobileBannerAd } from '@/components/ads/ad-placements';
 import { useUser } from '@/contexts/user-context';
 import { useAuth } from '@/contexts/AuthContext';
+import { getUserDisplayName as getUserDisplayNameUtil } from '@/utils/user-display';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -543,7 +544,7 @@ const Index = () => {
               Welcome to Statpedia
               <br />
               <span className="bg-gradient-primary bg-clip-text text-transparent animate-scale-in display-name-gradient" style={{ animationDelay: '100ms' }}>
-                {user?.display_name || user?.email?.split('@')[0]}
+                {user ? getUserDisplayNameUtil(user as any) : 'User'}
               </span>
             </h1>
             <p className="text-xl text-muted-foreground mb-6 animate-slide-up font-body" style={{ animationDelay: '150ms' }}>
