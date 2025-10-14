@@ -310,7 +310,7 @@ export const UserCard: React.FC<{ userIdentity?: UserIdentity | null; showKarma?
     showAvatar={true} 
     showUsername={true} 
     showEmail={true} 
-    showRole={true} 
+    showRole={false} 
     showSubscription={true}
     showKarma={showKarma}
     showROI={showROI}

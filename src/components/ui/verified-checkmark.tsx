@@ -27,38 +27,30 @@ export const VerifiedCheckmark: React.FC<VerifiedCheckmarkProps> = ({
     lg: 'w-3 h-3'
   };
   
-  // White checkmark with glow, blur, and animation
+  // Just a white checkmark with glow and animation (no circle)
   return (
     <div 
       className={cn(
         'inline-flex items-center justify-center ml-1 relative',
-        sizeClasses[size],
         className
       )}
       title={`Verified ${role}`}
     >
-      {/* Glow effect */}
-      <div className={cn(
-        'absolute inset-0 bg-white rounded-full blur-sm opacity-60 animate-pulse',
-        sizeClasses[size]
-      )} />
-      
-      {/* Main checkmark with glow */}
-      <div className={cn(
-        'relative bg-white rounded-full shadow-lg shadow-white/50',
-        sizeClasses[size]
-      )}>
-        <Check className={cn(
-          'text-white drop-shadow-lg',
-          iconSizes[size]
-        )} />
+      {/* Glow effect behind checkmark */}
+      <div className="absolute inset-0 blur-sm opacity-60 animate-pulse">
+        <Check className={cn('text-white', iconSizes[size])} />
       </div>
       
-      {/* Additional glow layers for enhanced effect */}
-      <div className={cn(
-        'absolute inset-0 bg-white rounded-full blur-md opacity-30 animate-ping',
-        sizeClasses[size]
+      {/* Main checkmark with glow */}
+      <Check className={cn(
+        'relative text-white drop-shadow-lg shadow-lg shadow-white/50',
+        iconSizes[size]
       )} />
+      
+      {/* Additional glow layer */}
+      <div className="absolute inset-0 blur-md opacity-30 animate-ping">
+        <Check className={cn('text-white', iconSizes[size])} />
+      </div>
     </div>
   );
 };

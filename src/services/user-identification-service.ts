@@ -385,9 +385,10 @@ class UserIdentificationService {
       parts.push(`(${identity.email})`);
     }
 
-    if (options.showRole && identity.role) {
-      parts.push(`[${identity.role}]`);
-    }
+    // Role display removed - only show checkmark for verification
+    // if (options.showRole && identity.role) {
+    //   parts.push(`[${identity.role}]`);
+    // }
 
     if (options.showSubscription && identity.subscription_tier) {
       parts.push(`(${identity.subscription_tier})`);
