@@ -44,7 +44,7 @@ const Index = () => {
   const { 
     userIdentity, 
     userSubscription, 
-    userRole, 
+    userRole: contextUserRole, 
     isLoading: userLoading,
     getUserDisplayName,
     getUserUsername,
@@ -53,6 +53,8 @@ const Index = () => {
   
   // Use auth user for authentication check, fallback to user context user for display
   const user = authUser;
+  // Use role from AuthContext if available, fallback to UserContext
+  const userRole = authUser?.role || contextUserRole || 'user';
   const [selectedSport, setSelectedSport] = useState('nfl');
   const [realPredictions, setRealPredictions] = useState<any[]>([]);
   const [isLoadingPredictions, setIsLoadingPredictions] = useState(false);

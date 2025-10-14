@@ -438,6 +438,17 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   // Owner role bypasses ALL subscription restrictions
   const isSubscribed = userRole === 'owner' || userSubscription === 'pro' || userSubscription === 'premium' || userRole === 'admin';
   
+  // Debug logging to see what values we're getting
+  console.log('PlayerPropsTab Debug:', {
+    userRole,
+    userSubscription,
+    isSubscribed,
+    ownerCheck: userRole === 'owner',
+    adminCheck: userRole === 'admin',
+    proCheck: userSubscription === 'pro',
+    premiumCheck: userSubscription === 'premium'
+  });
+  
   // State management
   const [searchQuery, setSearchQuery] = useState('');
   const [sportFilter, setSportFilter] = useState(selectedSport || 'nfl');
