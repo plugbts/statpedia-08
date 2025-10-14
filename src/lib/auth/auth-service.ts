@@ -4,7 +4,7 @@ import { randomBytes } from 'crypto';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { auth_user, auth_credential, auth_session, auth_audit, auth_verification_token } from '../../db/schema/auth';
-import { eq, and, lt } from 'drizzle-orm';
+import { eq, and, lt, sql } from 'drizzle-orm';
 import { generateUsername } from '../../utils/username-generator';
 
 // Types
@@ -577,6 +577,27 @@ export class AuthService {
     } catch (error) {
       console.error('Update user profile error:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Get user role
+   */
+  async getUserRole(userId: string): Promise<string> {
+    try {
+      const { db } = getDatabase();
+      
+      const result = await db.execute(sql`
+        SELECT role FROM user_roles 
+        WHERE user_id = ${userId} 
+        LIMIT 1
+      `);
+      
+      return result.length > 0 ? result[0].role : 'user';
+      
+    } catch (error) {
+      console.error('Get user role error:', error);
+      return 'user'; // Default to user role on error
     }
   }
 

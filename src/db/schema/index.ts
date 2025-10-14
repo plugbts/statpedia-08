@@ -6,6 +6,7 @@
  */
 
 import { pgTable, serial, text, numeric, varchar, uuid, timestamp, boolean, integer, date, check } from "drizzle-orm/pg-core";
+import { user_roles } from './user-roles';
 
 // Leagues table
 export const leagues = pgTable("leagues", {
@@ -200,4 +201,5 @@ export const schema = {
   games,
   player_game_logs,
   defense_ranks,
+  user_roles,
 };

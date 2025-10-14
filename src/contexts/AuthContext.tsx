@@ -12,6 +12,7 @@ export interface User {
   created_at: string;
   updated_at: string;
   disabled: boolean;
+  role?: string;
 }
 
 export interface AuthTokens {
@@ -243,8 +244,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (response.success) {
-        setUser(response.data);
-        saveUser(response.data);
+        const userData = response.data;
+        
+        // Fetch user role
+        try {
+          const roleResponse = await apiRequest(`/api/auth/user-role/${userData.id}`);
+          if (roleResponse.success) {
+            userData.role = roleResponse.data.role;
+          }
+        } catch (roleError) {
+          console.error('Failed to fetch user role:', roleError);
+          userData.role = 'user'; // Default role
+        }
+        
+        setUser(userData);
+        saveUser(userData);
       }
     } catch (error) {
       console.error('Fetch user data error:', error);

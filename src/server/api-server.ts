@@ -420,6 +420,33 @@ app.post('/api/auth/update-profile', async (req, res) => {
   }
 });
 
+// Get user role route
+app.get('/api/auth/user-role/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID is required'
+      });
+    }
+
+    const role = await authService.getUserRole(userId);
+
+    res.json({
+      success: true,
+      data: { role }
+    });
+  } catch (error: any) {
+    console.error('Get user role error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get user role'
+    });
+  }
+});
+
 // Player analytics routes
 app.get('/api/player-analytics', async (req, res) => {
   try {

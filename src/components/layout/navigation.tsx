@@ -31,10 +31,12 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
   const { user: authUser, isAuthenticated } = useAuth();
   const { 
     userIdentity, 
-    userRole, 
     userSubscription, 
     getUserInitials 
   } = useUser();
+  
+  // Use role from AuthContext if available, fallback to UserContext
+  const userRole = authUser?.role || 'user';
   
   // Use auth user for display if available, fallback to user context
   const getUserDisplayName = () => {
