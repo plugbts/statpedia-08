@@ -16,7 +16,6 @@ import { useUser } from '@/contexts/user-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserDisplayName as getUserDisplayNameUtil, getUserHandle } from '@/utils/user-display';
 import { userIdentificationService } from '@/services/user-identification-service';
-import { getRoleDisplayName, getRoleBadgeVariant, getRoleColorClass, isOwnerRole } from '@/lib/auth/role-hierarchy';
 import { UserDisplay } from '@/components/ui/user-display';
 
 interface NavigationProps {
@@ -77,8 +76,9 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
   };
 
   // Check if user has access to premium features
-  const hasProAccess = userSubscription === 'pro' || userSubscription === 'premium' || ['mod', 'admin', 'owner'].includes(userRole);
-  const hasPremiumAccess = userSubscription === 'premium' || ['admin', 'owner'].includes(userRole);
+  // Owner role bypasses ALL subscription restrictions
+  const hasProAccess = userRole === 'owner' || userSubscription === 'pro' || userSubscription === 'premium' || ['mod', 'admin'].includes(userRole);
+  const hasPremiumAccess = userRole === 'owner' || userSubscription === 'premium' || ['admin'].includes(userRole);
 
   // Handle premium feature access
   const handlePremiumFeatureClick = (featureId: string) => {
@@ -334,18 +334,6 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
                       </div>
                       <p className="text-xs text-muted-foreground truncate">{getUserUsername()}</p>
                     </div>
-                    {userRole !== 'user' && (
-                      <Badge 
-                        variant={getRoleBadgeVariant(userRole as any)} 
-                        className={cn(
-                          'text-xs flex-shrink-0',
-                          isOwnerRole(userRole as any) && 'bg-gradient-primary font-semibold',
-                          getRoleColorClass(userRole as any),
-                        )}
-                      >
-                        {getRoleDisplayName(userRole as any)}
-                      </Badge>
-                    )}
                   </div>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onTabChange('settings')} className="gap-2 cursor-pointer">

@@ -73,7 +73,8 @@ export const ParlayGen: React.FC = () => {
   const [isLoadingData, setIsLoadingData] = useState(true);
 
   // Check if user has premium access
-  const hasPremiumAccess = userSubscription === 'premium' || ['admin', 'owner'].includes(userRole);
+  // Owner role bypasses ALL subscription restrictions
+  const hasPremiumAccess = userRole === 'owner' || userSubscription === 'premium' || userRole === 'admin';
 
   // Load real data on component mount
   useEffect(() => {

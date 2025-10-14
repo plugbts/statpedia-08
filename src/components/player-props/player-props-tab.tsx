@@ -435,7 +435,8 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   const [searchParams, setSearchParams] = useSearchParams();
   
   // Check if user is subscribed - do this early to avoid hooks issues
-  const isSubscribed = userSubscription === 'pro' || userSubscription === 'premium' || userRole === 'admin' || userRole === 'owner';
+  // Owner role bypasses ALL subscription restrictions
+  const isSubscribed = userRole === 'owner' || userSubscription === 'pro' || userSubscription === 'premium' || userRole === 'admin';
   
   // State management
   const [searchQuery, setSearchQuery] = useState('');
