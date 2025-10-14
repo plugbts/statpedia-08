@@ -37,6 +37,7 @@ export const games = pgTable('games', {
   totalOverUnder: decimal('total_over_under', { precision: 6, scale: 1 }),
   // External API identifiers
   externalId: text('external_id').unique(),
+  apiGameId: text('api_game_id').unique(),
   espnId: text('espn_id'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),

@@ -122,6 +122,7 @@ export const games = pgTable("games", {
   home_team_spread: numeric("home_team_spread"),
   total_over_under: numeric("total_over_under"),
   external_id: text("external_id").unique(),
+  api_game_id: text("api_game_id").unique(),
   espn_id: text("espn_id"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),

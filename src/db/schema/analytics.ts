@@ -1,5 +1,5 @@
 import { pgTable, text, timestamp, uuid, decimal, integer, boolean, jsonb } from 'drizzle-orm/pg-core';
-import { players, games, playerProps } from './index';
+import { players, games, props } from './index';
 import { relations } from 'drizzle-orm';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 
@@ -7,7 +7,7 @@ export const playerAnalytics = pgTable('player_analytics', {
   id: uuid('id').primaryKey().defaultRandom(),
   playerId: uuid('player_id').references(() => players.id).notNull(),
   gameId: uuid('game_id').references(() => games.id).notNull(),
-  propId: uuid('prop_id').references(() => playerProps.id),
+  propId: uuid('prop_id').references(() => props.id),
   // Performance metrics
   actualValue: decimal('actual_value', { precision: 8, scale: 2 }),
   propLine: decimal('prop_line', { precision: 8, scale: 2 }),

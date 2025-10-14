@@ -72,7 +72,11 @@
     "real-data:wnba-skeleton": "tsx scripts/real-data-ingestion-skeleton.ts wnba",
     "real-data:mlb-skeleton": "tsx scripts/real-data-ingestion-skeleton.ts mlb",
     "real-data:nhl-skeleton": "tsx scripts/real-data-ingestion-skeleton.ts nhl",
-    "real-data:all-skeleton": "tsx scripts/real-data-ingestion-skeleton.ts all"
+    "real-data:all-skeleton": "tsx scripts/real-data-ingestion-skeleton.ts all",
+    "nba-ingestion": "tsx scripts/nba-ingestion-boxscore.ts",
+    "wnba-ingestion": "tsx scripts/wnba-ingestion-boxscore.ts",
+    "mlb-ingestion": "tsx scripts/mlb-ingestion-boxscore.ts",
+    "nhl-ingestion": "tsx scripts/nhl-ingestion-boxscore.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
