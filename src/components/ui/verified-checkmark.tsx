@@ -16,18 +16,18 @@ export const VerifiedCheckmark: React.FC<VerifiedCheckmarkProps> = ({
   if (!['mod', 'admin', 'owner'].includes(role)) return null;
   
   const sizeClasses = {
-    sm: 'w-3 h-3',
-    md: 'w-4 h-4',
-    lg: 'w-5 h-5'
+    sm: 'w-5 h-5',  // Made bigger
+    md: 'w-6 h-6',  // Made bigger
+    lg: 'w-7 h-7'   // Made bigger
   };
   
   const iconSizes = {
-    sm: 'w-1.5 h-1.5',
-    md: 'w-2.5 h-2.5',
-    lg: 'w-3 h-3'
+    sm: 'w-3 h-3',  // Made bigger
+    md: 'w-4 h-4',  // Made bigger
+    lg: 'w-5 h-5'   // Made bigger
   };
   
-  // Just a white checkmark with glow and animation (no circle)
+  // White checkmark with white stroke circle, glow, and animation
   return (
     <div 
       className={cn(
@@ -41,9 +41,15 @@ export const VerifiedCheckmark: React.FC<VerifiedCheckmarkProps> = ({
         <Check className={cn('text-white', iconSizes[size])} />
       </div>
       
+      {/* White stroke circle around checkmark */}
+      <div className={cn(
+        'absolute inset-0 border-2 border-white rounded-full',
+        sizeClasses[size]
+      )} />
+      
       {/* Main checkmark with glow */}
       <Check className={cn(
-        'relative text-white drop-shadow-lg shadow-lg shadow-white/50',
+        'relative text-white drop-shadow-lg shadow-lg shadow-white/50 z-10',
         iconSizes[size]
       )} />
       

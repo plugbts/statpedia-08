@@ -40,10 +40,15 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
   
   // Use auth user for display if available, fallback to user context
   const getUserDisplayName = () => {
+    let displayName = '';
     if (authUser && isAuthenticated) {
-      return getUserDisplayNameUtil(authUser);
+      displayName = getUserDisplayNameUtil(authUser);
+    } else {
+      displayName = userIdentity ? userIdentificationService.getUserDisplayName(userIdentity) : 'User';
     }
-    return userIdentity ? userIdentificationService.getUserDisplayName(userIdentity) : 'User';
+    
+    // Remove any role prefixes like [OWNER], [ADMIN], etc.
+    return displayName.replace(/^\[(OWNER|ADMIN|MOD|USER)\]\s*/, '');
   };
   
   const getUserUsername = () => {
