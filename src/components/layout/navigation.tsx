@@ -48,7 +48,8 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
     if (authUser && isAuthenticated) {
       return getUserHandle(authUser);
     }
-    return userIdentity ? userIdentificationService.getUserUsername(userIdentity) : 'user';
+    const username = userIdentity ? userIdentificationService.getUserUsername(userIdentity) : 'user';
+    return username.startsWith('@') ? username : `@${username}`;
   };
   const { isPlaying, needsUserInteraction, togglePlayPause } = useBackgroundMusic({ enabled: true, volume: 0.08 });
   const [showMusicTip, setShowMusicTip] = useState(false);
@@ -328,7 +329,7 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
                         <p className="text-sm font-medium truncate">{getUserDisplayName()}</p>
                         <VerifiedCheckmark role={userRole} size="sm" />
                       </div>
-                      <p className="text-xs text-muted-foreground truncate">@{getUserUsername()}</p>
+                      <p className="text-xs text-muted-foreground truncate">{getUserUsername()}</p>
                     </div>
                     {userRole !== 'user' && (
                       <Badge 
