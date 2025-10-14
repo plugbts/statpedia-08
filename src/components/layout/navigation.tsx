@@ -13,6 +13,9 @@ import { VerifiedCheckmark } from '@/components/ui/verified-checkmark';
 import { useBackgroundMusic } from '@/hooks/use-background-music';
 import { MusicTipBubble } from '@/components/ui/music-tip-bubble';
 import { useUser } from '@/contexts/user-context';
+import { useAuth } from '@/contexts/AuthContext';
+import { getUserDisplayName as getUserDisplayNameUtil, getUserHandle } from '@/utils/user-display';
+import { userIdentificationService } from '@/services/user-identification-service';
 import { UserDisplay } from '@/components/ui/user-display';
 
 interface NavigationProps {
@@ -25,14 +28,28 @@ interface NavigationProps {
 }
 
 export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSport = 'nfl', onLogout, predictionsCount = 0 }: NavigationProps) => {
+  const { user: authUser, isAuthenticated } = useAuth();
   const { 
     userIdentity, 
     userRole, 
     userSubscription, 
-    getUserDisplayName, 
-    getUserUsername, 
     getUserInitials 
   } = useUser();
+  
+  // Use auth user for display if available, fallback to user context
+  const getUserDisplayName = () => {
+    if (authUser && isAuthenticated) {
+      return getUserDisplayNameUtil(authUser);
+    }
+    return userIdentity ? userIdentificationService.getUserDisplayName(userIdentity) : 'User';
+  };
+  
+  const getUserUsername = () => {
+    if (authUser && isAuthenticated) {
+      return getUserHandle(authUser);
+    }
+    return userIdentity ? userIdentificationService.getUserUsername(userIdentity) : 'user';
+  };
   const { isPlaying, needsUserInteraction, togglePlayPause } = useBackgroundMusic({ enabled: true, volume: 0.08 });
   const [showMusicTip, setShowMusicTip] = useState(false);
   const [hasShownTip, setHasShownTip] = useState(false);
