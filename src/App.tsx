@@ -24,6 +24,7 @@ import { AnalyticsUITest } from "@/components/debug/analytics-ui-test";
 import { SimpleAnalyticsTest } from "@/components/debug/simple-analytics-test";
 import { BasicTest } from "@/components/debug/basic-test";
 import { SimpleHookTest } from "@/components/debug/simple-hook-test";
+import AuthTest from "./pages/AuthTest";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -143,6 +144,7 @@ const App = () => {
                     <SimpleHookTest />
                   </div>
                 } />
+                <Route path="/auth-test" element={<AuthTest />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>

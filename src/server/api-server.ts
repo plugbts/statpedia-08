@@ -35,7 +35,7 @@ app.get('/health', (req, res) => {
 // Auth routes
 app.post('/api/auth/signup', async (req, res) => {
   try {
-    const { email, password, display_name } = req.body;
+    const { email, password, display_name, displayName } = req.body;
     
     if (!email || !password) {
       return res.status(400).json({
@@ -54,7 +54,7 @@ app.post('/api/auth/signup', async (req, res) => {
     const tokens = await authService.signup({
       email,
       password,
-      display_name
+      display_name: display_name || displayName
     }, {
       ip_address: Array.isArray(ip_address) ? ip_address[0] : ip_address,
       user_agent

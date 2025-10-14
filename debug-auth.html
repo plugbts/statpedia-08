@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Auth</title>
+</head>
+<body>
+    <h1>Debug Authentication</h1>
+    <button onclick="testAuth()">Test Auth</button>
+    <div id="output"></div>
+
+    <script>
+        function log(message) {
+            const output = document.getElementById('output');
+            output.innerHTML += '<div>' + new Date().toLocaleTimeString() + ': ' + message + '</div>';
+            console.log(message);
+        }
+
+        async function testAuth() {
+            log('Starting auth test...');
+            
+            try {
+                // Test 1: Simple fetch to health endpoint
+                log('Testing health endpoint...');
+                const healthResponse = await fetch('http://localhost:3001/health');
+                log('Health response status: ' + healthResponse.status);
+                const healthData = await healthResponse.json();
+                log('Health data: ' + JSON.stringify(healthData));
+                
+                // Test 2: Test signup
+                log('Testing signup...');
+                const signupResponse = await fetch('http://localhost:3001/api/auth/signup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'debug-test@example.com',
+                        password: 'password123',
+                        displayName: 'Debug Test User'
+                    })
+                });
+                
+                log('Signup response status: ' + signupResponse.status);
+                log('Signup response headers: ' + JSON.stringify([...signupResponse.headers.entries()]));
+                
+                const signupData = await signupResponse.json();
+                log('Signup data: ' + JSON.stringify(signupData));
+                
+                if (signupData.success) {
+                    log('✅ Signup successful!');
+                    
+                    // Test 3: Test /me endpoint
+                    log('Testing /me endpoint...');
+                    const meResponse = await fetch('http://localhost:3001/api/auth/me', {
+                        headers: {
+                            'Authorization': 'Bearer ' + signupData.data.token
+                        }
+                    });
+                    
+                    log('Me response status: ' + meResponse.status);
+                    const meData = await meResponse.json();
+                    log('Me data: ' + JSON.stringify(meData));
+                    
+                    if (meData.success) {
+                        log('✅ /me endpoint successful!');
+                    } else {
+                        log('❌ /me endpoint failed: ' + meData.error);
+                    }
+                } else {
+                    log('❌ Signup failed: ' + signupData.error);
+                }
+                
+            } catch (error) {
+                log('❌ Error: ' + error.message);
+                log('Error stack: ' + error.stack);
+            }
+        }
+    </script>
+</body>
+</html>
