@@ -76,7 +76,10 @@
     "nba-ingestion": "tsx scripts/nba-ingestion-boxscore.ts",
     "wnba-ingestion": "tsx scripts/wnba-ingestion-boxscore.ts",
     "mlb-ingestion": "tsx scripts/mlb-ingestion-boxscore.ts",
-    "nhl-ingestion": "tsx scripts/nhl-ingestion-boxscore.ts"
+    "nhl-ingestion": "tsx scripts/nhl-ingestion-boxscore.ts",
+    "player-logs:test": "tsx scripts/test-player-logs-ingestion.ts",
+    "player-logs:debug": "tsx scripts/nba-wnba-player-logs-ingestion.ts debug",
+    "player-logs:batch": "tsx scripts/nba-wnba-player-logs-ingestion.ts batch"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

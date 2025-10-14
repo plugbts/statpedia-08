@@ -37,6 +37,7 @@ export const players = pgTable("players", {
   name: text("name").notNull(),
   position: text("position"),
   status: text("status").default("Active"), // Active, Injured, Out
+  external_id: text("external_id").unique(), // NBA/WNBA numeric ID
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
