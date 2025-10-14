@@ -18,6 +18,7 @@ SPORTSGAMEODDS_API_KEY = "f05c244cbea5222d806f91c412350940"
 SUPABASE_URL = "https://rfdrifnsfobqlzorcesn.supabase.co"
 SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZHJpZm5zZm9icWx6b3JjZXNuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTA0ODgzNiwiZXhwIjoyMDc0NjI0ODM2fQ.E9LQFvqVs9Z1cXoS34ov5qV3jBkbqCHPCL16GBt480g"
 SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZHJpZm5zZm9icWx6b3JjZXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwNDg4MzYsImV4cCI6MjA3NDYyNDgzNn0.oUzP1pTapCMEaaPXzia2uqn-m3L9BRR82_RYcUXqykI"
+JWT_SECRET = "your-super-secret-jwt-key-change-this-in-production"
 
 [env.production]
 name = "statpedia-player-props"
@@ -31,6 +32,7 @@ MAX_EVENTS_PER_REQUEST = "100"
 MAX_PROPS_PER_REQUEST = "500"
 SUPABASE_URL = "https://rfdrifnsfobqlzorcesn.supabase.co"
 SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZHJpZm5zZm9icWx6b3JjZXNuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTA0ODgzNiwiZXhwIjoyMDc0NjI0ODM2fQ.E9LQFvqVs9Z1cXoS34ov5qV3jBkbqCHPCL16GBt480g"
+JWT_SECRET = "your-super-secret-jwt-key-change-this-in-production"
 
 # Production R2 bucket
 [[env.production.r2_buckets]]
@@ -64,6 +66,7 @@ MAX_EVENTS_PER_REQUEST = "100"
 MAX_PROPS_PER_REQUEST = "500"
 SUPABASE_URL = "https://rfdrifnsfobqlzorcesn.supabase.co"
 SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZHJpZm5zZm9icWx6b3JjZXNuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTA0ODgzNiwiZXhwIjoyMDc0NjI0ODM2fQ.E9LQFvqVs9Z1cXoS34ov5qV3jBkbqCHPCL16GBt480g"
+JWT_SECRET = "your-super-secret-jwt-key-change-this-in-production"
 
 # Staging R2 bucket
 [[env.staging.r2_buckets]]

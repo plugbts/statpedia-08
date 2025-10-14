@@ -82,27 +82,29 @@ const getUser = (): User | null => {
 };
 
 // API helper
-const apiRequest = async (url: string, options: RequestInit = {}) => {
-  // Use local API server for development
-  const baseUrl = import.meta.env.DEV ? 'http://localhost:3001' : '';
-  const fullUrl = `${baseUrl}${url}`;
+  const apiRequest = async (url: string, options: RequestInit = {}) => {
+    // Use local API server for development, Cloudflare Worker for production
+    const baseUrl = import.meta.env.DEV 
+      ? 'http://localhost:3001' 
+      : (import.meta.env.VITE_AUTH_ENDPOINT || 'https://statpedia-player-props.statpedia.workers.dev');
+    const fullUrl = `${baseUrl}${url}`;
 
-  const response = await fetch(fullUrl, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
+    const response = await fetch(fullUrl, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    });
 
-  const data = await response.json();
+    const data = await response.json();
 
-  if (!response.ok) {
-    throw new Error(data.error || 'Request failed');
-  }
+    if (!response.ok) {
+      throw new Error(data.error || 'Request failed');
+    }
 
-  return data;
-};
+    return data;
+  };
 
 // Auth provider component
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {

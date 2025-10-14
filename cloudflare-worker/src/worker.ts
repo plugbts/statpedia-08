@@ -68,6 +68,7 @@ export default {
         return corsResponse({
           message: 'Multi-League Multi-Season Props Ingestion Worker',
           endpoints: {
+            auth: ['/api/auth/signup', '/api/auth/login', '/api/auth/logout', '/api/auth/refresh', '/api/auth/me'],
             ingestion: ['/ingest', '/ingest/{league}'],
             backfill: ['/backfill-all', '/backfill-recent', '/backfill-full', '/backfill-league/{league}', '/backfill-season/{season}'],
             performance: ['/performance-ingest', '/performance-ingest/{league}', '/performance-historical'],
@@ -78,8 +79,36 @@ export default {
           },
           leagues: getActiveLeagues().map(l => l.id),
           seasons: getAllSeasons(),
-          features: ['Multi-league ingestion', 'Multi-season backfill', 'Analytics computation', 'Fallback logic', 'Progressive backfill']
+          features: ['Multi-league ingestion', 'Multi-season backfill', 'Analytics computation', 'Fallback logic', 'Progressive backfill', 'Authentication system']
         });
+      }
+      
+      // Handle authentication endpoints
+      if (url.pathname.startsWith('/api/auth/')) {
+        try {
+          // For now, return a simple response indicating auth is available
+          // The frontend should use the local development server for auth
+          return withCORS(corsResponse({
+            success: false,
+            error: 'Auth endpoints available in development mode',
+            message: 'Please use local development server for authentication',
+            endpoints: {
+              signup: '/api/auth/signup',
+              login: '/api/auth/login',
+              logout: '/api/auth/logout',
+              refresh: '/api/auth/refresh',
+              me: '/api/auth/me'
+            }
+          }), origin);
+          
+        } catch (error: any) {
+          console.error('Auth endpoint error:', error);
+          return withCORS(corsResponse({
+            success: false,
+            error: 'Internal server error',
+            details: error.message
+          }, 500), origin);
+        }
       }
       
       // Handle analytics refresh
