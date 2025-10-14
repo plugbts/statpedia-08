@@ -546,9 +546,37 @@ async function upsertWNBAPlayerLog(log: WNBAPlayerLog, apiGameId: string) {
     }
   }
   
-  if (!playerId || !teamId || !opponentTeamId) {
-    console.warn(`Missing IDs for player log: player=${log.playerName} (${log.playerId}), team=${log.team}, opponent=${log.opponent}`);
+  if (!teamId || !opponentTeamId) {
+    console.warn(`Missing team IDs for player log: player=${log.playerName} (${log.playerId}), team=${log.team}, opponent=${log.opponent}`);
     return;
+  }
+  
+  // If player not found, create a new player record
+  if (!playerId) {
+    console.log(`Creating new player: ${log.playerName} (${log.playerId}) for team ${log.team}`);
+    
+    try {
+      // Insert new player with external_id
+      const newPlayerResult = await db.insert(players).values({
+        name: log.playerName,
+        team_id: teamId,
+        external_id: log.playerId,
+        league: 'WNBA',
+        position: 'Unknown', // Will be updated when we get more data
+        status: 'active'
+      }).returning({ id: players.id });
+      
+      if (newPlayerResult.length > 0) {
+        playerId = newPlayerResult[0].id;
+        // Update the mapping for future lookups
+        wnbaPlayerIdMap[log.playerId] = playerId;
+        wnbaPlayerIdMap[log.playerName] = playerId;
+        console.log(`✅ Created new player: ${log.playerName} with ID: ${playerId}`);
+      }
+    } catch (err) {
+      console.error(`❌ Failed to create player ${log.playerName}:`, err.message);
+      return;
+    }
   }
   
   // Create game log entries for each stat type
@@ -658,7 +686,32 @@ async function upsertWNBAPlayerLog(log: WNBAPlayerLog, apiGameId: string) {
   
   // Insert all log entries
   if (logEntries.length > 0) {
-    await db.insert(player_game_logs).values(logEntries);
+    try {
+      console.log(`🔍 DEBUG: Inserting ${logEntries.length} player logs for game ${apiGameId}`);
+      console.log(`   - apiGameId: ${apiGameId}`);
+      console.log(`   - resolved gameId: ${gameId}`);
+      console.log(`   - apiPlayerId: ${log.playerId}`);
+      console.log(`   - resolved playerId: ${playerId}`);
+      console.log(`   - teamId: ${teamId}`);
+      console.log(`   - opponentTeamId: ${opponentTeamId}`);
+      
+      await db.insert(player_game_logs).values(logEntries);
+      console.log(`✅ Successfully inserted ${logEntries.length} player logs`);
+    } catch (err) {
+      console.error(`❌ Insert failed for game ${apiGameId}:`, {
+        apiGameId,
+        apiPlayerId: log.playerId,
+        resolvedGameId: gameId,
+        resolvedPlayerId: playerId,
+        resolvedTeamId: teamId,
+        resolvedOpponentId: opponentTeamId,
+        logEntriesCount: logEntries.length,
+        error: err.message
+      });
+      throw err; // Re-throw to surface the error
+    }
+  } else {
+    console.warn(`⚠️ No log entries to insert for player ${log.playerName} in game ${apiGameId}`);
   }
 }
 
