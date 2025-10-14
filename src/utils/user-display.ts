@@ -17,19 +17,20 @@ export interface UserIdentity {
  * Priority: display_name → username → email username → "User"
  */
 export function getUserDisplayName(user: UserIdentity): string {
+  let displayName = '';
+  
   if (user.display_name) {
-    return user.display_name;
+    displayName = user.display_name;
+  } else if (user.username) {
+    displayName = `@${user.username}`;
+  } else if (user.email) {
+    displayName = user.email.split('@')[0];
+  } else {
+    displayName = 'User';
   }
   
-  if (user.username) {
-    return `@${user.username}`;
-  }
-  
-  if (user.email) {
-    return user.email.split('@')[0];
-  }
-  
-  return 'User';
+  // Remove any role prefixes like [OWNER], [ADMIN], etc.
+  return displayName.replace(/^\[(OWNER|ADMIN|MOD|USER)\]\s*/, '');
 }
 
 /**
