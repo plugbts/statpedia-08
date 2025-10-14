@@ -9,6 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { X, BarChart3, TrendingUp, ArrowUp, ArrowDown, Star, DollarSign, CalendarDays, History, LineChart, Activity, Target, Zap, RefreshCw } from 'lucide-react';
+import { PlayerAnalyticsCard } from '@/components/player-props/PlayerAnalyticsCard';
 // Removed sportsDataIOAPI import - now using SportsRadar API exclusively
 
 interface PlayerAnalysisOverlayProps {
@@ -446,6 +447,14 @@ export const PlayerAnalysisOverlay: React.FC<PlayerAnalysisOverlayProps> = ({
 
           {/* Analysis Tab */}
           <TabsContent value="analysis" className="space-y-4">
+            {/* Player Analytics Card */}
+            <PlayerAnalyticsCard 
+              playerId={playerProp.playerId.toString()} 
+              propType={selectedPropType} 
+              season="2025" 
+              className="mb-6"
+            />
+
             <Card>
               <CardHeader>
                 <CardTitle>Season Averages</CardTitle>
@@ -492,6 +501,14 @@ export const PlayerAnalysisOverlay: React.FC<PlayerAnalysisOverlayProps> = ({
 
           {/* History Tab */}
           <TabsContent value="history" className="space-y-4">
+            {/* Player Analytics Card for History */}
+            <PlayerAnalyticsCard 
+              playerId={playerProp.playerId.toString()} 
+              propType={selectedPropType} 
+              season="2025" 
+              className="mb-6"
+            />
+
             <Card>
               <CardHeader>
                 <CardTitle>Last 5 Games ({selectedPropType})</CardTitle>

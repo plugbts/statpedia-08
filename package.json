@@ -79,7 +79,15 @@
     "nhl-ingestion": "tsx scripts/nhl-ingestion-boxscore.ts",
     "player-logs:test": "tsx scripts/test-player-logs-ingestion.ts",
     "player-logs:debug": "tsx scripts/nba-wnba-player-logs-ingestion.ts debug",
-    "player-logs:batch": "tsx scripts/nba-wnba-player-logs-ingestion.ts batch"
+    "player-logs:batch": "tsx scripts/nba-wnba-player-logs-ingestion.ts batch",
+    "mlb-nhl:test": "tsx scripts/test-mlb-nhl-ingestion.ts",
+    "mlb-nhl:debug": "tsx scripts/mlb-nhl-player-logs-ingestion.ts debug",
+    "mlb-nhl:batch": "tsx scripts/mlb-nhl-player-logs-ingestion.ts batch",
+    "find-mlb-games": "tsx scripts/find-mlb-games.ts",
+    "find-nhl-games": "tsx scripts/find-nhl-games.ts",
+    "backfill:365": "tsx scripts/backfill-365-days.ts",
+    "backfill:test": "tsx scripts/backfill-test.ts",
+    "backfill:mlb-nhl": "tsx scripts/backfill-mlb-nhl.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

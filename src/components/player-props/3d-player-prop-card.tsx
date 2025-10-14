@@ -23,6 +23,8 @@ import { toAmericanOdds, getOddsColorClass } from '@/utils/odds';
 import { getPlayerHeadshot, getPlayerInitials, getKnownPlayerHeadshot } from '@/utils/headshots';
 import { StreakService } from '@/services/streak-service';
 import { formatPropType } from '@/utils/prop-type-formatter';
+import { PlayerAnalyticsCompact } from '@/components/player-props/PlayerAnalyticsCard';
+import { usePlayerAnalytics } from '@/hooks/usePlayerAnalytics';
 
 interface SportsbookOdds {
   sportsbook: string;
@@ -180,7 +182,7 @@ export function PlayerPropCard3D({
     
     // Convert to American odds first, then format
     const americanOdds = toAmericanOdds(numericOdds);
-    return formatAmericanOdds(americanOdds);
+    return americanOdds > 0 ? `+${americanOdds}` : americanOdds.toString();
   };
 
   // Debug logging for first 10 props
@@ -505,6 +507,17 @@ export function PlayerPropCard3D({
                   );
                 })()}
               </div>
+
+              {/* Player Analytics - Compact */}
+              {prop.player_id && (
+                <div className="px-1">
+                  <PlayerAnalyticsCompact 
+                    playerId={prop.player_id} 
+                    propType={prop.propType} 
+                    season="2025" 
+                  />
+                </div>
+              )}
 
               {/* View Analysis Button - Moved Up */}
               <div className="mt-1">
