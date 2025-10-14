@@ -32,7 +32,6 @@ import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { useUser } from '@/contexts/user-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserDisplay } from '@/components/ui/user-display';
-import { emailVerificationService } from '@/services/email-verification-service';
 
 interface SettingsProps {
   user?: SupabaseUser | null;
@@ -220,10 +219,18 @@ export const Settings: React.FC<SettingsProps> = ({ user: propUser, userRole: pr
 
     setIsLoading(true);
     try {
-      const result = await emailVerificationService.sendVerificationCode(
-        user.email,
-        'password_change'
-      );
+      const response = await fetch('/api/auth/send-verification-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: user.email,
+          purpose: 'password_change'
+        }),
+      });
+
+      const result = await response.json();
 
       if (result.success) {
         setPasswordVerificationSent(true);
@@ -235,7 +242,7 @@ export const Settings: React.FC<SettingsProps> = ({ user: propUser, userRole: pr
       } else {
         toast({
           title: "Error",
-          description: result.message,
+          description: result.error || "Failed to send verification code",
           variant: "destructive",
         });
       }
@@ -264,11 +271,19 @@ export const Settings: React.FC<SettingsProps> = ({ user: propUser, userRole: pr
 
     setIsLoading(true);
     try {
-      const result = await emailVerificationService.verifyCode(
-        user.email,
-        passwordVerificationCode,
-        'password_change'
-      );
+      const response = await fetch('/api/auth/verify-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: user.email,
+          code: passwordVerificationCode,
+          purpose: 'password_change'
+        }),
+      });
+
+      const result = await response.json();
 
       if (result.success) {
         setPasswordVerificationVerified(true);
@@ -280,7 +295,7 @@ export const Settings: React.FC<SettingsProps> = ({ user: propUser, userRole: pr
       } else {
         toast({
           title: "Invalid Code",
-          description: result.message,
+          description: result.error || "Invalid verification code",
           variant: "destructive",
         });
       }
@@ -384,16 +399,26 @@ export const Settings: React.FC<SettingsProps> = ({ user: propUser, userRole: pr
       
       // Update email
       if (profileForm.email !== user.email) {
-        const { error: emailError } = await supabase.auth.updateUser({
-          email: profileForm.email
+        const response = await fetch('/api/auth/update-email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: user.id,
+            newEmail: profileForm.email
+          }),
         });
-        
-        if (emailError) throw emailError;
+
+        const result = await response.json();
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to update email');
+        }
         
         setEmailVerificationSent(true);
         toast({
-          title: "Email Update Initiated",
-          description: "Please check your new email for verification link",
+          title: "Email Updated",
+          description: "Your email has been successfully updated",
         });
       }
       
@@ -407,11 +432,21 @@ export const Settings: React.FC<SettingsProps> = ({ user: propUser, userRole: pr
           throw new Error('Passwords do not match');
         }
         
-        const { error: passwordError } = await supabase.auth.updateUser({
-          password: profileForm.newPassword
+        const response = await fetch('/api/auth/update-password', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: user.id,
+            newPassword: profileForm.newPassword
+          }),
         });
-        
-        if (passwordError) throw passwordError;
+
+        const result = await response.json();
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to update password');
+        }
         
         // Reset verification state
         setPasswordVerificationVerified(false);
@@ -425,10 +460,24 @@ export const Settings: React.FC<SettingsProps> = ({ user: propUser, userRole: pr
         });
       }
       
-      // Update user metadata
+      // Update user profile
       if (Object.keys(updates).length > 0) {
-        const { error: updateError } = await supabase.auth.updateUser(updates);
-        if (updateError) throw updateError;
+        const response = await fetch('/api/auth/update-profile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: user.id,
+            display_name: updates.data?.display_name,
+            username: updates.data?.username
+          }),
+        });
+
+        const result = await response.json();
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to update profile');
+        }
       }
       
       toast({

@@ -245,6 +245,181 @@ app.post('/api/auth/logout', async (req, res) => {
   }
 });
 
+// Send email verification code route
+app.post('/api/auth/send-verification-code', async (req, res) => {
+  try {
+    const { email, purpose } = req.body;
+    
+    if (!email || !purpose) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email and purpose are required'
+      });
+    }
+
+    const ip_address = req.ip || 
+      req.headers['x-forwarded-for'] || 
+      req.headers['x-real-ip'] || 
+      'unknown';
+    const user_agent = req.headers['user-agent'] || 'unknown';
+
+    await authService.sendEmailVerificationCode(email, purpose, {
+      ip_address: Array.isArray(ip_address) ? ip_address[0] : ip_address,
+      user_agent
+    });
+
+    res.json({
+      success: true,
+      message: 'Verification code sent successfully'
+    });
+  } catch (error: any) {
+    console.error('Send verification code error:', error);
+    res.status(400).json({
+      success: false,
+      error: error.message || 'Failed to send verification code'
+    });
+  }
+});
+
+// Verify email code route
+app.post('/api/auth/verify-code', async (req, res) => {
+  try {
+    const { email, code, purpose } = req.body;
+    
+    if (!email || !code || !purpose) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email, code, and purpose are required'
+      });
+    }
+
+    const isValid = await authService.verifyEmailCode(email, code, purpose);
+
+    res.json({
+      success: true,
+      data: { valid: isValid }
+    });
+  } catch (error: any) {
+    console.error('Verify code error:', error);
+    res.status(400).json({
+      success: false,
+      error: error.message || 'Failed to verify code'
+    });
+  }
+});
+
+// Update password route
+app.post('/api/auth/update-password', async (req, res) => {
+  try {
+    const { userId, newPassword } = req.body;
+    
+    if (!userId || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID and new password are required'
+      });
+    }
+
+    const ip_address = req.ip || 
+      req.headers['x-forwarded-for'] || 
+      req.headers['x-real-ip'] || 
+      'unknown';
+    const user_agent = req.headers['user-agent'] || 'unknown';
+
+    await authService.updatePassword(userId, newPassword, {
+      ip_address: Array.isArray(ip_address) ? ip_address[0] : ip_address,
+      user_agent
+    });
+
+    res.json({
+      success: true,
+      message: 'Password updated successfully'
+    });
+  } catch (error: any) {
+    console.error('Update password error:', error);
+    res.status(400).json({
+      success: false,
+      error: error.message || 'Failed to update password'
+    });
+  }
+});
+
+// Update email route
+app.post('/api/auth/update-email', async (req, res) => {
+  try {
+    const { userId, newEmail } = req.body;
+    
+    if (!userId || !newEmail) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID and new email are required'
+      });
+    }
+
+    const ip_address = req.ip || 
+      req.headers['x-forwarded-for'] || 
+      req.headers['x-real-ip'] || 
+      'unknown';
+    const user_agent = req.headers['user-agent'] || 'unknown';
+
+    await authService.updateEmail(userId, newEmail, {
+      ip_address: Array.isArray(ip_address) ? ip_address[0] : ip_address,
+      user_agent
+    });
+
+    res.json({
+      success: true,
+      message: 'Email updated successfully'
+    });
+  } catch (error: any) {
+    console.error('Update email error:', error);
+    res.status(400).json({
+      success: false,
+      error: error.message || 'Failed to update email'
+    });
+  }
+});
+
+// Update profile route
+app.post('/api/auth/update-profile', async (req, res) => {
+  try {
+    const { userId, display_name, username } = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID is required'
+      });
+    }
+
+    const ip_address = req.ip || 
+      req.headers['x-forwarded-for'] || 
+      req.headers['x-real-ip'] || 
+      'unknown';
+    const user_agent = req.headers['user-agent'] || 'unknown';
+
+    const updates: { display_name?: string; username?: string } = {};
+    if (display_name !== undefined) updates.display_name = display_name;
+    if (username !== undefined) updates.username = username;
+
+    await authService.updateUserProfile(userId, updates, {
+      ip_address: Array.isArray(ip_address) ? ip_address[0] : ip_address,
+      user_agent
+    });
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully'
+    });
+  } catch (error: any) {
+    console.error('Update profile error:', error);
+    res.status(400).json({
+      success: false,
+      error: error.message || 'Failed to update profile'
+    });
+  }
+});
+
 // Player analytics routes
 app.get('/api/player-analytics', async (req, res) => {
   try {

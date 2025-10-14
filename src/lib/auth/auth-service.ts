@@ -390,6 +390,197 @@ export class AuthService {
   }
 
   /**
+   * Send email verification code
+   */
+  async sendEmailVerificationCode(email: string, purpose: 'email_change' | 'password_change', auditContext?: { ip_address?: string; user_agent?: string }): Promise<void> {
+    try {
+      const { db } = getDatabase();
+      
+      // Check if user exists
+      const user = await db.select().from(auth_user).where(eq(auth_user.email, email)).limit(1);
+      if (user.length === 0) {
+        throw new Error('User not found');
+      }
+
+      // Generate verification code
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+      // Store verification token
+      await db.insert(auth_verification_token).values({
+        id: randomBytes(16).toString('hex'),
+        user_id: user[0].id,
+        token: code,
+        type: purpose,
+        expires_at: expiresAt,
+        created_at: new Date(),
+        used: false
+      });
+
+      // Log audit event
+      await this.logAuditEvent(db, {
+        user_id: user[0].id,
+        event: 'email_verification_sent',
+        ip_address: auditContext?.ip_address,
+        user_agent: auditContext?.user_agent
+      });
+
+      // In a real implementation, you would send the email here
+      console.log(`Email verification code for ${email}: ${code}`);
+      
+    } catch (error) {
+      console.error('Send email verification error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Verify email verification code
+   */
+  async verifyEmailCode(email: string, code: string, purpose: 'email_change' | 'password_change'): Promise<boolean> {
+    try {
+      const { db } = getDatabase();
+      
+      // Find user
+      const user = await db.select().from(auth_user).where(eq(auth_user.email, email)).limit(1);
+      if (user.length === 0) {
+        throw new Error('User not found');
+      }
+
+      // Find valid verification token
+      const token = await db.select()
+        .from(auth_verification_token)
+        .where(and(
+          eq(auth_verification_token.user_id, user[0].id),
+          eq(auth_verification_token.token, code),
+          eq(auth_verification_token.type, purpose),
+          eq(auth_verification_token.used, false),
+          lt(new Date(), auth_verification_token.expires_at)
+        ))
+        .limit(1);
+
+      if (token.length === 0) {
+        throw new Error('Invalid or expired verification code');
+      }
+
+      // Mark token as used
+      await db.update(auth_verification_token)
+        .set({ used: true })
+        .where(eq(auth_verification_token.id, token[0].id));
+
+      return true;
+      
+    } catch (error) {
+      console.error('Verify email code error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update user password
+   */
+  async updatePassword(userId: string, newPassword: string, auditContext?: { ip_address?: string; user_agent?: string }): Promise<void> {
+    try {
+      const { db } = getDatabase();
+      
+      // Hash new password
+      const hashedPassword = await argon2.hash(newPassword);
+      
+      // Update password in credentials table
+      await db.update(auth_credential)
+        .set({ 
+          password_hash: hashedPassword,
+          updated_at: new Date()
+        })
+        .where(eq(auth_credential.user_id, userId));
+
+      // Log audit event
+      await this.logAuditEvent(db, {
+        user_id: userId,
+        event: 'password_updated',
+        ip_address: auditContext?.ip_address,
+        user_agent: auditContext?.user_agent
+      });
+      
+    } catch (error) {
+      console.error('Update password error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update user email
+   */
+  async updateEmail(userId: string, newEmail: string, auditContext?: { ip_address?: string; user_agent?: string }): Promise<void> {
+    try {
+      const { db } = getDatabase();
+      
+      // Check if email is already taken
+      const existingUser = await db.select().from(auth_user).where(eq(auth_user.email, newEmail)).limit(1);
+      if (existingUser.length > 0) {
+        throw new Error('Email already in use');
+      }
+
+      // Update email
+      await db.update(auth_user)
+        .set({ 
+          email: newEmail,
+          updated_at: new Date()
+        })
+        .where(eq(auth_user.id, userId));
+
+      // Log audit event
+      await this.logAuditEvent(db, {
+        user_id: userId,
+        event: 'email_updated',
+        ip_address: auditContext?.ip_address,
+        user_agent: auditContext?.user_agent
+      });
+      
+    } catch (error) {
+      console.error('Update email error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update user profile
+   */
+  async updateUserProfile(userId: string, updates: { display_name?: string; username?: string }, auditContext?: { ip_address?: string; user_agent?: string }): Promise<void> {
+    try {
+      const { db } = getDatabase();
+      
+      // Check username uniqueness if provided
+      if (updates.username) {
+        const existingUser = await db.select().from(auth_user).where(eq(auth_user.username, updates.username)).limit(1);
+        if (existingUser.length > 0 && existingUser[0].id !== userId) {
+          throw new Error('Username already in use');
+        }
+      }
+
+      // Update user
+      await db.update(auth_user)
+        .set({ 
+          ...updates,
+          updated_at: new Date()
+        })
+        .where(eq(auth_user.id, userId));
+
+      // Log audit event
+      await this.logAuditEvent(db, {
+        user_id: userId,
+        event: 'profile_updated',
+        ip_address: auditContext?.ip_address,
+        user_agent: auditContext?.user_agent
+      });
+      
+    } catch (error) {
+      console.error('Update user profile error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Logout (revoke session)
    */
   async logout(refreshToken: string, auditContext?: { ip_address?: string; user_agent?: string }): Promise<void> {
