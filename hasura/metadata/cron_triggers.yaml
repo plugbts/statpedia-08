@@ -1,0 +1,48 @@
+# Hasura Cron Triggers Configuration
+# This file contains the cron trigger configuration for automatic enrichment refresh
+
+cron_triggers:
+  - name: refresh_enrichment_nightly
+    webhook: "https://your-domain.com/refresh-enrichment"  # Replace with your actual domain
+    schedule: "0 4 * * *"   # Every day at 4 AM UTC
+    include_in_metadata: true
+    payload: {}
+    retry_conf:
+      num_retries: 3
+      timeout_seconds: 300  # 5 minutes timeout
+      tolerance_seconds: 21600  # 6 hours tolerance for retries
+    headers:
+      - name: "Content-Type"
+        value: "application/json"
+      - name: "User-Agent"
+        value: "Hasura-Cron-Trigger"
+
+  - name: refresh_enrichment_every_6_hours
+    webhook: "https://your-domain.com/refresh-enrichment"  # Replace with your actual domain
+    schedule: "0 */6 * * *"  # Every 6 hours
+    include_in_metadata: true
+    payload: {}
+    retry_conf:
+      num_retries: 2
+      timeout_seconds: 180  # 3 minutes timeout
+      tolerance_seconds: 7200  # 2 hours tolerance for retries
+    headers:
+      - name: "Content-Type"
+        value: "application/json"
+      - name: "User-Agent"
+        value: "Hasura-Cron-Trigger"
+
+  - name: refresh_enrichment_on_demand
+    webhook: "https://your-domain.com/refresh-enrichment"  # Replace with your actual domain
+    schedule: "0 0 * * 0"  # Weekly on Sunday at midnight (for manual testing)
+    include_in_metadata: false  # Disabled by default, enable manually when needed
+    payload: {}
+    retry_conf:
+      num_retries: 1
+      timeout_seconds: 300
+      tolerance_seconds: 3600
+    headers:
+      - name: "Content-Type"
+        value: "application/json"
+      - name: "User-Agent"
+        value: "Hasura-Cron-Trigger"

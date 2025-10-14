@@ -584,6 +584,150 @@ app.get('/api/player-analytics', async (req, res) => {
   }
 });
 
+// Enriched player analytics routes
+app.get('/api/player-analytics-enriched', async (req, res) => {
+  try {
+    const { playerId, propType, sport } = req.query;
+
+    if (!playerId || !propType) {
+      return res.status(400).json({
+        success: false,
+        error: 'playerId and propType are required'
+      });
+    }
+
+    // Import the analytics logic
+    const { drizzle } = await import('drizzle-orm/postgres-js');
+    const postgres = (await import('postgres')).default;
+    const { sql } = await import('drizzle-orm');
+
+    const connectionString = process.env.NEON_DATABASE_URL!;
+    const client = postgres(connectionString);
+    const db = drizzle(client);
+
+    // Fetch from the player_analytics table
+    const analyticsResult = await db.execute(sql`
+      SELECT * FROM public.player_analytics
+      WHERE player_id = ${playerId as string}
+      AND prop_type = ${propType as string}
+      AND sport = ${(sport as string) || '2024-25'}
+      LIMIT 1;
+    `);
+
+    const analyticsData = analyticsResult[0];
+
+    if (!analyticsData) {
+      // Return empty data structure if no analytics found
+      return res.json({
+        analytics: null,
+        recentGames: [],
+        summary: {
+          totalGames: 0,
+          careerAvg: 0,
+          careerHitRate: 0,
+          avgL5: 0,
+          hitRateL5: 0,
+          currentStreak: 0,
+          currentStreakType: null,
+        }
+      });
+    }
+
+    // Fetch recent games from player_game_logs
+    const recentGamesResult = await db.execute(sql`
+      SELECT 
+        pgl.game_date, 
+        pgl.actual_value, 
+        pgl.line, 
+        pgl.home_away,
+        t.abbreviation as team,
+        ot.abbreviation as opponent
+      FROM public.player_game_logs pgl
+      JOIN public.teams t ON t.id = pgl.team_id
+      LEFT JOIN public.teams ot ON ot.id = pgl.opponent_team_id
+      WHERE pgl.player_id = ${playerId as string}
+      AND pgl.prop_type = ${propType as string}
+      ORDER BY pgl.game_date DESC
+      LIMIT 20;
+    `);
+
+    const transformedRecentGames = recentGamesResult.map((game: any) => ({
+      game_date: game.game_date,
+      actual_value: game.actual_value,
+      line: game.line,
+      hit: game.actual_value > game.line,
+      team: game.team,
+      opponent: game.opponent,
+      home_away: game.home_away,
+    }));
+
+    // Construct summary object from enriched data
+    const summary = {
+      totalGames: analyticsData.season_games_2025 || 0,
+      careerAvg: 0, // Could be computed from recent games if needed
+      careerHitRate: analyticsData.season_hit_rate_2025 || 0,
+      avgL5: 0, // Could be computed from recent games if needed
+      hitRateL5: analyticsData.l5_hit_rate || 0,
+      currentStreak: analyticsData.current_streak || 0,
+      currentStreakType: analyticsData.streak_direction || null,
+    };
+
+    res.json({
+      analytics: analyticsData,
+      recentGames: transformedRecentGames,
+      summary: summary,
+    });
+
+  } catch (error: any) {
+    console.error('Error fetching enriched player analytics:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+app.post('/api/player-analytics-bulk', async (req, res) => {
+  try {
+    const { playerIds, propType, sport } = req.body;
+
+    if (!playerIds || !Array.isArray(playerIds) || !propType) {
+      return res.status(400).json({
+        success: false,
+        error: 'playerIds array and propType are required'
+      });
+    }
+
+    // Import the analytics logic
+    const { drizzle } = await import('drizzle-orm/postgres-js');
+    const postgres = (await import('postgres')).default;
+    const { sql } = await import('drizzle-orm');
+
+    const connectionString = process.env.NEON_DATABASE_URL!;
+    const client = postgres(connectionString);
+    const db = drizzle(client);
+
+    // Fetch bulk analytics from the player_analytics table
+    const analyticsResult = await db.execute(sql`
+      SELECT * FROM public.player_analytics
+      WHERE player_id = ANY(${playerIds})
+      AND prop_type = ${propType}
+      AND sport = ${sport || '2024-25'};
+    `);
+
+    res.json({
+      analytics: analyticsResult,
+    });
+
+  } catch (error: any) {
+    console.error('Error fetching bulk enriched player analytics:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Local API server running on port ${PORT}`);

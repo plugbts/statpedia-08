@@ -1,5 +1,5 @@
 import React from 'react';
-import { usePlayerAnalytics, formatHitRate, formatAverage, getStreakDisplay, getPerformanceGrade, getTrendDirection } from '@/hooks/usePlayerAnalytics';
+import { usePlayerAnalyticsEnriched, formatHitRate, formatAverage, getStreakDisplay, getPerformanceGrade, getTrendDirection } from '@/hooks/usePlayerAnalyticsEnriched';
 
 interface PlayerAnalyticsCardProps {
   playerId: string;
@@ -9,7 +9,7 @@ interface PlayerAnalyticsCardProps {
 }
 
 export function PlayerAnalyticsCard({ playerId, propType, season = '2025', className = '' }: PlayerAnalyticsCardProps) {
-  const { data, loading, error } = usePlayerAnalytics(playerId, propType, season);
+  const { data, loading, error } = usePlayerAnalyticsEnriched(playerId, propType, season);
 
   if (loading) {
     return (
@@ -129,7 +129,7 @@ export function PlayerAnalyticsCard({ playerId, propType, season = '2025', class
 
 // Compact version for use in prop cards
 export function PlayerAnalyticsCompact({ playerId, propType, season = '2025' }: PlayerAnalyticsCardProps) {
-  const { data, loading } = usePlayerAnalytics(playerId, propType, season);
+  const { data, loading } = usePlayerAnalyticsEnriched(playerId, propType, season);
 
   if (loading || !data) {
     return (

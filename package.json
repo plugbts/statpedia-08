@@ -89,6 +89,7 @@
     "backfill:test": "tsx scripts/backfill-test.ts",
     "backfill:mlb-nhl": "tsx scripts/backfill-mlb-nhl.ts",
     "api:server": "tsx src/server/api-server.ts",
+    "enrichment:webhook": "tsx src/server/enrichment-webhook.ts",
     "dev:full": "concurrently \"npm run api:server\" \"npm run dev\""
   },
   "dependencies": {

@@ -24,7 +24,6 @@ import { getPlayerHeadshot, getPlayerInitials, getKnownPlayerHeadshot } from '@/
 import { StreakService } from '@/services/streak-service';
 import { formatPropType } from '@/utils/prop-type-formatter';
 import { PlayerAnalyticsCompact } from '@/components/player-props/PlayerAnalyticsCard';
-import { usePlayerAnalytics } from '@/hooks/usePlayerAnalytics';
 
 interface SportsbookOdds {
   sportsbook: string;
