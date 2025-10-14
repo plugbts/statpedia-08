@@ -19,6 +19,7 @@ SUPABASE_URL = "https://rfdrifnsfobqlzorcesn.supabase.co"
 SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZHJpZm5zZm9icWx6b3JjZXNuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTA0ODgzNiwiZXhwIjoyMDc0NjI0ODM2fQ.E9LQFvqVs9Z1cXoS34ov5qV3jBkbqCHPCL16GBt480g"
 SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZHJpZm5zZm9icWx6b3JjZXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwNDg4MzYsImV4cCI6MjA3NDYyNDgzNn0.oUzP1pTapCMEaaPXzia2uqn-m3L9BRR82_RYcUXqykI"
 JWT_SECRET = "your-super-secret-jwt-key-change-this-in-production"
+NEON_DATABASE_URL = "postgresql://neondb_owner:npg_vdkFqWJVi42j@ep-broad-waterfall-a8uchv9a-pooler.eastus2.azure.neon.tech/neondb?sslmode=require&channel_binding=require"
 
 [env.production]
 name = "statpedia-player-props"
@@ -33,6 +34,7 @@ MAX_PROPS_PER_REQUEST = "500"
 SUPABASE_URL = "https://rfdrifnsfobqlzorcesn.supabase.co"
 SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZHJpZm5zZm9icWx6b3JjZXNuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTA0ODgzNiwiZXhwIjoyMDc0NjI0ODM2fQ.E9LQFvqVs9Z1cXoS34ov5qV3jBkbqCHPCL16GBt480g"
 JWT_SECRET = "your-super-secret-jwt-key-change-this-in-production"
+NEON_DATABASE_URL = "postgresql://neondb_owner:npg_vdkFqWJVi42j@ep-broad-waterfall-a8uchv9a-pooler.eastus2.azure.neon.tech/neondb?sslmode=require&channel_binding=require"
 
 # Production R2 bucket
 [[env.production.r2_buckets]]
@@ -67,6 +69,7 @@ MAX_PROPS_PER_REQUEST = "500"
 SUPABASE_URL = "https://rfdrifnsfobqlzorcesn.supabase.co"
 SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZHJpZm5zZm9icWx6b3JjZXNuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTA0ODgzNiwiZXhwIjoyMDc0NjI0ODM2fQ.E9LQFvqVs9Z1cXoS34ov5qV3jBkbqCHPCL16GBt480g"
 JWT_SECRET = "your-super-secret-jwt-key-change-this-in-production"
+NEON_DATABASE_URL = "postgresql://neondb_owner:npg_vdkFqWJVi42j@ep-broad-waterfall-a8uchv9a-pooler.eastus2.azure.neon.tech/neondb?sslmode=require&channel_binding=require"
 
 # Staging R2 bucket
 [[env.staging.r2_buckets]]

@@ -17,6 +17,7 @@ import { getFixedPlayerPropsWithAnalytics } from "./fixes";
 import { cleanPlayerNames } from "./playerNames";
 import { enrichTeams } from "./teams";
 import { buildProps, ingestAndEnrich, persistProps, type EnrichedProp } from "./fetchProps";
+import { getAuthService } from "./auth-service";
 // import { getPlayerPropsFixed } from "./player-props-fixed"; // No longer needed - using direct view fetch
 
 // Initialize prop type sync and supported props at worker startup
@@ -86,27 +87,126 @@ export default {
       // Handle authentication endpoints
       if (url.pathname.startsWith('/api/auth/')) {
         try {
-          // For now, return a simple response indicating auth is available
-          // The frontend should use the local development server for auth
-          return withCORS(corsResponse({
-            success: false,
-            error: 'Auth endpoints available in development mode',
-            message: 'Please use local development server for authentication',
-            endpoints: {
-              signup: '/api/auth/signup',
-              login: '/api/auth/login',
-              logout: '/api/auth/logout',
-              refresh: '/api/auth/refresh',
-              me: '/api/auth/me'
+          const authService = getAuthService(env);
+          
+          // Get client info
+          const ip_address = req.headers.get('x-forwarded-for') || 
+                           req.headers.get('x-real-ip') || 
+                           'unknown';
+          const user_agent = req.headers.get('user-agent') || 'unknown';
+          const auditContext = { ip_address, user_agent };
+
+          // Handle different auth endpoints
+          if (url.pathname === '/api/auth/signup' && req.method === 'POST') {
+            const body = await req.json();
+            const { email, password, display_name, displayName } = body;
+            
+            if (!email || !password) {
+              return withCORS(corsResponse({
+                success: false,
+                error: 'Email and password are required'
+              }, 400), origin);
             }
-          }), origin);
+
+            const tokens = await authService.signup({
+              email,
+              password,
+              display_name: display_name || displayName
+            }, auditContext);
+
+            return withCORS(corsResponse({
+              success: true,
+              data: {
+                token: tokens.token,
+                refreshToken: tokens.refreshToken,
+                expiresIn: 900 // 15 minutes in seconds
+              }
+            }), origin);
+
+          } else if (url.pathname === '/api/auth/login' && req.method === 'POST') {
+            const body = await req.json();
+            const { email, password } = body;
+            
+            if (!email || !password) {
+              return withCORS(corsResponse({
+                success: false,
+                error: 'Email and password are required'
+              }, 400), origin);
+            }
+
+            const tokens = await authService.login({ email, password }, auditContext);
+
+            return withCORS(corsResponse({
+              success: true,
+              data: {
+                token: tokens.token,
+                refreshToken: tokens.refreshToken,
+                expiresIn: 900 // 15 minutes in seconds
+              }
+            }), origin);
+
+          } else if (url.pathname === '/api/auth/me' && req.method === 'GET') {
+            const authHeader = req.headers.get('authorization');
+            
+            if (!authHeader || !authHeader.startsWith('Bearer ')) {
+              return withCORS(corsResponse({
+                success: false,
+                error: 'Authorization header required'
+              }, 401), origin);
+            }
+
+            // Simple JWT verification for Cloudflare Workers
+            const token = authHeader.substring(7);
+            const parts = token.split('.');
+            if (parts.length !== 3) {
+              return withCORS(corsResponse({
+                success: false,
+                error: 'Invalid token format'
+              }, 401), origin);
+            }
+
+            try {
+              const payload = JSON.parse(atob(parts[1]));
+              const userId = payload.sub;
+              
+              const user = await authService.getUserById(userId);
+              if (!user) {
+                return withCORS(corsResponse({
+                  success: false,
+                  error: 'User not found'
+                }, 404), origin);
+              }
+
+              return withCORS(corsResponse({
+                success: true,
+                data: user
+              }), origin);
+            } catch (error) {
+              return withCORS(corsResponse({
+                success: false,
+                error: 'Invalid token'
+              }, 401), origin);
+            }
+
+          } else if (url.pathname === '/api/auth/logout' && req.method === 'POST') {
+            // Simple logout - in production you'd want to invalidate the refresh token
+            return withCORS(corsResponse({
+              success: true,
+              message: 'Logged out successfully'
+            }), origin);
+
+          } else {
+            return withCORS(corsResponse({
+              success: false,
+              error: 'Method not allowed'
+            }, 405), origin);
+          }
           
         } catch (error: any) {
           console.error('Auth endpoint error:', error);
           return withCORS(corsResponse({
             success: false,
-            error: 'Internal server error',
-            details: error.message
+            error: error.message || 'Internal server error'
           }, 500), origin);
         }
       }

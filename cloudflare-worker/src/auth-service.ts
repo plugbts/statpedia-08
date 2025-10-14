@@ -1,398 +1,341 @@
-// Cloudflare Worker Auth Service
-// Handles authentication endpoints for the StatPedia application
+/**
+ * Cloudflare Worker Auth Service
+ * Implements the same authentication logic as the local auth service
+ * but adapted for Cloudflare Workers environment
+ */
 
-import { createClient } from '@supabase/supabase-js';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
+import { auth_user, auth_credential, auth_session, auth_audit } from '../drizzle/schema/auth';
+import { eq, and, lt } from 'drizzle-orm';
 
-// Auth schemas
-const signupSchema = {
-  email: 'string',
-  password: 'string', 
-  displayName: 'string'
-};
-
-const loginSchema = {
-  email: 'string',
-  password: 'string'
-};
-
-const refreshSchema = {
-  refreshToken: 'string'
-};
-
-// Helper function to validate request body
-function validateBody(body: any, schema: any): { valid: boolean; errors?: string[] } {
-  const errors: string[] = [];
-  
-  for (const [key, type] of Object.entries(schema)) {
-    if (!(key in body)) {
-      errors.push(`Missing required field: ${key}`);
-    } else if (typeof body[key] !== type) {
-      errors.push(`Invalid type for ${key}: expected ${type}, got ${typeof body[key]}`);
-    }
-  }
-  
-  return { valid: errors.length === 0, errors };
+// Types
+export interface AuthUser {
+  id: string;
+  email: string;
+  email_verified: boolean;
+  display_name?: string;
+  username?: string;
+  created_at: Date;
+  updated_at: Date;
+  disabled: boolean;
 }
 
-// Helper function to generate JWT
-function generateJWT(userId: string, secret: string): string {
+export interface SignupData {
+  email: string;
+  password: string;
+  display_name?: string;
+  username?: string;
+}
+
+export interface LoginData {
+  email: string;
+  password: string;
+}
+
+export interface AuthTokens {
+  token: string;
+  refreshToken: string;
+}
+
+export interface RefreshData {
+  refreshToken: string;
+}
+
+export interface AuditEvent {
+  user_id?: string;
+  event: string;
+  ip_address?: string;
+  user_agent?: string;
+  metadata?: Record<string, any>;
+}
+
+// Configuration
+function getJWTSecret(env: any): string {
+  const secret = env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET environment variable is required');
+  }
+  return secret;
+}
+
+const JWT_EXPIRES_IN = '15m'; // 15 minutes
+const REFRESH_TOKEN_EXPIRES_DAYS = 30;
+
+// Database connection
+function getDatabase(env: any) {
+  const connectionString = env.NEON_DATABASE_URL;
+  if (!connectionString) {
+    throw new Error('NEON_DATABASE_URL environment variable is required');
+  }
+  
+  const client = postgres(connectionString);
+  const db = drizzle(client);
+  
+  return { db, client };
+}
+
+// Username generation
+function generateUsername(): string {
+  const randomChars = Math.random().toString(36).slice(2, 8);
+  return `user_${randomChars}`;
+}
+
+// Password hashing (using Web Crypto API for Cloudflare Workers)
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hashHex;
+}
+
+async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  const passwordHash = await hashPassword(password);
+  return passwordHash === hash;
+}
+
+// JWT handling
+interface JWTPayload {
+  sub: string;
+  'https://hasura.io/jwt/claims': {
+    'x-hasura-default-role': string;
+    'x-hasura-allowed-roles': string[];
+    'x-hasura-user-id': string;
+    'x-hasura-display-name'?: string;
+    'x-hasura-username'?: string;
+  };
+  iat?: number;
+  exp?: number;
+}
+
+function generateJWT(user: AuthUser, secret: string): string {
+  const payload: JWTPayload = {
+    sub: user.id,
+    'https://hasura.io/jwt/claims': {
+      'x-hasura-default-role': 'user',
+      'x-hasura-allowed-roles': ['user', 'admin'],
+      'x-hasura-user-id': user.id,
+      ...(user.display_name && { 'x-hasura-display-name': user.display_name }),
+      ...(user.username && { 'x-hasura-username': user.username })
+    }
+  };
+
+  // Simple JWT implementation for Cloudflare Workers
   const header = {
     alg: 'HS256',
     typ: 'JWT'
   };
-  
-  const payload = {
-    sub: userId,
-    'https://hasura.io/jwt/claims': {
-      'x-hasura-default-role': 'user',
-      'x-hasura-allowed-roles': ['user', 'admin'],
-      'x-hasura-user-id': userId
-    },
-    iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + (15 * 60) // 15 minutes
-  };
-  
-  // Simple JWT encoding (in production, use a proper JWT library)
+
   const encodedHeader = btoa(JSON.stringify(header));
   const encodedPayload = btoa(JSON.stringify(payload));
-  
-  // Create signature (simplified - in production use proper HMAC)
-  const signature = btoa(`${encodedHeader}.${encodedPayload}.${secret}`);
+  const signature = btoa(encodedHeader + '.' + encodedPayload + '.' + secret);
   
   return `${encodedHeader}.${encodedPayload}.${signature}`;
 }
 
-// Helper function to generate refresh token
 function generateRefreshToken(): string {
   const array = new Uint8Array(32);
   crypto.getRandomValues(array);
   return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
-// Password hashing using Web Crypto API
-async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
+// Auth Service Class
+export class WorkerAuthService {
+  constructor(private env: any) {}
 
-// Password verification
-async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  const passwordHash = await hashPassword(password);
-  return passwordHash === hash;
-}
-
-export class AuthService {
-  private supabase: any;
-  
-  constructor(supabaseUrl: string, supabaseKey: string) {
-    this.supabase = createClient(supabaseUrl, supabaseKey);
-  }
-  
-  async signup(body: any, jwtSecret: string) {
-    // Validate request body
-    const validation = validateBody(body, signupSchema);
-    if (!validation.valid) {
-      return {
-        success: false,
-        error: 'Validation failed',
-        details: validation.errors
-      };
-    }
-    
+  async signup(data: SignupData, auditContext?: { ip_address?: string; user_agent?: string }): Promise<AuthTokens> {
     try {
+      const { db } = getDatabase(this.env);
+      
+      // Check if user already exists
+      const existingUser = await db.select().from(auth_user).where(eq(auth_user.email, data.email)).limit(1);
+      
+      if (existingUser.length > 0) {
+        await this.logAuditEvent({
+          event: 'signup_failed_email_exists',
+          ip_address: auditContext?.ip_address,
+          user_agent: auditContext?.user_agent,
+          metadata: { email: data.email }
+        });
+        throw new Error('Email already in use');
+      }
+
       // Hash password
-      const passwordHash = await hashPassword(body.password);
-      
-      // Insert user
-      const { data: user, error: userError } = await this.supabase
-        .from('auth_user')
-        .insert({
-          email: body.email,
-          display_name: body.displayName
-        })
-        .select()
-        .single();
+      const passwordHash = await hashPassword(data.password);
+
+      // Generate unique username if not provided
+      let username = data.username;
+      if (!username) {
+        let attempts = 0;
+        do {
+          username = generateUsername();
+          const existingUsername = await db.select().from(auth_user).where(eq(auth_user.username, username)).limit(1);
+          if (existingUsername.length === 0) break;
+          attempts++;
+        } while (attempts < 10);
         
-      if (userError) {
-        return {
-          success: false,
-          error: 'Failed to create user',
-          details: userError.message
-        };
-      }
-      
-      // Insert credential
-      const { error: credError } = await this.supabase
-        .from('auth_credential')
-        .insert({
-          user_id: user.id,
-          password_hash: passwordHash
-        });
-        
-      if (credError) {
-        // Clean up user if credential insert fails
-        await this.supabase.from('auth_user').delete().eq('id', user.id);
-        return {
-          success: false,
-          error: 'Failed to create credential',
-          details: credError.message
-        };
-      }
-      
-      // Generate tokens
-      const accessToken = generateJWT(user.id, jwtSecret);
-      const refreshToken = generateRefreshToken();
-      
-      // Store refresh token
-      const { error: sessionError } = await this.supabase
-        .from('auth_session')
-        .insert({
-          user_id: user.id,
-          refresh_token: refreshToken,
-          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
-        });
-        
-      if (sessionError) {
-        console.warn('Failed to store refresh token:', sessionError);
-      }
-      
-      // Log audit event
-      await this.supabase
-        .from('auth_audit')
-        .insert({
-          user_id: user.id,
-          event_type: 'signup',
-          ip_address: '0.0.0.0', // Cloudflare will provide real IP
-          user_agent: 'Cloudflare Worker'
-        });
-      
-      return {
-        success: true,
-        data: {
-          user: {
-            id: user.id,
-            email: user.email,
-            displayName: user.display_name
-          },
-          accessToken,
-          refreshToken
+        if (attempts >= 10) {
+          throw new Error('Unable to generate unique username. Please try again.');
         }
-      };
-      
-    } catch (error: any) {
-      return {
-        success: false,
-        error: 'Signup failed',
-        details: error.message
-      };
+      }
+
+      // Create user
+      const [user] = await db.insert(auth_user).values({
+        email: data.email,
+        display_name: data.display_name,
+        username: username,
+        email_verified: false
+      }).returning();
+
+      // Store credentials
+      await db.insert(auth_credential).values({
+        user_id: user.id,
+        password_hash: passwordHash,
+        password_algo: 'sha256'
+      });
+
+      // Generate tokens
+      const token = generateJWT(user, getJWTSecret(this.env));
+      const refreshToken = generateRefreshToken();
+
+      // Store session
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_EXPIRES_DAYS);
+
+      await db.insert(auth_session).values({
+        user_id: user.id,
+        refresh_token: refreshToken,
+        expires_at: expiresAt,
+        ip_address: auditContext?.ip_address,
+        user_agent: auditContext?.user_agent
+      });
+
+      // Log successful signup
+      await this.logAuditEvent({
+        user_id: user.id,
+        event: 'signup_success',
+        ip_address: auditContext?.ip_address,
+        user_agent: auditContext?.user_agent,
+        metadata: { email: data.email }
+      });
+
+      return { token, refreshToken };
+    } catch (error) {
+      console.error('Signup error:', error);
+      throw error;
     }
   }
-  
-  async login(body: any, jwtSecret: string) {
-    // Validate request body
-    const validation = validateBody(body, loginSchema);
-    if (!validation.valid) {
-      return {
-        success: false,
-        error: 'Validation failed',
-        details: validation.errors
-      };
-    }
-    
+
+  async login(data: LoginData, auditContext?: { ip_address?: string; user_agent?: string }): Promise<AuthTokens> {
     try {
-      // Get user with credential
-      const { data: user, error: userError } = await this.supabase
-        .from('auth_user')
-        .select(`
-          id, email, display_name,
-          auth_credential(password_hash)
-        `)
-        .eq('email', body.email)
-        .single();
-        
-      if (userError || !user) {
-        return {
-          success: false,
-          error: 'Invalid credentials'
-        };
-      }
+      const { db } = getDatabase(this.env);
       
+      // Find user with credentials
+      const result = await db.select({
+        user: auth_user,
+        credential: auth_credential
+      }).from(auth_user)
+        .innerJoin(auth_credential, eq(auth_user.id, auth_credential.user_id))
+        .where(and(
+          eq(auth_user.email, data.email),
+          eq(auth_user.disabled, false)
+        ))
+        .limit(1);
+
+      if (result.length === 0) {
+        await this.logAuditEvent({
+          event: 'login_failed_invalid_credentials',
+          ip_address: auditContext?.ip_address,
+          user_agent: auditContext?.user_agent,
+          metadata: { email: data.email }
+        });
+        throw new Error('Invalid credentials');
+      }
+
+      const row = result[0];
+
       // Verify password
-      const passwordValid = await verifyPassword(body.password, user.auth_credential.password_hash);
+      const passwordValid = await verifyPassword(data.password, row.credential.password_hash);
       if (!passwordValid) {
-        return {
-          success: false,
-          error: 'Invalid credentials'
-        };
+        await this.logAuditEvent({
+          event: 'login_failed_invalid_credentials',
+          ip_address: auditContext?.ip_address,
+          user_agent: auditContext?.user_agent,
+          metadata: { email: data.email }
+        });
+        throw new Error('Invalid credentials');
       }
-      
+
       // Generate tokens
-      const accessToken = generateJWT(user.id, jwtSecret);
+      const token = generateJWT(row.user, getJWTSecret(this.env));
       const refreshToken = generateRefreshToken();
-      
-      // Store refresh token
-      await this.supabase
-        .from('auth_session')
-        .insert({
-          user_id: user.id,
-          refresh_token: refreshToken,
-          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
-        });
-      
-      // Log audit event
-      await this.supabase
-        .from('auth_audit')
-        .insert({
-          user_id: user.id,
-          event_type: 'login',
-          ip_address: '0.0.0.0',
-          user_agent: 'Cloudflare Worker'
-        });
-      
-      return {
-        success: true,
-        data: {
-          user: {
-            id: user.id,
-            email: user.email,
-            displayName: user.display_name
-          },
-          accessToken,
-          refreshToken
-        }
-      };
-      
-    } catch (error: any) {
-      return {
-        success: false,
-        error: 'Login failed',
-        details: error.message
-      };
+
+      // Store new session
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_EXPIRES_DAYS);
+
+      await db.insert(auth_session).values({
+        user_id: row.user.id,
+        refresh_token: refreshToken,
+        expires_at: expiresAt,
+        ip_address: auditContext?.ip_address,
+        user_agent: auditContext?.user_agent
+      });
+
+      // Log successful login
+      await this.logAuditEvent({
+        user_id: row.user.id,
+        event: 'login_success',
+        ip_address: auditContext?.ip_address,
+        user_agent: auditContext?.user_agent,
+        metadata: { email: data.email }
+      });
+
+      return { token, refreshToken };
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
     }
   }
-  
-  async refresh(body: any, jwtSecret: string) {
-    // Validate request body
-    const validation = validateBody(body, refreshSchema);
-    if (!validation.valid) {
-      return {
-        success: false,
-        error: 'Validation failed',
-        details: validation.errors
-      };
-    }
-    
+
+  async getUserById(userId: string): Promise<AuthUser | null> {
     try {
-      // Get session
-      const { data: session, error: sessionError } = await this.supabase
-        .from('auth_session')
-        .select(`
-          user_id, expires_at,
-          auth_user(id, email, display_name)
-        `)
-        .eq('refresh_token', body.refreshToken)
-        .single();
-        
-      if (sessionError || !session) {
-        return {
-          success: false,
-          error: 'Invalid refresh token'
-        };
-      }
+      const { db } = getDatabase(this.env);
       
-      // Check if session is expired
-      if (new Date(session.expires_at) < new Date()) {
-        // Clean up expired session
-        await this.supabase
-          .from('auth_session')
-          .delete()
-          .eq('refresh_token', body.refreshToken);
-          
-        return {
-          success: false,
-          error: 'Refresh token expired'
-        };
-      }
-      
-      // Generate new access token
-      const accessToken = generateJWT(session.user_id, jwtSecret);
-      
-      return {
-        success: true,
-        data: {
-          accessToken
-        }
-      };
-      
-    } catch (error: any) {
-      return {
-        success: false,
-        error: 'Token refresh failed',
-        details: error.message
-      };
+      const result = await db.select().from(auth_user).where(eq(auth_user.id, userId)).limit(1);
+      return result[0] || null;
+    } catch (error) {
+      console.error('Get user error:', error);
+      throw error;
     }
   }
-  
-  async logout(refreshToken: string) {
+
+  async logAuditEvent(event: AuditEvent): Promise<void> {
     try {
-      // Remove session
-      await this.supabase
-        .from('auth_session')
-        .delete()
-        .eq('refresh_token', refreshToken);
-        
-      return {
-        success: true,
-        message: 'Logged out successfully'
-      };
+      const { db } = getDatabase(this.env);
       
-    } catch (error: any) {
-      return {
-        success: false,
-        error: 'Logout failed',
-        details: error.message
-      };
+      await db.insert(auth_audit).values({
+        user_id: event.user_id,
+        event: event.event,
+        ip_address: event.ip_address,
+        user_agent: event.user_agent,
+        metadata: event.metadata
+      });
+    } catch (error) {
+      console.error('Audit log error:', error);
+      // Don't throw - audit logging shouldn't break the main flow
     }
   }
-  
-  async getMe(userId: string) {
-    try {
-      const { data: user, error } = await this.supabase
-        .from('auth_user')
-        .select('id, email, display_name, created_at')
-        .eq('id', userId)
-        .single();
-        
-      if (error || !user) {
-        return {
-          success: false,
-          error: 'User not found'
-        };
-      }
-      
-      return {
-        success: true,
-        data: {
-          user: {
-            id: user.id,
-            email: user.email,
-            displayName: user.display_name,
-            createdAt: user.created_at
-          }
-        }
-      };
-      
-    } catch (error: any) {
-      return {
-        success: false,
-        error: 'Failed to get user',
-        details: error.message
-      };
-    }
+}
+
+// Create singleton instance
+let authService: WorkerAuthService | null = null;
+
+export function getAuthService(env: any): WorkerAuthService {
+  if (!authService) {
+    authService = new WorkerAuthService(env);
   }
+  return authService;
 }

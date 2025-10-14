@@ -40,7 +40,7 @@ const Index = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('dashboard');
   
-  const { user: authUser, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { user: authUser, isAuthenticated, isLoading: authLoading, logout: authLogout } = useAuth();
   const { 
     userIdentity, 
     userSubscription, 
@@ -200,8 +200,8 @@ const Index = () => {
 
   const handleLogout = async () => {
     try {
-      await supabase.auth.signOut();
-      // User state is now managed by UserContext
+      // Use AuthContext logout instead of Supabase
+      await authLogout();
     } catch (error) {
       console.error('Logout error:', error);
     }

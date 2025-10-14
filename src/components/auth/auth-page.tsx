@@ -33,7 +33,7 @@ const passwordSchema = z.string().min(6, 'Password must be at least 6 characters
 const displayNameSchema = z.string().trim().min(1, 'Display name required').max(100, 'Display name too long');
 
 export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
-  const { user, isAuthenticated, isLoading, login, signup } = useAuth();
+  const { user, isAuthenticated, isLoading, login, signup, logout } = useAuth();
   const [authMode, setAuthMode] = useState<'login' | 'signup' | 'plans'>('login');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
@@ -256,7 +256,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
 
   const handleLogout = async () => {
     try {
-      await supabase.auth.signOut();
+      await logout();
       toast({
         title: "Logged Out",
         description: "You have been successfully logged out",
