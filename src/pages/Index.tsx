@@ -551,6 +551,7 @@ const Index = () => {
               AI-powered predictions with 73.4% accuracy across 50,000+ backtested games.
               Experience the future of sports analytics.
             </p>
+            
             <div className="flex flex-col sm:flex-row gap-4 animate-slide-up" style={{ animationDelay: '200ms' }}>
               <Button 
                 size="lg" 

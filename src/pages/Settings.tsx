@@ -30,6 +30,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { useUser } from '@/contexts/user-context';
+import { useAuth } from '@/contexts/AuthContext';
 import { UserDisplay } from '@/components/ui/user-display';
 import { emailVerificationService } from '@/services/email-verification-service';
 
@@ -41,9 +42,13 @@ interface SettingsProps {
 
 export const Settings: React.FC<SettingsProps> = ({ user: propUser, userRole: propUserRole, onUserUpdate }) => {
   const { 
-    user: contextUser, 
+    user: authUser, 
+    isAuthenticated, 
+    isLoading: authLoading 
+  } = useAuth();
+  
+  const { 
     userIdentity, 
-    userRole: contextUserRole, 
     userSubscription,
     getUserDisplayName,
     getUserUsername,
@@ -51,9 +56,9 @@ export const Settings: React.FC<SettingsProps> = ({ user: propUser, userRole: pr
     updateUserIdentity 
   } = useUser();
   
-  // Use context user if no prop user provided
-  const user = propUser || contextUser;
-  const userRole = propUserRole || contextUserRole;
+  // Use auth user as primary, fallback to prop user
+  const user = authUser || propUser;
+  const userRole = propUserRole;
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
@@ -505,7 +510,19 @@ export const Settings: React.FC<SettingsProps> = ({ user: propUser, userRole: pr
     }
   };
 
-  if (!user) {
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="w-12 h-12 text-muted-foreground mx-auto mb-4 animate-spin" />
+          <h2 className="text-xl font-semibold text-foreground mb-2">Loading...</h2>
+          <p className="text-muted-foreground">Checking authentication status</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !user) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
