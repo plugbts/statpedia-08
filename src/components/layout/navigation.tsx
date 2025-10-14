@@ -16,6 +16,7 @@ import { useUser } from '@/contexts/user-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserDisplayName as getUserDisplayNameUtil, getUserHandle } from '@/utils/user-display';
 import { userIdentificationService } from '@/services/user-identification-service';
+import { getRoleDisplayName, getRoleBadgeVariant, getRoleColorClass, isOwnerRole } from '@/lib/auth/role-hierarchy';
 import { UserDisplay } from '@/components/ui/user-display';
 
 interface NavigationProps {
@@ -335,15 +336,14 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
                     </div>
                     {userRole !== 'user' && (
                       <Badge 
-                        variant={userRole === 'owner' ? 'default' : 'secondary'} 
+                        variant={getRoleBadgeVariant(userRole as any)} 
                         className={cn(
                           'text-xs flex-shrink-0',
-                          userRole === 'owner' && 'bg-gradient-primary',
-                          userRole === 'admin' && 'bg-red-500/20 text-red-600',
-                          userRole === 'mod' && 'bg-blue-500/20 text-blue-600'
+                          isOwnerRole(userRole as any) && 'bg-gradient-primary font-semibold',
+                          getRoleColorClass(userRole as any),
                         )}
                       >
-                        {userRole.toUpperCase()}
+                        {getRoleDisplayName(userRole as any)}
                       </Badge>
                     )}
                   </div>

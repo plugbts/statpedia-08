@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, timestamp, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, timestamp, boolean, check } from 'drizzle-orm/pg-core';
 import { auth_user } from './auth';
 
 export const user_roles = pgTable('user_roles', {
@@ -6,7 +6,12 @@ export const user_roles = pgTable('user_roles', {
   user_id: uuid('user_id').notNull().references(() => auth_user.id, { onDelete: 'cascade' }),
   role: varchar('role', { length: 50 }).notNull(), // 'user', 'moderator', 'admin', 'owner'
   created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
-});
+}, (table) => ({
+  // Ensure role is one of the valid values
+  validRole: check('valid_role', 
+    table.role.in(['user', 'moderator', 'admin', 'owner'])
+  ),
+}));
 
 export type UserRole = typeof user_roles.$inferSelect;
 export type NewUserRole = typeof user_roles.$inferInsert;
