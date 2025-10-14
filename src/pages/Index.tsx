@@ -33,13 +33,14 @@ import { ParlayGen } from '@/components/parlay/parlay-gen';
 import { AnalyticsTab } from '@/components/analytics/analytics-tab';
 import { HeaderBannerAd, InFeedAd, FooterBannerAd, MobileBannerAd } from '@/components/ads/ad-placements';
 import { useUser } from '@/contexts/user-context';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Index = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('dashboard');
   
+  const { user: authUser, isAuthenticated, isLoading: authLoading } = useAuth();
   const { 
-    user, 
     userIdentity, 
     userSubscription, 
     userRole, 
@@ -48,7 +49,10 @@ const Index = () => {
     getUserUsername,
     getUserInitials
   } = useUser();
-  const [selectedSport, setSelectedSport] = useState('nhl');
+  
+  // Use auth user for authentication check, fallback to user context user for display
+  const user = authUser;
+  const [selectedSport, setSelectedSport] = useState('nfl');
   const [realPredictions, setRealPredictions] = useState<any[]>([]);
   const [isLoadingPredictions, setIsLoadingPredictions] = useState(false);
   const [predictionsCount, setPredictionsCount] = useState(0);
@@ -451,7 +455,7 @@ const Index = () => {
 
   // Note: Sport change handling is done in handleSportChange function
 
-  if (userLoading) {
+  if (authLoading || userLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
@@ -539,7 +543,7 @@ const Index = () => {
               Welcome to Statpedia
               <br />
               <span className="bg-gradient-primary bg-clip-text text-transparent animate-scale-in display-name-gradient" style={{ animationDelay: '100ms' }}>
-                {user.user_metadata?.display_name || user.email?.split('@')[0]}
+                {user?.display_name || user?.email?.split('@')[0]}
               </span>
             </h1>
             <p className="text-xl text-muted-foreground mb-6 animate-slide-up font-body" style={{ animationDelay: '150ms' }}>
@@ -870,7 +874,7 @@ const Index = () => {
   );
 
   // Show loading spinner while checking authentication
-  if (userLoading) {
+  if (authLoading || userLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />

@@ -51,6 +51,14 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
 
   const fetchProfileAndRedirect = async (user: any) => {
     try {
+      // Show personalized greeting
+      const userDisplayName = user?.display_name || user?.email?.split('@')[0] || 'there';
+      
+      toast({
+        title: `Hey, ${userDisplayName}!`,
+        description: "Welcome back to Statpedia!",
+      });
+      
       // For now, we'll use the user data directly from our auth context
       // In the future, we can fetch additional profile data from Hasura
       onAuthSuccess(user, 'free'); // Default to free subscription
@@ -191,12 +199,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
     try {
       if (authMode === 'login') {
         await login(formData.email, formData.password);
-        
-        toast({
-          title: "Login Successful",
-          description: "Welcome back to Statpedia!",
-        });
-        // fetchProfileAndRedirect will be called by useEffect
+        // fetchProfileAndRedirect will be called by useEffect, which will show personalized greeting
       } else {
         // Signup with our custom auth system
         await signup(formData.email, formData.password, formData.displayName);
