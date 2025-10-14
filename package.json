@@ -87,7 +87,9 @@
     "find-nhl-games": "tsx scripts/find-nhl-games.ts",
     "backfill:365": "tsx scripts/backfill-365-days.ts",
     "backfill:test": "tsx scripts/backfill-test.ts",
-    "backfill:mlb-nhl": "tsx scripts/backfill-mlb-nhl.ts"
+    "backfill:mlb-nhl": "tsx scripts/backfill-mlb-nhl.ts",
+    "api:server": "tsx src/server/api-server.ts",
+    "dev:full": "concurrently \"npm run api:server\" \"npm run dev\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -163,11 +165,15 @@
     "tailwindcss-animate": "^1.0.7",
     "uuid": "^13.0.0",
     "vaul": "^0.9.9",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "cors": "^2.8.5",
+    "express": "^5.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
     "@tailwindcss/typography": "^0.5.16",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
     "@types/node": "^22.16.5",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",

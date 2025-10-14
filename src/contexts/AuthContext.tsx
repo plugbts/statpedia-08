@@ -83,7 +83,11 @@ const getUser = (): User | null => {
 
 // API helper
 const apiRequest = async (url: string, options: RequestInit = {}) => {
-  const response = await fetch(url, {
+  // Use local API server for development
+  const baseUrl = import.meta.env.DEV ? 'http://localhost:3001' : '';
+  const fullUrl = `${baseUrl}${url}`;
+
+  const response = await fetch(fullUrl, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
