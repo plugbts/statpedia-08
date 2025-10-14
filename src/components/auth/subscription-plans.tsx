@@ -345,7 +345,7 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
       <div className="min-h-screen bg-background overflow-y-auto">
         <div className="max-w-8xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8 relative">
         {/* Exit and Logout buttons */}
-        <div className="absolute -top-4 left-4 z-10 flex gap-2">
+        <div className="absolute top-2 left-4 z-10 flex gap-2">
           <button
             onClick={handleExitClick}
             className="p-2 rounded-full bg-background border border-border hover:bg-accent transition-colors"
@@ -807,10 +807,10 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={handleCancelExit}>
-              No, show me plans
+              No
             </AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmExit} className="bg-gradient-primary">
-              Yes, continue with Free
+              Yes, please continue!
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

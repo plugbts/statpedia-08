@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import { useSync } from "@/hooks/use-sync";
 import { useEmailCron } from "@/hooks/use-email-cron";
 import Index from "./pages/Index";
@@ -25,6 +25,21 @@ import { SimpleAnalyticsTest } from "@/components/debug/simple-analytics-test";
 import { BasicTest } from "@/components/debug/basic-test";
 import { SimpleHookTest } from "@/components/debug/simple-hook-test";
 import AuthTest from "./pages/AuthTest";
+
+// Subscription wrapper component to handle navigation
+const SubscriptionWrapper: React.FC = () => {
+  const navigate = useNavigate();
+  
+  return (
+    <SubscriptionPlans 
+      onSubscriptionSuccess={(plan) => {
+        console.log('Subscription successful:', plan);
+        // Navigate to dashboard after successful subscription
+        navigate('/');
+      }} 
+    />
+  );
+};
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -103,10 +118,7 @@ const App = () => {
                 <Route path="/admin" element={<Admin />} />
                 <Route path="/prediction-detail" element={<PredictionDetail />} />
                 <Route path="/settings" element={<SettingsWrapper />} />
-                <Route path="/subscription" element={<SubscriptionPlans onSubscriptionSuccess={(plan) => {
-                  console.log('Subscription successful:', plan);
-                  // Handle successful subscription
-                }} />} />
+                <Route path="/subscription" element={<SubscriptionWrapper />} />
                 <Route path="/support" element={<SupportCenterWrapper />} />
                 <Route path="/debug/analytics" element={
                   <div className="container mx-auto py-8">
