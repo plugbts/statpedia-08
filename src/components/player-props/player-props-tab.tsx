@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -505,6 +505,227 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     'all': { minConfidence: 0, minEV: 0, showOnlyPositiveEV: false, name: 'Show All' }
   };
 
+  // Load available sportsbooks for the selected sport
+  const loadAvailableSportsbooks = useCallback(async (sport: string) => {
+    try {
+      // Create list of real sportsbooks using official SportsGameOdds API bookmaker IDs
+      const sportsbooks = [
+        { key: 'all', title: 'All Sportsbooks', lastUpdate: new Date().toISOString() },
+        { key: 'fanduel', title: 'FanDuel', lastUpdate: new Date().toISOString() },
+        { key: 'draftkings', title: 'Draft Kings', lastUpdate: new Date().toISOString() },
+        { key: 'betmgm', title: 'BetMGM', lastUpdate: new Date().toISOString() },
+        { key: 'caesars', title: 'Caesars', lastUpdate: new Date().toISOString() },
+        { key: 'pointsbet', title: 'PointsBet', lastUpdate: new Date().toISOString() },
+        { key: 'betrivers', title: 'BetRivers', lastUpdate: new Date().toISOString() },
+        { key: 'foxbet', title: 'FOX Bet', lastUpdate: new Date().toISOString() },
+        { key: 'bet365', title: 'bet365', lastUpdate: new Date().toISOString() },
+        { key: 'williamhill', title: 'William Hill', lastUpdate: new Date().toISOString() },
+        { key: 'pinnacle', title: 'Pinnacle', lastUpdate: new Date().toISOString() },
+        { key: 'bovada', title: 'Bovada', lastUpdate: new Date().toISOString() },
+        { key: 'betonline', title: 'BetOnline', lastUpdate: new Date().toISOString() },
+        { key: 'betway', title: 'Betway', lastUpdate: new Date().toISOString() },
+        { key: 'unibet', title: 'Unibet', lastUpdate: new Date().toISOString() },
+        { key: 'ladbrokes', title: 'Ladbrokes', lastUpdate: new Date().toISOString() },
+        { key: 'coral', title: 'Coral', lastUpdate: new Date().toISOString() },
+        { key: 'paddypower', title: 'Paddy Power', lastUpdate: new Date().toISOString() },
+        { key: 'skybet', title: 'Sky Bet', lastUpdate: new Date().toISOString() },
+        { key: 'boylesports', title: 'BoyleSports', lastUpdate: new Date().toISOString() },
+        { key: 'betfair', title: 'Betfair', lastUpdate: new Date().toISOString() },
+        { key: 'betvictor', title: 'Bet Victor', lastUpdate: new Date().toISOString() },
+        { key: 'betfred', title: 'Betfred', lastUpdate: new Date().toISOString() }
+      ];
+      setAvailableSportsbooks(sportsbooks);
+      logSuccess('PlayerPropsTab', `Loaded ${sportsbooks.length} available sportsbooks for ${sport}`);
+    } catch (error) {
+      logError('PlayerPropsTab', `Failed to load sportsbooks for ${sport}:`, error);
+    }
+  }, []);
+
+  // Load player props - SIMPLIFIED WITHOUT PAGINATION
+  const loadPlayerProps = useCallback(async (sport: string) => {
+    if (!sport) {
+      logWarning('PlayerPropsTab', 'No sport provided to loadPlayerProps');
+      return;
+    }
+    
+    logState('PlayerPropsTab', `Starting to load player props for ${sport}`);
+    logState('PlayerPropsTab', `Force refresh at ${new Date().toISOString()}`);
+    logDebug('PlayerPropsTab', `Current realProps length before load: ${realProps.length}`);
+    
+    setIsLoadingData(true);
+    setRealProps([]); // Clear data
+    
+    try {
+      // Use Cloudflare Workers API without pagination
+      logAPI('PlayerPropsTab', `Calling Hasura API for ${sport} player props`);
+      const viewParam = searchParams.get('view');
+      const dateParam = searchParams.get('date');
+      const result = await hasuraPlayerPropsAPI.getPlayerProps(
+        sport, 
+        true, // Force refresh for debugging
+        dateParam || undefined,
+        viewParam || undefined
+      );
+      
+      logAPI('PlayerPropsTab', `Hasura API returned ${result?.length || 0} props`);
+      console.log('🔍 [API_DEBUG] API result:', result);
+      
+      // 🔍 COMPREHENSIVE FRONTEND DEBUG LOGGING
+      if (result && result.length > 0) {
+        console.log(`\n🎯 FRONTEND PLAYER PROPS ANALYSIS:`);
+        console.log(`📊 Props Received: ${result.length}`);
+        console.log(`📝 First 10 Props (Priority Order):`);
+        result.slice(0, 10).forEach((prop, index) => {
+          console.log(`${index + 1}. ${prop.propType} - ${prop.playerName}`);
+        });
+        
+        // Analyze the first prop in detail
+        const firstProp = (result as unknown as APIPlayerProp[])[0];
+        console.log(`\n🔍 DETAILED FIRST PROP ANALYSIS:`);
+        console.log(`📋 All Keys:`, Object.keys(firstProp));
+        console.log(`🏠 Team Data:`, {
+          team: firstProp.team,
+          opponent: firstProp.opponent,
+          teamAbbr: firstProp.teamAbbr,
+          opponentAbbr: firstProp.opponentAbbr,
+          gameId: firstProp.gameId,
+          gameDate: firstProp.gameDate
+        });
+        console.log(`💰 Odds Data:`, {
+          overOdds: firstProp.overOdds,
+          underOdds: firstProp.underOdds,
+          line: firstProp.line,
+          availableSportsbooks: firstProp.availableSportsbooks,
+          allSportsbookOddsCount: firstProp.allSportsbookOdds?.length || 0
+        });
+        console.log(`👤 Player Data:`, {
+          playerName: firstProp.playerName,
+          playerId: firstProp.playerId,
+          propType: firstProp.propType,
+          sport: firstProp.sport
+        });
+        
+        logDebug('PlayerPropsTab', `Comprehensive analysis complete. Check console for full details.`);
+      } else {
+        logError('PlayerPropsTab', 'NO PROPS RETURNED FROM API');
+      }
+      
+      if (result && Array.isArray(result) && result.length > 0) {
+        logSuccess('PlayerPropsTab', `Setting ${result.length} server-side cached props for ${sport}`);
+        logDebug('PlayerPropsTab', 'Backend props sample:', result.slice(0, 2));
+        
+        // Calculate EV for each prop while preserving original order
+        const propsWithEV = await Promise.all((result as unknown as APIPlayerProp[]).map(async (prop, index) => {
+          try {
+            // Calculate EV for both over and under, use the better one
+            const overEV = await evCalculatorService.calculateAIRating({
+              id: prop.id,
+              playerName: prop.playerName,
+              propType: prop.propType,
+              line: prop.line,
+              odds: prop.overOdds?.toString() || '0',
+              sport: prop.sport || 'nfl',
+              team: prop.team || '',
+              opponent: prop.opponent || '',
+              gameDate: prop.gameDate || new Date().toISOString(),
+              hitRate: prop.hitRate || 0.5,
+              recentForm: prop.recentForm || 0.5,
+              injuryStatus: prop.injuryStatus || 'healthy',
+              restDays: prop.restDays || 3
+            });
+            
+            const underEV = await evCalculatorService.calculateAIRating({
+              id: prop.id,
+              playerName: prop.playerName,
+              propType: prop.propType,
+              line: prop.line,
+              odds: prop.underOdds?.toString() || '0',
+              sport: prop.sport || 'nfl',
+              team: prop.team || '',
+              opponent: prop.opponent || '',
+              gameDate: prop.gameDate || new Date().toISOString(),
+              hitRate: prop.hitRate || 0.5,
+              recentForm: prop.recentForm || 0.5,
+              injuryStatus: prop.injuryStatus || 'healthy',
+              restDays: prop.restDays || 3
+            });
+            
+            // Use the better EV (higher percentage)
+            const bestEV = overEV.evPercentage > underEV.evPercentage ? overEV : underEV;
+            
+            return {
+              ...prop,
+              // Add missing fields from entry.player and entry.team
+              player_id: prop.playerId || '',
+              player_name: prop.playerName || '',
+              position: prop.position || '—',
+              team: prop.team || '',
+              expectedValue: bestEV.evPercentage / 100, // Convert to decimal
+              confidence: bestEV.confidence / 100, // Convert to decimal
+              aiRating: bestEV.aiRating,
+              recommendation: bestEV.recommendation,
+              originalIndex: index // Preserve original order
+            };
+          } catch (error) {
+            console.warn('EV calculation failed for prop:', prop.playerName, error);
+            return {
+              ...prop,
+              expectedValue: 0,
+              confidence: 0.5,
+              aiRating: 3,
+              recommendation: 'neutral',
+              originalIndex: index // Preserve original order
+            };
+          }
+        }));
+        
+        // Sort by original index to preserve API order
+        const sortedPropsWithEV = propsWithEV.sort((a, b) => (a.originalIndex || 0) - (b.originalIndex || 0));
+        
+        // Debug: Log the first 10 props to verify order
+        console.log('🎯 PRIORITY ORDER DEBUG - First 10 props after EV calculation:');
+        sortedPropsWithEV.slice(0, 10).forEach((prop, index) => {
+          console.log(`${index + 1}. ${prop.propType} - ${prop.playerName} (originalIndex: ${prop.originalIndex})`);
+        });
+        
+        // Set all props at once (no pagination)
+        console.log('🔍 [PROPS_DEBUG] Setting realProps with:', sortedPropsWithEV.length, 'props');
+        setRealProps(sortedPropsWithEV as PlayerProp[]);
+        
+        // Validate headshot player ID matches
+        validateHeadshots(sortedPropsWithEV as any[]);
+        
+        // Log success to console (visible in dev console)
+        logSuccess('PlayerPropsTab', `Player Props Loaded: Found ${result.length} server-side cached props for ${sport.toUpperCase()} with exact sportsbook odds`);
+      } else {
+        logWarning('PlayerPropsTab', 'Backend API returned no valid props', result);
+        setRealProps([]);
+        toast({
+          title: "No Data",
+          description: `No player props available for ${sport.toUpperCase()}`,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      logError('PlayerPropsTab', 'Failed to load player props:', error);
+      logError('PlayerPropsTab', 'Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+      
+      toast({
+        title: "Error",
+        description: `Failed to load player props: ${error.message}`,
+        variant: "destructive",
+      });
+      setRealProps([]);
+    } finally {
+      setIsLoadingData(false);
+      logState('PlayerPropsTab', `Finished loading player props for ${sport}`);
+    }
+  }, [searchParams, realProps.length, toast]);
+
   // Load saved filter preferences
   useEffect(() => {
     const savedFilters = localStorage.getItem(`player-props-filters-${sportFilter}`);
@@ -637,7 +858,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     } else {
       logWarning('PlayerPropsTab', 'No sport selected, skipping load');
     }
-  }, [selectedSport]);
+  }, [selectedSport, loadPlayerProps, loadAvailableSportsbooks]);
 
   // Reload props when sportsbook changes
   useEffect(() => {
@@ -645,7 +866,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       logState('PlayerPropsTab', `Sportsbook changed to: ${selectedSportsbook}`);
       loadPlayerProps(selectedSport);
     }
-  }, [selectedSportsbook]);
+  }, [selectedSportsbook, selectedSport, loadPlayerProps]);
 
   // Cleanup on unmount - backend handles updates automatically
   useEffect(() => {
@@ -666,226 +887,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
   }, [sportFilter, maxLine, minLine]);
 
 
-  // Load available sportsbooks for the selected sport
-  const loadAvailableSportsbooks = async (sport: string) => {
-    try {
-      // Create list of real sportsbooks using official SportsGameOdds API bookmaker IDs
-      const sportsbooks = [
-        { key: 'all', title: 'All Sportsbooks', lastUpdate: new Date().toISOString() },
-        { key: 'fanduel', title: 'FanDuel', lastUpdate: new Date().toISOString() },
-        { key: 'draftkings', title: 'Draft Kings', lastUpdate: new Date().toISOString() },
-        { key: 'betmgm', title: 'BetMGM', lastUpdate: new Date().toISOString() },
-        { key: 'caesars', title: 'Caesars', lastUpdate: new Date().toISOString() },
-        { key: 'pointsbet', title: 'PointsBet', lastUpdate: new Date().toISOString() },
-        { key: 'betrivers', title: 'BetRivers', lastUpdate: new Date().toISOString() },
-        { key: 'foxbet', title: 'FOX Bet', lastUpdate: new Date().toISOString() },
-        { key: 'bet365', title: 'bet365', lastUpdate: new Date().toISOString() },
-        { key: 'williamhill', title: 'William Hill', lastUpdate: new Date().toISOString() },
-        { key: 'pinnacle', title: 'Pinnacle', lastUpdate: new Date().toISOString() },
-        { key: 'bovada', title: 'Bovada', lastUpdate: new Date().toISOString() },
-        { key: 'betonline', title: 'BetOnline', lastUpdate: new Date().toISOString() },
-        { key: 'betway', title: 'Betway', lastUpdate: new Date().toISOString() },
-        { key: 'unibet', title: 'Unibet', lastUpdate: new Date().toISOString() },
-        { key: 'ladbrokes', title: 'Ladbrokes', lastUpdate: new Date().toISOString() },
-        { key: 'coral', title: 'Coral', lastUpdate: new Date().toISOString() },
-        { key: 'paddypower', title: 'Paddy Power', lastUpdate: new Date().toISOString() },
-        { key: 'skybet', title: 'Sky Bet', lastUpdate: new Date().toISOString() },
-        { key: 'boylesports', title: 'BoyleSports', lastUpdate: new Date().toISOString() },
-        { key: 'betfair', title: 'Betfair', lastUpdate: new Date().toISOString() },
-        { key: 'betvictor', title: 'Bet Victor', lastUpdate: new Date().toISOString() },
-        { key: 'betfred', title: 'Betfred', lastUpdate: new Date().toISOString() }
-      ];
-      setAvailableSportsbooks(sportsbooks);
-      logSuccess('PlayerPropsTab', `Loaded ${sportsbooks.length} available sportsbooks for ${sport}`);
-    } catch (error) {
-      logError('PlayerPropsTab', `Failed to load sportsbooks for ${sport}:`, error);
-    }
-  };
 
-    // Load player props - SIMPLIFIED WITHOUT PAGINATION
-    const loadPlayerProps = async (sport: string) => {
-      if (!sport) {
-        logWarning('PlayerPropsTab', 'No sport provided to loadPlayerProps');
-        return;
-      }
-      
-      logState('PlayerPropsTab', `Starting to load player props for ${sport}`);
-      logState('PlayerPropsTab', `Force refresh at ${new Date().toISOString()}`);
-      logDebug('PlayerPropsTab', `Current realProps length before load: ${realProps.length}`);
-      
-      setIsLoadingData(true);
-      setRealProps([]); // Clear data
-      
-      try {
-        // Use Cloudflare Workers API without pagination
-        logAPI('PlayerPropsTab', `Calling Hasura API for ${sport} player props`);
-        const viewParam = searchParams.get('view');
-        const dateParam = searchParams.get('date');
-        const result = await hasuraPlayerPropsAPI.getPlayerProps(
-          sport, 
-          true, // Force refresh for debugging
-          dateParam || undefined,
-          viewParam || undefined
-        );
-        
-        logAPI('PlayerPropsTab', `Hasura API returned ${result?.length || 0} props`);
-        console.log('🔍 [API_DEBUG] API result:', result);
-        
-        // 🔍 COMPREHENSIVE FRONTEND DEBUG LOGGING
-        if (result && result.length > 0) {
-          console.log(`\n🎯 FRONTEND PLAYER PROPS ANALYSIS:`);
-          console.log(`📊 Props Received: ${result.length}`);
-          console.log(`📝 First 10 Props (Priority Order):`);
-          result.slice(0, 10).forEach((prop, index) => {
-            console.log(`${index + 1}. ${prop.propType} - ${prop.playerName}`);
-          });
-          
-          // Analyze the first prop in detail
-          const firstProp = (result as unknown as APIPlayerProp[])[0];
-          console.log(`\n🔍 DETAILED FIRST PROP ANALYSIS:`);
-          console.log(`📋 All Keys:`, Object.keys(firstProp));
-          console.log(`🏠 Team Data:`, {
-            team: firstProp.team,
-            opponent: firstProp.opponent,
-            teamAbbr: firstProp.teamAbbr,
-            opponentAbbr: firstProp.opponentAbbr,
-            gameId: firstProp.gameId,
-            gameDate: firstProp.gameDate
-          });
-          console.log(`💰 Odds Data:`, {
-            overOdds: firstProp.overOdds,
-            underOdds: firstProp.underOdds,
-            line: firstProp.line,
-            availableSportsbooks: firstProp.availableSportsbooks,
-            allSportsbookOddsCount: firstProp.allSportsbookOdds?.length || 0
-          });
-          console.log(`👤 Player Data:`, {
-            playerName: firstProp.playerName,
-            playerId: firstProp.playerId,
-            propType: firstProp.propType,
-            sport: firstProp.sport
-          });
-          
-          logDebug('PlayerPropsTab', `Comprehensive analysis complete. Check console for full details.`);
-        } else {
-          logError('PlayerPropsTab', 'NO PROPS RETURNED FROM API');
-        }
-        
-        if (result && Array.isArray(result) && result.length > 0) {
-          logSuccess('PlayerPropsTab', `Setting ${result.length} server-side cached props for ${sport}`);
-          logDebug('PlayerPropsTab', 'Backend props sample:', result.slice(0, 2));
-          
-          // Calculate EV for each prop while preserving original order
-          const propsWithEV = await Promise.all((result as unknown as APIPlayerProp[]).map(async (prop, index) => {
-            try {
-              // Calculate EV for both over and under, use the better one
-              const overEV = await evCalculatorService.calculateAIRating({
-                id: prop.id,
-                playerName: prop.playerName,
-                propType: prop.propType,
-                line: prop.line,
-                odds: prop.overOdds?.toString() || '0',
-                sport: prop.sport || 'nfl',
-                team: prop.team || '',
-                opponent: prop.opponent || '',
-                gameDate: prop.gameDate || new Date().toISOString(),
-                hitRate: prop.hitRate || 0.5,
-                recentForm: prop.recentForm || 0.5,
-                injuryStatus: prop.injuryStatus || 'healthy',
-                restDays: prop.restDays || 3
-              });
-              
-              const underEV = await evCalculatorService.calculateAIRating({
-                id: prop.id,
-                playerName: prop.playerName,
-                propType: prop.propType,
-                line: prop.line,
-                odds: prop.underOdds?.toString() || '0',
-                sport: prop.sport || 'nfl',
-                team: prop.team || '',
-                opponent: prop.opponent || '',
-                gameDate: prop.gameDate || new Date().toISOString(),
-                hitRate: prop.hitRate || 0.5,
-                recentForm: prop.recentForm || 0.5,
-                injuryStatus: prop.injuryStatus || 'healthy',
-                restDays: prop.restDays || 3
-              });
-              
-              // Use the better EV (higher percentage)
-              const bestEV = overEV.evPercentage > underEV.evPercentage ? overEV : underEV;
-              
-              return {
-                ...prop,
-                // Add missing fields from entry.player and entry.team
-                player_id: prop.playerId || '',
-                player_name: prop.playerName || '',
-                position: prop.position || '—',
-                team: prop.team || '',
-                expectedValue: bestEV.evPercentage / 100, // Convert to decimal
-                confidence: bestEV.confidence / 100, // Convert to decimal
-                aiRating: bestEV.aiRating,
-                recommendation: bestEV.recommendation,
-                originalIndex: index // Preserve original order
-              };
-            } catch (error) {
-              console.warn('EV calculation failed for prop:', prop.playerName, error);
-              return {
-                ...prop,
-                expectedValue: 0,
-                confidence: 0.5,
-                aiRating: 3,
-                recommendation: 'neutral',
-                originalIndex: index // Preserve original order
-              };
-            }
-          }));
-          
-          // Sort by original index to preserve API order
-          const sortedPropsWithEV = propsWithEV.sort((a, b) => (a.originalIndex || 0) - (b.originalIndex || 0));
-          
-          // Debug: Log the first 10 props to verify order
-          console.log('🎯 PRIORITY ORDER DEBUG - First 10 props after EV calculation:');
-          sortedPropsWithEV.slice(0, 10).forEach((prop, index) => {
-            console.log(`${index + 1}. ${prop.propType} - ${prop.playerName} (originalIndex: ${prop.originalIndex})`);
-          });
-          
-          // Set all props at once (no pagination)
-          console.log('🔍 [PROPS_DEBUG] Setting realProps with:', sortedPropsWithEV.length, 'props');
-          setRealProps(sortedPropsWithEV as PlayerProp[]);
-          
-          // Validate headshot player ID matches
-          validateHeadshots(sortedPropsWithEV as any[]);
-          
-          // Log success to console (visible in dev console)
-          logSuccess('PlayerPropsTab', `Player Props Loaded: Found ${result.length} server-side cached props for ${sport.toUpperCase()} with exact sportsbook odds`);
-        } else {
-          logWarning('PlayerPropsTab', 'Backend API returned no valid props', result);
-          setRealProps([]);
-          toast({
-            title: "No Data",
-            description: `No player props available for ${sport.toUpperCase()}`,
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
-        logError('PlayerPropsTab', 'Failed to load player props:', error);
-        logError('PlayerPropsTab', 'Error details:', {
-          message: error.message,
-          stack: error.stack,
-          name: error.name
-        });
-        
-        toast({
-          title: "Error",
-          description: `Failed to load player props: ${error.message}`,
-          variant: "destructive",
-        });
-        setRealProps([]);
-      } finally {
-        setIsLoadingData(false);
-        logState('PlayerPropsTab', `Finished loading player props for ${sport}`);
-      }
-    };
 
   // Format numbers to be compact with .5 and .0 intervals for lines
   const formatNumber = (value: number, decimals: number = 1): string => {
