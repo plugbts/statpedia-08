@@ -31,9 +31,9 @@ CREATE OR REPLACE VIEW public.v_props_list AS
 SELECT
   pp.id,
   p.full_name,
-  t.abbrev AS team,
-  COALESCE(opp.abbrev,
-    CASE WHEN g.home_team_id = p.team_id THEN opp2.abbrev WHEN g.away_team_id = p.team_id THEN home2.abbrev ELSE NULL END
+  t.abbreviation AS team,
+  COALESCE(opp.abbreviation,
+    CASE WHEN g.home_team_id = p.team_id THEN opp2.abbreviation WHEN g.away_team_id = p.team_id THEN home2.abbreviation ELSE NULL END
   ) AS opponent,
   pt.name AS market,
   pp.line,

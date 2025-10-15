@@ -2,134 +2,217 @@
 
 /**
  * Local API Server for Development
- * 
+ *
  * This server serves the auth API routes locally for development
  * since this is a Vite app, not Next.js
  */
 
-import express from 'express';
-import cors from 'cors';
-import { config } from 'dotenv';
+import express from "express";
+import cors from "cors";
+import { config } from "dotenv";
 
-// Load environment variables
-config({ path: '.env.local' });
+// Load environment variables: first default .env, then override with .env.local if present
+config();
+config({ path: ".env.local" });
 
 // Import auth service
-import { authService } from '../lib/auth/auth-service';
+import { authService } from "../lib/auth/auth-service";
 
 const app = express();
 const PORT = process.env.API_PORT || 3001;
 
 // Middleware
-app.use(cors({
-  origin: ['http://localhost:8080', 'http://localhost:8081', 'http://localhost:8082', 'http://localhost:8083', 'http://localhost:8084', 'http://localhost:8085', 'http://localhost:8086', 'http://localhost:8087', 'http://localhost:8088', 'http://localhost:8089'],
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: [
+      "http://localhost:8080",
+      "http://localhost:8081",
+      "http://localhost:8082",
+      "http://localhost:8083",
+      "http://localhost:8084",
+      "http://localhost:8085",
+      "http://localhost:8086",
+      "http://localhost:8087",
+      "http://localhost:8088",
+      "http://localhost:8089",
+    ],
+    credentials: true,
+  }),
+);
 app.use(express.json());
 
 // Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+// Props list route (served directly from this API server)
+app.get("/api/props-list", async (req, res) => {
+  try {
+    const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+    if (!connectionString) {
+      return res.status(500).json({ error: "DATABASE_URL is not configured" });
+    }
+
+    // Lazy import to keep startup fast
+    const postgres = (await import("postgres")).default;
+    const client = postgres(connectionString, { prepare: false });
+
+    try {
+      const {
+        league,
+        market,
+        from,
+        to,
+        limit: limitParam,
+      } = req.query as Record<string, string | undefined>;
+      const parsedLimit = parseInt(limitParam || "200", 10);
+      const limit = Math.min(Number.isFinite(parsedLimit) ? parsedLimit : 200, 500);
+
+      const where: string[] = [];
+      const params: string[] = [];
+      if (league) {
+        where.push(`league = $${params.length + 1}`);
+        params.push(league);
+      }
+      if (market) {
+        where.push(`market = $${params.length + 1}`);
+        params.push(market);
+      }
+      if (from) {
+        where.push(`game_date >= $${params.length + 1}`);
+        params.push(from);
+      }
+      if (to) {
+        where.push(`game_date <= $${params.length + 1}`);
+        params.push(to);
+      }
+
+      const sql = `
+        SELECT id, full_name, team, COALESCE(opponent, 'TBD') AS opponent,
+               market, line, odds_american,
+               COALESCE(over_odds_american, 0) AS over_odds_american,
+               COALESCE(under_odds_american, 0) AS under_odds_american,
+               ev_percent, streak_l5, rating, matchup_rank,
+               l5, l10, l20, h2h_avg, season_avg,
+               league, game_date
+        FROM public.v_props_list
+        ${where.length ? "WHERE " + where.join(" AND ") : ""}
+        ORDER BY game_date DESC NULLS LAST
+        LIMIT ${limit}
+      `;
+
+      const rows = params.length > 0 ? await client.unsafe(sql, params) : await client.unsafe(sql);
+      res.json({ count: rows.length, items: rows });
+    } finally {
+      // Always close the client quickly
+      await client.end({ timeout: 1 });
+    }
+  } catch (e) {
+    const err = e as Error;
+    console.error("GET /api/props-list error:", err.message || e);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 // Auth routes
-app.post('/api/auth/signup', async (req, res) => {
+app.post("/api/auth/signup", async (req, res) => {
   try {
     const { email, password, display_name, displayName } = req.body;
-    
+
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        error: 'Email and password are required'
+        error: "Email and password are required",
       });
     }
 
     // Get client info
-    const ip_address = req.ip || 
-      req.headers['x-forwarded-for'] || 
-      req.headers['x-real-ip'] || 
-      'unknown';
-    const user_agent = req.headers['user-agent'] || 'unknown';
+    const ip_address =
+      req.ip || req.headers["x-forwarded-for"] || req.headers["x-real-ip"] || "unknown";
+    const user_agent = req.headers["user-agent"] || "unknown";
 
-    const tokens = await authService.signup({
-      email,
-      password,
-      display_name: display_name || displayName
-    }, {
-      ip_address: Array.isArray(ip_address) ? ip_address[0] : ip_address,
-      user_agent
-    });
+    const tokens = await authService.signup(
+      {
+        email,
+        password,
+        display_name: display_name || displayName,
+      },
+      {
+        ip_address: Array.isArray(ip_address) ? ip_address[0] : ip_address,
+        user_agent,
+      },
+    );
 
     res.json({
       success: true,
       data: {
         token: tokens.token,
         refreshToken: tokens.refreshToken,
-        expiresIn: 900 // 15 minutes in seconds
-      }
+        expiresIn: 900, // 15 minutes in seconds
+      },
     });
-
-  } catch (error: any) {
-    console.error('Signup error:', error);
+  } catch (error) {
+    console.error("Signup error:", error);
     res.status(400).json({
       success: false,
-      error: error.message || 'Signup failed'
+      error: error.message || "Signup failed",
     });
   }
 });
 
-app.post('/api/auth/login', async (req, res) => {
+app.post("/api/auth/login", async (req, res) => {
   try {
     const { email, password } = req.body;
-    
+
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        error: 'Email and password are required'
+        error: "Email and password are required",
       });
     }
 
     // Get client info
-    const ip_address = req.ip || 
-      req.headers['x-forwarded-for'] || 
-      req.headers['x-real-ip'] || 
-      'unknown';
-    const user_agent = req.headers['user-agent'] || 'unknown';
+    const ip_address =
+      req.ip || req.headers["x-forwarded-for"] || req.headers["x-real-ip"] || "unknown";
+    const user_agent = req.headers["user-agent"] || "unknown";
 
-    const tokens = await authService.login({
-      email,
-      password
-    }, {
-      ip_address: Array.isArray(ip_address) ? ip_address[0] : ip_address,
-      user_agent
-    });
+    const tokens = await authService.login(
+      {
+        email,
+        password,
+      },
+      {
+        ip_address: Array.isArray(ip_address) ? ip_address[0] : ip_address,
+        user_agent,
+      },
+    );
 
     res.json({
       success: true,
       data: {
         token: tokens.token,
         refreshToken: tokens.refreshToken,
-        expiresIn: 900 // 15 minutes in seconds
-      }
+        expiresIn: 900, // 15 minutes in seconds
+      },
     });
-
-  } catch (error: any) {
-    console.error('Login error:', error);
+  } catch (error) {
+    console.error("Login error:", error);
     res.status(400).json({
       success: false,
-      error: error.message || 'Login failed'
+      error: error.message || "Login failed",
     });
   }
 });
 
-app.get('/api/auth/me', async (req, res) => {
+app.get("/api/auth/me", async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
-        error: 'Authorization header required'
+        error: "Authorization header required",
       });
     }
 
@@ -139,7 +222,7 @@ app.get('/api/auth/me', async (req, res) => {
     if (!valid) {
       return res.status(401).json({
         success: false,
-        error: 'Invalid token'
+        error: "Invalid token",
       });
     }
 
@@ -148,148 +231,142 @@ app.get('/api/auth/me', async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        error: 'User not found'
+        error: "User not found",
       });
     }
 
     res.json({
       success: true,
-      data: user
+      data: user,
     });
-
-  } catch (error: any) {
-    console.error('Get user error:', error);
+  } catch (error) {
+    console.error("Get user error:", error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Failed to get user'
+      error: error.message || "Failed to get user",
     });
   }
 });
 
-app.post('/api/auth/refresh', async (req, res) => {
+app.post("/api/auth/refresh", async (req, res) => {
   try {
     const { refreshToken } = req.body;
-    
+
     if (!refreshToken) {
       return res.status(400).json({
         success: false,
-        error: 'Refresh token is required'
+        error: "Refresh token is required",
       });
     }
 
     // Get client info
-    const ip_address = req.ip || 
-      req.headers['x-forwarded-for'] || 
-      req.headers['x-real-ip'] || 
-      'unknown';
-    const user_agent = req.headers['user-agent'] || 'unknown';
+    const ip_address =
+      req.ip || req.headers["x-forwarded-for"] || req.headers["x-real-ip"] || "unknown";
+    const user_agent = req.headers["user-agent"] || "unknown";
 
-    const result = await authService.refreshToken({
-      refreshToken
-    }, {
-      ip_address: Array.isArray(ip_address) ? ip_address[0] : ip_address,
-      user_agent
-    });
+    const result = await authService.refreshToken(
+      {
+        refreshToken,
+      },
+      {
+        ip_address: Array.isArray(ip_address) ? ip_address[0] : ip_address,
+        user_agent,
+      },
+    );
 
     res.json({
       success: true,
       data: {
         token: result.token,
-        expiresIn: 900 // 15 minutes in seconds
-      }
+        expiresIn: 900, // 15 minutes in seconds
+      },
     });
-
-  } catch (error: any) {
-    console.error('Refresh token error:', error);
+  } catch (error) {
+    console.error("Refresh token error:", error);
     res.status(400).json({
       success: false,
-      error: error.message || 'Token refresh failed'
+      error: error.message || "Token refresh failed",
     });
   }
 });
 
-app.post('/api/auth/logout', async (req, res) => {
+app.post("/api/auth/logout", async (req, res) => {
   try {
     const { refreshToken } = req.body;
-    
+
     if (!refreshToken) {
       return res.status(400).json({
         success: false,
-        error: 'Refresh token is required'
+        error: "Refresh token is required",
       });
     }
 
     // Get client info
-    const ip_address = req.ip || 
-      req.headers['x-forwarded-for'] || 
-      req.headers['x-real-ip'] || 
-      'unknown';
-    const user_agent = req.headers['user-agent'] || 'unknown';
+    const ip_address =
+      req.ip || req.headers["x-forwarded-for"] || req.headers["x-real-ip"] || "unknown";
+    const user_agent = req.headers["user-agent"] || "unknown";
 
     await authService.logout(refreshToken, {
       ip_address: Array.isArray(ip_address) ? ip_address[0] : ip_address,
-      user_agent
+      user_agent,
     });
 
     res.json({
       success: true,
-      message: 'Logged out successfully'
+      message: "Logged out successfully",
     });
-
-  } catch (error: any) {
-    console.error('Logout error:', error);
+  } catch (error) {
+    console.error("Logout error:", error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Logout failed'
+      error: error.message || "Logout failed",
     });
   }
 });
 
 // Send email verification code route
-app.post('/api/auth/send-verification-code', async (req, res) => {
+app.post("/api/auth/send-verification-code", async (req, res) => {
   try {
     const { email, purpose } = req.body;
-    
+
     if (!email || !purpose) {
       return res.status(400).json({
         success: false,
-        error: 'Email and purpose are required'
+        error: "Email and purpose are required",
       });
     }
 
-    const ip_address = req.ip || 
-      req.headers['x-forwarded-for'] || 
-      req.headers['x-real-ip'] || 
-      'unknown';
-    const user_agent = req.headers['user-agent'] || 'unknown';
+    const ip_address =
+      req.ip || req.headers["x-forwarded-for"] || req.headers["x-real-ip"] || "unknown";
+    const user_agent = req.headers["user-agent"] || "unknown";
 
     await authService.sendEmailVerificationCode(email, purpose, {
       ip_address: Array.isArray(ip_address) ? ip_address[0] : ip_address,
-      user_agent
+      user_agent,
     });
 
     res.json({
       success: true,
-      message: 'Verification code sent successfully'
+      message: "Verification code sent successfully",
     });
-  } catch (error: any) {
-    console.error('Send verification code error:', error);
+  } catch (error) {
+    console.error("Send verification code error:", error);
     res.status(400).json({
       success: false,
-      error: error.message || 'Failed to send verification code'
+      error: error.message || "Failed to send verification code",
     });
   }
 });
 
 // Verify email code route
-app.post('/api/auth/verify-code', async (req, res) => {
+app.post("/api/auth/verify-code", async (req, res) => {
   try {
     const { email, code, purpose } = req.body;
-    
+
     if (!email || !code || !purpose) {
       return res.status(400).json({
         success: false,
-        error: 'Email, code, and purpose are required'
+        error: "Email, code, and purpose are required",
       });
     }
 
@@ -297,106 +374,100 @@ app.post('/api/auth/verify-code', async (req, res) => {
 
     res.json({
       success: true,
-      data: { valid: isValid }
+      data: { valid: isValid },
     });
-  } catch (error: any) {
-    console.error('Verify code error:', error);
+  } catch (error) {
+    console.error("Verify code error:", error);
     res.status(400).json({
       success: false,
-      error: error.message || 'Failed to verify code'
+      error: error.message || "Failed to verify code",
     });
   }
 });
 
 // Update password route
-app.post('/api/auth/update-password', async (req, res) => {
+app.post("/api/auth/update-password", async (req, res) => {
   try {
     const { userId, newPassword } = req.body;
-    
+
     if (!userId || !newPassword) {
       return res.status(400).json({
         success: false,
-        error: 'User ID and new password are required'
+        error: "User ID and new password are required",
       });
     }
 
-    const ip_address = req.ip || 
-      req.headers['x-forwarded-for'] || 
-      req.headers['x-real-ip'] || 
-      'unknown';
-    const user_agent = req.headers['user-agent'] || 'unknown';
+    const ip_address =
+      req.ip || req.headers["x-forwarded-for"] || req.headers["x-real-ip"] || "unknown";
+    const user_agent = req.headers["user-agent"] || "unknown";
 
     await authService.updatePassword(userId, newPassword, {
       ip_address: Array.isArray(ip_address) ? ip_address[0] : ip_address,
-      user_agent
+      user_agent,
     });
 
     res.json({
       success: true,
-      message: 'Password updated successfully'
+      message: "Password updated successfully",
     });
-  } catch (error: any) {
-    console.error('Update password error:', error);
+  } catch (error) {
+    console.error("Update password error:", error);
     res.status(400).json({
       success: false,
-      error: error.message || 'Failed to update password'
+      error: error.message || "Failed to update password",
     });
   }
 });
 
 // Update email route
-app.post('/api/auth/update-email', async (req, res) => {
+app.post("/api/auth/update-email", async (req, res) => {
   try {
     const { userId, newEmail } = req.body;
-    
+
     if (!userId || !newEmail) {
       return res.status(400).json({
         success: false,
-        error: 'User ID and new email are required'
+        error: "User ID and new email are required",
       });
     }
 
-    const ip_address = req.ip || 
-      req.headers['x-forwarded-for'] || 
-      req.headers['x-real-ip'] || 
-      'unknown';
-    const user_agent = req.headers['user-agent'] || 'unknown';
+    const ip_address =
+      req.ip || req.headers["x-forwarded-for"] || req.headers["x-real-ip"] || "unknown";
+    const user_agent = req.headers["user-agent"] || "unknown";
 
     await authService.updateEmail(userId, newEmail, {
       ip_address: Array.isArray(ip_address) ? ip_address[0] : ip_address,
-      user_agent
+      user_agent,
     });
 
     res.json({
       success: true,
-      message: 'Email updated successfully'
+      message: "Email updated successfully",
     });
-  } catch (error: any) {
-    console.error('Update email error:', error);
+  } catch (error) {
+    console.error("Update email error:", error);
     res.status(400).json({
       success: false,
-      error: error.message || 'Failed to update email'
+      error: error.message || "Failed to update email",
     });
   }
 });
 
 // Update profile route
-app.post('/api/auth/update-profile', async (req, res) => {
+app.post("/api/auth/update-profile", async (req, res) => {
   try {
     const { userId, display_name, username } = req.body;
-    
+
     if (!userId) {
       return res.status(400).json({
         success: false,
-        error: 'User ID is required'
+        error: "User ID is required",
       });
     }
 
-    const ip_address = req.ip || 
-      req.headers['x-forwarded-for'] || 
-      req.headers['x-real-ip'] || 
-      'unknown';
-    const user_agent = req.headers['user-agent'] || 'unknown';
+    const ip_address =
+      req.ip || req.headers["x-forwarded-for"] || req.headers["x-real-ip"] || "unknown";
+    const user_agent = req.headers["user-agent"] || "unknown";
 
     const updates: { display_name?: string; username?: string } = {};
     if (display_name !== undefined) updates.display_name = display_name;
@@ -404,31 +475,31 @@ app.post('/api/auth/update-profile', async (req, res) => {
 
     await authService.updateUserProfile(userId, updates, {
       ip_address: Array.isArray(ip_address) ? ip_address[0] : ip_address,
-      user_agent
+      user_agent,
     });
 
     res.json({
       success: true,
-      message: 'Profile updated successfully'
+      message: "Profile updated successfully",
     });
-  } catch (error: any) {
-    console.error('Update profile error:', error);
+  } catch (error) {
+    console.error("Update profile error:", error);
     res.status(400).json({
       success: false,
-      error: error.message || 'Failed to update profile'
+      error: error.message || "Failed to update profile",
     });
   }
 });
 
 // Get user role route
-app.get('/api/auth/user-role/:userId', async (req, res) => {
+app.get("/api/auth/user-role/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
-    
+
     if (!userId) {
       return res.status(400).json({
         success: false,
-        error: 'User ID is required'
+        error: "User ID is required",
       });
     }
 
@@ -436,33 +507,33 @@ app.get('/api/auth/user-role/:userId', async (req, res) => {
 
     res.json({
       success: true,
-      data: { role }
+      data: { role },
     });
-  } catch (error: any) {
-    console.error('Get user role error:', error);
+  } catch (error) {
+    console.error("Get user role error:", error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Failed to get user role'
+      error: error.message || "Failed to get user role",
     });
   }
 });
 
 // Player analytics routes
-app.get('/api/player-analytics', async (req, res) => {
+app.get("/api/player-analytics", async (req, res) => {
   try {
     const { playerId, propType, season } = req.query;
 
     if (!playerId || !propType) {
       return res.status(400).json({
         success: false,
-        error: 'playerId and propType are required'
+        error: "playerId and propType are required",
       });
     }
 
     // Import the analytics logic
-    const { drizzle } = await import('drizzle-orm/postgres-js');
-    const postgres = (await import('postgres')).default;
-    const { sql } = await import('drizzle-orm');
+    const { drizzle } = await import("drizzle-orm/postgres-js");
+    const postgres = (await import("postgres")).default;
+    const { sql } = await import("drizzle-orm");
 
     const connectionString = process.env.NEON_DATABASE_URL!;
     const client = postgres(connectionString);
@@ -483,7 +554,7 @@ app.get('/api/player-analytics', async (req, res) => {
         FROM player_game_logs pgl
         WHERE pgl.player_id = ${playerId as string}
           AND pgl.prop_type = ${propType as string}
-          AND pgl.season = ${(season as string) || '2025'}
+          AND pgl.season = ${(season as string) || "2025"}
         GROUP BY pgl.player_id, pgl.prop_type, pgl.season
       ),
       recent_games AS (
@@ -498,7 +569,7 @@ app.get('/api/player-analytics', async (req, res) => {
         FROM player_game_logs pgl
         WHERE pgl.player_id = ${playerId as string}
           AND pgl.prop_type = ${propType as string}
-          AND pgl.season = ${(season as string) || '2025'}
+          AND pgl.season = ${(season as string) || "2025"}
         ORDER BY pgl.game_date DESC
       ),
       rolling_stats AS (
@@ -552,7 +623,7 @@ app.get('/api/player-analytics', async (req, res) => {
       JOIN teams at ON g.away_team_id = at.id
       WHERE pgl.player_id = ${playerId as string}
         AND pgl.prop_type = ${propType as string}
-        AND pgl.season = ${(season as string) || '2025'}
+        AND pgl.season = ${(season as string) || "2025"}
       ORDER BY pgl.game_date DESC
       LIMIT 10
     `);
@@ -560,46 +631,47 @@ app.get('/api/player-analytics', async (req, res) => {
     await client.end();
 
     const result = {
-      analytics: analytics[0] || {},
+      analytics: Array.isArray(analytics) ? analytics[0] || {} : {},
       recentGames: recentGames || [],
       summary: {
-        totalGames: analytics[0]?.total_games || 0,
-        careerAvg: parseFloat(analytics[0]?.career_avg || '0'),
-        careerHitRate: parseFloat(analytics[0]?.career_hit_rate || '0'),
-        avgL5: parseFloat(analytics[0]?.avg_l5 || '0'),
-        hitRateL5: parseFloat(analytics[0]?.hit_rate_l5 || '0'),
-        currentStreak: analytics[0]?.current_streak || 0,
-        currentStreakType: analytics[0]?.current_streak_type ? 'over' : 'under'
-      }
+        totalGames: (Array.isArray(analytics) && analytics[0]?.total_games) || 0,
+        careerAvg: Array.isArray(analytics) ? Number(analytics[0]?.career_avg ?? 0) : 0,
+        careerHitRate: Array.isArray(analytics) ? Number(analytics[0]?.career_hit_rate ?? 0) : 0,
+        avgL5: Array.isArray(analytics) ? Number(analytics[0]?.avg_l5 ?? 0) : 0,
+        hitRateL5: Array.isArray(analytics) ? Number(analytics[0]?.hit_rate_l5 ?? 0) : 0,
+        currentStreak: (Array.isArray(analytics) && analytics[0]?.current_streak) || 0,
+        currentStreakType:
+          Array.isArray(analytics) && analytics[0]?.current_streak_type ? "over" : "under",
+      },
     };
 
     res.json(result);
-
-  } catch (error: any) {
-    console.error('Player analytics API error:', error);
+  } catch (error) {
+    const err = error as Error;
+    console.error("Player analytics API error:", err);
     res.status(500).json({
       success: false,
-      error: 'Internal server error'
+      error: "Internal server error",
     });
   }
 });
 
 // Enriched player analytics routes
-app.get('/api/player-analytics-enriched', async (req, res) => {
+app.get("/api/player-analytics-enriched", async (req, res) => {
   try {
     const { playerId, propType, sport } = req.query;
 
     if (!playerId || !propType) {
       return res.status(400).json({
         success: false,
-        error: 'playerId and propType are required'
+        error: "playerId and propType are required",
       });
     }
 
     // Import the analytics logic
-    const { drizzle } = await import('drizzle-orm/postgres-js');
-    const postgres = (await import('postgres')).default;
-    const { sql } = await import('drizzle-orm');
+    const { drizzle } = await import("drizzle-orm/postgres-js");
+    const postgres = (await import("postgres")).default;
+    const { sql } = await import("drizzle-orm");
 
     const connectionString = process.env.NEON_DATABASE_URL!;
     const client = postgres(connectionString);
@@ -610,7 +682,7 @@ app.get('/api/player-analytics-enriched', async (req, res) => {
       SELECT * FROM public.player_analytics
       WHERE player_id = ${playerId as string}
       AND prop_type = ${propType as string}
-      AND sport = ${(sport as string) || '2024-25'}
+      AND sport = ${(sport as string) || "2024-25"}
       LIMIT 1;
     `);
 
@@ -629,7 +701,7 @@ app.get('/api/player-analytics-enriched', async (req, res) => {
           hitRateL5: 0,
           currentStreak: 0,
           currentStreakType: null,
-        }
+        },
       });
     }
 
@@ -651,7 +723,7 @@ app.get('/api/player-analytics-enriched', async (req, res) => {
       LIMIT 20;
     `);
 
-    const transformedRecentGames = recentGamesResult.map((game: any) => ({
+    const transformedRecentGames = recentGamesResult.map((game: Record<string, unknown>) => ({
       game_date: game.game_date,
       actual_value: game.actual_value,
       line: game.line,
@@ -677,31 +749,31 @@ app.get('/api/player-analytics-enriched', async (req, res) => {
       recentGames: transformedRecentGames,
       summary: summary,
     });
-
-  } catch (error: any) {
-    console.error('Error fetching enriched player analytics:', error);
+  } catch (error) {
+    const err = error as Error;
+    console.error("Error fetching enriched player analytics:", err);
     res.status(500).json({
       success: false,
-      error: error.message
+      error: err.message,
     });
   }
 });
 
-app.post('/api/player-analytics-bulk', async (req, res) => {
+app.post("/api/player-analytics-bulk", async (req, res) => {
   try {
     const { playerIds, propType, sport } = req.body;
 
     if (!playerIds || !Array.isArray(playerIds) || !propType) {
       return res.status(400).json({
         success: false,
-        error: 'playerIds array and propType are required'
+        error: "playerIds array and propType are required",
       });
     }
 
     // Import the analytics logic
-    const { drizzle } = await import('drizzle-orm/postgres-js');
-    const postgres = (await import('postgres')).default;
-    const { sql } = await import('drizzle-orm');
+    const { drizzle } = await import("drizzle-orm/postgres-js");
+    const postgres = (await import("postgres")).default;
+    const { sql } = await import("drizzle-orm");
 
     const connectionString = process.env.NEON_DATABASE_URL!;
     const client = postgres(connectionString);
@@ -712,18 +784,18 @@ app.post('/api/player-analytics-bulk', async (req, res) => {
       SELECT * FROM public.player_analytics
       WHERE player_id = ANY(${playerIds})
       AND prop_type = ${propType}
-      AND sport = ${sport || '2024-25'};
+      AND sport = ${sport || "2024-25"};
     `);
 
     res.json({
       analytics: analyticsResult,
     });
-
-  } catch (error: any) {
-    console.error('Error fetching bulk enriched player analytics:', error);
+  } catch (error) {
+    const err = error as Error;
+    console.error("Error fetching bulk enriched player analytics:", err);
     res.status(500).json({
       success: false,
-      error: error.message
+      error: err.message,
     });
   }
 });
@@ -737,8 +809,8 @@ app.listen(PORT, () => {
 });
 
 // Graceful shutdown
-process.on('SIGINT', async () => {
-  console.log('\n🛑 Shutting down API server...');
+process.on("SIGINT", async () => {
+  console.log("\n🛑 Shutting down API server...");
   await authService.close();
   process.exit(0);
 });
