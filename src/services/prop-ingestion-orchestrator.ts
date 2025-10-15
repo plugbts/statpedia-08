@@ -1,6 +1,6 @@
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
 import { sportsGameOddsIngestionService } from './sportsgameodds-ingestion-service';
-import { proplinesUpsertService, UpsertStats } from './proplines-upsert-service';
+import { stableDataUpsertService, UpsertStats } from './stable-data-upsert-service';
 import { propDebugLoggingService, IngestionStats } from './prop-debug-logging-service';
 import { propNormalizationService } from './prop-normalization-service';
 
@@ -86,13 +86,13 @@ class PropIngestionOrchestrator {
 
       // Step 3: Set batch size for upsert
       if (config.batchSize) {
-        proplinesUpsertService.setBatchSize(config.batchSize);
+        stableDataUpsertService.setBatchSize(config.batchSize);
       }
 
-      // Step 4: Validate table structure
-      const tableValid = await proplinesUpsertService.validateTableStructure();
+      // Step 4: Validate canonical tables
+      const tableValid = await stableDataUpsertService.validateCanonicalTables();
       if (!tableValid) {
-        throw new Error('Proplines table structure validation failed');
+        throw new Error('Canonical tables validation failed');
       }
 
       // Step 5: Ingest data from SportsGameOdds API
@@ -109,10 +109,10 @@ class PropIngestionOrchestrator {
         logWarning('PropIngestionOrchestrator', 'No props were ingested - this may indicate an API issue');
       }
 
-      // Step 6: Upsert props to database
-      logAPI('PropIngestionOrchestrator', 'Step 2: Upserting props to database');
-      result.upsertStats = await proplinesUpsertService.upsertPlayerProps(ingestedProps);
-      logSuccess('PropIngestionOrchestrator', `Step 2 complete: ${result.upsertStats.inserted} inserted, ${result.upsertStats.updated} updated`);
+      // Step 6: Upsert props to database using stable data architecture
+      logAPI('PropIngestionOrchestrator', 'Step 2: Upserting props using stable data architecture');
+      result.upsertStats = await stableDataUpsertService.upsertPlayerProps(ingestedProps);
+      logSuccess('PropIngestionOrchestrator', `Step 2 complete: ${result.upsertStats.inserted} inserted, ${result.upsertStats.updated} updated using canonical mapping`);
 
       // Step 7: Generate debug report if enabled
       if (config.enableDebugLogging) {
@@ -219,7 +219,7 @@ class PropIngestionOrchestrator {
 
       // Test upsert service
       try {
-        await proplinesUpsertService.validateTableStructure();
+        await stableDataUpsertService.validateCanonicalTables();
         result.services.upsert = true;
       } catch (error) {
         result.services.upsert = false;
@@ -250,8 +250,9 @@ class PropIngestionOrchestrator {
       }
 
       try {
-        const stats = await proplinesUpsertService.getUpsertStats();
-        result.totalRecords = stats.totalRecords;
+        // Note: stableDataUpsertService doesn't have getUpsertStats method yet
+        // This could be added later or we can query the normalized view directly
+        result.totalRecords = 0; // Placeholder for now
       } catch (error) {
         result.errors.push(`Failed to get total records: ${error}`);
       }
