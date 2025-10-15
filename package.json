@@ -13,7 +13,7 @@
     "format:check": "prettier --check .",
     "check": "npm run lint && npm run typecheck && npm run format:check",
     "sql:check": "node scripts/ci-debug-pipeline.mjs",
-    "prepare": "husky",
+    "prepare": "husky install",
     "preview": "vite preview",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -207,10 +207,8 @@
     "vite": "^5.4.19"
   },
   "lint-staged": {
-    "*.{js,jsx,ts,tsx}": [
-      "eslint --fix"
-    ],
-    "*.{ts,tsx,js,jsx,css,md,json,html}": [
+    "*.{js,ts,tsx}": [
+      "eslint --fix",
       "prettier --write"
     ]
   },

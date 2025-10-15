@@ -1,14 +1,8 @@
 #!/usr/bin/env sh
 . "$(dirname "$0")/_/husky.sh"
 
-# Run staged file linters & formatters
+# Run staged file linters, formatters, and type-check staged TS files only
 npx --no-install lint-staged
 
-# Type check the whole project (fast-fail)
-npm run typecheck
-
-# Optional: quick ESLint check to catch non-staged issues
-npm run lint --silent || exit 1
-
-# Optional: you can add SQL checks here if you have local DB available
-# npm run sql:check
+# Tip: full project checks run in CI. If you want to enforce locally before push,
+# create a pre-push hook that runs `npm run check`.

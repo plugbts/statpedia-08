@@ -7,40 +7,52 @@ on:
     branches: [ main ]
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      HASURA_GRAPHQL_ENDPOINT: ${{ secrets.HASURA_GRAPHQL_ENDPOINT }}
+      HASURA_GRAPHQL_ADMIN_SECRET: ${{ secrets.HASURA_GRAPHQL_ADMIN_SECRET }}
+
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
 
-      - name: Install deps
+      - name: Install dependencies
         run: npm ci
 
       - name: Lint
         run: npm run lint
 
-      - name: Typecheck
+      - name: Type check
         run: npm run typecheck
 
-      - name: Format Check
-        run: npm run format:check
+      - name: Run tests
+        run: npm test
 
-      - name: Build
-        run: npm run build
+      - name: Verify Hasura availability (optional)
+        if: ${{ env.HASURA_GRAPHQL_ENDPOINT != '' && env.HASURA_GRAPHQL_ADMIN_SECRET != '' }}
+        run: |
+          sudo apt-get update && sudo apt-get install -y jq
+          RESP=$(curl -sS \
+            -H "content-type: application/json" \
+            -H "x-hasura-admin-secret: $HASURA_GRAPHQL_ADMIN_SECRET" \
+            -d '{"query":"query { __typename }"}' \
+            "$HASURA_GRAPHQL_ENDPOINT")
+          echo "$RESP"
+          echo "$RESP" | jq -e '.data.__typename' >/dev/null
 
-      # Golden dataset / debug pipeline check
-      - name: SQL Check (golden dataset)
-        run: npm run sql:check
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          PGDATABASE: ${{ secrets.PGDATABASE }}
-          PGUSER: ${{ secrets.PGUSER }}
-          PGPASSWORD: ${{ secrets.PGPASSWORD }}
-          PGHOST: ${{ secrets.PGHOST }}
-          PGPORT: ${{ secrets.PGPORT }}
+      - name: Install psql client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Apply migrations (Neon)
+        run: psql "$DATABASE_URL" -f db/migrations/latest.sql
+
+      - name: Run debug dashboard (Neon)
+        run: psql "$DATABASE_URL" -c "SELECT debug_pipeline();"

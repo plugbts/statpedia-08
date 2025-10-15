@@ -24,6 +24,15 @@ if (!hasPsql) {
   process.exit(0)
 }
 
+// If no connection info is present, skip gracefully
+const hasConnInfo = Boolean(
+  DATABASE_URL || PGDATABASE || PGUSER || PGPASSWORD || PGHOST || PGPORT,
+)
+if (!hasConnInfo) {
+  info('no DATABASE_URL or PG* env vars found; skipping SQL validation (configure repo secrets to enable).')
+  process.exit(0)
+}
+
 const connPieces = []
 if (PGDATABASE) connPieces.push(`PGDATABASE=${PGDATABASE}`)
 if (PGUSER) connPieces.push(`PGUSER=${PGUSER}`)
@@ -33,13 +42,27 @@ if (PGPORT) connPieces.push(`PGPORT=${PGPORT}`)
 
 try {
   info('running debug_pipeline() sanity check...')
-  const cmd = `${connPieces.join(' ')} psql -t -A -c "select coalesce((select 0), 0);"`
-  execSync(cmd, { stdio: 'inherit', env: process.env })
-  // Replace the above query with your production check, e.g.:
-  // const cmd = `${connPieces.join(' ')} psql -t -A -c "select missing_players + missing_games + unenriched_props from debug_pipeline();"`
-  // const output = execSync(cmd, { encoding: 'utf8' }).trim()
-  // if (Number(output) > 0) fail(`debug_pipeline reported failures: ${output}`)
-  info('debug_pipeline() check passed (placeholder).')
+  const query = "select debug_pipeline();"
+  let output
+  if (DATABASE_URL) {
+    output = execSync(`psql "${DATABASE_URL}" -t -A -c "${query}"`, { encoding: 'utf8', env: process.env })
+  } else {
+    output = execSync(`${connPieces.join(' ')} psql -t -A -c "${query}"`, { encoding: 'utf8', env: process.env })
+  }
+  const line = (output || '').trim()
+  info(`raw: ${line}`)
+  // psql -t -A returns the JSON on a single line
+  const data = JSON.parse(line)
+  const entries = Object.entries(data)
+  const failing = entries.filter(([, v]) => Number(v) > 0)
+  if (failing.length > 0) {
+    console.error('Failing metrics:')
+    for (const [k, v] of failing) console.error(` - ${k}: ${v}`)
+    fail('debug_pipeline reported failures')
+  } else {
+    info('debug_pipeline() check passed (all zeros).')
+  }
 } catch (e) {
+  console.error(e?.message || e)
   fail('Error running SQL debug check')
 }
