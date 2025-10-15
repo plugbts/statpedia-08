@@ -50,6 +50,61 @@ const Index = () => {
     const name = getUserDisplayName();
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
+
+  // Render functions
+  const renderAltProps = () => (
+    <div className="space-y-8">
+      {/* Alt Props Header */}
+      <div className="bg-gradient-card border border-border/50 rounded-xl p-8">
+        <div className="text-center">
+          <Badge variant="default" className="bg-gradient-success mb-4">
+            <TrendingUp className="w-3 h-3 mr-1" />
+            HIGH CONFIDENCE
+          </Badge>
+          <h2 className="text-3xl font-bold text-foreground mb-2">Alternative Props</h2>
+          <p className="text-muted-foreground">
+            Discover unique betting opportunities with our AI-powered alternative props
+          </p>
+        </div>
+      </div>
+
+      {/* High Confidence Picks */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-foreground">High Confidence Picks</h2>
+          <Badge variant="default" className="bg-gradient-success">
+            <TrendingUp className="w-3 h-3 mr-1" />
+            {realPredictions.filter(p => p.confidence >= 80).length} AVAILABLE
+          </Badge>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+              {realPredictions
+                .filter(p => p.confidence >= 80)
+                .slice(0, 6)
+                .map((prediction, index) => (
+            <PredictionCard
+                    key={prediction.id || index}
+              {...prediction}
+                    isSubscribed={userRole === 'owner'}
+            />
+          ))}
+        </div>
+        {realPredictions.filter(p => p.confidence >= 80).length === 0 && (
+          <div className="text-center py-8 text-muted-foreground">
+            <p>No high confidence predictions available at this time.</p>
+            <Button 
+              onClick={loadRealPredictions} 
+              className="mt-4"
+              disabled={isLoadingPredictions}
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingPredictions ? 'animate-spin' : ''}`} />
+              Refresh Predictions
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
   const [selectedSport, setSelectedSport] = useState('nfl');
   const [realPredictions, setRealPredictions] = useState<any[]>([]);
   const [isLoadingPredictions, setIsLoadingPredictions] = useState(false);
@@ -453,73 +508,7 @@ const Index = () => {
 
   // Note: Sport change handling is done in handleSportChange function
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <AuthPage onAuthSuccess={() => {}} />;
-  }
-
   // Using real prediction data from API instead of mock data
-
-  const renderAltProps = () => (
-    <div className="space-y-8">
-      {/* Alt Props Header */}
-      <div className="bg-gradient-card border border-border/50 rounded-xl p-8">
-        <div className="text-center">
-          <Badge variant="default" className="bg-gradient-success mb-4">
-            <TrendingUp className="w-3 h-3 mr-1" />
-            HIGH CONFIDENCE
-          </Badge>
-          <h2 className="text-3xl font-bold text-foreground mb-2">Alternative Props</h2>
-          <p className="text-muted-foreground">
-            Discover unique betting opportunities with our AI-powered alternative props
-          </p>
-        </div>
-      </div>
-
-      {/* High Confidence Picks */}
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-foreground">High Confidence Picks</h2>
-          <Badge variant="default" className="bg-gradient-success">
-            <TrendingUp className="w-3 h-3 mr-1" />
-            {realPredictions.filter(p => p.confidence >= 80).length} AVAILABLE
-          </Badge>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-              {realPredictions
-                .filter(p => p.confidence >= 80)
-                .slice(0, 6)
-                .map((prediction, index) => (
-            <PredictionCard
-                    key={prediction.id || index}
-              {...prediction}
-                    isSubscribed={userRole === 'owner'}
-            />
-          ))}
-        </div>
-        {realPredictions.filter(p => p.confidence >= 80).length === 0 && (
-          <div className="text-center py-8 text-muted-foreground">
-            <p>No high confidence predictions available at this time.</p>
-            <Button 
-              onClick={loadRealPredictions} 
-              className="mt-4"
-              disabled={isLoadingPredictions}
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingPredictions ? 'animate-spin' : ''}`} />
-              Refresh Predictions
-            </Button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
 
   const renderDashboard = () => (
     <div className="space-y-8">

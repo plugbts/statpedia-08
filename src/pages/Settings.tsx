@@ -27,19 +27,14 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import type { User as SupabaseUser } from '@supabase/supabase-js';
-import { useUser } from '@/contexts/user-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserDisplay } from '@/components/ui/user-display';
 
 interface SettingsProps {
-  user?: SupabaseUser | null;
-  userRole?: string;
-  onUserUpdate?: (user: SupabaseUser) => void;
+  // No props needed - using useAuth hook
 }
 
-export const Settings: React.FC<SettingsProps> = ({ user: propUser, userRole: propUserRole, onUserUpdate }) => {
+export const Settings: React.FC<SettingsProps> = () => {
   const { 
     user: authUser, 
     isAuthenticated, 

@@ -26,15 +26,12 @@ import {
   Loader2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
-import { useUser } from '@/contexts/user-context';
 import { UserDisplay } from '@/components/ui/user-display';
 
 interface SupportCenterProps {
-  userRole?: string;
-  userEmail?: string;
-  userName?: string;
+  // No props needed - using useAuth hook
 }
 
 interface Message {

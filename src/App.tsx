@@ -12,11 +12,8 @@ import { Settings } from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import { SubscriptionPlans } from "./components/auth/subscription-plans";
 import { SupportCenter } from "./components/support/support-center";
-// import { UserProvider } from "@/contexts/user-context";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import type { User } from "@supabase/supabase-js";
 import { AnalyticsTest } from "@/components/debug/analytics-test";
 import { AnalyticsDebug } from "@/components/debug/analytics-debug";
 import { AnalyticsDebugTest } from "@/components/debug/analytics-debug-test";
@@ -51,31 +48,11 @@ const queryClient = new QueryClient({
 });
 
 const SettingsWrapper = () => {
-  const [user, setUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-    };
-    getUser();
-  }, []);
-
-  return <Settings user={user} />;
+  return <Settings />;
 };
 
 const SupportCenterWrapper = () => {
-  const [user, setUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-    };
-    getUser();
-  }, []);
-
-  return <SupportCenter user={user} />;
+  return <SupportCenter />;
 };
 
 const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -108,7 +85,6 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <AuthProvider>
-          {/* <UserProvider> */}
             <SyncProvider>
             <Toaster />
             <Sonner />

@@ -1,10 +1,9 @@
 import { useEffect, useCallback, useState } from 'react';
 import { syncService } from '@/services/sync-service';
 import { useLoveableSync } from './use-loveable-sync';
-import { useSupabaseRealtime } from './use-supabase-realtime';
-import type { Database } from '@/integrations/supabase/types';
+// Removed Supabase realtime - using Hasura + Neon only
 
-type TableName = keyof Database['public']['Tables'];
+// Removed Supabase types - using Hasura + Neon only
 
 interface UseSyncOptions {
   // Loveable sync options
@@ -13,15 +12,7 @@ interface UseSyncOptions {
   onLoveableUISync?: (data: any) => void;
   onLoveableConfigSync?: (data: any) => void;
   
-  // Supabase realtime options
-  enableSupabaseRealtime?: boolean;
-  tables?: Array<{
-    table: TableName;
-    filter?: string;
-    onInsert?: (payload: any) => void;
-    onUpdate?: (payload: any) => void;
-    onDelete?: (payload: any) => void;
-  }>;
+  // Removed Supabase realtime options - using Hasura + Neon only
   
   // General sync options
   onSyncSuccess?: (event: any) => void;
