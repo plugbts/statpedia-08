@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -294,85 +294,9 @@ export function PlayerPropCard3D({
           <div className="absolute inset-0 bg-gradient-to-r from-slate-600/5 via-gray-600/4 to-slate-600/5 opacity-0 group-hover:opacity-100 blur-xl transition-all duration-500" />
           
           {/* Card Content */}
-          <div className="relative z-10 h-full flex flex-col">
-            {/* Enhanced Header */}
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex flex-col items-center gap-1">
-                    {prop.teamLogo && (
-                      <img 
-                        src={prop.teamLogo} 
-                        alt={prop.teamAbbr}
-                        className="w-6 h-6 rounded-full"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = 'none';
-                        }}
-                      />
-                    )}
-                    <span className="text-xs font-medium">{prop.teamAbbr}</span>
-                  </div>
-                  <div>
-                    <CardTitle className="text-sm font-medium">{prop.playerName}</CardTitle>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>{prop.teamAbbr}</span>
-                      <span>vs</span>
-                      <span>{prop.opponentAbbr}</span>
-                    </div>
-                  </div>
-                </div>
-                
-                {prop.expectedValue !== undefined && (
-                  <div className={`flex items-center gap-1 ${getEVColor(prop.expectedValue * 100)}`}>
-                    <Target className="w-4 h-4" />
-                    <span className="text-sm font-medium">
-                      {prop.expectedValue > 0 ? '+' : ''}{(prop.expectedValue * 100).toFixed(1)}%
-                    </span>
-                  </div>
-                )}
-              </div>
-            </CardHeader>
-
-            <CardContent className="space-y-4">
-              {/* Prop Info */}
-              <div className="flex items-center justify-between">
-                <Badge variant="secondary" className="text-xs">
-                  {prop.propType}
-                </Badge>
-                <div className="text-right">
-                  <div className="text-lg font-bold">{prop.line}</div>
-                  <div className="text-xs text-muted-foreground">
-                    O: {toAmericanOdds(prop.overOdds)} | U: {toAmericanOdds(prop.underOdds)}
-                  </div>
-                </div>
-              </div>
-
-              {/* Streaks */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-xs font-medium text-muted-foreground">Recent Form</span>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div className="space-y-1">
-                    <div className="flex justify-between">
-                      <span>Last 5</span>
-                      <span className="font-medium">{prop.last5Games ? `${prop.last5Games.filter(g => g >= prop.line).length}/5` : '0/5'}</span>
-                    </div>
-                    <Progress value={prop.last5Games ? (prop.last5Games.filter(g => g >= prop.line).length / 5) * 100 : 0} className="h-1" />
-                  </div>
-                  
-                  <div className="space-y-1">
-                    <div className="flex justify-between">
-                      <span>Hit Rate</span>
-                      <span className="font-medium">{((prop.hitRate || 0.5) * 100).toFixed(0)}%</span>
-                    </div>
-                    <Progress value={(prop.hitRate || 0.5) * 100} className="h-1" />
-                  </div>
-                </div>
-              </div>
-
+          <CardContent className="relative z-10 p-2 h-full flex flex-col">
+            {/* Compact Header */}
+            <div className="flex items-center justify-between mb-1">
               <div className="flex items-center space-x-2 flex-1">
                 <div className={`w-7 h-7 rounded-full ${teamColorsService.getTeamGradient(prop.teamAbbr, prop.sport)} flex items-center justify-center text-white font-bold text-xs shadow-lg border-2 ${teamColorsService.getTeamBorder(prop.teamAbbr, prop.sport)} overflow-hidden flex-shrink-0`}>
                   {(() => {
