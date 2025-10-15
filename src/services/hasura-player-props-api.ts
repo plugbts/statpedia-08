@@ -192,11 +192,7 @@ class HasuraPlayerPropsAPI {
                 name
                 abbreviation
                 logo_url
-                league {
-                  id
-                  code
-                  name
-                }
+                league
               }
             }
             team {
