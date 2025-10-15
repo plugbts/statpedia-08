@@ -1,13 +1,11 @@
 import { loveableClient } from '@/integrations/loveable/client';
-import { supabase } from '@/integrations/supabase/client';
-import type { Database } from '@/integrations/supabase/types';
-
-type TableName = keyof Database['public']['Tables'];
+// Removed Supabase - using Hasura + Neon only
+// Removed Supabase types - using Hasura + Neon only
 
 interface SyncEvent {
   id: string;
   type: 'code' | 'ui' | 'data' | 'config';
-  table?: TableName;
+  table?: string;
   action: 'create' | 'update' | 'delete' | 'sync';
   data: any;
   timestamp: number;

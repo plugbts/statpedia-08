@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CheckCircle, Star, Zap, Crown, Shield, X, CreditCard, Lock, Gift, Percent, Calendar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { trialAbusePreventionService } from '@/services/trial-abuse-prevention';
 
 interface SubscriptionPlansProps {

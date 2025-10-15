@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Season dates including playoffs/postseason - only filter if completely off-season
 const SEASON_STATUS = {
