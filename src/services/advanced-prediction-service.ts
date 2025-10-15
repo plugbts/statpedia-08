@@ -553,8 +553,8 @@ class AdvancedPredictionService {
     return Math.random() * 0.5;
   }
 
-  private calculatePlayerWeatherImpact(propType: string, weather: WeatherData | null): number {
-    if (!weather) return 0.5;
+  private calculatePlayerWeatherImpact(propType: string | null, weather: WeatherData | null): number {
+    if (!weather || !propType) return 0.5;
     
     let impact = 0.5;
     
@@ -569,7 +569,8 @@ class AdvancedPredictionService {
     return Math.max(0, Math.min(1, impact));
   }
 
-  private getPositionFromPropType(propType: string): string {
+  private getPositionFromPropType(propType: string | null): string {
+    if (!propType) return 'QB';
     if (propType.includes('Passing')) return 'QB';
     if (propType.includes('Rushing')) return 'RB';
     if (propType.includes('Receiving')) return 'WR';
@@ -577,8 +578,10 @@ class AdvancedPredictionService {
     return 'QB';
   }
 
-  private generatePlayerStats(propType: string): any {
+  private generatePlayerStats(propType: string | null): any {
     const stats: any = {};
+    
+    if (!propType) return stats;
     
     if (propType.includes('Passing')) {
       stats.passingYards = 250 + Math.random() * 100;
