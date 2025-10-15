@@ -114,9 +114,14 @@ class PropIngestionOrchestrator {
       result.upsertStats = await stableDataUpsertService.upsertPlayerProps(ingestedProps);
       logSuccess('PropIngestionOrchestrator', `Step 2 complete: ${result.upsertStats.inserted} inserted, ${result.upsertStats.updated} updated using canonical mapping`);
 
-      // Step 7: Generate debug report if enabled
+      // Step 7: Refresh enrichment data
+      logAPI('PropIngestionOrchestrator', 'Step 3: Refreshing enrichment data');
+      await this.refreshEnrichment();
+      logSuccess('PropIngestionOrchestrator', 'Step 3 complete: Enrichment data refreshed');
+
+      // Step 8: Generate debug report if enabled
       if (config.enableDebugLogging) {
-        logAPI('PropIngestionOrchestrator', 'Step 3: Generating debug report');
+        logAPI('PropIngestionOrchestrator', 'Step 4: Generating debug report');
         
         // Log ingestion stats
         const ingestionStats: IngestionStats = {
@@ -141,10 +146,10 @@ class PropIngestionOrchestrator {
           await propDebugLoggingService.saveDebugData();
         }
 
-        logSuccess('PropIngestionOrchestrator', 'Step 3 complete: Debug report generated');
+        logSuccess('PropIngestionOrchestrator', 'Step 4 complete: Debug report generated');
       }
 
-      // Step 8: Final validation
+      // Step 9: Final validation
       if (result.upsertStats.errors > result.upsertStats.totalProcessed * 0.1) {
         result.errors.push(`High error rate: ${result.upsertStats.errors}/${result.upsertStats.totalProcessed} failed`);
       }
@@ -301,6 +306,31 @@ class PropIngestionOrchestrator {
    */
   getLastIngestionTime(): Date | null {
     return this.lastIngestionTime;
+  }
+
+  /**
+   * Refresh enrichment data by calling the database function
+   */
+  private async refreshEnrichment(): Promise<void> {
+    try {
+      // Call the refresh_enrichment() function via direct SQL
+      const { Pool } = await import('pg');
+      const pool = new Pool({
+        connectionString: process.env.NEON_DATABASE_URL
+      });
+
+      const client = await pool.connect();
+      try {
+        await client.query('SELECT refresh_enrichment()');
+        logSuccess('PropIngestionOrchestrator', 'Enrichment refresh completed successfully');
+      } finally {
+        client.release();
+      }
+      await pool.end();
+    } catch (error) {
+      logError('PropIngestionOrchestrator', 'Failed to refresh enrichment data:', error);
+      throw new Error(`Enrichment refresh failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   /**
