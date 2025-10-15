@@ -21,7 +21,6 @@ interface UseSyncOptions {
 
 interface SyncState {
   isLoveableConnected: boolean;
-  isSupabaseConnected: boolean;
   lastSync: number | null;
   error: string | null;
   syncQueueLength: number;
@@ -41,7 +40,6 @@ export function useSync(options: UseSyncOptions = {}) {
 
   const [state, setState] = useState<SyncState>({
     isLoveableConnected: false,
-    isSupabaseConnected: false,
     lastSync: null,
     error: null,
     syncQueueLength: 0,
@@ -57,15 +55,7 @@ export function useSync(options: UseSyncOptions = {}) {
     onError: (error) => setState(prev => ({ ...prev, error: error?.toString() || 'Loveable error' })),
   });
 
-  // Supabase realtime hook
-  const supabaseRealtime = useSupabaseRealtime({
-    table: tables[0]?.table || 'profiles',
-    filter: tables[0]?.filter,
-    onInsert: tables[0]?.onInsert,
-    onUpdate: tables[0]?.onUpdate,
-    onDelete: tables[0]?.onDelete,
-    onError: (error) => setState(prev => ({ ...prev, error: error?.toString() || 'Supabase error' })),
-  });
+  // Supabase realtime removed - using Hasura + Neon only
 
   // Sync service event handlers
   const handleSyncSuccess = useCallback((event: any) => {
@@ -96,13 +86,7 @@ export function useSync(options: UseSyncOptions = {}) {
     };
   }, [handleSyncSuccess, handleSyncError]);
 
-  // Update Supabase connection state
-  useEffect(() => {
-    setState(prev => ({ 
-      ...prev, 
-      isSupabaseConnected: supabaseRealtime.isConnected 
-    }));
-  }, [supabaseRealtime.isConnected]);
+  // Supabase connection state removed - using Hasura + Neon only
 
   // Sync functions
   const syncCode = useCallback((codeData: any, source: 'loveable' | 'supabase' | 'local' = 'local') => {
@@ -151,13 +135,7 @@ export function useSync(options: UseSyncOptions = {}) {
     loveableSync.disconnect();
   }, [loveableSync]);
 
-  const connectSupabase = useCallback(() => {
-    return supabaseRealtime.subscribe();
-  }, [supabaseRealtime]);
-
-  const disconnectSupabase = useCallback(() => {
-    supabaseRealtime.unsubscribe();
-  }, [supabaseRealtime]);
+  // Supabase connection functions removed - using Hasura + Neon only
 
   // Cleanup on unmount
   useEffect(() => {
@@ -177,12 +155,7 @@ export function useSync(options: UseSyncOptions = {}) {
       disconnect: disconnectLoveable,
     },
     
-    // Supabase realtime
-    supabaseRealtime: {
-      ...supabaseRealtime,
-      connect: connectSupabase,
-      disconnect: disconnectSupabase,
-    },
+    // Supabase realtime removed - using Hasura + Neon only
     
     // Sync functions
     syncCode,
@@ -190,44 +163,28 @@ export function useSync(options: UseSyncOptions = {}) {
     syncData,
     syncConfig,
     
-    // Connection status
-    isFullyConnected: state.isLoveableConnected && state.isSupabaseConnected,
+    // Connection status (Loveable only)
+    isFullyConnected: state.isLoveableConnected,
   };
 }
 
-// Hook for specific table real-time sync
-export function useTableSync<T extends TableName>(
-  table: T,
-  options: {
-    filter?: string;
-    onInsert?: (payload: any) => void;
-    onUpdate?: (payload: any) => void;
-    onDelete?: (payload: any) => void;
-    onError?: (error: any) => void;
-  } = {}
-) {
-  return useSupabaseRealtime({
-    table,
-    ...options,
-  });
+// Supabase-specific hooks removed - using Hasura + Neon only
+
+// Stub functions to prevent errors
+export function useTableSync(table: string, options: any = {}) {
+  console.log('useTableSync: Supabase removed, using Hasura + Neon only');
+  return {
+    isConnected: false,
+    error: null,
+    unsubscribe: () => {},
+  };
 }
 
-// Hook for multiple table sync
-export function useMultipleTableSync<T extends TableName>(
-  tables: Array<{
-    table: T;
-    filter?: string;
-    onInsert?: (payload: any) => void;
-    onUpdate?: (payload: any) => void;
-    onDelete?: (payload: any) => void;
-  }>
-) {
-  // Use first table for now, or could be enhanced to handle multiple
-  return useSupabaseRealtime({
-    table: tables[0]?.table || 'profiles',
-    filter: tables[0]?.filter,
-    onInsert: tables[0]?.onInsert,
-    onUpdate: tables[0]?.onUpdate,
-    onDelete: tables[0]?.onDelete,
-  });
+export function useMultipleTableSync(tables: any[]) {
+  console.log('useMultipleTableSync: Supabase removed, using Hasura + Neon only');
+  return {
+    isConnected: false,
+    error: null,
+    unsubscribe: () => {},
+  };
 }
