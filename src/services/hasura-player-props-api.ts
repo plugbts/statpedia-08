@@ -403,67 +403,9 @@ class HasuraPlayerPropsAPI {
    * Get props directly from database as fallback
    */
   private async getPropsDirectlyFromDB(sport: string): Promise<PlayerProp[]> {
-    console.log(`🔧 Fallback: Getting props directly for ${sport}`);
-    
-    try {
-      // Import database connection
-      const { config } = await import('dotenv');
-      const { resolve } = await import('path');
-      const postgres = (await import('postgres')).default;
-      const { drizzle } = await import('drizzle-orm/postgres-js');
-      const { sql } = await import('drizzle-orm');
-      
-      config({ path: resolve(process.cwd(), '.env.local') });
-      const connectionString = process.env.NEON_DATABASE_URL;
-      
-      if (!connectionString) {
-        console.error('No database connection string');
-        return [];
-      }
-      
-      const client = postgres(connectionString);
-      const db = drizzle(client);
-      
-      // Get props for upcoming games directly
-      const props = await db.execute(sql`
-        SELECT p.id, p.prop_type, p.line, p.odds, p.created_at,
-               g.game_date, h.abbreviation as home, a.abbreviation as away,
-               pl.name as player_name, pl.id as player_id
-        FROM props p
-        JOIN games g ON g.id = p.game_id
-        JOIN teams h ON h.id = g.home_team_id
-        JOIN teams a ON a.id = g.away_team_id
-        JOIN players pl ON pl.id = p.player_id
-        WHERE g.game_date > NOW()
-        AND p.source = 'sportsbook'
-        ORDER BY p.created_at DESC
-        LIMIT 200;
-      `);
-      
-      await client.end();
-      
-      // Transform to PlayerProp format
-      const transformedProps: PlayerProp[] = props.map((prop: any) => ({
-        id: prop.id,
-        playerName: prop.player_name,
-        playerId: prop.player_id,
-        propType: prop.prop_type,
-        line: parseFloat(prop.line),
-        overOdds: prop.odds ? parseFloat(prop.odds) : null,
-        underOdds: prop.odds ? parseFloat(prop.odds) : null,
-        gameDate: prop.game_date,
-        teamAbbr: prop.home, // This would need to be determined based on player team
-        opponentAbbr: prop.away,
-        source: 'sportsbook'
-      }));
-      
-      console.log(`✅ Found ${transformedProps.length} props via direct database query`);
-      return transformedProps;
-      
-    } catch (error) {
-      console.error('Direct DB query failed:', error);
-      return [];
-    }
+    console.log(`🔧 Fallback: Cannot access database directly from browser for ${sport}`);
+    console.log(`📊 Returning empty array - use GraphQL API instead`);
+    return [];
   }
 
   /**
