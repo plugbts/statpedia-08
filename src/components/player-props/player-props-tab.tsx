@@ -611,7 +611,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         logDebug('PlayerPropsTab', 'Normalized props sample:', result.slice(0, 2));
         
         // Transform normalized props to the expected format
-        const transformedProps = result.map((prop, index) => {
+        const transformedProps = await Promise.all(result.map(async (prop, index) => {
           try {
             // Calculate EV for both over and under, use the better one
             const overEV = await evCalculatorService.calculateAIRating({
