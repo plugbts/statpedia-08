@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthPage } from '@/components/auth/auth-page';
-import { PlayerPropsTab } from '@/components/player-props/player-props-tab-normalized';
+import { LeagueAgnosticPlayerPropsTab } from '@/components/player-props/league-agnostic-player-props-tab';
 import { StrikeoutCenter } from '@/components/strikeout-center/strikeout-center';
 import { OutlierStyleInsightsTab as InsightsTab } from '@/components/insights/outlier-style-insights-tab';
 import { MatrixBackground } from '@/components/effects/matrix-background';
@@ -896,7 +896,7 @@ const Index = () => {
         
         {activeTab === 'dashboard' && renderDashboard()}
         {activeTab === 'predictions' && <PredictionsTab selectedSport={selectedSport} userRole={userRole} userSubscription={'free'} onPredictionsCountChange={setPredictionsCount} />}
-        {activeTab === 'player-props' && <PlayerPropsTab userSubscription={'free'} userRole={userRole} selectedSport={selectedSport} />}
+        {activeTab === 'player-props' && <LeagueAgnosticPlayerPropsTab initialLeague={selectedSport} />}
         {activeTab === 'insights' && <InsightsTab selectedSport={selectedSport} userRole={userRole} userSubscription={'free'} />}
         {activeTab === 'bet-tracking' && <BetTrackingTab userRole={userRole} />}
         {/* Social tab temporarily disabled */}
