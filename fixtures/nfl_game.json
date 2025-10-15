@@ -1,0 +1,89 @@
+{
+  "game": {
+    "id": "550e8400-e29b-41d4-a716-446655440001",
+    "api_game_id": "1760458228406",
+    "game_date": "2025-01-16T21:00:00Z",
+    "home_team": {
+      "id": "550e8400-e29b-41d4-a716-446655440002",
+      "name": "Cincinnati Bengals",
+      "abbreviation": "CIN",
+      "logo_url": "https://example.com/bengals-logo.png"
+    },
+    "away_team": {
+      "id": "550e8400-e29b-41d4-a716-446655440003", 
+      "name": "Pittsburgh Steelers",
+      "abbreviation": "PIT",
+      "logo_url": "https://example.com/steelers-logo.png"
+    },
+    "league": "NFL",
+    "season": "2024-25"
+  },
+  "players": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440004",
+      "name": "Joe Burrow",
+      "position": "QB",
+      "team_id": "550e8400-e29b-41d4-a716-446655440002",
+      "external_id": "JOE_BURROW_1_NFL"
+    },
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440005", 
+      "name": "Jaylen Warren",
+      "position": "RB",
+      "team_id": "550e8400-e29b-41d4-a716-446655440003",
+      "external_id": "JAYLEN_WARREN_1_NFL"
+    }
+  ],
+  "props": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440006",
+      "player_id": "550e8400-e29b-41d4-a716-446655440004",
+      "game_id": "550e8400-e29b-41d4-a716-446655440001",
+      "prop_type": "passing_yards",
+      "line": "250.5",
+      "odds": "-110",
+      "source": "sportsbook",
+      "created_at": "2025-01-14T12:00:00Z"
+    },
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440007",
+      "player_id": "550e8400-e29b-41d4-a716-446655440005",
+      "game_id": "550e8400-e29b-41d4-a716-446655440001", 
+      "prop_type": "rushing_yards",
+      "line": "75.5",
+      "odds": "-115",
+      "source": "sportsbook",
+      "created_at": "2025-01-14T12:00:00Z"
+    }
+  ],
+  "game_logs": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440008",
+      "player_id": "550e8400-e29b-41d4-a716-446655440004",
+      "game_id": "550e8400-e29b-41d4-a716-446655440001",
+      "team_id": "550e8400-e29b-41d4-a716-446655440002",
+      "opponent_id": "550e8400-e29b-41d4-a716-446655440003",
+      "prop_type": "passing_yards",
+      "line": "250.5",
+      "actual_value": "275",
+      "hit": true,
+      "game_date": "2025-01-16",
+      "season": "2024-25",
+      "home_away": "home"
+    },
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440009", 
+      "player_id": "550e8400-e29b-41d4-a716-446655440005",
+      "game_id": "550e8400-e29b-41d4-a716-446655440001",
+      "team_id": "550e8400-e29b-41d4-a716-446655440003", 
+      "opponent_id": "550e8400-e29b-41d4-a716-446655440002",
+      "prop_type": "rushing_yards",
+      "line": "75.5",
+      "actual_value": "85",
+      "hit": true,
+      "game_date": "2025-01-16",
+      "season": "2024-25",
+      "home_away": "away"
+    }
+  ]
+}

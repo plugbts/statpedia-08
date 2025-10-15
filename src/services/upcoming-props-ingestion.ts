@@ -183,30 +183,38 @@ export async function ingestUpcomingProps(league: string): Promise<void> {
           // Normalize prop type to human-readable format
           const normalizedPropType = normalizePropType(propType, league);
           
-          // Try to find the player in our database
+          // Try to find the player in our database by external_id first, then by name
           let playerId = null;
           let teamId = null;
           
-          // Try multiple name variations to find the player
-          const nameVariations = [
-            playerName, // Original format
-            playerName.replace(/\s+/g, ' ').trim(), // Normalized spaces
-            playerName.toLowerCase(), // Lowercase
-            playerName.split(' ').map(n => n.charAt(0).toUpperCase() + n.slice(1).toLowerCase()).join(' '), // Title case
-          ];
+          // First try to match by external_id (API player ID)
+          const dbPlayerByExternalId = await db.select().from(players).where(eq(players.external_id, odd.playerID)).limit(1);
+          if (dbPlayerByExternalId[0]) {
+            playerId = dbPlayerByExternalId[0].id;
+            teamId = dbPlayerByExternalId[0].team_id;
+            console.log(`✅ Found player by external_id: ${odd.playerID} -> ${dbPlayerByExternalId[0].name}`);
+          } else {
+            // Fallback: Try multiple name variations to find the player
+            const nameVariations = [
+              playerName, // Original format
+              playerName.replace(/\s+/g, ' ').trim(), // Normalized spaces
+              playerName.toLowerCase(), // Lowercase
+              playerName.split(' ').map(n => n.charAt(0).toUpperCase() + n.slice(1).toLowerCase()).join(' '), // Title case
+            ];
 
-          for (const nameVar of nameVariations) {
-            const dbPlayer = await db.select().from(players).where(eq(players.name, nameVar)).limit(1);
-            if (dbPlayer[0]) {
-              playerId = dbPlayer[0].id;
-              teamId = dbPlayer[0].teamId;
-              console.log(`✅ Found player: ${playerName} -> ${nameVar} (${dbPlayer[0].name})`);
-              break;
+            for (const nameVar of nameVariations) {
+              const dbPlayer = await db.select().from(players).where(eq(players.name, nameVar)).limit(1);
+              if (dbPlayer[0]) {
+                playerId = dbPlayer[0].id;
+                teamId = dbPlayer[0].team_id;
+                console.log(`✅ Found player by name: ${playerName} -> ${nameVar} (${dbPlayer[0].name})`);
+                break;
+              }
             }
           }
           
           if (!playerId) {
-            console.warn(`⚠️  Player not found in DB: ${playerName} (tried variations: ${nameVariations.join(', ')}). Skipping props.`);
+            console.warn(`⚠️  Player not found in DB: ${playerName} (API ID: ${odd.playerID}). Skipping props.`);
             skippedPlayers++;
             continue;
           }

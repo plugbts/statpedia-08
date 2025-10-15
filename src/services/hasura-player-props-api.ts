@@ -118,12 +118,60 @@ class HasuraPlayerPropsAPI {
       
       console.log(`📊 HASURA: Using prop limit of ${propLimit} for ${sport}`);
       
-      // Build GraphQL query using new clean schema with relationships and limit
-      // Add sport filtering and source filtering at the GraphQL level
-      const sportFilter = sport ? `, where: { player: { team: { league: { code: { _eq: "${sport.toUpperCase()}" } } } }, source: { _eq: "sportsbook" } }` : ', where: { source: { _eq: "sportsbook" } }';
+      // First get upcoming game IDs for this sport
+      const now = new Date().toISOString();
+      const upcomingGamesQuery = `
+        query GetUpcomingGames {
+          games(
+            where: { 
+              game_date: { _gt: "${now}" }
+            }
+          ) {
+            id
+          }
+        }
+      `;
+
+      const gamesResponse = await fetch(this.graphqlEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query: upcomingGamesQuery }),
+      });
+
+      if (!gamesResponse.ok) {
+        throw new Error(`HTTP error! status: ${gamesResponse.status}`);
+      }
+
+      const gamesResult = await gamesResponse.json();
+      const upcomingGameIds = gamesResult.data?.games?.map((game: any) => game.id) || [];
+      
+      console.log(`📊 Found ${upcomingGameIds.length} upcoming games for ${sport}`);
+      
+      // If no upcoming games, return empty array
+      if (upcomingGameIds.length === 0) {
+        console.log(`⏰ No upcoming games found via GraphQL for ${sport}, but checking database directly...`);
+        
+        // Fallback: Get props directly from database for upcoming games
+        try {
+          const directProps = await this.getPropsDirectlyFromDB(sport);
+          if (directProps.length > 0) {
+            console.log(`✅ Found ${directProps.length} props via direct database query`);
+            return directProps;
+          }
+        } catch (error) {
+          console.log('Direct DB query failed:', error);
+        }
+        
+        return [];
+      }
+
+      // Build GraphQL query using upcoming game IDs
+      const baseFilter = `source: { _eq: "sportsbook" }, game_id: { _in: [${upcomingGameIds.map(id => `"${id}"`).join(', ')}] }`;
       const query = `
         query GetPlayerProps($limit: Int) {
-          props(limit: $limit, order_by: {priority: desc, created_at: desc}${sportFilter}) {
+          props(limit: $limit, order_by: {priority: desc, created_at: desc}, where: { ${baseFilter} }) {
             id
             prop_type
             line
@@ -349,6 +397,125 @@ class HasuraPlayerPropsAPI {
    */
   async refreshPlayerProps(sport: string = 'nba'): Promise<PlayerProp[]> {
     return await this.getPlayerProps(sport, true);
+  }
+
+  /**
+   * Get props directly from database as fallback
+   */
+  private async getPropsDirectlyFromDB(sport: string): Promise<PlayerProp[]> {
+    console.log(`🔧 Fallback: Getting props directly for ${sport}`);
+    
+    try {
+      // Import database connection
+      const { config } = await import('dotenv');
+      const { resolve } = await import('path');
+      const postgres = (await import('postgres')).default;
+      const { drizzle } = await import('drizzle-orm/postgres-js');
+      const { sql } = await import('drizzle-orm');
+      
+      config({ path: resolve(process.cwd(), '.env.local') });
+      const connectionString = process.env.NEON_DATABASE_URL;
+      
+      if (!connectionString) {
+        console.error('No database connection string');
+        return [];
+      }
+      
+      const client = postgres(connectionString);
+      const db = drizzle(client);
+      
+      // Get props for upcoming games directly
+      const props = await db.execute(sql`
+        SELECT p.id, p.prop_type, p.line, p.odds, p.created_at,
+               g.game_date, h.abbreviation as home, a.abbreviation as away,
+               pl.name as player_name, pl.id as player_id
+        FROM props p
+        JOIN games g ON g.id = p.game_id
+        JOIN teams h ON h.id = g.home_team_id
+        JOIN teams a ON a.id = g.away_team_id
+        JOIN players pl ON pl.id = p.player_id
+        WHERE g.game_date > NOW()
+        AND p.source = 'sportsbook'
+        ORDER BY p.created_at DESC
+        LIMIT 200;
+      `);
+      
+      await client.end();
+      
+      // Transform to PlayerProp format
+      const transformedProps: PlayerProp[] = props.map((prop: any) => ({
+        id: prop.id,
+        playerName: prop.player_name,
+        playerId: prop.player_id,
+        propType: prop.prop_type,
+        line: parseFloat(prop.line),
+        overOdds: prop.odds ? parseFloat(prop.odds) : null,
+        underOdds: prop.odds ? parseFloat(prop.odds) : null,
+        gameDate: prop.game_date,
+        teamAbbr: prop.home, // This would need to be determined based on player team
+        opponentAbbr: prop.away,
+        source: 'sportsbook'
+      }));
+      
+      console.log(`✅ Found ${transformedProps.length} props via direct database query`);
+      return transformedProps;
+      
+    } catch (error) {
+      console.error('Direct DB query failed:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Check if all games for a sport have ended and refresh cache if needed
+   */
+  async checkAndRefreshIfGamesEnded(sport: string = 'nfl'): Promise<{ refreshed: boolean; reason: string }> {
+    try {
+      const now = new Date().toISOString();
+      
+      // Check if there are any upcoming games for this sport
+      const upcomingGamesQuery = `
+        query CheckUpcomingGames {
+          games(
+            where: { 
+              game_date: { _gt: "${now}" },
+              league: { code: { _eq: "${sport.toUpperCase()}" } }
+            }
+            limit: 1
+          ) {
+            id
+            game_date
+          }
+        }
+      `;
+
+      const response = await fetch(this.graphqlEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query: upcomingGamesQuery }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      const upcomingGames = result.data?.games || [];
+      
+      if (upcomingGames.length === 0) {
+        // No upcoming games, trigger refresh
+        console.log(`🔄 No upcoming games found for ${sport}, triggering cache refresh...`);
+        await this.getPlayerProps(sport, true);
+        return { refreshed: true, reason: 'No upcoming games found' };
+      }
+      
+      return { refreshed: false, reason: 'Upcoming games still exist' };
+    } catch (error) {
+      console.error('Error checking game status:', error);
+      return { refreshed: false, reason: `Error: ${error.message}` };
+    }
   }
 
   /**

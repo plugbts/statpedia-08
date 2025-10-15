@@ -12,7 +12,7 @@ import { Settings } from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import { SubscriptionPlans } from "./components/auth/subscription-plans";
 import { SupportCenter } from "./components/support/support-center";
-import { UserProvider } from "@/contexts/user-context";
+// import { UserProvider } from "@/contexts/user-context";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -108,7 +108,7 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <AuthProvider>
-          <UserProvider>
+          {/* <UserProvider> */}
             <SyncProvider>
             <Toaster />
             <Sonner />
@@ -162,7 +162,6 @@ const App = () => {
               </Routes>
             </BrowserRouter>
             </SyncProvider>
-          </UserProvider>
         </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>

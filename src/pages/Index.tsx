@@ -17,9 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, Zap, BarChart3, Settings, RefreshCw } from 'lucide-react';
 import heroImage from '@/assets/hero-analytics.jpg';
-import { supabase } from '@/integrations/supabase/client';
 import { useSportsData } from '@/hooks/use-sports-data';
-import type { User } from '@supabase/supabase-js';
 import { useOddsAPI } from '@/hooks/use-odds-api';
 import { useToast } from '@/hooks/use-toast';
 import { predictionTracker } from '@/services/prediction-tracker';
@@ -32,29 +30,26 @@ import { PredictionsTab } from '@/components/predictions/predictions-tab';
 import { ParlayGen } from '@/components/parlay/parlay-gen';
 import { AnalyticsTab } from '@/components/analytics/analytics-tab';
 import { HeaderBannerAd, InFeedAd, FooterBannerAd, MobileBannerAd } from '@/components/ads/ad-placements';
-import { useUser } from '@/contexts/user-context';
 import { useAuth } from '@/contexts/AuthContext';
-import { getUserDisplayName as getUserDisplayNameUtil } from '@/utils/user-display';
 
 const Index = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('dashboard');
   
   const { user: authUser, isAuthenticated, isLoading: authLoading, logout: authLogout } = useAuth();
-  const { 
-    userIdentity, 
-    userSubscription, 
-    userRole: contextUserRole, 
-    isLoading: userLoading,
-    getUserDisplayName,
-    getUserUsername,
-    getUserInitials
-  } = useUser();
   
-  // Use auth user for authentication check, fallback to user context user for display
+  // Use auth user for authentication check and display
   const user = authUser;
-  // Use role from AuthContext if available, fallback to UserContext
-  const userRole = authUser?.role || contextUserRole || 'user';
+  // Use role from AuthContext
+  const userRole = authUser?.role || 'user';
+  
+  // Helper functions for user display (using our custom auth user)
+  const getUserDisplayName = () => user?.display_name || user?.email || 'User';
+  const getUserUsername = () => user?.username || 'user';
+  const getUserInitials = () => {
+    const name = getUserDisplayName();
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  };
   const [selectedSport, setSelectedSport] = useState('nfl');
   const [realPredictions, setRealPredictions] = useState<any[]>([]);
   const [isLoadingPredictions, setIsLoadingPredictions] = useState(false);
@@ -209,7 +204,7 @@ const Index = () => {
     }
   };
 
-  // User state is now managed by UserContext, no need for local auth handling
+  // User state is now managed by AuthContext
 
   // Load real predictions when user is authenticated
   useEffect(() => {
@@ -384,7 +379,7 @@ const Index = () => {
     };
   };
 
-  // User subscription and role are now managed by UserContext
+  // User subscription and role are now managed by AuthContext
 
   // Use real predictions data from sports API - prioritize realPredictions over hook data
   const allPredictions = realPredictions.length > 0 ? realPredictions : (predictions || []);
@@ -458,7 +453,7 @@ const Index = () => {
 
   // Note: Sport change handling is done in handleSportChange function
 
-  if (authLoading || userLoading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
@@ -505,7 +500,7 @@ const Index = () => {
             <PredictionCard
                     key={prediction.id || index}
               {...prediction}
-                    isSubscribed={userRole === 'owner' || userSubscription !== 'free'}
+                    isSubscribed={userRole === 'owner'}
             />
           ))}
         </div>
@@ -546,7 +541,7 @@ const Index = () => {
               Welcome to Statpedia
               <br />
               <span className="bg-gradient-primary bg-clip-text text-transparent animate-scale-in display-name-gradient" style={{ animationDelay: '100ms' }}>
-                {user ? getUserDisplayNameUtil(user as any) : 'User'}
+                {user ? getUserDisplayName() : 'User'}
               </span>
             </h1>
             <p className="text-xl text-muted-foreground mb-6 animate-slide-up font-body" style={{ animationDelay: '150ms' }}>
@@ -589,7 +584,7 @@ const Index = () => {
         <div id="todays-picks-section" className="animate-fade-in">
           <TodaysPicksCarousel
             predictions={getTodaysTopPicks()}
-            isSubscribed={userRole === 'owner' || userSubscription !== 'free'}
+            isSubscribed={userRole === 'owner'}
             onClose={() => setShowTodaysPicks(false)}
             sport={getTodaysTopPicks().length > 0 && allPredictions.filter(p => p.sport === selectedSport).length === 0 ? 'ALL SPORTS' : selectedSport}
           />
@@ -779,7 +774,7 @@ const Index = () => {
             <PredictionCard
                   key={prediction.id || index}
               {...prediction}
-                  isSubscribed={userRole === 'owner' || userSubscription !== 'free'}
+                  isSubscribed={userRole === 'owner'}
             />
           ))}
         </div>
@@ -878,7 +873,7 @@ const Index = () => {
   );
 
   // Show loading spinner while checking authentication
-  if (authLoading || userLoading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
@@ -905,25 +900,25 @@ const Index = () => {
       />
       <main className={`${activeTab === 'player-props' ? 'w-full px-0' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'} py-8 relative z-10`}>
         {/* Header Banner Ad */}
-        <HeaderBannerAd userSubscription={userSubscription} />
+        <HeaderBannerAd userSubscription={'free'} />
         
         {/* Mobile Banner Ad */}
-        <MobileBannerAd userSubscription={userSubscription} />
+        <MobileBannerAd userSubscription={'free'} />
         
         {activeTab === 'dashboard' && renderDashboard()}
-        {activeTab === 'predictions' && <PredictionsTab selectedSport={selectedSport} userRole={userRole} userSubscription={userSubscription} onPredictionsCountChange={setPredictionsCount} />}
-        {activeTab === 'player-props' && <PlayerPropsTab userSubscription={userSubscription} userRole={userRole} selectedSport={selectedSport} />}
-        {activeTab === 'insights' && <InsightsTab selectedSport={selectedSport} userRole={userRole} userSubscription={userSubscription} />}
+        {activeTab === 'predictions' && <PredictionsTab selectedSport={selectedSport} userRole={userRole} userSubscription={'free'} onPredictionsCountChange={setPredictionsCount} />}
+        {activeTab === 'player-props' && <PlayerPropsTab userSubscription={'free'} userRole={userRole} selectedSport={selectedSport} />}
+        {activeTab === 'insights' && <InsightsTab selectedSport={selectedSport} userRole={userRole} userSubscription={'free'} />}
         {activeTab === 'bet-tracking' && <BetTrackingTab userRole={userRole} />}
         {/* Social tab temporarily disabled */}
-        {/* {activeTab === 'social' && <SocialTab userRole={userRole} userSubscription={userSubscription} onReturnToDashboard={() => {
+        {/* {activeTab === 'social' && <SocialTab userRole={userRole} userSubscription={'free'} onReturnToDashboard={() => {
           console.log('Navigating to dashboard from social tab');
           setActiveTab('dashboard');
         }} />} */}
         {activeTab === 'strikeout-center' && <StrikeoutCenter />}
         {activeTab === 'most-likely' && <MostLikely />}
         {activeTab === 'parlay-gen' && <ParlayGen />}
-        {activeTab === 'analytics' && <AnalyticsTab userRole={userRole} userSubscription={userSubscription} />}
+        {activeTab === 'analytics' && <AnalyticsTab userRole={userRole} userSubscription={'free'} />}
         {activeTab === 'sync-test' && renderSyncTest()}
         {activeTab !== 'dashboard' && activeTab !== 'predictions' && activeTab !== 'player-props' && activeTab !== 'insights' && activeTab !== 'bet-tracking' && activeTab !== 'social' && activeTab !== 'strikeout-center' && activeTab !== 'most-likely' && activeTab !== 'parlay-gen' && activeTab !== 'analytics' && activeTab !== 'sync-test' && (
           <div className="text-center py-16">
@@ -937,7 +932,7 @@ const Index = () => {
         )}
         
         {/* Footer Banner Ad */}
-        <FooterBannerAd userSubscription={userSubscription} />
+        <FooterBannerAd userSubscription={'free'} />
       </main>
     </div>
   );

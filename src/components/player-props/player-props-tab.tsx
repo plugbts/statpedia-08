@@ -556,6 +556,15 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     setRealProps([]); // Clear data
     
     try {
+      // First check if all games have ended and refresh if needed
+      logAPI('PlayerPropsTab', `Checking if games have ended for ${sport}`);
+      const refreshCheck = await hasuraPlayerPropsAPI.checkAndRefreshIfGamesEnded(sport);
+      if (refreshCheck.refreshed) {
+        logSuccess('PlayerPropsTab', `Auto-refreshed cache: ${refreshCheck.reason}`);
+      } else {
+        logInfo('PlayerPropsTab', `No refresh needed: ${refreshCheck.reason}`);
+      }
+      
       // Use Cloudflare Workers API without pagination
       logAPI('PlayerPropsTab', `Calling Hasura API for ${sport} player props`);
       const viewParam = searchParams.get('view');
@@ -867,6 +876,28 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       loadPlayerProps(selectedSport);
     }
   }, [selectedSportsbook, selectedSport, loadPlayerProps]);
+
+  // Periodic check for game status and auto-refresh
+  useEffect(() => {
+    if (!selectedSport) return;
+    
+    // Check every 5 minutes if games have ended
+    const interval = setInterval(async () => {
+      try {
+        logInfo('PlayerPropsTab', 'Periodic check for game status...');
+        const refreshCheck = await hasuraPlayerPropsAPI.checkAndRefreshIfGamesEnded(selectedSport);
+        if (refreshCheck.refreshed) {
+          logSuccess('PlayerPropsTab', `Auto-refreshed cache: ${refreshCheck.reason}`);
+          // Reload props after refresh
+          loadPlayerProps(selectedSport);
+        }
+      } catch (error) {
+        logError('PlayerPropsTab', 'Error in periodic game check:', error);
+      }
+    }, 5 * 60 * 1000); // 5 minutes
+    
+    return () => clearInterval(interval);
+  }, [selectedSport, loadPlayerProps]);
 
   // Cleanup on unmount - backend handles updates automatically
   useEffect(() => {
