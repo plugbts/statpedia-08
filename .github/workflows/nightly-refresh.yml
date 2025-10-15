@@ -1,0 +1,33 @@
+name: Nightly Enrichment Refresh
+
+on:
+  schedule:
+    - cron: '0 8 * * *' # 8:00 UTC daily
+  workflow_dispatch: {}
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install psql client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Apply migrations
+        run: |
+          set -e
+          psql "$DATABASE_URL" -f db/migrations/latest.sql
+          for f in db/migrations/000*.sql; do
+            echo "Applying $f";
+            psql "$DATABASE_URL" -f "$f";
+          done
+
+      - name: Refresh enrichment materialized views
+        run: psql "$DATABASE_URL" -c "SELECT public.refresh_enrichment_mvs();"
+
+      - name: Run debug health check
+        run: node scripts/ci-debug-pipeline.mjs

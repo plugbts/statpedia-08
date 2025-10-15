@@ -68,6 +68,8 @@ DECLARE
   missing_players INT := 0;
   missing_player_teams INT := 0;
   missing_props_games INT := 0;
+  missing_prop_team_id INT := 0;
+  missing_prop_opponent_team_id INT := 0;
   missing_opponent_ids INT := 0;
   unenriched_count INT := 0;
   ev_null_or_zero INT := 0;
@@ -95,6 +97,10 @@ BEGIN
     FROM public.player_props pp
     LEFT JOIN public.games g ON g.id = pp.game_id
     WHERE g.id IS NULL;
+
+    -- Null team/opponent on props
+    SELECT COUNT(*) INTO missing_prop_team_id FROM public.player_props WHERE team_id IS NULL;
+    SELECT COUNT(*) INTO missing_prop_opponent_team_id FROM public.player_props WHERE opponent_team_id IS NULL;
   END IF;
 
   -- opponent mapping in logs (optional presence)
@@ -122,6 +128,8 @@ BEGIN
     'missing_players', missing_players,
     'missing_player_teams', missing_player_teams,
     'missing_props_games', missing_props_games,
+    'missing_prop_team_id', missing_prop_team_id,
+    'missing_prop_opponent_team_id', missing_prop_opponent_team_id,
     'missing_opponent_ids', missing_opponent_ids,
     'unenriched_count', unenriched_count,
     'ev_null_or_zero', ev_null_or_zero,

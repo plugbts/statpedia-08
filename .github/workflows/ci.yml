@@ -52,7 +52,13 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
       - name: Apply migrations (Neon)
-        run: psql "$DATABASE_URL" -f db/migrations/latest.sql
+        run: |
+          set -e
+          psql "$DATABASE_URL" -f db/migrations/latest.sql
+          for f in db/migrations/000*.sql; do
+            echo "Applying $f";
+            psql "$DATABASE_URL" -f "$f";
+          done
 
       - name: Run debug dashboard (Neon)
-        run: psql "$DATABASE_URL" -c "SELECT debug_pipeline();"
+        run: node scripts/ci-debug-pipeline.mjs
