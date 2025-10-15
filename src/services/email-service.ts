@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { supabase } from '@/integrations/supabase/client';
+// Supabase removed - using Hasura + Neon only
 
 export interface EmailTemplate {
   id: string;
@@ -19,413 +19,118 @@ export interface EmailCampaign {
   template_type: string;
   content: string;
   html_content: string;
-  target_audience: 'non_subscribed' | 'free_trial' | 'all';
-  is_active: boolean;
-  scheduled_at: string | null;
+  recipient_count: number;
+  sent_count: number;
+  scheduled_at: string;
   sent_at: string | null;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 }
 
-export interface EmailSend {
-  id: string;
-  campaign_id: string;
+export interface EmailUser {
   user_id: string;
   email: string;
-  sent_at: string;
-  opened_at: string | null;
-  clicked_at: string | null;
-  unsubscribed_at: string | null;
-  bounced_at: string | null;
-  status: 'sent' | 'opened' | 'clicked' | 'unsubscribed' | 'bounced';
-}
-
-export interface UserEmailPreferences {
-  id: string;
-  user_id: string;
-  email: string;
-  is_subscribed: boolean;
-  frequency: 'low' | 'normal' | 'high';
-  last_email_sent: string | null;
-  unsubscribe_token: string;
+  name: string;
+  subscription_status: string;
   created_at: string;
-  updated_at: string;
 }
 
 export interface EmailAnalytics {
-  id: string;
   campaign_id: string;
-  date: string;
-  emails_sent: number;
-  emails_opened: number;
-  emails_clicked: number;
-  emails_unsubscribed: number;
-  emails_bounced: number;
+  opens: number;
+  clicks: number;
+  unsubscribes: number;
+  bounces: number;
   created_at: string;
+  updated_at: string;
 }
 
 class EmailService {
-  private baseUrl: string;
-
-  constructor() {
-    this.baseUrl = import.meta.env.MODE === 'production' 
-      ? 'https://statpedia.com' 
-      : 'http://localhost:5173';
+  // Stub methods - Supabase removed, using Hasura + Neon only
+  
+  async getTemplates(): Promise<EmailTemplate[]> {
+    console.log('📧 Email templates: Supabase removed, using Hasura + Neon only');
+    return [];
   }
 
-  // Get all email templates
-  async getEmailTemplates(): Promise<EmailTemplate[]> {
-    const { data, error } = await supabase
-      .from('email_templates')
-      .select('*')
-      .eq('is_active', true)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data || [];
+  async createTemplate(template: Omit<EmailTemplate, 'id'>): Promise<EmailTemplate | null> {
+    console.log('📧 Create template: Supabase removed, using Hasura + Neon only');
+    return null;
   }
 
-  // Get template by type
-  async getTemplateByType(templateType: string): Promise<EmailTemplate | null> {
-    const { data, error } = await supabase
-      .from('email_templates')
-      .select('*')
-      .eq('template_type', templateType)
-      .eq('is_active', true)
-      .single();
-
-    if (error) return null;
-    return data;
+  async updateTemplate(id: string, updates: Partial<EmailTemplate>): Promise<boolean> {
+    console.log('📧 Update template: Supabase removed, using Hasura + Neon only');
+    return false;
   }
 
-  // Create email campaign
-  async createCampaign(campaign: Omit<EmailCampaign, 'id' | 'created_at' | 'updated_at'>): Promise<EmailCampaign> {
-    const { data, error } = await supabase
-      .from('email_campaigns')
-      .insert(campaign)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
+  async deleteTemplate(id: string): Promise<boolean> {
+    console.log('📧 Delete template: Supabase removed, using Hasura + Neon only');
+    return false;
   }
 
-  // Get non-subscribed users for email campaigns
-  async getNonSubscribedUsers(limit: number = 1000): Promise<Array<{
-    user_id: string;
-    email: string;
-    display_name: string;
-    last_email_sent: string | null;
-  }>> {
-    const { data, error } = await supabase
-      .rpc('get_non_subscribed_users', {
-        frequency_limit: '7 days',
-        limit_count: limit
-      });
-
-    if (error) throw error;
-    return data || [];
-  }
-
-  // Send email campaign
-  async sendCampaign(campaignId: string, userIds: string[]): Promise<void> {
-    const campaign = await this.getCampaign(campaignId);
-    if (!campaign) throw new Error('Campaign not found');
-
-    const users = await this.getNonSubscribedUsers(1000);
-    const targetUsers = users.filter(user => userIds.includes(user.user_id));
-
-    for (const user of targetUsers) {
-      try {
-        await this.sendEmailToUser(campaign, user);
-      } catch (error) {
-        console.error(`Failed to send email to ${user.email}:`, error);
-      }
-    }
-  }
-
-  // Send individual email
-  private async sendEmailToUser(campaign: EmailCampaign, user: {
-    user_id: string;
-    email: string;
-    display_name: string;
-  }): Promise<void> {
-    // Replace template variables
-    const subject = this.replaceVariables(campaign.subject, {
-      user_name: user.display_name,
-      subscribe_url: `${this.baseUrl}/subscription?utm_source=email&utm_campaign=${campaign.id}`,
-      plans_url: `${this.baseUrl}/subscription?utm_source=email&utm_campaign=${campaign.id}`,
-      sale_url: `${this.baseUrl}/subscription?utm_source=email&utm_campaign=${campaign.id}&sale=true`,
-      trial_url: `${this.baseUrl}/subscription?utm_source=email&utm_campaign=${campaign.id}&trial=true`,
-      success_url: `${this.baseUrl}/?utm_source=email&utm_campaign=${campaign.id}#testimonials`,
-      pro_url: `${this.baseUrl}/subscription?utm_source=email&utm_campaign=${campaign.id}&plan=pro`,
-      testimonials_url: `${this.baseUrl}/?utm_source=email&utm_campaign=${campaign.id}#testimonials`
-    });
-
-    const content = this.replaceVariables(campaign.content, {
-      user_name: user.display_name,
-      subscribe_url: `${this.baseUrl}/subscription?utm_source=email&utm_campaign=${campaign.id}`,
-      plans_url: `${this.baseUrl}/subscription?utm_source=email&utm_campaign=${campaign.id}`,
-      sale_url: `${this.baseUrl}/subscription?utm_source=email&utm_campaign=${campaign.id}&sale=true`,
-      trial_url: `${this.baseUrl}/subscription?utm_source=email&utm_campaign=${campaign.id}&trial=true`,
-      success_url: `${this.baseUrl}/?utm_source=email&utm_campaign=${campaign.id}#testimonials`,
-      pro_url: `${this.baseUrl}/subscription?utm_source=email&utm_campaign=${campaign.id}&plan=pro`,
-      testimonials_url: `${this.baseUrl}/?utm_source=email&utm_campaign=${campaign.id}#testimonials`
-    });
-
-    const htmlContent = this.replaceVariables(campaign.html_content || '', {
-      user_name: user.display_name,
-      subscribe_url: `${this.baseUrl}/subscription?utm_source=email&utm_campaign=${campaign.id}`,
-      plans_url: `${this.baseUrl}/subscription?utm_source=email&utm_campaign=${campaign.id}`,
-      sale_url: `${this.baseUrl}/subscription?utm_source=email&utm_campaign=${campaign.id}&sale=true`,
-      trial_url: `${this.baseUrl}/subscription?utm_source=email&utm_campaign=${campaign.id}&trial=true`,
-      success_url: `${this.baseUrl}/?utm_source=email&utm_campaign=${campaign.id}#testimonials`,
-      pro_url: `${this.baseUrl}/subscription?utm_source=email&utm_campaign=${campaign.id}&plan=pro`,
-      testimonials_url: `${this.baseUrl}/?utm_source=email&utm_campaign=${campaign.id}#testimonials`
-    });
-
-    // In a real implementation, you would integrate with an email service like SendGrid, Mailgun, etc.
-    // For now, we'll just log the email and store it in the database
-    console.log(`Sending email to ${user.email}:`, {
-      subject,
-      content: content.substring(0, 100) + '...',
-      campaign_id: campaign.id
-    });
-
-    // Record the email send
-    const { error: sendError } = await supabase
-      .from('email_sends')
-      .insert({
-        campaign_id: campaign.id,
-        user_id: user.user_id,
-        email: user.email,
-        status: 'sent'
-      });
-
-    if (sendError) {
-      console.error('Failed to record email send:', sendError);
-    }
-
-    // Update user's last email sent timestamp
-    await this.updateUserEmailPreferences(user.user_id, {
-      last_email_sent: new Date().toISOString()
-    });
-  }
-
-  // Replace template variables
-  private replaceVariables(template: string, variables: Record<string, string>): string {
-    let result = template;
-    for (const [key, value] of Object.entries(variables)) {
-      const regex = new RegExp(`{{${key}}}`, 'g');
-      result = result.replace(regex, value);
-    }
-    return result;
-  }
-
-  // Get campaign by ID
-  async getCampaign(campaignId: string): Promise<EmailCampaign | null> {
-    const { data, error } = await supabase
-      .from('email_campaigns')
-      .select('*')
-      .eq('id', campaignId)
-      .single();
-
-    if (error) return null;
-    return data;
-  }
-
-  // Get all campaigns
   async getCampaigns(): Promise<EmailCampaign[]> {
-    const { data, error } = await supabase
-      .from('email_campaigns')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data || [];
+    console.log('📧 Email campaigns: Supabase removed, using Hasura + Neon only');
+    return [];
   }
 
-  // Update user email preferences
-  async updateUserEmailPreferences(userId: string, updates: Partial<UserEmailPreferences>): Promise<void> {
-    const { error } = await supabase
-      .from('user_email_preferences')
-      .upsert({
-        user_id: userId,
-        ...updates,
-        updated_at: new Date().toISOString()
-      });
-
-    if (error) throw error;
+  async createCampaign(campaign: Omit<EmailCampaign, 'id' | 'sent_count' | 'created_at' | 'updated_at'>): Promise<EmailCampaign | null> {
+    console.log('📧 Create campaign: Supabase removed, using Hasura + Neon only');
+    return null;
   }
 
-  // Get email analytics for a campaign
-  async getCampaignAnalytics(campaignId: string): Promise<EmailAnalytics[]> {
-    const { data, error } = await supabase
-      .from('email_analytics')
-      .select('*')
-      .eq('campaign_id', campaignId)
-      .order('date', { ascending: false });
-
-    if (error) throw error;
-    return data || [];
+  async updateCampaign(id: string, updates: Partial<EmailCampaign>): Promise<boolean> {
+    console.log('📧 Update campaign: Supabase removed, using Hasura + Neon only');
+    return false;
   }
 
-  // Get email send statistics
-  async getEmailSendStats(campaignId: string): Promise<{
-    total_sent: number;
-    total_opened: number;
-    total_clicked: number;
-    total_unsubscribed: number;
-    total_bounced: number;
-    open_rate: number;
-    click_rate: number;
-  }> {
-    const { data, error } = await supabase
-      .from('email_sends')
-      .select('status')
-      .eq('campaign_id', campaignId);
-
-    if (error) throw error;
-
-    const stats = {
-      total_sent: 0,
-      total_opened: 0,
-      total_clicked: 0,
-      total_unsubscribed: 0,
-      total_bounced: 0,
-      open_rate: 0,
-      click_rate: 0
-    };
-
-    data?.forEach(send => {
-      stats.total_sent++;
-      if (send.status === 'opened' || send.status === 'clicked') stats.total_opened++;
-      if (send.status === 'clicked') stats.total_clicked++;
-      if (send.status === 'unsubscribed') stats.total_unsubscribed++;
-      if (send.status === 'bounced') stats.total_bounced++;
-    });
-
-    stats.open_rate = stats.total_sent > 0 ? (stats.total_opened / stats.total_sent) * 100 : 0;
-    stats.click_rate = stats.total_sent > 0 ? (stats.total_clicked / stats.total_sent) * 100 : 0;
-
-    return stats;
+  async deleteCampaign(id: string): Promise<boolean> {
+    console.log('📧 Delete campaign: Supabase removed, using Hasura + Neon only');
+    return false;
   }
 
-  // Schedule automated email campaigns
-  async scheduleAutomatedCampaigns(): Promise<void> {
-    const templates = await this.getEmailTemplates();
-    const nonSubscribedUsers = await this.getNonSubscribedUsers(1000);
+  async sendEmail(to: string, subject: string, content: string, htmlContent?: string): Promise<boolean> {
+    console.log('📧 Send email: Supabase removed, using Hasura + Neon only');
+    console.log(`📧 Would send to: ${to}, subject: ${subject}`);
+    return false;
+  }
 
-    if (nonSubscribedUsers.length === 0) return;
+  async sendCampaign(campaignId: string, userIds: string[]): Promise<boolean> {
+    console.log('📧 Send campaign: Supabase removed, using Hasura + Neon only');
+    console.log(`📧 Would send campaign ${campaignId} to ${userIds.length} users`);
+    return false;
+  }
 
-    // Schedule different types of campaigns based on frequency
-    const now = new Date();
-    const campaigns = [];
+  async getUsers(limit: number = 100, offset: number = 0): Promise<EmailUser[]> {
+    console.log('📧 Get users: Supabase removed, using Hasura + Neon only');
+    return [];
+  }
 
-    // Subscription reminder (every 7 days)
-    const subscriptionTemplate = templates.find(t => t.template_type === 'subscription');
-    if (subscriptionTemplate) {
-      campaigns.push({
-        name: `Subscription Reminder - ${now.toISOString().split('T')[0]}`,
-        subject: subscriptionTemplate.subject_template,
-        template_type: 'subscription',
-        content: subscriptionTemplate.content_template,
-        html_content: subscriptionTemplate.html_template,
-        target_audience: 'non_subscribed',
-        is_active: true,
-        scheduled_at: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString() // Tomorrow
-      });
-    }
+  async getNonSubscribedUsers(limit: number = 100): Promise<EmailUser[]> {
+    console.log('📧 Get non-subscribed users: Supabase removed, using Hasura + Neon only');
+    return [];
+  }
 
-    // Sale announcement (every 14 days)
-    const saleTemplate = templates.find(t => t.template_type === 'sale');
-    if (saleTemplate && Math.random() < 0.3) { // 30% chance of sale
-      campaigns.push({
-        name: `Sale Announcement - ${now.toISOString().split('T')[0]}`,
-        subject: saleTemplate.subject_template,
-        template_type: 'sale',
-        content: saleTemplate.content_template,
-        html_content: saleTemplate.html_template,
-        target_audience: 'non_subscribed',
-        is_active: true,
-        scheduled_at: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString() // Day after tomorrow
-      });
-    }
+  async createCampaignFromTemplate(templateId: string, campaignData: any): Promise<EmailCampaign | null> {
+    console.log('📧 Create campaign from template: Supabase removed, using Hasura + Neon only');
+    return null;
+  }
 
-    // Effectiveness showcase (every 10 days)
-    const effectivenessTemplate = templates.find(t => t.template_type === 'effectiveness');
-    if (effectivenessTemplate) {
-      campaigns.push({
-        name: `Effectiveness Showcase - ${now.toISOString().split('T')[0]}`,
-        subject: effectivenessTemplate.subject_template,
-        template_type: 'effectiveness',
-        content: effectivenessTemplate.content_template,
-        html_content: effectivenessTemplate.html_template,
-        target_audience: 'non_subscribed',
-        is_active: true,
-        scheduled_at: new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString() // 3 days from now
-      });
-    }
+  async getAnalytics(campaignId: string): Promise<EmailAnalytics | null> {
+    console.log('📧 Get analytics: Supabase removed, using Hasura + Neon only');
+    return null;
+  }
 
-    // Testimonial focus (every 12 days)
-    const testimonialTemplate = templates.find(t => t.template_type === 'testimonial');
-    if (testimonialTemplate) {
-      campaigns.push({
-        name: `Testimonial Focus - ${now.toISOString().split('T')[0]}`,
-        subject: testimonialTemplate.subject_template,
-        template_type: 'testimonial',
-        content: testimonialTemplate.content_template,
-        html_content: testimonialTemplate.html_template,
-        target_audience: 'non_subscribed',
-        is_active: true,
-        scheduled_at: new Date(now.getTime() + 4 * 24 * 60 * 60 * 1000).toISOString() // 4 days from now
-      });
-    }
-
-    // Create campaigns
-    for (const campaign of campaigns) {
-      try {
-        await this.createCampaign(campaign);
-        console.log(`Created campaign: ${campaign.name}`);
-      } catch (error) {
-        console.error(`Failed to create campaign ${campaign.name}:`, error);
-      }
-    }
+  async updateAnalytics(campaignId: string, analytics: Partial<EmailAnalytics>): Promise<boolean> {
+    console.log('📧 Update analytics: Supabase removed, using Hasura + Neon only');
+    return false;
   }
 
   // Process scheduled campaigns
   async processScheduledCampaigns(): Promise<void> {
-    const now = new Date();
-    const { data: campaigns, error } = await supabase
-      .from('email_campaigns')
-      .select('*')
-      .eq('is_active', true)
-      .is('sent_at', null)
-      .lte('scheduled_at', now.toISOString());
-
-    if (error) {
-      console.error('Failed to fetch scheduled campaigns:', error);
-      return;
-    }
-
-    for (const campaign of campaigns || []) {
-      try {
-        const users = await this.getNonSubscribedUsers(1000);
-        const userIds = users.map(u => u.user_id);
-        
-        await this.sendCampaign(campaign.id, userIds);
-        
-        // Mark campaign as sent
-        await supabase
-          .from('email_campaigns')
-          .update({ sent_at: now.toISOString() })
-          .eq('id', campaign.id);
-
-        console.log(`Processed campaign: ${campaign.name}`);
-      } catch (error) {
-        console.error(`Failed to process campaign ${campaign.name}:`, error);
-      }
-    }
+    console.log('📧 Email campaigns: Supabase removed, using Hasura + Neon only');
+    console.log('📧 No scheduled campaigns to process - email service disabled');
+    return;
   }
 }
 

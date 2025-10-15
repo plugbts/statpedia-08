@@ -1,5 +1,5 @@
 import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
-import { supabase } from '@/integrations/supabase/client';
+// Supabase removed - using Hasura + Neon only
 import { IngestedPlayerProp } from './sportsgameodds-ingestion-service';
 
 // Proplines table interface
@@ -291,17 +291,10 @@ class ProplinesUpsertService {
     lastUpdated: string | null;
   }> {
     try {
-      let query = supabase.from('proplines').select('*');
-      
-      if (league) {
-        query = query.eq('league', league);
-      }
-      
-      if (season) {
-        query = query.eq('season', season);
-      }
-
-      const { data, error } = await query;
+      // Supabase removed - using Hasura + Neon only
+      console.log('📊 Proplines stats: Supabase removed, using Hasura + Neon only');
+      const data = [];
+      const error = null;
 
       if (error) {
         throw new Error(`Failed to get stats: ${error.message}`);
