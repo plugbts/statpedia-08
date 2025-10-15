@@ -12,7 +12,6 @@ import { cn } from '@/lib/utils';
 import { VerifiedCheckmark } from '@/components/ui/verified-checkmark';
 import { useBackgroundMusic } from '@/hooks/use-background-music';
 import { MusicTipBubble } from '@/components/ui/music-tip-bubble';
-import { useUser } from '@/contexts/user-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserDisplayName as getUserDisplayNameUtil, getUserHandle } from '@/utils/user-display';
 import { userIdentificationService } from '@/services/user-identification-service';
@@ -29,34 +28,31 @@ interface NavigationProps {
 
 export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSport = 'nfl', onLogout, predictionsCount = 0 }: NavigationProps) => {
   const { user: authUser, isAuthenticated } = useAuth();
-  const { 
-    userIdentity, 
-    userSubscription, 
-    getUserInitials 
-  } = useUser();
   
-  // Use role from AuthContext if available, fallback to UserContext
+  // Use role from AuthContext
   const userRole = authUser?.role || 'user';
   
-  // Use auth user for display if available, fallback to user context
+  // Helper functions for user display
+  const getUserInitials = () => {
+    const name = authUser?.display_name || authUser?.email || 'User';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  };
+  
+  // Use auth user for display
   const getUserDisplayName = () => {
-    let displayName = '';
     if (authUser && isAuthenticated) {
-      displayName = getUserDisplayNameUtil(authUser);
-    } else {
-      displayName = userIdentity ? userIdentificationService.getUserDisplayName(userIdentity) : 'User';
+      const displayName = getUserDisplayNameUtil(authUser);
+      // Remove any role prefixes like [OWNER], [ADMIN], etc.
+      return displayName.replace(/^\[(OWNER|ADMIN|MOD|USER)\]\s*/, '');
     }
-    
-    // Remove any role prefixes like [OWNER], [ADMIN], etc.
-    return displayName.replace(/^\[(OWNER|ADMIN|MOD|USER)\]\s*/, '');
+    return 'User';
   };
   
   const getUserUsername = () => {
     if (authUser && isAuthenticated) {
       return getUserHandle(authUser);
     }
-    const username = userIdentity ? userIdentificationService.getUserUsername(userIdentity) : 'user';
-    return username.startsWith('@') ? username : `@${username}`;
+    return '@user';
   };
   const { isPlaying, needsUserInteraction, togglePlayPause } = useBackgroundMusic({ enabled: true, volume: 0.08 });
   const [showMusicTip, setShowMusicTip] = useState(false);
