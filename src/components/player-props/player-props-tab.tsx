@@ -267,7 +267,7 @@ const formatCompactTime = (gameTime: string, gameDate: string) => {
   }
 };
 
-import { hasuraPlayerPropsAPI } from '@/services/hasura-player-props-api';
+import { hasuraPlayerPropsNormalizedService } from '@/services/hasura-player-props-normalized-service';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   TrendingUp, 
@@ -556,25 +556,12 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     setRealProps([]); // Clear data
     
     try {
-      // First check if all games have ended and refresh if needed
-      logAPI('PlayerPropsTab', `Checking if games have ended for ${sport}`);
-      const refreshCheck = await hasuraPlayerPropsAPI.checkAndRefreshIfGamesEnded(sport);
-      if (refreshCheck.refreshed) {
-        logSuccess('PlayerPropsTab', `Auto-refreshed cache: ${refreshCheck.reason}`);
-      } else {
-        logInfo('PlayerPropsTab', `No refresh needed: ${refreshCheck.reason}`);
-      }
-      
-      // Use Cloudflare Workers API without pagination
-      logAPI('PlayerPropsTab', `Calling Hasura API for ${sport} player props`);
-      const viewParam = searchParams.get('view');
-      const dateParam = searchParams.get('date');
-      const result = await hasuraPlayerPropsAPI.getPlayerProps(
-        sport, 
-        true, // Force refresh for debugging
-        dateParam || undefined,
-        viewParam || undefined
-      );
+      // Use normalized service to get player props
+      logAPI('PlayerPropsTab', `Calling normalized service for ${sport} player props`);
+      const result = await hasuraPlayerPropsNormalizedService.getPlayerProps({
+        sport: sport,
+        limit: 1000 // Set a reasonable limit
+      });
       
       logAPI('PlayerPropsTab', `Hasura API returned ${result?.length || 0} props`);
       console.log('🔍 [API_DEBUG] API result:', result);
@@ -620,55 +607,68 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       }
       
       if (result && Array.isArray(result) && result.length > 0) {
-        logSuccess('PlayerPropsTab', `Setting ${result.length} server-side cached props for ${sport}`);
-        logDebug('PlayerPropsTab', 'Backend props sample:', result.slice(0, 2));
+        logSuccess('PlayerPropsTab', `Setting ${result.length} normalized props for ${sport}`);
+        logDebug('PlayerPropsTab', 'Normalized props sample:', result.slice(0, 2));
         
-        // Calculate EV for each prop while preserving original order
-        const propsWithEV = await Promise.all((result as unknown as APIPlayerProp[]).map(async (prop, index) => {
+        // Transform normalized props to the expected format
+        const transformedProps = result.map((prop, index) => {
           try {
             // Calculate EV for both over and under, use the better one
             const overEV = await evCalculatorService.calculateAIRating({
-              id: prop.id,
-              playerName: prop.playerName,
-              propType: prop.propType,
+              id: prop.prop_id,
+              playerName: prop.player_name,
+              propType: prop.market,
               line: prop.line,
-              odds: prop.overOdds?.toString() || '0',
+              odds: prop.odds?.toString() || '0',
               sport: prop.sport || 'nfl',
-              team: prop.team || '',
-              opponent: prop.opponent || '',
-              gameDate: prop.gameDate || new Date().toISOString(),
-              hitRate: prop.hitRate || 0.5,
-              recentForm: prop.recentForm || 0.5,
-              injuryStatus: prop.injuryStatus || 'healthy',
-              restDays: prop.restDays || 3
+              team: prop.team_name || '',
+              opponent: prop.opponent_name || '',
+              gameDate: prop.game_date || new Date().toISOString(),
+              hitRate: 0.5,
+              recentForm: 0.5,
+              injuryStatus: 'healthy',
+              restDays: 3
             });
             
             const underEV = await evCalculatorService.calculateAIRating({
-              id: prop.id,
-              playerName: prop.playerName,
-              propType: prop.propType,
+              id: prop.prop_id,
+              playerName: prop.player_name,
+              propType: prop.market,
               line: prop.line,
-              odds: prop.underOdds?.toString() || '0',
+              odds: prop.odds?.toString() || '0',
               sport: prop.sport || 'nfl',
-              team: prop.team || '',
-              opponent: prop.opponent || '',
-              gameDate: prop.gameDate || new Date().toISOString(),
-              hitRate: prop.hitRate || 0.5,
-              recentForm: prop.recentForm || 0.5,
-              injuryStatus: prop.injuryStatus || 'healthy',
-              restDays: prop.restDays || 3
+              team: prop.team_name || '',
+              opponent: prop.opponent_name || '',
+              gameDate: prop.game_date || new Date().toISOString(),
+              hitRate: 0.5,
+              recentForm: 0.5,
+              injuryStatus: 'healthy',
+              restDays: 3
             });
             
             // Use the better EV (higher percentage)
             const bestEV = overEV.evPercentage > underEV.evPercentage ? overEV : underEV;
             
             return {
-              ...prop,
-              // Add missing fields from entry.player and entry.team
-              player_id: prop.playerId || '',
-              player_name: prop.playerName || '',
+              // Map normalized prop to expected format
+              id: prop.prop_id,
+              playerId: prop.player_id,
+              player_id: prop.player_id,
+              playerName: prop.player_name,
+              player_name: prop.player_name,
+              team: prop.team_name,
+              teamAbbr: prop.team_abbrev,
+              opponent: prop.opponent_name,
+              opponentAbbr: prop.opponent_abbrev,
+              gameId: prop.game_id,
+              sport: prop.sport,
+              propType: prop.market,
+              line: prop.line,
+              overOdds: prop.odds, // Using single odds value
+              underOdds: prop.odds, // Using single odds value
+              gameDate: prop.game_date,
+              gameTime: prop.game_date,
               position: prop.position || '—',
-              team: prop.team || '',
               expectedValue: bestEV.evPercentage / 100, // Convert to decimal
               confidence: bestEV.confidence / 100, // Convert to decimal
               aiRating: bestEV.aiRating,
@@ -676,9 +676,27 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
               originalIndex: index // Preserve original order
             };
           } catch (error) {
-            console.warn('EV calculation failed for prop:', prop.playerName, error);
+            console.warn('EV calculation failed for prop:', prop.player_name, error);
             return {
-              ...prop,
+              // Map normalized prop to expected format with defaults
+              id: prop.prop_id,
+              playerId: prop.player_id,
+              player_id: prop.player_id,
+              playerName: prop.player_name,
+              player_name: prop.player_name,
+              team: prop.team_name,
+              teamAbbr: prop.team_abbrev,
+              opponent: prop.opponent_name,
+              opponentAbbr: prop.opponent_abbrev,
+              gameId: prop.game_id,
+              sport: prop.sport,
+              propType: prop.market,
+              line: prop.line,
+              overOdds: prop.odds,
+              underOdds: prop.odds,
+              gameDate: prop.game_date,
+              gameTime: prop.game_date,
+              position: prop.position || '—',
               expectedValue: 0,
               confidence: 0.5,
               aiRating: 3,
@@ -689,7 +707,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
         }));
         
         // Sort by original index to preserve API order
-        const sortedPropsWithEV = propsWithEV.sort((a, b) => (a.originalIndex || 0) - (b.originalIndex || 0));
+        const sortedPropsWithEV = transformedProps.sort((a, b) => (a.originalIndex || 0) - (b.originalIndex || 0));
         
         // Debug: Log the first 10 props to verify order
         console.log('🎯 PRIORITY ORDER DEBUG - First 10 props after EV calculation:');
@@ -885,12 +903,8 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
     const interval = setInterval(async () => {
       try {
         logInfo('PlayerPropsTab', 'Periodic check for game status...');
-        const refreshCheck = await hasuraPlayerPropsAPI.checkAndRefreshIfGamesEnded(selectedSport);
-        if (refreshCheck.refreshed) {
-          logSuccess('PlayerPropsTab', `Auto-refreshed cache: ${refreshCheck.reason}`);
-          // Reload props after refresh
-          loadPlayerProps(selectedSport);
-        }
+        // Note: Normalized service doesn't have refresh check, just reload props
+        loadPlayerProps(selectedSport);
       } catch (error) {
         logError('PlayerPropsTab', 'Error in periodic game check:', error);
       }
