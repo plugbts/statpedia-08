@@ -146,8 +146,10 @@ export class YouTubeDirectPlayer {
   // Stop the audio
   stopAudio(): void {
     try {
-      if (this.player) {
+      if (this.player && typeof this.player.stopVideo === 'function') {
         this.player.stopVideo();
+      } else if (this.player && typeof this.player.pauseVideo === 'function') {
+        this.player.pauseVideo();
       }
       
       // Remove player div

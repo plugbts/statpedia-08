@@ -1,9 +1,16 @@
 # Admin Credentials
 
-## Default Admin Account
+## Working Credentials for Lovable Frontend
+
+- **Email**: `lovable@statpedia.com`
+- **Password**: `Admin123!@#Secure2025`
+- **Role**: User/Admin
+- **Status**: Active (Production Ready)
+
+## Default Admin Account (Development)
 
 - **Email**: `admin@statpedia.com`
-- **Password**: `admin123!456!?`
+- **Password**: `Admin123!@#Secure2025`
 - **Role**: Admin/Owner
 - **Status**: Active
 
@@ -22,7 +29,7 @@
 
 ## Notes
 
-- Password was updated on 2025-10-15
+- Password was updated on 2025-10-15 to meet security requirements
 - Account has admin/owner role permissions
 - Can access all player props and admin features
 - JWT token includes Hasura claims for GraphQL access

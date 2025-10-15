@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { PlayerPropCard3D } from './3d-player-prop-card';
 import { PlayerPropsColumnView } from './player-props-column-view';
+import { EnhancedPlayerPropCard } from './enhanced-player-prop-card';
 import { EnhancedAnalysisOverlay } from '../predictions/enhanced-analysis-overlay';
 import { PlayerPropCardAd } from '@/components/ads/ad-placements';
 import { validateHeadshots } from '@/utils/validateHeadshots';
