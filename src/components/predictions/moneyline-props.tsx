@@ -72,16 +72,10 @@ interface MoneylineGame {
 }
 
 interface MoneylinePropsProps {
-  userSubscription: string;
-  userRole?: string;
   selectedSport?: string;
 }
 
-export const MoneylineProps: React.FC<MoneylinePropsProps> = ({
-  userSubscription,
-  userRole = "user",
-  selectedSport = "nfl",
-}) => {
+export const MoneylineProps: React.FC<MoneylinePropsProps> = ({ selectedSport = "nfl" }) => {
   const access = useAccess();
   const { toast } = useToast();
   const [predictions, setPredictions] = useState<GamePrediction[]>([]);
