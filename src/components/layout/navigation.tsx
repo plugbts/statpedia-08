@@ -1,21 +1,50 @@
-import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { SportIcon } from '@/components/ui/sport-icon';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import React, { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { SportIcon } from "@/components/ui/sport-icon";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 // import { NotificationBell } from '@/components/notifications/notification-bell'; // Temporarily disabled
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart3, Target, TrendingUp, Calendar, Settings, Wifi, LogOut, MoreVertical, Zap, Brain, Play, Pause, CreditCard, MessageCircle, Wallet, Users, X, Crown, Star, Lock, Sparkles, ChevronDown } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { VerifiedCheckmark } from '@/components/ui/verified-checkmark';
-import { useBackgroundMusic } from '@/hooks/use-background-music';
-import { MusicTipBubble } from '@/components/ui/music-tip-bubble';
-import { useAuth } from '@/contexts/AuthContext';
-import { getUserDisplayName as getUserDisplayNameUtil, getUserHandle } from '@/utils/user-display';
-import { userIdentificationService } from '@/services/user-identification-service';
-import { UserDisplay } from '@/components/ui/user-display';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  BarChart3,
+  Target,
+  TrendingUp,
+  Calendar,
+  Settings,
+  Wifi,
+  LogOut,
+  MoreVertical,
+  Zap,
+  Brain,
+  Play,
+  Pause,
+  CreditCard,
+  MessageCircle,
+  Wallet,
+  Users,
+  X,
+  Crown,
+  Star,
+  Lock,
+  Sparkles,
+  ChevronDown,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { VerifiedCheckmark } from "@/components/ui/verified-checkmark";
+import { useBackgroundMusic } from "@/hooks/use-background-music";
+import { MusicTipBubble } from "@/components/ui/music-tip-bubble";
+import { useAuth } from "@/contexts/AuthContext";
+import { getUserDisplayName as getUserDisplayNameUtil, getUserHandle } from "@/utils/user-display";
+import { userIdentificationService } from "@/services/user-identification-service";
+import { UserDisplay } from "@/components/ui/user-display";
 
 interface NavigationProps {
   activeTab: string;
@@ -26,65 +55,91 @@ interface NavigationProps {
   predictionsCount?: number;
 }
 
-export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSport = 'nfl', onLogout, predictionsCount = 0 }: NavigationProps) => {
-  const { user: authUser, isAuthenticated } = useAuth();
-  
+export const Navigation = ({
+  activeTab,
+  onTabChange,
+  onSportChange,
+  selectedSport = "nfl",
+  onLogout,
+  predictionsCount = 0,
+}: NavigationProps) => {
+  const { user: authUser, isAuthenticated, userSubscription } = useAuth();
+
   // Use role from AuthContext
-  const userRole = authUser?.role || 'user';
-  
+  const userRole = authUser?.role || "user";
+
   // Helper functions for user display
   const getUserInitials = () => {
-    const name = authUser?.display_name || authUser?.email || 'User';
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    const name = authUser?.display_name || authUser?.email || "User";
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
   };
-  
+
   // Use auth user for display
   const getUserDisplayName = () => {
     if (authUser && isAuthenticated) {
       const displayName = getUserDisplayNameUtil(authUser);
       // Remove any role prefixes like [OWNER], [ADMIN], etc.
-      return displayName.replace(/^\[(OWNER|ADMIN|MOD|USER)\]\s*/, '');
+      return displayName.replace(/^\[(OWNER|ADMIN|MOD|USER)\]\s*/, "");
     }
-    return 'User';
+    return "User";
   };
-  
+
   const getUserUsername = () => {
     if (authUser && isAuthenticated) {
       return getUserHandle(authUser);
     }
-    return '@user';
+    return "@user";
   };
-  const { isPlaying, needsUserInteraction, togglePlayPause } = useBackgroundMusic({ enabled: true, volume: 0.08 });
+  const { isPlaying, needsUserInteraction, togglePlayPause } = useBackgroundMusic({
+    enabled: true,
+    volume: 0.08,
+  });
   const [showMusicTip, setShowMusicTip] = useState(false);
   const [hasShownTip, setHasShownTip] = useState(false);
   const [showSubscriptionOverlay, setShowSubscriptionOverlay] = useState(false);
-  const [lockedFeature, setLockedFeature] = useState<{ name: string; description: string } | null>(null);
+  const [lockedFeature, setLockedFeature] = useState<{ name: string; description: string } | null>(
+    null,
+  );
 
   // Premium features configuration
   const premiumFeatures = {
-    'strikeout-center': {
-      name: 'Strikeout Center',
-      description: 'Advanced MLB strikeout analysis with AI-powered predictions and detailed pitcher performance metrics.'
+    "strikeout-center": {
+      name: "Strikeout Center",
+      description:
+        "Advanced MLB strikeout analysis with AI-powered predictions and detailed pitcher performance metrics.",
     },
-    'most-likely': {
-      name: 'Most Likely',
-      description: 'AI-driven probability analysis showing which players are most likely to hit or miss their targets.'
+    "most-likely": {
+      name: "Most Likely",
+      description:
+        "AI-driven probability analysis showing which players are most likely to hit or miss their targets.",
     },
-    'parlay-gen': {
-      name: 'Parlay Gen',
-      description: 'AI-powered parlay generator with customizable leg counts and odds filtering for maximum profit potential.'
-    }
+    "parlay-gen": {
+      name: "Parlay Gen",
+      description:
+        "AI-powered parlay generator with customizable leg counts and odds filtering for maximum profit potential.",
+    },
   };
 
   // Check if user has access to premium features
   // Owner role bypasses ALL subscription restrictions
-  const hasProAccess = userRole === 'owner' || userSubscription === 'pro' || userSubscription === 'premium' || ['mod', 'admin'].includes(userRole);
-  const hasPremiumAccess = userRole === 'owner' || userSubscription === 'premium' || ['admin'].includes(userRole);
+  const sub = userSubscription ?? "free";
+  const hasProAccess =
+    userRole === "owner" ||
+    sub === "pro" ||
+    sub === "premium" ||
+    ["mod", "admin"].includes(userRole);
+  const hasPremiumAccess =
+    userRole === "owner" || sub === "premium" || ["admin"].includes(userRole);
 
   // Handle premium feature access
   const handlePremiumFeatureClick = (featureId: string) => {
     // Check if it's a premium-only feature (parlay-gen)
-    if (featureId === 'parlay-gen' && !hasPremiumAccess) {
+    if (featureId === "parlay-gen" && !hasPremiumAccess) {
       setLockedFeature(premiumFeatures[featureId as keyof typeof premiumFeatures]);
       setShowSubscriptionOverlay(true);
     } else if (!hasProAccess && premiumFeatures[featureId as keyof typeof premiumFeatures]) {
@@ -98,13 +153,13 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
   // Handle subscription overlay actions
   const handleSubscribe = () => {
     setShowSubscriptionOverlay(false);
-    onTabChange('plans');
+    onTabChange("plans");
   };
 
   const handleCloseSubscriptionOverlay = () => {
     setShowSubscriptionOverlay(false);
     setLockedFeature(null);
-    onTabChange('dashboard');
+    onTabChange("dashboard");
   };
 
   // Show music tip when music starts playing (only once per session)
@@ -116,61 +171,96 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
   }, [isPlaying, hasShownTip]);
 
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="w-4 h-4" /> },
-    { id: 'predictions', label: 'Predictions', icon: <Target className="w-4 h-4" />, badge: predictionsCount > 100 ? '100+' : predictionsCount.toString() },
-    { id: 'player-props', label: 'Player Props', icon: <TrendingUp className="w-4 h-4" />, badge: 'NEW' },
-    { id: 'insights', label: 'Insights', icon: <Brain className="w-4 h-4" />, badge: 'HOT' },
-    { id: 'bet-tracking', label: 'Bet Tracking', icon: <Wallet className="w-4 h-4" />, badge: 'NEW' },
+    { id: "dashboard", label: "Dashboard", icon: <BarChart3 className="w-4 h-4" /> },
+    {
+      id: "predictions",
+      label: "Predictions",
+      icon: <Target className="w-4 h-4" />,
+      badge: predictionsCount > 100 ? "100+" : predictionsCount.toString(),
+    },
+    {
+      id: "player-props",
+      label: "Player Props",
+      icon: <TrendingUp className="w-4 h-4" />,
+      badge: "NEW",
+    },
+    { id: "insights", label: "Insights", icon: <Brain className="w-4 h-4" />, badge: "HOT" },
+    {
+      id: "bet-tracking",
+      label: "Bet Tracking",
+      icon: <Wallet className="w-4 h-4" />,
+      badge: "NEW",
+    },
     // { id: 'social', label: 'Social', icon: <Users className="w-4 h-4" />, badge: 'NEW' }, // Temporarily disabled
-    { id: 'plans', label: 'Plans', icon: <CreditCard className="w-4 h-4" /> },
+    { id: "plans", label: "Plans", icon: <CreditCard className="w-4 h-4" /> },
   ];
 
   // Role-based access control for extra items
   const getExtraItems = () => {
     const items = [
-      { id: 'strikeout-center', label: 'Strikeout Center', icon: <Zap className="w-4 h-4" />, badge: 'MLB' },
-      { id: 'most-likely', label: 'Most Likely', icon: <Target className="w-4 h-4" />, badge: 'MLB' },
-      { id: 'parlay-gen', label: 'Parlay Gen', icon: <TrendingUp className="w-4 h-4" />, badge: 'PREMIUM' },
-      { id: 'analytics', label: 'Analytics', icon: <TrendingUp className="w-4 h-4" /> },
-      { id: 'backtest', label: 'Backtest', icon: <Calendar className="w-4 h-4" /> },
+      {
+        id: "strikeout-center",
+        label: "Strikeout Center",
+        icon: <Zap className="w-4 h-4" />,
+        badge: "MLB",
+      },
+      {
+        id: "most-likely",
+        label: "Most Likely",
+        icon: <Target className="w-4 h-4" />,
+        badge: "MLB",
+      },
+      {
+        id: "parlay-gen",
+        label: "Parlay Gen",
+        icon: <TrendingUp className="w-4 h-4" />,
+        badge: "PREMIUM",
+      },
+      { id: "analytics", label: "Analytics", icon: <TrendingUp className="w-4 h-4" /> },
+      { id: "backtest", label: "Backtest", icon: <Calendar className="w-4 h-4" /> },
     ];
-    
+
     // Admin panel only visible to mod, admin, and owner
-    if (['mod', 'admin', 'owner'].includes(userRole)) {
-      items.push({ id: 'admin', label: 'Admin Panel', icon: <Settings className="w-4 h-4" /> });
+    if (["mod", "admin", "owner"].includes(userRole)) {
+      items.push({ id: "admin", label: "Admin Panel", icon: <Settings className="w-4 h-4" /> });
     }
-    
+
     // Sync test only visible to owner
-    if (userRole === 'owner') {
-      items.push({ id: 'sync-test', label: 'Sync Test', icon: <Wifi className="w-4 h-4" />, badge: 'DEV' });
+    if (userRole === "owner") {
+      items.push({
+        id: "sync-test",
+        label: "Sync Test",
+        icon: <Wifi className="w-4 h-4" />,
+        badge: "DEV",
+      });
     }
-    
+
     return items;
   };
-  
+
   const extraItems = getExtraItems();
 
   // Generate tooltip content based on user role
   const getLogoTooltipContent = () => {
     const baseFeatures = [
       "📊 Dashboard - View your analytics",
-      "🎯 Predictions - See AI-powered picks", 
+      "🎯 Predictions - See AI-powered picks",
       "📈 Player Props - Detailed analysis",
-      "🧠 Insights - Advanced analytics"
+      "🧠 Insights - Advanced analytics",
     ];
 
     const extraFeatures = [];
-    
-    if (['mod', 'admin', 'owner'].includes(userRole)) {
+
+    if (["mod", "admin", "owner"].includes(userRole)) {
       extraFeatures.push("⚙️ Admin Panel - Manage system");
     }
-    
-    if (userRole === 'owner') {
+
+    if (userRole === "owner") {
       extraFeatures.push("🔧 Sync Test - Development tools");
     }
 
     const allFeatures = [...baseFeatures, ...extraFeatures];
-    
+
     return (
       <div className="space-y-1">
         <div className="font-semibold text-sm">Click to access:</div>
@@ -184,19 +274,23 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
   };
 
   const sports = [
-    { id: 'nba', label: 'NBA', sport: 'nba' },
-    { id: 'nfl', label: 'NFL', sport: 'nfl' },
-    { id: 'college-basketball', label: 'CBB', sport: 'college-basketball' },
-    { id: 'college-football', label: 'CFB', sport: 'college-football' },
-    { id: 'nhl', label: 'NHL', sport: 'nhl' },
-    { id: 'wnba', label: 'WNBA', sport: 'wnba' },
-    { id: 'mlb', label: 'MLB', sport: 'mlb' },
+    { id: "nba", label: "NBA", sport: "nba" },
+    { id: "nfl", label: "NFL", sport: "nfl" },
+    { id: "college-basketball", label: "CBB", sport: "college-basketball" },
+    { id: "college-football", label: "CFB", sport: "college-football" },
+    { id: "nhl", label: "NHL", sport: "nhl" },
+    { id: "wnba", label: "WNBA", sport: "wnba" },
+    { id: "mlb", label: "MLB", sport: "mlb" },
   ];
 
   return (
     <nav className="bg-card/30 backdrop-blur-md border-b border-border/50 sticky top-0 z-50 glass-morphism shadow-3d">
-      <div className={`${activeTab === 'player-props' ? 'w-full min-w-[1320px]' : 'max-w-7xl mx-auto'} ${activeTab === 'player-props' ? 'px-0' : 'px-4 sm:px-6 lg:px-8'}`}>
-        <div className={`flex items-center justify-between h-14 gap-2 ${activeTab === 'player-props' ? 'px-4 sm:px-6 lg:px-8' : ''}`}>
+      <div
+        className={`${activeTab === "player-props" ? "w-full min-w-[1320px]" : "max-w-7xl mx-auto"} ${activeTab === "player-props" ? "px-0" : "px-4 sm:px-6 lg:px-8"}`}
+      >
+        <div
+          className={`flex items-center justify-between h-14 gap-2 ${activeTab === "player-props" ? "px-4 sm:px-6 lg:px-8" : ""}`}
+        >
           {/* Logo with Extras Dropdown */}
           <div className="flex items-center gap-1 animate-fade-in">
             <TooltipProvider>
@@ -208,41 +302,47 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
                         <div className="w-6 h-6 bg-gradient-primary rounded-md flex items-center justify-center shadow-glow transition-all duration-300 group-hover:shadow-xl">
                           <BarChart3 className="w-3 h-3 text-white" />
                         </div>
-                        <h1 className="text-lg font-display font-bold text-foreground hidden sm:block">Statpedia</h1>
+                        <h1 className="text-lg font-display font-bold text-foreground hidden sm:block">
+                          Statpedia
+                        </h1>
                         <MoreVertical className="w-3 h-3 text-muted-foreground group-hover:text-foreground transition-colors" />
                       </button>
                     </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56 bg-card/95 backdrop-blur-md border-border/50 z-[100]">
-                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                  Extra Features
-                </div>
-                <DropdownMenuSeparator />
-                {extraItems.map((item) => (
-                  <DropdownMenuItem
-                    key={item.id}
-                    onClick={() => handlePremiumFeatureClick(item.id)}
-                    className="gap-2 cursor-pointer"
-                  >
-                    {item.icon}
-                    {item.label}
-                    {item.badge && (
-                      <Badge variant="secondary" className="ml-auto text-xs">
-                        {item.badge}
-                      </Badge>
-                    )}
-                    {/* Show lock icon for premium features if user doesn't have access */}
-                    {((!hasProAccess && (item.id === 'strikeout-center' || item.id === 'most-likely')) || 
-                      (item.id === 'parlay-gen' && !hasPremiumAccess)) && (
-                      <div className="ml-auto">
-                        <div className="w-3 h-3 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 flex items-center justify-center">
-                          <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                        </div>
+                    <DropdownMenuContent
+                      align="start"
+                      className="w-56 bg-card/95 backdrop-blur-md border-border/50 z-[100]"
+                    >
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                        Extra Features
                       </div>
-                    )}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-                    </DropdownMenu>
+                      <DropdownMenuSeparator />
+                      {extraItems.map((item) => (
+                        <DropdownMenuItem
+                          key={item.id}
+                          onClick={() => handlePremiumFeatureClick(item.id)}
+                          className="gap-2 cursor-pointer"
+                        >
+                          {item.icon}
+                          {item.label}
+                          {item.badge && (
+                            <Badge variant="secondary" className="ml-auto text-xs">
+                              {item.badge}
+                            </Badge>
+                          )}
+                          {/* Show lock icon for premium features if user doesn't have access */}
+                          {((!hasProAccess &&
+                            (item.id === "strikeout-center" || item.id === "most-likely")) ||
+                            (item.id === "parlay-gen" && !hasPremiumAccess)) && (
+                            <div className="ml-auto">
+                              <div className="w-3 h-3 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 flex items-center justify-center">
+                                <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                              </div>
+                            </div>
+                          )}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-xs">
                   {getLogoTooltipContent()}
@@ -265,7 +365,7 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
                   onClick={() => onTabChange(item.id)}
                   className={cn(
                     "gap-1 relative transition-all duration-300 font-heading hover-scale px-2 text-xs",
-                    activeTab === item.id && "bg-gradient-primary shadow-glow"
+                    activeTab === item.id && "bg-gradient-primary shadow-glow",
                   )}
                 >
                   {item.icon}
@@ -281,14 +381,19 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
           </div>
 
           {/* User Profile and Logout - Compact */}
-          <div className="flex items-center gap-1 animate-fade-in" style={{ animationDelay: '300ms' }}>
+          <div
+            className="flex items-center gap-1 animate-fade-in"
+            style={{ animationDelay: "300ms" }}
+          >
             {/* Music Play/Pause Button */}
             <Button
               variant="ghost"
               size="sm"
               onClick={togglePlayPause}
               className="h-7 w-7 rounded-full p-0 hover:bg-primary/10 transition-colors"
-              title={needsUserInteraction ? 'Enable Music' : isPlaying ? 'Pause Music' : 'Play Music'}
+              title={
+                needsUserInteraction ? "Enable Music" : isPlaying ? "Pause Music" : "Play Music"
+              }
             >
               {needsUserInteraction ? (
                 <Play className="h-3.5 w-3.5 text-muted-foreground" />
@@ -320,7 +425,10 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
                   </div>
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 bg-card/95 backdrop-blur-md border-border/50 z-[100]">
+              <DropdownMenuContent
+                align="end"
+                className="w-56 bg-card/95 backdrop-blur-md border-border/50 z-[100]"
+              >
                 <DropdownMenuItem className="flex flex-col items-start gap-1 py-3">
                   <div className="flex items-center gap-2 w-full">
                     <Avatar className="h-8 w-8 border border-primary/20">
@@ -337,16 +445,25 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
                     </div>
                   </div>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onTabChange('settings')} className="gap-2 cursor-pointer">
+                <DropdownMenuItem
+                  onClick={() => onTabChange("settings")}
+                  className="gap-2 cursor-pointer"
+                >
                   <Settings className="h-4 w-4" />
                   Settings
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onTabChange('support')} className="gap-2 cursor-pointer">
+                <DropdownMenuItem
+                  onClick={() => onTabChange("support")}
+                  className="gap-2 cursor-pointer"
+                >
                   <MessageCircle className="h-4 w-4" />
                   Support
                 </DropdownMenuItem>
                 {onLogout && (
-                  <DropdownMenuItem onClick={onLogout} className="gap-2 cursor-pointer text-destructive">
+                  <DropdownMenuItem
+                    onClick={onLogout}
+                    className="gap-2 cursor-pointer text-destructive"
+                  >
                     <LogOut className="h-4 w-4" />
                     Logout
                   </DropdownMenuItem>
@@ -357,7 +474,10 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
         </div>
 
         {/* Sports Filter - Dropdown */}
-        <div className="flex items-center justify-center gap-0.5 py-1.5 animate-slide-up" style={{ animationDelay: '150ms' }}>
+        <div
+          className="flex items-center justify-center gap-0.5 py-1.5 animate-slide-up"
+          style={{ animationDelay: "150ms" }}
+        >
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -365,7 +485,7 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
                 size="sm"
                 className="gap-1 transition-all duration-200 hover:bg-card-hover hover-scale px-3 text-xs whitespace-nowrap"
               >
-{sports.find(s => s.sport === selectedSport)?.label || 'Select Sport'}
+                {sports.find((s) => s.sport === selectedSport)?.label || "Select Sport"}
                 <ChevronDown className="w-3 h-3" />
               </Button>
             </DropdownMenuTrigger>
@@ -374,10 +494,7 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
                 <DropdownMenuItem
                   key={sport.id}
                   onClick={() => onSportChange?.(sport.sport)}
-                  className={cn(
-                    "cursor-pointer",
-                    selectedSport === sport.sport && "bg-secondary"
-                  )}
+                  className={cn("cursor-pointer", selectedSport === sport.sport && "bg-secondary")}
                 >
                   {sport.label}
                   {selectedSport === sport.sport && (
@@ -389,9 +506,9 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
           </DropdownMenu>
         </div>
       </div>
-      
+
       {/* Music Tip Bubble */}
-      <MusicTipBubble 
+      <MusicTipBubble
         isVisible={showMusicTip}
         onClose={() => setShowMusicTip(false)}
         duration={10000}
@@ -402,7 +519,7 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
         <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-16 sm:pt-20 px-1 sm:px-2">
           {/* Dark gradient background */}
           <div className="absolute inset-0 bg-gradient-to-br from-black via-gray-900 to-black opacity-95"></div>
-          
+
           {/* Popup container - Ultra compact */}
           <div className="relative z-[9999] w-full max-w-xs sm:max-w-sm transform perspective-1000">
             {/* 3D Effect Container */}
@@ -421,9 +538,7 @@ export const Navigation = ({ activeTab, onTabChange, onSportChange, selectedSpor
                   <CardTitle className="text-lg sm:text-xl font-bold bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 bg-clip-text text-transparent">
                     Pro Locked
                   </CardTitle>
-                  <p className="text-muted-foreground text-xs">
-                    Unlock with Statpedia Pro
-                  </p>
+                  <p className="text-muted-foreground text-xs">Unlock with Statpedia Pro</p>
                 </CardHeader>
 
                 <CardContent className="space-y-2 px-2 pb-2">

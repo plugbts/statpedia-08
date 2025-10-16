@@ -26,6 +26,7 @@ export interface AuthContextType {
   tokens: AuthTokens | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  userSubscription: string; // 'free' | 'pro' | 'premium' (extensible)
   signup: (email: string, password: string, displayName?: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -38,6 +39,7 @@ const defaultContext: AuthContextType = {
   tokens: null,
   isLoading: true,
   isAuthenticated: false,
+  userSubscription: "free",
   signup: async () => {},
   login: async () => {},
   logout: async () => {},
@@ -131,6 +133,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [tokens, setTokens] = useState<AuthTokens | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [userSubscription, setUserSubscription] = useState<string>("free");
 
   const isAuthenticated = !!user && !!tokens;
 
@@ -146,6 +149,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (Date.now() < storedTokens.expiresAt) {
             setTokens(storedTokens);
             setUser(storedUser);
+            // Attempt to hydrate subscription from stored user if present; else default
+            const sub = (storedUser as any).subscription_tier || "free";
+            setUserSubscription(sub);
           } else {
             // Try to refresh token
             const refreshed = await refreshTokenSilently(storedTokens.refreshToken);
@@ -169,6 +175,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const clearAuthState = () => {
     setUser(null);
     setTokens(null);
+    setUserSubscription("free");
     clearTokens();
   };
 
@@ -275,6 +282,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           userData.role = "user"; // Default role
         }
 
+        // Determine subscription tier (placeholder: default to 'free' until real billing integration)
+        // If your backend adds subscription_tier, we'll pick it up here.
+        const sub = userData.subscription_tier || "free";
+        setUserSubscription(sub);
+
         setUser(userData);
         saveUser(userData);
       }
@@ -346,6 +358,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     tokens,
     isLoading,
     isAuthenticated,
+    userSubscription,
     signup,
     login,
     logout,
