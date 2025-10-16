@@ -7,10 +7,23 @@ CREATE TABLE IF NOT EXISTS auth_user (
   email TEXT NOT NULL UNIQUE,
   email_verified BOOLEAN NOT NULL DEFAULT FALSE,
   display_name TEXT,
+  -- Add username for display/handle; Drizzle schema expects this
+  username TEXT UNIQUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   disabled BOOLEAN NOT NULL DEFAULT FALSE
 );
+
+-- Safe patch: add username column if missing (idempotent)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'auth_user' AND column_name = 'username'
+  ) THEN
+    ALTER TABLE auth_user ADD COLUMN username TEXT UNIQUE;
+  END IF;
+END $$;
 
 -- 2) Credentials (password-based authentication)
 CREATE TABLE IF NOT EXISTS auth_credential (

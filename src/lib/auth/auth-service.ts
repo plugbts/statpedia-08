@@ -1,6 +1,6 @@
 import { randomBytes, createHash } from "crypto";
 import argon2 from "argon2";
-import { sign as jwtSign, verify as jwtVerify, type SignOptions } from "jsonwebtoken";
+import jwt, { type SignOptions } from "jsonwebtoken";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { and, eq, gt, lt, sql } from "drizzle-orm";
@@ -127,7 +127,7 @@ export class AuthService {
     };
 
     const options: SignOptions = { algorithm: "HS256", expiresIn: JWT_EXPIRES_IN };
-    return jwtSign(payload, getJWTSecret(), options);
+    return jwt.sign(payload as any, getJWTSecret(), options);
   }
 
   // Generate refresh token
@@ -640,7 +640,7 @@ export class AuthService {
   // Verify JWT token
   verifyToken(token: string): { userId: string; valid: boolean } {
     try {
-      const decoded = jwtVerify(token, getJWTSecret()) as JWTPayload;
+      const decoded = jwt.verify(token, getJWTSecret()) as JWTPayload;
       return { userId: decoded.sub, valid: true };
     } catch (error) {
       return { userId: "", valid: false };

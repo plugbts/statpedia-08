@@ -1,13 +1,13 @@
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
-import { players, teams, games, player_game_logs, leagues } from '../src/db/schema/index';
-import { eq, and, desc, sql } from 'drizzle-orm';
-import { config } from 'dotenv';
-import fetch from 'node-fetch';
-import { randomUUID } from 'crypto';
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import { players, teams, games, player_game_logs, leagues } from "../src/db/schema/index";
+import { eq, and, desc, sql } from "drizzle-orm";
+import { config } from "dotenv";
+import fetch from "node-fetch";
+import { randomUUID } from "crypto";
 
 // Load environment variables
-config({ path: '.env.local' });
+config({ path: ".env.local" });
 
 const connectionString = process.env.NEON_DATABASE_URL!;
 const client = postgres(connectionString);
@@ -17,45 +17,52 @@ const db = drizzle(client, { schema: { games, players, teams, player_game_logs, 
  * Focused backfill for MLB and NHL only
  */
 async function backfillMLBNHL() {
-  console.log('🚀 Starting MLB and NHL backfill...\n');
-  
+  console.log("🚀 Starting MLB and NHL backfill...\n");
+
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - 365); // Go back 365 days
-  
+
   const leagues = [
-    { code: 'MLB', name: 'Major League Baseball' },
-    { code: 'NHL', name: 'National Hockey League' }
+    { code: "MLB", name: "Major League Baseball" },
+    { code: "NHL", name: "National Hockey League" },
   ];
-  
+
   let totalProcessed = 0;
   let totalGames = 0;
   let totalPlayers = 0;
-  
+
   for (const league of leagues) {
     console.log(`\n🏀 Starting ${league.name} backfill...`);
-    
+
     try {
       const leagueStats = await backfillLeague(league.code, startDate);
       totalProcessed += leagueStats.gamesProcessed;
       totalGames += leagueStats.gamesFound;
       totalPlayers += leagueStats.playersCreated;
-      
-      console.log(`✅ ${league.name} complete: ${leagueStats.gamesProcessed}/${leagueStats.gamesFound} games processed, ${leagueStats.playersCreated} players created`);
+
+      console.log(
+        `✅ ${league.name} complete: ${leagueStats.gamesProcessed}/${leagueStats.gamesFound} games processed, ${leagueStats.playersCreated} players created`,
+      );
     } catch (error: any) {
       console.error(`❌ ${league.name} failed:`, error.message);
     }
   }
-  
+
   console.log(`\n🎉 Backfill complete!`);
-  console.log(`📊 Total: ${totalProcessed} games processed, ${totalGames} games found, ${totalPlayers} players created`);
-  
+  console.log(
+    `📊 Total: ${totalProcessed} games processed, ${totalGames} games found, ${totalPlayers} players created`,
+  );
+
   await client.end();
 }
 
 /**
  * Backfill a specific league for 365 days
  */
-async function backfillLeague(league: string, startDate: Date): Promise<{
+async function backfillLeague(
+  league: string,
+  startDate: Date,
+): Promise<{
   gamesProcessed: number;
   gamesFound: number;
   playersCreated: number;
@@ -63,53 +70,61 @@ async function backfillLeague(league: string, startDate: Date): Promise<{
   let gamesProcessed = 0;
   let gamesFound = 0;
   let playersCreated = 0;
-  
+
   // Get league ID
-  const leagueRecord = await db.execute(sql`SELECT id, code, name FROM leagues WHERE code = ${league} LIMIT 1`);
-  
+  const leagueRecord = await db.execute(
+    sql`SELECT id, code, name FROM leagues WHERE code = ${league} LIMIT 1`,
+  );
+
   if (!leagueRecord || leagueRecord.length === 0) {
     throw new Error(`League ${league} not found`);
   }
-  
+
   const leagueId = leagueRecord[0].id;
-  
+
   // Process each day for the last 365 days
   const currentDate = new Date();
   const dateIterator = new Date(startDate);
-  
+
   while (dateIterator <= currentDate) {
-    const dateStr = dateIterator.toISOString().split('T')[0];
+    const dateStr = dateIterator.toISOString().split("T")[0];
     console.log(`📅 Processing ${league} games for ${dateStr}...`);
-    
+
     try {
       const dayStats = await processDay(league, dateStr, leagueId);
       gamesProcessed += dayStats.gamesProcessed;
       gamesFound += dayStats.gamesFound;
       playersCreated += dayStats.playersCreated;
-      
+
       if (dayStats.gamesFound > 0) {
-        console.log(`  ✅ ${dayStats.gamesFound} games found, ${dayStats.gamesProcessed} processed`);
+        console.log(
+          `  ✅ ${dayStats.gamesFound} games found, ${dayStats.gamesProcessed} processed`,
+        );
       } else {
         console.log(`  ⏭️  No games found for ${dateStr}`);
       }
     } catch (error: any) {
       console.error(`  ❌ Error processing ${dateStr}:`, error.message);
     }
-    
+
     // Move to next day
     dateIterator.setDate(dateIterator.getDate() + 1);
-    
+
     // Rate limiting - wait 500ms between days
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
-  
+
   return { gamesProcessed, gamesFound, playersCreated };
 }
 
 /**
  * Process games for a specific day and league
  */
-async function processDay(league: string, dateStr: string, leagueId: string): Promise<{
+async function processDay(
+  league: string,
+  dateStr: string,
+  leagueId: string,
+): Promise<{
   gamesProcessed: number;
   gamesFound: number;
   playersCreated: number;
@@ -117,28 +132,28 @@ async function processDay(league: string, dateStr: string, leagueId: string): Pr
   let gamesProcessed = 0;
   let gamesFound = 0;
   let playersCreated = 0;
-  
+
   try {
     let games: any[] = [];
-    
+
     // Fetch games based on league
     switch (league) {
-      case 'MLB':
+      case "MLB":
         games = await fetchMLBGames(dateStr);
         break;
-      case 'NHL':
+      case "NHL":
         games = await fetchNHLGames(dateStr);
         break;
       default:
         throw new Error(`Unknown league: ${league}`);
     }
-    
+
     gamesFound = games.length;
-    
+
     if (games.length > 0) {
       console.log(`  📊 Found ${games.length} ${league} games for ${dateStr}`);
     }
-    
+
     // Process each game
     for (const game of games) {
       try {
@@ -149,11 +164,10 @@ async function processDay(league: string, dateStr: string, leagueId: string): Pr
         console.error(`    ❌ Error processing game ${game.gameId}:`, error.message);
       }
     }
-    
   } catch (error: any) {
     console.error(`  ❌ Error fetching games for ${dateStr}:`, error.message);
   }
-  
+
   return { gamesProcessed, gamesFound, playersCreated };
 }
 
@@ -162,22 +176,22 @@ async function processDay(league: string, dateStr: string, leagueId: string): Pr
  */
 async function fetchMLBGames(dateStr: string): Promise<any[]> {
   const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${dateStr}`;
-  
+
   try {
     const response = await fetch(url);
     if (!response.ok) {
       console.log(`    ⚠️  MLB API returned ${response.status} for ${dateStr}`);
       return [];
     }
-    
+
     const data = await response.json();
     const games = data.dates[0]?.games || [];
-    
+
     return games.map((game: any) => ({
       gameId: game.gamePk,
       homeTeam: game.teams.home.team.name,
       awayTeam: game.teams.away.team.name,
-      gameDate: dateStr
+      gameDate: dateStr,
     }));
   } catch (error: any) {
     console.error(`    ❌ MLB API error for ${dateStr}:`, error.message);
@@ -190,26 +204,26 @@ async function fetchMLBGames(dateStr: string): Promise<any[]> {
  */
 async function fetchNHLGames(dateStr: string): Promise<any[]> {
   const url = `https://api-web.nhle.com/v1/schedule/${dateStr}`;
-  
+
   try {
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-        'Accept': 'application/json, text/plain, */*',
-        'Referer': 'https://www.nhl.com/',
-        'Origin': 'https://www.nhl.com'
-      }
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        Accept: "application/json, text/plain, */*",
+        Referer: "https://www.nhl.com/",
+        Origin: "https://www.nhl.com",
+      },
     });
-    
+
     if (!response.ok) {
       console.log(`    ⚠️  NHL API returned ${response.status} for ${dateStr}`);
       return [];
     }
-    
+
     const data = await response.json();
     const gameWeek = data.gameWeek || [];
     const games: any[] = [];
-    
+
     for (const day of gameWeek) {
       if (day.games) {
         for (const game of day.games) {
@@ -217,12 +231,12 @@ async function fetchNHLGames(dateStr: string): Promise<any[]> {
             gameId: game.id,
             homeTeam: game.homeTeam.abbrev,
             awayTeam: game.awayTeam.abbrev,
-            gameDate: dateStr
+            gameDate: dateStr,
           });
         }
       }
     }
-    
+
     return games;
   } catch (error: any) {
     console.error(`    ❌ NHL API error for ${dateStr}:`, error.message);
@@ -233,47 +247,72 @@ async function fetchNHLGames(dateStr: string): Promise<any[]> {
 /**
  * Process a single game
  */
-async function processGame(league: string, game: any, leagueId: string, dateStr: string): Promise<{
+async function processGame(
+  league: string,
+  game: any,
+  leagueId: string,
+  dateStr: string,
+): Promise<{
   gamesProcessed: number;
   playersCreated: number;
 }> {
   let gamesProcessed = 0;
-  let playersCreated = 0;
-  
+  const playersCreated = 0;
+
   // Check if game already exists
-  const existingGameResult = await db.execute(sql`SELECT id FROM games WHERE api_game_id = ${game.gameId.toString()} LIMIT 1`);
+  const existingGameResult = await db.execute(
+    sql`SELECT id FROM games WHERE api_game_id = ${game.gameId.toString()} LIMIT 1`,
+  );
   const existingGame = existingGameResult[0];
-  
+
   if (existingGame) {
     console.log(`    ⏭️  Game ${game.gameId} already exists, skipping`);
     return { gamesProcessed, playersCreated };
   }
-  
+
   // Get team IDs - use team_abbrev_map for both MLB and NHL
   let homeTeamResult, awayTeamResult;
-  
+
   // First try team_abbrev_map for both leagues
-  homeTeamResult = await db.execute(sql.raw(`SELECT team_id as id FROM team_abbrev_map WHERE league = '${league}' AND api_abbrev = '${game.homeTeam}' LIMIT 1`));
-  awayTeamResult = await db.execute(sql.raw(`SELECT team_id as id FROM team_abbrev_map WHERE league = '${league}' AND api_abbrev = '${game.awayTeam}' LIMIT 1`));
-  
+  homeTeamResult = await db.execute(
+    sql.raw(
+      `SELECT team_id as id FROM team_abbrev_map WHERE league = '${league}' AND api_abbrev = '${game.homeTeam}' LIMIT 1`,
+    ),
+  );
+  awayTeamResult = await db.execute(
+    sql.raw(
+      `SELECT team_id as id FROM team_abbrev_map WHERE league = '${league}' AND api_abbrev = '${game.awayTeam}' LIMIT 1`,
+    ),
+  );
+
   // Fallback to direct name match for MLB if not found in mapping
-  if (league === 'MLB' && (!homeTeamResult[0] || !awayTeamResult[0])) {
+  if (league === "MLB" && (!homeTeamResult[0] || !awayTeamResult[0])) {
     if (!homeTeamResult[0]) {
-      homeTeamResult = await db.execute(sql.raw(`SELECT id FROM teams WHERE league_id = '${leagueId}' AND name = '${game.homeTeam}' LIMIT 1`));
+      homeTeamResult = await db.execute(
+        sql.raw(
+          `SELECT id FROM teams WHERE league_id = '${leagueId}' AND name = '${game.homeTeam}' LIMIT 1`,
+        ),
+      );
     }
     if (!awayTeamResult[0]) {
-      awayTeamResult = await db.execute(sql.raw(`SELECT id FROM teams WHERE league_id = '${leagueId}' AND name = '${game.awayTeam}' LIMIT 1`));
+      awayTeamResult = await db.execute(
+        sql.raw(
+          `SELECT id FROM teams WHERE league_id = '${leagueId}' AND name = '${game.awayTeam}' LIMIT 1`,
+        ),
+      );
     }
   }
-  
+
   const homeTeam = homeTeamResult[0];
   const awayTeam = awayTeamResult[0];
-  
+
   if (!homeTeam || !awayTeam) {
-    console.log(`    ⚠️  Teams not found for game ${game.gameId} (${game.awayTeam} @ ${game.homeTeam})`);
+    console.log(
+      `    ⚠️  Teams not found for game ${game.gameId} (${game.awayTeam} @ ${game.homeTeam})`,
+    );
     return { gamesProcessed, playersCreated };
   }
-  
+
   // Create game record
   await db.insert(games).values({
     id: randomUUID(),
@@ -281,16 +320,16 @@ async function processGame(league: string, game: any, leagueId: string, dateStr:
     home_team_id: homeTeam.id,
     away_team_id: awayTeam.id,
     season: getSeasonFromDate(dateStr, league),
-    season_type: 'regular',
+    season_type: "regular",
     game_date: dateStr,
-    status: 'completed',
-    api_game_id: game.gameId.toString()
+    status: "completed",
+    api_game_id: game.gameId.toString(),
   });
-  
+
   gamesProcessed = 1;
-  
+
   console.log(`    ✅ Created game ${game.gameId} (${game.awayTeam} @ ${game.homeTeam})`);
-  
+
   return { gamesProcessed, playersCreated };
 }
 
@@ -301,12 +340,12 @@ function getSeasonFromDate(dateStr: string, league: string): string {
   const date = new Date(dateStr);
   const year = date.getFullYear();
   const month = date.getMonth() + 1;
-  
+
   switch (league) {
-    case 'MLB':
+    case "MLB":
       // MLB season starts in March
       return month >= 3 ? `${year}` : `${year - 1}`;
-    case 'NHL':
+    case "NHL":
       // NHL season starts in October
       return month >= 10 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
     default:

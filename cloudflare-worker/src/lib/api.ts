@@ -9,13 +9,17 @@ function buildUrl(base: string, params: Record<string, string | number | boolean
   return u.toString();
 }
 
-export async function fetchEventsWithProps(env: any, leagueID: string, opts?: {
-  dateFrom?: string;
-  dateTo?: string;
-  season?: number;
-  oddIDs?: string;
-  limit?: number;
-}) {
+export async function fetchEventsWithProps(
+  env: any,
+  leagueID: string,
+  opts?: {
+    dateFrom?: string;
+    dateTo?: string;
+    season?: number;
+    oddIDs?: string;
+    limit?: number;
+  },
+) {
   const base = "https://api.sportsgameodds.com/v2/events";
   const url = buildUrl(base, {
     apiKey: env.SPORTSGAMEODDS_API_KEY,
@@ -27,24 +31,26 @@ export async function fetchEventsWithProps(env: any, leagueID: string, opts?: {
     oddIDs: opts?.oddIDs,
     limit: opts?.limit ?? 250,
   });
-  
+
   console.log(`🔍 Fetching: ${url}`);
-  
+
   try {
     const res = await fetch(url);
     if (!res.ok) {
       const errorText = await res.text();
       throw new Error(`Events fetch failed (${res.status}): ${errorText}`);
     }
-    
+
     const response = await res.json();
-    
+
     // Handle the wrapper structure: { success: true, data: [...events] }
     const events = response.data || response;
     const eventsArray = Array.isArray(events) ? events : [];
-    
+
     // 🔍 DEBUG: Log team field structure from API response
-    console.log(`🔍 [SGO:DEBUG] Inspecting team fields in ${eventsArray.length} events for ${leagueID}`);
+    console.log(
+      `🔍 [SGO:DEBUG] Inspecting team fields in ${eventsArray.length} events for ${leagueID}`,
+    );
     eventsArray.slice(0, 3).forEach((event: any, idx: number) => {
       console.log(`🔍 [SGO:DEBUG] Event ${idx}:`, {
         gameId: event.gameId ?? event.id ?? event.eventID ?? null,
@@ -57,23 +63,29 @@ export async function fetchEventsWithProps(env: any, leagueID: string, opts?: {
         teamName: event.teamName ?? event.team?.name ?? null,
         opponentName: event.opponentName ?? event.opponent?.name ?? null,
         teams: event.teams ?? null,
-        game: event.game ? {
-          homeTeamId: event.game.homeTeamId ?? event.game.homeTeamID ?? null,
-          awayTeamId: event.game.awayTeamId ?? event.game.awayTeamID ?? null,
-          teams: event.game.teams ?? null
-        } : null,
+        game: event.game
+          ? {
+              homeTeamId: event.game.homeTeamId ?? event.game.homeTeamID ?? null,
+              awayTeamId: event.game.awayTeamId ?? event.game.awayTeamID ?? null,
+              teams: event.game.teams ?? null,
+            }
+          : null,
         // Check if odds contain team info
-        oddsSample: event.odds ? Object.keys(event.odds).slice(0, 2).map(oddId => {
-          const odd = event.odds[oddId];
-          return {
-            oddId,
-            teamId: odd?.teamID ?? odd?.teamId ?? null,
-            playerTeamId: odd?.playerTeamID ?? odd?.playerTeamId ?? null
-          };
-        }) : null
+        oddsSample: event.odds
+          ? Object.keys(event.odds)
+              .slice(0, 2)
+              .map((oddId) => {
+                const odd = event.odds[oddId];
+                return {
+                  oddId,
+                  teamId: odd?.teamID ?? odd?.teamId ?? null,
+                  playerTeamId: odd?.playerTeamID ?? odd?.playerTeamId ?? null,
+                };
+              })
+          : null,
       });
     });
-    
+
     console.log(`✅ Fetched ${eventsArray.length} events for ${leagueID}`);
     return eventsArray;
   } catch (error) {
@@ -87,35 +99,34 @@ export async function fetchEventsWithProps(env: any, leagueID: string, opts?: {
  */
 export async function fetchGameDetails(env: any, gameId: string): Promise<any> {
   const url = `https://api.sportsgameodds.com/v2/games/${gameId}`;
-  
+
   console.log(`🔍 Fetching game details: ${url}`);
-  
+
   try {
     const res = await fetch(url, {
       headers: {
-        "Authorization": `Bearer ${env.SPORTSGAMEODDS_API_KEY}`
-      }
+        Authorization: `Bearer ${env.SPORTSGAMEODDS_API_KEY}`,
+      },
     });
-    
+
     if (!res.ok) {
       const errorText = await res.text();
       throw new Error(`Game details fetch failed (${res.status}): ${errorText}`);
     }
-    
+
     const response = await res.json();
-    
+
     // Handle the wrapper structure: { success: true, data: {...game} }
     const game = response.data || response;
-    
+
     console.log(`✅ Fetched game details for ${gameId}:`, {
       homeTeam: game.homeTeam ?? game.homeTeamName ?? null,
       awayTeam: game.awayTeam ?? game.awayTeamName ?? null,
       homeTeamId: game.homeTeamId ?? game.homeTeamID ?? null,
-      awayTeamId: game.awayTeamId ?? game.awayTeamID ?? null
+      awayTeamId: game.awayTeamId ?? game.awayTeamID ?? null,
     });
-    
+
     return game;
-    
   } catch (error) {
     console.error(`❌ Game details fetch error for ${gameId}:`, error);
     return null;
@@ -123,17 +134,22 @@ export async function fetchGameDetails(env: any, gameId: string): Promise<any> {
 }
 
 // Helper functions for date manipulation
-function ymd(d: Date): string { 
-  return d.toISOString().slice(0, 10); 
+function ymd(d: Date): string {
+  return d.toISOString().slice(0, 10);
 }
 
-function addDays(d: Date, n: number): Date { 
-  const x = new Date(d); 
-  x.setUTCDate(x.getUTCDate() + n); 
-  return x; 
+function addDays(d: Date, n: number): Date {
+  const x = new Date(d);
+  x.setUTCDate(x.getUTCDate() + n);
+  return x;
 }
 
-export async function getEventsWithFallbacks(env: any, leagueID: string, season: number, oddIDs?: string): Promise<{ events: any[]; tier: number }> {
+export async function getEventsWithFallbacks(
+  env: any,
+  leagueID: string,
+  season: number,
+  oddIDs?: string,
+): Promise<{ events: any[]; tier: number }> {
   const today = new Date();
   const d7Past = ymd(addDays(today, -7));
   const d7Future = ymd(addDays(today, +7));
@@ -145,11 +161,11 @@ export async function getEventsWithFallbacks(env: any, leagueID: string, season:
   // Tier 1: Current season, ±7 days
   try {
     console.log(`Tier 1: ${leagueID} ${season} (±7 days)`);
-    let events = await fetchEventsWithProps(env, leagueID, { 
-      season, 
-      dateFrom: d7Past, 
-      dateTo: d7Future, 
-      oddIDs 
+    const events = await fetchEventsWithProps(env, leagueID, {
+      season,
+      dateFrom: d7Past,
+      dateTo: d7Future,
+      oddIDs,
     });
     if (events?.length) {
       console.log(`✅ Tier 1 success: ${events.length} events`);
@@ -162,11 +178,11 @@ export async function getEventsWithFallbacks(env: any, leagueID: string, season:
   // Tier 2: Current season, ±14 days
   try {
     console.log(`Tier 2: ${leagueID} ${season} (±14 days)`);
-    let events = await fetchEventsWithProps(env, leagueID, { 
-      season, 
-      dateFrom: d14Past, 
-      dateTo: d14Future, 
-      oddIDs 
+    const events = await fetchEventsWithProps(env, leagueID, {
+      season,
+      dateFrom: d14Past,
+      dateTo: d14Future,
+      oddIDs,
     });
     if (events?.length) {
       console.log(`✅ Tier 2 success: ${events.length} events`);
@@ -179,11 +195,11 @@ export async function getEventsWithFallbacks(env: any, leagueID: string, season:
   // Tier 3: Previous season, ±14 days
   try {
     console.log(`Tier 3: ${leagueID} ${season - 1} (±14 days)`);
-    let events = await fetchEventsWithProps(env, leagueID, { 
-      season: season - 1, 
-      dateFrom: d14Past, 
-      dateTo: d14Future, 
-      oddIDs 
+    const events = await fetchEventsWithProps(env, leagueID, {
+      season: season - 1,
+      dateFrom: d14Past,
+      dateTo: d14Future,
+      oddIDs,
     });
     if (events?.length) {
       console.log(`✅ Tier 3 success: ${events.length} events`);
@@ -196,10 +212,10 @@ export async function getEventsWithFallbacks(env: any, leagueID: string, season:
   // Tier 4: Current season, ±14 days, no oddIDs filter
   try {
     console.log(`Tier 4: ${leagueID} ${season} (±14 days, no oddIDs)`);
-    let events = await fetchEventsWithProps(env, leagueID, { 
-      season, 
-      dateFrom: d14Past, 
-      dateTo: d14Future 
+    const events = await fetchEventsWithProps(env, leagueID, {
+      season,
+      dateFrom: d14Past,
+      dateTo: d14Future,
     });
     if (events?.length) {
       console.log(`✅ Tier 4 success: ${events.length} events`);
@@ -212,10 +228,10 @@ export async function getEventsWithFallbacks(env: any, leagueID: string, season:
   // Tier 5: Previous season, ±14 days, no oddIDs filter
   try {
     console.log(`Tier 5: ${leagueID} ${season - 1} (±14 days, no oddIDs)`);
-    let events = await fetchEventsWithProps(env, leagueID, { 
-      season: season - 1, 
-      dateFrom: d14Past, 
-      dateTo: d14Future 
+    const events = await fetchEventsWithProps(env, leagueID, {
+      season: season - 1,
+      dateFrom: d14Past,
+      dateTo: d14Future,
     });
     if (events?.length) {
       console.log(`✅ Tier 5 success: ${events.length} events`);
@@ -230,7 +246,12 @@ export async function getEventsWithFallbacks(env: any, leagueID: string, season:
 }
 
 // Enhanced fallback with more aggressive strategies
-export async function getEventsWithAggressiveFallbacks(env: any, leagueID: string, season: number, oddIDs?: string): Promise<{ events: any[]; tier: number }> {
+export async function getEventsWithAggressiveFallbacks(
+  env: any,
+  leagueID: string,
+  season: number,
+  oddIDs?: string,
+): Promise<{ events: any[]; tier: number }> {
   // Try the standard fallbacks first
   const standardResult = await getEventsWithFallbacks(env, leagueID, season, oddIDs);
   if (standardResult.events.length > 0) {
@@ -247,11 +268,11 @@ export async function getEventsWithAggressiveFallbacks(env: any, leagueID: strin
   // Tier 6: Current season, ±30 days
   try {
     console.log(`Tier 6: ${leagueID} ${season} (±30 days)`);
-    let events = await fetchEventsWithProps(env, leagueID, { 
-      season, 
-      dateFrom: d30Past, 
-      dateTo: d30Future, 
-      oddIDs 
+    const events = await fetchEventsWithProps(env, leagueID, {
+      season,
+      dateFrom: d30Past,
+      dateTo: d30Future,
+      oddIDs,
     });
     if (events?.length) {
       console.log(`✅ Tier 6 success: ${events.length} events`);
@@ -264,11 +285,11 @@ export async function getEventsWithAggressiveFallbacks(env: any, leagueID: strin
   // Tier 7: Current season, ±90 days
   try {
     console.log(`Tier 7: ${leagueID} ${season} (±90 days)`);
-    let events = await fetchEventsWithProps(env, leagueID, { 
-      season, 
-      dateFrom: d90Past, 
-      dateTo: d90Future, 
-      oddIDs 
+    const events = await fetchEventsWithProps(env, leagueID, {
+      season,
+      dateFrom: d90Past,
+      dateTo: d90Future,
+      oddIDs,
     });
     if (events?.length) {
       console.log(`✅ Tier 7 success: ${events.length} events`);
@@ -281,11 +302,11 @@ export async function getEventsWithAggressiveFallbacks(env: any, leagueID: strin
   // Tier 8: Previous season, ±90 days
   try {
     console.log(`Tier 8: ${leagueID} ${season - 1} (±90 days)`);
-    let events = await fetchEventsWithProps(env, leagueID, { 
-      season: season - 1, 
-      dateFrom: d90Past, 
-      dateTo: d90Future, 
-      oddIDs 
+    const events = await fetchEventsWithProps(env, leagueID, {
+      season: season - 1,
+      dateFrom: d90Past,
+      dateTo: d90Future,
+      oddIDs,
     });
     if (events?.length) {
       console.log(`✅ Tier 8 success: ${events.length} events`);
@@ -298,9 +319,9 @@ export async function getEventsWithAggressiveFallbacks(env: any, leagueID: strin
   // Tier 9: No date filters, current season
   try {
     console.log(`Tier 9: ${leagueID} ${season} (no date filters)`);
-    let events = await fetchEventsWithProps(env, leagueID, { 
-      season, 
-      oddIDs 
+    const events = await fetchEventsWithProps(env, leagueID, {
+      season,
+      oddIDs,
     });
     if (events?.length) {
       console.log(`✅ Tier 9 success: ${events.length} events`);
@@ -313,9 +334,9 @@ export async function getEventsWithAggressiveFallbacks(env: any, leagueID: strin
   // Tier 10: No date filters, previous season
   try {
     console.log(`Tier 10: ${leagueID} ${season - 1} (no date filters)`);
-    let events = await fetchEventsWithProps(env, leagueID, { 
-      season: season - 1, 
-      oddIDs 
+    const events = await fetchEventsWithProps(env, leagueID, {
+      season: season - 1,
+      oddIDs,
     });
     if (events?.length) {
       console.log(`✅ Tier 10 success: ${events.length} events`);
