@@ -17,6 +17,7 @@ config({ path: ".env.local" });
 
 // Import auth service
 import { authService } from "../lib/auth/auth-service";
+import { canAccessFeature } from "../lib/auth/access";
 
 const app = express();
 const PORT = process.env.API_PORT || 3001;
@@ -44,6 +45,417 @@ app.use(express.json());
 // Health check
 app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+// --- Minimal SGO normalization helpers (inline to avoid new files) ---
+type NormalizedOffer = {
+  book: string;
+  overOdds?: number | null;
+  underOdds?: number | null;
+  deeplink?: string;
+  lastUpdated?: string;
+};
+
+type NormalizedProp = {
+  id: string;
+  sport: string;
+  gameId: string;
+  startTime?: string;
+  playerId?: string;
+  playerName?: string;
+  team?: string;
+  opponent?: string;
+  propType: string;
+  line: number;
+  period?: string;
+  offers: NormalizedOffer[];
+  best_over?: {
+    book: string;
+    odds: number;
+    decimal: number;
+    edgePct?: number;
+    deeplink?: string;
+  } | null;
+  best_under?: {
+    book: string;
+    odds: number;
+    decimal: number;
+    edgePct?: number;
+    deeplink?: string;
+  } | null;
+};
+
+function toDecimal(american: number | null | undefined): number | null {
+  if (american === null || american === undefined) return null;
+  const o = Number(american);
+  if (!Number.isFinite(o) || o === 0) return null;
+  return o > 0 ? 1 + o / 100 : 1 + 100 / Math.abs(o);
+}
+
+function computeBest(offers: NormalizedOffer[], side: "over" | "under") {
+  let best: { book: string; odds: number; decimal: number; deeplink?: string } | null = null;
+  for (const offer of offers) {
+    const odds = side === "over" ? offer.overOdds : offer.underOdds;
+    const dec = toDecimal(odds);
+    if (dec && odds !== null && odds !== undefined) {
+      if (!best || dec > best.decimal) {
+        best = { book: offer.book, odds, decimal: dec, deeplink: offer.deeplink };
+      }
+    }
+  }
+  if (!best) return null;
+  const decimals: number[] = offers
+    .map((o) => toDecimal((side === "over" ? o.overOdds : o.underOdds) ?? null))
+    .filter((d): d is number => !!d);
+  if (decimals.length >= 2) {
+    const avg = decimals.reduce((a, b) => a + b, 0) / decimals.length;
+    const edgePct = ((best.decimal - avg) / avg) * 100;
+    return { ...best, edgePct };
+  }
+  return best;
+}
+
+// Simple in-memory cache
+const sgoCache = new Map<string, { data: NormalizedProp[]; ts: number }>();
+const SGO_TTL_MS = 30 * 1000;
+
+function buildUrl(base: string, params: Record<string, string | number | boolean | undefined>) {
+  const u = new URL(base);
+  Object.entries(params)
+    .filter(([, v]) => v !== undefined && v !== null && v !== "")
+    .forEach(([k, v]) => u.searchParams.set(k, String(v)));
+  return u.toString();
+}
+
+function mapSportToLeagueId(sport: string): string | undefined {
+  const s = sport.toLowerCase();
+  const map: Record<string, string> = {
+    nfl: "NFL",
+    nba: "NBA",
+    mlb: "MLB",
+    nhl: "NHL",
+    wnba: "WNBA",
+    cbb: "CBB",
+  };
+  return map[s];
+}
+
+function parsePlayerNameFromId(playerId: string): string {
+  // Common SGO format: FIRST_LAST_1_NFL -> "FIRST LAST"
+  return playerId.replace(/_\d+_[A-Z]+$/, "").replace(/_/g, " ");
+}
+
+function normalizeStatId(statId?: string | null): string {
+  if (!statId) return "Unknown";
+  const map: Record<string, string> = {
+    passing_yards: "Passing Yards",
+    rushing_yards: "Rushing Yards",
+    receiving_yards: "Receiving Yards",
+    receiving_receptions: "Receptions",
+    receiving_longestreception: "Longest Reception",
+    rushing_longestrush: "Longest Rush",
+    passing_longestcompletion: "Longest Completion",
+    rushing_attempts: "Rushing Attempts",
+    passing_touchdowns: "Passing TDs",
+    rushing_touchdowns: "Rushing TDs",
+    receiving_touchdowns: "Receiving TDs",
+    points: "Points",
+    assists: "Assists",
+    rebounds: "Rebounds",
+    shots_on_goal: "Shots on Goal",
+    saves: "Saves",
+    batting_totalbases: "Total Bases",
+    batting_homeruns: "Home Runs",
+    batting_hits: "Hits",
+    batting_doubles: "Doubles",
+    batting_singles: "Singles",
+    batting_triples: "Triples",
+    batting_rbi: "RBIs",
+    batting_hits_runs_rbi: "Hits + Runs + RBIs",
+    pitching_strikeouts: "Pitcher Strikeouts",
+    pitching_outs: "Innings Pitched",
+    pitching_hits: "Hits Allowed",
+    shots_ongoal: "Shots on Goal",
+    goals_assists: "Goals + Assists",
+    powerplay_goals_assists: "Power Play Goals + Assists",
+    minutesplayed: "Minutes Played",
+    defense_combinedtackles: "Tackles",
+    defense_solo_tackles: "Solo Tackles",
+    defense_assisted_tackles: "Assisted Tackles",
+  };
+  return map[statId] || statId.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+async function fetchNormalizedPlayerProps(sport: string, limit = 200): Promise<NormalizedProp[]> {
+  const key = `${sport}:${limit}`;
+  const now = Date.now();
+  const hit = sgoCache.get(key);
+  if (hit && now - hit.ts < SGO_TTL_MS) return hit.data;
+
+  const apiKey = process.env.SPORTSGAMEODDS_API_KEY;
+  const useDevFallback =
+    process.env.DEV_FAKE_PROPS === "1" || process.env.NODE_ENV !== "production";
+  if (!apiKey) {
+    console.warn("[SGO] SPORTSGAMEODDS_API_KEY not set");
+    if (useDevFallback) {
+      const fake = generateFakeProps(sport, limit);
+      sgoCache.set(key, { data: fake, ts: now });
+      return fake;
+    }
+    return [];
+  }
+
+  // Build v2/events request
+  const leagueID = mapSportToLeagueId(sport) || sport.toUpperCase();
+  let events: any[] = [];
+  try {
+    const url = buildUrl("https://api.sportsgameodds.com/v2/events/", {
+      apiKey,
+      leagueID,
+      oddsAvailable: true,
+      oddsType: "playerprops",
+      limit: Math.min(Math.max(50, limit), 500),
+    });
+    const resp = await fetch(url); // Only use query param, no extra headers
+    if (!resp.ok) {
+      const text = await (resp as any).text?.().catch(() => "");
+      if (resp.status === 403 && /inactive api key/i.test(text)) {
+        console.error(
+          "[SGO] API key appears inactive. Please verify your subscription/status in the SGO dashboard.",
+        );
+      }
+      throw new Error(`SportsGameOdds API error ${resp.status}: ${text || resp.statusText}`);
+    }
+    const json: any = await (resp as any).json?.();
+    events = Array.isArray(json?.data) ? json.data : Array.isArray(json) ? json : [];
+  } catch (err) {
+    console.warn("[SGO] v2/events fetch failed, using fallback:", (err as Error)?.message || err);
+    if (useDevFallback) {
+      const fake = generateFakeProps(sport, limit);
+      sgoCache.set(key, { data: fake, ts: now });
+      return fake;
+    }
+    return [];
+  }
+
+  // Normalize events -> props with per-sportsbook offers (from byBookmaker)
+  type AccumVal = {
+    base: Omit<NormalizedProp, "offers" | "best_over" | "best_under">;
+    offersMap: Map<string, NormalizedOffer>; // book -> offer accumulating over/under
+  };
+  const grouped = new Map<string, AccumVal>();
+
+  for (const ev of events) {
+    const gameId = ev.id || ev.gameId || ev.eventID || "unknown";
+    const gameTime = ev.gameTime || ev.startTime || ev.start || ev.date || undefined;
+    const oddsObj = ev.odds || {};
+    for (const [oddId, raw] of Object.entries(oddsObj)) {
+      const odd: any = raw;
+      if (!odd || !odd.playerID) continue; // only player props
+      if (odd.cancelled) continue;
+
+      const playerId = odd.playerID as string;
+      const playerName = parsePlayerNameFromId(playerId);
+      const statId = odd.statID || odd.market || "unknown";
+      const propType = normalizeStatId(statId);
+      const lineNum = Number(odd.bookOverUnder ?? odd.fairOverUnder ?? odd.line ?? NaN);
+      if (!Number.isFinite(lineNum)) continue;
+      const side = (odd.sideID || odd.side || "").toString().toLowerCase();
+      const price = Number(odd.bookOdds ?? odd.fairOdds ?? NaN);
+      const period = odd.period || odd.segment || "full_game";
+
+      const key2 = `${playerId}:${gameId}:${propType}:${lineNum}:${period}`;
+      let acc = grouped.get(key2);
+      if (!acc) {
+        acc = {
+          base: {
+            id: key2,
+            sport,
+            gameId,
+            startTime: gameTime,
+            playerId,
+            playerName,
+            team: odd.playerTeam || odd.team || undefined,
+            opponent: undefined,
+            propType,
+            line: lineNum,
+            period,
+          },
+          offersMap: new Map<string, NormalizedOffer>(),
+        };
+        grouped.set(key2, acc);
+      }
+
+      // Build per-book offers from byBookmaker
+      const byBookmaker = (odd as any).byBookmaker || {};
+      const entries = Object.entries(byBookmaker) as Array<[string, any]>;
+      if (entries.length > 0) {
+        for (const [bookRaw, info] of entries) {
+          if (!info || info.available === false || info.odds == null) continue;
+          const book = String(bookRaw).toLowerCase();
+          const american = Number(info.odds);
+          if (!Number.isFinite(american)) continue;
+          const existing = acc.offersMap.get(book) || {
+            book,
+            overOdds: undefined,
+            underOdds: undefined,
+            deeplink: undefined,
+          };
+          if (side === "over") existing.overOdds = american;
+          if (side === "under") existing.underOdds = american;
+          if (info.deeplink && !existing.deeplink) existing.deeplink = String(info.deeplink);
+          acc.offersMap.set(book, existing);
+        }
+      } else {
+        // Fallback to a single consensus offer if no byBookmaker breakdown
+        const consensus = acc.offersMap.get("consensus") || {
+          book: "consensus",
+          overOdds: undefined,
+          underOdds: undefined,
+        };
+        if (side === "over" && Number.isFinite(price)) consensus.overOdds = price;
+        if (side === "under" && Number.isFinite(price)) consensus.underOdds = price;
+        acc.offersMap.set("consensus", consensus);
+      }
+    }
+  }
+
+  const normalized: NormalizedProp[] = [];
+  for (const g of grouped.values()) {
+    const offers: NormalizedOffer[] = Array.from(g.offersMap.values());
+    const bestOver = computeBest(offers, "over");
+    const bestUnder = computeBest(offers, "under");
+    normalized.push({ ...g.base, offers, best_over: bestOver, best_under: bestUnder });
+  }
+
+  sgoCache.set(key, { data: normalized, ts: now });
+  return normalized;
+}
+
+function generateFakeProps(sport: string, limit: number): NormalizedProp[] {
+  const books = ["fanduel", "draftkings", "caesars", "mgm"];
+  const players = [
+    { name: "Patrick Mahomes", team: "KC", opp: "BUF", type: "passing yards", line: 285.5 },
+    { name: "Christian McCaffrey", team: "SF", opp: "DAL", type: "rushing yards", line: 72.5 },
+    { name: "Justin Jefferson", team: "MIN", opp: "GB", type: "receiving yards", line: 89.5 },
+  ];
+  const out: NormalizedProp[] = [];
+  const count = Math.min(limit, players.length);
+  for (let i = 0; i < count; i++) {
+    const p = players[i];
+    const offers: NormalizedOffer[] = books.map((b, idx) => ({
+      book: b,
+      overOdds: [-110, -105, +100, +105][(i + idx) % 4],
+      underOdds: [-110, -115, -120, +100][(i + 2 * idx) % 4],
+    }));
+    const id = `${p.name}:${p.type}:${p.line}`.toLowerCase().replace(/\s+/g, "-");
+    const prop: NormalizedProp = {
+      id,
+      sport,
+      gameId: `game-${i}`,
+      startTime: new Date(Date.now() + 60 * 60 * 1000 * (i + 1)).toISOString(),
+      playerId: `player-${i}`,
+      playerName: p.name,
+      team: p.team,
+      opponent: p.opp,
+      propType: p.type,
+      line: p.line,
+      period: "full_game",
+      offers,
+      best_over: computeBest(offers, "over"),
+      best_under: computeBest(offers, "under"),
+    };
+    out.push(prop);
+  }
+  return out;
+}
+
+// Access guard helper
+function requireAccess(feature: import("../lib/auth/access").FeatureId) {
+  return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    try {
+      // In development, optionally bypass analytics gating for rapid iteration
+      const devAllowAnalytics =
+        process.env.DEV_ALLOW_ANALYTICS === "1" || process.env.NODE_ENV !== "production";
+      if (devAllowAnalytics && feature === "analytics") {
+        return next();
+      }
+      const authHeader = req.headers.authorization;
+      let role: string | undefined;
+      let subscription: string | undefined;
+      if (authHeader?.startsWith("Bearer ")) {
+        try {
+          const token = authHeader.substring(7);
+          const { userId, valid } = authService.verifyToken(token);
+          if (valid) {
+            const user = await authService.getUserById(userId);
+            role = (await authService.getUserRole(user.id)) || "user";
+            // Owner override by email via env (supports OWNER_EMAILS or VITE_OWNER_EMAILS)
+            const ownersCsv = (
+              process.env.OWNER_EMAILS ||
+              process.env.VITE_OWNER_EMAILS ||
+              ""
+            ).toLowerCase();
+            const ownerList = ownersCsv
+              .split(",")
+              .map((e) => e.trim())
+              .filter(Boolean);
+            const userEmail = (user?.email || "").toLowerCase();
+            if (userEmail && ownerList.includes(userEmail)) {
+              role = "owner";
+            }
+            subscription =
+              role === "owner" ? "premium" : ["admin", "mod"].includes(role) ? "pro" : "free";
+          }
+        } catch {
+          // ignore token parsing errors; treated as unauthenticated
+        }
+      }
+      const decision = canAccessFeature({ role, subscription, feature });
+      if (!decision.allowed) {
+        return res
+          .status(403)
+          .json({ success: false, error: decision.reason || "Forbidden", needed: decision.needed });
+      }
+      return next();
+    } catch (e) {
+      return res.status(500).json({ success: false, error: "Access check failed" });
+    }
+  };
+}
+
+// Player props: normalized with best odds
+app.get("/api/props", requireAccess("analytics"), async (req, res) => {
+  try {
+    const sport = (req.query.sport as string) || "nfl";
+    const limit = Number(req.query.limit || 200);
+    const data = await fetchNormalizedPlayerProps(sport, Math.min(Math.max(1, limit), 500));
+    res.json({ success: true, count: data.length, items: data });
+  } catch (e) {
+    console.error("GET /api/props error:", e);
+    res.status(500).json({ success: false, error: "Failed to fetch props" });
+  }
+});
+
+// Player props best list by side
+app.get("/api/props/best", requireAccess("analytics"), async (req, res) => {
+  try {
+    const sport = (req.query.sport as string) || "nfl";
+    const side = ((req.query.side as string) || "over").toLowerCase();
+    const limit = Number(req.query.limit || 50);
+    const data = await fetchNormalizedPlayerProps(sport, 500);
+    const ranked = data
+      .map((p) => ({
+        ...p,
+        metric: side === "over" ? (p.best_over?.edgePct ?? 0) : (p.best_under?.edgePct ?? 0),
+      }))
+      .sort((a, b) => (b.metric || 0) - (a.metric || 0))
+      .slice(0, Math.min(Math.max(1, limit), 200));
+    res.json({ success: true, count: ranked.length, items: ranked });
+  } catch (e) {
+    console.error("GET /api/props/best error:", e);
+    res.status(500).json({ success: false, error: "Failed to fetch best props" });
+  }
 });
 
 // Props list route (served directly from this API server)

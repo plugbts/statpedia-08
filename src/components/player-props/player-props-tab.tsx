@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -346,7 +346,10 @@ const formatCompactTime = (gameTime: string, gameDate: string) => {
   }
 };
 
-import { hasuraPlayerPropsNormalizedService } from "@/services/hasura-player-props-normalized-service";
+// Data: use local API endpoints for normalized player props with best odds
+import { apiFetch } from "@/lib/api";
+import { useAuthHeaders } from "@/contexts/AuthContext";
+import type { PlayerPropNormalized } from "@/hooks/use-player-props";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   TrendingUp,
@@ -509,6 +512,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
   const { toast } = useToast();
   const access = useAccess();
   const [searchParams, setSearchParams] = useSearchParams();
+  const authHeaders = useAuthHeaders();
 
   // Check if user is subscribed - do this early to avoid hooks issues
   // Owner role bypasses ALL subscription restrictions
@@ -589,10 +593,13 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
   // Odds range filter state
   const [minOdds, setMinOdds] = useState(-175);
   const [maxOdds, setMaxOdds] = useState(500);
-  const [useOddsFilter, setUseOddsFilter] = useState(true);
+  const [useOddsFilter, setUseOddsFilter] = useState(false);
 
   // Memoize today's date to prevent constant re-renders in analytics
   const todayDate = useMemo(() => new Date().toISOString().split("T")[0], []);
+
+  // Prevent repeated auto-relax across a session
+  const autoRelaxedRef = useRef(false);
 
   // Filter presets
   const filterPresets = {
@@ -647,11 +654,20 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
     }
   }, []);
 
-  // Load player props - SIMPLIFIED WITHOUT PAGINATION
+  // Load player props - via local API (/api/props) with normalized offers and best odds
+  const isFetchingPropsRef = useRef(false);
+
   const loadPlayerProps = useCallback(
     async (sport: string) => {
+      // Prevent overlapping refreshes that cause UI churn
+      if (isFetchingPropsRef.current) {
+        logDebug("PlayerPropsTab", `Skipping load – fetch already in progress for ${sport}`);
+        return;
+      }
+      isFetchingPropsRef.current = true;
       if (!sport) {
         logWarning("PlayerPropsTab", "No sport provided to loadPlayerProps");
+        isFetchingPropsRef.current = false;
         return;
       }
 
@@ -663,14 +679,16 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
       setRealProps([]); // Clear data
 
       try {
-        // Use normalized service to get player props
-        logAPI("PlayerPropsTab", `Calling normalized service for ${sport} player props`);
-        const result = await hasuraPlayerPropsNormalizedService.getPlayerProps({
-          sport: sport,
-          limit: 1000, // Set a reasonable limit
+        logAPI("PlayerPropsTab", `GET /api/props?sport=${sport} (normalized)`);
+        const resp = await apiFetch(`/api/props?sport=${encodeURIComponent(sport)}&limit=500`, {
+          headers: authHeaders,
         });
-
-        logAPI("PlayerPropsTab", `Hasura API returned ${result?.length || 0} props`);
+        const payload = await resp.json();
+        if (!resp.ok || !payload?.success) {
+          throw new Error(payload?.error || `Failed to load props for ${sport}`);
+        }
+        const result: PlayerPropNormalized[] = payload.items || [];
+        logAPI("PlayerPropsTab", `Local API returned ${result?.length || 0} props`);
         console.log("🔍 [API_DEBUG] API result:", result);
 
         // 🔍 COMPREHENSIVE FRONTEND DEBUG LOGGING
@@ -679,27 +697,27 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
           console.log(`📊 Props Received: ${result.length}`);
           console.log(`📝 First 10 Props (Priority Order):`);
           result.slice(0, 10).forEach((prop: any, index) => {
-            console.log(`${index + 1}. ${prop.market} - ${prop.player_name}`);
+            console.log(`${index + 1}. ${prop.propType} - ${prop.playerName}`);
           });
 
           // Analyze the first prop in detail
-          const firstProp = (result as unknown as APIPlayerProp[])[0];
+          const firstProp = (result as unknown as PlayerPropNormalized[])[0];
           console.log(`\n🔍 DETAILED FIRST PROP ANALYSIS:`);
           console.log(`📋 All Keys:`, Object.keys(firstProp));
           console.log(`🏠 Team Data:`, {
             team: firstProp.team,
             opponent: firstProp.opponent,
-            teamAbbr: firstProp.teamAbbr,
-            opponentAbbr: firstProp.opponentAbbr,
+            teamAbbr: "UNK",
+            opponentAbbr: "UNK",
             gameId: firstProp.gameId,
-            gameDate: firstProp.gameDate,
+            gameDate: firstProp.startTime,
           });
           console.log(`💰 Odds Data:`, {
-            overOdds: firstProp.overOdds,
-            underOdds: firstProp.underOdds,
+            overOdds: firstProp.best_over?.odds,
+            underOdds: firstProp.best_under?.odds,
             line: firstProp.line,
-            availableSportsbooks: firstProp.availableSportsbooks,
-            allSportsbookOddsCount: firstProp.allSportsbookOdds?.length || 0,
+            availableSportsbooks: (firstProp.offers || []).map((o) => o.book),
+            allSportsbookOddsCount: firstProp.offers?.length || 0,
           });
           console.log(`👤 Player Data:`, {
             playerName: firstProp.playerName,
@@ -720,103 +738,59 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
           logSuccess("PlayerPropsTab", `Setting ${result.length} normalized props for ${sport}`);
           logDebug("PlayerPropsTab", "Normalized props sample:", result.slice(0, 2));
 
-          // Transform normalized props to the expected format
-          const transformedProps = await Promise.all(
-            result.map(async (prop, index) => {
-              try {
-                // Calculate EV for both over and under, use the better one
-                const overEV = await evCalculatorService.calculateAIRating({
-                  id: prop.prop_id,
-                  playerName: prop.player_name,
-                  propType: prop.market,
-                  line: prop.line,
-                  odds: prop.odds?.toString() || "0",
-                  sport: prop.sport || "nfl",
-                  team: prop.team_name || "",
-                  opponent: prop.opponent_name || "",
-                  gameDate: prop.game_date || new Date().toISOString(),
-                  hitRate: 0.5,
-                  recentForm: 0.5,
-                  injuryStatus: "healthy",
-                  restDays: 3,
-                });
-
-                const underEV = await evCalculatorService.calculateAIRating({
-                  id: prop.prop_id,
-                  playerName: prop.player_name,
-                  propType: prop.market,
-                  line: prop.line,
-                  odds: prop.odds?.toString() || "0",
-                  sport: prop.sport || "nfl",
-                  team: prop.team_name || "",
-                  opponent: prop.opponent_name || "",
-                  gameDate: prop.game_date || new Date().toISOString(),
-                  hitRate: 0.5,
-                  recentForm: 0.5,
-                  injuryStatus: "healthy",
-                  restDays: 3,
-                });
-
-                // Use the better EV (higher percentage)
-                const bestEV = overEV.evPercentage > underEV.evPercentage ? overEV : underEV;
-
-                return {
-                  // Map normalized prop to expected format
-                  id: prop.prop_id,
-                  playerId: prop.player_id,
-                  player_id: prop.player_id,
-                  playerName: prop.player_name,
-                  player_name: prop.player_name,
-                  team: prop.team_name,
-                  teamAbbr: prop.team_abbrev,
-                  opponent: prop.opponent_name,
-                  opponentAbbr: prop.opponent_abbrev,
-                  gameId: prop.game_id,
-                  sport: prop.sport,
-                  propType: prop.market,
-                  line: prop.line,
-                  overOdds: prop.odds, // Using single odds value
-                  underOdds: prop.odds, // Using single odds value
-                  gameDate: prop.game_date,
-                  gameTime: prop.game_date,
-                  position: prop.position || "—",
-                  expectedValue: bestEV.evPercentage / 100, // Convert to decimal
-                  confidence: bestEV.confidence / 100, // Convert to decimal
-                  aiRating: bestEV.aiRating,
-                  recommendation: bestEV.recommendation,
-                  originalIndex: index, // Preserve original order
-                };
-              } catch (error) {
-                console.warn("EV calculation failed for prop:", prop.player_name, error);
-                return {
-                  // Map normalized prop to expected format with defaults
-                  id: prop.prop_id,
-                  playerId: prop.player_id,
-                  player_id: prop.player_id,
-                  playerName: prop.player_name,
-                  player_name: prop.player_name,
-                  team: prop.team_name,
-                  teamAbbr: prop.team_abbrev,
-                  opponent: prop.opponent_name,
-                  opponentAbbr: prop.opponent_abbrev,
-                  gameId: prop.game_id,
-                  sport: prop.sport,
-                  propType: prop.market,
-                  line: prop.line,
-                  overOdds: prop.odds,
-                  underOdds: prop.odds,
-                  gameDate: prop.game_date,
-                  gameTime: prop.game_date,
-                  position: prop.position || "—",
-                  expectedValue: 0,
-                  confidence: 0.5,
-                  aiRating: 3,
-                  recommendation: "neutral",
-                  originalIndex: index, // Preserve original order
-                };
-              }
-            }),
-          );
+          // Transform API normalized props to the expected UI format
+          const transformedProps = result.map((prop, index) => {
+            const offers = prop.offers || [];
+            const overOdds =
+              prop.best_over?.odds ??
+              offers.reduce((acc, o) => (o.overOdds != null ? o.overOdds : acc), 0);
+            const underOdds =
+              prop.best_under?.odds ??
+              offers.reduce((acc, o) => (o.underOdds != null ? o.underOdds : acc), 0);
+            const edgeOver =
+              typeof prop.best_over?.edgePct === "number" ? prop.best_over!.edgePct! : 0;
+            const edgeUnder =
+              typeof prop.best_under?.edgePct === "number" ? prop.best_under!.edgePct! : 0;
+            const bestEdgePct = Math.max(edgeOver, edgeUnder);
+            return {
+              id: prop.id,
+              playerId: prop.playerId || "",
+              player_id: prop.playerId || "",
+              playerName: prop.playerName || "Unknown Player",
+              player_name: prop.playerName || "Unknown Player",
+              team: prop.team || "UNK",
+              teamAbbr: "UNK",
+              opponent: prop.opponent || "UNK",
+              opponentAbbr: "UNK",
+              gameId: prop.gameId,
+              sport: prop.sport,
+              propType: prop.propType,
+              line: prop.line,
+              overOdds: typeof overOdds === "number" ? overOdds : 0,
+              underOdds: typeof underOdds === "number" ? underOdds : 0,
+              gameDate: prop.startTime || new Date().toISOString(),
+              gameTime: prop.startTime || new Date().toISOString(),
+              // expose best book odds for UI rendering
+              best_over: prop.best_over?.odds,
+              best_under: prop.best_under?.odds,
+              // basic EV proxy from best edge vs average price; convert % to 0-1
+              expectedValue: Number.isFinite(bestEdgePct)
+                ? Math.max(-1, Math.min(1, bestEdgePct / 100))
+                : 0,
+              confidence: Number.isFinite(bestEdgePct)
+                ? Math.max(0, Math.min(1, (bestEdgePct + 20) / 120))
+                : 0.5,
+              // books display
+              availableSportsbooks: offers.map((o) => o.book),
+              allSportsbookOdds: offers.map((o) => ({
+                sportsbook: o.book,
+                overOdds: o.overOdds,
+                underOdds: o.underOdds,
+                deeplink: o.deeplink,
+              })),
+              originalIndex: index,
+            } as any;
+          });
 
           // Sort by original index to preserve API order
           const sortedPropsWithEV = transformedProps.sort(
@@ -873,9 +847,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
       } finally {
         setIsLoadingData(false);
         logState("PlayerPropsTab", `Finished loading player props for ${sport}`);
+        isFetchingPropsRef.current = false;
       }
     },
-    [searchParams, realProps.length, toast],
+    [toast, authHeaders],
   );
 
   // Load saved filter preferences
@@ -935,18 +910,37 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
     setPropTypeFilter("all");
     setSortBy("api");
     setSortOrder("desc");
-    setOverUnderFilter("both");
+    setOverUnderFilter("over");
     setSelectedSportsbook("all");
     setSearchQuery("");
     setMinOdds(-175);
     setMaxOdds(500);
-    setUseOddsFilter(true);
+    setUseOddsFilter(false);
     localStorage.removeItem(`player-props-filters-${sportFilter}`);
     toast({
       title: "Filters Reset",
       description: "All filters have been reset to default values.",
     });
     logInfo("PlayerPropsTab", "Reset all filters to default");
+  };
+
+  // Silent permissive reset (no toast) to avoid hidden props due to sticky local filters
+  const silentPermissiveReset = (sport: string) => {
+    setMinConfidence(0);
+    setMinEV(0);
+    setShowOnlyPositiveEV(false);
+    setMinLine(0);
+    setMaxLine(getMaxLineForSport(sport));
+    setPropTypeFilter("all");
+    setSortBy("api");
+    setSortOrder("desc");
+    setOverUnderFilter("over");
+    setSelectedSportsbook("all");
+    setSearchQuery("");
+    setMinOdds(-175);
+    setMaxOdds(500);
+    setUseOddsFilter(false);
+    localStorage.removeItem(`player-props-filters-${sport}`);
   };
 
   // Auto-reset restrictive filters on first load
@@ -1013,45 +1007,45 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
     useOddsFilter,
   ]);
 
-  // Update sport filter when selectedSport changes
+  // Update sport filter when selectedSport changes (debounced one-shot)
   useEffect(() => {
-    logState("PlayerPropsTab", `useEffect triggered - selectedSport: ${selectedSport}`);
+    logState("PlayerPropsTab", `Sport changed: ${selectedSport}`);
     setSportFilter(selectedSport);
-    if (selectedSport) {
-      logState("PlayerPropsTab", `Loading props for sport: ${selectedSport}`);
+    if (!selectedSport) {
+      logWarning("PlayerPropsTab", "No sport selected, skipping load");
+      return;
+    }
+    autoRelaxedRef.current = false; // reset per league
+    // Ensure permissive defaults when switching leagues so we see the full slate
+    silentPermissiveReset(selectedSport);
+    const t = setTimeout(() => {
+      logState("PlayerPropsTab", `Initial load for sport: ${selectedSport}`);
       loadPlayerProps(selectedSport);
       loadAvailableSportsbooks(selectedSport);
-    } else {
-      logWarning("PlayerPropsTab", "No sport selected, skipping load");
-    }
-  }, [selectedSport, loadPlayerProps, loadAvailableSportsbooks]);
+    }, 50);
+    return () => clearTimeout(t);
+  }, [selectedSport]);
 
-  // Reload props when sportsbook changes
-  useEffect(() => {
-    if (selectedSport && selectedSportsbook !== "") {
-      logState("PlayerPropsTab", `Sportsbook changed to: ${selectedSportsbook}`);
-      loadPlayerProps(selectedSport);
-    }
-  }, [selectedSportsbook, selectedSport, loadPlayerProps]);
+  // Optional: Do not auto-reload on sportsbook change to avoid constant refresh.
+  // We filter/books at render from offers; reloading data is not necessary here.
+  // If you want to force reload on explicit action, call loadPlayerProps manually.
 
-  // Periodic check for game status and auto-refresh
+  // Periodic auto-refresh (gentle): 10 minutes, only if not fetching
   useEffect(() => {
     if (!selectedSport) return;
-
-    // Check every 5 minutes if games have ended
     const interval = setInterval(
-      async () => {
+      () => {
         try {
-          logInfo("PlayerPropsTab", "Periodic check for game status...");
-          // Note: Normalized service doesn't have refresh check, just reload props
-          loadPlayerProps(selectedSport);
+          if (!isFetchingPropsRef.current) {
+            logInfo("PlayerPropsTab", "Periodic refresh (10m)");
+            loadPlayerProps(selectedSport);
+          }
         } catch (error) {
-          logError("PlayerPropsTab", "Error in periodic game check:", error);
+          logError("PlayerPropsTab", "Error in periodic refresh:", error);
         }
       },
-      5 * 60 * 1000,
-    ); // 5 minutes
-
+      10 * 60 * 1000,
+    );
     return () => clearInterval(interval);
   }, [selectedSport, loadPlayerProps]);
 
@@ -1129,6 +1123,13 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
 
   // Only show sportsbook props - no Pick'em props
   const allProps = realProps;
+
+  // Prime rating service with the current slate for normalization context
+  try {
+    statpediaRatingService.setSlateProps(allProps as any[]);
+  } catch (e) {
+    // non-fatal; proceed without slate priming
+  }
 
   // PropFinder-style dual rating system
   const propsWithRatings = allProps.map((prop) => ({
@@ -1248,6 +1249,47 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
   // Use sorted props (PropFinder-style for 'api' sort, traditional for others)
   const mixedProps = sortedProps;
 
+  // Auto-relax filters if we end up with a very small visible slate relative to available props
+  useEffect(() => {
+    try {
+      const visible = mixedProps.length;
+      const total = realProps.length;
+      const restrictive =
+        minEV > 0 ||
+        minConfidence > 0 ||
+        useOddsFilter ||
+        propTypeFilter !== "all" ||
+        searchQuery.trim().length > 0;
+      if (
+        !autoRelaxedRef.current &&
+        total > 0 &&
+        visible > 0 &&
+        visible < Math.min(20, total) &&
+        restrictive
+      ) {
+        logWarning(
+          "PlayerPropsTab",
+          `Auto-relaxing filters (visible: ${visible}, total: ${total})`,
+        );
+        autoRelaxedRef.current = true;
+        silentPermissiveReset(sportFilter);
+      }
+    } catch (e) {
+      // intentionally ignore errors from auto-relax filter
+      void e;
+    }
+  }, [
+    mixedProps.length,
+    realProps.length,
+    minEV,
+    minConfidence,
+    useOddsFilter,
+    propTypeFilter,
+    searchQuery,
+    sportFilter,
+    silentPermissiveReset,
+  ]);
+
   // Set slate props for normalization before computing ratings
   React.useEffect(() => {
     if (mixedProps && mixedProps.length > 0) {
@@ -1262,28 +1304,12 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
     // Copy to avoid mutating upstream
     const arr = [...mixedProps];
 
-    // Apply NFL guard and filter out defensive and kicking props
-    const nflOnly = arr.filter((p) => {
-      // Must be NFL
-      if (p.sport && String(p.sport).toLowerCase() !== "nfl") return false;
-
-      // Filter out defensive props (but keep field goals)
-      const marketType = (p.propType || "").toLowerCase();
-      if (
-        marketType.includes("defense") ||
-        marketType.includes("sack") ||
-        marketType.includes("tackle") ||
-        marketType.includes("interception") ||
-        marketType.includes("extra point")
-      ) {
-        return false;
-      }
-
-      return true;
-    });
+    // Ensure we only show props for the currently selected league; do not exclude categories
+    const league = (sportFilter || "").toLowerCase();
+    const leagueProps = arr.filter((p) => !p.sport || String(p.sport).toLowerCase() === league);
 
     // Sort by Statpedia rating first (highest to lowest), then by priority
-    nflOnly.sort((a, b) => {
+    leagueProps.sort((a, b) => {
       // Check if props are pick 'em (odds around +100)
       const aIsPickEm =
         (a.overOdds && Number(a.overOdds) >= 95 && Number(a.overOdds) <= 105) ||
@@ -1341,12 +1367,12 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
     });
 
     // Debug logging (remove after confirming)
-    nflOnly.slice(0, 10).forEach((p) => {
+    leagueProps.slice(0, 10).forEach((p) => {
       console.debug("[ORDERED]", p.propType, p.playerName, getPriority(p.propType));
     });
 
-    return nflOnly;
-  }, [mixedProps]);
+    return leagueProps;
+  }, [mixedProps, sportFilter]);
 
   logFilter("PlayerPropsTab", `Final filteredProps length: ${filteredProps.length}`);
   logFilter("PlayerPropsTab", `Props length: ${mixedProps.length}`);
@@ -1515,24 +1541,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
   };
 
   // Get unique prop types for filter (exclude defense and kicking for NFL)
-  const propTypes = Array.from(new Set(mixedProps.map((prop) => prop.propType.replace(/_/g, " "))))
-    .filter((propType) => {
-      // Filter out defense and kicking props for NFL
-      if (sportFilter.toLowerCase() === "nfl") {
-        const lowerType = propType.toLowerCase();
-        return (
-          !lowerType.includes("defense") &&
-          !lowerType.includes("sack") &&
-          !lowerType.includes("tackle") &&
-          !lowerType.includes("interception") &&
-          !lowerType.includes("field goal") &&
-          !lowerType.includes("kicking") &&
-          !lowerType.includes("extra point")
-        );
-      }
-      return true;
-    })
-    .sort();
+  const propTypes = Array.from(
+    new Set(mixedProps.map((prop) => prop.propType.replace(/_/g, " "))),
+  ).sort();
 
   if (!isSubscribed) {
     return (
@@ -2037,11 +2048,6 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                 {orderedProps.map((prop, index) => {
-                  // Guard at UI: Skip rendering if not NFL
-                  if (prop.sport && prop.sport.toLowerCase() !== "nfl") {
-                    return null;
-                  }
-
                   // Construct event title from team names and logos
                   const eventTitle =
                     prop.homeTeam && prop.awayTeam
