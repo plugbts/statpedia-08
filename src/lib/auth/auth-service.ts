@@ -155,10 +155,26 @@ export class AuthService {
   private async cleanupExpiredTokens(): Promise<void> {
     try {
       const { db } = getDatabase();
-      await db.delete(auth_session).where(lt(auth_session.expires_at, new Date()));
-      await db
-        .delete(auth_verification_token)
-        .where(lt(auth_verification_token.expires_at, new Date()));
+      const now = new Date();
+      // Defensive: ensure expires_at is always a Date for comparison
+      await db.delete(auth_session).where(
+        lt(
+          // @ts-ignore drizzle may pass string, so coerce
+          typeof auth_session.expires_at === "string"
+            ? new Date(auth_session.expires_at as any)
+            : auth_session.expires_at,
+          now,
+        ),
+      );
+      await db.delete(auth_verification_token).where(
+        lt(
+          // @ts-ignore drizzle may pass string, so coerce
+          typeof auth_verification_token.expires_at === "string"
+            ? new Date(auth_verification_token.expires_at as any)
+            : auth_verification_token.expires_at,
+          now,
+        ),
+      );
     } catch (error) {
       console.error("Failed to cleanup expired tokens:", error);
     }
