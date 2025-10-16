@@ -110,59 +110,59 @@ export const STAT_ID_TO_CANONICAL = {
 } as const;
 
 // Market name patterns for normalization
-export const MARKET_NAME_PATTERNS = {
+export const MARKET_NAME_PATTERNS: Array<{ pattern: RegExp; name: string }> = [
   // NFL/NCAAF patterns
-  /passing\s+yards/i: 'Passing Yards',
-  /passing\s+completions/i: 'Passing Completions',
-  /passing\s+touchdowns?/i: 'Passing TDs',
-  /passing\s+interceptions?/i: 'Interceptions',
-  /passing\s+attempts/i: 'Passing Attempts',
-  /rushing\s+yards/i: 'Rushing Yards',
-  /rushing\s+attempts/i: 'Rushing Attempts',
-  /rushing\s+touchdowns?/i: 'Rushing TDs',
-  /receiving\s+yards/i: 'Receiving Yards',
-  /receptions?/i: 'Receptions',
-  /receiving\s+touchdowns?/i: 'Receiving TDs',
+  { pattern: /passing\s+yards/i, name: 'Passing Yards' },
+  { pattern: /passing\s+completions/i, name: 'Passing Completions' },
+  { pattern: /passing\s+touchdowns?/i, name: 'Passing TDs' },
+  { pattern: /passing\s+interceptions?/i, name: 'Interceptions' },
+  { pattern: /passing\s+attempts/i, name: 'Passing Attempts' },
+  { pattern: /rushing\s+yards/i, name: 'Rushing Yards' },
+  { pattern: /rushing\s+attempts/i, name: 'Rushing Attempts' },
+  { pattern: /rushing\s+touchdowns?/i, name: 'Rushing TDs' },
+  { pattern: /receiving\s+yards/i, name: 'Receiving Yards' },
+  { pattern: /receptions?/i, name: 'Receptions' },
+  { pattern: /receiving\s+touchdowns?/i, name: 'Receiving TDs' },
   
   // NBA/NCAAB patterns
-  /points?/i: 'Points',
-  /assists?/i: 'Assists',
-  /rebounds?/i: 'Rebounds',
-  /3[-\s]?point(er)?s?\s+(made|field\s+goals?)/i: '3PM',
-  /steals?/i: 'Steals',
-  /blocks?/i: 'Blocks',
-  /turnovers?/i: 'Turnovers',
-  /pra\s*\(.*\)/i: 'PRA',
-  /double\s+double/i: 'Double Double',
-  /triple\s+double/i: 'Triple Double',
+  { pattern: /points?/i, name: 'Points' },
+  { pattern: /assists?/i, name: 'Assists' },
+  { pattern: /rebounds?/i, name: 'Rebounds' },
+  { pattern: /3[-\s]?point(er)?s?\s+(made|field\s+goals?)/i, name: '3PM' },
+  { pattern: /steals?/i, name: 'Steals' },
+  { pattern: /blocks?/i, name: 'Blocks' },
+  { pattern: /turnovers?/i, name: 'Turnovers' },
+  { pattern: /pra\s*\(.*\)/i, name: 'PRA' },
+  { pattern: /double\s+double/i, name: 'Double Double' },
+  { pattern: /triple\s+double/i, name: 'Triple Double' },
   
   // MLB patterns
-  /hits?/i: 'Hits',
-  /runs?/i: 'Runs',
-  /rbis?/i: 'RBIs',
-  /home\s+runs?/i: 'Home Runs',
-  /total\s+bases/i: 'Total Bases',
-  /stolen\s+bases?/i: 'Stolen Bases',
-  /pitcher\s+strikeouts?/i: 'Pitcher Ks',
-  /pitcher\s+outs?/i: 'Pitcher Outs',
-  /earned\s+runs?\s+allowed/i: 'ER Allowed',
+  { pattern: /hits?/i, name: 'Hits' },
+  { pattern: /runs?/i, name: 'Runs' },
+  { pattern: /rbis?/i, name: 'RBIs' },
+  { pattern: /home\s+runs?/i, name: 'Home Runs' },
+  { pattern: /total\s+bases/i, name: 'Total Bases' },
+  { pattern: /stolen\s+bases?/i, name: 'Stolen Bases' },
+  { pattern: /pitcher\s+strikeouts?/i, name: 'Pitcher Ks' },
+  { pattern: /pitcher\s+outs?/i, name: 'Pitcher Outs' },
+  { pattern: /earned\s+runs?\s+allowed/i, name: 'ER Allowed' },
   
   // NHL patterns
-  /goals?/i: 'Goals',
-  /assists?/i: 'Assists',
-  /points?/i: 'Points',
-  /shots?\s+on\s+goal/i: 'Shots',
-  /power\s+play\s+points?/i: 'PPP',
-  /saves?/i: 'Saves',
+  { pattern: /goals?/i, name: 'Goals' },
+  { pattern: /assists?/i, name: 'Assists' },
+  { pattern: /points?/i, name: 'Points' },
+  { pattern: /shots?\s+on\s+goal/i, name: 'Shots' },
+  { pattern: /power\s+play\s+points?/i, name: 'PPP' },
+  { pattern: /saves?/i, name: 'Saves' },
   
   // Soccer patterns
-  /goalscorer/i: 'Goals',
-  /assists?/i: 'Assists',
-  /shots?/i: 'Shots',
-  /shots?\s+on\s+target/i: 'Shots on Target',
-  /passes?/i: 'Passes',
-  /tackles?/i: 'Tackles'
-} as const;
+  { pattern: /goalscorer/i, name: 'Goals' },
+  { pattern: /assists?/i, name: 'Assists' },
+  { pattern: /shots?/i, name: 'Shots' },
+  { pattern: /shots?\s+on\s+target/i, name: 'Shots on Target' },
+  { pattern: /passes?/i, name: 'Passes' },
+  { pattern: /tackles?/i, name: 'Tackles' }
+];
 
 class PropNormalizationService {
   private unmappedMarkets: Set<string> = new Set();
@@ -191,9 +191,9 @@ class PropNormalizationService {
 
     // Try pattern matching for market names
     if (source === 'marketName') {
-      for (const [pattern, canonicalType] of Object.entries(MARKET_NAME_PATTERNS)) {
+      for (const { pattern, name } of MARKET_NAME_PATTERNS) {
         if (pattern.test(normalizedInput)) {
-          return canonicalType;
+          return name;
         }
       }
     }

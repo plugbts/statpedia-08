@@ -36,7 +36,6 @@ export default defineConfig(({ mode }) => ({
   define: {
     // StatPedia API endpoints
     'import.meta.env.VITE_GRAPHQL_ENDPOINT': JSON.stringify("https://statpedia-proxy.statpedia.workers.dev/v1/graphql"),
-    'import.meta.env.VITE_AUTH_ENDPOINT': JSON.stringify("https://statpedia-auth.statpedia.workers.dev"),
     'import.meta.env.VITE_STORAGE_ENDPOINT': JSON.stringify("https://statpedia-storage.statpedia.workers.dev"),
     'import.meta.env.VITE_HASURA_CONSOLE': JSON.stringify("https://graphql-engine-latest-statpedia.onrender.com/console"),
     'import.meta.env.VITE_LOVEABLE_PROJECT_ID': JSON.stringify("statpedia-08"),
