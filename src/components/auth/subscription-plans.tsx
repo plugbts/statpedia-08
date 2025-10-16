@@ -1,96 +1,130 @@
 // @ts-nocheck
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CheckCircle, Star, Zap, Crown, Shield, X, CreditCard, Lock, Gift, Percent, Calendar } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { trialAbusePreventionService } from '@/services/trial-abuse-prevention';
+import React, { useState, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  CheckCircle,
+  Star,
+  Zap,
+  Crown,
+  Shield,
+  X,
+  CreditCard,
+  Lock,
+  Gift,
+  Percent,
+  Calendar,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { getApiBaseUrl } from "@/lib/api";
+import { trialAbusePreventionService } from "@/services/trial-abuse-prevention";
 
 interface SubscriptionPlansProps {
-  onSubscriptionSuccess: (plan: string, billingFrequency?: 'monthly' | 'weekly') => void;
+  onSubscriptionSuccess: (plan: string, billingFrequency?: "monthly" | "weekly") => void;
   onLogout?: () => void;
 }
 
-export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscriptionSuccess, onLogout }) => {
+export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
+  onSubscriptionSuccess,
+  onLogout,
+}) => {
   const navigate = useNavigate();
   const [showExitConfirmation, setShowExitConfirmation] = useState(false);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<string>('');
+  const [selectedPlan, setSelectedPlan] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [hasUsedFreeTrial, setHasUsedFreeTrial] = useState(false);
-  const [promoCode, setPromoCode] = useState('');
+  const [promoCode, setPromoCode] = useState("");
   const [promoDiscount, setPromoDiscount] = useState(0);
-  const [promoType, setPromoType] = useState<'percentage' | 'free_trial' | null>(null);
+  const [promoType, setPromoType] = useState<"percentage" | "free_trial" | null>(null);
   const [showPromoTab, setShowPromoTab] = useState(false);
   const [trialEligibility, setTrialEligibility] = useState<{
     isEligible: boolean;
     reason: string;
     abuseType: string;
   } | null>(null);
-  const [billingFrequency, setBillingFrequency] = useState<'monthly' | 'weekly'>('monthly');
+  const [billingFrequency, setBillingFrequency] = useState<"monthly" | "weekly">("monthly");
 
   // Payment form state
   const [paymentData, setPaymentData] = useState({
-    cardNumber: '',
-    expiryDate: '',
-    cvv: '',
-    name: '',
-    email: '',
-    address: '',
-    city: '',
-    state: '',
-    zipCode: ''
+    cardNumber: "",
+    expiryDate: "",
+    cvv: "",
+    name: "",
+    email: "",
+    address: "",
+    city: "",
+    state: "",
+    zipCode: "",
   });
 
   // Check user's free trial status and eligibility
   useEffect(() => {
     const checkUserStatus = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (session?.user) {
         setUser(session.user);
-        
+
         // Check trial eligibility using abuse prevention service
         try {
           const eligibility = await trialAbusePreventionService.checkTrialEligibility(
             session.user.id,
-            session.user.email || ''
+            session.user.email || "",
           );
-          
+
           setTrialEligibility(eligibility);
           setHasUsedFreeTrial(!eligibility.isEligible);
-          
+
           // Log abuse attempt if not eligible
-          if (!eligibility.isEligible && eligibility.abuseType !== 'eligible') {
+          if (!eligibility.isEligible && eligibility.abuseType !== "eligible") {
             await trialAbusePreventionService.logAbuseAttempt(
               session.user.id,
-              session.user.email || '',
+              session.user.email || "",
               eligibility.abuseType,
               0,
-              eligibility.reason
+              eligibility.reason,
             );
           }
         } catch (eligibilityError) {
-          console.error('Error checking trial eligibility:', eligibilityError);
+          console.error("Error checking trial eligibility:", eligibilityError);
           // Default to allowing trial if there's an error
           setTrialEligibility({
             isEligible: true,
-            reason: 'Eligible for free trial',
-            abuseType: 'eligible'
+            reason: "Eligible for free trial",
+            abuseType: "eligible",
           });
           setHasUsedFreeTrial(false);
         }
       }
     };
-    
+
     checkUserStatus();
   }, []);
 
@@ -103,10 +137,10 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
     }
 
     const { data, error } = await supabase
-      .from('promo_codes')
-      .select('*')
-      .eq('code', code.toUpperCase())
-      .eq('is_active', true)
+      .from("promo_codes")
+      .select("*")
+      .eq("code", code.toUpperCase())
+      .eq("is_active", true)
       .single();
 
     if (error || !data) {
@@ -128,108 +162,111 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
 
   const plans = [
     {
-      id: 'free',
-      name: 'Free',
+      id: "free",
+      name: "Free",
       price: 0,
-      description: 'Limited access to get you started',
+      description: "Limited access to get you started",
       icon: Star,
       features: [
-        'View total predictions count',
-        'See overall win rate',
-        'Access to wins summary',
-        'Only 2 predictions visible',
-        'Max 65% prediction accuracy shown',
-        'All detailed analysis blurred'
+        "View total predictions count",
+        "See overall win rate",
+        "Access to wins summary",
+        "Only 2 predictions visible",
+        "Max 65% prediction accuracy shown",
+        "All detailed analysis blurred",
       ],
       limitations: [
-        'No access to player prop details',
-        'No deep analysis features',
-        'Limited prediction visibility'
+        "No access to player prop details",
+        "No deep analysis features",
+        "Limited prediction visibility",
       ],
-      buttonText: 'Current Plan',
-      gradient: 'bg-gradient-accent',
-      popular: false
+      buttonText: "Current Plan",
+      gradient: "bg-gradient-accent",
+      popular: false,
     },
     {
-      id: 'free_trial',
-      name: '3-Day Free Trial',
+      id: "free_trial",
+      name: "3-Day Free Trial",
       price: 0,
       originalPrice: 29.99,
-      description: 'Try Pro features for 3 days, then $29.99/month',
+      description: "Try Pro features for 3 days, then $29.99/month",
       icon: Calendar,
       features: [
-        'All Pro features for 3 days',
-        'Unlimited predictions',
-        'Complete player prop analysis',
-        'Deep statistical insights',
-        'Advanced metrics dashboard',
-        'Real-time odds tracking',
-        'Cancel anytime during trial'
+        "All Pro features for 3 days",
+        "Unlimited predictions",
+        "Complete player prop analysis",
+        "Deep statistical insights",
+        "Advanced metrics dashboard",
+        "Real-time odds tracking",
+        "Cancel anytime during trial",
       ],
-      buttonText: hasUsedFreeTrial 
-        ? (trialEligibility?.abuseType === 'ip_limit' ? 'IP Limit Reached' 
-           : trialEligibility?.abuseType === 'mac_limit' ? 'Device Limit Reached'
-           : trialEligibility?.abuseType === 'email_limit' ? 'Trial Already Used'
-           : 'Trial Not Available')
-        : 'Start Free Trial',
-      gradient: 'bg-gradient-primary',
+      buttonText: hasUsedFreeTrial
+        ? trialEligibility?.abuseType === "ip_limit"
+          ? "IP Limit Reached"
+          : trialEligibility?.abuseType === "mac_limit"
+            ? "Device Limit Reached"
+            : trialEligibility?.abuseType === "email_limit"
+              ? "Trial Already Used"
+              : "Trial Not Available"
+        : "Start Free Trial",
+      gradient: "bg-gradient-primary",
       popular: true,
       requiresCard: true,
-      disabled: hasUsedFreeTrial
+      disabled: hasUsedFreeTrial,
     },
     {
-      id: 'pro',
-      name: 'Pro',
+      id: "pro",
+      name: "Pro",
       price: 29.99,
       weeklyPrice: 14.99,
-      description: 'Full access to all predictions and analysis',
+      description: "Full access to all predictions and analysis",
       icon: Zap,
       features: [
-        'All predictions visible',
-        'Complete player prop analysis',
-        'Deep statistical insights',
-        'Potential assists/rebounds data',
-        'Advanced metrics dashboard',
-        'Real-time odds tracking',
-        'Historical performance data',
-        'Custom filters and search'
+        "All predictions visible",
+        "Complete player prop analysis",
+        "Deep statistical insights",
+        "Potential assists/rebounds data",
+        "Advanced metrics dashboard",
+        "Real-time odds tracking",
+        "Historical performance data",
+        "Custom filters and search",
       ],
-      buttonText: 'Select Plan',
-      gradient: 'bg-gradient-primary',
-      popular: true
+      buttonText: "Select Plan",
+      gradient: "bg-gradient-primary",
+      popular: true,
     },
     {
-      id: 'premium',
-      name: 'Premium',
+      id: "premium",
+      name: "Premium",
       price: 49.99,
       weeklyPrice: 24.99,
-      description: 'Professional-grade analytics for serious bettors',
+      description: "Professional-grade analytics for serious bettors",
       icon: Crown,
       features: [
-        'Everything in Pro',
-        'Priority customer support',
-        'Advanced AI predictions',
-        'Custom betting strategies',
-        'Portfolio tracking',
-        'Risk management tools',
-        'Multi-sport coverage',
-        'API access',
-        'White-label options'
+        "Everything in Pro",
+        "Priority customer support",
+        "Advanced AI predictions",
+        "Custom betting strategies",
+        "Portfolio tracking",
+        "Risk management tools",
+        "Multi-sport coverage",
+        "API access",
+        "White-label options",
       ],
-      buttonText: 'Select Plan',
-      gradient: 'bg-gradient-success',
-      popular: false
-    }
+      buttonText: "Select Plan",
+      gradient: "bg-gradient-success",
+      popular: false,
+    },
   ];
 
-  const handlePlanSelect = (planId: string, frequency: 'monthly' | 'weekly' = 'monthly') => {
-    if (planId === 'free') {
+  const handlePlanSelect = (planId: string, frequency: "monthly" | "weekly" = "monthly") => {
+    if (planId === "free") {
       // Free plan - no payment needed
       onSubscriptionSuccess(planId);
-    } else if (planId === 'free_trial') {
+    } else if (planId === "free_trial") {
       // Free trial - requires card but no payment
       setSelectedPlan(planId);
-      setBillingFrequency('monthly');
+      setBillingFrequency("monthly");
       setShowPaymentForm(true);
     } else {
       // Paid plan - show payment form
@@ -243,81 +280,100 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
     if (!selectedPlan || !user) return;
 
     setIsProcessing(true);
-    
+
     try {
       // Handle free trial
-      if (selectedPlan === 'free_trial') {
+      if (selectedPlan === "free_trial") {
         // Check eligibility again before processing
         if (!trialEligibility?.isEligible) {
-          throw new Error(trialEligibility?.reason || 'Free trial not available');
+          throw new Error(trialEligibility?.reason || "Free trial not available");
         }
 
         // Record free trial usage using abuse prevention service
         const success = await trialAbusePreventionService.recordTrialUsage(user.id);
-        
+
         if (!success) {
-          throw new Error('Failed to record trial usage');
+          throw new Error("Failed to record trial usage");
         }
 
         // Record promo code usage if applicable
         if (promoCode && promoType) {
-          const { error: promoError } = await supabase
-            .from('promo_code_usage')
-            .insert({
-              user_id: user.id,
-              promo_code: promoCode.toUpperCase(),
-              used_at: new Date().toISOString(),
-              discount_type: promoType,
-              discount_value: promoDiscount
-            });
-
-          if (promoError) console.error('Promo code tracking error:', promoError);
-        }
-
-        onSubscriptionSuccess('free_trial', 'monthly');
-        setShowPaymentForm(false);
-        setSelectedPlan('');
-        navigate('/');
-        return;
-      }
-
-      // Handle regular subscription with promo code
-      const selectedPlanData = plans.find(p => p.id === selectedPlan);
-      let finalPrice = billingFrequency === 'weekly' 
-        ? (selectedPlanData as any)?.weeklyPrice || selectedPlanData?.price || 0
-        : selectedPlanData?.price || 0;
-      
-      if (promoType === 'percentage' && promoDiscount > 0) {
-        finalPrice = finalPrice * (1 - promoDiscount / 100);
-      }
-
-      // Simulate payment processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Record promo code usage if applicable
-      if (promoCode && promoType) {
-        const { error: promoError } = await supabase
-          .from('promo_code_usage')
-          .insert({
+          const { error: promoError } = await supabase.from("promo_code_usage").insert({
             user_id: user.id,
             promo_code: promoCode.toUpperCase(),
             used_at: new Date().toISOString(),
             discount_type: promoType,
-            discount_value: promoDiscount
+            discount_value: promoDiscount,
           });
 
-        if (promoError) console.error('Promo code tracking error:', promoError);
+          if (promoError) console.error("Promo code tracking error:", promoError);
+        }
+
+        // Update our auth subscription tier
+        try {
+          await fetch(`${getApiBaseUrl()}/api/auth/update-subscription`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: user.id, subscription_tier: "free_trial" }),
+          });
+        } catch (e) {
+          console.error("Failed to update subscription tier:", e);
+        }
+
+        onSubscriptionSuccess("free_trial", "monthly");
+        setShowPaymentForm(false);
+        setSelectedPlan("");
+        navigate("/");
+        return;
+      }
+
+      // Handle regular subscription with promo code
+      const selectedPlanData = plans.find((p) => p.id === selectedPlan);
+      let finalPrice =
+        billingFrequency === "weekly"
+          ? (selectedPlanData as any)?.weeklyPrice || selectedPlanData?.price || 0
+          : selectedPlanData?.price || 0;
+
+      if (promoType === "percentage" && promoDiscount > 0) {
+        finalPrice = finalPrice * (1 - promoDiscount / 100);
+      }
+
+      // Simulate payment processing
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Record promo code usage if applicable
+      if (promoCode && promoType) {
+        const { error: promoError } = await supabase.from("promo_code_usage").insert({
+          user_id: user.id,
+          promo_code: promoCode.toUpperCase(),
+          used_at: new Date().toISOString(),
+          discount_type: promoType,
+          discount_value: promoDiscount,
+        });
+
+        if (promoError) console.error("Promo code tracking error:", promoError);
+      }
+
+      // Update our auth subscription tier
+      try {
+        await fetch(`${getApiBaseUrl()}/api/auth/update-subscription`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: user.id, subscription_tier: selectedPlan }),
+        });
+      } catch (e) {
+        console.error("Failed to update subscription tier:", e);
       }
 
       // Success - call the subscription success callback
       onSubscriptionSuccess(selectedPlan, billingFrequency);
       setShowPaymentForm(false);
-      setSelectedPlan('');
-      
+      setSelectedPlan("");
+
       // Navigate back to dashboard after successful payment
-      navigate('/');
+      navigate("/");
     } catch (error) {
-      console.error('Payment failed:', error);
+      console.error("Payment failed:", error);
     } finally {
       setIsProcessing(false);
     }
@@ -329,247 +385,253 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
 
   const handleConfirmExit = () => {
     setShowExitConfirmation(false);
-    onSubscriptionSuccess('free', 'monthly');
+    onSubscriptionSuccess("free", "monthly");
     // Navigate back to dashboard after selecting free plan
-    navigate('/');
+    navigate("/");
   };
 
   const handleCancelExit = () => {
     setShowExitConfirmation(false);
   };
 
-  const selectedPlanData = plans.find(p => p.id === selectedPlan);
+  const selectedPlanData = plans.find((p) => p.id === selectedPlan);
 
   return (
     <>
       <div className="min-h-screen bg-background overflow-y-auto">
         <div className="max-w-8xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8 relative">
-        {/* Exit and Logout buttons */}
-        <div className="absolute top-2 left-4 z-10 flex gap-2">
-          <button
-            onClick={handleExitClick}
-            className="p-2 rounded-full bg-background border border-border hover:bg-accent transition-colors"
-            aria-label="Skip subscription"
-          >
-            <X className="h-5 w-5 text-foreground" />
-          </button>
-          {onLogout && (
-            <Button
-              onClick={onLogout}
-              variant="outline"
-              size="sm"
-              className="gap-2"
+          {/* Exit and Logout buttons */}
+          <div className="absolute top-2 left-4 z-10 flex gap-2">
+            <button
+              onClick={handleExitClick}
+              className="p-2 rounded-full bg-background border border-border hover:bg-accent transition-colors"
+              aria-label="Skip subscription"
             >
-              Logout
-            </Button>
-          )}
-        </div>
+              <X className="h-5 w-5 text-foreground" />
+            </button>
+            {onLogout && (
+              <Button onClick={onLogout} variant="outline" size="sm" className="gap-2">
+                Logout
+              </Button>
+            )}
+          </div>
 
-        <div className="text-center space-y-3">
-          <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-3">
-            Choose Your Plan
-          </h2>
-          <p className="text-base sm:text-lg text-muted-foreground">
-            Unlock the full power of Statpedia with detailed player prop analysis
-          </p>
-          <Alert className="max-w-4xl mx-auto border-warning bg-warning/10">
-            <Shield className="h-4 w-4" />
-            <AlertDescription className="text-sm">
-              Payment processing is not yet configured. For production use, please integrate a secure payment processor like Stripe.
-            </AlertDescription>
-          </Alert>
-        </div>
-
-        {/* Promo Code Section */}
-        <div className="max-w-4xl mx-auto">
-          <Card className="bg-gradient-card border-border/50">
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Gift className="h-4 w-4 text-primary" />
-                Promo Code
-              </CardTitle>
-              <CardDescription className="text-sm">
-                Have a promo code? Enter it below to get discounts or free trials.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Enter promo code"
-                  value={promoCode}
-                  onChange={(e) => {
-                    setPromoCode(e.target.value);
-                    validatePromoCode(e.target.value);
-                  }}
-                  className="flex-1"
-                  size="sm"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => validatePromoCode(promoCode)}
-                  disabled={!promoCode.trim()}
-                >
-                  Apply
-                </Button>
-              </div>
-              {promoDiscount > 0 && promoType && (
-                <div className="mt-2 p-2 bg-success/10 border border-success/20 rounded-lg">
-                  <div className="flex items-center gap-2 text-success">
-                    <CheckCircle className="h-3.5 w-3.5" />
-                    <span className="text-sm font-medium">
-                      {promoType === 'percentage' 
-                        ? `${promoDiscount}% discount applied!`
-                        : 'Free trial unlocked!'
-                      }
-                    </span>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Abuse Prevention Alert */}
-        {trialEligibility && !trialEligibility.isEligible && trialEligibility.abuseType !== 'eligible' && (
-          <div className="max-w-4xl mx-auto">
-            <Alert className="border-destructive bg-destructive/10">
+          <div className="text-center space-y-3">
+            <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-3">
+              Choose Your Plan
+            </h2>
+            <p className="text-base sm:text-lg text-muted-foreground">
+              Unlock the full power of Statpedia with detailed player prop analysis
+            </p>
+            <Alert className="max-w-4xl mx-auto border-warning bg-warning/10">
               <Shield className="h-4 w-4" />
               <AlertDescription className="text-sm">
-                <strong>Free Trial Not Available:</strong> {trialEligibility.reason}
-                {trialEligibility.abuseType === 'ip_limit' && (
-                  <span className="block mt-1 text-xs">
-                    Maximum 2 free trials per IP address allowed.
-                  </span>
-                )}
-                {trialEligibility.abuseType === 'mac_limit' && (
-                  <span className="block mt-1 text-xs">
-                    Maximum 2 free trials per device allowed.
-                  </span>
-                )}
-                {trialEligibility.abuseType === 'email_limit' && (
-                  <span className="block mt-1 text-xs">
-                    One free trial per email address allowed.
-                  </span>
-                )}
+                Payment processing is not yet configured. For production use, please integrate a
+                secure payment processor like Stripe.
               </AlertDescription>
             </Alert>
           </div>
-        )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-        {plans.map((plan) => {
-          const IconComponent = plan.icon;
-          const hasWeeklyOption = plan.id !== 'free' && plan.id !== 'free_trial' && (plan as any).weeklyPrice;
-          
-          return (
-            <div key={plan.id} className="space-y-4">
-              <Card 
-                className={`relative bg-gradient-card border-border/50 transition-all duration-300 hover:shadow-card-hover ${
-                  plan.popular ? 'ring-2 ring-primary/50' : ''
-                }`}
-              >
-                {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                    <Badge className="bg-gradient-primary">
-                      Most Popular
-                    </Badge>
+          {/* Promo Code Section */}
+          <div className="max-w-4xl mx-auto">
+            <Card className="bg-gradient-card border-border/50">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Gift className="h-4 w-4 text-primary" />
+                  Promo Code
+                </CardTitle>
+                <CardDescription className="text-sm">
+                  Have a promo code? Enter it below to get discounts or free trials.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Enter promo code"
+                    value={promoCode}
+                    onChange={(e) => {
+                      setPromoCode(e.target.value);
+                      validatePromoCode(e.target.value);
+                    }}
+                    className="flex-1"
+                    size="sm"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => validatePromoCode(promoCode)}
+                    disabled={!promoCode.trim()}
+                  >
+                    Apply
+                  </Button>
+                </div>
+                {promoDiscount > 0 && promoType && (
+                  <div className="mt-2 p-2 bg-success/10 border border-success/20 rounded-lg">
+                    <div className="flex items-center gap-2 text-success">
+                      <CheckCircle className="h-3.5 w-3.5" />
+                      <span className="text-sm font-medium">
+                        {promoType === "percentage"
+                          ? `${promoDiscount}% discount applied!`
+                          : "Free trial unlocked!"}
+                      </span>
+                    </div>
                   </div>
                 )}
-                
-                <CardHeader className="text-center pb-4">
-                  <div className={`inline-flex items-center justify-center w-10 h-10 rounded-lg ${plan.gradient} mb-3 mx-auto`}>
-                    <IconComponent className="h-5 w-5 text-white" />
-                  </div>
-                  
-                  <CardTitle className="text-xl font-bold">{plan.name}</CardTitle>
-                  <CardDescription className="text-sm">{plan.description}</CardDescription>
-                  
-                  <div className="py-3">
-                    <div className="text-3xl font-bold text-foreground">
-                      ${plan.price}
-                      {plan.price > 0 && <span className="text-base text-muted-foreground">/month</span>}
-                    </div>
-                    {plan.price === 0 && (
-                      <div className="text-sm text-muted-foreground">Forever</div>
-                    )}
-                    {(plan as any).originalPrice && (
-                      <div className="text-sm text-muted-foreground">
-                        ${(plan as any).originalPrice}/month after trial
-                      </div>
-                    )}
-                  </div>
-                </CardHeader>
-                
-                <CardContent className="space-y-3 pt-0">
-                  <div className="space-y-1.5">
-                    {plan.features.slice(0, 6).map((feature, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <CheckCircle className="h-3.5 w-3.5 text-success shrink-0" />
-                        <span className="text-xs text-foreground">{feature}</span>
-                      </div>
-                    ))}
-                    {plan.features.length > 6 && (
-                      <div className="text-xs text-muted-foreground">
-                        +{plan.features.length - 6} more features
-                      </div>
-                    )}
-                  </div>
+              </CardContent>
+            </Card>
+          </div>
 
-                  {plan.limitations && (
-                    <div className="pt-1 space-y-1">
-                      <div className="text-xs font-medium text-muted-foreground">Limitations:</div>
-                      {plan.limitations.slice(0, 3).map((limitation, index) => (
-                        <div key={index} className="flex items-center gap-2">
-                          <div className="h-3 w-3 shrink-0 rounded-full bg-destructive/20 flex items-center justify-center">
-                            <div className="h-0.5 w-0.5 bg-destructive rounded-full"></div>
-                          </div>
-                          <span className="text-xs text-muted-foreground">{limitation}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+          {/* Abuse Prevention Alert */}
+          {trialEligibility &&
+            !trialEligibility.isEligible &&
+            trialEligibility.abuseType !== "eligible" && (
+              <div className="max-w-4xl mx-auto">
+                <Alert className="border-destructive bg-destructive/10">
+                  <Shield className="h-4 w-4" />
+                  <AlertDescription className="text-sm">
+                    <strong>Free Trial Not Available:</strong> {trialEligibility.reason}
+                    {trialEligibility.abuseType === "ip_limit" && (
+                      <span className="block mt-1 text-xs">
+                        Maximum 2 free trials per IP address allowed.
+                      </span>
+                    )}
+                    {trialEligibility.abuseType === "mac_limit" && (
+                      <span className="block mt-1 text-xs">
+                        Maximum 2 free trials per device allowed.
+                      </span>
+                    )}
+                    {trialEligibility.abuseType === "email_limit" && (
+                      <span className="block mt-1 text-xs">
+                        One free trial per email address allowed.
+                      </span>
+                    )}
+                  </AlertDescription>
+                </Alert>
+              </div>
+            )}
 
-                  <div className="pt-3 space-y-2">
-                    <Button 
-                      onClick={() => handlePlanSelect(plan.id, 'monthly')}
-                      variant={plan.id === 'free' ? 'outline' : 'default'}
-                      size="sm"
-                      className={plan.id === 'free' ? 'w-full' : `w-full ${plan.gradient} hover:shadow-glow transition-all duration-300`}
-                      disabled={plan.id === 'free' || (plan as any).disabled}
-                    >
-                      {plan.buttonText}
-                    </Button>
-                    
-                    {hasWeeklyOption && (
-                      <Button 
-                        onClick={() => handlePlanSelect(plan.id, 'weekly')}
-                        variant="outline"
-                        size="sm"
-                        className="w-full border-primary/50 hover:bg-primary/10"
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+            {plans.map((plan) => {
+              const IconComponent = plan.icon;
+              const hasWeeklyOption =
+                plan.id !== "free" && plan.id !== "free_trial" && (plan as any).weeklyPrice;
+
+              return (
+                <div key={plan.id} className="space-y-4">
+                  <Card
+                    className={`relative bg-gradient-card border-border/50 transition-all duration-300 hover:shadow-card-hover ${
+                      plan.popular ? "ring-2 ring-primary/50" : ""
+                    }`}
+                  >
+                    {plan.popular && (
+                      <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                        <Badge className="bg-gradient-primary">Most Popular</Badge>
+                      </div>
+                    )}
+
+                    <CardHeader className="text-center pb-4">
+                      <div
+                        className={`inline-flex items-center justify-center w-10 h-10 rounded-lg ${plan.gradient} mb-3 mx-auto`}
                       >
-                        ${(plan as any).weeklyPrice}/week
-                      </Button>
-                    )}
-                    
-                    {(plan as any).requiresCard && (
-                      <p className="text-xs text-muted-foreground mt-1.5 text-center">
-                        Card required (no charge)
-                      </p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          );
-        })}
-      </div>
+                        <IconComponent className="h-5 w-5 text-white" />
+                      </div>
 
-        <div className="text-center">
-          <p className="text-sm text-muted-foreground">
-            All plans include a 7-day money-back guarantee. Cancel anytime.
-          </p>
-        </div>
+                      <CardTitle className="text-xl font-bold">{plan.name}</CardTitle>
+                      <CardDescription className="text-sm">{plan.description}</CardDescription>
+
+                      <div className="py-3">
+                        <div className="text-3xl font-bold text-foreground">
+                          ${plan.price}
+                          {plan.price > 0 && (
+                            <span className="text-base text-muted-foreground">/month</span>
+                          )}
+                        </div>
+                        {plan.price === 0 && (
+                          <div className="text-sm text-muted-foreground">Forever</div>
+                        )}
+                        {(plan as any).originalPrice && (
+                          <div className="text-sm text-muted-foreground">
+                            ${(plan as any).originalPrice}/month after trial
+                          </div>
+                        )}
+                      </div>
+                    </CardHeader>
+
+                    <CardContent className="space-y-3 pt-0">
+                      <div className="space-y-1.5">
+                        {plan.features.slice(0, 6).map((feature, index) => (
+                          <div key={index} className="flex items-center gap-2">
+                            <CheckCircle className="h-3.5 w-3.5 text-success shrink-0" />
+                            <span className="text-xs text-foreground">{feature}</span>
+                          </div>
+                        ))}
+                        {plan.features.length > 6 && (
+                          <div className="text-xs text-muted-foreground">
+                            +{plan.features.length - 6} more features
+                          </div>
+                        )}
+                      </div>
+
+                      {plan.limitations && (
+                        <div className="pt-1 space-y-1">
+                          <div className="text-xs font-medium text-muted-foreground">
+                            Limitations:
+                          </div>
+                          {plan.limitations.slice(0, 3).map((limitation, index) => (
+                            <div key={index} className="flex items-center gap-2">
+                              <div className="h-3 w-3 shrink-0 rounded-full bg-destructive/20 flex items-center justify-center">
+                                <div className="h-0.5 w-0.5 bg-destructive rounded-full"></div>
+                              </div>
+                              <span className="text-xs text-muted-foreground">{limitation}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="pt-3 space-y-2">
+                        <Button
+                          onClick={() => handlePlanSelect(plan.id, "monthly")}
+                          variant={plan.id === "free" ? "outline" : "default"}
+                          size="sm"
+                          className={
+                            plan.id === "free"
+                              ? "w-full"
+                              : `w-full ${plan.gradient} hover:shadow-glow transition-all duration-300`
+                          }
+                          disabled={plan.id === "free" || (plan as any).disabled}
+                        >
+                          {plan.buttonText}
+                        </Button>
+
+                        {hasWeeklyOption && (
+                          <Button
+                            onClick={() => handlePlanSelect(plan.id, "weekly")}
+                            variant="outline"
+                            size="sm"
+                            className="w-full border-primary/50 hover:bg-primary/10"
+                          >
+                            ${(plan as any).weeklyPrice}/week
+                          </Button>
+                        )}
+
+                        {(plan as any).requiresCard && (
+                          <p className="text-xs text-muted-foreground mt-1.5 text-center">
+                            Card required (no charge)
+                          </p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">
+              All plans include a 7-day money-back guarantee. Cancel anytime.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -592,13 +654,13 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
               </Button>
             </div>
             <AlertDialogDescription>
-              {selectedPlan === 'free_trial' 
+              {selectedPlan === "free_trial"
                 ? `You're starting a 3-day free trial of the Pro plan. No charge during trial.`
-                : `You're upgrading to the ${selectedPlanData?.name} plan for $${selectedPlanData?.price}/month.`
-              }
-              {promoDiscount > 0 && promoType === 'percentage' && (
+                : `You're upgrading to the ${selectedPlanData?.name} plan for $${selectedPlanData?.price}/month.`}
+              {promoDiscount > 0 && promoType === "percentage" && (
                 <span className="block mt-2 text-success">
-                  {promoDiscount}% discount applied! Final price: ${((selectedPlanData?.price || 0) * (1 - promoDiscount / 100)).toFixed(2)}
+                  {promoDiscount}% discount applied! Final price: $
+                  {((selectedPlanData?.price || 0) * (1 - promoDiscount / 100)).toFixed(2)}
                 </span>
               )}
             </AlertDialogDescription>
@@ -608,7 +670,7 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
             {/* Payment Information */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-foreground">Payment Information</h3>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="cardNumber">Card Number</Label>
@@ -616,37 +678,41 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
                     id="cardNumber"
                     placeholder="1234 5678 9012 3456"
                     value={paymentData.cardNumber}
-                    onChange={(e) => setPaymentData(prev => ({ ...prev, cardNumber: e.target.value }))}
+                    onChange={(e) =>
+                      setPaymentData((prev) => ({ ...prev, cardNumber: e.target.value }))
+                    }
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="expiryDate">Expiry Date</Label>
                   <Input
                     id="expiryDate"
                     placeholder="MM/YY"
                     value={paymentData.expiryDate}
-                    onChange={(e) => setPaymentData(prev => ({ ...prev, expiryDate: e.target.value }))}
+                    onChange={(e) =>
+                      setPaymentData((prev) => ({ ...prev, expiryDate: e.target.value }))
+                    }
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="cvv">CVV</Label>
                   <Input
                     id="cvv"
                     placeholder="123"
                     value={paymentData.cvv}
-                    onChange={(e) => setPaymentData(prev => ({ ...prev, cvv: e.target.value }))}
+                    onChange={(e) => setPaymentData((prev) => ({ ...prev, cvv: e.target.value }))}
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="name">Cardholder Name</Label>
                   <Input
                     id="name"
                     placeholder="John Doe"
                     value={paymentData.name}
-                    onChange={(e) => setPaymentData(prev => ({ ...prev, name: e.target.value }))}
+                    onChange={(e) => setPaymentData((prev) => ({ ...prev, name: e.target.value }))}
                   />
                 </div>
               </div>
@@ -655,7 +721,7 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
             {/* Billing Address */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-foreground">Billing Address</h3>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
@@ -664,33 +730,38 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
                     type="email"
                     placeholder="john@example.com"
                     value={paymentData.email}
-                    onChange={(e) => setPaymentData(prev => ({ ...prev, email: e.target.value }))}
+                    onChange={(e) => setPaymentData((prev) => ({ ...prev, email: e.target.value }))}
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="address">Address</Label>
                   <Input
                     id="address"
                     placeholder="123 Main St"
                     value={paymentData.address}
-                    onChange={(e) => setPaymentData(prev => ({ ...prev, address: e.target.value }))}
+                    onChange={(e) =>
+                      setPaymentData((prev) => ({ ...prev, address: e.target.value }))
+                    }
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="city">City</Label>
                   <Input
                     id="city"
                     placeholder="New York"
                     value={paymentData.city}
-                    onChange={(e) => setPaymentData(prev => ({ ...prev, city: e.target.value }))}
+                    onChange={(e) => setPaymentData((prev) => ({ ...prev, city: e.target.value }))}
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="state">State</Label>
-                  <Select value={paymentData.state} onValueChange={(value) => setPaymentData(prev => ({ ...prev, state: value }))}>
+                  <Select
+                    value={paymentData.state}
+                    onValueChange={(value) => setPaymentData((prev) => ({ ...prev, state: value }))}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select state" />
                     </SelectTrigger>
@@ -749,14 +820,16 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="zipCode">ZIP Code</Label>
                   <Input
                     id="zipCode"
                     placeholder="10001"
                     value={paymentData.zipCode}
-                    onChange={(e) => setPaymentData(prev => ({ ...prev, zipCode: e.target.value }))}
+                    onChange={(e) =>
+                      setPaymentData((prev) => ({ ...prev, zipCode: e.target.value }))
+                    }
                   />
                 </div>
               </div>
@@ -766,15 +839,14 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
             <Alert className="bg-green-500/10 text-green-600 border-green-500">
               <Shield className="h-4 w-4" />
               <AlertDescription>
-                Your payment information is encrypted and secure. We use industry-standard security measures to protect your data.
+                Your payment information is encrypted and secure. We use industry-standard security
+                measures to protect your data.
               </AlertDescription>
             </Alert>
           </div>
 
           <AlertDialogFooter className="flex gap-2">
-            <AlertDialogCancel onClick={() => setShowPaymentForm(false)}>
-              Cancel
-            </AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setShowPaymentForm(false)}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handlePaymentSubmit}
               disabled={isProcessing}
@@ -802,13 +874,12 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ onSubscrip
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              You're about to continue with the Free plan. You'll have limited access to predictions and analysis features. You can upgrade to a paid plan anytime from your dashboard.
+              You're about to continue with the Free plan. You'll have limited access to predictions
+              and analysis features. You can upgrade to a paid plan anytime from your dashboard.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancelExit}>
-              No
-            </AlertDialogCancel>
+            <AlertDialogCancel onClick={handleCancelExit}>No</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmExit} className="bg-gradient-primary">
               Yes, please continue!
             </AlertDialogAction>

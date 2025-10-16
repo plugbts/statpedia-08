@@ -60,6 +60,18 @@ async function main() {
       await sql /* sql */ `ALTER TABLE auth_user ADD COLUMN IF NOT EXISTS username TEXT UNIQUE;`;
     }
 
+    // Ensure subscription_tier column exists with default 'free'
+    const subCol = await sql /* sql */ `
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='auth_user' AND column_name='subscription_tier'
+    `;
+    if (subCol.length === 0) {
+      console.log("🛠️ Adding subscription_tier column to auth_user");
+      await sql /* sql */ `ALTER TABLE auth_user ADD COLUMN IF NOT EXISTS subscription_tier TEXT NOT NULL DEFAULT 'free';`;
+      // Backfill existing rows to 'free'
+      await sql /* sql */ `UPDATE auth_user SET subscription_tier = 'free' WHERE subscription_tier IS NULL;`;
+    }
+
     console.log("🔎 Quick column check for auth_user");
     const cols = await sql /* sql */ `
       SELECT column_name, data_type FROM information_schema.columns

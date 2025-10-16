@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from "react";
+import { getApiBaseUrl } from "@/lib/api";
 
 export interface PlayerAnalytics {
   totalGames: number;
@@ -7,7 +8,7 @@ export interface PlayerAnalytics {
   avgL5: number;
   hitRateL5: number;
   currentStreak: number;
-  currentStreakType: 'over' | 'under';
+  currentStreakType: "over" | "under";
 }
 
 export interface RecentGame {
@@ -17,7 +18,7 @@ export interface RecentGame {
   hit: boolean;
   home_team: string;
   away_team: string;
-  home_away: 'home' | 'away';
+  home_away: "home" | "away";
 }
 
 export interface PlayerAnalyticsResponse {
@@ -38,7 +39,7 @@ export interface BulkAnalyticsResponse {
   analytics: BulkPlayerAnalytics[];
 }
 
-export function usePlayerAnalytics(playerId?: string, propType?: string, season = '2025') {
+export function usePlayerAnalytics(playerId?: string, propType?: string, season = "2025") {
   const [data, setData] = useState<PlayerAnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,8 +60,8 @@ export function usePlayerAnalytics(playerId?: string, propType?: string, season 
         season,
       });
 
-      const response = await fetch(`/api/player-analytics?${params}`);
-      
+      const response = await fetch(`${getApiBaseUrl()}/api/player-analytics?${params}`);
+
       if (!response.ok) {
         throw new Error(`Failed to fetch analytics: ${response.statusText}`);
       }
@@ -69,7 +70,7 @@ export function usePlayerAnalytics(playerId?: string, propType?: string, season 
       setData(result);
     } catch (err: any) {
       setError(err.message);
-      console.error('Error fetching player analytics:', err);
+      console.error("Error fetching player analytics:", err);
     } finally {
       setLoading(false);
     }
@@ -87,7 +88,7 @@ export function usePlayerAnalytics(playerId?: string, propType?: string, season 
   };
 }
 
-export function useBulkPlayerAnalytics(playerIds: string[], propType: string, season = '2025') {
+export function useBulkPlayerAnalytics(playerIds: string[], propType: string, season = "2025") {
   const [data, setData] = useState<BulkAnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -102,10 +103,10 @@ export function useBulkPlayerAnalytics(playerIds: string[], propType: string, se
     setError(null);
 
     try {
-      const response = await fetch('/api/player-analytics', {
-        method: 'POST',
+      const response = await fetch(`${getApiBaseUrl()}/api/player-analytics`, {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           playerIds,
@@ -122,7 +123,7 @@ export function useBulkPlayerAnalytics(playerIds: string[], propType: string, se
       setData(result);
     } catch (err: any) {
       setError(err.message);
-      console.error('Error fetching bulk player analytics:', err);
+      console.error("Error fetching bulk player analytics:", err);
     } finally {
       setLoading(false);
     }
@@ -149,35 +150,35 @@ export function formatAverage(average: number, decimals = 1): string {
   return average.toFixed(decimals);
 }
 
-export function getStreakDisplay(streak: number, streakType: 'over' | 'under'): string {
-  if (streak === 0) return 'No streak';
-  const direction = streakType === 'over' ? 'O' : 'U';
+export function getStreakDisplay(streak: number, streakType: "over" | "under"): string {
+  if (streak === 0) return "No streak";
+  const direction = streakType === "over" ? "O" : "U";
   return `${streak} ${direction}`;
 }
 
 export function getPerformanceGrade(hitRate: number): string {
-  if (hitRate >= 0.7) return 'A+';
-  if (hitRate >= 0.6) return 'A';
-  if (hitRate >= 0.55) return 'B+';
-  if (hitRate >= 0.5) return 'B';
-  if (hitRate >= 0.45) return 'C+';
-  if (hitRate >= 0.4) return 'C';
-  return 'D';
+  if (hitRate >= 0.7) return "A+";
+  if (hitRate >= 0.6) return "A";
+  if (hitRate >= 0.55) return "B+";
+  if (hitRate >= 0.5) return "B";
+  if (hitRate >= 0.45) return "C+";
+  if (hitRate >= 0.4) return "C";
+  return "D";
 }
 
-export function getTrendDirection(recentGames: RecentGame[]): 'up' | 'down' | 'stable' {
-  if (recentGames.length < 3) return 'stable';
-  
+export function getTrendDirection(recentGames: RecentGame[]): "up" | "down" | "stable" {
+  if (recentGames.length < 3) return "stable";
+
   const last3 = recentGames.slice(0, 3);
   const first3 = recentGames.slice(-3);
-  
+
   const lastAvg = last3.reduce((sum, game) => sum + game.actual_value, 0) / last3.length;
   const firstAvg = first3.reduce((sum, game) => sum + game.actual_value, 0) / first3.length;
-  
+
   const diff = lastAvg - firstAvg;
   const threshold = 0.1; // 10% threshold
-  
-  if (diff > threshold) return 'up';
-  if (diff < -threshold) return 'down';
-  return 'stable';
+
+  if (diff > threshold) return "up";
+  if (diff < -threshold) return "down";
+  return "stable";
 }

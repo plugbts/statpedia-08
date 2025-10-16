@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from "react";
+import { getApiBaseUrl } from "@/lib/api";
 
 export interface EnrichedPlayerAnalytics {
   player_id: string;
@@ -7,7 +8,7 @@ export interface EnrichedPlayerAnalytics {
   prop_type: string;
   sport: string;
   position?: string;
-  
+
   // Hit rate analytics
   season_hit_rate_2025: number;
   season_games_2025: number;
@@ -19,19 +20,19 @@ export interface EnrichedPlayerAnalytics {
   l10_games: number;
   l20_hit_rate: number;
   l20_games: number;
-  
+
   // Streak analytics
   current_streak: number;
   longest_streak: number;
-  streak_direction: 'over' | 'under' | null;
-  
+  streak_direction: "over" | "under" | null;
+
   // Defensive rank analytics
   matchup_defensive_rank: number | null;
   matchup_rank_display: string | null;
-  
+
   // Chart data (JSON for flexibility)
   chart_data?: any;
-  
+
   // Metadata
   last_updated: string;
   created_at: string;
@@ -47,7 +48,7 @@ export interface EnrichedPlayerAnalyticsResponse {
     avgL5: number;
     hitRateL5: number;
     currentStreak: number;
-    currentStreakType: 'over' | 'under' | null;
+    currentStreakType: "over" | "under" | null;
   };
   error?: string;
 }
@@ -57,7 +58,7 @@ export interface BulkEnrichedAnalyticsResponse {
   error?: string;
 }
 
-export function usePlayerAnalyticsEnriched(playerId?: string, propType?: string, sport = '2025') {
+export function usePlayerAnalyticsEnriched(playerId?: string, propType?: string, sport = "2025") {
   const [data, setData] = useState<EnrichedPlayerAnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,8 +74,10 @@ export function usePlayerAnalyticsEnriched(playerId?: string, propType?: string,
 
     try {
       // Fetch from the API endpoint that queries the enriched database
-      const response = await fetch(`http://localhost:3001/api/player-analytics-enriched?playerId=${playerId}&propType=${propType}&sport=${sport}`);
-      
+      const response = await fetch(
+        `${getApiBaseUrl()}/api/player-analytics-enriched?playerId=${playerId}&propType=${propType}&sport=${sport}`,
+      );
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -88,8 +91,8 @@ export function usePlayerAnalyticsEnriched(playerId?: string, propType?: string,
       setData(result);
     } catch (err: any) {
       setError(err.message);
-      console.error('Error fetching enriched player analytics:', err);
-      
+      console.error("Error fetching enriched player analytics:", err);
+
       // Fallback: return empty data structure
       setData({
         analytics: null,
@@ -102,7 +105,7 @@ export function usePlayerAnalyticsEnriched(playerId?: string, propType?: string,
           hitRateL5: 0,
           currentStreak: 0,
           currentStreakType: null,
-        }
+        },
       });
     } finally {
       setLoading(false);
@@ -121,7 +124,11 @@ export function usePlayerAnalyticsEnriched(playerId?: string, propType?: string,
   };
 }
 
-export function useBulkPlayerAnalyticsEnriched(playerIds: string[], propType: string, sport = '2025') {
+export function useBulkPlayerAnalyticsEnriched(
+  playerIds: string[],
+  propType: string,
+  sport = "2025",
+) {
   const [data, setData] = useState<BulkEnrichedAnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -137,16 +144,16 @@ export function useBulkPlayerAnalyticsEnriched(playerIds: string[], propType: st
 
     try {
       // Fetch from the API endpoint that queries the enriched database
-      const response = await fetch(`http://localhost:3001/api/player-analytics-bulk`, {
-        method: 'POST',
+      const response = await fetch(`${getApiBaseUrl()}/api/player-analytics-bulk`, {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           playerIds,
           propType,
-          sport
-        })
+          sport,
+        }),
       });
 
       if (!response.ok) {
@@ -162,7 +169,7 @@ export function useBulkPlayerAnalyticsEnriched(playerIds: string[], propType: st
       setData(result);
     } catch (err: any) {
       setError(err.message);
-      console.error('Error fetching bulk enriched player analytics:', err);
+      console.error("Error fetching bulk enriched player analytics:", err);
       setData({ analytics: [] });
     } finally {
       setLoading(false);
@@ -190,24 +197,24 @@ export function formatAverage(average: number, decimals = 1): string {
   return average.toFixed(decimals);
 }
 
-export function getStreakDisplay(streak: number, streakType: 'over' | 'under' | null): string {
-  if (streak === 0) return 'No streak';
-  const direction = streakType === 'over' ? 'O' : 'U';
+export function getStreakDisplay(streak: number, streakType: "over" | "under" | null): string {
+  if (streak === 0) return "No streak";
+  const direction = streakType === "over" ? "O" : "U";
   return `${streak} ${direction}`;
 }
 
 export function getPerformanceGrade(hitRate: number): string {
-  if (hitRate >= 0.7) return 'A+';
-  if (hitRate >= 0.6) return 'A';
-  if (hitRate >= 0.55) return 'B+';
-  if (hitRate >= 0.5) return 'B';
-  if (hitRate >= 0.45) return 'C+';
-  if (hitRate >= 0.4) return 'C';
-  return 'D';
+  if (hitRate >= 0.7) return "A+";
+  if (hitRate >= 0.6) return "A";
+  if (hitRate >= 0.55) return "B+";
+  if (hitRate >= 0.5) return "B";
+  if (hitRate >= 0.45) return "C+";
+  if (hitRate >= 0.4) return "C";
+  return "D";
 }
 
-export function getTrendDirection(recentGames: any[]): 'up' | 'down' | 'stable' {
-  if (recentGames.length < 3) return 'stable';
+export function getTrendDirection(recentGames: any[]): "up" | "down" | "stable" {
+  if (recentGames.length < 3) return "stable";
 
   const last3 = recentGames.slice(0, 3);
   const first3 = recentGames.slice(-3);
@@ -218,7 +225,7 @@ export function getTrendDirection(recentGames: any[]): 'up' | 'down' | 'stable' 
   const diff = lastAvg - firstAvg;
   const threshold = 0.1; // 10% threshold
 
-  if (diff > threshold) return 'up';
-  if (diff < -threshold) return 'down';
-  return 'stable';
+  if (diff > threshold) return "up";
+  if (diff < -threshold) return "down";
+  return "stable";
 }

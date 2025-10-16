@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { getApiBaseUrl } from "@/lib/api";
 
 // Types
 export interface User {
@@ -13,6 +14,7 @@ export interface User {
   updated_at: string;
   disabled: boolean;
   role?: string;
+  subscription_tier?: string;
 }
 
 export interface AuthTokens {
@@ -87,10 +89,7 @@ const getUser = (): User | null => {
 
 // API helper
 const apiRequest = async (url: string, options: RequestInit = {}) => {
-  // Use local API server for development, Cloudflare Worker for production
-  const baseUrl = import.meta.env.DEV
-    ? "http://localhost:3001"
-    : import.meta.env.VITE_AUTH_ENDPOINT || "https://statpedia-player-props.statpedia.workers.dev";
+  const baseUrl = getApiBaseUrl();
   const fullUrl = `${baseUrl}${url}`;
 
   let response: Response;
@@ -150,7 +149,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setTokens(storedTokens);
             setUser(storedUser);
             // Attempt to hydrate subscription from stored user if present; else default
-            const sub = (storedUser as any).subscription_tier || "free";
+            const sub = storedUser.subscription_tier || "free";
             setUserSubscription(sub);
           } else {
             // Try to refresh token
@@ -322,7 +321,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const refreshed = await refreshTokenSilently(tokens.refreshToken);
       if (refreshed) {
         // Fetch updated user data
-        const newTokens = getTokens();
+        const newTokens = getTokens(); // Fetch updated user data (also updates subscription)
         if (newTokens) {
           await fetchUserData(newTokens.token);
         }

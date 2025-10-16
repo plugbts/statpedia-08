@@ -20,6 +20,7 @@ export interface AuthUser {
   email_verified: boolean;
   display_name?: string;
   username?: string;
+  subscription_tier?: string;
   created_at: Date;
   updated_at: Date;
   disabled: boolean;
@@ -234,6 +235,7 @@ export class AuthService {
           email: data.email,
           display_name: data.display_name,
           username,
+          subscription_tier: "free",
           email_verified: false,
         })
         .returning();
@@ -649,6 +651,20 @@ export class AuthService {
       return result[0] || null;
     } catch (error) {
       console.error("Get user error:", error);
+      throw error;
+    }
+  }
+
+  // Update subscription tier
+  async updateSubscriptionTier(userId: string, tier: "free" | "pro" | "premium" | "free_trial") {
+    try {
+      const { db } = getDatabase();
+      await db
+        .update(auth_user)
+        .set({ subscription_tier: tier as any, updated_at: new Date() })
+        .where(eq(auth_user.id, userId));
+    } catch (error) {
+      console.error("Update subscription tier error:", error);
       throw error;
     }
   }

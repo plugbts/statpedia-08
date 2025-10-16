@@ -235,9 +235,19 @@ app.get("/api/auth/me", async (req, res) => {
       });
     }
 
+    // Derive subscription tier from role until billing system is integrated
+    let role = "user";
+    try {
+      role = await authService.getUserRole(user.id);
+    } catch (e) {
+      // ignore, default to user
+    }
+    const subscription_tier =
+      role === "owner" ? "premium" : ["admin", "mod"].includes(role) ? "pro" : "free";
+
     res.json({
       success: true,
-      data: user,
+      data: { ...user, role, subscription_tier },
     });
   } catch (error) {
     console.error("Get user error:", error);
@@ -488,6 +498,47 @@ app.post("/api/auth/update-profile", async (req, res) => {
       success: false,
       error: error.message || "Failed to update profile",
     });
+  }
+});
+
+// Get subscription tier
+app.get("/api/auth/subscription/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (!userId) return res.status(400).json({ success: false, error: "User ID is required" });
+    const user = await authService.getUserById(userId);
+    if (!user) return res.status(404).json({ success: false, error: "User not found" });
+    res.json({
+      success: true,
+      data: { subscription_tier: (user as any).subscription_tier || "free" },
+    });
+  } catch (error) {
+    console.error("Get subscription tier error:", error);
+    res
+      .status(500)
+      .json({ success: false, error: (error as any).message || "Failed to get subscription" });
+  }
+});
+
+// Update subscription tier (to be protected later; for now, called by Plans UI)
+app.post("/api/auth/update-subscription", async (req, res) => {
+  try {
+    const { userId, subscription_tier } = req.body as {
+      userId: string;
+      subscription_tier: "free" | "pro" | "premium" | "free_trial";
+    };
+    if (!userId || !subscription_tier) {
+      return res
+        .status(400)
+        .json({ success: false, error: "userId and subscription_tier are required" });
+    }
+    await authService.updateSubscriptionTier(userId, subscription_tier);
+    res.json({ success: true, message: "Subscription updated" });
+  } catch (error) {
+    console.error("Update subscription tier error:", error);
+    res
+      .status(500)
+      .json({ success: false, error: (error as any).message || "Failed to update subscription" });
   }
 });
 
