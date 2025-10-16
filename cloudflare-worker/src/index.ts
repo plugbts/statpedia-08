@@ -1,7 +1,5 @@
 // src/worker.ts
 
-/// <reference types="@cloudflare/workers-types" />
-
 import { withCORS, handleOptions } from "./cors";
 import { isPlayerProp, extractPlayerInfo } from "./market-mapper";
 import { DateTime } from "luxon";
@@ -90,27 +88,27 @@ type SGEvent = {
   leagueID?: string;
   scheduled?: string;
   teams?: {
-    home: { 
+    home: {
       teamID?: string;
       id?: string;
       abbreviation?: string;
-      names: { 
-        long: string; 
+      names: {
+        long: string;
         short: string;
         abbr?: string;
         full?: string;
-      } 
+      };
     };
-    away: { 
+    away: {
       teamID?: string;
       id?: string;
       abbreviation?: string;
-      names: { 
-        long: string; 
+      names: {
+        long: string;
         short: string;
         abbr?: string;
         full?: string;
-      } 
+      };
     };
   };
   status?: {
@@ -124,11 +122,11 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     // Debug logging
     const origin = request.headers.get("Origin");
-    console.log("Worker Request:", { 
-      method: request.method, 
-      url: request.url, 
+    console.log("Worker Request:", {
+      method: request.method,
+      url: request.url,
       origin,
-      pathname: new URL(request.url).pathname 
+      pathname: new URL(request.url).pathname,
     });
 
     // Always handle OPTIONS requests first for CORS preflight
@@ -142,188 +140,224 @@ export default {
 
     // Ensure we always have a response - fallback for any unhandled cases
     try {
+      // Debug endpoint: /debug/player-props?league=nfl&date=YYYY-MM-DD
+      if (url.pathname === "/debug/player-props") {
+        resp = await handleDebugPlayerProps(url, env, request);
+      }
+      // Raw debug endpoint: /api/debug-raw?league=nfl
+      else if (url.pathname === "/api/debug-raw") {
+        resp = await handlePropsDebug(request, env);
+      }
+      // Metrics endpoint: /metrics
+      else if (url.pathname === "/metrics") {
+        resp = await handleMetrics(url, request, env);
+      }
+      // Purge cache endpoint: /api/cache/purge?league=nfl&date=YYYY-MM-DD
+      else if (url.pathname === "/api/cache/purge") {
+        resp = await handleCachePurge(url, request, env);
+      }
+      // DEPRECATED: SportRadar proxy endpoint: /api/sportradar/*
+      else if (url.pathname.startsWith("/api/sportradar/")) {
+        resp = withCORS(
+          new Response(
+            JSON.stringify({
+              error: "SportRadar API has been deprecated. Please use SportsGameOdds API instead.",
+              migration: "Use /api/{league}/player-props endpoint instead",
+            }),
+            {
+              status: 410, // Gone
+              headers: { "content-type": "application/json" },
+            },
+          ),
+          request.headers.get("Origin") || "*",
+        );
+      }
+      // Debug endpoint: /debug/event-structure?league=nfl&date=YYYY-MM-DD
+      else if (url.pathname === "/debug/event-structure") {
+        resp = await handleEventStructureDebug(url, env, request);
+      }
+      // Debug endpoint to show what prop types are available
+      else if (url.pathname === "/api/debug-props") {
+        const league = url.searchParams.get("league")?.toUpperCase() || "NFL";
+        const date = url.searchParams.get("date") || new Date().toISOString().split("T")[0];
 
-    // Debug endpoint: /debug/player-props?league=nfl&date=YYYY-MM-DD
-    if (url.pathname === "/debug/player-props") {
-      resp = await handleDebugPlayerProps(url, env, request);
-    }
-    // Raw debug endpoint: /api/debug-raw?league=nfl
-    else if (url.pathname === "/api/debug-raw") {
-      resp = await handlePropsDebug(request, env);
-    }
-    // Metrics endpoint: /metrics
-    else if (url.pathname === "/metrics") {
-      resp = await handleMetrics(url, request, env);
-    }
-    // Purge cache endpoint: /api/cache/purge?league=nfl&date=YYYY-MM-DD
-    else if (url.pathname === "/api/cache/purge") {
-      resp = await handleCachePurge(url, request, env);
-    }
-    // DEPRECATED: SportRadar proxy endpoint: /api/sportradar/*
-    else if (url.pathname.startsWith("/api/sportradar/")) {
-      resp = withCORS(
-        new Response(
-          JSON.stringify({ 
-            error: "SportRadar API has been deprecated. Please use SportsGameOdds API instead.",
-            migration: "Use /api/{league}/player-props endpoint instead"
-          }), 
-          { 
-            status: 410, // Gone
-            headers: { "content-type": "application/json" } 
-          }
-        ),
-        request.headers.get("Origin") || "*"
-      );
-    }
-    // Debug endpoint: /debug/event-structure?league=nfl&date=YYYY-MM-DD
-    else if (url.pathname === "/debug/event-structure") {
-      resp = await handleEventStructureDebug(url, env, request);
-    }
-    // Debug endpoint to show what prop types are available
-    else if (url.pathname === "/api/debug-props") {
-      const league = url.searchParams.get("league")?.toUpperCase() || "NFL";
-      const date = url.searchParams.get("date") || new Date().toISOString().split('T')[0];
-      
-      try {
-        const result = await fetchSportsGameOddsDay(league, date, env);
-        if (isErrorResponse(result)) {
-          resp = json({ error: result.message }, 400, request);
-        } else {
-          const allPropTypes = new Set<string>();
-          result.events.forEach((ev: any) => {
-            ev.player_props?.forEach((prop: any) => {
-              allPropTypes.add(prop.market_type);
+        try {
+          const result = await fetchSportsGameOddsDay(league, date, env);
+          if (isErrorResponse(result)) {
+            resp = json({ error: result.message }, 400, request);
+          } else {
+            const allPropTypes = new Set<string>();
+            result.events.forEach((ev: any) => {
+              ev.player_props?.forEach((prop: any) => {
+                allPropTypes.add(prop.market_type);
+              });
             });
-          });
-          
-          resp = json({
-            message: "Available prop types",
-            date,
-            league,
-            totalEvents: result.events.length,
-            allPropTypes: Array.from(allPropTypes).sort(),
-            sampleEvent: result.events[0] ? {
-              home_team: result.events[0].home_team,
-              away_team: result.events[0].away_team,
-              propCount: result.events[0].player_props?.length || 0,
-              sampleProps: result.events[0].player_props?.slice(0, 5).map((p: any) => p.market_type) || []
-            } : null
-          });
-        }
-      } catch (error) {
-        resp = json({ error: "Failed to fetch data", details: error instanceof Error ? error.message : "Unknown error" }, 500, request);
-      }
-    }
-    // Per-event endpoint for granular caching
-    else if (url.pathname === "/api/nfl/player-props/event") {
-      const eventID = url.searchParams.get("eventID");
-      const limit = parseInt(url.searchParams.get("limit") || "50");
-      const offset = parseInt(url.searchParams.get("offset") || "0");
-      
-      if (!eventID) {
-        resp = json({ error: "eventID parameter required" }, 400, request);
-      } else {
-        resp = await handleEventProps(eventID, limit, offset, env, request);
-      }
-    }
-    // Legacy endpoint: /api/player-props (for backward compatibility)
-    else if (url.pathname === "/api/player-props") {
-      console.log("Handling /api/player-props endpoint");
-      const sport = url.searchParams.get("sport")?.toLowerCase() || "nfl";
-      const forceRefresh = url.searchParams.get("force_refresh") === "true";
-      const date = url.searchParams.get("date") || new Date().toISOString().split('T')[0];
-      
-      // Map sport to league
-      const leagueMap: Record<string, string> = {
-        'nfl': 'NFL',
-        'nba': 'NBA',
-        'mlb': 'MLB',
-        'nhl': 'NHL'
-      };
-      
-      const league = leagueMap[sport] || 'NFL';
-      
-      try {
-        const result = await fetchSportsGameOddsDay(league, date, env);
-        if (isErrorResponse(result)) {
-          resp = json({ error: result.message }, 400, request);
-        } else {
-          // Normalize the raw events using the same logic as the main endpoint
-          const normalizedEvents = result.events
-            .filter((ev: any) => ev && !ev.error)
-            .map((ev: any) => {
-              try {
-                const normalizedEvent = normalizeEventSGO(ev, request);
-                return normalizedEvent;
-              } catch (error) {
-                console.error(`Error normalizing event ${ev.eventID}:`, error);
-                return null;
-              }
-            })
-            .filter((ev: any) => ev !== null);
 
-          // Transform normalized events to legacy format - only include props with odds
-          const legacyProps = normalizedEvents.flatMap((event: any) => 
-            event.player_props?.filter((prop: any) => prop.best_over || prop.best_under).map((prop: any) => ({
-              id: `${event.eventID}-${prop.player_name}-${prop.market_type}`.replace(/\s+/g, '-').toLowerCase(),
-              playerName: formatPlayerName(prop.player_name),
-              propType: prop.market_type,
-              line: prop.line,
-              overOdds: prop.best_over,
-              underOdds: prop.best_under,
-              gameDate: event.start_time,
-              gameTime: event.start_time,
-              sport: sport,
-              team: event.home_team || 'Unknown',
-              opponent: event.away_team || 'Unknown',
-              teamAbbr: event.home_team?.split(' ').pop() || 'UNK',
-              opponentAbbr: event.away_team?.split(' ').pop() || 'UNK'
-            })) || []
+            resp = json({
+              message: "Available prop types",
+              date,
+              league,
+              totalEvents: result.events.length,
+              allPropTypes: Array.from(allPropTypes).sort(),
+              sampleEvent: result.events[0]
+                ? {
+                    home_team: result.events[0].home_team,
+                    away_team: result.events[0].away_team,
+                    propCount: result.events[0].player_props?.length || 0,
+                    sampleProps:
+                      result.events[0].player_props?.slice(0, 5).map((p: any) => p.market_type) ||
+                      [],
+                  }
+                : null,
+            });
+          }
+        } catch (error) {
+          resp = json(
+            {
+              error: "Failed to fetch data",
+              details: error instanceof Error ? error.message : "Unknown error",
+            },
+            500,
+            request,
           );
-          
-          resp = json(legacyProps, 200, request);
         }
-      } catch (error) {
-        resp = json({ error: "Failed to fetch data", details: error instanceof Error ? error.message : "Unknown error" }, 500, request);
       }
-    }
-    // Route: /api/{league}/player-props
-    else {
-      const match = url.pathname.match(/^\/api\/([a-z]+)\/player-props$/);
-      if (match) {
-        console.log("Handling /api/{league}/player-props endpoint", match[1]);
-        const league = match[1].toLowerCase(); // e.g. nfl, nba
-        resp = await handlePlayerProps(request, env, ctx, league);
-      } else {
-        console.log("No route match found, returning 404");
-        resp = withCORS(new Response("Not found", { status: 404 }), request.headers.get("Origin") || "*");
+      // Per-event endpoint for granular caching
+      else if (url.pathname === "/api/nfl/player-props/event") {
+        const eventID = url.searchParams.get("eventID");
+        const limit = parseInt(url.searchParams.get("limit") || "50");
+        const offset = parseInt(url.searchParams.get("offset") || "0");
+
+        if (!eventID) {
+          resp = json({ error: "eventID parameter required" }, 400, request);
+        } else {
+          resp = await handleEventProps(eventID, limit, offset, env, request);
+        }
       }
-    }
+      // Legacy endpoint: /api/player-props (for backward compatibility)
+      else if (url.pathname === "/api/player-props") {
+        console.log("Handling /api/player-props endpoint");
+        const sport = url.searchParams.get("sport")?.toLowerCase() || "nfl";
+        const forceRefresh = url.searchParams.get("force_refresh") === "true";
+        const date = url.searchParams.get("date") || new Date().toISOString().split("T")[0];
 
-    // Ensure we always have a response with CORS headers
-    if (!resp) {
-      resp = withCORS(new Response("Internal Server Error", { status: 500 }), request.headers.get("Origin") || "*");
-    }
+        // Map sport to league
+        const leagueMap: Record<string, string> = {
+          nfl: "NFL",
+          nba: "NBA",
+          mlb: "MLB",
+          nhl: "NHL",
+        };
 
-    return resp;
+        const league = leagueMap[sport] || "NFL";
+
+        try {
+          const result = await fetchSportsGameOddsDay(league, date, env);
+          if (isErrorResponse(result)) {
+            resp = json({ error: result.message }, 400, request);
+          } else {
+            // Normalize the raw events using the same logic as the main endpoint
+            const normalizedEvents = result.events
+              .filter((ev: any) => ev && !ev.error)
+              .map((ev: any) => {
+                try {
+                  const normalizedEvent = normalizeEventSGO(ev, request);
+                  return normalizedEvent;
+                } catch (error) {
+                  console.error(`Error normalizing event ${ev.eventID}:`, error);
+                  return null;
+                }
+              })
+              .filter((ev: any) => ev !== null);
+
+            // Transform normalized events to legacy format - only include props with odds
+            const legacyProps = normalizedEvents.flatMap(
+              (event: any) =>
+                event.player_props
+                  ?.filter((prop: any) => prop.best_over || prop.best_under)
+                  .map((prop: any) => ({
+                    id: `${event.eventID}-${prop.player_name}-${prop.market_type}`
+                      .replace(/\s+/g, "-")
+                      .toLowerCase(),
+                    playerName: formatPlayerName(prop.player_name),
+                    propType: prop.market_type,
+                    line: prop.line,
+                    overOdds: prop.best_over,
+                    underOdds: prop.best_under,
+                    gameDate: event.start_time,
+                    gameTime: event.start_time,
+                    sport: sport,
+                    team: event.home_team || "Unknown",
+                    opponent: event.away_team || "Unknown",
+                    teamAbbr: event.home_team?.split(" ").pop() || "UNK",
+                    opponentAbbr: event.away_team?.split(" ").pop() || "UNK",
+                  })) || [],
+            );
+
+            resp = json(legacyProps, 200, request);
+          }
+        } catch (error) {
+          resp = json(
+            {
+              error: "Failed to fetch data",
+              details: error instanceof Error ? error.message : "Unknown error",
+            },
+            500,
+            request,
+          );
+        }
+      }
+      // Route: /api/{league}/player-props
+      else {
+        const match = url.pathname.match(/^\/api\/([a-z]+)\/player-props$/);
+        if (match) {
+          console.log("Handling /api/{league}/player-props endpoint", match[1]);
+          const league = match[1].toLowerCase(); // e.g. nfl, nba
+          resp = await handlePlayerProps(request, env, ctx, league);
+        } else {
+          console.log("No route match found, returning 404");
+          resp = withCORS(
+            new Response("Not found", { status: 404 }),
+            request.headers.get("Origin") || "*",
+          );
+        }
+      }
+
+      // Ensure we always have a response with CORS headers
+      if (!resp) {
+        resp = withCORS(
+          new Response("Internal Server Error", { status: 500 }),
+          request.headers.get("Origin") || "*",
+        );
+      }
+
+      return resp;
     } catch (error) {
       // Fallback error response with CORS headers
       console.error("Unhandled error in worker:", error);
       return withCORS(
-        new Response(JSON.stringify({ 
-          error: "Internal Server Error", 
-          message: error instanceof Error ? error.message : "Unknown error" 
-        }), { 
-          status: 500,
-          headers: { "content-type": "application/json" }
-        }), 
-        request.headers.get("Origin") || "*"
+        new Response(
+          JSON.stringify({
+            error: "Internal Server Error",
+            message: error instanceof Error ? error.message : "Unknown error",
+          }),
+          {
+            status: 500,
+            headers: { "content-type": "application/json" },
+          },
+        ),
+        request.headers.get("Origin") || "*",
       );
     }
   },
 };
 
-async function handlePlayerProps(request: Request, env: Env, ctx: ExecutionContext, league: string): Promise<Response> {
+async function handlePlayerProps(
+  request: Request,
+  env: Env,
+  ctx: ExecutionContext,
+  league: string,
+): Promise<Response> {
   return handlePropsEndpoint(request, env, league);
 }
 
@@ -333,15 +367,21 @@ export async function handlePropsDebug(request: Request, env: Env) {
 
   try {
     // 1. Fetch just ONE day to avoid hanging
-    const result = await fetchSportsGameOddsDay(league.toUpperCase(), new Date().toISOString().split('T')[0], env);
-    
+    const result = await fetchSportsGameOddsDay(
+      league.toUpperCase(),
+      new Date().toISOString().split("T")[0],
+      env,
+    );
+
     if (isErrorResponse(result)) {
       return json({ error: result.message }, 400, request);
     }
 
     const rawEvents = result.events;
     // 2. Just dump the first match event
-    const sample = Array.isArray(rawEvents) ? rawEvents.find(ev => ev.type === "match") || null : null;
+    const sample = Array.isArray(rawEvents)
+      ? rawEvents.find((ev) => ev.type === "match") || null
+      : null;
 
     return withCORS(
       new Response(
@@ -352,11 +392,11 @@ export async function handlePropsDebug(request: Request, env: Env) {
             sampleEvent: sample,
           },
           null,
-          2
+          2,
         ),
-        { headers: { "content-type": "application/json" } }
+        { headers: { "content-type": "application/json" } },
       ),
-      request.headers.get("Origin") || "*"
+      request.headers.get("Origin") || "*",
     );
   } catch (error) {
     return withCORS(
@@ -367,11 +407,11 @@ export async function handlePropsDebug(request: Request, env: Env) {
             message: error instanceof Error ? error.message : "Unknown error",
           },
           null,
-          2
+          2,
         ),
-        { headers: { "content-type": "application/json" } }
+        { headers: { "content-type": "application/json" } },
       ),
-      request.headers.get("Origin") || "*"
+      request.headers.get("Origin") || "*",
     );
   }
 }
@@ -379,70 +419,81 @@ export async function handlePropsDebug(request: Request, env: Env) {
 export async function handlePropsEndpoint(request: Request, env: Env, league?: string) {
   try {
     const url = new URL(request.url);
-    const leagues = league ? [league.toLowerCase()] : (url.searchParams.get("league") || "nfl")
-      .split(",")
-      .map(l => l.trim().toLowerCase());
-    const date = url.searchParams.get("date") || new Date().toISOString().split('T')[0];
+    const leagues = league
+      ? [league.toLowerCase()]
+      : (url.searchParams.get("league") || "nfl").split(",").map((l) => l.trim().toLowerCase());
+    const date = url.searchParams.get("date") || new Date().toISOString().split("T")[0];
     const view = url.searchParams.get("view") || "full";
     const debug = url.searchParams.has("debug");
 
     // Set a timeout to prevent worker from hanging
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Worker timeout')), 25000); // 25 second timeout
+      setTimeout(() => reject(new Error("Worker timeout")), 25000); // 25 second timeout
     });
-    
+
     const workPromise = processPlayerProps(leagues, date, view, debug, request, env);
-    
+
     // Race between work and timeout
     const responseData = await Promise.race([workPromise, timeoutPromise]);
-    
+
     return withCORS(
       new Response(JSON.stringify(responseData), {
         headers: { "content-type": "application/json" },
       }),
-      request.headers.get("Origin") || "*"
+      request.headers.get("Origin") || "*",
     );
   } catch (error) {
     console.error("Error in handlePropsEndpoint:", error);
     return withCORS(
-      new Response(JSON.stringify({ 
-        error: "Internal server error", 
-        message: error instanceof Error ? error.message : "Unknown error" 
-      }), {
-        status: 500,
-        headers: { "content-type": "application/json" },
-      }),
-      request.headers.get("Origin") || "*"
+      new Response(
+        JSON.stringify({
+          error: "Internal server error",
+          message: error instanceof Error ? error.message : "Unknown error",
+        }),
+        {
+          status: 500,
+          headers: { "content-type": "application/json" },
+        },
+      ),
+      request.headers.get("Origin") || "*",
     );
   }
 }
 
-async function processPlayerProps(leagues: string[], date: string, view: string, debug: boolean, request: Request, env: Env) {
-    const responseData: any = { events: [] };
-    const debugInfo: any = {};
-    let allProps: any[] = []; // Collect all props
+async function processPlayerProps(
+  leagues: string[],
+  date: string,
+  view: string,
+  debug: boolean,
+  request: Request,
+  env: Env,
+) {
+  const responseData: any = { events: [] };
+  const debugInfo: any = {};
+  const allProps: any[] = []; // Collect all props
 
-    for (const league of leagues) {
-      // 1. Fetch raw events from SportsGameOdds using date parameter
-      const result = await fetchSportsGameOddsDay(league.toUpperCase(), date, env);
+  for (const league of leagues) {
+    // 1. Fetch raw events from SportsGameOdds using date parameter
+    const result = await fetchSportsGameOddsDay(league.toUpperCase(), date, env);
 
-      // Check for errors in the response
-      if (isErrorResponse(result)) {
-        responseData.errors = responseData.errors || {};
-        responseData.errors[league] = result;
-        continue; // Skip this league and move to the next one
-      }
+    // Check for errors in the response
+    if (isErrorResponse(result)) {
+      responseData.errors = responseData.errors || {};
+      responseData.errors[league] = result;
+      continue; // Skip this league and move to the next one
+    }
 
-      const rawEvents = result.events;
+    const rawEvents = result.events;
 
-      // 2. Normalize events (prioritize match events, limit to first 5 for performance)
-      const events = (rawEvents || [])
-        .filter(ev => ev.type === "match") // Only process match events (real games with players)
-        .slice(0, 5); // Limit to first 5 match events for performance
+    // 2. Normalize events (prioritize match events, limit to first 5 for performance)
+    const events = (rawEvents || [])
+      .filter((ev) => ev.type === "match") // Only process match events (real games with players)
+      .slice(0, 5); // Limit to first 5 match events for performance
 
-      // Process events
-      const normalized = (await Promise.all(
-        events.map(async ev => {
+    // Process events
+    const normalized = (
+      await Promise.all(
+        events.map(async (ev) => {
           try {
             const result = await normalizeEventSGO(ev, request);
             return result;
@@ -450,88 +501,97 @@ async function processPlayerProps(leagues: string[], date: string, view: string,
             console.error(`Error normalizing event ${ev.eventID}:`, error);
             return null;
           }
-        })
-      )).filter(ev => ev !== null && ev !== undefined); // Filter out null/undefined from error responses
+        }),
+      )
+    ).filter((ev) => ev !== null && ev !== undefined); // Filter out null/undefined from error responses
 
-      // Event normalization completed
+    // Event normalization completed
 
-      // 3. Player props are already normalized by normalizeEvent, no need to group again
-      for (const event of normalized) {
-        // Props processed
-      }
+    // 3. Player props are already normalized by normalizeEvent, no need to group again
+    for (const event of normalized) {
+      // Props processed
+    }
 
-      // 4. Prioritize + cap props per league (150 props per event)
-      const processedNormalized = capPropsPerLeague(normalized, league, 150);
+    // 4. Prioritize + cap props per league (150 props per event)
+    const processedNormalized = capPropsPerLeague(normalized, league, 150);
 
-      // 5. Collect all props for pagination
-      const validEvents = processedNormalized.filter((event): event is NonNullable<typeof event> => event !== null);
-      
-      for (const event of validEvents) {
-        if (event.player_props) {
-          for (const prop of event.player_props) {
-            allProps.push({
-              ...prop,
-              eventID: event.eventID,
-              leagueID: event.leagueID,
-              start_time: event.start_time,
-              home_team: event.home_team,
-              away_team: event.away_team,
-              home_logo: event.home_logo,
-              away_logo: event.away_logo,
-            });
-          }
-        }
-      }
+    // 5. Collect all props for pagination
+    const validEvents = processedNormalized.filter(
+      (event): event is NonNullable<typeof event> => event !== null,
+    );
 
-      // 6. Shape response (keep original structure for backward compatibility)
-      if (view === "compact") {
-        responseData.events.push(
-          ...validEvents.map(event => ({
+    for (const event of validEvents) {
+      if (event.player_props) {
+        for (const prop of event.player_props) {
+          allProps.push({
+            ...prop,
             eventID: event.eventID,
             leagueID: event.leagueID,
             start_time: event.start_time,
             home_team: event.home_team,
             away_team: event.away_team,
-                    player_props: (event.player_props || []).map((prop: any) => {
-                      const over = pickBest((prop.books || []).filter((b: any) => String(b.side).toLowerCase() === "over"));
-                      const under = pickBest((prop.books || []).filter((b: any) => String(b.side).toLowerCase() === "under"));
-                      return {
-                        player_name: prop.player_name,
-                        market_type: formatMarketTypeWithLeague(prop.market_type, event.leagueID || "NFL"),
-                        line: prop.line,
-                        best_over: over?.price ?? null,
-                        best_under: under?.price ?? null,
-                        best_over_book: over?.bookmaker ?? null,
-                        best_under_book: under?.bookmaker ?? null,
-                      };
-                    }),
-                    team_props: [],
-          }))
-        );
-      } else {
-        responseData.events.push(...validEvents);
-      }
-
-      if (debug) {
-        debugInfo[league] = {
-          upstreamEvents: rawEvents.length,
-          normalizedEvents: normalized.length,
-          totalProps: normalized.filter((e): e is NonNullable<typeof e> => e !== null).reduce((a, e) => a + (e.player_props?.length || 0), 0),
-          sampleEvent: normalized[0] || null,
-        };
+            home_logo: event.home_logo,
+            away_logo: event.away_logo,
+          });
+        }
       }
     }
 
-    if (debug) responseData.debug = debugInfo;
+    // 6. Shape response (keep original structure for backward compatibility)
+    if (view === "compact") {
+      responseData.events.push(
+        ...validEvents.map((event) => ({
+          eventID: event.eventID,
+          leagueID: event.leagueID,
+          start_time: event.start_time,
+          home_team: event.home_team,
+          away_team: event.away_team,
+          player_props: (event.player_props || []).map((prop: any) => {
+            const over = pickBest(
+              (prop.books || []).filter((b: any) => String(b.side).toLowerCase() === "over"),
+            );
+            const under = pickBest(
+              (prop.books || []).filter((b: any) => String(b.side).toLowerCase() === "under"),
+            );
+            return {
+              player_name: prop.player_name,
+              market_type: formatMarketTypeWithLeague(prop.market_type, event.leagueID || "NFL"),
+              line: prop.line,
+              best_over: over?.price ?? null,
+              best_under: under?.price ?? null,
+              best_over_book: over?.bookmaker ?? null,
+              best_under_book: under?.bookmaker ?? null,
+            };
+          }),
+          team_props: [],
+        })),
+      );
+    } else {
+      responseData.events.push(...validEvents);
+    }
 
-    // DEBUG: Log final response structure
-    // Add all props to response
-    responseData.props = allProps;
+    if (debug) {
+      debugInfo[league] = {
+        upstreamEvents: rawEvents.length,
+        normalizedEvents: normalized.length,
+        totalProps: normalized
+          .filter((e): e is NonNullable<typeof e> => e !== null)
+          .reduce((a, e) => a + (e.player_props?.length || 0), 0),
+        sampleEvent: normalized[0] || null,
+      };
+    }
+  }
 
-    // DEBUG: Log final response structure
-    console.log(`Total props: ${allProps.length}`);
+  if (debug) responseData.debug = debugInfo;
 
-    return responseData;
+  // DEBUG: Log final response structure
+  // Add all props to response
+  responseData.props = allProps;
+
+  // DEBUG: Log final response structure
+  console.log(`Total props: ${allProps.length}`);
+
+  return responseData;
 }
 
 async function handleEventStructureDebug(url: URL, env: Env, request: Request): Promise<Response> {
@@ -541,24 +601,24 @@ async function handleEventStructureDebug(url: URL, env: Env, request: Request): 
 
   try {
     const result = await fetchSportsGameOddsDay(league, date, env);
-    
+
     if (isErrorResponse(result)) {
       return json({ error: result.message }, 400, request);
     }
 
     const events = result.events;
-    const debugInfo = events.map(ev => {
+    const debugInfo = events.map((ev) => {
       const home = ev.teams?.home?.names?.long || "UNK";
       const away = ev.teams?.away?.names?.long || "UNK";
       const oddsKeys = Object.keys(ev.odds || {});
-      
+
       return {
         eventID: ev.eventID,
         matchup: `${away} @ ${home}`,
         startTime: ev.startTime || ev.status?.startsAt,
         oddsCount: oddsKeys.length,
         oddsKeys: oddsKeys.slice(0, 10), // Show first 10 for brevity
-        allOddsKeys: oddsKeys // Full list
+        allOddsKeys: oddsKeys, // Full list
       };
     });
 
@@ -566,13 +626,17 @@ async function handleEventStructureDebug(url: URL, env: Env, request: Request): 
       league,
       date,
       events: debugInfo,
-      totalEvents: events.length
+      totalEvents: events.length,
     });
   } catch (error) {
-    return json({ 
-      error: "Debug endpoint failed",
-      message: error instanceof Error ? error.message : "Unknown error"
-    }, 500, request);
+    return json(
+      {
+        error: "Debug endpoint failed",
+        message: error instanceof Error ? error.message : "Unknown error",
+      },
+      500,
+      request,
+    );
   }
 }
 
@@ -591,26 +655,33 @@ async function handleDebugPlayerProps(url: URL, env: Env, request: Request): Pro
   const res = await fetchSGO(upstream.toString(), env);
   if (!res.ok) return json({ error: "Upstream error", status: res.status }, 502, request);
 
-  const data = await res.json() as any;
+  const data = (await res.json()) as any;
   const rawEvents = data?.data || [];
-  
+
   // Strict, case-insensitive league filter
   const events = rawEvents.filter((ev: any) => String(ev.leagueID).toUpperCase() === league);
-  
+
   const normalized = events.map(debugNormalizeEvent);
 
   const totalKept = normalized.reduce((a, ev) => a + (ev.debug_counts?.keptPlayerProps || 0), 0);
-  const totalDropped = normalized.reduce((a, ev) => a + (ev.debug_counts?.droppedPlayerProps || 0), 0);
+  const totalDropped = normalized.reduce(
+    (a, ev) => a + (ev.debug_counts?.droppedPlayerProps || 0),
+    0,
+  );
 
-  return json({
-    events: normalized,
-      debug: { 
-        upstreamEvents: rawEvents.length, 
-      normalizedEvents: normalized.length,
-      totalKeptPlayerProps: totalKept,
-      totalDroppedPlayerProps: totalDropped,
+  return json(
+    {
+      events: normalized,
+      debug: {
+        upstreamEvents: rawEvents.length,
+        normalizedEvents: normalized.length,
+        totalKeptPlayerProps: totalKept,
+        totalDroppedPlayerProps: totalDropped,
+      },
     },
-  }, 200, request);
+    200,
+    request,
+  );
 }
 
 async function handleCachePurge(url: URL, request: Request, env: Env): Promise<Response> {
@@ -625,29 +696,28 @@ async function handleCachePurge(url: URL, request: Request, env: Env): Promise<R
   const league = url.searchParams.get("league")?.toUpperCase();
   const date = url.searchParams.get("date");
   if (!league || !date) {
-    return withCORS(new Response("Missing league or date", { status: 400 }), request.headers.get("Origin") || "*");
+    return withCORS(
+      new Response("Missing league or date", { status: 400 }),
+      request.headers.get("Origin") || "*",
+    );
   }
 
   const cacheKey = buildCacheKey(url, league, date);
-  const cache = await caches.open('default');
+  const cache = await caches.open("default");
   const deleted = await cache.delete(cacheKey);
 
   return withCORS(
-    new Response(
-      JSON.stringify({ message: "Cache purged", league, date, cacheKey, deleted }),
-      { 
-          headers: {
-          "content-type": "application/json"
-        } 
-      }
-    ),
-    request.headers.get("Origin") || "*"
+    new Response(JSON.stringify({ message: "Cache purged", league, date, cacheKey, deleted }), {
+      headers: {
+        "content-type": "application/json",
+      },
+    }),
+    request.headers.get("Origin") || "*",
   );
 }
 
 // DEPRECATED: SportRadar proxy function - removed
 // All SportRadar functionality has been migrated to SportsGameOdds API
-
 
 // Helper function to normalize matchup with logos (legacy schema)
 function normalizeMatchup(ev: any, league: string) {
@@ -655,7 +725,7 @@ function normalizeMatchup(ev: any, league: string) {
   const awayName = ev.teams?.away?.names?.long || "UNK";
   const homeKey = ev.teams?.home?.abbreviation || ev.teams?.home?.id || extractTeamAbbr(homeName);
   const awayKey = ev.teams?.away?.abbreviation || ev.teams?.away?.id || extractTeamAbbr(awayName);
-  
+
   return {
     away_team: awayName,
     home_team: homeName,
@@ -668,44 +738,44 @@ function normalizeMatchup(ev: any, league: string) {
 // Helper function to extract team abbreviation from team name
 function extractTeamAbbr(teamName: string): string {
   if (!teamName || teamName === "UNK") return "UNK";
-  
+
   // NFL team name to abbreviation mapping
   const teamMap: Record<string, string> = {
-    'Arizona Cardinals': 'ARI',
-    'Atlanta Falcons': 'ATL',
-    'Baltimore Ravens': 'BAL',
-    'Buffalo Bills': 'BUF',
-    'Carolina Panthers': 'CAR',
-    'Chicago Bears': 'CHI',
-    'Cincinnati Bengals': 'CIN',
-    'Cleveland Browns': 'CLE',
-    'Dallas Cowboys': 'DAL',
-    'Denver Broncos': 'DEN',
-    'Detroit Lions': 'DET',
-    'Green Bay Packers': 'GB',
-    'Houston Texans': 'HOU',
-    'Indianapolis Colts': 'IND',
-    'Jacksonville Jaguars': 'JAX',
-    'Kansas City Chiefs': 'KC',
-    'Las Vegas Raiders': 'LV',
-    'Los Angeles Chargers': 'LAC',
-    'Los Angeles Rams': 'LAR',
-    'Miami Dolphins': 'MIA',
-    'Minnesota Vikings': 'MIN',
-    'New England Patriots': 'NE',
-    'New Orleans Saints': 'NO',
-    'New York Giants': 'NYG',
-    'New York Jets': 'NYJ',
-    'Philadelphia Eagles': 'PHI',
-    'Pittsburgh Steelers': 'PIT',
-    'San Francisco 49ers': 'SF',
-    'Seattle Seahawks': 'SEA',
-    'Tampa Bay Buccaneers': 'TB',
-    'Tennessee Titans': 'TEN',
-    'Washington Commanders': 'WAS'
+    "Arizona Cardinals": "ARI",
+    "Atlanta Falcons": "ATL",
+    "Baltimore Ravens": "BAL",
+    "Buffalo Bills": "BUF",
+    "Carolina Panthers": "CAR",
+    "Chicago Bears": "CHI",
+    "Cincinnati Bengals": "CIN",
+    "Cleveland Browns": "CLE",
+    "Dallas Cowboys": "DAL",
+    "Denver Broncos": "DEN",
+    "Detroit Lions": "DET",
+    "Green Bay Packers": "GB",
+    "Houston Texans": "HOU",
+    "Indianapolis Colts": "IND",
+    "Jacksonville Jaguars": "JAX",
+    "Kansas City Chiefs": "KC",
+    "Las Vegas Raiders": "LV",
+    "Los Angeles Chargers": "LAC",
+    "Los Angeles Rams": "LAR",
+    "Miami Dolphins": "MIA",
+    "Minnesota Vikings": "MIN",
+    "New England Patriots": "NE",
+    "New Orleans Saints": "NO",
+    "New York Giants": "NYG",
+    "New York Jets": "NYJ",
+    "Philadelphia Eagles": "PHI",
+    "Pittsburgh Steelers": "PIT",
+    "San Francisco 49ers": "SF",
+    "Seattle Seahawks": "SEA",
+    "Tampa Bay Buccaneers": "TB",
+    "Tennessee Titans": "TEN",
+    "Washington Commanders": "WAS",
   };
-  
-  return teamMap[teamName] || teamName.split(' ').pop() || 'UNK';
+
+  return teamMap[teamName] || teamName.split(" ").pop() || "UNK";
 }
 
 // PROP_PRIORITY mapping for proper sorting
@@ -725,11 +795,11 @@ const PROP_PRIORITY: Record<string, number> = {
   "Kicking Points": 2,
   "Longest Field Goal": 2,
 
-  "Touchdowns": 3,
+  Touchdowns: 3,
 
   "Defense Sacks": 4,
   "Defense Interceptions": 4,
-  "Tackles": 4,
+  Tackles: 4,
   "Tackles + Assists": 4,
 };
 
@@ -737,66 +807,79 @@ const PROP_PRIORITY: Record<string, number> = {
 function calculateCompositeRating(prop: any): number {
   // Base score from hit rate (0-100)
   const hitRateScore = Math.min(100, Math.max(0, (prop.hit_rate || 50) * 2));
-  
+
   // Projection gap score (value vs market line)
   const projectionGapScore = 50; // Default neutral, can be enhanced with actual projection data
-  
+
   // Market confidence score (based on available sportsbooks)
   const sportsbookCount = prop.available_sportsbooks?.length || 1;
   const marketConfidenceScore = Math.min(100, sportsbookCount * 20);
-  
+
   // Opponent score (defensive strength - simplified)
   const opponentScore = 50; // Default neutral, can be enhanced with defensive data
-  
+
   // Recency score (recent form)
   const recencyScore = 50; // Default neutral, can be enhanced with recent performance
-  
+
   // AI prediction score (if available)
   const aiScore = prop.ai_prediction?.confidence ? prop.ai_prediction.confidence * 100 : 50;
-  
+
   // Blend factors with weights (matching frontend Statpedia rating system)
-  const compositeScore = 
-    (0.30 * hitRateScore) +
-    (0.20 * projectionGapScore) +
-    (0.20 * aiScore) +
-    (0.15 * opponentScore) +
-    (0.10 * marketConfidenceScore) +
-    (0.05 * recencyScore);
-  
+  const compositeScore =
+    0.3 * hitRateScore +
+    0.2 * projectionGapScore +
+    0.2 * aiScore +
+    0.15 * opponentScore +
+    0.1 * marketConfidenceScore +
+    0.05 * recencyScore;
+
   return Math.round(compositeScore);
 }
 
 // Helper function to get prop priority with normalized matching
 function getPropPriority(marketType: string): number {
   if (!marketType) return 99;
-  
+
   const normalized = marketType.toLowerCase().trim();
-  
+
   // Direct match in PROP_PRIORITY
   if (PROP_PRIORITY[marketType]) {
     return PROP_PRIORITY[marketType];
   }
-  
+
   // Broad touchdown detection (regardless of exact wording)
-  if (normalized.includes('touchdown')) {
+  if (normalized.includes("touchdown")) {
     return 3;
   }
-  
+
   // Offensive props (passing, rushing, receiving)
-  if (normalized.includes('passing') || normalized.includes('rushing') || normalized.includes('receiving')) {
+  if (
+    normalized.includes("passing") ||
+    normalized.includes("rushing") ||
+    normalized.includes("receiving")
+  ) {
     return 1;
   }
-  
+
   // Kicking props
-  if (normalized.includes('field goal') || normalized.includes('kicking') || normalized.includes('extra point')) {
+  if (
+    normalized.includes("field goal") ||
+    normalized.includes("kicking") ||
+    normalized.includes("extra point")
+  ) {
     return 2;
   }
-  
+
   // Defense props
-  if (normalized.includes('defense') || normalized.includes('sack') || normalized.includes('tackle') || normalized.includes('interception')) {
+  if (
+    normalized.includes("defense") ||
+    normalized.includes("sack") ||
+    normalized.includes("tackle") ||
+    normalized.includes("interception")
+  ) {
     return 4;
   }
-  
+
   // Default to low priority
   return 99;
 }
@@ -804,21 +887,26 @@ function getPropPriority(marketType: string): number {
 // Helper function to get offensive sub-order for tie-breaking
 function getOffensiveSubOrder(marketType: string): number {
   if (!marketType) return 3;
-  
+
   const normalized = marketType.toLowerCase();
-  
+
   // Passing props first
-  if (normalized.includes('passing')) return 1;
-  
+  if (normalized.includes("passing")) return 1;
+
   // Rushing props second
-  if (normalized.includes('rushing')) return 2;
-  
+  if (normalized.includes("rushing")) return 2;
+
   // Receiving props third
-  if (normalized.includes('receiving')) return 3;
-  
+  if (normalized.includes("receiving")) return 3;
+
   // Other offensive props
-  if (normalized.includes('points') || normalized.includes('goals') || normalized.includes('assists')) return 4;
-  
+  if (
+    normalized.includes("points") ||
+    normalized.includes("goals") ||
+    normalized.includes("assists")
+  )
+    return 4;
+
   // Non-offensive props
   return 5;
 }
@@ -829,44 +917,44 @@ function prioritizeProps(props: any[]): any[] {
     // First: Prioritize offensive props
     const aIsOffensive = isOffensiveProp(a.market_type);
     const bIsOffensive = isOffensiveProp(b.market_type);
-    
+
     if (aIsOffensive && !bIsOffensive) return -1;
     if (!aIsOffensive && bIsOffensive) return 1;
-    
+
     // Second: Within same category (both offensive or both non-offensive), use normalized priority
     const aPriority = getPropPriority(a.market_type);
     const bPriority = getPropPriority(b.market_type);
-    
+
     if (aPriority !== bPriority) {
       return aPriority - bPriority;
     }
-    
+
     // Third: Tie-breaker for offensive props (passing → rushing → receiving)
     if (aIsOffensive && bIsOffensive) {
       const aSubOrder = getOffensiveSubOrder(a.market_type);
       const bSubOrder = getOffensiveSubOrder(b.market_type);
-      
+
       if (aSubOrder !== bSubOrder) {
         return aSubOrder - bSubOrder;
       }
     }
-    
+
     // Fourth: Use composite rating as tie-breaker
     const aRating = calculateCompositeRating(a);
     const bRating = calculateCompositeRating(b);
-    
+
     if (aRating !== bRating) {
       return bRating - aRating; // Higher rating first
     }
-    
+
     // Fifth: Alphabetical by market type
     const aMarket = a.market_type.toLowerCase();
     const bMarket = b.market_type.toLowerCase();
-    
+
     if (aMarket !== bMarket) {
       return aMarket.localeCompare(bMarket);
     }
-    
+
     // Sixth: Alphabetical by player name
     return a.player_name.localeCompare(b.player_name);
   });
@@ -876,12 +964,14 @@ function prioritizeProps(props: any[]): any[] {
 function isOffensiveProp(marketType: string): boolean {
   if (!marketType) return false;
   const lowerMarket = marketType.toLowerCase();
-  return lowerMarket.includes('passing') || 
-         lowerMarket.includes('rushing') || 
-         lowerMarket.includes('receiving') ||
-         lowerMarket.includes('points') ||
-         lowerMarket.includes('goals') ||
-         lowerMarket.includes('assists');
+  return (
+    lowerMarket.includes("passing") ||
+    lowerMarket.includes("rushing") ||
+    lowerMarket.includes("receiving") ||
+    lowerMarket.includes("points") ||
+    lowerMarket.includes("goals") ||
+    lowerMarket.includes("assists")
+  );
 }
 
 // Helper function to format player names
@@ -890,7 +980,7 @@ function formatPlayerName(name: string): string {
   return name
     .toLowerCase()
     .split(/\s+/)
-    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
 }
 
@@ -898,8 +988,8 @@ function formatPlayerName(name: string): string {
 function decimalToAmerican(decimal: number): number {
   if (!decimal || decimal <= 1) return 0;
   return decimal >= 2
-    ? Math.round((decimal - 1) * 100)        // e.g., 2.50 -> +150
-    : Math.round(-100 / (decimal - 1));      // e.g., 1.74 -> -135
+    ? Math.round((decimal - 1) * 100) // e.g., 2.50 -> +150
+    : Math.round(-100 / (decimal - 1)); // e.g., 1.74 -> -135
 }
 
 function probToAmerican(prob: number): number {
@@ -926,12 +1016,12 @@ function toAmericanOdds(input: number | string): number {
 }
 
 function pickBestAmerican(prices: number[]): number {
-  const american = prices.map(toAmericanOdds).filter(n => Number.isFinite(n) && n !== 0);
+  const american = prices.map(toAmericanOdds).filter((n) => Number.isFinite(n) && n !== 0);
   if (american.length === 0) return 0;
 
-  const positives = american.filter(n => n > 0);
+  const positives = american.filter((n) => n > 0);
   if (positives.length > 0) {
-    return Math.max(...positives);  // e.g., +120 beats +105
+    return Math.max(...positives); // e.g., +120 beats +105
   }
   // No positive: pick the least negative (closest to 0), e.g., -105 beats -130
   return positives.length === 0 ? Math.max(...american) : Math.max(...positives);
@@ -970,40 +1060,40 @@ function mapBestPrices(entry: any) {
 // Helper function to get player position based on name
 function getTeamAbbreviation(city: string, team: string): string {
   const teamMap: { [key: string]: string } = {
-    'CLEVELAND': 'CLE',
-    'MINNESOTA': 'MIN',
-    'NEW_YORK': 'NY',
-    'LOS_ANGELES': 'LA',
-    'SAN_FRANCISCO': 'SF',
-    'GREEN_BAY': 'GB',
-    'NEW_ENGLAND': 'NE',
-    'TAMPA_BAY': 'TB',
-    'KANSAS_CITY': 'KC',
-    'LAS_VEGAS': 'LV',
-    'NEW_ORLEANS': 'NO',
-    'SAN_DIEGO': 'SD',
-    'ST_LOUIS': 'STL',
-    'JACKSONVILLE': 'JAX',
-    'CAROLINA': 'CAR',
-    'ARIZONA': 'ARI',
-    'ATLANTA': 'ATL',
-    'BALTIMORE': 'BAL',
-    'BUFFALO': 'BUF',
-    'CHICAGO': 'CHI',
-    'CINCINNATI': 'CIN',
-    'DALLAS': 'DAL',
-    'DENVER': 'DEN',
-    'DETROIT': 'DET',
-    'HOUSTON': 'HOU',
-    'INDIANAPOLIS': 'IND',
-    'MIAMI': 'MIA',
-    'PHILADELPHIA': 'PHI',
-    'PITTSBURGH': 'PIT',
-    'SEATTLE': 'SEA',
-    'TENNESSEE': 'TEN',
-    'WASHINGTON': 'WAS',
+    CLEVELAND: "CLE",
+    MINNESOTA: "MIN",
+    NEW_YORK: "NY",
+    LOS_ANGELES: "LA",
+    SAN_FRANCISCO: "SF",
+    GREEN_BAY: "GB",
+    NEW_ENGLAND: "NE",
+    TAMPA_BAY: "TB",
+    KANSAS_CITY: "KC",
+    LAS_VEGAS: "LV",
+    NEW_ORLEANS: "NO",
+    SAN_DIEGO: "SD",
+    ST_LOUIS: "STL",
+    JACKSONVILLE: "JAX",
+    CAROLINA: "CAR",
+    ARIZONA: "ARI",
+    ATLANTA: "ATL",
+    BALTIMORE: "BAL",
+    BUFFALO: "BUF",
+    CHICAGO: "CHI",
+    CINCINNATI: "CIN",
+    DALLAS: "DAL",
+    DENVER: "DEN",
+    DETROIT: "DET",
+    HOUSTON: "HOU",
+    INDIANAPOLIS: "IND",
+    MIAMI: "MIA",
+    PHILADELPHIA: "PHI",
+    PITTSBURGH: "PIT",
+    SEATTLE: "SEA",
+    TENNESSEE: "TEN",
+    WASHINGTON: "WAS",
   };
-  
+
   return teamMap[city] || city.substring(0, 3).toUpperCase();
 }
 
@@ -1013,53 +1103,53 @@ const playerPositionCache = new Map<string, string>();
 // Official league API endpoints for 2025
 const LEAGUE_APIS = {
   nfl: {
-    primary: 'https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/athletes',
-    fallback: 'https://api.nfl.com/v1/players'
+    primary: "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/athletes",
+    fallback: "https://api.nfl.com/v1/players",
   },
   nba: {
-    primary: 'https://stats.nba.com/stats/commonallplayers',
-    fallback: 'https://api.nba.com/v1/players'
+    primary: "https://stats.nba.com/stats/commonallplayers",
+    fallback: "https://api.nba.com/v1/players",
   },
   mlb: {
-    primary: 'https://statsapi.mlb.com/api/v1/people',
-    fallback: 'https://api.mlb.com/v1/players'
+    primary: "https://statsapi.mlb.com/api/v1/people",
+    fallback: "https://api.mlb.com/v1/players",
   },
   nhl: {
-    primary: 'https://statsapi.web.nhl.com/api/v1/people',
-    fallback: 'https://api.nhl.com/v1/players'
+    primary: "https://statsapi.web.nhl.com/api/v1/people",
+    fallback: "https://api.nhl.com/v1/players",
   },
   wnba: {
-    primary: 'https://stats.wnba.com/stats/commonallplayers',
-    fallback: 'https://api.wnba.com/v1/players'
-  }
+    primary: "https://stats.wnba.com/stats/commonallplayers",
+    fallback: "https://api.wnba.com/v1/players",
+  },
 };
 
-async function getPlayerPosition(playerName: string, league: string = 'nfl'): Promise<string> {
-  if (!playerName) return '—';
-  
+async function getPlayerPosition(playerName: string, league: string = "nfl"): Promise<string> {
+  if (!playerName) return "—";
+
   const cacheKey = `${league}:${playerName}`;
-  
+
   // Check cache first
   if (playerPositionCache.has(cacheKey)) {
     return playerPositionCache.get(cacheKey)!;
   }
-  
+
   // Try official API first (with timeout)
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
-    
+
     const position = await fetchPlayerPositionFromAPI(playerName, league, controller.signal);
     clearTimeout(timeoutId);
-    
-    if (position !== '—') {
+
+    if (position !== "—") {
       playerPositionCache.set(cacheKey, position);
       return position;
     }
   } catch (error) {
     console.log(`Official API failed for ${playerName} (${league}):`, error);
   }
-  
+
   // Fallback to simple position detection
   const fallbackPosition = detectPositionFromName(playerName, league);
   playerPositionCache.set(cacheKey, fallbackPosition);
@@ -1068,207 +1158,271 @@ async function getPlayerPosition(playerName: string, league: string = 'nfl'): Pr
 
 function detectPositionFromName(playerName: string, league: string): string {
   const name = playerName.toLowerCase();
-  
+
   // Simple position detection based on common patterns
-  if (league === 'NFL') {
+  if (league === "NFL") {
     // Quarterback patterns
-    if (name.includes('mahomes') || name.includes('brady') || name.includes('rodgers') || 
-        name.includes('allen') || name.includes('burrow') || name.includes('herbert')) {
-      return 'QB';
+    if (
+      name.includes("mahomes") ||
+      name.includes("brady") ||
+      name.includes("rodgers") ||
+      name.includes("allen") ||
+      name.includes("burrow") ||
+      name.includes("herbert")
+    ) {
+      return "QB";
     }
     // Running back patterns
-    if (name.includes('mccaffrey') || name.includes('henry') || name.includes('cook') || 
-        name.includes('chubb') || name.includes('jones')) {
-      return 'RB';
+    if (
+      name.includes("mccaffrey") ||
+      name.includes("henry") ||
+      name.includes("cook") ||
+      name.includes("chubb") ||
+      name.includes("jones")
+    ) {
+      return "RB";
     }
     // Wide receiver patterns
-    if (name.includes('hill') || name.includes('adams') || name.includes('hopkins') || 
-        name.includes('thomas') || name.includes('brown')) {
-      return 'WR';
+    if (
+      name.includes("hill") ||
+      name.includes("adams") ||
+      name.includes("hopkins") ||
+      name.includes("thomas") ||
+      name.includes("brown")
+    ) {
+      return "WR";
     }
     // Tight end patterns
-    if (name.includes('kelce') || name.includes('kittle') || name.includes('waller') || 
-        name.includes('andrews')) {
-      return 'TE';
+    if (
+      name.includes("kelce") ||
+      name.includes("kittle") ||
+      name.includes("waller") ||
+      name.includes("andrews")
+    ) {
+      return "TE";
     }
   }
-  
-  return '—'; // Default fallback
+
+  return "—"; // Default fallback
 }
 
-async function fetchPlayerPositionFromAPI(playerName: string, league: string, signal?: AbortSignal): Promise<string> {
+async function fetchPlayerPositionFromAPI(
+  playerName: string,
+  league: string,
+  signal?: AbortSignal,
+): Promise<string> {
   const leagueConfig = LEAGUE_APIS[league as keyof typeof LEAGUE_APIS];
   if (!leagueConfig) {
     throw new Error(`Unsupported league: ${league}`);
   }
-  
+
   // Try primary API first
   try {
     const position = await tryAPI(leagueConfig.primary, playerName, league, signal);
-    if (position !== '—') return position;
+    if (position !== "—") return position;
   } catch (error) {
     console.log(`Primary API failed for ${league}:`, error);
   }
-  
+
   // Try fallback API
   try {
     const position = await tryAPI(leagueConfig.fallback, playerName, league, signal);
-    if (position !== '—') return position;
+    if (position !== "—") return position;
   } catch (error) {
     console.log(`Fallback API failed for ${league}:`, error);
   }
-  
-  return '—';
+
+  return "—";
 }
 
-async function tryAPI(url: string, playerName: string, league: string, signal?: AbortSignal): Promise<string> {
+async function tryAPI(
+  url: string,
+  playerName: string,
+  league: string,
+  signal?: AbortSignal,
+): Promise<string> {
   const headers: Record<string, string> = {
-    'Accept': 'application/json',
-    'User-Agent': 'Statpedia/1.0'
+    Accept: "application/json",
+    "User-Agent": "Statpedia/1.0",
   };
-  
+
   // Build search URL based on API type
   let searchUrl = url;
-  if (url.includes('stats.wnba.com')) {
+  if (url.includes("stats.wnba.com")) {
     // WNBA Stats API
     searchUrl = `${url}?LeagueID=10&Season=2025&IsOnlyCurrentSeason=1`;
-  } else if (url.includes('stats.nba.com')) {
+  } else if (url.includes("stats.nba.com")) {
     // NBA Stats API
     searchUrl = `${url}?LeagueID=00&Season=2024-25&IsOnlyCurrentSeason=1`;
-  } else if (url.includes('statsapi.mlb.com')) {
+  } else if (url.includes("statsapi.mlb.com")) {
     // MLB Stats API
     searchUrl = `${url}?season=2025`;
-  } else if (url.includes('statsapi.web.nhl.com')) {
+  } else if (url.includes("statsapi.web.nhl.com")) {
     // NHL Stats API
     searchUrl = `${url}?season=20242025`;
-  } else if (url.includes('sports.core.api.espn.com')) {
+  } else if (url.includes("sports.core.api.espn.com")) {
     // ESPN API - search by name
     searchUrl = `${url}?search=${encodeURIComponent(playerName)}`;
   }
-  
+
   const response = await fetch(searchUrl, { headers });
-  
+
   if (!response.ok) {
     throw new Error(`API request failed: ${response.status}`);
   }
-  
+
   const data = await response.json();
-  
+
   // Parse response based on API type
-  if (url.includes('stats.wnba.com') || url.includes('stats.nba.com')) {
+  if (url.includes("stats.wnba.com") || url.includes("stats.nba.com")) {
     return parseNBAWNBAStats(data, playerName, league);
-  } else if (url.includes('statsapi.mlb.com')) {
+  } else if (url.includes("statsapi.mlb.com")) {
     return parseMLBStats(data, playerName);
-  } else if (url.includes('statsapi.web.nhl.com')) {
+  } else if (url.includes("statsapi.web.nhl.com")) {
     return parseNHLStats(data, playerName);
-  } else if (url.includes('sports.core.api.espn.com')) {
+  } else if (url.includes("sports.core.api.espn.com")) {
     return parseESPNStats(data, playerName);
   }
-  
-  return '—';
+
+  return "—";
 }
 
-
 function parseNBAWNBAStats(data: any, playerName: string, league: string): string {
-  if (!data.resultSets || !data.resultSets[0]) return '—';
-  
+  if (!data.resultSets || !data.resultSets[0]) return "—";
+
   const players = data.resultSets[0].rowSet || [];
   const name = playerName.toLowerCase();
-  
+
   const player = players.find((p: any) => {
-    const fullName = p[2]?.toLowerCase() || ''; // Display name is usually at index 2
+    const fullName = p[2]?.toLowerCase() || ""; // Display name is usually at index 2
     return fullName === name || fullName.includes(name) || name.includes(fullName);
   });
-  
-  if (player && player[14]) { // Position is usually at index 14
+
+  if (player && player[14]) {
+    // Position is usually at index 14
     return player[14];
   }
-  
-  return '—';
+
+  return "—";
 }
 
 function parseMLBStats(data: any, playerName: string): string {
-  if (!data.people || !Array.isArray(data.people)) return '—';
-  
+  if (!data.people || !Array.isArray(data.people)) return "—";
+
   const name = playerName.toLowerCase();
   const player = data.people.find((p: any) => {
-    const fullName = `${p.firstName || ''} ${p.lastName || ''}`.toLowerCase();
+    const fullName = `${p.firstName || ""} ${p.lastName || ""}`.toLowerCase();
     return fullName === name || fullName.includes(name) || name.includes(fullName);
   });
-  
+
   if (player && player.primaryPosition) {
     return player.primaryPosition.abbreviation || player.primaryPosition.name;
   }
-  
-  return '—';
+
+  return "—";
 }
 
 function parseNHLStats(data: any, playerName: string): string {
-  if (!data.people || !Array.isArray(data.people)) return '—';
-  
+  if (!data.people || !Array.isArray(data.people)) return "—";
+
   const name = playerName.toLowerCase();
   const player = data.people.find((p: any) => {
-    const fullName = `${p.firstName || ''} ${p.lastName || ''}`.toLowerCase();
+    const fullName = `${p.firstName || ""} ${p.lastName || ""}`.toLowerCase();
     return fullName === name || fullName.includes(name) || name.includes(fullName);
   });
-  
+
   if (player && player.primaryPosition) {
     return player.primaryPosition.abbreviation || player.primaryPosition.name;
   }
-  
-  return '—';
+
+  return "—";
 }
 
 function parseESPNStats(data: any, playerName: string): string {
-  if (!data.items || !Array.isArray(data.items)) return '—';
-  
+  if (!data.items || !Array.isArray(data.items)) return "—";
+
   const name = playerName.toLowerCase();
   const player = data.items.find((p: any) => {
-    const fullName = p.displayName?.toLowerCase() || '';
+    const fullName = p.displayName?.toLowerCase() || "";
     return fullName === name || fullName.includes(name) || name.includes(fullName);
   });
-  
+
   if (player && player.position) {
     return player.position.abbreviation || player.position.displayName;
   }
-  
-  return '—';
+
+  return "—";
 }
 
 function getFallbackPosition(playerName: string, league: string): string {
   const name = playerName.toLowerCase();
-  
+
   // Basic pattern matching as last resort
-  if (league === 'nfl') {
-    if (name.includes('wentz') || name.includes('flacco') || name.includes('allen') || name.includes('mahomes')) {
-      return 'QB';
+  if (league === "nfl") {
+    if (
+      name.includes("wentz") ||
+      name.includes("flacco") ||
+      name.includes("allen") ||
+      name.includes("mahomes")
+    ) {
+      return "QB";
     }
-    if (name.includes('chubb') || name.includes('henry') || name.includes('ekeler') || name.includes('ford')) {
-      return 'RB';
+    if (
+      name.includes("chubb") ||
+      name.includes("henry") ||
+      name.includes("ekeler") ||
+      name.includes("ford")
+    ) {
+      return "RB";
     }
-    if (name.includes('hill') || name.includes('adams') || name.includes('jeudy') || name.includes('thielen')) {
-      return 'WR';
+    if (
+      name.includes("hill") ||
+      name.includes("adams") ||
+      name.includes("jeudy") ||
+      name.includes("thielen")
+    ) {
+      return "WR";
     }
-    if (name.includes('kelce') || name.includes('andrews') || name.includes('njoku') || name.includes('hockenson')) {
-      return 'TE';
+    if (
+      name.includes("kelce") ||
+      name.includes("andrews") ||
+      name.includes("njoku") ||
+      name.includes("hockenson")
+    ) {
+      return "TE";
     }
-  } else if (league === 'nba') {
-    if (name.includes('james') || name.includes('curry') || name.includes('durant') || name.includes('doncic')) {
-      return 'F';
+  } else if (league === "nba") {
+    if (
+      name.includes("james") ||
+      name.includes("curry") ||
+      name.includes("durant") ||
+      name.includes("doncic")
+    ) {
+      return "F";
     }
-    if (name.includes('embiid') || name.includes('jokic') || name.includes('adams') || name.includes('gobert')) {
-      return 'C';
+    if (
+      name.includes("embiid") ||
+      name.includes("jokic") ||
+      name.includes("adams") ||
+      name.includes("gobert")
+    ) {
+      return "C";
     }
-  } else if (league === 'mlb') {
-    if (name.includes('trout') || name.includes('betts') || name.includes('judge') || name.includes('acuna')) {
-      return 'OF';
+  } else if (league === "mlb") {
+    if (
+      name.includes("trout") ||
+      name.includes("betts") ||
+      name.includes("judge") ||
+      name.includes("acuna")
+    ) {
+      return "OF";
     }
-    if (name.includes('freeman') || name.includes('goldschmidt') || name.includes('alonso')) {
-      return '1B';
+    if (name.includes("freeman") || name.includes("goldschmidt") || name.includes("alonso")) {
+      return "1B";
     }
   }
-  
-  return '—';
+
+  return "—";
 }
 
 // Helper function to format market types
@@ -1289,17 +1443,20 @@ function resolveLogo(league: string, teamKey: string): string {
 
 // Helper function to filter out backup quarterbacks
 function filterQuarterbacks(props: any[]) {
-  const qbs = props.filter(p => /Passing/i.test(p.market_type));
+  const qbs = props.filter((p) => /Passing/i.test(p.market_type));
   if (qbs.length <= 1) return props;
 
-  const grouped = qbs.reduce((acc, p) => {
-    acc[p.player_name] = (acc[p.player_name] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+  const grouped = qbs.reduce(
+    (acc, p) => {
+      acc[p.player_name] = (acc[p.player_name] || 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
 
   const starter = Object.entries(grouped).sort((a, b) => (b[1] as number) - (a[1] as number))[0][0];
 
-  return props.filter(p => {
+  return props.filter((p) => {
     if (/Passing/i.test(p.market_type)) {
       return p.player_name === starter;
     }
@@ -1308,13 +1465,18 @@ function filterQuarterbacks(props: any[]) {
 }
 
 // Helper function to create standardized API requests with proper headers
-async function fetchWithAPIKey(url: string, env: Env, options: RequestInit = {}, apiKey: string = env.SGO_API_KEY): Promise<Response> {
+async function fetchWithAPIKey(
+  url: string,
+  env: Env,
+  options: RequestInit = {},
+  apiKey: string = env.SGO_API_KEY,
+): Promise<Response> {
   const headers = {
-    "accept": "application/json",
+    accept: "application/json",
     "X-Api-Key": apiKey, // Use the correct header format for SGO API
     ...options.headers,
   };
-  
+
   return fetch(url, {
     ...options,
     headers,
@@ -1327,14 +1489,21 @@ async function fetchSGO(url: string, env: Env, options: RequestInit = {}): Promi
 }
 
 // Helper function for SportsOdds API requests (if needed in the future)
-async function fetchSportsOdds(url: string, env: Env, options: RequestInit = {}): Promise<Response> {
+async function fetchSportsOdds(
+  url: string,
+  env: Env,
+  options: RequestInit = {},
+): Promise<Response> {
   return fetchWithAPIKey(url, env, options, env.SPORTSODDS_API_KEY);
 }
 
-
-
-
-function buildUpstreamUrl(path: string, league: string, date: string, oddIDs?: string | null, bookmakerID?: string | null) {
+function buildUpstreamUrl(
+  path: string,
+  league: string,
+  date: string,
+  oddIDs?: string | null,
+  bookmakerID?: string | null,
+) {
   const BASE_URL = "https://api.sportsgameodds.com";
   const url = new URL(path, BASE_URL);
   url.searchParams.set("oddsAvailable", "true");
@@ -1347,7 +1516,15 @@ function buildUpstreamUrl(path: string, league: string, date: string, oddIDs?: s
   return url.toString();
 }
 
-function buildCacheKey(url: URL, league: string, date: string, oddIDs?: string | null, bookmakerID?: string | null, view?: string | null, debug?: boolean) {
+function buildCacheKey(
+  url: URL,
+  league: string,
+  date: string,
+  oddIDs?: string | null,
+  bookmakerID?: string | null,
+  view?: string | null,
+  debug?: boolean,
+) {
   const key = new URL("https://edge-cache");
   key.pathname = `/api/${league}/player-props`;
   key.searchParams.set("date", date);
@@ -1358,17 +1535,16 @@ function buildCacheKey(url: URL, league: string, date: string, oddIDs?: string |
   return key.toString();
 }
 
-
 // JSON helper
 function json(body: unknown, status = 200, request?: Request): Response {
   return withCORS(
     new Response(JSON.stringify(body), {
       status,
-      headers: { 
-        "content-type": "application/json"
+      headers: {
+        "content-type": "application/json",
       },
     }),
-    request?.headers.get("Origin") || "*"
+    request?.headers.get("Origin") || "*",
   );
 }
 
@@ -1378,57 +1554,60 @@ function calculateEV(prop: any): number {
   try {
     const overOdds = normalizeOdds(prop.best_over || prop.over_odds);
     const underOdds = normalizeOdds(prop.best_under || prop.under_odds);
-    
+
     // Skip if no valid odds
     if (!overOdds || !underOdds || overOdds === 0 || underOdds === 0) {
       return 0;
     }
-    
+
     // Step 1: Convert American odds to implied probability
-    const overImplied = overOdds > 0 ? 100 / (overOdds + 100) : Math.abs(overOdds) / (Math.abs(overOdds) + 100);
-    const underImplied = underOdds > 0 ? 100 / (underOdds + 100) : Math.abs(underOdds) / (Math.abs(underOdds) + 100);
-    
+    const overImplied =
+      overOdds > 0 ? 100 / (overOdds + 100) : Math.abs(overOdds) / (Math.abs(overOdds) + 100);
+    const underImplied =
+      underOdds > 0 ? 100 / (underOdds + 100) : Math.abs(underOdds) / (Math.abs(underOdds) + 100);
+
     // Step 2: Remove vig by normalizing probabilities
     const totalImplied = overImplied + underImplied;
     const overVigRemoved = overImplied / totalImplied;
     const underVigRemoved = underImplied / totalImplied;
-    
+
     // Step 3: Estimate true win probability (use over side as default)
     // Add some variation based on prop characteristics
     let baseProbability = overVigRemoved;
-    
+
     // Add small adjustments based on prop type
-    const propType = (prop.market_type || '').toLowerCase();
-    if (propType.includes('passing yards')) {
+    const propType = (prop.market_type || "").toLowerCase();
+    if (propType.includes("passing yards")) {
       baseProbability += 0.02; // Slight edge to over for passing yards
-    } else if (propType.includes('rushing yards')) {
+    } else if (propType.includes("rushing yards")) {
       baseProbability += 0.01; // Slight edge to over for rushing yards
-    } else if (propType.includes('receiving yards')) {
+    } else if (propType.includes("receiving yards")) {
       baseProbability += 0.015; // Slight edge to over for receiving yards
-    } else if (propType.includes('touchdown')) {
+    } else if (propType.includes("touchdown")) {
       baseProbability -= 0.02; // Slight edge to under for touchdowns
     }
-    
+
     // Clamp probability to reasonable bounds
     baseProbability = Math.max(0.1, Math.min(0.9, baseProbability));
-    
+
     // Step 4: Calculate EV
     const stake = 100; // Standard stake
     const profitIfWin = overOdds > 0 ? overOdds : (100 / Math.abs(overOdds)) * 100;
     const trueLossProbability = 1 - baseProbability;
-    
-    const ev = (baseProbability * profitIfWin) - (trueLossProbability * stake);
-    
+
+    const ev = baseProbability * profitIfWin - trueLossProbability * stake;
+
     // Step 5: Convert to EV% and add some variation to avoid identical values
     const evPercentage = (ev / stake) * 100;
-    
+
     // Add small variation based on prop characteristics to avoid all showing 3%
-    const variation = ((prop.player_name?.length || 0) + (prop.market_type?.length || 0)) % 10 - 5;
-    const finalEV = evPercentage + (variation * 0.5);
-    
+    const variation =
+      (((prop.player_name?.length || 0) + (prop.market_type?.length || 0)) % 10) - 5;
+    const finalEV = evPercentage + variation * 0.5;
+
     return Math.round(finalEV * 10) / 10; // Round to 1 decimal place
   } catch (error) {
-    console.error('Error calculating EV:', error);
+    console.error("Error calculating EV:", error);
     return 0;
   }
 }
@@ -1462,18 +1641,22 @@ function safeNormalizeEvent(ev: SGEvent) {
 
 async function normalizeEventSGO(ev: any, request: any) {
   // Guard against error responses
-  if (ev && typeof ev === 'object' && ev.error === true) {
+  if (ev && typeof ev === "object" && ev.error === true) {
     console.log("DEBUG: Skipping error response in normalizer", ev.message);
     return null;
   }
 
-  console.log(`DEBUG normalizeEventSGO: eventID=${ev.eventID}, has player_props=${!!ev.player_props}, has players=${!!ev.players}`);
+  console.log(
+    `DEBUG normalizeEventSGO: eventID=${ev.eventID}, has player_props=${!!ev.player_props}, has players=${!!ev.players}`,
+  );
 
   // Use the existing normalizeEvent function which handles SGO schema properly
   const normalized = await normalizeEvent(ev);
-  
-  console.log(`DEBUG normalizeEventSGO: eventID=${ev.eventID}, player_props=${normalized.player_props?.length || 0}, team_props=${normalized.team_props?.length || 0}`);
-  
+
+  console.log(
+    `DEBUG normalizeEventSGO: eventID=${ev.eventID}, player_props=${normalized.player_props?.length || 0}, team_props=${normalized.team_props?.length || 0}`,
+  );
+
   return {
     eventID: normalized.eventID,
     leagueID: normalized.leagueID,
@@ -1508,19 +1691,23 @@ function normalizeProps(ev: any) {
 
   for (const [oddID, entry] of Object.entries(odds)) {
     const marketEntry = entry as any;
-    
+
     // Skip team props (statEntityID: home, away, all)
-    if (marketEntry.statEntityID === 'home' || marketEntry.statEntityID === 'away' || marketEntry.statEntityID === 'all') {
+    if (
+      marketEntry.statEntityID === "home" ||
+      marketEntry.statEntityID === "away" ||
+      marketEntry.statEntityID === "all"
+    ) {
       continue;
     }
-    
+
     // Get player name from players dictionary
     const playerID = marketEntry.playerID || marketEntry.statEntityID;
     const player = players[playerID];
     const playerName = player?.name || "Unknown";
-    
+
     if (playerName === "Unknown") continue; // Skip if no player found
-    
+
     props.push({
       player_name: formatPlayerName(playerName),
       market_type: formatMarketType(marketEntry.statID || marketEntry.marketName),
@@ -1536,246 +1723,299 @@ function normalizeProps(ev: any) {
 async function normalizeEvent(ev: SGEvent) {
   try {
     console.log(`🔥 NORMALIZE EVENT CALLED: ${ev.eventID}`);
-    
+
     // Use SportsGameOdds schema as primary, fallback to legacy
     const eventId = ev.event_id || ev.eventID;
-  const leagueId = ev.league_id || ev.leagueID;
-  const startTime = ev.start_time || ev.scheduled;
-  
-  // console.log(`Normalizing event ${eventId} with SGO schema`);
-  
-  // Debug the raw event structure
-  // debugEvent(ev);
+    const leagueId = ev.league_id || ev.leagueID;
+    const startTime = ev.start_time || ev.scheduled;
 
-  // Use SGO's pre-normalized props if available, otherwise fall back to legacy normalization
-  let playerProps: any[] = [];
+    // console.log(`Normalizing event ${eventId} with SGO schema`);
 
-  console.log(`DEBUG: Event ${ev.eventID} - has player_props: ${!!ev.player_props}, has players: ${!!ev.players}`);
-  console.log(`DEBUG: player_props type: ${typeof ev.player_props}, isArray: ${Array.isArray(ev.player_props)}`);
-  console.log(`DEBUG: Event keys:`, Object.keys(ev).slice(0, 10));
+    // Debug the raw event structure
+    // debugEvent(ev);
 
-  if (ev.player_props && Array.isArray(ev.player_props)) {
-    // SGO already provides normalized player props, but we need to add player_id and position
-    console.log(`DEBUG: Processing ${ev.player_props.length} player props for event ${ev.eventID}`);
-    console.log(`DEBUG: Players object keys:`, Object.keys(ev.players || {}).slice(0, 5));
-    
-    playerProps = await Promise.all(ev.player_props.map(async (prop: any, index: number) => {
-      // Find the player in the players object
-      const playerName = prop.player_name;
-      const player = Object.values(ev.players || {}).find((p: any) => p.name === playerName) as any;
-      
-      // Debug logging for first few props
-      if (index < 3) {
-        console.log(`DEBUG: [${index}] playerName=${playerName}, found player=${!!player}, playerID=${player?.playerID}`);
-      }
-      
-      return {
-        ...prop,
-        player_id: player?.playerID || null,
-        position: '—',
-      };
-    }));
-    // console.log(`Using SGO player_props: ${playerProps.length} props`);
-  } else if (ev.odds) {
-    // Parse the current SGO API format
-        // Parsing SGO API format
-    
-    const oddsDict = ev.odds || {};
-    const playerPropsMap = new Map<string, any>();
-    
-    // Process odds entries
-    
-    console.log(`DEBUG: Processing ${Object.keys(oddsDict).length} odds entries`);
-    
-    // Parse odds entries with format: "statType-PLAYER_NAME-game-side"
-    for (const oddID in oddsDict) {
-      const oddsEntry = oddsDict[oddID];
-      
-      // Skip non-player props (team props, game totals, etc.)
-      if (!oddID.includes('-') || oddID.startsWith('points-')) {
-        continue;
-      }
-      
-      // Skip unwanted markets (case-insensitive)
-      const marketKey = oddID.toLowerCase();
-      if (marketKey.includes('firsttouchdown') || marketKey.includes('lasttouchdown') ||
-          marketKey.includes('defense_interceptions') || marketKey.includes('defense_sacks') || 
-          marketKey.includes('defense_combinedtackles') || marketKey.includes('defense_assistedtackles') ||
-          marketKey.includes('extrapoints_kicksmade') || marketKey.includes('kicking_totalpoints') ||
-          marketKey.includes('turnovers')) {
-        continue;
-      }
-      
-      console.log(`DEBUG: Processing oddID: ${oddID}`);
-      
-      // Parse the oddID to extract stat type, player name, period, and side
-      // Format: "statType-PLAYER_NAME_LEAGUE-game-side-direction"
-      // Example: "firstTouchdown-BRIAN_THOMAS_1_NFL-game-yn-yes" or "hits-SHOHEI_OHTANI_1_MLB-game-ou-over"
-      const parts = oddID.split('-');
-      if (parts.length < 5) continue;
-      
-      // Find where the player name ends (it contains underscores and ends with league suffix)
-      let playerNameEnd = -1;
-      for (let i = 1; i < parts.length; i++) {
-        if (parts[i].includes('_') && (parts[i].endsWith('NFL') || parts[i].endsWith('NBA') || parts[i].endsWith('MLB') || parts[i].endsWith('NHL'))) {
-          playerNameEnd = i;
-          break;
+    // Use SGO's pre-normalized props if available, otherwise fall back to legacy normalization
+    let playerProps: any[] = [];
+
+    console.log(
+      `DEBUG: Event ${ev.eventID} - has player_props: ${!!ev.player_props}, has players: ${!!ev.players}`,
+    );
+    console.log(
+      `DEBUG: player_props type: ${typeof ev.player_props}, isArray: ${Array.isArray(ev.player_props)}`,
+    );
+    console.log(`DEBUG: Event keys:`, Object.keys(ev).slice(0, 10));
+
+    if (ev.player_props && Array.isArray(ev.player_props)) {
+      // SGO already provides normalized player props, but we need to add player_id and position
+      console.log(
+        `DEBUG: Processing ${ev.player_props.length} player props for event ${ev.eventID}`,
+      );
+      console.log(`DEBUG: Players object keys:`, Object.keys(ev.players || {}).slice(0, 5));
+
+      playerProps = await Promise.all(
+        ev.player_props.map(async (prop: any, index: number) => {
+          // Find the player in the players object
+          const playerName = prop.player_name;
+          const player = Object.values(ev.players || {}).find(
+            (p: any) => p.name === playerName,
+          ) as any;
+
+          // Debug logging for first few props
+          if (index < 3) {
+            console.log(
+              `DEBUG: [${index}] playerName=${playerName}, found player=${!!player}, playerID=${player?.playerID}`,
+            );
+          }
+
+          return {
+            ...prop,
+            player_id: player?.playerID || null,
+            position: "—",
+          };
+        }),
+      );
+      // console.log(`Using SGO player_props: ${playerProps.length} props`);
+    } else if (ev.odds) {
+      // Parse the current SGO API format
+      // Parsing SGO API format
+
+      const oddsDict = ev.odds || {};
+      const playerPropsMap = new Map<string, any>();
+
+      // Process odds entries
+
+      console.log(`DEBUG: Processing ${Object.keys(oddsDict).length} odds entries`);
+
+      // Parse odds entries with format: "statType-PLAYER_NAME-game-side"
+      for (const oddID in oddsDict) {
+        const oddsEntry = oddsDict[oddID];
+
+        // Skip non-player props (team props, game totals, etc.)
+        if (!oddID.includes("-") || oddID.startsWith("points-")) {
+          continue;
+        }
+
+        // Skip unwanted markets (case-insensitive)
+        const marketKey = oddID.toLowerCase();
+        if (
+          marketKey.includes("firsttouchdown") ||
+          marketKey.includes("lasttouchdown") ||
+          marketKey.includes("defense_interceptions") ||
+          marketKey.includes("defense_sacks") ||
+          marketKey.includes("defense_combinedtackles") ||
+          marketKey.includes("defense_assistedtackles") ||
+          marketKey.includes("extrapoints_kicksmade") ||
+          marketKey.includes("kicking_totalpoints") ||
+          marketKey.includes("turnovers")
+        ) {
+          continue;
+        }
+
+        console.log(`DEBUG: Processing oddID: ${oddID}`);
+
+        // Parse the oddID to extract stat type, player name, period, and side
+        // Format: "statType-PLAYER_NAME_LEAGUE-game-side-direction"
+        // Example: "firstTouchdown-BRIAN_THOMAS_1_NFL-game-yn-yes" or "hits-SHOHEI_OHTANI_1_MLB-game-ou-over"
+        const parts = oddID.split("-");
+        if (parts.length < 5) continue;
+
+        // Find where the player name ends (it contains underscores and ends with league suffix)
+        let playerNameEnd = -1;
+        for (let i = 1; i < parts.length; i++) {
+          if (
+            parts[i].includes("_") &&
+            (parts[i].endsWith("NFL") ||
+              parts[i].endsWith("NBA") ||
+              parts[i].endsWith("MLB") ||
+              parts[i].endsWith("NHL"))
+          ) {
+            playerNameEnd = i;
+            break;
+          }
+        }
+
+        if (playerNameEnd === -1) {
+          console.log(`DEBUG: No player name found for oddID: ${oddID}`);
+          continue;
+        }
+
+        const statType = parts[0]; // e.g., "firstTouchdown", "passing_yards"
+        const playerName = parts.slice(1, playerNameEnd + 1).join("-"); // e.g., "BRIAN_THOMAS_1_NFL"
+        const period = parts[playerNameEnd + 1]; // e.g., "game", "1h", "1q"
+        const side = parts[playerNameEnd + 2]; // e.g., "ou", "yn"
+        const direction = parts[playerNameEnd + 3]; // e.g., "over", "under", "yes", "no"
+
+        console.log(
+          `DEBUG: Parsed - statType: ${statType}, playerName: ${playerName}, period: ${period}, side: ${side}, direction: ${direction}`,
+        );
+
+        // Skip if not a player prop or if it's not the right format
+        if (!playerName.includes("_") || period !== "game") {
+          console.log(
+            `DEBUG: Skipping - playerName includes underscore: ${playerName.includes("_")}, period is game: ${period === "game"}`,
+          );
+          continue;
+        }
+
+        // Create a clean player name from the SGO format
+        const rawPlayerName = playerName.replace(/_/g, " ").replace(/\s+\d+\s+NFL/, "");
+        const cleanPlayerName = formatPlayerName(rawPlayerName);
+
+        // Create a unique key for this player+stat combination
+        const propKey = `${cleanPlayerName}|${statType}`;
+
+        if (!playerPropsMap.has(propKey)) {
+          playerPropsMap.set(propKey, {
+            player_name: cleanPlayerName,
+            playerName: cleanPlayerName,
+            market_type: formatMarketType(formatMarketType(statType)),
+            line: 0, // Will be set from the odds data
+            best_over: null,
+            best_under: null,
+            over_odds: null,
+            under_odds: null,
+          });
+        }
+
+        const prop = playerPropsMap.get(propKey)!;
+
+        // Set the line and odds based on the entry
+        const oddsData = oddsEntry as any; // Cast to any to access properties
+
+        // Debug logging removed to prevent issues
+
+        // Extract line from bookOverUnder or fairOverUnder
+        if (oddsData.bookOverUnder !== undefined) {
+          prop.line = formatLine(oddsData.bookOverUnder);
+        } else if (oddsData.fairOverUnder !== undefined) {
+          prop.line = formatLine(oddsData.fairOverUnder);
+        }
+
+        // Map sportsbooks and odds - handle both direct and nested formats
+        if (oddsData.byBookmaker && typeof oddsData.byBookmaker === "object") {
+          prop.books = Object.keys(oddsData.byBookmaker);
+        } else if (oddsData.books) {
+          prop.books = Array.isArray(oddsData.books) ? oddsData.books : [oddsData.books];
+        } else {
+          prop.books = [];
+        }
+
+        // Set sportsbooks count using the new logic
+        prop.sportsbooks = Array.isArray(oddsData.books)
+          ? oddsData.books.length
+          : (oddsData.bookCount ?? 0);
+
+        // Extract odds from multiple possible formats (SGO legacy format)
+        if (direction === "over") {
+          prop.best_over =
+            oddsData.bookOdds ??
+            oddsData.fairOdds ??
+            oddsData.over ??
+            oddsData.prices?.over ??
+            null;
+          prop.over_odds =
+            oddsData.bookOdds ??
+            oddsData.fairOdds ??
+            oddsData.over ??
+            oddsData.prices?.over ??
+            null;
+        } else if (direction === "under") {
+          prop.best_under =
+            oddsData.bookOdds ??
+            oddsData.fairOdds ??
+            oddsData.under ??
+            oddsData.prices?.under ??
+            null;
+          prop.under_odds =
+            oddsData.bookOdds ??
+            oddsData.fairOdds ??
+            oddsData.under ??
+            oddsData.prices?.under ??
+            null;
         }
       }
-      
-      if (playerNameEnd === -1) {
-        console.log(`DEBUG: No player name found for oddID: ${oddID}`);
-        continue;
-      }
-      
-      const statType = parts[0]; // e.g., "firstTouchdown", "passing_yards"
-      const playerName = parts.slice(1, playerNameEnd + 1).join('-'); // e.g., "BRIAN_THOMAS_1_NFL"
-      const period = parts[playerNameEnd + 1]; // e.g., "game", "1h", "1q"
-      const side = parts[playerNameEnd + 2]; // e.g., "ou", "yn"
-      const direction = parts[playerNameEnd + 3]; // e.g., "over", "under", "yes", "no"
-      
-      console.log(`DEBUG: Parsed - statType: ${statType}, playerName: ${playerName}, period: ${period}, side: ${side}, direction: ${direction}`);
-      
-      // Skip if not a player prop or if it's not the right format
-      if (!playerName.includes('_') || period !== 'game') {
-        console.log(`DEBUG: Skipping - playerName includes underscore: ${playerName.includes('_')}, period is game: ${period === 'game'}`);
-        continue;
-      }
-      
-      // Create a clean player name from the SGO format
-      const rawPlayerName = playerName.replace(/_/g, ' ').replace(/\s+\d+\s+NFL/, '');
-      const cleanPlayerName = formatPlayerName(rawPlayerName);
-      
-      // Create a unique key for this player+stat combination
-      const propKey = `${cleanPlayerName}|${statType}`;
-      
-      if (!playerPropsMap.has(propKey)) {
-        playerPropsMap.set(propKey, {
-          player_name: cleanPlayerName,
-          playerName: cleanPlayerName,
-          market_type: formatMarketType(formatMarketType(statType)),
-          line: 0, // Will be set from the odds data
-          best_over: null,
-          best_under: null,
-          over_odds: null,
-          under_odds: null
-        });
-      }
-      
-      const prop = playerPropsMap.get(propKey)!;
-      
-      // Set the line and odds based on the entry
-      const oddsData = oddsEntry as any; // Cast to any to access properties
-      
-      // Debug logging removed to prevent issues
-      
-      // Extract line from bookOverUnder or fairOverUnder
-      if (oddsData.bookOverUnder !== undefined) {
-        prop.line = formatLine(oddsData.bookOverUnder);
-      } else if (oddsData.fairOverUnder !== undefined) {
-        prop.line = formatLine(oddsData.fairOverUnder);
-      }
-      
-      // Map sportsbooks and odds - handle both direct and nested formats
-      if (oddsData.byBookmaker && typeof oddsData.byBookmaker === 'object') {
-        prop.books = Object.keys(oddsData.byBookmaker);
-      } else if (oddsData.books) {
-        prop.books = Array.isArray(oddsData.books) ? oddsData.books : [oddsData.books];
-      } else {
-        prop.books = [];
-      }
-      
-      // Set sportsbooks count using the new logic
-      prop.sportsbooks = Array.isArray(oddsData.books)
-        ? oddsData.books.length
-        : (oddsData.bookCount ?? 0);
 
-      // Extract odds from multiple possible formats (SGO legacy format)
-      if (direction === 'over') {
-        prop.best_over = oddsData.bookOdds ?? oddsData.fairOdds ?? oddsData.over ?? oddsData.prices?.over ?? null;
-        prop.over_odds = oddsData.bookOdds ?? oddsData.fairOdds ?? oddsData.over ?? oddsData.prices?.over ?? null;
-      } else if (direction === 'under') {
-        prop.best_under = oddsData.bookOdds ?? oddsData.fairOdds ?? oddsData.under ?? oddsData.prices?.under ?? null;
-        prop.under_odds = oddsData.bookOdds ?? oddsData.fairOdds ?? oddsData.under ?? oddsData.prices?.under ?? null;
-      }
-    }
-    
-    // Convert map to array and apply all processing
-    playerProps = Array.from(playerPropsMap.values());
-    console.log(`DEBUG: Converted map to array, got ${playerProps.length} props`);
-    
-    // Apply quarterback filtering
-    playerProps = filterQuarterbacks(playerProps);
-    console.log(`DEBUG: After QB filtering, got ${playerProps.length} props`);
-    
-    // Apply priority sorting
-    playerProps = prioritizeProps(playerProps);
-    console.log(`DEBUG: After priority sorting, got ${playerProps.length} props`);
-    
-        // Extracted player props from SGO format
-  }
-  
-  // Initialize teamProps as empty array since we're focusing on player props
-  const teamProps: any[] = [];
-  
-  // console.log(`Final counts: playerProps=${playerProps.length}, teamProps=${teamProps.length}`);
+      // Convert map to array and apply all processing
+      playerProps = Array.from(playerPropsMap.values());
+      console.log(`DEBUG: Converted map to array, got ${playerProps.length} props`);
 
-  // Add player_id, position, team abbreviation, and EV calculation to all player props
-  console.log(`DEBUG: Adding player_id, position, team, and EV to ${playerProps.length} props`);
-  playerProps = await Promise.all(playerProps.map(async (prop: any, index: number) => {
-    const playerName = prop.player_name;
-    const player = Object.values(ev.players || {}).find((p: any) => p.name === playerName) as any;
-    
-    if (index < 3) {
-      console.log(`DEBUG: Processing prop ${index}: playerName=${playerName}, found player=${!!player}`);
+      // Apply quarterback filtering
+      playerProps = filterQuarterbacks(playerProps);
+      console.log(`DEBUG: After QB filtering, got ${playerProps.length} props`);
+
+      // Apply priority sorting
+      playerProps = prioritizeProps(playerProps);
+      console.log(`DEBUG: After priority sorting, got ${playerProps.length} props`);
+
+      // Extracted player props from SGO format
     }
-    
-    // Convert teamID to abbreviation (e.g., "CLEVELAND_BROWNS_NFL" -> "CLE")
-    let teamAbbr: string | null = null;
-    if (player?.teamID) {
-      const teamParts = player.teamID.split('_');
-      if (teamParts.length >= 2) {
-        // Extract city and team name, then get abbreviation
-        const city = teamParts[0];
-        const team = teamParts[1];
-        teamAbbr = getTeamAbbreviation(city, team);
-      }
-    }
-    
-    // Calculate EV using Outlier methodology
-    const expectedValue = calculateEV(prop);
-    
-    
+
+    // Initialize teamProps as empty array since we're focusing on player props
+    const teamProps: any[] = [];
+
+    // console.log(`Final counts: playerProps=${playerProps.length}, teamProps=${teamProps.length}`);
+
+    // Add player_id, position, team abbreviation, and EV calculation to all player props
+    console.log(`DEBUG: Adding player_id, position, team, and EV to ${playerProps.length} props`);
+    playerProps = await Promise.all(
+      playerProps.map(async (prop: any, index: number) => {
+        const playerName = prop.player_name;
+        const player = Object.values(ev.players || {}).find(
+          (p: any) => p.name === playerName,
+        ) as any;
+
+        if (index < 3) {
+          console.log(
+            `DEBUG: Processing prop ${index}: playerName=${playerName}, found player=${!!player}`,
+          );
+        }
+
+        // Convert teamID to abbreviation (e.g., "CLEVELAND_BROWNS_NFL" -> "CLE")
+        let teamAbbr: string | null = null;
+        if (player?.teamID) {
+          const teamParts = player.teamID.split("_");
+          if (teamParts.length >= 2) {
+            // Extract city and team name, then get abbreviation
+            const city = teamParts[0];
+            const team = teamParts[1];
+            teamAbbr = getTeamAbbreviation(city, team);
+          }
+        }
+
+        // Calculate EV using Outlier methodology
+        const expectedValue = calculateEV(prop);
+
+        return {
+          ...prop,
+          playerName: prop.player_name, // Ensure playerName is set
+          player_id: player?.playerID || null,
+          position: "—",
+          teamAbbr: teamAbbr,
+          expectedValue: expectedValue,
+        };
+      }),
+    );
+
+    console.log(`DEBUG: Final player props count: ${playerProps.length}`);
+
+    // console.log(`Returning event ${eventId} with ${playerProps.length} player props and ${teamProps.length} team props`);
+
+    // Use legacy SGO format: ev.teams.home.names.long and ev.teams.away.names.long
+    // Use the new normalizeMatchup function with legacy schema
+    const matchup = normalizeMatchup(ev, leagueId || "NFL");
+
     return {
-      ...prop,
-      playerName: prop.player_name, // Ensure playerName is set
-      player_id: player?.playerID || null,
-      position: '—',
-      teamAbbr: teamAbbr,
-      expectedValue: expectedValue,
+      eventID: eventId,
+      leagueID: leagueId,
+      start_time: formatEventDate(ev, "America/New_York"),
+      home_team: matchup.home_team,
+      away_team: matchup.away_team,
+      matchup: matchup.matchup_compact,
+      home_logo: matchup.home_logo,
+      away_logo: matchup.away_logo,
+      team_props: teamProps,
+      player_props: prioritizeProps(playerProps),
     };
-  }));
-  
-  console.log(`DEBUG: Final player props count: ${playerProps.length}`);
-
-  // console.log(`Returning event ${eventId} with ${playerProps.length} player props and ${teamProps.length} team props`);
-  
-  // Use legacy SGO format: ev.teams.home.names.long and ev.teams.away.names.long
-  // Use the new normalizeMatchup function with legacy schema
-  const matchup = normalizeMatchup(ev, leagueId || "NFL");
-  
-  return {
-    eventID: eventId,
-    leagueID: leagueId,
-    start_time: formatEventDate(ev, "America/New_York"),
-    home_team: matchup.home_team,
-    away_team: matchup.away_team,
-    matchup: matchup.matchup_compact,
-    home_logo: matchup.home_logo,
-    away_logo: matchup.away_logo,
-    team_props: teamProps,
-    player_props: prioritizeProps(playerProps),
-  };
   } catch (error) {
     console.error(`🔥 ERROR in normalizeEvent for ${ev.eventID}:`, error);
     throw error;
@@ -1793,59 +2033,68 @@ async function groupPlayerProps(event: any, league: string) {
       m.statID || "",
       m.periodID || "",
       m.betTypeID || "",
-      lineValue // Include line value to separate alternative lines
+      lineValue, // Include line value to separate alternative lines
     ].join("|");
-    
+
     // Debug logging for alternative lines
     if (m.playerID && m.statID) {
-      console.log(`🔍 Grouping prop: Player=${m.playerID}, Stat=${m.statID}, Line=${lineValue}, Key=${key}`);
+      console.log(
+        `🔍 Grouping prop: Player=${m.playerID}, Stat=${m.statID}, Line=${lineValue}, Key=${key}`,
+      );
     }
-    
+
     (grouped[key] ||= []).push(m);
   }
-  
+
   // Debug: Log how many groups we have
-  console.log(`🔍 Grouped ${event.player_props.length} props into ${Object.keys(grouped).length} groups`);
+  console.log(
+    `🔍 Grouped ${event.player_props.length} props into ${Object.keys(grouped).length} groups`,
+  );
 
   // DEBUG: Log grouped props
   // Props grouped
 
-  let playerProps = (await Promise.all(
-    Object.values(grouped).map(group => normalizePlayerGroup(group, event.players, league))
-  )).filter(Boolean);
-  
+  let playerProps = (
+    await Promise.all(
+      Object.values(grouped).map((group) => normalizePlayerGroup(group, event.players, league)),
+    )
+  ).filter(Boolean);
+
   // Apply quarterback filtering
   playerProps = filterQuarterbacks(playerProps);
-  
+
   // Apply priority sorting
   playerProps = prioritizeProps(playerProps);
-  
+
   event.player_props = playerProps;
 }
 
-
 async function normalizePlayerGroup(markets: any[], players: Record<string, any>, league: string) {
-  const over = markets.find(m => m.sideID?.toLowerCase() === "over" || m.sideID?.toLowerCase() === "yes");
-  const under = markets.find(m => m.sideID?.toLowerCase() === "under" || m.sideID?.toLowerCase() === "no");
+  const over = markets.find(
+    (m) => m.sideID?.toLowerCase() === "over" || m.sideID?.toLowerCase() === "yes",
+  );
+  const under = markets.find(
+    (m) => m.sideID?.toLowerCase() === "under" || m.sideID?.toLowerCase() === "no",
+  );
   const base = over || under;
   if (!base) return null;
 
   const player = base.playerID ? players[base.playerID] : undefined;
   let playerName = player?.name ?? null;
-  
+
   // Try to extract player name from marketName if player not found
   if (!playerName && base.marketName) {
     // Extract player name from marketName like "Joe Flacco To Record First Touchdown Yes/No"
-    const marketNameParts = base.marketName.split(' ');
+    const marketNameParts = base.marketName.split(" ");
     if (marketNameParts.length >= 2) {
       // Take the first two words as the player name
       playerName = `${marketNameParts[0]} ${marketNameParts[1]}`;
     }
   }
-  
+
   // Try to extract player name from oddID if player not found
   if (!playerName && base.oddID) {
-    const oddIdParts = base.oddID.split('-');
+    const oddIdParts = base.oddID.split("-");
     if (oddIdParts.length >= 2) {
       const potentialPlayerID = oddIdParts[1];
       if (potentialPlayerID && players[potentialPlayerID]) {
@@ -1853,9 +2102,14 @@ async function normalizePlayerGroup(markets: any[], players: Record<string, any>
       }
     }
   }
-  
+
   // Final fallback - try to extract from statEntityID
-  if (!playerName && base.statEntityID && base.statEntityID !== 'side1' && base.statEntityID !== 'side2') {
+  if (
+    !playerName &&
+    base.statEntityID &&
+    base.statEntityID !== "side1" &&
+    base.statEntityID !== "side2"
+  ) {
     if (players[base.statEntityID]) {
       playerName = players[base.statEntityID].name;
     }
@@ -1868,11 +2122,11 @@ async function normalizePlayerGroup(markets: any[], players: Record<string, any>
   }
 
   const allBooks = [...collectBooks(over), ...collectBooks(under)];
-  
+
   // Get team ID with fallback logic
   let teamID = player?.teamID ?? null;
   if (!teamID && playerName && base.oddID) {
-    const oddIdParts = base.oddID.split('-');
+    const oddIdParts = base.oddID.split("-");
     if (oddIdParts.length >= 2) {
       const potentialPlayerID = oddIdParts[1];
       if (potentialPlayerID && players[potentialPlayerID]) {
@@ -1880,7 +2134,12 @@ async function normalizePlayerGroup(markets: any[], players: Record<string, any>
       }
     }
   }
-  if (!teamID && base.statEntityID && base.statEntityID !== 'side1' && base.statEntityID !== 'side2') {
+  if (
+    !teamID &&
+    base.statEntityID &&
+    base.statEntityID !== "side1" &&
+    base.statEntityID !== "side2"
+  ) {
     if (players[base.statEntityID]) {
       teamID = players[base.statEntityID].teamID;
     }
@@ -1893,23 +2152,31 @@ async function normalizePlayerGroup(markets: any[], players: Record<string, any>
   const restDays = generateRestDays();
 
   // Filter out defensive and kicking props for NFL
-  if (league.toLowerCase() === 'nfl') {
-    const marketType = base.statID?.toLowerCase() || '';
-    if (marketType.includes('defense') || 
-        marketType.includes('sack') || 
-        marketType.includes('tackle') || 
-        marketType.includes('interception') ||
-        marketType.includes('field goal') ||
-        marketType.includes('kicking') ||
-        marketType.includes('extra point')) {
+  if (league.toLowerCase() === "nfl") {
+    const marketType = base.statID?.toLowerCase() || "";
+    if (
+      marketType.includes("defense") ||
+      marketType.includes("sack") ||
+      marketType.includes("tackle") ||
+      marketType.includes("interception") ||
+      marketType.includes("field goal") ||
+      marketType.includes("kicking") ||
+      marketType.includes("extra point")
+    ) {
       return null; // Skip defensive and kicking props
     }
   }
 
   // Use new odds utilities to get best prices
-  const overPrices = allBooks.filter(b => b.side === "over").map(b => b.price).filter(p => p != null);
-  const underPrices = allBooks.filter(b => b.side === "under").map(b => b.price).filter(p => p != null);
-  
+  const overPrices = allBooks
+    .filter((b) => b.side === "over")
+    .map((b) => b.price)
+    .filter((p) => p != null);
+  const underPrices = allBooks
+    .filter((b) => b.side === "under")
+    .map((b) => b.price)
+    .filter((p) => p != null);
+
   const best_over = overPrices.length > 0 ? pickBestAmerican(overPrices) : null;
   const best_under = underPrices.length > 0 ? pickBestAmerican(underPrices) : null;
 
@@ -1929,7 +2196,7 @@ async function normalizePlayerGroup(markets: any[], players: Record<string, any>
     injuryStatus: injuryStatus,
     restDays: restDays,
     // Add position based on player name
-    position: '—',
+    position: "—",
   };
 
   // Skip props without player names as they're not useful
@@ -1956,61 +2223,61 @@ function normalizeSide(side: string | undefined): "over" | "under" | null {
 function generateHitRate(playerName: string, statID: string): number {
   // Create a consistent hash from player name and stat type
   const seed = hashString(`${playerName}-${statID}`);
-  
+
   // Base hit rate varies by prop type
   let baseRate = 0.5; // Default 50%
-  
-  if (statID.includes('passing') || statID.includes('Passing')) {
+
+  if (statID.includes("passing") || statID.includes("Passing")) {
     baseRate = 0.45; // Passing props typically lower hit rate
-  } else if (statID.includes('rushing') || statID.includes('Rushing')) {
+  } else if (statID.includes("rushing") || statID.includes("Rushing")) {
     baseRate = 0.55; // Rushing props slightly higher
-  } else if (statID.includes('receiving') || statID.includes('Receiving')) {
+  } else if (statID.includes("receiving") || statID.includes("Receiving")) {
     baseRate = 0.52; // Receiving props moderate
-  } else if (statID.includes('touchdown') || statID.includes('Touchdown')) {
+  } else if (statID.includes("touchdown") || statID.includes("Touchdown")) {
     baseRate = 0.35; // Touchdown props much lower
   }
-  
+
   // Add variation based on player hash (-10% to +15%)
   const variation = ((seed % 25) - 10) / 100;
   const finalRate = Math.max(0.25, Math.min(0.75, baseRate + variation));
-  
+
   return Math.round(finalRate * 100) / 100; // Round to 2 decimal places
 }
 
 // Generate recent form based on player and prop type
 function generateRecentForm(playerName: string, statID: string): number {
   const seed = hashString(`${playerName}-${statID}-form`);
-  
+
   // Base form varies by prop type
   let baseForm = 0.5;
-  
-  if (statID.includes('passing') || statID.includes('Passing')) {
+
+  if (statID.includes("passing") || statID.includes("Passing")) {
     baseForm = 0.48;
-  } else if (statID.includes('rushing') || statID.includes('Rushing')) {
+  } else if (statID.includes("rushing") || statID.includes("Rushing")) {
     baseForm = 0.52;
-  } else if (statID.includes('receiving') || statID.includes('Receiving')) {
-    baseForm = 0.50;
-  } else if (statID.includes('touchdown') || statID.includes('Touchdown')) {
-    baseForm = 0.40;
+  } else if (statID.includes("receiving") || statID.includes("Receiving")) {
+    baseForm = 0.5;
+  } else if (statID.includes("touchdown") || statID.includes("Touchdown")) {
+    baseForm = 0.4;
   }
-  
+
   // Add variation (-15% to +20%)
   const variation = ((seed % 35) - 15) / 100;
-  const finalForm = Math.max(0.20, Math.min(0.80, baseForm + variation));
-  
+  const finalForm = Math.max(0.2, Math.min(0.8, baseForm + variation));
+
   return Math.round(finalForm * 100) / 100;
 }
 
 // Generate injury status based on player name
 function generateInjuryStatus(playerName: string): string {
   const seed = hashString(`${playerName}-injury`);
-  
+
   // Most players are healthy (70%), some questionable (20%), few injured (10%)
   const statusRoll = seed % 100;
-  
-  if (statusRoll < 70) return 'healthy';
-  if (statusRoll < 90) return 'questionable';
-  return 'injured';
+
+  if (statusRoll < 70) return "healthy";
+  if (statusRoll < 90) return "questionable";
+  return "injured";
 }
 
 // Generate rest days (1-7 days)
@@ -2026,7 +2293,7 @@ function hashString(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash = hash & hash; // Convert to 32-bit integer
   }
   return Math.abs(hash);
@@ -2061,7 +2328,7 @@ function collectBooks(side: any) {
 function collectBooksFromMarket(market: any): any[] {
   if (!market) return [];
   const books: any[] = [];
-  
+
   // Add consensus odds if available
   if (market.bookOdds || market.bookOverUnder || market.fairOdds || market.fairOverUnder) {
     books.push({
@@ -2071,36 +2338,41 @@ function collectBooksFromMarket(market: any): any[] {
       line: formatLine(market.bookOverUnder || market.fairOverUnder || null),
     });
   }
-  
+
   // Add individual bookmaker odds
   if (market.byBookmaker) {
     for (const [book, data] of Object.entries(market.byBookmaker)) {
       const bookData = data as any;
       if (!bookData.odds && !bookData.overUnder) continue;
-      
+
       books.push({
         bookmaker: book,
         side: normalizeSide(market.sideID),
         price: bookData.odds || market.bookOdds || market.fairOdds || null,
-        line: formatLine(bookData.overUnder || market.bookOverUnder || market.fairOverUnder || null),
+        line: formatLine(
+          bookData.overUnder || market.bookOverUnder || market.fairOverUnder || null,
+        ),
         deeplink: bookData.deeplink,
       });
     }
   }
-  
+
   return books;
 }
 
-function pickBestFromMarket(market: any, side: "over" | "under"): { price: string; bookmaker?: string } | null {
+function pickBestFromMarket(
+  market: any,
+  side: "over" | "under",
+): { price: string; bookmaker?: string } | null {
   if (!market) return null;
-  
+
   // Check if this market matches the requested side
   const marketSide = normalizeSide(market.sideID);
   if (marketSide !== side) return null;
-  
+
   const books = collectBooksFromMarket(market);
   if (books.length === 0) return null;
-  
+
   // Use existing pickBest function
   return pickBest(books);
 }
@@ -2117,18 +2389,18 @@ function summarizePropsByMarket(event: any, league: string) {
 }
 
 function normalizeTeamGroup(markets: MarketSide[]) {
-  const over = markets.find(m => isOverSide(m.sideID));
-  const under = markets.find(m => isUnderSide(m.sideID));
-  
+  const over = markets.find((m) => isOverSide(m.sideID));
+  const under = markets.find((m) => isUnderSide(m.sideID));
+
   // Handle non-over/under bets (like away/home, even/odd, etc.)
   if (!over && !under) {
     // For non-over/under bets, just use the first market
     const base = markets[0];
     if (!base) return null;
-    
+
     const marketType = formatStatID(base.statID);
     const books = collectBooks(base);
-    
+
     return {
       market_type: marketType,
       line: formatLine(base.bookOverUnder || base.fairOverUnder),
@@ -2139,32 +2411,39 @@ function normalizeTeamGroup(markets: MarketSide[]) {
         over: base.oddID ?? null,
         under: null,
         opposingOver: base.opposingOddID ?? null,
-        opposingUnder: null
+        opposingUnder: null,
       },
       status: {
         started: base.started ?? false,
         ended: base.ended ?? false,
-        cancelled: base.cancelled ?? false
-      }
+        cancelled: base.cancelled ?? false,
+      },
     };
   }
-  
+
   // Use whichever side exists as base
   const base = over || under;
   if (!base) return null;
 
   const marketType = formatStatID(base.statID);
-  
+
   // Resolve line: prefer bookOverUnder, fallback to fairOverUnder
-  const lineStr = firstDefined(over?.bookOverUnder, under?.bookOverUnder, over?.fairOverUnder, under?.fairOverUnder);
+  const lineStr = firstDefined(
+    over?.bookOverUnder,
+    under?.bookOverUnder,
+    over?.fairOverUnder,
+    under?.fairOverUnder,
+  );
   const line = toNumberOrNull(lineStr);
 
   // Always collect books with consensus fallback
   const books = [...collectBooks(over), ...collectBooks(under)];
 
   // Pick best odds per side (handle single-sided markets)
-  const best_over = pickBest(books.filter(b => b.side === "over" || b.side === "yes"))?.price ?? null;
-  const best_under = pickBest(books.filter(b => b.side === "under" || b.side === "no"))?.price ?? null;
+  const best_over =
+    pickBest(books.filter((b) => b.side === "over" || b.side === "yes"))?.price ?? null;
+  const best_under =
+    pickBest(books.filter((b) => b.side === "under" || b.side === "no"))?.price ?? null;
 
   return {
     market_type: marketType,
@@ -2186,7 +2465,6 @@ function normalizeTeamGroup(markets: MarketSide[]) {
   };
 }
 
-
 // Helpers
 
 function isOverSide(side: any) {
@@ -2204,7 +2482,10 @@ function formatStatID(statID: string) {
 }
 
 function extractNameFromMarket(marketName: string) {
-  return (marketName || "").replace(/\s+(Passing|Rushing|Receiving|Attempts|Completions|Yards|Touchdowns|Interceptions|Receptions).*$/i, "");
+  return (marketName || "").replace(
+    /\s+(Passing|Rushing|Receiving|Attempts|Completions|Yards|Touchdowns|Interceptions|Receptions).*$/i,
+    "",
+  );
 }
 
 function firstDefined<T>(...vals: (T | undefined | null)[]) {
@@ -2317,39 +2598,14 @@ const LEGACY_PROP_PRIORITY: Record<string, string[]> = {
     "first_touchdown",
     "last_touchdown",
   ],
-  nba: [
-    "points",
-    "rebounds",
-    "assists",
-    "threes_made",
-    "steals",
-    "blocks",
-  ],
-  mlb: [
-    "hits",
-    "home_runs",
-    "rbis",
-    "strikeouts",
-    "total_bases",
-  ],
-  nhl: [
-    "goals",
-    "assists",
-    "points",
-    "shots_on_goal",
-    "saves",
-  ],
-  ncaaf: [
-    "passing_yards",
-    "rushing_yards",
-    "receiving_yards",
-    "receptions",
-    "touchdowns",
-  ],
+  nba: ["points", "rebounds", "assists", "threes_made", "steals", "blocks"],
+  mlb: ["hits", "home_runs", "rbis", "strikeouts", "total_bases"],
+  nhl: ["goals", "assists", "points", "shots_on_goal", "saves"],
+  ncaaf: ["passing_yards", "rushing_yards", "receiving_yards", "receptions", "touchdowns"],
 };
 
 // Global config for label formatting
-const VIEW_MODE: "compact" | "verbose" = "compact"; 
+const VIEW_MODE: "compact" | "verbose" = "compact";
 // Change to "verbose" for full labels like "1st Quarter"
 
 // Period labels for different leagues
@@ -2511,33 +2767,45 @@ function sortPropsByLeague(props: any[], league: string) {
 function sortPropsByPriority(props: any[], league: string): any[] {
   // Define core props that should always be included (first 20-30 props)
   const coreProps = [
-    'passing yards', 'passing touchdowns', 'passing attempts', 'passing completions', 'passing interceptions',
-    'rushing yards', 'rushing touchdowns', 'rushing attempts',
-    'receiving yards', 'receiving touchdowns', 'receiving receptions',
-    'defense sacks', 'defense interceptions', 'defense combined tackles',
-    'field goals made', 'kicking total points', 'extra points kicks made'
+    "passing yards",
+    "passing touchdowns",
+    "passing attempts",
+    "passing completions",
+    "passing interceptions",
+    "rushing yards",
+    "rushing touchdowns",
+    "rushing attempts",
+    "receiving yards",
+    "receiving touchdowns",
+    "receiving receptions",
+    "defense sacks",
+    "defense interceptions",
+    "defense combined tackles",
+    "field goals made",
+    "kicking total points",
+    "extra points kicks made",
   ];
 
   return props.sort((a, b) => {
-    const aMarket = a.market_type?.toLowerCase() || '';
-    const bMarket = b.market_type?.toLowerCase() || '';
-    
+    const aMarket = a.market_type?.toLowerCase() || "";
+    const bMarket = b.market_type?.toLowerCase() || "";
+
     // First priority: Core props
-    const aIsCore = coreProps.some(core => aMarket.includes(core.toLowerCase()));
-    const bIsCore = coreProps.some(core => bMarket.includes(core.toLowerCase()));
-    
+    const aIsCore = coreProps.some((core) => aMarket.includes(core.toLowerCase()));
+    const bIsCore = coreProps.some((core) => bMarket.includes(core.toLowerCase()));
+
     if (aIsCore && !bIsCore) return -1;
     if (!aIsCore && bIsCore) return 1;
-    
+
     // Second priority: Category order (offense → kicking → defense → touchdowns)
     const aCategory = getPropCategory(aMarket);
     const bCategory = getPropCategory(bMarket);
-    
+
     if (aCategory !== bCategory) {
-      const categoryOrder = ['offense', 'kicking', 'defense', 'touchdowns', 'other'];
+      const categoryOrder = ["offense", "kicking", "defense", "touchdowns", "other"];
       return categoryOrder.indexOf(aCategory) - categoryOrder.indexOf(bCategory);
     }
-    
+
     // Third priority: Within category, sort by market type
     return aMarket.localeCompare(bMarket);
   });
@@ -2545,37 +2813,59 @@ function sortPropsByPriority(props: any[], league: string): any[] {
 
 function getPropCategory(market: string): string {
   const lowerMarket = market.toLowerCase();
-  
+
   // Offense props (passing, rushing, receiving)
-  if (lowerMarket.includes('passing') || lowerMarket.includes('rushing') || lowerMarket.includes('receiving')) {
-    return 'offense';
+  if (
+    lowerMarket.includes("passing") ||
+    lowerMarket.includes("rushing") ||
+    lowerMarket.includes("receiving")
+  ) {
+    return "offense";
   }
-  
+
   // Kicking props
-  if (lowerMarket.includes('field goal') || lowerMarket.includes('kicking') || lowerMarket.includes('extra point')) {
-    return 'kicking';
+  if (
+    lowerMarket.includes("field goal") ||
+    lowerMarket.includes("kicking") ||
+    lowerMarket.includes("extra point")
+  ) {
+    return "kicking";
   }
-  
+
   // Defense props
-  if (lowerMarket.includes('defense') || lowerMarket.includes('sack') || lowerMarket.includes('tackle') || lowerMarket.includes('interception')) {
-    return 'defense';
+  if (
+    lowerMarket.includes("defense") ||
+    lowerMarket.includes("sack") ||
+    lowerMarket.includes("tackle") ||
+    lowerMarket.includes("interception")
+  ) {
+    return "defense";
   }
-  
+
   // Touchdown props (should be last)
-  if (lowerMarket.includes('touchdown') || lowerMarket.includes('first touchdown') || lowerMarket.includes('last touchdown')) {
-    return 'touchdowns';
+  if (
+    lowerMarket.includes("touchdown") ||
+    lowerMarket.includes("first touchdown") ||
+    lowerMarket.includes("last touchdown")
+  ) {
+    return "touchdowns";
   }
-  
-  return 'other';
+
+  return "other";
 }
 
-
-async function handleEventProps(eventID: string, limit: number, offset: number, env: Env, request: Request) {
+async function handleEventProps(
+  eventID: string,
+  limit: number,
+  offset: number,
+  env: Env,
+  request: Request,
+) {
   try {
     // Check cache first
     const cacheKey = `event-props:${eventID}:${limit}:${offset}`;
     const cached = env.PLAYER_PROPS_CACHE ? await env.PLAYER_PROPS_CACHE.get(cacheKey) : null;
-    
+
     if (cached) {
       try {
         return json(JSON.parse(cached), 200, request);
@@ -2585,21 +2875,23 @@ async function handleEventProps(eventID: string, limit: number, offset: number, 
     }
 
     // Fetch the specific event data using the same normalization as main endpoint
-    const date = new Date().toISOString().split('T')[0];
+    const date = new Date().toISOString().split("T")[0];
     const result = await fetchSportsGameOddsDay("NFL", date, env);
-    
+
     if (isErrorResponse(result)) {
       return json({ error: result.message }, 400, request);
     }
 
     // Normalize events using the same logic as main endpoint
-    const normalized = (await Promise.all(
-      result.events.map((ev: any) => normalizeEventSGO(ev, { league: "NFL", date }))
-    )).filter((event): event is NonNullable<typeof event> => event !== null);
+    const normalized = (
+      await Promise.all(
+        result.events.map((ev: any) => normalizeEventSGO(ev, { league: "NFL", date })),
+      )
+    ).filter((event): event is NonNullable<typeof event> => event !== null);
 
     // Find the specific event
     const event = normalized.find((ev: any) => ev.eventID === eventID);
-    
+
     if (!event) {
       return json({ error: "Event not found" }, 404, request);
     }
@@ -2607,7 +2899,7 @@ async function handleEventProps(eventID: string, limit: number, offset: number, 
     // Apply priority sorting and pagination
     const sortedProps = sortPropsByPriority(event.player_props || [], "NFL");
     const paginatedProps = sortedProps.slice(offset, offset + limit);
-    
+
     const response = {
       eventID: event.eventID,
       home_team: event.home_team,
@@ -2621,30 +2913,41 @@ async function handleEventProps(eventID: string, limit: number, offset: number, 
         limit,
         offset,
         total: sortedProps.length,
-        hasMore: offset + limit < sortedProps.length
-      }
+        hasMore: offset + limit < sortedProps.length,
+      },
     };
 
     // Cache the response for 5 minutes
     if (env.PLAYER_PROPS_CACHE) {
       await env.PLAYER_PROPS_CACHE.put(cacheKey, JSON.stringify(response), {
-        expirationTtl: 300
+        expirationTtl: 300,
       });
     }
 
     return json(response, 200, request);
   } catch (error) {
-    return json({ error: "Failed to fetch event props", details: error instanceof Error ? error.message : "Unknown error" }, 500, request);
+    return json(
+      {
+        error: "Failed to fetch event props",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500,
+      request,
+    );
   }
 }
 
-function capPropsPerLeague(normalizedEvents: any[], league: string, maxPropsPerEvent: number = 125) {
+function capPropsPerLeague(
+  normalizedEvents: any[],
+  league: string,
+  maxPropsPerEvent: number = 125,
+) {
   // Cap props per event with priority: offense → kicking → defense → touchdowns
   for (const event of normalizedEvents) {
     if (event.player_props && event.player_props.length > 0) {
       // Sort props by priority order: offense → kicking → defense → touchdowns
       const sortedProps = sortPropsByPriority(event.player_props, league);
-      
+
       // Take only the top maxPropsPerEvent for this event
       event.player_props = sortedProps.slice(0, maxPropsPerEvent);
     }
@@ -2670,20 +2973,24 @@ const SUPPORTED_LEAGUES = new Set([
   "nhl",
   "ncaaf",
   "ncaab",
-  "epl"
+  "epl",
   // add more as needed
 ]);
 
 // Type guard to check if response is an error
-function isErrorResponse(response: any): response is { error: true; message: string; supported?: string[]; body?: string } {
-  return response && typeof response === 'object' && response.error === true;
+function isErrorResponse(
+  response: any,
+): response is { error: true; message: string; supported?: string[]; body?: string } {
+  return response && typeof response === "object" && response.error === true;
 }
 
 export async function fetchSportsGameOddsDay(
   league: string,
   date: string,
-  env: Env
-): Promise<{ events: any[] } | { error: true; message: string; supported?: string[]; body?: string }> {
+  env: Env,
+): Promise<
+  { events: any[] } | { error: true; message: string; supported?: string[]; body?: string }
+> {
   // 1. Validate league
   if (!SUPPORTED_LEAGUES.has(league.toLowerCase())) {
     return {
@@ -2709,9 +3016,7 @@ export async function fetchSportsGameOddsDay(
   if (!leagueID) {
     return {
       error: true,
-      message: `Unsupported league '${league}'. Supported: ${Object.keys(
-        LEAGUE_IDS
-      ).join(", ")}`,
+      message: `Unsupported league '${league}'. Supported: ${Object.keys(LEAGUE_IDS).join(", ")}`,
     };
   }
 
@@ -2731,27 +3036,27 @@ export async function fetchSportsGameOddsDay(
   }
 
   // 5. Return parsed JSON
-  const raw = await res.json() as any;
+  const raw = (await res.json()) as any;
   const rawEvents = raw.data || raw.events || raw; // SGO wraps in { data: [...] }
-  
+
   // console.log(`[fetchSportsGameOddsDay] Raw events count: ${rawEvents.length}`);
-  
+
   // 6. Return all events (API may return events from different years)
   const events = rawEvents;
-  
+
   // console.log(`[fetchSportsGameOddsDay] Filtered to ${events.length} events for year ${requestedYear}`);
-  
+
   // Debug: Log event details and available prop categories
   // Reduced logging to avoid CPU limits
   // console.log(`Found ${events.length} events for ${league} on ${date}`);
-  
+
   return { events };
 }
 
 async function fetchLeagueWeek(league: string, baseDate: Date, env: Env) {
   const { start, end } = getWeekRange(baseDate, 7);
   const dates: string[] = [];
-  let d = new Date(start);
+  const d = new Date(start);
   while (d <= new Date(end)) {
     dates.push(d.toISOString().slice(0, 10));
     d.setDate(d.getDate() + 1);
@@ -2759,16 +3064,14 @@ async function fetchLeagueWeek(league: string, baseDate: Date, env: Env) {
 
   // console.log(`Fetching ${league} props for dates: ${dates.join(', ')}`);
 
-  const results = await Promise.all(
-    dates.map(date => fetchSportsGameOddsDay(league, date, env))
-  );
+  const results = await Promise.all(dates.map((date) => fetchSportsGameOddsDay(league, date, env)));
 
   const flatResults = results
-    .filter(result => !isErrorResponse(result))
-    .map(result => (result as { events: any[] }).events)
+    .filter((result) => !isErrorResponse(result))
+    .map((result) => (result as { events: any[] }).events)
     .flat();
   // console.log(`Fetched ${flatResults.length} total events across ${dates.length} days`);
-  
+
   return flatResults;
 }
 
@@ -2786,7 +3089,7 @@ async function fetchSportsGameOddsWeek(league: string, date: string | undefined,
   const baseDate = new Date();
   const { start, end } = getWeekRange(baseDate, 7);
   const dates: string[] = [];
-  let d = new Date(start);
+  const d = new Date(start);
   while (d <= new Date(end)) {
     dates.push(d.toISOString().slice(0, 10));
     d.setDate(d.getDate() + 1);
@@ -2795,16 +3098,16 @@ async function fetchSportsGameOddsWeek(league: string, date: string | undefined,
   // console.log(`Fetching ${league} props for dates: ${dates.join(', ')}`);
 
   const results = await Promise.all(
-    dates.map(date => fetchSportsGameOddsDay(league.toUpperCase(), date, env))
+    dates.map((date) => fetchSportsGameOddsDay(league.toUpperCase(), date, env)),
   );
 
   // Filter out error responses and flatten valid results
   const flatResults = results
-    .filter(result => !isErrorResponse(result))
-    .map(result => (result as { events: any[] }).events)
+    .filter((result) => !isErrorResponse(result))
+    .map((result) => (result as { events: any[] }).events)
     .flat();
   // console.log(`Fetched ${flatResults.length} total events across ${dates.length} days`);
-  
+
   return flatResults;
 }
 
@@ -2813,8 +3116,10 @@ async function fetchSportsGameOddsWeek(league: string, date: string | undefined,
  * - For positive odds: higher is better (+250 is better than +200).
  * - For negative odds: closer to zero is better (-110 is better than -150).
  */
-function pickBest(books: { price: string | number | null; bookmaker?: string }[]): { price: string; bookmaker?: string } | null {
-  const candidates = books.filter(b => parseAmerican(b.price) !== null);
+function pickBest(
+  books: { price: string | number | null; bookmaker?: string }[],
+): { price: string; bookmaker?: string } | null {
+  const candidates = books.filter((b) => parseAmerican(b.price) !== null);
   if (candidates.length === 0) return null;
 
   const best = candidates.sort((a, b) => {
@@ -2831,7 +3136,7 @@ function pickBest(books: { price: string | number | null; bookmaker?: string }[]
 
   return {
     price: String(best.price),
-    bookmaker: best.bookmaker
+    bookmaker: best.bookmaker,
   };
 }
 
@@ -2847,12 +3152,20 @@ function debugNormalizeEvent(ev: any) {
       start_time: ev?.scheduled,
       home_team: {
         id: ev?.teams?.home?.teamID ?? ev?.teams?.home?.id ?? null,
-        abbr: ev?.teams?.home?.abbreviation ?? ev?.teams?.home?.names?.short ?? ev?.teams?.home?.names?.abbr ?? null,
+        abbr:
+          ev?.teams?.home?.abbreviation ??
+          ev?.teams?.home?.names?.short ??
+          ev?.teams?.home?.names?.abbr ??
+          null,
         name: ev?.teams?.home?.names?.long ?? ev?.teams?.home?.names?.full ?? null,
       },
       away_team: {
         id: ev?.teams?.away?.teamID ?? ev?.teams?.away?.id ?? null,
-        abbr: ev?.teams?.away?.abbreviation ?? ev?.teams?.away?.names?.short ?? ev?.teams?.away?.names?.abbr ?? null,
+        abbr:
+          ev?.teams?.away?.abbreviation ??
+          ev?.teams?.away?.names?.short ??
+          ev?.teams?.away?.names?.abbr ??
+          null,
         name: ev?.teams?.away?.names?.long ?? ev?.teams?.away?.names?.full ?? null,
       },
       team_props: [],
@@ -2870,7 +3183,9 @@ function debugNormalizeEventInternal(ev: any) {
   const groups: Record<string, any[]> = {};
   for (const oddID in oddsDict) {
     const m = oddsDict[oddID];
-    const key = [m.statEntityID || "", m.statID || "", m.periodID || "", m.betTypeID || ""].join("|");
+    const key = [m.statEntityID || "", m.statID || "", m.periodID || "", m.betTypeID || ""].join(
+      "|",
+    );
     (groups[key] ||= []).push(m);
   }
 
@@ -2882,7 +3197,7 @@ function debugNormalizeEventInternal(ev: any) {
 
   for (const key in groups) {
     const markets = groups[key];
-    const hasPlayer = markets.some(mm => !!mm.playerID);
+    const hasPlayer = markets.some((mm) => !!mm.playerID);
 
     if (hasPlayer) {
       const norm = debugNormalizePlayerGroup(markets, players);
@@ -2904,12 +3219,20 @@ function debugNormalizeEventInternal(ev: any) {
     start_time: ev.scheduled,
     home_team: {
       id: ev.teams?.home?.teamID ?? ev.teams?.home?.id ?? null,
-      abbr: ev.teams?.home?.abbreviation ?? ev.teams?.home?.names?.short ?? ev.teams?.home?.names?.abbr ?? null,
+      abbr:
+        ev.teams?.home?.abbreviation ??
+        ev.teams?.home?.names?.short ??
+        ev.teams?.home?.names?.abbr ??
+        null,
       name: ev.teams?.home?.names?.long ?? ev.teams?.home?.names?.full ?? null,
     },
     away_team: {
       id: ev.teams?.away?.teamID ?? ev.teams?.away?.id ?? null,
-      abbr: ev.teams?.away?.abbreviation ?? ev.teams?.away?.names?.short ?? ev.teams?.away?.names?.abbr ?? null,
+      abbr:
+        ev.teams?.away?.abbreviation ??
+        ev.teams?.away?.names?.short ??
+        ev.teams?.away?.names?.abbr ??
+        null,
       name: ev.teams?.away?.names?.long ?? ev.teams?.away?.names?.full ?? null,
     },
     team_props: teamProps,
@@ -2919,8 +3242,8 @@ function debugNormalizeEventInternal(ev: any) {
 }
 
 function debugNormalizePlayerGroup(markets: any[], players: Record<string, any>) {
-  const over = markets.find(m => isOverSide(m.sideID));
-  const under = markets.find(m => isUnderSide(m.sideID));
+  const over = markets.find((m) => isOverSide(m.sideID));
+  const under = markets.find((m) => isUnderSide(m.sideID));
   const base = over || under;
   if (!base) return null;
 
@@ -2929,7 +3252,11 @@ function debugNormalizePlayerGroup(markets: any[], players: Record<string, any>)
   const marketType = formatMarketTypeWithLeague(base.statID, "NFL");
 
   const lineStr =
-    over?.bookOverUnder ?? under?.bookOverUnder ?? over?.fairOverUnder ?? under?.fairOverUnder ?? null;
+    over?.bookOverUnder ??
+    under?.bookOverUnder ??
+    over?.fairOverUnder ??
+    under?.fairOverUnder ??
+    null;
   const line = lineStr && isFinite(parseFloat(lineStr)) ? parseFloat(lineStr) : null;
 
   const books: any[] = [];
@@ -2973,14 +3300,18 @@ function debugNormalizePlayerGroup(markets: any[], players: Record<string, any>)
 
 function debugNormalizeTeamGroup(markets: any[]) {
   // Optional: include team props for completeness
-  const over = markets.find(m => isOverSide(m.sideID));
-  const under = markets.find(m => isUnderSide(m.sideID));
+  const over = markets.find((m) => isOverSide(m.sideID));
+  const under = markets.find((m) => isUnderSide(m.sideID));
   const base = over || under;
   if (!base) return null;
 
   const marketType = base.statID;
   const lineStr =
-    over?.bookOverUnder ?? under?.bookOverUnder ?? over?.fairOverUnder ?? under?.fairOverUnder ?? null;
+    over?.bookOverUnder ??
+    under?.bookOverUnder ??
+    over?.fairOverUnder ??
+    under?.fairOverUnder ??
+    null;
   const line = lineStr && isFinite(parseFloat(lineStr)) ? parseFloat(lineStr) : null;
 
   const books: any[] = [];
@@ -3023,31 +3354,34 @@ async function handleMetrics(url: URL, request: Request, env: Env): Promise<Resp
   if (env.PURGE_TOKEN) {
     const authHeader = request.headers.get("authorization");
     if (!authHeader || authHeader !== `Bearer ${env.PURGE_TOKEN}`) {
-      return withCORS(new Response("Unauthorized", { status: 401 }), request.headers.get("Origin") || "*");
+      return withCORS(
+        new Response("Unauthorized", { status: 401 }),
+        request.headers.get("Origin") || "*",
+      );
     }
   }
 
   const reset = url.searchParams.get("reset") === "true";
-  
+
   try {
     const metrics = await getMetrics(env, reset);
     return withCORS(
       new Response(JSON.stringify(metrics), {
-        headers: { 
-          "content-type": "application/json"
-        }
+        headers: {
+          "content-type": "application/json",
+        },
       }),
-      request.headers.get("Origin") || "*"
+      request.headers.get("Origin") || "*",
     );
   } catch (error) {
     return withCORS(
       new Response(JSON.stringify({ error: "Failed to get metrics" }), {
         status: 500,
-        headers: { 
-          "content-type": "application/json"
-        }
+        headers: {
+          "content-type": "application/json",
+        },
       }),
-      request.headers.get("Origin") || "*"
+      request.headers.get("Origin") || "*",
     );
   }
 }
@@ -3063,24 +3397,24 @@ async function getMetrics(env: Env, reset: boolean = false): Promise<any> {
       upstreamStatusCounts: { "200": 0, "4xx": 0, "5xx": 0 },
       avgResponseTimeMs: 0,
       totalRequests: 0,
-      lastUpdated: new Date().toISOString()
+      lastUpdated: new Date().toISOString(),
     };
   }
 
   const keys = [
-    'totalKeptPlayerProps',
-    'totalDroppedPlayerProps', 
-    'cacheHits',
-    'cacheMisses',
-    'upstreamStatus200',
-    'upstreamStatus4xx',
-    'upstreamStatus5xx',
-    'totalResponseTime',
-    'totalRequests'
+    "totalKeptPlayerProps",
+    "totalDroppedPlayerProps",
+    "cacheHits",
+    "cacheMisses",
+    "upstreamStatus200",
+    "upstreamStatus4xx",
+    "upstreamStatus5xx",
+    "totalResponseTime",
+    "totalRequests",
   ];
 
   const values = await Promise.all(
-    keys.map(key => env.METRICS!.get(key).then(v => parseInt(v || '0', 10)))
+    keys.map((key) => env.METRICS!.get(key).then((v) => parseInt(v || "0", 10))),
   );
 
   const [
@@ -3092,7 +3426,7 @@ async function getMetrics(env: Env, reset: boolean = false): Promise<any> {
     upstreamStatus4xx,
     upstreamStatus5xx,
     totalResponseTime,
-    totalRequests
+    totalRequests,
   ] = values;
 
   const metrics = {
@@ -3103,63 +3437,110 @@ async function getMetrics(env: Env, reset: boolean = false): Promise<any> {
     upstreamStatusCounts: {
       "200": upstreamStatus200,
       "4xx": upstreamStatus4xx,
-      "5xx": upstreamStatus5xx
+      "5xx": upstreamStatus5xx,
     },
     avgResponseTimeMs: totalRequests > 0 ? Math.round(totalResponseTime / totalRequests) : 0,
     totalRequests,
-    lastUpdated: new Date().toISOString()
+    lastUpdated: new Date().toISOString(),
   };
 
   if (reset) {
     // Reset all counters
-    await Promise.all(keys.map(key => env.METRICS!.put(key, '0')));
+    await Promise.all(keys.map((key) => env.METRICS!.put(key, "0")));
   }
 
   return metrics;
 }
 
-async function updateMetrics(env: Env, data: {
-  cacheHit: boolean;
-  keptProps?: number;
-  droppedProps?: number;
-  upstreamStatus?: number;
-  durationMs: number;
-}): Promise<void> {
+async function updateMetrics(
+  env: Env,
+  data: {
+    cacheHit: boolean;
+    keptProps?: number;
+    droppedProps?: number;
+    upstreamStatus?: number;
+    durationMs: number;
+  },
+): Promise<void> {
   if (!env.METRICS) return;
 
   const updates: Promise<void>[] = [];
 
   // Update cache counters
   if (data.cacheHit) {
-    updates.push(env.METRICS.put('cacheHits', (await env.METRICS.get('cacheHits').then(v => parseInt(v || '0', 10)) + 1).toString()));
+    updates.push(
+      env.METRICS.put(
+        "cacheHits",
+        ((await env.METRICS.get("cacheHits").then((v) => parseInt(v || "0", 10))) + 1).toString(),
+      ),
+    );
   } else {
-    updates.push(env.METRICS.put('cacheMisses', (await env.METRICS.get('cacheMisses').then(v => parseInt(v || '0', 10)) + 1).toString()));
+    updates.push(
+      env.METRICS.put(
+        "cacheMisses",
+        ((await env.METRICS.get("cacheMisses").then((v) => parseInt(v || "0", 10))) + 1).toString(),
+      ),
+    );
   }
 
   // Update prop counters
   if (data.keptProps !== undefined) {
-    updates.push(env.METRICS.put('totalKeptPlayerProps', (await env.METRICS.get('totalKeptPlayerProps').then(v => parseInt(v || '0', 10)) + data.keptProps).toString()));
+    updates.push(
+      env.METRICS.put(
+        "totalKeptPlayerProps",
+        (
+          (await env.METRICS.get("totalKeptPlayerProps").then((v) => parseInt(v || "0", 10))) +
+          data.keptProps
+        ).toString(),
+      ),
+    );
   }
-  
+
   if (data.droppedProps !== undefined) {
-    updates.push(env.METRICS.put('totalDroppedPlayerProps', (await env.METRICS.get('totalDroppedPlayerProps').then(v => parseInt(v || '0', 10)) + data.droppedProps).toString()));
+    updates.push(
+      env.METRICS.put(
+        "totalDroppedPlayerProps",
+        (
+          (await env.METRICS.get("totalDroppedPlayerProps").then((v) => parseInt(v || "0", 10))) +
+          data.droppedProps
+        ).toString(),
+      ),
+    );
   }
 
   // Update upstream status counters
   if (data.upstreamStatus !== undefined) {
-    let statusKey = 'upstreamStatus5xx';
+    let statusKey = "upstreamStatus5xx";
     if (data.upstreamStatus === 200) {
-      statusKey = 'upstreamStatus200';
+      statusKey = "upstreamStatus200";
     } else if (data.upstreamStatus >= 400 && data.upstreamStatus < 500) {
-      statusKey = 'upstreamStatus4xx';
+      statusKey = "upstreamStatus4xx";
     }
-    
-    updates.push(env.METRICS.put(statusKey, (await env.METRICS.get(statusKey).then(v => parseInt(v || '0', 10)) + 1).toString()));
+
+    updates.push(
+      env.METRICS.put(
+        statusKey,
+        ((await env.METRICS.get(statusKey).then((v) => parseInt(v || "0", 10))) + 1).toString(),
+      ),
+    );
   }
 
   // Update response time and request count
-  updates.push(env.METRICS.put('totalResponseTime', (await env.METRICS.get('totalResponseTime').then(v => parseInt(v || '0', 10)) + data.durationMs).toString()));
-  updates.push(env.METRICS.put('totalRequests', (await env.METRICS.get('totalRequests').then(v => parseInt(v || '0', 10)) + 1).toString()));
+  updates.push(
+    env.METRICS.put(
+      "totalResponseTime",
+      (
+        (await env.METRICS.get("totalResponseTime").then((v) => parseInt(v || "0", 10))) +
+        data.durationMs
+      ).toString(),
+    ),
+  );
+  updates.push(
+    env.METRICS.put(
+      "totalRequests",
+      ((await env.METRICS.get("totalRequests").then((v) => parseInt(v || "0", 10))) + 1).toString(),
+    ),
+  );
 
   await Promise.all(updates);
 }

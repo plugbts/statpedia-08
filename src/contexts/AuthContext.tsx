@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 
 // Types
 export interface User {
@@ -48,8 +48,8 @@ const defaultContext: AuthContextType = {
 const AuthContext = createContext<AuthContextType>(defaultContext);
 
 // Storage keys
-const TOKEN_KEY = 'auth_tokens';
-const USER_KEY = 'auth_user';
+const TOKEN_KEY = "auth_tokens";
+const USER_KEY = "auth_user";
 
 // Helper functions
 const saveTokens = (tokens: AuthTokens) => {
@@ -84,29 +84,47 @@ const getUser = (): User | null => {
 };
 
 // API helper
-  const apiRequest = async (url: string, options: RequestInit = {}) => {
-    // Use local API server for development, Cloudflare Worker for production
-    const baseUrl = import.meta.env.DEV 
-      ? 'http://localhost:3001' 
-      : (import.meta.env.VITE_AUTH_ENDPOINT || 'https://statpedia-player-props.statpedia.workers.dev');
-    const fullUrl = `${baseUrl}${url}`;
+const apiRequest = async (url: string, options: RequestInit = {}) => {
+  // Use local API server for development, Cloudflare Worker for production
+  const baseUrl = import.meta.env.DEV
+    ? "http://localhost:3001"
+    : import.meta.env.VITE_AUTH_ENDPOINT || "https://statpedia-player-props.statpedia.workers.dev";
+  const fullUrl = `${baseUrl}${url}`;
 
-    const response = await fetch(fullUrl, {
+  let response: Response;
+  try {
+    response = await fetch(fullUrl, {
       ...options,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         ...options.headers,
       },
     });
+  } catch (e: any) {
+    // Network or CORS error
+    const hint = import.meta.env.DEV
+      ? 'Auth server not reachable. Make sure it is running with "npm run api:server" or "npm run dev:full".'
+      : "Auth endpoint not reachable.";
+    throw new Error(hint);
+  }
 
-    const data = await response.json();
-
+  let data: any = null;
+  try {
+    data = await response.json();
+  } catch {
+    // Not JSON response
     if (!response.ok) {
-      throw new Error(data.error || 'Request failed');
+      throw new Error(`Request failed with status ${response.status}`);
     }
+    return { success: true, data: null };
+  }
 
-    return data;
-  };
+  if (!response.ok) {
+    throw new Error(data.error || "Request failed");
+  }
+
+  return data;
+};
 
 // Auth provider component
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -137,7 +155,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
       } catch (error) {
-        console.error('Auth initialization error:', error);
+        console.error("Auth initialization error:", error);
         clearAuthState();
       } finally {
         setIsLoading(false);
@@ -157,8 +175,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Silent token refresh
   const refreshTokenSilently = async (refreshToken: string): Promise<boolean> => {
     try {
-      const response = await apiRequest('/api/auth/refresh', {
-        method: 'POST',
+      const response = await apiRequest("/api/auth/refresh", {
+        method: "POST",
         body: JSON.stringify({ refreshToken }),
       });
 
@@ -166,25 +184,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const newTokens: AuthTokens = {
           token: response.data.token,
           refreshToken,
-          expiresAt: Date.now() + (response.data.expiresIn * 1000),
+          expiresAt: Date.now() + response.data.expiresIn * 1000,
         };
-        
+
         setTokens(newTokens);
         saveTokens(newTokens);
         return true;
       }
     } catch (error) {
-      console.error('Silent token refresh failed:', error);
+      console.error("Silent token refresh failed:", error);
     }
-    
+
     return false;
   };
 
   // Signup function
   const signup = useCallback(async (email: string, password: string, displayName?: string) => {
     try {
-      const response = await apiRequest('/api/auth/signup', {
-        method: 'POST',
+      const response = await apiRequest("/api/auth/signup", {
+        method: "POST",
         body: JSON.stringify({ email, password, display_name: displayName }),
       });
 
@@ -192,7 +210,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const newTokens: AuthTokens = {
           token: response.data.token,
           refreshToken: response.data.refreshToken,
-          expiresAt: Date.now() + (response.data.expiresIn * 1000),
+          expiresAt: Date.now() + response.data.expiresIn * 1000,
         };
 
         setTokens(newTokens);
@@ -202,7 +220,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await fetchUserData(response.data.token);
       }
     } catch (error) {
-      console.error('Signup error:', error);
+      console.error("Signup error:", error);
       throw error;
     }
   }, []);
@@ -210,8 +228,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Login function
   const login = useCallback(async (email: string, password: string) => {
     try {
-      const response = await apiRequest('/api/auth/login', {
-        method: 'POST',
+      const response = await apiRequest("/api/auth/login", {
+        method: "POST",
         body: JSON.stringify({ email, password }),
       });
 
@@ -219,7 +237,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const newTokens: AuthTokens = {
           token: response.data.token,
           refreshToken: response.data.refreshToken,
-          expiresAt: Date.now() + (response.data.expiresIn * 1000),
+          expiresAt: Date.now() + response.data.expiresIn * 1000,
         };
 
         setTokens(newTokens);
@@ -229,7 +247,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await fetchUserData(response.data.token);
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error("Login error:", error);
       throw error;
     }
   }, []);
@@ -237,7 +255,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Fetch user data
   const fetchUserData = async (token: string) => {
     try {
-      const response = await apiRequest('/api/auth/me', {
+      const response = await apiRequest("/api/auth/me", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -245,7 +263,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (response.success) {
         const userData = response.data;
-        
+
         // Fetch user role
         try {
           const roleResponse = await apiRequest(`/api/auth/user-role/${userData.id}`);
@@ -253,15 +271,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             userData.role = roleResponse.data.role;
           }
         } catch (roleError) {
-          console.error('Failed to fetch user role:', roleError);
-          userData.role = 'user'; // Default role
+          console.error("Failed to fetch user role:", roleError);
+          userData.role = "user"; // Default role
         }
-        
+
         setUser(userData);
         saveUser(userData);
       }
     } catch (error) {
-      console.error('Fetch user data error:', error);
+      console.error("Fetch user data error:", error);
       throw error;
     }
   };
@@ -270,13 +288,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = useCallback(async () => {
     try {
       if (tokens?.refreshToken) {
-        await apiRequest('/api/auth/logout', {
-          method: 'POST',
+        await apiRequest("/api/auth/logout", {
+          method: "POST",
           body: JSON.stringify({ refreshToken: tokens.refreshToken }),
         });
       }
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error("Logout error:", error);
     } finally {
       clearAuthState();
     }
@@ -299,7 +317,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return refreshed;
     } catch (error) {
-      console.error('Token refresh error:', error);
+      console.error("Token refresh error:", error);
       clearAuthState();
       return false;
     }
@@ -334,18 +352,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshToken,
   };
 
-  return (
-    <AuthContext.Provider value={contextValue}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 };
 
 // Hook to use auth context
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };
@@ -353,7 +367,7 @@ export const useAuth = (): AuthContextType => {
 // Hook to get auth headers for API requests
 export const useAuthHeaders = () => {
   const { tokens } = useAuth();
-  
+
   return {
     Authorization: tokens ? `Bearer ${tokens.token}` : undefined,
   };
