@@ -63,7 +63,7 @@ export const Navigation = ({
   onLogout,
   predictionsCount = 0,
 }: NavigationProps) => {
-  const { user: authUser, isAuthenticated, userSubscription } = useAuth();
+  const { user: authUser, isAuthenticated, userSubscription: subscriptionTier } = useAuth();
 
   // Use role from AuthContext
   const userRole = authUser?.role || "user";
@@ -127,7 +127,7 @@ export const Navigation = ({
 
   // Check if user has access to premium features
   // Owner role bypasses ALL subscription restrictions
-  const sub = userSubscription ?? "free";
+  const sub = subscriptionTier ?? "free";
   const hasProAccess =
     userRole === "owner" ||
     sub === "pro" ||
