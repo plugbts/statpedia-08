@@ -76,6 +76,8 @@ import { EnhancedAnalysisOverlay } from "./enhanced-analysis-overlay";
 import { AdvancedPredictionCard } from "./advanced-prediction-card";
 import { SubscriptionOverlay } from "@/components/ui/subscription-overlay";
 import { useNavigate } from "react-router-dom";
+import { useAccess } from "@/hooks/use-access";
+import { analyticsClient } from "@/lib/analytics-client";
 
 // Interface for all market types
 interface MarketData {
@@ -137,8 +139,6 @@ interface PredictionWithUI extends MarketData {
 
 interface PredictionsTabProps {
   selectedSport: string;
-  userRole?: string;
-  userSubscription?: string;
   onPredictionsCountChange?: (count: number) => void;
 }
 
@@ -196,11 +196,10 @@ interface AdvancedPrediction {
 
 export const PredictionsTab: React.FC<PredictionsTabProps> = ({
   selectedSport,
-  userRole = "user",
-  userSubscription = "free",
   onPredictionsCountChange,
 }) => {
   const navigate = useNavigate();
+  const access = useAccess();
   const [predictions, setPredictions] = useState<PredictionWithUI[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -232,7 +231,26 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
     return odds > 0 ? `+${odds}` : `${odds}`;
   };
 
-  const isSubscribed = userRole === "owner" || userSubscription !== "free";
+  const isSubscribed = access.can("analytics").allowed;
+
+  useEffect(() => {
+    if (!isSubscribed) {
+      analyticsClient.trackEvent("access_denied", {
+        area: "predictions",
+        feature: "analytics",
+        reason: "Pro required",
+        needed: "pro",
+        role: access.role,
+        subscription: access.subscription,
+      });
+      // Show a subtle toast once on enter
+      toast({
+        title: "Locked content",
+        description: "Upgrade to Pro to unlock Predictions.",
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSubscribed]);
 
   // Load season data from ESPN API
   useEffect(() => {
@@ -311,14 +329,9 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
           logAPI("PredictionsTab", `Skipping ${endpoint} - using Hasura API instead`);
           continue;
 
-          if (!response.ok) {
-            logWarning("PredictionsTab", `Failed to fetch ${endpoint}: ${response.status}`);
-            continue;
-          }
-
-          const data = await response.json();
-
-          if (data.success && data.data) {
+          // Unreachable for now (kept for future API wiring)
+          const data: any = undefined as any;
+          if (data?.success && data?.data) {
             logSuccess("PredictionsTab", `Retrieved ${data.data.length} ${endpoint} markets`);
 
             // Limit player props to avoid overwhelming the predictions tab
@@ -928,7 +941,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 relative">
       {/* Header */}
       <div className="text-center">
         <h1 className="text-3xl font-bold text-foreground mb-2">Advanced Predictions</h1>
@@ -936,6 +949,8 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
           AI-powered predictions with real-time analysis and cross-reference validation
         </p>
       </div>
+
+      {/* Overlay-only UX: no banner here; per-card overlays are shown below for locked users */}
 
       {/* Controls */}
       <div className="flex flex-wrap gap-4 items-center justify-between">

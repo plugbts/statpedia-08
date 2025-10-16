@@ -23,6 +23,7 @@ import { BasicTest } from "@/components/debug/basic-test";
 import { SimpleHookTest } from "@/components/debug/simple-hook-test";
 import AuthTest from "./pages/AuthTest";
 import { ErrorBoundary } from "@/components/error-boundary";
+import DebugAuth from "@/pages/DebugAuth";
 
 // Subscription wrapper component to handle navigation
 const SubscriptionWrapper: React.FC = () => {
@@ -164,6 +165,7 @@ const App = () => {
                       </div>
                     }
                   />
+                  <Route path="/debug/auth" element={<DebugAuth />} />
                   <Route path="/auth-test" element={<AuthTest />} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />

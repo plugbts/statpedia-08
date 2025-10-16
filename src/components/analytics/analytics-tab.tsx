@@ -1,73 +1,114 @@
 // @ts-nocheck
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, TrendingUp, Target, Clock, Trophy, BarChart3, Filter, RefreshCw } from 'lucide-react';
-import { unifiedSportsAPI } from '@/services/unified-sports-api';
-import { PlayerProp } from '@/types/sports';
-import { logAPI, logState, logSuccess, logError, logWarning } from '@/utils/console-logger';
+import React, { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Calendar,
+  TrendingUp,
+  Target,
+  Clock,
+  Trophy,
+  BarChart3,
+  Filter,
+  RefreshCw,
+} from "lucide-react";
+import { unifiedSportsAPI } from "@/services/unified-sports-api";
+import { PlayerProp } from "@/types/sports";
+import { logAPI, logState, logSuccess, logError, logWarning } from "@/utils/console-logger";
+import { useAccess } from "@/hooks/use-access";
+import { analyticsClient } from "@/lib/analytics-client";
+import { useToast } from "@/hooks/use-toast";
+import { SubscriptionOverlay } from "@/components/ui/subscription-overlay";
 
-interface AnalyticsTabProps {
-  userRole: string;
-  userSubscription: any;
-}
-
-export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ userRole, userSubscription }) => {
-  const [selectedSport, setSelectedSport] = useState<string>('nhl');
-  const [selectedSportsbook, setSelectedSportsbook] = useState<string>('all');
+export const AnalyticsTab: React.FC = () => {
+  const access = useAccess();
+  const { toast } = useToast();
+  const [selectedSport, setSelectedSport] = useState<string>("nhl");
+  const [selectedSportsbook, setSelectedSportsbook] = useState<string>("all");
   const [pastProps, setPastProps] = useState<PlayerProp[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const sports = [
-    { value: 'nfl', label: 'NFL', icon: '🏈' },
-    { value: 'mlb', label: 'MLB', icon: '⚾' },
-    { value: 'nba', label: 'NBA', icon: '🏀' },
-    { value: 'nhl', label: 'NHL', icon: '🏒' },
+    { value: "nfl", label: "NFL", icon: "🏈" },
+    { value: "mlb", label: "MLB", icon: "⚾" },
+    { value: "nba", label: "NBA", icon: "🏀" },
+    { value: "nhl", label: "NHL", icon: "🏒" },
   ];
 
   const sportsbooks = [
-    { value: 'all', label: 'All Sportsbooks' },
-    { value: 'fanduel', label: 'FanDuel' },
-    { value: 'draftkings', label: 'DraftKings' },
-    { value: 'betmgm', label: 'BetMGM' },
-    { value: 'caesars', label: 'Caesars' },
-    { value: 'pointsbet', label: 'PointsBet' },
+    { value: "all", label: "All Sportsbooks" },
+    { value: "fanduel", label: "FanDuel" },
+    { value: "draftkings", label: "DraftKings" },
+    { value: "betmgm", label: "BetMGM" },
+    { value: "caesars", label: "Caesars" },
+    { value: "pointsbet", label: "PointsBet" },
   ];
 
   const loadPastProps = async () => {
     if (!selectedSport) {
-      logWarning('AnalyticsTab', 'No sport selected');
+      logWarning("AnalyticsTab", "No sport selected");
       return;
     }
 
-    logState('AnalyticsTab', `Loading past props for ${selectedSport}`);
+    logState("AnalyticsTab", `Loading past props for ${selectedSport}`);
     setIsLoading(true);
 
     try {
-      const sportsbookFilter = selectedSportsbook === 'all' ? undefined : selectedSportsbook;
-      logAPI('AnalyticsTab', `Calling unifiedSportsAPI.getPastPlayerProps(${selectedSport})${sportsbookFilter ? ` with sportsbook: ${sportsbookFilter}` : ''}`);
-      
-      const props = await unifiedSportsAPI.getPastPlayerProps(selectedSport, undefined, undefined, sportsbookFilter);
-      logAPI('AnalyticsTab', `Analytics API returned ${props?.length || 0} past props`);
-      
+      const sportsbookFilter = selectedSportsbook === "all" ? undefined : selectedSportsbook;
+      logAPI(
+        "AnalyticsTab",
+        `Calling unifiedSportsAPI.getPastPlayerProps(${selectedSport})${sportsbookFilter ? ` with sportsbook: ${sportsbookFilter}` : ""}`,
+      );
+
+      const props = await unifiedSportsAPI.getPastPlayerProps(
+        selectedSport,
+        undefined,
+        undefined,
+        sportsbookFilter,
+      );
+      logAPI("AnalyticsTab", `Analytics API returned ${props?.length || 0} past props`);
+
       setPastProps(props || []);
       setLastUpdated(new Date());
-      logSuccess('AnalyticsTab', `Loaded ${props?.length || 0} past player props for analytics`);
+      logSuccess("AnalyticsTab", `Loaded ${props?.length || 0} past player props for analytics`);
     } catch (error) {
-      logError('AnalyticsTab', `Failed to load past props:`, error);
+      logError("AnalyticsTab", `Failed to load past props:`, error);
       setPastProps([]);
     } finally {
       setIsLoading(false);
-      logState('AnalyticsTab', `Finished loading past props for ${selectedSport}`);
+      logState("AnalyticsTab", `Finished loading past props for ${selectedSport}`);
     }
   };
 
+  const isSubscribed = access.can("analytics").allowed;
+
   useEffect(() => {
-    if (selectedSport && selectedSportsbook !== '') {
+    if (!isSubscribed) {
+      analyticsClient.trackEvent("access_denied", {
+        area: "analytics",
+        feature: "analytics",
+        reason: "Pro required",
+        needed: "pro",
+        role: access.role,
+        subscription: access.subscription,
+      });
+      toast({ title: "Locked content", description: "Upgrade to Pro to unlock Analytics." });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSubscribed]);
+
+  useEffect(() => {
+    if (selectedSport && selectedSportsbook !== "") {
       loadPastProps();
     }
   }, [selectedSport, selectedSportsbook]);
@@ -79,10 +120,10 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ userRole, userSubscr
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
       });
     } catch {
       return dateString;
@@ -92,30 +133,30 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ userRole, userSubscr
   const formatTime = (dateString: string) => {
     try {
       const date = new Date(dateString);
-      return date.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
+      return date.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
       });
     } catch {
-      return '';
+      return "";
     }
   };
 
   const getOutcomeColor = (prop: PlayerProp) => {
     // This would need actual game results to determine outcome
     // For now, return neutral color
-    return 'bg-muted/50';
+    return "bg-muted/50";
   };
 
   const getOutcomeText = (prop: PlayerProp) => {
     // This would need actual game results to determine outcome
     // For now, return placeholder text
-    return 'Game Completed';
+    return "Game Completed";
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-background/90 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-background/90 p-4 relative">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
@@ -127,7 +168,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ userRole, userSubscr
               Historical performance analysis and past game insights
             </p>
           </div>
-          
+
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             {lastUpdated && (
               <>
@@ -142,7 +183,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ userRole, userSubscr
               disabled={isLoading}
               className="gap-2"
             >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
               Refresh
             </Button>
           </div>
@@ -176,7 +217,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ userRole, userSubscr
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-2">
                 <label className="text-sm font-medium">Sportsbook</label>
                 <Select value={selectedSportsbook} onValueChange={setSelectedSportsbook}>
@@ -218,7 +259,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ userRole, userSubscr
                   </div>
                 </CardContent>
               </Card>
-              
+
               <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
@@ -230,7 +271,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ userRole, userSubscr
                   </div>
                 </CardContent>
               </Card>
-              
+
               <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
@@ -242,7 +283,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ userRole, userSubscr
                   </div>
                 </CardContent>
               </Card>
-              
+
               <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
@@ -287,7 +328,10 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ userRole, userSubscr
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-muted rounded-full flex items-center justify-center">
                               <span className="text-sm font-medium">
-                                {prop.playerName.split(' ').map(n => n[0]).join('')}
+                                {prop.playerName
+                                  .split(" ")
+                                  .map((n) => n[0])
+                                  .join("")}
                               </span>
                             </div>
                             <div>
@@ -297,7 +341,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ userRole, userSubscr
                               </p>
                             </div>
                           </div>
-                          
+
                           <div className="text-right">
                             <div className="flex items-center gap-2 mb-1">
                               <Badge variant="outline">{prop.propType}</Badge>
@@ -306,9 +350,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ userRole, userSubscr
                             <p className="text-sm text-muted-foreground">
                               {formatDate(prop.gameDate)} at {formatTime(prop.gameTime)}
                             </p>
-                            <p className="text-xs text-muted-foreground">
-                              {getOutcomeText(prop)}
-                            </p>
+                            <p className="text-xs text-muted-foreground">{getOutcomeText(prop)}</p>
                           </div>
                         </div>
                       </div>
@@ -350,6 +392,17 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ userRole, userSubscr
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Overlay for locked access */}
+      {!isSubscribed && (
+        <SubscriptionOverlay
+          isVisible
+          title="Premium Analytics"
+          description="Upgrade to Pro to view historical performance and trends."
+          buttonText="See Plans"
+          size="default"
+        />
+      )}
     </div>
   );
 };

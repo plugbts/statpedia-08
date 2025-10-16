@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { getApiBaseUrl } from "@/lib/api";
+import { OWNER_EMAILS } from "@/lib/auth/config";
 
 // Types
 export interface User {
@@ -147,7 +148,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Check if tokens are expired
           if (Date.now() < storedTokens.expiresAt) {
             setTokens(storedTokens);
-            setUser(storedUser);
+            // Ensure owner override from config by email
+            const adjustedUser = { ...storedUser } as User;
+            const emailLc = (adjustedUser.email || "").toLowerCase();
+            if (OWNER_EMAILS.includes(emailLc)) {
+              adjustedUser.role = "owner";
+            }
+            setUser(adjustedUser);
             // Attempt to hydrate subscription from stored user if present; else default
             const sub = storedUser.subscription_tier || "free";
             setUserSubscription(sub);
@@ -279,6 +286,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (roleError) {
           console.error("Failed to fetch user role:", roleError);
           userData.role = "user"; // Default role
+        }
+
+        // Owner override based on config email list
+        const emailLc = (userData.email || "").toLowerCase();
+        if (OWNER_EMAILS.includes(emailLc)) {
+          userData.role = "owner";
         }
 
         // Determine subscription tier (placeholder: default to 'free' until real billing integration)

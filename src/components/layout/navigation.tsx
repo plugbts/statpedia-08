@@ -42,6 +42,8 @@ import { VerifiedCheckmark } from "@/components/ui/verified-checkmark";
 import { useBackgroundMusic } from "@/hooks/use-background-music";
 import { MusicTipBubble } from "@/components/ui/music-tip-bubble";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAccess } from "@/hooks/use-access";
+import { analyticsClient } from "@/lib/analytics-client";
 import { getUserDisplayName as getUserDisplayNameUtil, getUserHandle } from "@/utils/user-display";
 import { userIdentificationService } from "@/services/user-identification-service";
 import { UserDisplay } from "@/components/ui/user-display";
@@ -64,6 +66,7 @@ export const Navigation = ({
   predictionsCount = 0,
 }: NavigationProps) => {
   const { user: authUser, isAuthenticated, userSubscription: subscriptionTier } = useAuth();
+  const access = useAccess();
 
   // Use role from AuthContext
   const userRole = authUser?.role || "user";
@@ -128,26 +131,25 @@ export const Navigation = ({
   // Check if user has access to premium features
   // Owner role bypasses ALL subscription restrictions
   const sub = subscriptionTier ?? "free";
-  const hasProAccess =
-    userRole === "owner" ||
-    sub === "pro" ||
-    sub === "premium" ||
-    ["mod", "admin"].includes(userRole);
-  const hasPremiumAccess =
-    userRole === "owner" || sub === "premium" || ["admin"].includes(userRole);
+  const hasProAccess = access.can("analytics").allowed; // aligns with pro-level features
+  const hasPremiumAccess = access.can("parlay-gen").allowed;
 
   // Handle premium feature access
   const handlePremiumFeatureClick = (featureId: string) => {
-    // Check if it's a premium-only feature (parlay-gen)
-    if (featureId === "parlay-gen" && !hasPremiumAccess) {
+    const decision = access.can(featureId as any);
+    if (!decision.allowed) {
+      analyticsClient.trackEvent("access_denied", {
+        feature: featureId,
+        reason: decision.reason,
+        needed: decision.needed,
+        role: userRole,
+        subscription: sub,
+      });
       setLockedFeature(premiumFeatures[featureId as keyof typeof premiumFeatures]);
       setShowSubscriptionOverlay(true);
-    } else if (!hasProAccess && premiumFeatures[featureId as keyof typeof premiumFeatures]) {
-      setLockedFeature(premiumFeatures[featureId as keyof typeof premiumFeatures]);
-      setShowSubscriptionOverlay(true);
-    } else {
-      onTabChange(featureId);
+      return;
     }
+    onTabChange(featureId);
   };
 
   // Handle subscription overlay actions
