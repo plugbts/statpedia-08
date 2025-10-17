@@ -564,7 +564,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
   );
   const [isGeneratingAdvancedPrediction, setIsGeneratingAdvancedPrediction] = useState(false);
   const [sortBy, setSortBy] = useState<
-    "statpediaRating" | "ev" | "line" | "player" | "api" | "order"
+    "statpediaRating" | "ev" | "line" | "player" | "api" | "order" | "pickRate" | "evPercent"
   >("api");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [minConfidence, setMinConfidence] = useState(0);
@@ -759,9 +759,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
               playerName: prop.playerName || "Unknown Player",
               player_name: prop.playerName || "Unknown Player",
               team: prop.team || "UNK",
-              teamAbbr: "UNK",
+              teamAbbr: (prop as any).team || "UNK",
               opponent: prop.opponent || "UNK",
-              opponentAbbr: "UNK",
+              opponentAbbr: (prop as any).opponent || "UNK",
               gameId: prop.gameId,
               sport: prop.sport,
               propType: prop.propType,
@@ -1069,6 +1069,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
 
   // Format numbers to be compact with .5 and .0 intervals for lines
   const formatNumber = (value: number, decimals: number = 1): string => {
+    if (value === null || value === undefined || Number.isNaN(Number(value))) return "N/A";
     // For lines, round to nearest .5 or .0 interval
     if (value < 1000) {
       // Assuming lines are typically under 1000
@@ -1092,6 +1093,14 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
 
   // Use shared odds utility for formatting
   const formatOdds = (odds: number): string => {
+    if (
+      odds === null ||
+      odds === undefined ||
+      !Number.isFinite(Number(odds)) ||
+      Number(odds) === 0
+    ) {
+      return "N/A";
+    }
     return formatAmericanOdds(odds);
   };
 
@@ -1210,6 +1219,16 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
           const bRating = statpediaRatingService.calculateRating(b, overUnderFilter);
           aValue = aRating.overall;
           bValue = bRating.overall;
+          break;
+        case "evPercent":
+          // EV% represented by expectedValue in 0-1; compare as percentage
+          aValue = (a.expectedValue || 0) * 100;
+          bValue = (b.expectedValue || 0) * 100;
+          break;
+        case "pickRate":
+          // If pickRate not present, fall back to confidence as a proxy
+          aValue = (a as any).pickRate ?? a.confidence ?? 0;
+          bValue = (b as any).pickRate ?? b.confidence ?? 0;
           break;
         case "ev":
           aValue = a.expectedValue || 0;

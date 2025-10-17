@@ -85,6 +85,17 @@ type NormalizedProp = {
   } | null;
 };
 
+// Title-case a player's name robustly (handles spaces, hyphens, and apostrophes)
+function formatName(raw: string): string {
+  if (!raw) return raw;
+  const base = String(raw).replace(/_/g, " ").trim().toLowerCase();
+  let titled = base.replace(/(?:^|[\s'\-])(\p{L})/gu, (m) => m.toUpperCase());
+  // Uppercase common suffixes and roman numerals
+  titled = titled.replace(/\b(jr|sr)\b/gi, (m) => m.toUpperCase());
+  titled = titled.replace(/\b(ii|iii|iv|v)\b/gi, (m) => m.toUpperCase());
+  return titled;
+}
+
 function toDecimal(american: number | null | undefined): number | null {
   if (american === null || american === undefined) return null;
   const o = Number(american);
@@ -92,10 +103,19 @@ function toDecimal(american: number | null | undefined): number | null {
   return o > 0 ? 1 + o / 100 : 1 + 100 / Math.abs(o);
 }
 
+function isValidAmericanOdds(odds: unknown): odds is number {
+  const n = Number(odds);
+  if (!Number.isFinite(n)) return false;
+  if (n === 0) return false;
+  // Guard against wild lines
+  return Math.abs(n) <= 2000;
+}
+
 function computeBest(offers: NormalizedOffer[], side: "over" | "under") {
   let best: { book: string; odds: number; decimal: number; deeplink?: string } | null = null;
   for (const offer of offers) {
     const odds = side === "over" ? offer.overOdds : offer.underOdds;
+    if (!isValidAmericanOdds(odds)) continue;
     const dec = toDecimal(odds);
     if (dec && odds !== null && odds !== undefined) {
       if (!best || dec > best.decimal) {
@@ -105,7 +125,11 @@ function computeBest(offers: NormalizedOffer[], side: "over" | "under") {
   }
   if (!best) return null;
   const decimals: number[] = offers
-    .map((o) => toDecimal((side === "over" ? o.overOdds : o.underOdds) ?? null))
+    .map((o) => {
+      const raw = side === "over" ? o.overOdds : o.underOdds;
+      if (!isValidAmericanOdds(raw)) return null;
+      return toDecimal(raw ?? null);
+    })
     .filter((d): d is number => !!d);
   if (decimals.length >= 2) {
     const avg = decimals.reduce((a, b) => a + b, 0) / decimals.length;
@@ -142,7 +166,8 @@ function mapSportToLeagueId(sport: string): string | undefined {
 
 function parsePlayerNameFromId(playerId: string): string {
   // Common SGO format: FIRST_LAST_1_NFL -> "FIRST LAST"
-  return playerId.replace(/_\d+_[A-Z]+$/, "").replace(/_/g, " ");
+  const raw = playerId.replace(/_\d+_[A-Z]+$/, "").replace(/_/g, " ");
+  return formatName(raw);
 }
 
 function normalizeStatId(statId?: string | null): string {
@@ -193,8 +218,8 @@ async function fetchNormalizedPlayerProps(sport: string, limit = 200): Promise<N
   if (hit && now - hit.ts < SGO_TTL_MS) return hit.data;
 
   const apiKey = process.env.SPORTSGAMEODDS_API_KEY;
-  const useDevFallback =
-    process.env.DEV_FAKE_PROPS === "1" || process.env.NODE_ENV !== "production";
+  // Only use fake props when explicitly enabled; do not auto-fallback just because we're in dev
+  const useDevFallback = process.env.DEV_FAKE_PROPS === "1";
   if (!apiKey) {
     console.warn("[SGO] SPORTSGAMEODDS_API_KEY not set");
     if (useDevFallback) {
@@ -209,12 +234,15 @@ async function fetchNormalizedPlayerProps(sport: string, limit = 200): Promise<N
   const leagueID = mapSportToLeagueId(sport) || sport.toUpperCase();
   let events: any[] = [];
   try {
+    // Respect SGO API constraint: limit must be <= 100
+    const MAX_SGO_LIMIT = Number(process.env.SGO_MAX_LIMIT || 100);
+    const effectiveLimit = Math.min(Math.max(1, limit), MAX_SGO_LIMIT);
     const url = buildUrl("https://api.sportsgameodds.com/v2/events/", {
       apiKey,
       leagueID,
       oddsAvailable: true,
       oddsType: "playerprops",
-      limit: Math.min(Math.max(50, limit), 500),
+      limit: effectiveLimit,
     });
     const resp = await fetch(url); // Only use query param, no extra headers
     if (!resp.ok) {
@@ -229,12 +257,13 @@ async function fetchNormalizedPlayerProps(sport: string, limit = 200): Promise<N
     const json: any = await (resp as any).json?.();
     events = Array.isArray(json?.data) ? json.data : Array.isArray(json) ? json : [];
   } catch (err) {
-    console.warn("[SGO] v2/events fetch failed, using fallback:", (err as Error)?.message || err);
+    console.warn("[SGO] v2/events fetch failed:", (err as Error)?.message || err);
     if (useDevFallback) {
       const fake = generateFakeProps(sport, limit);
       sgoCache.set(key, { data: fake, ts: now });
       return fake;
     }
+    // No implicit fake props in dev; surface empty array so callers can handle gracefully
     return [];
   }
 
@@ -248,6 +277,25 @@ async function fetchNormalizedPlayerProps(sport: string, limit = 200): Promise<N
   for (const ev of events) {
     const gameId = ev.id || ev.gameId || ev.eventID || "unknown";
     const gameTime = ev.gameTime || ev.startTime || ev.start || ev.date || undefined;
+    // Try to infer home/away team abbreviations to derive opponent
+    const homeAbbr =
+      ev.homeTeamAbbr ||
+      ev.homeTeam ||
+      ev.home ||
+      ev.home_abbr ||
+      ev.homeAbbreviation ||
+      ev.homeShort ||
+      ev.home_code ||
+      undefined;
+    const awayAbbr =
+      ev.awayTeamAbbr ||
+      ev.awayTeam ||
+      ev.away ||
+      ev.away_abbr ||
+      ev.awayAbbreviation ||
+      ev.awayShort ||
+      ev.away_code ||
+      undefined;
     const oddsObj = ev.odds || {};
     for (const [oddId, raw] of Object.entries(oddsObj)) {
       const odd: any = raw;
@@ -265,6 +313,11 @@ async function fetchNormalizedPlayerProps(sport: string, limit = 200): Promise<N
       const period = odd.period || odd.segment || "full_game";
 
       const key2 = `${playerId}:${gameId}:${propType}:${lineNum}:${period}`;
+      const playerTeamRaw = (odd.playerTeam || odd.team || "").toString();
+      const pt = playerTeamRaw.toUpperCase();
+      const h = (homeAbbr || "").toString().toUpperCase();
+      const a = (awayAbbr || "").toString().toUpperCase();
+      const inferredOpp = pt && (pt === h || pt === a) ? (pt === h ? a : h) : undefined;
       let acc = grouped.get(key2);
       if (!acc) {
         acc = {
@@ -275,8 +328,8 @@ async function fetchNormalizedPlayerProps(sport: string, limit = 200): Promise<N
             startTime: gameTime,
             playerId,
             playerName,
-            team: odd.playerTeam || odd.team || undefined,
-            opponent: undefined,
+            team: playerTeamRaw || undefined,
+            opponent: inferredOpp,
             propType,
             line: lineNum,
             period,
@@ -294,7 +347,7 @@ async function fetchNormalizedPlayerProps(sport: string, limit = 200): Promise<N
           if (!info || info.available === false || info.odds == null) continue;
           const book = String(bookRaw).toLowerCase();
           const american = Number(info.odds);
-          if (!Number.isFinite(american)) continue;
+          if (!isValidAmericanOdds(american)) continue;
           const existing = acc.offersMap.get(book) || {
             book,
             overOdds: undefined,
@@ -313,8 +366,8 @@ async function fetchNormalizedPlayerProps(sport: string, limit = 200): Promise<N
           overOdds: undefined,
           underOdds: undefined,
         };
-        if (side === "over" && Number.isFinite(price)) consensus.overOdds = price;
-        if (side === "under" && Number.isFinite(price)) consensus.underOdds = price;
+        if (side === "over" && isValidAmericanOdds(price)) consensus.overOdds = price;
+        if (side === "under" && isValidAmericanOdds(price)) consensus.underOdds = price;
         acc.offersMap.set("consensus", consensus);
       }
     }
@@ -328,8 +381,38 @@ async function fetchNormalizedPlayerProps(sport: string, limit = 200): Promise<N
     normalized.push({ ...g.base, offers, best_over: bestOver, best_under: bestUnder });
   }
 
-  sgoCache.set(key, { data: normalized, ts: now });
-  return normalized;
+  // For NFL/NBA, filter to offensive markets only
+  function isOffensiveProp(s: string, prop: string): boolean {
+    const sl = s.toLowerCase();
+    const p = prop.toLowerCase();
+    if (sl === "nfl") {
+      // Common offensive markets
+      const allow = [
+        "passing yards",
+        "passing tds",
+        "longest completion",
+        "rushing yards",
+        "rushing attempts",
+        "longest rush",
+        "rushing tds",
+        "receiving yards",
+        "receptions",
+        "longest reception",
+        "receiving tds",
+      ];
+      return allow.includes(p);
+    }
+    if (sl === "nba") {
+      const allow = ["points", "assists", "rebounds"];
+      return allow.includes(p);
+    }
+    return true; // other sports unchanged
+  }
+
+  const filtered = normalized.filter((np) => isOffensiveProp(sport, np.propType));
+
+  sgoCache.set(key, { data: filtered, ts: now });
+  return filtered;
 }
 
 function generateFakeProps(sport: string, limit: number): NormalizedProp[] {
@@ -507,7 +590,8 @@ app.get("/api/props-list", async (req, res) => {
                COALESCE(under_odds_american, 0) AS under_odds_american,
                ev_percent, streak_l5, rating, matchup_rank,
                l5, l10, l20, h2h_avg, season_avg,
-               league, game_date
+               league, game_date,
+               team_logo, opponent_logo
         FROM public.v_props_list
         ${where.length ? "WHERE " + where.join(" AND ") : ""}
         ORDER BY game_date DESC NULLS LAST
