@@ -83,7 +83,8 @@ export function useSimpleAnalytics() {
             }
 
             for (const r of group.items) {
-              const key = `${r.playerId}-${r.propType}-${r.line}-${r.direction}`;
+              // Key by playerId + propType only so analytics apply across alternative lines/directions
+              const key = `${r.playerId}-${r.propType}`;
               const row = r.playerId ? byPlayer.get(r.playerId) : undefined;
               if (!row) {
                 results.push({
@@ -151,8 +152,9 @@ export function useSimpleAnalytics() {
   );
 
   const getAnalytics = useCallback(
-    (playerId: string, propType: string, line: number, direction: string) => {
-      const key = `${playerId}-${propType}-${line}-${direction}`;
+    (playerId: string, propType: string, _line: number, _direction: string) => {
+      // Ignore line/direction when retrieving cached analytics
+      const key = `${playerId}-${propType}`;
       const result = analyticsData.get(key) || null;
       console.log(`[SIMPLE_ANALYTICS] getAnalytics key: ${key}`, result);
       return result;
