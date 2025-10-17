@@ -1353,6 +1353,7 @@ app.post("/api/player-analytics-bulk", async (req, res) => {
 
     // Fetch bulk analytics: pick the latest record per player for the given prop type.
     // If a season is provided, filter to that season; otherwise choose most recent season per player.
+    // Primary fetch
     const analyticsResult = await db.execute(sql`
       ${
         season
@@ -1368,9 +1369,26 @@ app.post("/api/player-analytics-bulk", async (req, res) => {
       }
     `);
 
-    res.json({
-      analytics: analyticsResult,
-    });
+    // Fallback: if season was provided but results are empty or incomplete,
+    // backfill missing players with their latest available season.
+    let rows: any[] = Array.isArray(analyticsResult) ? (analyticsResult as any[]) : [];
+    if (season) {
+      const foundIds = new Set(rows.map((r: any) => r.player_id));
+      const missing = (playerIds as string[]).filter((id) => !foundIds.has(id));
+      if (missing.length > 0) {
+        const fallback = await db.execute(sql`
+          SELECT DISTINCT ON (player_id) *
+          FROM public.player_analytics
+          WHERE player_id = ANY(${missing})
+            AND prop_type = ${propType}
+          ORDER BY player_id, season DESC, last_updated DESC NULLS LAST
+        `);
+        const fallbackRows = Array.isArray(fallback) ? (fallback as any[]) : [];
+        rows = [...rows, ...fallbackRows];
+      }
+    }
+
+    res.json({ analytics: rows });
   } catch (error) {
     const err = error as Error;
     console.error("Error fetching bulk enriched player analytics:", err);
