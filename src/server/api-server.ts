@@ -36,6 +36,9 @@ app.use(
       "http://localhost:8087",
       "http://localhost:8088",
       "http://localhost:8089",
+      // Vite dev server (default)
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
     ],
     credentials: true,
   }),
@@ -1082,7 +1085,10 @@ app.get("/api/player-analytics", async (req, res) => {
     const postgres = (await import("postgres")).default;
     const { sql } = await import("drizzle-orm");
 
-    const connectionString = process.env.NEON_DATABASE_URL!;
+    const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+    if (!connectionString) {
+      return res.status(500).json({ success: false, error: "DATABASE_URL is not configured" });
+    }
     const client = postgres(connectionString);
     const db = drizzle(client);
 
@@ -1220,7 +1226,10 @@ app.get("/api/player-analytics-enriched", async (req, res) => {
     const postgres = (await import("postgres")).default;
     const { sql } = await import("drizzle-orm");
 
-    const connectionString = process.env.NEON_DATABASE_URL!;
+    const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+    if (!connectionString) {
+      return res.status(500).json({ success: false, error: "DATABASE_URL is not configured" });
+    }
     const client = postgres(connectionString);
     const db = drizzle(client);
 
@@ -1335,7 +1344,10 @@ app.post("/api/player-analytics-bulk", async (req, res) => {
     const postgres = (await import("postgres")).default;
     const { sql } = await import("drizzle-orm");
 
-    const connectionString = process.env.NEON_DATABASE_URL!;
+    const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+    if (!connectionString) {
+      return res.status(500).json({ success: false, error: "DATABASE_URL is not configured" });
+    }
     const client = postgres(connectionString);
     const db = drizzle(client);
 
