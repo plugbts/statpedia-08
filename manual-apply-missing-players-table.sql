@@ -21,8 +21,8 @@ ALTER TABLE public.missing_players ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow all access to missing_players" ON public.missing_players
 FOR ALL USING (true);
 
-GRANT ALL ON public.missing_players TO anon;
-GRANT ALL ON public.missing_players TO authenticated;
+-- GRANT ALL ON public.missing_players TO anon;
+-- GRANT ALL ON public.missing_players TO authenticated;
 
 -- Verify the table was created successfully
 SELECT 'missing_players table created successfully' as status;

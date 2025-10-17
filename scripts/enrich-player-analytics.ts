@@ -29,7 +29,12 @@ async function main() {
 
       // Fetch recent logs for this combo (latest 20)
       const logs = (await db.execute(dsql`
-        SELECT pgl.actual_value, pgl.line, pgl.hit, pgl.opponent_team_id, pgl.game_date
+        SELECT 
+          pgl.actual_value::numeric AS actual_value,
+          pgl.line::numeric AS line,
+          COALESCE(pgl.hit, (pgl.actual_value::numeric > COALESCE(pgl.line::numeric, 0))) AS hit,
+          COALESCE(pgl.opponent_id, pgl.opponent_team_id) AS opponent_team_id,
+          pgl.game_date
         FROM public.player_game_logs pgl
         WHERE pgl.player_id = ${playerId}
           AND pgl.prop_type = ${propType}

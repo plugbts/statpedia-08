@@ -1,6 +1,5 @@
-import { useMemo, useCallback, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { normalizePlayerId } from '@/utils/player-id-normalizer';
+import { useCallback, useState } from "react";
+import { getApiBaseUrl } from "@/lib/api";
 
 interface AnalyticsResult {
   matchupRank: { rank: number; display: string };
@@ -18,7 +17,7 @@ interface Prop {
   playerName: string;
   propType: string;
   line: number;
-  direction: 'over' | 'under';
+  direction: "over" | "under";
   team: string;
   opponent: string;
   position: string;
@@ -29,143 +28,142 @@ export function useSimpleAnalytics() {
   const [analyticsData, setAnalyticsData] = useState<Map<string, AnalyticsResult>>(new Map());
   const [isLoading, setIsLoading] = useState(false);
 
-  const calculateAnalytics = useCallback(async (props: Prop[]) => {
-    console.log(`[SIMPLE_ANALYTICS] calculateAnalytics called with ${props.length} props`);
-    if (props.length === 0) return;
+  const calculateAnalytics = useCallback(
+    async (props: Prop[]) => {
+      console.log(`[SIMPLE_ANALYTICS] calculateAnalytics called with ${props.length} props`);
+      if (props.length === 0) return;
 
-    setIsLoading(true);
+      setIsLoading(true);
 
-    try {
-      const results: Array<{ key: string; analytics: AnalyticsResult }> = [];
+      try {
+        const season = "2025";
 
-      for (const prop of props) {
-        // Normalize player ID to match database
-        const normalizedPlayerId = normalizePlayerId(prop.playerName || prop.playerId);
-        const key = `${normalizedPlayerId}-${prop.propType}-${prop.line}-${prop.direction}`;
-        console.log(`[SIMPLE_ANALYTICS] Processing ${key} (original: ${prop.playerId}, normalized: ${normalizedPlayerId})`);
+        // Prepare request payloads grouped by propType to avoid mixing markets
+        const requested = props
+          .filter((p) => !!p.playerId)
+          .map((p) => ({
+            playerId: p.playerId as string,
+            propType: p.propType,
+            line: p.line,
+            direction: p.direction,
+          }));
 
-        // Check for precomputed analytics
-        console.log(`[SIMPLE_ANALYTICS] Querying analytics for:`, {
-          player_id: normalizedPlayerId,
-          prop_type: prop.propType,
-          line: prop.line,
-          direction: prop.direction
-        });
-        
-        const { data: precomputed, error: precomputedError } = await supabase
-          .from('analytics')
-          .select('*')
-          .eq('player_id', normalizedPlayerId)
-          .eq('prop_type', prop.propType)
-          .eq('line', prop.line)
-          .eq('direction', prop.direction)
-          .single();
-          
-        console.log(`[SIMPLE_ANALYTICS] Query result:`, { data: precomputed, error: precomputedError });
+        const byPropType = new Map<string, { playerIds: string[]; items: typeof requested }>();
+        for (const r of requested) {
+          if (!byPropType.has(r.propType)) byPropType.set(r.propType, { playerIds: [], items: [] });
+          const entry = byPropType.get(r.propType)!;
+          entry.items.push(r);
+          if (r.playerId && !entry.playerIds.includes(r.playerId)) entry.playerIds.push(r.playerId);
+        }
 
-        if (precomputedError) {
-          console.log(`[SIMPLE_ANALYTICS] No precomputed analytics for ${key}`);
-          
-          // Fallback to real-time calculation
-          const { data: hitRate, error: hitRateError } = await supabase
-            .rpc('calculate_hit_rate', {
-              p_player_id: normalizedPlayerId,
-              p_prop_type: prop.propType,
-              p_line: prop.line,
-              p_direction: prop.direction,
-              p_games_limit: 5
+        const results: Array<{ key: string; analytics: AnalyticsResult }> = [];
+
+        for (const [propType, group] of byPropType.entries()) {
+          try {
+            const resp = await fetch(`${getApiBaseUrl()}/api/player-analytics-bulk`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ playerIds: group.playerIds, propType, season }),
             });
 
-          if (hitRateError) {
-            console.log(`[SIMPLE_ANALYTICS] Real-time calculation failed for ${key}:`, hitRateError.message);
-            continue;
+            let bulk: any[] = [];
+            if (resp.ok) {
+              const json = await resp.json();
+              bulk = Array.isArray(json.analytics) ? json.analytics : [];
+            } else {
+              console.warn(
+                "[SIMPLE_ANALYTICS] Bulk analytics request failed with status",
+                resp.status,
+              );
+            }
+
+            const byPlayer = new Map<string, any>();
+            for (const row of bulk) {
+              if (row && row.player_id) byPlayer.set(row.player_id, row);
+            }
+
+            for (const r of group.items) {
+              const key = `${r.playerId}-${r.propType}-${r.line}-${r.direction}`;
+              const row = r.playerId ? byPlayer.get(r.playerId) : undefined;
+              if (!row) {
+                results.push({
+                  key,
+                  analytics: {
+                    matchupRank: { rank: 0, display: "N/A" },
+                    h2h: { hits: 0, total: 0, pct: 0 },
+                    season: { hits: 0, total: 0, pct: 0 },
+                    l5: { hits: 0, total: 0, pct: 0 },
+                    l10: { hits: 0, total: 0, pct: 0 },
+                    l20: { hits: 0, total: 0, pct: 0 },
+                    streak: { current: 0, longest: 0, direction: "mixed" },
+                    chartData: [],
+                  },
+                });
+                continue;
+              }
+
+              const l5Pct = Number(row.l5 ?? 0);
+              const l10Pct = Number(row.l10 ?? 0);
+              const l20Pct = Number(row.l20 ?? 0);
+              const currentStreak = Number(row.current_streak ?? 0);
+              const matchupRank = Number(row.matchup_rank ?? 0) || 0;
+
+              const analytics: AnalyticsResult = {
+                matchupRank: { rank: matchupRank, display: matchupRank ? `#${matchupRank}` : "—" },
+                h2h: { hits: 0, total: 0, pct: 0 },
+                season: { hits: 0, total: 0, pct: 0 },
+                l5: { hits: 0, total: 5, pct: l5Pct },
+                l10: { hits: 0, total: 10, pct: l10Pct },
+                l20: { hits: 0, total: 20, pct: l20Pct },
+                streak: {
+                  current: currentStreak,
+                  longest: Math.abs(currentStreak),
+                  direction: currentStreak >= 0 ? "over" : "under",
+                },
+                chartData: [],
+              };
+              results.push({ key, analytics });
+            }
+          } catch (e) {
+            console.warn(
+              "[SIMPLE_ANALYTICS] Bulk analytics request failed for propType",
+              propType,
+              e,
+            );
           }
-
-          const result = hitRate[0];
-          const analytics: AnalyticsResult = {
-            matchupRank: { rank: 0, display: 'N/A' },
-            h2h: { hits: 0, total: 0, pct: 0 },
-            season: { hits: result.hits, total: result.total, pct: result.hit_rate * 100 },
-            l5: { hits: result.hits, total: result.total, pct: result.hit_rate * 100 },
-            l10: { hits: result.hits, total: result.total, pct: result.hit_rate * 100 },
-            l20: { hits: result.hits, total: result.total, pct: result.hit_rate * 100 },
-            streak: { current: 0, longest: 0, direction: 'mixed' },
-            chartData: []
-          };
-
-          results.push({ key, analytics });
-        } else {
-          console.log(`[SIMPLE_ANALYTICS] Found precomputed analytics for ${key}`);
-          const analytics: AnalyticsResult = {
-            matchupRank: {
-              rank: precomputed.matchup_rank_value || 0,
-              display: precomputed.matchup_rank_display || 'N/A'
-            },
-            h2h: {
-              hits: precomputed.h2h_hits || 0,
-              total: precomputed.h2h_total || 0,
-              pct: precomputed.h2h_pct || 0
-            },
-            season: {
-              hits: precomputed.season_hits || 0,
-              total: precomputed.season_total || 0,
-              pct: precomputed.season_pct || 0
-            },
-            l5: {
-              hits: precomputed.l5_hits || 0,
-              total: precomputed.l5_total || 0,
-              pct: precomputed.l5_pct || 0
-            },
-            l10: {
-              hits: precomputed.l10_hits || 0,
-              total: precomputed.l10_total || 0,
-              pct: precomputed.l10_pct || 0
-            },
-            l20: {
-              hits: precomputed.l20_hits || 0,
-              total: precomputed.l20_total || 0,
-              pct: precomputed.l20_pct || 0
-            },
-            streak: {
-              current: precomputed.streak_current || 0,
-              longest: precomputed.streak_current || 0,
-              direction: precomputed.streak_type || 'mixed'
-            },
-            chartData: []
-          };
-
-          results.push({ key, analytics });
         }
+
+        // Update analytics data
+        const newAnalyticsData = new Map(analyticsData);
+        results.forEach(({ key, analytics }) => {
+          newAnalyticsData.set(key, analytics);
+        });
+        setAnalyticsData(newAnalyticsData);
+
+        console.log(`[SIMPLE_ANALYTICS] Completed processing ${results.length} props`);
+      } catch (error) {
+        console.error("[SIMPLE_ANALYTICS] Error:", error);
+      } finally {
+        setIsLoading(false);
       }
+    },
+    [analyticsData],
+  );
 
-      // Update analytics data
-      const newAnalyticsData = new Map(analyticsData);
-      results.forEach(({ key, analytics }) => {
-        newAnalyticsData.set(key, analytics);
-      });
-      setAnalyticsData(newAnalyticsData);
-
-      console.log(`[SIMPLE_ANALYTICS] Completed processing ${results.length} props`);
-    } catch (error) {
-      console.error('[SIMPLE_ANALYTICS] Error:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [analyticsData]);
-
-  const getAnalytics = useCallback((playerId: string, propType: string, line: number, direction: string) => {
-    // Normalize player ID to match the key used in calculateAnalytics
-    const normalizedPlayerId = normalizePlayerId(playerId);
-    const key = `${normalizedPlayerId}-${propType}-${line}-${direction}`;
-    const result = analyticsData.get(key) || null;
-    console.log(`[SIMPLE_ANALYTICS] getAnalytics called for key: ${key} (original: ${playerId}, normalized: ${normalizedPlayerId}), result:`, result);
-    return result;
-  }, [analyticsData]);
+  const getAnalytics = useCallback(
+    (playerId: string, propType: string, line: number, direction: string) => {
+      const key = `${playerId}-${propType}-${line}-${direction}`;
+      const result = analyticsData.get(key) || null;
+      console.log(`[SIMPLE_ANALYTICS] getAnalytics key: ${key}`, result);
+      return result;
+    },
+    [analyticsData],
+  );
 
   return {
     calculateAnalytics,
     getAnalytics,
     isLoading,
-    progress: { completed: 0, total: 0 }
+    progress: { completed: 0, total: 0 },
   };
 }

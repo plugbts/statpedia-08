@@ -23,10 +23,34 @@ async function resolveLeagueId(code: LeagueCode): Promise<string> {
 }
 
 async function resolveTeamIdViaMap(code: LeagueCode, apiAbbrev: string): Promise<string | null> {
+  // Guard against undefined/empty/placeholder values
+  if (!apiAbbrev || apiAbbrev.trim() === "") return null;
   const rows = (await db.execute(
     sql`SELECT team_id FROM team_abbrev_map WHERE league = ${code} AND api_abbrev = ${apiAbbrev} LIMIT 1`,
   )) as Array<{ team_id: string }>;
   return rows[0]?.team_id ?? null;
+}
+
+async function resolveTeamIdDirect(leagueId: string, abbrev: string): Promise<string | null> {
+  if (!abbrev || abbrev.trim() === "") return null;
+  const rows = (await db.execute(
+    sql`SELECT id FROM teams WHERE league_id = ${leagueId} AND abbreviation = ${abbrev} LIMIT 1`,
+  )) as Array<{ id: string }>;
+  return rows[0]?.id ?? null;
+}
+
+async function upsertTeamAbbrevMap(
+  league: LeagueCode,
+  apiAbbrev: string,
+  teamId: string,
+): Promise<void> {
+  try {
+    await db.execute(
+      sql`INSERT INTO team_abbrev_map (league, api_abbrev, team_id) VALUES (${league}, ${apiAbbrev}, ${teamId}) ON CONFLICT (league, api_abbrev) DO NOTHING`,
+    );
+  } catch {
+    // ignore
+  }
 }
 
 function addDays(d: Date, days: number): Date {
@@ -100,13 +124,64 @@ async function fetchWNBAGames(dateStr: string): Promise<any[]> {
   if (!response.ok) return [];
   const data: any = await response.json();
   const rows = (data?.resultSets?.[0]?.rowSet as any[]) || [];
-  // WNBA dataset layout resembles NBA; map to team abbreviations if present.
+  const headers: string[] = data?.resultSets?.[0]?.headers || [];
+  const idx = (name: string) => headers.findIndex((h) => h.toLowerCase() === name.toLowerCase());
+  const iGameId = idx("GAME_ID");
+  const iHome = idx("HOME_TEAM_ABBREVIATION");
+  const iAway = idx("VISITOR_TEAM_ABBREVIATION");
   return rows.map((r: any[]) => ({
-    gameId: r[2],
-    homeTeam: r[6],
-    awayTeam: r[4],
+    gameId: r[iGameId],
+    homeTeam: r[iHome],
+    awayTeam: r[iAway],
     gameDate: dateStr,
   }));
+}
+
+async function deriveWNBATeamsFromBox(
+  gameId: string,
+): Promise<{ home: string | null; away: string | null; codes: string[] }> {
+  const base = `https://stats.wnba.com/stats`;
+  const headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    Accept: "application/json, text/plain, */*",
+    Referer: "https://www.wnba.com/",
+    Origin: "https://www.wnba.com",
+    "x-nba-stats-origin": "stats",
+    "x-nba-stats-token": "true",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Cache-Control": "no-cache",
+    Pragma: "no-cache",
+  } as any;
+
+  const tryEndpoints = [
+    `${base}/boxscoretraditionalv2?GameID=${gameId}&StartPeriod=0&EndPeriod=14&LeagueID=10`,
+    `${base}/boxscoreadvancedv2?GameID=${gameId}&StartPeriod=0&EndPeriod=14&LeagueID=10`,
+  ];
+
+  for (const url of tryEndpoints) {
+    const res = await fetchWithTimeout(url, { headers }, 15000);
+    if (!res.ok) continue;
+    const data: any = await res.json();
+    const rs = data?.resultSets || [];
+    const playersSet = rs.find(
+      (r: any) =>
+        Array.isArray(r.headers) &&
+        r.headers.some((h: string) => h.toLowerCase().includes("team_abbreviation")),
+    );
+    const hs: string[] = playersSet?.headers || [];
+    const idxTeam = hs.findIndex((h: string) => h.toLowerCase() === "team_abbreviation");
+    const vals = new Set<string>();
+    for (const row of playersSet?.rowSet || []) {
+      const v = row[idxTeam];
+      if (v && typeof v === "string") vals.add(v.trim());
+    }
+    const arr = Array.from(vals);
+    if (arr.length >= 2) {
+      return { home: arr[0] || null, away: arr[1] || null, codes: arr };
+    }
+  }
+
+  return { home: null, away: null, codes: [] };
 }
 
 async function fetchMLBGames(dateStr: string): Promise<any[]> {
@@ -121,6 +196,18 @@ async function fetchMLBGames(dateStr: string): Promise<any[]> {
     awayTeam: g.teams.away.team.abbreviation,
     gameDate: dateStr,
   }));
+}
+
+async function deriveMLBTeamsFromLive(
+  gameId: string,
+): Promise<{ home: string | null; away: string | null }> {
+  const url = `https://statsapi.mlb.com/api/v1.1/game/${gameId}/feed/live`;
+  const res = await fetchWithTimeout(url, {}, 15000);
+  if (!res.ok) return { home: null, away: null };
+  const data: any = await res.json();
+  const home = data?.gameData?.teams?.home?.abbreviation || null;
+  const away = data?.gameData?.teams?.away?.abbreviation || null;
+  return { home, away };
 }
 
 async function fetchNHLGames(dateStr: string): Promise<any[]> {
@@ -181,16 +268,56 @@ async function processGame(
   );
   if (existing[0]) return false;
 
-  // Resolve teams via mapping table
-  const homeTeamId = await resolveTeamIdViaMap(league, game.homeTeam);
-  const awayTeamId = await resolveTeamIdViaMap(league, game.awayTeam);
+  // Normalize/derive team abbreviations before mapping
+  const invalid = (v?: string) => !v || v.trim() === "" || /final/i.test(v);
+  let homeAbbrev: string | undefined = (game.homeTeam ?? "").toString().trim();
+  let awayAbbrev: string | undefined = (game.awayTeam ?? "").toString().trim();
+
+  try {
+    if (league === "WNBA" && (invalid(homeAbbrev) || invalid(awayAbbrev))) {
+      const d = await deriveWNBATeamsFromBox(game.gameId.toString());
+      // Prefer preserving any valid value already present
+      if (invalid(homeAbbrev)) homeAbbrev = d.home ?? d.codes?.[0] ?? undefined;
+      if (invalid(awayAbbrev)) awayAbbrev = d.away ?? d.codes?.[1] ?? undefined;
+    }
+    if (league === "MLB" && (invalid(homeAbbrev) || invalid(awayAbbrev))) {
+      const d = await deriveMLBTeamsFromLive(game.gameId.toString());
+      homeAbbrev = !invalid(homeAbbrev) ? homeAbbrev : (d.home ?? undefined);
+      awayAbbrev = !invalid(awayAbbrev) ? awayAbbrev : (d.away ?? undefined);
+    }
+  } catch {
+    // ignore derivation failures; we'll skip if still invalid
+  }
+
+  if (invalid(homeAbbrev) || invalid(awayAbbrev)) {
+    console.log(`    ⚠️  Missing team abbreviations for ${league} ${game.gameId}`);
+    return false;
+  }
+
+  // Resolve teams via mapping table now that abbreviations are valid; fallback to teams table
+  let homeTeamId = await resolveTeamIdViaMap(league, homeAbbrev!);
+  let awayTeamId = await resolveTeamIdViaMap(league, awayAbbrev!);
+  if (!homeTeamId) {
+    const direct = await resolveTeamIdDirect(leagueId, homeAbbrev!);
+    if (direct) {
+      homeTeamId = direct;
+      await upsertTeamAbbrevMap(league, homeAbbrev!, direct);
+    }
+  }
+  if (!awayTeamId) {
+    const direct = await resolveTeamIdDirect(leagueId, awayAbbrev!);
+    if (direct) {
+      awayTeamId = direct;
+      await upsertTeamAbbrevMap(league, awayAbbrev!, direct);
+    }
+  }
   if (!homeTeamId || !awayTeamId) {
-    console.log(`    ⚠️  Missing team mapping for ${league} ${game.awayTeam} @ ${game.homeTeam}`);
+    console.log(`    ⚠️  Missing team mapping for ${league} ${awayAbbrev} @ ${homeAbbrev}`);
     return false;
   }
 
   // Insert game
-  const [g] = await db
+  await db
     .insert(games)
     .values({
       id: randomUUID(),
@@ -217,9 +344,7 @@ async function processGame(
       const { ingestNHLGameBoxscore } = await import("./mlb-nhl-player-logs-ingestion.js");
       await ingestNHLGameBoxscore(db, game.gameId.toString());
     }
-    console.log(
-      `    ✅ Ingested ${league} game ${game.gameId} (${game.awayTeam} @ ${game.homeTeam})`,
-    );
+    console.log(`    ✅ Ingested ${league} game ${game.gameId} (${awayAbbrev} @ ${homeAbbrev})`);
   } catch (e: any) {
     console.error(`    ❌ Ingestion failed for game ${game.gameId}:`, e?.message || e);
   }

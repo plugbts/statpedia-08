@@ -1,5 +1,12 @@
-import React from 'react';
-import { usePlayerAnalyticsEnriched, formatHitRate, formatAverage, getStreakDisplay, getPerformanceGrade, getTrendDirection } from '@/hooks/usePlayerAnalyticsEnriched';
+import React from "react";
+import {
+  usePlayerAnalyticsEnriched,
+  formatHitRate,
+  formatAverage,
+  getStreakDisplay,
+  getPerformanceGrade,
+  getTrendDirection,
+} from "@/hooks/usePlayerAnalyticsEnriched";
 
 interface PlayerAnalyticsCardProps {
   playerId: string;
@@ -8,7 +15,12 @@ interface PlayerAnalyticsCardProps {
   className?: string;
 }
 
-export function PlayerAnalyticsCard({ playerId, propType, season = '2025', className = '' }: PlayerAnalyticsCardProps) {
+export function PlayerAnalyticsCard({
+  playerId,
+  propType,
+  season = "2025",
+  className = "",
+}: PlayerAnalyticsCardProps) {
   const { data, loading, error } = usePlayerAnalyticsEnriched(playerId, propType, season);
 
   if (loading) {
@@ -38,12 +50,17 @@ export function PlayerAnalyticsCard({ playerId, propType, season = '2025', class
         <h3 className="text-sm font-semibold text-gray-900">Player Analytics</h3>
         <div className="flex items-center space-x-2">
           <span className="text-xs text-gray-500">{summary.totalGames} games</span>
-          <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-            performanceGrade.startsWith('A') ? 'bg-green-100 text-green-800' :
-            performanceGrade.startsWith('B') ? 'bg-blue-100 text-blue-800' :
-            performanceGrade.startsWith('C') ? 'bg-yellow-100 text-yellow-800' :
-            'bg-red-100 text-red-800'
-          }`}>
+          <div
+            className={`px-2 py-1 rounded-full text-xs font-medium ${
+              performanceGrade.startsWith("A")
+                ? "bg-green-100 text-green-800"
+                : performanceGrade.startsWith("B")
+                  ? "bg-blue-100 text-blue-800"
+                  : performanceGrade.startsWith("C")
+                    ? "bg-yellow-100 text-yellow-800"
+                    : "bg-red-100 text-red-800"
+            }`}
+          >
             Grade: {performanceGrade}
           </div>
         </div>
@@ -64,7 +81,7 @@ export function PlayerAnalyticsCard({ playerId, propType, season = '2025', class
             </span>
           </div>
         </div>
-        
+
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <span className="text-xs text-gray-600">Hit Rate</span>
@@ -84,21 +101,27 @@ export function PlayerAnalyticsCard({ playerId, propType, season = '2025', class
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-2">
           <span className="text-xs text-gray-600">Streak:</span>
-          <span className={`text-sm font-medium ${
-            summary.currentStreakType === 'over' ? 'text-green-600' : 'text-red-600'
-          }`}>
+          <span
+            className={`text-sm font-medium ${
+              summary.currentStreakType === "over" ? "text-green-600" : "text-red-600"
+            }`}
+          >
             {getStreakDisplay(summary.currentStreak, summary.currentStreakType)}
           </span>
         </div>
-        
+
         <div className="flex items-center space-x-1">
           <span className="text-xs text-gray-600">Trend:</span>
-          <div className={`w-2 h-2 rounded-full ${
-            trendDirection === 'up' ? 'bg-green-500' :
-            trendDirection === 'down' ? 'bg-red-500' :
-            'bg-gray-400'
-          }`}></div>
-          <span className="text-xs text-gray-600 capitalize">{treakDirection}</span>
+          <div
+            className={`w-2 h-2 rounded-full ${
+              trendDirection === "up"
+                ? "bg-green-500"
+                : trendDirection === "down"
+                  ? "bg-red-500"
+                  : "bg-gray-400"
+            }`}
+          ></div>
+          <span className="text-xs text-gray-600 capitalize">{trendDirection}</span>
         </div>
       </div>
 
@@ -113,11 +136,11 @@ export function PlayerAnalyticsCard({ playerId, propType, season = '2025', class
               <div
                 key={index}
                 className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
-                  game.hit ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  game.hit ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
                 }`}
                 title={`${game.actual_value} vs ${game.line} (${game.game_date})`}
               >
-                {game.actual_value >= game.line ? '✓' : '✗'}
+                {game.actual_value >= game.line ? "✓" : "✗"}
               </div>
             ))}
           </div>
@@ -128,7 +151,11 @@ export function PlayerAnalyticsCard({ playerId, propType, season = '2025', class
 }
 
 // Compact version for use in prop cards
-export function PlayerAnalyticsCompact({ playerId, propType, season = '2025' }: PlayerAnalyticsCardProps) {
+export function PlayerAnalyticsCompact({
+  playerId,
+  propType,
+  season = "2025",
+}: PlayerAnalyticsCardProps) {
   const { data, loading } = usePlayerAnalyticsEnriched(playerId, propType, season);
 
   if (loading || !data) {
@@ -150,22 +177,31 @@ export function PlayerAnalyticsCompact({ playerId, propType, season = '2025' }: 
           Avg: <span className="font-medium text-gray-900">{formatAverage(summary.careerAvg)}</span>
         </span>
         <span className="text-gray-600">
-          Hit: <span className="font-medium text-gray-900">{formatHitRate(summary.careerHitRate)}</span>
+          Hit:{" "}
+          <span className="font-medium text-gray-900">{formatHitRate(summary.careerHitRate)}</span>
         </span>
         <span className="text-gray-600">
-          Streak: <span className={`font-medium ${
-            summary.currentStreakType === 'over' ? 'text-green-600' : 'text-red-600'
-          }`}>
+          Streak:{" "}
+          <span
+            className={`font-medium ${
+              summary.currentStreakType === "over" ? "text-green-600" : "text-red-600"
+            }`}
+          >
             {getStreakDisplay(summary.currentStreak, summary.currentStreakType)}
           </span>
         </span>
       </div>
-      <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-        performanceGrade.startsWith('A') ? 'bg-green-100 text-green-800' :
-        performanceGrade.startsWith('B') ? 'bg-blue-100 text-blue-800' :
-        performanceGrade.startsWith('C') ? 'bg-yellow-100 text-yellow-800' :
-        'bg-red-100 text-red-800'
-      }`}>
+      <div
+        className={`px-2 py-1 rounded-full text-xs font-medium ${
+          performanceGrade.startsWith("A")
+            ? "bg-green-100 text-green-800"
+            : performanceGrade.startsWith("B")
+              ? "bg-blue-100 text-blue-800"
+              : performanceGrade.startsWith("C")
+                ? "bg-yellow-100 text-yellow-800"
+                : "bg-red-100 text-red-800"
+        }`}
+      >
         {performanceGrade}
       </div>
     </div>

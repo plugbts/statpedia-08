@@ -1206,7 +1206,7 @@ app.get("/api/player-analytics", async (req, res) => {
 // Enriched player analytics routes
 app.get("/api/player-analytics-enriched", async (req, res) => {
   try {
-    const { playerId, propType, sport } = req.query;
+    const { playerId, propType, season } = req.query;
 
     if (!playerId || !propType) {
       return res.status(400).json({
@@ -1225,12 +1225,24 @@ app.get("/api/player-analytics-enriched", async (req, res) => {
     const db = drizzle(client);
 
     // Fetch from the player_analytics table
+    // Prefer the requested season when provided, otherwise take the most recent season
     const analyticsResult = await db.execute(sql`
-      SELECT * FROM public.player_analytics
-      WHERE player_id = ${playerId as string}
-      AND prop_type = ${propType as string}
-      AND sport = ${(sport as string) || "2024-25"}
-      LIMIT 1;
+      ${
+        season
+          ? sql`SELECT * FROM public.player_analytics
+               WHERE player_id = ${playerId as string}
+                 AND prop_type = ${propType as string}
+                 AND season = ${season as string}
+               ORDER BY last_updated DESC NULLS LAST
+               LIMIT 1`
+          : sql`SELECT * FROM (
+                 SELECT DISTINCT ON (player_id) *
+                 FROM public.player_analytics
+                 WHERE player_id = ${playerId as string}
+                   AND prop_type = ${propType as string}
+                 ORDER BY player_id, season DESC, last_updated DESC NULLS LAST
+               ) t`
+      }
     `);
 
     const analyticsData = analyticsResult[0];
@@ -1266,6 +1278,7 @@ app.get("/api/player-analytics-enriched", async (req, res) => {
       LEFT JOIN public.teams ot ON ot.id = pgl.opponent_team_id
       WHERE pgl.player_id = ${playerId as string}
       AND pgl.prop_type = ${propType as string}
+      ${season ? sql`AND EXTRACT(YEAR FROM pgl.game_date)::text = ${season as string}` : sql``}
       ORDER BY pgl.game_date DESC
       LIMIT 20;
     `);
@@ -1308,7 +1321,7 @@ app.get("/api/player-analytics-enriched", async (req, res) => {
 
 app.post("/api/player-analytics-bulk", async (req, res) => {
   try {
-    const { playerIds, propType, sport } = req.body;
+    const { playerIds, propType, season } = req.body;
 
     if (!playerIds || !Array.isArray(playerIds) || !propType) {
       return res.status(400).json({
@@ -1326,12 +1339,21 @@ app.post("/api/player-analytics-bulk", async (req, res) => {
     const client = postgres(connectionString);
     const db = drizzle(client);
 
-    // Fetch bulk analytics from the player_analytics table
+    // Fetch bulk analytics: pick the latest record per player for the given prop type.
+    // If a season is provided, filter to that season; otherwise choose most recent season per player.
     const analyticsResult = await db.execute(sql`
-      SELECT * FROM public.player_analytics
-      WHERE player_id = ANY(${playerIds})
-      AND prop_type = ${propType}
-      AND sport = ${sport || "2024-25"};
+      ${
+        season
+          ? sql`SELECT * FROM public.player_analytics
+               WHERE player_id = ANY(${playerIds})
+                 AND prop_type = ${propType}
+                 AND season = ${season}`
+          : sql`SELECT DISTINCT ON (player_id) *
+               FROM public.player_analytics
+               WHERE player_id = ANY(${playerIds})
+                 AND prop_type = ${propType}
+               ORDER BY player_id, season DESC, last_updated DESC NULLS LAST`
+      }
     `);
 
     res.json({

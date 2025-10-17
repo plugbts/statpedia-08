@@ -58,7 +58,7 @@ export interface BulkEnrichedAnalyticsResponse {
   error?: string;
 }
 
-export function usePlayerAnalyticsEnriched(playerId?: string, propType?: string, sport = "2025") {
+export function usePlayerAnalyticsEnriched(playerId?: string, propType?: string, season = "2025") {
   const [data, setData] = useState<EnrichedPlayerAnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +75,7 @@ export function usePlayerAnalyticsEnriched(playerId?: string, propType?: string,
     try {
       // Fetch from the API endpoint that queries the enriched database
       const response = await fetch(
-        `${getApiBaseUrl()}/api/player-analytics-enriched?playerId=${playerId}&propType=${propType}&sport=${sport}`,
+        `${getApiBaseUrl()}/api/player-analytics-enriched?playerId=${playerId}&propType=${propType}&season=${season}`,
       );
 
       if (!response.ok) {
@@ -110,7 +110,7 @@ export function usePlayerAnalyticsEnriched(playerId?: string, propType?: string,
     } finally {
       setLoading(false);
     }
-  }, [playerId, propType, sport]);
+  }, [playerId, propType, season]);
 
   useEffect(() => {
     fetchAnalytics();
@@ -127,7 +127,7 @@ export function usePlayerAnalyticsEnriched(playerId?: string, propType?: string,
 export function useBulkPlayerAnalyticsEnriched(
   playerIds: string[],
   propType: string,
-  sport = "2025",
+  season = "2025",
 ) {
   const [data, setData] = useState<BulkEnrichedAnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -152,7 +152,7 @@ export function useBulkPlayerAnalyticsEnriched(
         body: JSON.stringify({
           playerIds,
           propType,
-          sport,
+          season,
         }),
       });
 
@@ -174,7 +174,7 @@ export function useBulkPlayerAnalyticsEnriched(
     } finally {
       setLoading(false);
     }
-  }, [playerIds, propType, sport]);
+  }, [playerIds, propType, season]);
 
   useEffect(() => {
     fetchBulkAnalytics();

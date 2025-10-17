@@ -658,7 +658,8 @@ export function PlayerPropsColumnView({
         }
       }
     }
-  }, [normalizedProps]);
+    // Add getGroupKey to dependency array to fix React hook warning
+  }, [normalizedProps, getGroupKey]);
 
   const formatPercentage = (value: number): string => {
     return `${(value * 100).toFixed(1)}%`;
@@ -1097,23 +1098,23 @@ export function PlayerPropsColumnView({
               });
 
               // Use real analytics data or fallback to defaults with UI guardrails
-              const hasGameLogs = prop.gameLogs && prop.gameLogs.length > 0;
+              const hasStats = !!analytics;
               const hasDefenseStats = prop.defenseStats && prop.defenseStats.length > 0;
 
-              const streak = hasGameLogs ? analytics?.streak?.current || 0 : 0;
-              const h2h = hasGameLogs
+              const streak = hasStats ? analytics?.streak?.current || 0 : 0;
+              const h2h = hasStats
                 ? analytics?.h2h || { hits: 0, total: 0, pct: 0 }
                 : { hits: 0, total: 0, pct: 0 };
-              const season = hasGameLogs
+              const season = hasStats
                 ? analytics?.season || { hits: 0, total: 0, pct: 0 }
                 : { hits: 0, total: 0, pct: 0 };
-              const l5 = hasGameLogs
+              const l5 = hasStats
                 ? analytics?.l5 || { hits: 0, total: 0, pct: 0 }
                 : { hits: 0, total: 0, pct: 0 };
-              const l10 = hasGameLogs
+              const l10 = hasStats
                 ? analytics?.l10 || { hits: 0, total: 0, pct: 0 }
                 : { hits: 0, total: 0, pct: 0 };
-              const l20 = hasGameLogs
+              const l20 = hasStats
                 ? analytics?.l20 || { hits: 0, total: 0, pct: 0 }
                 : { hits: 0, total: 0, pct: 0 };
 
@@ -1260,8 +1261,8 @@ export function PlayerPropsColumnView({
                         <div
                           className={`text-xs font-bold group-hover:opacity-80 transition-all duration-300 relative animate-pulse ${(() => {
                             // Use REAL streak data only - no mock data
-                            const actualStreak = hasGameLogs ? Math.abs(streak) : 0;
-                            const streakType = hasGameLogs ? (streak > 0 ? "W" : "L") : "N";
+                            const actualStreak = hasStats ? Math.abs(streak) : 0;
+                            const streakType = hasStats ? (streak > 0 ? "W" : "L") : "N";
 
                             // Determine streak type and styling
                             if (streakType === "W" && actualStreak >= 2) {
@@ -1276,8 +1277,8 @@ export function PlayerPropsColumnView({
                         >
                           {/* Lava ONLY for hot streaks (2W+) */}
                           {(() => {
-                            const actualStreak = hasGameLogs ? Math.abs(streak) : 0;
-                            const streakType = hasGameLogs ? (streak > 0 ? "W" : "L") : "N";
+                            const actualStreak = hasStats ? Math.abs(streak) : 0;
+                            const streakType = hasStats ? (streak > 0 ? "W" : "L") : "N";
 
                             return streakType === "W" && actualStreak >= 2 ? (
                               <>
@@ -1298,8 +1299,8 @@ export function PlayerPropsColumnView({
 
                           {/* Snow ONLY for cold streaks (2L+) */}
                           {(() => {
-                            const actualStreak = hasGameLogs ? Math.abs(streak) : 0;
-                            const streakType = hasGameLogs ? (streak > 0 ? "W" : "L") : "N";
+                            const actualStreak = hasStats ? Math.abs(streak) : 0;
+                            const streakType = hasStats ? (streak > 0 ? "W" : "L") : "N";
 
                             return streakType === "L" && actualStreak >= 2 ? (
                               <>
@@ -1319,7 +1320,7 @@ export function PlayerPropsColumnView({
                           })()}
 
                           {(() => {
-                            if (hasGameLogs && streak !== 0) {
+                            if (hasStats && streak !== 0) {
                               return `${Math.abs(streak)}${streak > 0 ? "W" : "L"}`;
                             }
                             return "—";
@@ -1445,14 +1446,14 @@ export function PlayerPropsColumnView({
                       <div className="w-24 text-center px-1 py-3">
                         <div className="text-xs font-medium text-foreground">
                           {(() => {
-                            if (hasGameLogs && h2h.total > 0) return `${h2h.pct.toFixed(0)}%`;
+                            if (hasStats && h2h.total > 0) return `${h2h.pct.toFixed(0)}%`;
                             // Use real data only - no mock data
                             return "N/A";
                           })()}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {(() => {
-                            if (hasGameLogs && h2h.total > 0) return `${h2h.hits}/${h2h.total}`;
+                            if (hasStats && h2h.total > 0) return `${h2h.hits}/${h2h.total}`;
                             // Use real data only - no mock data
                             return "N/A";
                           })()}
@@ -1463,14 +1464,14 @@ export function PlayerPropsColumnView({
                       <div className="w-24 text-center px-1 py-3">
                         <div className="text-xs font-medium text-foreground">
                           {(() => {
-                            if (hasGameLogs && season.total > 0) return `${season.pct.toFixed(0)}%`;
+                            if (hasStats && season.total > 0) return `${season.pct.toFixed(0)}%`;
                             // Use real data only - no mock data
                             return "N/A";
                           })()}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {(() => {
-                            if (hasGameLogs && season.total > 0)
+                            if (hasStats && season.total > 0)
                               return `${season.hits}/${season.total}`;
                             // Use real data only - no mock data
                             return "N/A";
@@ -1482,14 +1483,14 @@ export function PlayerPropsColumnView({
                       <div className="w-24 text-center px-1 py-3">
                         <div className="text-xs font-medium text-foreground">
                           {(() => {
-                            if (hasGameLogs && l5.total > 0) return `${l5.pct.toFixed(0)}%`;
+                            if (hasStats && l5.total > 0) return `${l5.pct.toFixed(0)}%`;
                             // Use real data only - no mock data
                             return "N/A";
                           })()}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {(() => {
-                            if (hasGameLogs && l5.total > 0) return `${l5.hits}/${l5.total}`;
+                            if (hasStats && l5.total > 0) return `${l5.hits}/${l5.total}`;
                             // Use real data only - no mock data
                             return "N/A";
                           })()}
@@ -1500,14 +1501,14 @@ export function PlayerPropsColumnView({
                       <div className="w-24 text-center px-1 py-3">
                         <div className="text-xs font-medium text-foreground">
                           {(() => {
-                            if (hasGameLogs && l10.total > 0) return `${l10.pct.toFixed(0)}%`;
+                            if (hasStats && l10.total > 0) return `${l10.pct.toFixed(0)}%`;
                             // Use real data only - no mock data
                             return "N/A";
                           })()}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {(() => {
-                            if (hasGameLogs && l10.total > 0) return `${l10.hits}/${l10.total}`;
+                            if (hasStats && l10.total > 0) return `${l10.hits}/${l10.total}`;
                             // Use real data only - no mock data
                             return "N/A";
                           })()}
@@ -1518,14 +1519,14 @@ export function PlayerPropsColumnView({
                       <div className="w-24 text-center px-1 py-3">
                         <div className="text-xs font-medium text-foreground">
                           {(() => {
-                            if (hasGameLogs && l20.total > 0) return `${l20.pct.toFixed(0)}%`;
+                            if (hasStats && l20.total > 0) return `${l20.pct.toFixed(0)}%`;
                             // Use real data only - no mock data
                             return "N/A";
                           })()}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {(() => {
-                            if (hasGameLogs && l20.total > 0) return `${l20.hits}/${l20.total}`;
+                            if (hasStats && l20.total > 0) return `${l20.hits}/${l20.total}`;
                             // Use real data only - no mock data
                             return "N/A";
                           })()}

@@ -3,15 +3,61 @@ import postgres from "postgres";
 import { players, teams, games, player_game_logs, leagues } from "../src/db/schema/index";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { config } from "dotenv";
-import fetch from "node-fetch";
+import fetch, { type Response as FetchResponse } from "node-fetch";
 import { randomUUID } from "crypto";
 
 // Load environment variables
 config({ path: ".env.local" });
 
-const connectionString = process.env.NEON_DATABASE_URL!;
-const client = postgres(connectionString);
+const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+if (!connectionString) throw new Error("No DB URL (NEON_DATABASE_URL or DATABASE_URL)");
+const client = postgres(connectionString, { prepare: false });
 const db = drizzle(client, { schema: { games, players, teams, player_game_logs, leagues } });
+
+// Concurrency controls
+const MAX_CONCURRENCY = Number(process.env.BACKFILL_CONCURRENCY || 6);
+const DAY_DELAY_MS = Number(process.env.BACKFILL_DAY_DELAY_MS || 300);
+const FETCH_TIMEOUT_MS = Number(process.env.FETCH_TIMEOUT_MS || 15000);
+
+async function fetchWithTimeout(
+  url: string,
+  init: any = {},
+  timeoutMs = FETCH_TIMEOUT_MS,
+): Promise<FetchResponse> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...init, signal: controller.signal });
+    return res as FetchResponse;
+  } finally {
+    clearTimeout(id);
+  }
+}
+
+async function mapWithLimit<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T, idx: number) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length) as any;
+  let i = 0;
+  const workers: Promise<void>[] = [];
+  async function run() {
+    while (true) {
+      const idx = i++;
+      if (idx >= items.length) return;
+      try {
+        results[idx] = await worker(items[idx], idx);
+      } catch (e) {
+        // @ts-ignore
+        results[idx] = undefined;
+      }
+    }
+  }
+  for (let k = 0; k < Math.max(1, limit); k++) workers.push(run());
+  await Promise.all(workers);
+  return results;
+}
 
 /**
  * Comprehensive 365-day backfill for all leagues
@@ -22,12 +68,20 @@ async function backfill365Days() {
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - 365); // Go back 365 days
 
-  const leagues = [
-    { code: "NBA", name: "National Basketball Association" },
-    { code: "WNBA", name: "Women's National Basketball Association" },
-    { code: "MLB", name: "Major League Baseball" },
-    { code: "NHL", name: "National Hockey League" },
-  ];
+  // Allow overriding leagues via env (comma-separated), else process MLB/NHL first to ensure progress
+  const envLeagues = (process.env.BACKFILL_LEAGUES || "")
+    .split(",")
+    .map((s) => s.trim().toUpperCase())
+    .filter(Boolean);
+  const defaultOrder = ["MLB", "NHL", "WNBA", "NBA"] as const;
+  const order = (envLeagues.length ? envLeagues : defaultOrder) as readonly string[];
+  const known: Record<string, string> = {
+    NBA: "National Basketball Association",
+    WNBA: "Women's National Basketball Association",
+    MLB: "Major League Baseball",
+    NHL: "National Hockey League",
+  };
+  const leagues = order.filter((c) => known[c]).map((code) => ({ code, name: known[code] }));
 
   let totalProcessed = 0;
   let totalGames = 0;
@@ -72,6 +126,8 @@ async function backfillLeague(
   let gamesProcessed = 0;
   let gamesFound = 0;
   let playersCreated = 0;
+  const MAX_CONSECUTIVE_FETCH_ERRORS = Number(process.env.MAX_DAY_FETCH_ERRORS || 10);
+  let consecutiveFetchErrors = 0;
 
   // Get league ID
   const leagueRecord = await db.execute(
@@ -82,13 +138,13 @@ async function backfillLeague(
     throw new Error(`League ${league} not found`);
   }
 
-  const leagueId = leagueRecord[0].id;
+  const leagueId: string = leagueRecord[0].id as string;
 
   // Process each day for the last 365 days
   const currentDate = new Date();
-  const dateIterator = new Date(startDate);
+  const dateIterator = new Date(currentDate); // iterate backward from today
 
-  while (dateIterator <= currentDate) {
+  while (dateIterator >= startDate) {
     const dateStr = dateIterator.toISOString().split("T")[0];
     console.log(`📅 Processing ${league} games for ${dateStr}...`);
 
@@ -103,15 +159,25 @@ async function backfillLeague(
           `  ✅ ${dayStats.gamesFound} games found, ${dayStats.gamesProcessed} processed`,
         );
       }
+
+      // reset on any successful fetch attempt (even zero games)
+      consecutiveFetchErrors = 0;
     } catch (error: any) {
       console.error(`  ❌ Error processing ${dateStr}:`, error.message);
+      consecutiveFetchErrors++;
+      if (consecutiveFetchErrors >= MAX_CONSECUTIVE_FETCH_ERRORS) {
+        console.warn(
+          `  ⚠️  Too many consecutive fetch errors (${consecutiveFetchErrors}) for ${league}. Skipping remaining days for this league.`,
+        );
+        break;
+      }
     }
 
-    // Move to next day
-    dateIterator.setDate(dateIterator.getDate() + 1);
+    // Move to previous day (reverse order)
+    dateIterator.setDate(dateIterator.getDate() - 1);
 
-    // Rate limiting - wait 1 second between days
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    // Small delay between days to avoid hammering public APIs
+    if (DAY_DELAY_MS > 0) await new Promise((resolve) => setTimeout(resolve, DAY_DELAY_MS));
   }
 
   return { gamesProcessed, gamesFound, playersCreated };
@@ -156,18 +222,21 @@ async function processDay(
 
     gamesFound = games.length;
 
-    // Process each game
-    for (const game of games) {
-      try {
-        const gameStats = await processGame(league, game, leagueId, dateStr);
-        gamesProcessed += gameStats.gamesProcessed;
-        playersCreated += gameStats.playersCreated;
-      } catch (error: any) {
-        console.error(`    ❌ Error processing game ${game.gameId}:`, error.message);
-      }
+    // Process each game's ingestion in parallel with a safe concurrency limit
+    if (games.length > 0) {
+      await mapWithLimit(games, MAX_CONCURRENCY, async (game) => {
+        try {
+          const stats = await processGame(league, game, leagueId, dateStr);
+          gamesProcessed += stats.gamesProcessed;
+          playersCreated += stats.playersCreated;
+        } catch (error: any) {
+          console.error(`    ❌ Error processing game ${game.gameId}:`, error.message);
+        }
+      });
     }
   } catch (error: any) {
     console.error(`  ❌ Error fetching games for ${dateStr}:`, error.message);
+    throw error; // propagate so caller can count consecutive errors
   }
 
   return { gamesProcessed, gamesFound, playersCreated };
@@ -177,27 +246,92 @@ async function processDay(
  * Fetch NBA games for a specific date
  */
 async function fetchNBAGames(dateStr: string): Promise<any[]> {
-  const url = `https://stats.nba.com/stats/scoreboardv2?DayOffset=0&GameDate=${dateStr}&LeagueID=00`;
+  const yyyymmdd = dateStr.replace(/-/g, "");
 
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      Accept: "application/json, text/plain, */*",
-      Referer: "https://www.nba.com/",
-      Origin: "https://www.nba.com",
+  // 1) Try CDN liveData scoreboard by date
+  try {
+    const cdnUrl = `https://cdn.nba.com/static/json/liveData/scoreboard/scoreboard_${yyyymmdd}.json`;
+    const r0 = await fetchWithTimeout(
+      cdnUrl,
+      { headers: { Accept: "application/json" } },
+      FETCH_TIMEOUT_MS,
+    );
+    if (r0.ok) {
+      const d0: any = await r0.json();
+      const gamesArr: any[] = d0?.scoreboard?.games || d0?.games || [];
+      const mapped = gamesArr
+        .map((g: any) => ({
+          gameId: g.gameId || g.gameID || g.gameCode,
+          homeTeam: g.homeTeam?.teamTricode || g.hTeam?.triCode,
+          awayTeam: g.awayTeam?.teamTricode || g.vTeam?.triCode,
+        }))
+        .filter((g: any) => g.gameId && g.homeTeam && g.awayTeam)
+        .map((g: any) => ({ ...g, gameDate: dateStr }));
+      if (mapped.length > 0) return mapped;
+    }
+  } catch {
+    // ...empty block removed
+  }
+
+  // 2) Try legacy data.nba.com (valid cert)
+  try {
+    const dataUrl = `https://data.nba.com/data/10s/prod/v1/${yyyymmdd}/scoreboard.json`;
+    const r1 = await fetchWithTimeout(
+      dataUrl,
+      { headers: { Accept: "application/json" } },
+      FETCH_TIMEOUT_MS,
+    );
+    if (r1.ok) {
+      const d1: any = await r1.json();
+      const g1 = (d1?.games as any[]) || [];
+      if (g1.length > 0) {
+        return g1
+          .map((g: any) => ({
+            gameId: g.gameId,
+            homeTeam: g.hTeam?.triCode,
+            awayTeam: g.vTeam?.triCode,
+            gameDate: dateStr,
+          }))
+          .filter((x: any) => x.gameId && x.homeTeam && x.awayTeam);
+      }
+    }
+  } catch {
+    // ...empty block removed
+  }
+
+  // 3) Fallback: stats.nba.com scoreboardv2 with required headers
+  const statsUrl = `https://stats.nba.com/stats/scoreboardv2?DayOffset=0&GameDate=${dateStr}&LeagueID=00`;
+  const r2 = await fetchWithTimeout(
+    statsUrl,
+    {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Accept: "application/json, text/plain, */*",
+        Referer: "https://www.nba.com/",
+        Origin: "https://www.nba.com",
+        "x-nba-stats-origin": "stats",
+        "x-nba-stats-token": "true",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+      },
     },
-  });
-
-  if (!response.ok) return [];
-
-  const data = await response.json();
-  const games = data.resultSets[0]?.rowSet || [];
-
-  return games.map((game: any[]) => ({
-    gameId: game[2],
-    homeTeam: game[6],
-    awayTeam: game[4],
+    FETCH_TIMEOUT_MS,
+  );
+  if (!r2.ok) return [];
+  const d2: any = await r2.json();
+  const rs = d2?.resultSets?.[0];
+  const rows: any[] = rs?.rowSet || [];
+  const headers: string[] = rs?.headers || [];
+  const idx = (name: string) => headers.findIndex((h) => h.toLowerCase() === name.toLowerCase());
+  const iGameId = idx("GAME_ID");
+  const iHome = idx("HOME_TEAM_ABBREVIATION");
+  const iAway = idx("VISITOR_TEAM_ABBREVIATION");
+  return rows.map((r: any[]) => ({
+    gameId: r[iGameId],
+    homeTeam: r[iHome],
+    awayTeam: r[iAway],
     gameDate: dateStr,
   }));
 }
@@ -208,26 +342,77 @@ async function fetchNBAGames(dateStr: string): Promise<any[]> {
 async function fetchWNBAGames(dateStr: string): Promise<any[]> {
   const url = `https://stats.wnba.com/stats/scoreboardv2?DayOffset=0&GameDate=${dateStr}&LeagueID=10`;
 
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-      Accept: "application/json, text/plain, */*",
-      Referer: "https://www.wnba.com/",
-      Origin: "https://www.wnba.com",
+  const response = await fetchWithTimeout(
+    url,
+    {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        Accept: "application/json, text/plain, */*",
+        Referer: "https://www.wnba.com/",
+        Origin: "https://www.wnba.com",
+      },
     },
-  });
+    FETCH_TIMEOUT_MS,
+  );
 
   if (!response.ok) return [];
 
-  const data = await response.json();
-  const games = data.resultSets[0]?.rowSet || [];
+  const data: any = await response.json();
+  const rows = data.resultSets?.[0]?.rowSet || [];
+  const headers: string[] = data.resultSets?.[0]?.headers || [];
+  const idx = (name: string) => headers.findIndex((h) => h.toLowerCase() === name.toLowerCase());
+  const iGameId = idx("GAME_ID");
+  const iHome = idx("HOME_TEAM_ABBREVIATION");
+  const iAway = idx("VISITOR_TEAM_ABBREVIATION");
 
-  return games.map((game: any[]) => ({
-    gameId: game[2],
-    homeTeam: game[6],
-    awayTeam: game[4],
+  return rows.map((r: any[]) => ({
+    gameId: r[iGameId],
+    homeTeam: r[iHome],
+    awayTeam: r[iAway],
     gameDate: dateStr,
   }));
+}
+
+async function deriveWNBATeamsFromBox(
+  gameId: string,
+): Promise<{ home: string | null; away: string | null; codes: string[] }> {
+  const base = `https://stats.wnba.com/stats`;
+  const headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    Accept: "application/json, text/plain, */*",
+    Referer: "https://www.wnba.com/",
+    Origin: "https://www.wnba.com",
+    "x-nba-stats-origin": "stats",
+    "x-nba-stats-token": "true",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Cache-Control": "no-cache",
+    Pragma: "no-cache",
+  } as any;
+  const endpoints = [
+    `${base}/boxscoretraditionalv2?GameID=${gameId}&StartPeriod=0&EndPeriod=14&LeagueID=10`,
+    `${base}/boxscoreadvancedv2?GameID=${gameId}&StartPeriod=0&EndPeriod=14&LeagueID=10`,
+  ];
+  for (const url of endpoints) {
+    const res = await fetchWithTimeout(url, { headers }, FETCH_TIMEOUT_MS);
+    if (!res.ok) continue;
+    const data: any = await res.json();
+    const rs = data?.resultSets || [];
+    const playersSet = rs.find(
+      (r: any) =>
+        Array.isArray(r.headers) &&
+        r.headers.some((h: string) => h.toLowerCase().includes("team_abbreviation")),
+    );
+    const hs: string[] = playersSet?.headers || [];
+    const idxTeam = hs.findIndex((h: string) => h.toLowerCase() === "team_abbreviation");
+    const vals = new Set<string>();
+    for (const row of playersSet?.rowSet || []) {
+      const v = row[idxTeam];
+      if (v && typeof v === "string") vals.add(v.trim());
+    }
+    const arr = Array.from(vals);
+    if (arr.length >= 2) return { home: arr[0] || null, away: arr[1] || null, codes: arr };
+  }
+  return { home: null, away: null, codes: [] };
 }
 
 /**
@@ -236,10 +421,10 @@ async function fetchWNBAGames(dateStr: string): Promise<any[]> {
 async function fetchMLBGames(dateStr: string): Promise<any[]> {
   const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${dateStr}`;
 
-  const response = await fetch(url);
+  const response = await fetchWithTimeout(url, {}, FETCH_TIMEOUT_MS);
   if (!response.ok) return [];
 
-  const data = await response.json();
+  const data: any = await response.json();
   const games = data.dates[0]?.games || [];
 
   return games.map((game: any) => ({
@@ -250,41 +435,80 @@ async function fetchMLBGames(dateStr: string): Promise<any[]> {
   }));
 }
 
+async function deriveMLBTeamsFromLive(
+  gameId: string,
+): Promise<{ home: string | null; away: string | null }> {
+  const url = `https://statsapi.mlb.com/api/v1.1/game/${gameId}/feed/live`;
+  const res = await fetchWithTimeout(url, {}, FETCH_TIMEOUT_MS);
+  if (!res.ok) return { home: null, away: null };
+  const data: any = await res.json();
+  const home = data?.gameData?.teams?.home?.abbreviation || null;
+  const away = data?.gameData?.teams?.away?.abbreviation || null;
+  return { home, away };
+}
+
 /**
  * Fetch NHL games for a specific date
  */
 async function fetchNHLGames(dateStr: string): Promise<any[]> {
-  const url = `https://api-web.nhle.com/v1/schedule/${dateStr}`;
+  // Primary: api-web.nhle.com (structured by gameWeek)
+  try {
+    const url = `https://api-web.nhle.com/v1/schedule/${dateStr}`;
+    const response = await fetchWithTimeout(
+      url,
+      {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+          Accept: "application/json, text/plain, */*",
+          Referer: "https://www.nhl.com/",
+          Origin: "https://www.nhl.com",
+        },
+      },
+      FETCH_TIMEOUT_MS,
+    );
 
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-      Accept: "application/json, text/plain, */*",
-      Referer: "https://www.nhl.com/",
-      Origin: "https://www.nhl.com",
-    },
-  });
-
-  if (!response.ok) return [];
-
-  const data = await response.json();
-  const gameWeek = data.gameWeek || [];
-  const games: any[] = [];
-
-  for (const day of gameWeek) {
-    if (day.games) {
-      for (const game of day.games) {
-        games.push({
-          gameId: game.id,
-          homeTeam: game.homeTeam.abbrev,
-          awayTeam: game.awayTeam.abbrev,
-          gameDate: dateStr,
-        });
+    if (response.ok) {
+      const data: any = await response.json();
+      const gameWeek = data.gameWeek || [];
+      const list: any[] = [];
+      for (const day of gameWeek) {
+        for (const game of day?.games || []) {
+          list.push({
+            gameId: game.id,
+            homeTeam: game.homeTeam?.abbrev,
+            awayTeam: game.awayTeam?.abbrev,
+            gameDate: dateStr,
+          });
+        }
       }
+      if (list.length > 0) return list;
     }
+  } catch (e) {
+    // fall through to fallback
   }
 
-  return games;
+  // Fallback: statsapi.web.nhl.com schedule (returns gamePk and team abbreviations)
+  try {
+    const url2 = `https://statsapi.web.nhl.com/api/v1/schedule?date=${dateStr}`;
+    const response2 = await fetchWithTimeout(
+      url2,
+      { headers: { Accept: "application/json" } },
+      FETCH_TIMEOUT_MS,
+    );
+    if (!response2.ok) return [];
+    const data2: any = await response2.json();
+    const games = (data2?.dates?.[0]?.games as any[]) || [];
+    return games
+      .map((g: any) => ({
+        gameId: g.gamePk,
+        homeTeam: g?.teams?.home?.team?.abbreviation || g?.teams?.home?.team?.triCode,
+        awayTeam: g?.teams?.away?.team?.abbreviation || g?.teams?.away?.team?.triCode,
+        gameDate: dateStr,
+      }))
+      .filter((g: any) => g.gameId && g.homeTeam && g.awayTeam);
+  } catch (e) {
+    return [];
+  }
 }
 
 /**
@@ -313,21 +537,69 @@ async function processGame(
     return { gamesProcessed, playersCreated };
   }
 
-  // Get team IDs
-  const homeTeamResult = await db.execute(
-    sql`SELECT id FROM teams WHERE league_id = ${leagueId} AND abbreviation = ${game.homeTeam} LIMIT 1`,
-  );
-  const awayTeamResult = await db.execute(
-    sql`SELECT id FROM teams WHERE league_id = ${leagueId} AND abbreviation = ${game.awayTeam} LIMIT 1`,
-  );
+  // Normalize and resolve team abbreviations
+  const invalid = (v?: string) => !v || v.trim() === "" || /final/i.test(v);
+  let homeAbbrev: string | undefined = (game.homeTeam ?? "").toString().trim();
+  let awayAbbrev: string | undefined = (game.awayTeam ?? "").toString().trim();
 
-  const homeTeam = homeTeamResult[0];
-  const awayTeam = awayTeamResult[0];
+  try {
+    if (league === "WNBA" && (invalid(homeAbbrev) || invalid(awayAbbrev))) {
+      const d = await deriveWNBATeamsFromBox(game.gameId.toString());
+      if (invalid(homeAbbrev)) homeAbbrev = d.home ?? d.codes?.[0] ?? undefined;
+      if (invalid(awayAbbrev)) awayAbbrev = d.away ?? d.codes?.[1] ?? undefined;
+    }
+    if (league === "MLB" && (invalid(homeAbbrev) || invalid(awayAbbrev))) {
+      const d = await deriveMLBTeamsFromLive(game.gameId.toString());
+      if (invalid(homeAbbrev)) homeAbbrev = d.home ?? undefined;
+      if (invalid(awayAbbrev)) awayAbbrev = d.away ?? undefined;
+    }
+  } catch {
+    // ...empty block removed
+  }
 
-  if (!homeTeam || !awayTeam) {
-    console.log(
-      `    ⚠️  Teams not found for game ${game.gameId} (${game.awayTeam} @ ${game.homeTeam})`,
+  if (invalid(homeAbbrev) || invalid(awayAbbrev)) {
+    console.log(`    ⚠️  Missing team abbreviations for ${league} ${game.gameId}`);
+    return { gamesProcessed, playersCreated };
+  }
+
+  // Prefer team_abbrev_map, then fallback to teams table; upsert mapping if needed
+  async function resolveViaMap(code: string, apiAbbrev: string): Promise<string | null> {
+    const rows = (await db.execute(
+      sql`SELECT team_id FROM team_abbrev_map WHERE league = ${code} AND api_abbrev = ${apiAbbrev} LIMIT 1`,
+    )) as Array<{ team_id: string }>;
+    return rows[0]?.team_id ?? null;
+  }
+  async function resolveTeamDirect(lid: string, abbr: string): Promise<string | null> {
+    const rows = (await db.execute(
+      sql`SELECT id FROM teams WHERE league_id = ${lid} AND abbreviation = ${abbr} LIMIT 1`,
+    )) as Array<{ id: string }>;
+    return rows[0]?.id ?? null;
+  }
+  async function upsertMap(code: string, abbr: string, tid: string) {
+    await db.execute(
+      sql`INSERT INTO team_abbrev_map (league, api_abbrev, team_id) VALUES (${code}, ${abbr}, ${tid}) ON CONFLICT (league, api_abbrev) DO NOTHING`,
     );
+  }
+
+  let homeTeamId = await resolveViaMap(league, homeAbbrev!);
+  if (!homeTeamId) {
+    const d = await resolveTeamDirect(leagueId, homeAbbrev!);
+    if (d) {
+      homeTeamId = d;
+      await upsertMap(league, homeAbbrev!, d);
+    }
+  }
+  let awayTeamId = await resolveViaMap(league, awayAbbrev!);
+  if (!awayTeamId) {
+    const d = await resolveTeamDirect(leagueId, awayAbbrev!);
+    if (d) {
+      awayTeamId = d;
+      await upsertMap(league, awayAbbrev!, d);
+    }
+  }
+
+  if (!homeTeamId || !awayTeamId) {
+    console.log(`    ⚠️  Missing team mapping for ${league} ${awayAbbrev} @ ${homeAbbrev}`);
     return { gamesProcessed, playersCreated };
   }
 
@@ -337,8 +609,8 @@ async function processGame(
     .values({
       id: randomUUID(),
       league_id: leagueId,
-      home_team_id: homeTeam.id,
-      away_team_id: awayTeam.id,
+      home_team_id: homeTeamId,
+      away_team_id: awayTeamId,
       season: getSeasonFromDate(dateStr, league),
       season_type: "regular",
       game_date: dateStr,
@@ -352,11 +624,11 @@ async function processGame(
   // Import the appropriate ingestion function based on league
   try {
     if (league === "NBA" || league === "WNBA") {
-      const { ingestGameBoxscore } = await import("./nba-wnba-player-logs-ingestion.js");
+      const { ingestGameBoxscore } = await import("./nba-wnba-player-logs-ingestion.ts");
       await ingestGameBoxscore(db, game.gameId.toString(), league);
     } else if (league === "MLB" || league === "NHL") {
       const { ingestMLBGameBoxscore, ingestNHLGameBoxscore } = await import(
-        "./mlb-nhl-player-logs-ingestion.js"
+        "./mlb-nhl-player-logs-ingestion.ts"
       );
       if (league === "MLB") {
         await ingestMLBGameBoxscore(db, game.gameId.toString());
@@ -364,7 +636,7 @@ async function processGame(
         await ingestNHLGameBoxscore(db, game.gameId.toString());
       }
     }
-    console.log(`    ✅ Processed game ${game.gameId} (${game.awayTeam} @ ${game.homeTeam})`);
+    console.log(`    ✅ Processed game ${game.gameId} (${awayAbbrev} @ ${homeAbbrev})`);
   } catch (error: any) {
     console.error(`    ❌ Failed to ingest game ${game.gameId}:`, error.message);
   }

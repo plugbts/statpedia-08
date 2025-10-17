@@ -4,22 +4,24 @@
 -- Add Golden State Valkyries to WNBA (2025 expansion)
 INSERT INTO teams (league_id, name, abbreviation, logo_url)
 SELECT id, 'Golden State Valkyries', 'GSV', 'https://a.espncdn.com/i/teamlogos/wnba/500/gsv.png'
-FROM leagues WHERE code = 'WNBA'
-WHERE NOT EXISTS (
-  SELECT 1 FROM teams t 
-  JOIN leagues l ON t.league_id = l.id 
-  WHERE l.code = 'WNBA' AND t.abbreviation = 'GSV'
-);
+FROM leagues
+WHERE code = 'WNBA'
+  AND NOT EXISTS (
+    SELECT 1 FROM teams t 
+    JOIN leagues l ON t.league_id = l.id 
+    WHERE l.code = 'WNBA' AND t.abbreviation = 'GSV'
+  );
 
 -- Add Utah Mammoth to NHL (2025 expansion)
 INSERT INTO teams (league_id, name, abbreviation, logo_url)
 SELECT id, 'Utah Mammoth', 'UTA', 'https://a.espncdn.com/i/teamlogos/nhl/500/uta.png'
-FROM leagues WHERE code = 'NHL'
-WHERE NOT EXISTS (
-  SELECT 1 FROM teams t 
-  JOIN leagues l ON t.league_id = l.id 
-  WHERE l.code = 'NHL' AND t.abbreviation = 'UTA'
-);
+FROM leagues
+WHERE code = 'NHL'
+  AND NOT EXISTS (
+    SELECT 1 FROM teams t 
+    JOIN leagues l ON t.league_id = l.id 
+    WHERE l.code = 'NHL' AND t.abbreviation = 'UTA'
+  );
 
 -- Summary query to show updated counts
 SELECT 
