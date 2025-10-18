@@ -126,9 +126,16 @@ async function main() {
         return odds > 0 ? 100 / (odds + 100) : Math.abs(odds) / (Math.abs(odds) + 100);
       }
       const latest = (await db.execute(dsql`
-        SELECT pp.line::numeric AS line,
-               pp.over_odds_american::int AS over_odds,
-               pp.under_odds_american::int AS under_odds
+        SELECT 
+          pp.line::numeric AS line,
+          COALESCE(
+            pp.over_odds_american,
+            CASE WHEN pp.over_odds ~ '^[+-]\\d+$' THEN CAST(REPLACE(pp.over_odds, '+','') AS INT) END
+          ) AS over_odds,
+          COALESCE(
+            pp.under_odds_american,
+            CASE WHEN pp.under_odds ~ '^[+-]\\d+$' THEN CAST(REPLACE(pp.under_odds, '+','') AS INT) END
+          ) AS under_odds
         FROM public.player_props pp
         JOIN public.prop_types pt ON pt.id = pp.prop_type_id
         JOIN public.games g ON g.id = pp.game_id

@@ -3,6 +3,8 @@ import fs from "fs";
 import path from "path";
 import postgres from "postgres";
 
+// Load .env first, then override with .env.local if present
+config();
 config({ path: ".env.local" });
 
 async function main() {
