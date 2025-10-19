@@ -4540,6 +4540,124 @@ export default {
         );
       }
 
+      // Bulk player analytics endpoint (mirrors Node API)
+      if (url.pathname === "/api/player-analytics-bulk" && req.method === "POST") {
+        try {
+          const body = (await req.json()) as unknown;
+          const { playerIds, propType, season } = (body ?? {}) as {
+            playerIds?: string[];
+            propType?: string;
+            season?: string | number;
+          };
+
+          if (!playerIds || !Array.isArray(playerIds) || playerIds.length === 0 || !propType) {
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: "playerIds array and propType are required",
+              }),
+              {
+                status: 400,
+                headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+              },
+            );
+          }
+
+          const seasonNum = typeof season === "string" ? parseInt(season, 10) : season;
+          const idsCsv = playerIds.join(",");
+          const baseSelect = "player_analytics";
+
+          // Helper: normalize a prop type (lowercase alnum only)
+          const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+          const requestedNorm = norm(propType);
+
+          // Stage 1: exact match on prop_type (optional season)
+          const stage1Params: string[] = [
+            `player_id=in.(${idsCsv})`,
+            `prop_type=eq.${encodeURIComponent(propType)}`,
+            "select=*",
+          ];
+          if (seasonNum) stage1Params.push(`season=eq.${seasonNum}`);
+          const stage1Path = `${baseSelect}?${stage1Params.join("&")}`;
+          const { supabaseFetch } = await import("./supabaseFetch");
+          const rows: any[] = (await supabaseFetch(env, stage1Path, { method: "GET" })) || [];
+
+          // Build fast lookup of found IDs
+          const foundIds = new Set<string>(rows.map((r: any) => r.player_id));
+          let missing = playerIds.filter((id) => !foundIds.has(id));
+
+          // Stage 2: fetch remaining players without prop_type filter (optional season), filter by normalized propType in-memory
+          if (missing.length > 0) {
+            const s2Params: string[] = [
+              `player_id=in.(${missing.join(",")})`,
+              "select=*",
+              "order=season.desc",
+            ];
+            if (seasonNum) s2Params.push(`season=eq.${seasonNum}`);
+            const stage2Path = `${baseSelect}?${s2Params.join("&")}`;
+            const stage2Rows: any[] =
+              (await supabaseFetch(env, stage2Path, { method: "GET" })) || [];
+            const stage2Filtered = stage2Rows.filter(
+              (r: any) => r?.prop_type && norm(String(r.prop_type)) === requestedNorm,
+            );
+
+            // Deduplicate by player_id, prefer most recent season row
+            const bestByPlayer = new Map<string, any>();
+            for (const r of stage2Filtered) {
+              const key = r.player_id;
+              const prev = bestByPlayer.get(key);
+              if (!prev || (r.season ?? 0) > (prev.season ?? 0)) bestByPlayer.set(key, r);
+            }
+
+            rows.push(...Array.from(bestByPlayer.values()));
+            for (const r of bestByPlayer.values()) foundIds.add(r.player_id);
+            missing = playerIds.filter((id) => !foundIds.has(id));
+          }
+
+          // Stage 3: latest season for any prop_type
+          if (missing.length > 0) {
+            const s3Params: string[] = [
+              `player_id=in.(${missing.join(",")})`,
+              "select=*",
+              "order=season.desc",
+            ];
+            const stage3Path = `${baseSelect}?${s3Params.join("&")}`;
+            const stage3Rows: any[] =
+              (await supabaseFetch(env, stage3Path, { method: "GET" })) || [];
+            const bestAnyByPlayer = new Map<string, any>();
+            for (const r of stage3Rows) {
+              const key = r.player_id;
+              const prev = bestAnyByPlayer.get(key);
+              if (!prev || (r.season ?? 0) > (prev.season ?? 0)) bestAnyByPlayer.set(key, r);
+            }
+            rows.push(...Array.from(bestAnyByPlayer.values()));
+          }
+
+          return new Response(JSON.stringify({ analytics: rows }), {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
+            },
+          });
+        } catch (error) {
+          console.error("❌ /api/player-analytics-bulk failed:", error);
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: error instanceof Error ? error.message : String(error),
+            }),
+            {
+              status: 500,
+              headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+              },
+            },
+          );
+        }
+      }
+
       // Handle enhanced insertion debug endpoint
       if (url.pathname === "/debug-insertion") {
         try {
