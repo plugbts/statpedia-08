@@ -1351,9 +1351,17 @@ app.post("/api/player-analytics-bulk", async (req, res) => {
     const client = postgres(connectionString);
     const db = drizzle(client);
 
+    // Helper: normalize prop type in SQL (lowercase alnum only)
+    const normExpr = (col: any) => sql`LOWER(REGEXP_REPLACE(${col}, '[^a-z0-9]', '', 'g'))`;
+
     // Fetch bulk analytics: pick the latest record per player for the given prop type.
     // If a season is provided, filter to that season; otherwise choose most recent season per player.
-    // Primary fetch
+    // Primary fetch (exact propType match)
+    console.log(
+      "[analytics-bulk] request",
+      JSON.stringify({ count: Array.isArray(playerIds) ? playerIds.length : 0, propType, season }),
+    );
+
     const analyticsResult = await db.execute(sql`
       ${
         season
@@ -1372,22 +1380,67 @@ app.post("/api/player-analytics-bulk", async (req, res) => {
     // Fallback: if season was provided but results are empty or incomplete,
     // backfill missing players with their latest available season.
     let rows: any[] = Array.isArray(analyticsResult) ? (analyticsResult as any[]) : [];
-    if (season) {
-      const foundIds = new Set(rows.map((r: any) => r.player_id));
-      const missing = (playerIds as string[]).filter((id) => !foundIds.has(id));
-      if (missing.length > 0) {
-        const fallback = await db.execute(sql`
-          SELECT DISTINCT ON (player_id) *
-          FROM public.player_analytics
-          WHERE player_id = ANY(${missing})
-            AND prop_type = ${propType}
-          ORDER BY player_id, season DESC, last_updated DESC NULLS LAST
-        `);
-        const fallbackRows = Array.isArray(fallback) ? (fallback as any[]) : [];
-        rows = [...rows, ...fallbackRows];
-      }
+
+    // Stage 2 fallback: if some players missing, try normalized propType matching
+    const requestedNorm = (propType || "")
+      .toString()
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+    const foundIdsStage1 = new Set(rows.map((r: any) => r.player_id));
+    const missingStage1 = (playerIds as string[]).filter((id) => !foundIdsStage1.has(id));
+    if (missingStage1.length > 0) {
+      const fallback2 = await db.execute(sql`
+        ${
+          season
+            ? sql`SELECT DISTINCT ON (player_id) *
+                 FROM public.player_analytics
+                 WHERE player_id = ANY(${missingStage1})
+                   AND ${normExpr(sql.identifier("prop_type"))} = ${requestedNorm}
+                   AND season = ${season}
+                 ORDER BY player_id, season DESC, last_updated DESC NULLS LAST`
+            : sql`SELECT DISTINCT ON (player_id) *
+                 FROM public.player_analytics
+                 WHERE player_id = ANY(${missingStage1})
+                   AND ${normExpr(sql.identifier("prop_type"))} = ${requestedNorm}
+                 ORDER BY player_id, season DESC, last_updated DESC NULLS LAST`
+        }
+      `);
+      const fb2Rows = Array.isArray(fallback2) ? (fallback2 as any[]) : [];
+      rows = [...rows, ...fb2Rows];
     }
 
+    // Stage 3 fallback: for any still-missing players, return latest season for any propType
+    const foundIdsStage2 = new Set(rows.map((r: any) => r.player_id));
+    const missingStage2 = (playerIds as string[]).filter((id) => !foundIdsStage2.has(id));
+    if (missingStage2.length > 0) {
+      const fallback3 = await db.execute(sql`
+        SELECT DISTINCT ON (player_id) *
+        FROM public.player_analytics
+        WHERE player_id = ANY(${missingStage2})
+        ORDER BY player_id, season DESC, last_updated DESC NULLS LAST
+      `);
+      const fb3Rows = Array.isArray(fallback3) ? (fallback3 as any[]) : [];
+      rows = [...rows, ...fb3Rows];
+    }
+
+    // Optional debug summary
+    try {
+      const missingFinal =
+        (playerIds as string[]).length - new Set(rows.map((r: any) => r.player_id)).size;
+      if (missingFinal > 0) {
+        console.warn(
+          `[analytics-bulk] requested=${(playerIds as string[]).length} matched=${(playerIds as string[]).length - missingFinal} missing=${missingFinal} propType="${propType}"`,
+        );
+      }
+    } catch (e) {
+      // Non-fatal: just debug-log any unexpected error in summary calculation
+      console.debug("[analytics-bulk] summary calc error", e);
+    }
+
+    console.log(
+      "[analytics-bulk] response",
+      JSON.stringify({ requested: (playerIds as string[]).length, returned: rows.length }),
+    );
     res.json({ analytics: rows });
   } catch (error) {
     const err = error as Error;

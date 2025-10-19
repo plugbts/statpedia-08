@@ -22,6 +22,7 @@ async function main() {
     `);
 
     let processed = 0;
+    let debugCount = 0;
     for (const row of combos as any[]) {
       const playerId: UUID = row.player_id;
       const propType: string = row.prop_type;
@@ -154,6 +155,23 @@ async function main() {
         const hitRate =
           (Number.isFinite(l10) && l10 > 0 ? l10 : Number.isFinite(l20) && l20 > 0 ? l20 : l5) /
           100;
+        if (debugCount < 10) {
+          console.log("[EV% DEBUG]", {
+            playerId,
+            propType,
+            season,
+            line,
+            overOdds,
+            underOdds,
+            hitRate,
+            l5,
+            l10,
+            l20,
+            season_avg,
+            preferOver: season_avg != null && line != null ? season_avg > line : true,
+          });
+          debugCount++;
+        }
         if (line != null && (overOdds != null || underOdds != null) && Number.isFinite(hitRate)) {
           const preferOver = season_avg != null && line != null ? season_avg > line : true;
           const sideOdds = preferOver ? (overOdds ?? underOdds) : (underOdds ?? overOdds);

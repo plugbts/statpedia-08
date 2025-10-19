@@ -1,12 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { leagueAgnosticPlayerPropsService, LeagueStats } from '@/services/league-agnostic-player-props-service';
-import { NormalizedPlayerProp } from '@/services/hasura-player-props-normalized-service';
-import { EnhancedPlayerPropCard } from './enhanced-player-prop-card';
+import React, { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  leagueAgnosticPlayerPropsService,
+  LeagueStats,
+} from "@/services/league-agnostic-player-props-service";
+import { NormalizedPlayerProp } from "@/services/hasura-player-props-normalized-service";
+import { EnhancedPlayerPropCard } from "./enhanced-player-prop-card";
+import PlayerPropsTable from "@/components/PlayerPropsTable";
+import { mapToPlayerPropsTableRows } from "@/components/player-props/map-to-player-props-table";
 
 interface LeagueSelectorProps {
   selectedLeague: string;
@@ -15,7 +26,12 @@ interface LeagueSelectorProps {
   leagueStats: Record<string, LeagueStats>;
 }
 
-export function LeagueSelector({ selectedLeague, onLeagueChange, leagues, leagueStats }: LeagueSelectorProps) {
+export function LeagueSelector({
+  selectedLeague,
+  onLeagueChange,
+  leagues,
+  leagueStats,
+}: LeagueSelectorProps) {
   return (
     <div className="flex items-center gap-4 mb-6">
       <div className="flex items-center gap-2">
@@ -25,7 +41,7 @@ export function LeagueSelector({ selectedLeague, onLeagueChange, leagues, league
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {leagues.map(league => (
+            {leagues.map((league) => (
               <SelectItem key={league} value={league}>
                 {league.toUpperCase()}
               </SelectItem>
@@ -33,7 +49,7 @@ export function LeagueSelector({ selectedLeague, onLeagueChange, leagues, league
           </SelectContent>
         </Select>
       </div>
-      
+
       {leagueStats[selectedLeague] && (
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
           <span>{leagueStats[selectedLeague].total_props} props</span>
@@ -49,7 +65,9 @@ interface LeagueAgnosticPlayerPropsTabProps {
   initialLeague?: string;
 }
 
-export function LeagueAgnosticPlayerPropsTab({ initialLeague = 'nfl' }: LeagueAgnosticPlayerPropsTabProps) {
+export function LeagueAgnosticPlayerPropsTab({
+  initialLeague = "nfl",
+}: LeagueAgnosticPlayerPropsTabProps) {
   const [selectedLeague, setSelectedLeague] = useState(initialLeague);
   const [leagues, setLeagues] = useState<string[]>([]);
   const [leagueStats, setLeagueStats] = useState<Record<string, LeagueStats>>({});
@@ -63,7 +81,7 @@ export function LeagueAgnosticPlayerPropsTab({ initialLeague = 'nfl' }: LeagueAg
       try {
         const availableLeagues = await leagueAgnosticPlayerPropsService.getActiveLeagues();
         setLeagues(availableLeagues);
-        
+
         // Load stats for all leagues
         const statsPromises = availableLeagues.map(async (league) => {
           try {
@@ -74,7 +92,7 @@ export function LeagueAgnosticPlayerPropsTab({ initialLeague = 'nfl' }: LeagueAg
             return { league, stats: null };
           }
         });
-        
+
         const statsResults = await Promise.all(statsPromises);
         const statsMap: Record<string, LeagueStats> = {};
         statsResults.forEach(({ league, stats }) => {
@@ -82,11 +100,11 @@ export function LeagueAgnosticPlayerPropsTab({ initialLeague = 'nfl' }: LeagueAg
             statsMap[league] = stats;
           }
         });
-        
+
         setLeagueStats(statsMap);
       } catch (err) {
-        console.error('Failed to load leagues:', err);
-        setError('Failed to load leagues');
+        console.error("Failed to load leagues:", err);
+        setError("Failed to load leagues");
       }
     };
 
@@ -97,20 +115,23 @@ export function LeagueAgnosticPlayerPropsTab({ initialLeague = 'nfl' }: LeagueAg
   useEffect(() => {
     const loadPlayerProps = async () => {
       if (!selectedLeague) return;
-      
+
       setLoading(true);
       setError(null);
-      
+
       try {
-        const props = await leagueAgnosticPlayerPropsService.getPlayerPropsByLeague(selectedLeague, {
-          limit: 50,
-          sortBy: 'ev_percent',
-          sortOrder: 'desc'
-        });
+        const props = await leagueAgnosticPlayerPropsService.getPlayerPropsByLeague(
+          selectedLeague,
+          {
+            limit: 50,
+            sortBy: "ev_percent",
+            sortOrder: "desc",
+          },
+        );
         setPlayerProps(props);
       } catch (err) {
-        console.error('Failed to load player props:', err);
-        setError('Failed to load player props');
+        console.error("Failed to load player props:", err);
+        setError("Failed to load player props");
       } finally {
         setLoading(false);
       }
@@ -128,11 +149,7 @@ export function LeagueAgnosticPlayerPropsTab({ initialLeague = 'nfl' }: LeagueAg
       <Card className="p-6">
         <div className="text-center text-red-500">
           <p>{error}</p>
-          <Button 
-            onClick={() => window.location.reload()} 
-            className="mt-4"
-            variant="outline"
-          >
+          <Button onClick={() => window.location.reload()} className="mt-4" variant="outline">
             Retry
           </Button>
         </div>
@@ -153,7 +170,7 @@ export function LeagueAgnosticPlayerPropsTab({ initialLeague = 'nfl' }: LeagueAg
       {/* League Tabs */}
       <Tabs value={selectedLeague} onValueChange={handleLeagueChange}>
         <TabsList className="grid w-full grid-cols-3">
-          {leagues.map(league => (
+          {leagues.map((league) => (
             <TabsTrigger key={league} value={league} className="flex items-center gap-2">
               {league.toUpperCase()}
               {leagueStats[league] && (
@@ -165,7 +182,7 @@ export function LeagueAgnosticPlayerPropsTab({ initialLeague = 'nfl' }: LeagueAg
           ))}
         </TabsList>
 
-        {leagues.map(league => (
+        {leagues.map((league) => (
           <TabsContent key={league} value={league} className="space-y-4">
             {loading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -183,10 +200,16 @@ export function LeagueAgnosticPlayerPropsTab({ initialLeague = 'nfl' }: LeagueAg
                 <p className="text-sm mt-2">Check back later for updated odds</p>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {playerProps.map(prop => (
-                  <EnhancedPlayerPropCard key={prop.prop_id} prop={prop} />
-                ))}
+              <div className="space-y-6">
+                {/* New clean table view */}
+                <PlayerPropsTable data={mapToPlayerPropsTableRows(playerProps)} />
+
+                {/* Keep existing cards below for now (can be toggled or removed later) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {playerProps.map((prop) => (
+                    <EnhancedPlayerPropCard key={prop.prop_id} prop={prop} />
+                  ))}
+                </div>
               </div>
             )}
           </TabsContent>

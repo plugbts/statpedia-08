@@ -1227,19 +1227,7 @@ export function PlayerPropsColumnView({
                               ? toAmericanOdds(prop.best_under || prop.underOdds)
                               : toAmericanOdds(prop.best_over || prop.overOdds)}
                         </div>
-                        {/* Numeric rating (40–95), no grades, capped at 95 */}
-                        <div className="mt-1 inline-flex items-center justify-center rounded px-1.5 py-0.5 text-[10px] font-bold bg-primary/10 text-primary">
-                          {(() => {
-                            try {
-                              const ctx = overUnderFilter === "under" ? "under" : "over";
-                              const r = _rating.calculateRating(prop as any, ctx as any);
-                              const score = Math.min(95, Math.round(r.overall));
-                              return score;
-                            } catch {
-                              return "—";
-                            }
-                          })()}
-                        </div>
+                        {/* Removed small badge under the odds per request */}
                       </div>
 
                       {/* EV% */}
