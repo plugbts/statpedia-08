@@ -124,7 +124,10 @@
   "db:migrate:seasons": "tsx -e \"import 'dotenv/config';import postgres from 'postgres';import fs from 'fs/promises';(async()=>{const c=process.env.NEON_DATABASE_URL||process.env.DATABASE_URL;if(!c){console.error('No DB URL');process.exit(1);}const sql=postgres(c,{prepare:false});try{const s=await fs.readFile('db/migrations/0010_seed_league_season_windows.sql','utf8');await sql.unsafe(s);console.log('Applied 0010_seed_league_season_windows.sql');}finally{await sql.end({timeout:2});}})()\"",
     "api:server": "tsx src/server/api-server.ts",
     "enrichment:webhook": "tsx src/server/enrichment-webhook.ts",
-    "dev:full": "concurrently \"npm run api:server\" \"npm run dev\""
+    "dev:full": "concurrently \"npm run api:server\" \"npm run dev\"",
+    "worker:deploy": "npm -w cloudflare-worker run deploy",
+    "worker:deploy:staging": "npm -w cloudflare-worker run deploy:staging",
+    "worker:deploy:production": "npm -w cloudflare-worker run deploy:production"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
