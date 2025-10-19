@@ -38,6 +38,7 @@ import { SportsbookIconsList } from "@/components/ui/sportsbook-icons";
 import { SportsbookOverlay } from "@/components/ui/sportsbook-overlay";
 import { statpediaRatingService, StatpediaRating } from "@/services/statpedia-rating-service";
 import { toAmericanOdds, getOddsColorClass } from "@/utils/odds";
+import { formatPropName } from "@/utils/formatters";
 import { getPlayerHeadshot, getPlayerInitials, getKnownPlayerHeadshot } from "@/utils/headshots";
 import { StreakService } from "@/services/streak-service";
 import { useToast } from "@/hooks/use-toast";
@@ -1199,7 +1200,7 @@ export function PlayerPropsColumnView({
                           className="text-xs font-medium text-white group-hover:text-white transition-all duration-300 transform group-hover:scale-105 truncate animate-pulse"
                           style={{ animationDuration: "3s" }}
                         >
-                          {prop.propType}
+                          {formatPropName(prop.propType)}
                         </div>
                       </div>
 
