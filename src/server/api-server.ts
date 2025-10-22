@@ -1221,6 +1221,28 @@ app.get("/api/player-analytics-enriched", async (req, res) => {
       });
     }
 
+    // Validate playerId is a UUID; if not, we can't query the analytics table (which uses uuid)
+    const isUuid = (v: unknown) =>
+      typeof v === "string" &&
+      /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(
+        v,
+      );
+    if (!isUuid(playerId)) {
+      return res.json({
+        analytics: null,
+        recentGames: [],
+        summary: {
+          totalGames: 0,
+          careerAvg: 0,
+          careerHitRate: 0,
+          avgL5: 0,
+          hitRateL5: 0,
+          currentStreak: 0,
+          currentStreakType: null,
+        },
+      });
+    }
+
     // Import the analytics logic
     const { drizzle } = await import("drizzle-orm/postgres-js");
     const postgres = (await import("postgres")).default;
@@ -1339,6 +1361,22 @@ app.post("/api/player-analytics-bulk", async (req, res) => {
       });
     }
 
+    // Validate and normalize player IDs to UUIDs only (table uses uuid)
+    const isUuid = (v: unknown) =>
+      typeof v === "string" &&
+      /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(
+        v,
+      );
+    const requestedIds: string[] = Array.isArray(playerIds)
+      ? Array.from(new Set((playerIds as string[]).filter((id) => typeof id === "string")))
+      : [];
+    const uuidIds: string[] = requestedIds.filter(isUuid);
+
+    if (uuidIds.length === 0) {
+      // No valid UUIDs to query; return empty analytics gracefully
+      return res.json({ analytics: [] });
+    }
+
     // Import the analytics logic
     const { drizzle } = await import("drizzle-orm/postgres-js");
     const postgres = (await import("postgres")).default;
@@ -1359,19 +1397,19 @@ app.post("/api/player-analytics-bulk", async (req, res) => {
     // Primary fetch (exact propType match)
     console.log(
       "[analytics-bulk] request",
-      JSON.stringify({ count: Array.isArray(playerIds) ? playerIds.length : 0, propType, season }),
+      JSON.stringify({ count: uuidIds.length, propType, season }),
     );
 
     const analyticsResult = await db.execute(sql`
       ${
         season
           ? sql`SELECT * FROM public.player_analytics
-               WHERE player_id = ANY(${playerIds})
+               WHERE player_id IN (${sql.join(uuidIds, sql`, `)})
                  AND prop_type = ${propType}
                  AND season = ${season}`
           : sql`SELECT DISTINCT ON (player_id) *
                FROM public.player_analytics
-               WHERE player_id = ANY(${playerIds})
+               WHERE player_id IN (${sql.join(uuidIds, sql`, `)})
                  AND prop_type = ${propType}
                ORDER BY player_id, season DESC, last_updated DESC NULLS LAST`
       }
@@ -1387,20 +1425,20 @@ app.post("/api/player-analytics-bulk", async (req, res) => {
       .toLowerCase()
       .replace(/[^a-z0-9]/g, "");
     const foundIdsStage1 = new Set(rows.map((r: any) => r.player_id));
-    const missingStage1 = (playerIds as string[]).filter((id) => !foundIdsStage1.has(id));
+    const missingStage1 = uuidIds.filter((id) => !foundIdsStage1.has(id));
     if (missingStage1.length > 0) {
       const fallback2 = await db.execute(sql`
         ${
           season
             ? sql`SELECT DISTINCT ON (player_id) *
                  FROM public.player_analytics
-                 WHERE player_id = ANY(${missingStage1})
+                 WHERE player_id IN (${sql.join(missingStage1, sql`, `)})
                    AND ${normExpr(sql.identifier("prop_type"))} = ${requestedNorm}
                    AND season = ${season}
                  ORDER BY player_id, season DESC, last_updated DESC NULLS LAST`
             : sql`SELECT DISTINCT ON (player_id) *
                  FROM public.player_analytics
-                 WHERE player_id = ANY(${missingStage1})
+                 WHERE player_id IN (${sql.join(missingStage1, sql`, `)})
                    AND ${normExpr(sql.identifier("prop_type"))} = ${requestedNorm}
                  ORDER BY player_id, season DESC, last_updated DESC NULLS LAST`
         }
@@ -1411,12 +1449,12 @@ app.post("/api/player-analytics-bulk", async (req, res) => {
 
     // Stage 3 fallback: for any still-missing players, return latest season for any propType
     const foundIdsStage2 = new Set(rows.map((r: any) => r.player_id));
-    const missingStage2 = (playerIds as string[]).filter((id) => !foundIdsStage2.has(id));
+    const missingStage2 = uuidIds.filter((id) => !foundIdsStage2.has(id));
     if (missingStage2.length > 0) {
       const fallback3 = await db.execute(sql`
         SELECT DISTINCT ON (player_id) *
         FROM public.player_analytics
-        WHERE player_id = ANY(${missingStage2})
+        WHERE player_id IN (${sql.join(missingStage2, sql`, `)})
         ORDER BY player_id, season DESC, last_updated DESC NULLS LAST
       `);
       const fb3Rows = Array.isArray(fallback3) ? (fallback3 as any[]) : [];
@@ -1425,11 +1463,10 @@ app.post("/api/player-analytics-bulk", async (req, res) => {
 
     // Optional debug summary
     try {
-      const missingFinal =
-        (playerIds as string[]).length - new Set(rows.map((r: any) => r.player_id)).size;
+      const missingFinal = uuidIds.length - new Set(rows.map((r: any) => r.player_id)).size;
       if (missingFinal > 0) {
         console.warn(
-          `[analytics-bulk] requested=${(playerIds as string[]).length} matched=${(playerIds as string[]).length - missingFinal} missing=${missingFinal} propType="${propType}"`,
+          `[analytics-bulk] requested=${uuidIds.length} matched=${uuidIds.length - missingFinal} missing=${missingFinal} propType="${propType}"`,
         );
       }
     } catch (e) {

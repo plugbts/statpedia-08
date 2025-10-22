@@ -136,7 +136,12 @@ class CloudflarePlayerPropsAPI {
       });
 
       if (!ingestResponse.ok) {
-        const errorData = await ingestResponse.json();
+        let errorData: any = {};
+        try {
+          errorData = await ingestResponse.json();
+        } catch (e) {
+          /* ignore */
+        }
         console.warn(
           `⚠️ Cloudflare Worker ingestion failed: ${ingestResponse.status} - ${errorData.error || "Unknown error"}`,
         );
@@ -179,14 +184,17 @@ class CloudflarePlayerPropsAPI {
       );
 
       if (!response.ok) {
-        const errorData = await response.json();
+        let errorData: any = {};
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          /* ignore */
+        }
         console.warn(
           `⚠️ Cloudflare Worker player props API failed: ${response.status} - ${errorData.error || "Unknown error"}`,
         );
-
-        // Fallback to Supabase Edge Function
-        console.log("🔄 Falling back to Supabase Edge Function...");
-        return await this.getPlayerPropsFromSupabase(sport, forceRefresh);
+        // No Supabase fallback anymore – return empty
+        return [];
       }
 
       const data: APIResponse = await response.json();
@@ -203,10 +211,8 @@ class CloudflarePlayerPropsAPI {
         console.warn(
           `⚠️ Cloudflare Worker API returned success: false - ${data.error || "Unknown error"}`,
         );
-
-        // Fallback to Supabase Edge Function
-        console.log("🔄 Falling back to Supabase Edge Function...");
-        return await this.getPlayerPropsFromSupabase(sport, forceRefresh);
+        // No Supabase fallback anymore – return empty
+        return [];
       }
 
       const props = data.data || [];
@@ -222,10 +228,8 @@ class CloudflarePlayerPropsAPI {
       return enrichedProps;
     } catch (error) {
       console.error("❌ New /api/{league}/player-props endpoint error:", error);
-
-      // Fallback to Supabase Edge Function
-      console.log("🔄 Falling back to Supabase Edge Function...");
-      return await this.getPlayerPropsFromSupabase(sport, forceRefresh);
+      // No Supabase fallback anymore – return empty
+      return [];
     }
   }
 

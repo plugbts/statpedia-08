@@ -1,6 +1,6 @@
-import { logAPI, logSuccess, logError, logWarning, logInfo } from '@/utils/console-logger';
-import { sportsGameOddsAPI, SportsGameOddsPlayerProp, SportsGameOddsGame } from './sportsgameodds-api';
-import { normalizeEventSGO, groupPlayerProps } from './normalizers';
+import { logAPI, logSuccess, logError, logWarning, logInfo } from "@/utils/console-logger";
+import { normalizeEventSGO, groupPlayerProps } from "./normalizers";
+import { cloudflarePlayerPropsAPI } from "./cloudflare-player-props-api";
 
 // Unified interfaces
 export interface SportsbookOdds {
@@ -46,7 +46,7 @@ export interface PlayerProp {
     seasonLow: number;
   };
   aiPrediction?: {
-    recommended: 'over' | 'under';
+    recommended: "over" | "under";
     confidence: number;
     reasoning: string;
     factors: string[];
@@ -74,8 +74,8 @@ export interface Game {
 export interface OddsComparison {
   id: string;
   sport: string;
-    homeTeam: string;
-    awayTeam: string;
+  homeTeam: string;
+  awayTeam: string;
   commenceTime: string;
   markets: Market[];
   lastUpdate: string;
@@ -94,81 +94,114 @@ export interface Outcome {
 
 class UnifiedSportsAPI {
   constructor() {
-    logInfo('UnifiedSportsAPI', 'Service initialized - Version 5.0.0');
-    logInfo('UnifiedSportsAPI', 'Using SportsGameOdds API for all data (games, markets, odds, props)');
+    logInfo("UnifiedSportsAPI", "Service initialized - Version 5.1.0");
+    logInfo("UnifiedSportsAPI", "Using Cloudflare Worker for player props (no Supabase)");
   }
 
-  // Get player props using SportsGameOdds API (markets/odds/props only)
-  async getPlayerProps(sport: string, season?: number, week?: number, selectedSportsbook?: string): Promise<PlayerProp[]> {
-    logAPI('UnifiedSportsAPI', `Getting player props for ${sport}${season ? ` ${season}` : ''}${week ? ` week ${week}` : ''} from SportsGameOdds API`);
-    
+  // Get player props using Cloudflare Worker (no Supabase)
+  async getPlayerProps(
+    sport: string,
+    season?: number,
+    week?: number,
+    selectedSportsbook?: string,
+  ): Promise<PlayerProp[]> {
+    logAPI(
+      "UnifiedSportsAPI",
+      `Getting player props for ${sport}${season ? ` ${season}` : ""}${week ? ` week ${week}` : ""} from Cloudflare Worker`,
+    );
+
     try {
-      // Get player props from Backend API (server-side SportGameOdds)
-      const { backendSportsGameOddsAPI } = await import('./backend-sportsgameodds-api');
-      const sportsGameOddsProps = await backendSportsGameOddsAPI.getPlayerProps(sport);
-      
-      logAPI('UnifiedSportsAPI', `Backend SportsGameOdds: ${sportsGameOddsProps.length} props`);
-      console.log('🎯 UnifiedSportsAPI received props from SportsGameOdds:', sportsGameOddsProps.length);
+      const cfProps = await cloudflarePlayerPropsAPI.getPlayerProps(sport);
+      logAPI("UnifiedSportsAPI", `Cloudflare Worker: ${cfProps.length} props`);
 
-      // Convert SportsGameOdds props to unified format
-      const enhancedProps: PlayerProp[] = sportsGameOddsProps.map(sgoProp => ({
-        id: `sgo-${sgoProp.id}`,
-        playerId: sgoProp.playerId,
-        playerName: sgoProp.playerName,
-        team: sgoProp.team,
-        teamAbbr: this.getTeamAbbreviation(sgoProp.team),
-        opponent: sgoProp.homeTeam === sgoProp.team ? sgoProp.awayTeam : sgoProp.homeTeam,
-        opponentAbbr: this.getTeamAbbreviation(sgoProp.homeTeam === sgoProp.team ? sgoProp.awayTeam : sgoProp.homeTeam),
-        gameId: sgoProp.gameId,
-        sport: sport.toUpperCase(),
-        propType: sgoProp.propType,
-        line: sgoProp.line,
-        overOdds: sgoProp.overOdds,
-        underOdds: sgoProp.underOdds,
-        allSportsbookOdds: [{
-          sportsbook: sgoProp.sportsbook,
-          line: sgoProp.line,
-          overOdds: sgoProp.overOdds,
-          underOdds: sgoProp.underOdds,
-          lastUpdate: sgoProp.lastUpdate
-        }],
-        gameDate: this.formatGameDate(sgoProp.gameTime),
-        gameTime: sgoProp.gameTime,
-        confidence: sgoProp.confidence,
-        expectedValue: this.calculateExpectedValue(sgoProp.line, sgoProp.overOdds, sgoProp.underOdds),
-        lastUpdated: new Date(sgoProp.lastUpdate),
-        isLive: true,
-        marketId: `${sgoProp.playerId}-${sgoProp.propType}-${sgoProp.gameId}-${sport}`,
-        seasonStats: this.generateSeasonStats(sgoProp.propType, sgoProp.line),
-        aiPrediction: this.generateAIPrediction(sgoProp.propType, sgoProp.line, sgoProp.overOdds, sgoProp.underOdds)
-      }));
+      const enhancedProps: PlayerProp[] = cfProps.map((p: any) => {
+        // Determine primary odds: prefer bestOver/bestUnder, fallback to overOdds/underOdds or first allBooks
+        const parseNum = (v: any): number | null => {
+          if (v === null || v === undefined) return null;
+          const n = typeof v === "string" ? parseFloat(v) : v;
+          return Number.isFinite(n) ? n : null;
+        };
+        const bestOver =
+          parseNum(p.bestOver?.price) ??
+          parseNum(p.best_over?.odds) ??
+          parseNum(p.overOdds) ??
+          parseNum(p.allBooks?.[0]?.price);
+        const bestUnder =
+          parseNum(p.bestUnder?.price) ??
+          parseNum(p.best_under?.odds) ??
+          parseNum(p.underOdds) ??
+          parseNum(p.allBooks?.[0]?.price);
 
-      // Filter by sportsbook if specified
-      let filteredProps = enhancedProps;
-      if (selectedSportsbook && selectedSportsbook !== 'all') {
-        // Check if any props have sportsbook-specific odds
-        const propsWithSportsbookData = enhancedProps.filter(prop => 
-          prop.allSportsbookOdds?.some(odds => 
-            odds.sportsbook && odds.sportsbook.toLowerCase().includes(selectedSportsbook.toLowerCase())
-          )
+        const teamAbbr = (p.teamAbbr || p.team || "UNK").toString();
+        const opponentAbbr = (p.opponentAbbr || p.opponent || "UNK").toString();
+        const playerId = p.playerId || p.player_id || "";
+        const gameId = p.gameId || "";
+
+        return {
+          id: p.id || `cfw-${playerId}-${p.propType}-${gameId}-${sport}`,
+          playerId: String(playerId),
+          playerName: p.playerName,
+          team: p.team || teamAbbr,
+          teamAbbr:
+            teamAbbr.length <= 4 ? teamAbbr.toUpperCase() : this.getTeamAbbreviation(teamAbbr),
+          opponent: p.opponent || opponentAbbr,
+          opponentAbbr:
+            opponentAbbr.length <= 4
+              ? opponentAbbr.toUpperCase()
+              : this.getTeamAbbreviation(opponentAbbr),
+          gameId: String(gameId),
+          sport: (p.sport || sport).toString().toUpperCase(),
+          propType: p.propType,
+          line: Number(p.line ?? 0),
+          overOdds: Number(bestOver ?? 0),
+          underOdds: Number(bestUnder ?? 0),
+          allSportsbookOdds: (p.allBooks || p.allSportsbookOdds || []).map((b: any) => ({
+            sportsbook: b.bookmaker || b.sportsbook || "unknown",
+            line: Number(b.line ?? p.line ?? 0),
+            overOdds: Number(b.odds ?? b.overOdds ?? 0),
+            underOdds: Number(b.odds ?? b.underOdds ?? 0),
+            lastUpdate: p.lastUpdate || new Date().toISOString(),
+          })),
+          gameDate: p.gameDate || this.formatGameDate(p.gameTime || new Date().toISOString()),
+          gameTime: p.gameTime || new Date().toISOString(),
+          confidence: p.confidence ?? undefined,
+          expectedValue: p.expectedValue ?? undefined,
+          lastUpdated: new Date(p.lastUpdate || new Date().toISOString()),
+          isLive: false,
+          marketId: p.marketId || `${playerId}-${p.propType}-${gameId}-${sport}`,
+          seasonStats: p.seasonStats || this.generateSeasonStats(p.propType, Number(p.line ?? 0)),
+          aiPrediction:
+            p.aiPrediction ||
+            this.generateAIPrediction(
+              p.propType,
+              Number(p.line ?? 0),
+              Number(bestOver ?? 0),
+              Number(bestUnder ?? 0),
+            ),
+        };
+      });
+
+      // Optional sportsbook filter
+      let filtered = enhancedProps;
+      if (selectedSportsbook && selectedSportsbook !== "all") {
+        const needle = selectedSportsbook.toLowerCase();
+        const withSB = enhancedProps.filter((p) =>
+          p.allSportsbookOdds?.some((o) => o.sportsbook?.toLowerCase().includes(needle)),
         );
-        
-        // If we have sportsbook-specific data, use it; otherwise show all props
-        // (since the API might aggregate data from all sportsbooks without specific attribution)
-        if (propsWithSportsbookData.length > 0) {
-          filteredProps = propsWithSportsbookData;
-          logAPI('UnifiedSportsAPI', `Filtered to ${filteredProps.length} props for sportsbook: ${selectedSportsbook}`);
-        } else {
-          logAPI('UnifiedSportsAPI', `No sportsbook-specific data found, showing all ${enhancedProps.length} props (aggregated from all sportsbooks)`);
-          filteredProps = enhancedProps;
-        }
+        filtered = withSB.length > 0 ? withSB : enhancedProps;
+        logAPI(
+          "UnifiedSportsAPI",
+          `Filtered to ${filtered.length} props for sportsbook: ${selectedSportsbook}`,
+        );
       }
 
-      logSuccess('UnifiedSportsAPI', `Returning ${filteredProps.length} enhanced player props for ${sport} from SportsGameOdds`);
-      return filteredProps;
-
+      logSuccess(
+        "UnifiedSportsAPI",
+        `Returning ${filtered.length} player props for ${sport} from Cloudflare Worker`,
+      );
+      return filtered;
     } catch (error) {
-      logError('UnifiedSportsAPI', `Failed to get player props for ${sport}:`, error);
+      logError("UnifiedSportsAPI", `Failed to get player props for ${sport}:`, error);
       return [];
     }
   }
@@ -177,41 +210,41 @@ class UnifiedSportsAPI {
   async getGames(sport: string, date?: string): Promise<Game[]> {
     try {
       // Use the correct endpoint format: /nfl/games?date=... instead of /sports/1/games
-      const today = date || new Date().toISOString().split('T')[0];
+      const today = date || new Date().toISOString().split("T")[0];
       const league = sport.toLowerCase();
-      
-      logAPI('UnifiedSportsAPI', `Fetching games for ${sport} on ${today} using /${league}/games endpoint`);
-      
-      // TODO: Replace with proper Hasura GraphQL queries for games
-      // For now, return empty array to avoid CORS errors
-      logAPI('UnifiedSportsAPI', `Skipping games fetch - using Hasura API instead`);
+
+      logAPI(
+        "UnifiedSportsAPI",
+        `Fetching games for ${sport} on ${today} using /${league}/games endpoint`,
+      );
+
+      // TODO: Replace with proper Hasura GraphQL queries for games.
+      // For now, return an empty array to avoid CORS and keep API stable.
+      logAPI("UnifiedSportsAPI", `Skipping games fetch - using Hasura API instead`);
       return [];
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      
-      // Extract games from the events data
-      const games: Game[] = (data.events || []).map((event: any) => ({
+
+      // Example extraction if/when a response is used in the future
+      const games: Game[] = ([] as any[]).map((event: any) => ({
         id: event.eventID,
         sport: sport.toUpperCase(),
         homeTeam: event.home_team,
         awayTeam: event.away_team,
         commenceTime: event.start_time,
-        status: 'scheduled', // Default status
+        status: "scheduled", // Default status
         homeScore: undefined,
         awayScore: undefined,
         homeOdds: -110, // Default odds
         awayOdds: -110,
-        drawOdds: sport === 'soccer' ? -110 : undefined
+        drawOdds: sport === "soccer" ? -110 : undefined,
       }));
 
-      logSuccess('UnifiedSportsAPI', `Returning ${games.length} games for ${sport} from correct endpoint`);
+      logSuccess(
+        "UnifiedSportsAPI",
+        `Returning ${games.length} games for ${sport} from correct endpoint`,
+      );
       return games;
     } catch (error) {
-      logError('UnifiedSportsAPI', `Failed to get games for ${sport}:`, error);
+      logError("UnifiedSportsAPI", `Failed to get games for ${sport}:`, error);
       return [];
     }
   }
@@ -221,46 +254,60 @@ class UnifiedSportsAPI {
     try {
       // Get games and convert to odds comparisons format using the updated getGames method
       const games = await this.getGames(sport);
-      
-      const comparisons: OddsComparison[] = games.map(game => ({
+
+      const comparisons: OddsComparison[] = games.map((game) => ({
         id: game.id,
         sport: game.sport,
         homeTeam: game.homeTeam,
         awayTeam: game.awayTeam,
         commenceTime: game.commenceTime,
         markets: [], // SportsGameOdds doesn't provide market data in this format
-        lastUpdate: new Date().toISOString()
+        lastUpdate: new Date().toISOString(),
       }));
-      
-      logSuccess('UnifiedSportsAPI', `Returning ${comparisons.length} odds comparisons for ${sport} from updated endpoint`);
+
+      logSuccess(
+        "UnifiedSportsAPI",
+        `Returning ${comparisons.length} odds comparisons for ${sport} from updated endpoint`,
+      );
       return comparisons;
     } catch (error) {
-      logError('UnifiedSportsAPI', `Failed to get odds comparisons for ${sport}:`, error);
+      logError("UnifiedSportsAPI", `Failed to get odds comparisons for ${sport}:`, error);
       return [];
     }
   }
 
   // Get past games for analytics tab
-  async getPastPlayerProps(sport: string, season?: number, week?: number, selectedSportsbook?: string): Promise<PlayerProp[]> {
+  async getPastPlayerProps(
+    sport: string,
+    season?: number,
+    week?: number,
+    selectedSportsbook?: string,
+  ): Promise<PlayerProp[]> {
     try {
-      // Get player props from Backend API (server-side SportGameOdds)
-      const { backendSportsGameOddsAPI } = await import('./backend-sportsgameodds-api');
-      const sportsGameOddsProps = await backendSportsGameOddsAPI.getPlayerProps(sport);
-      logAPI('UnifiedSportsAPI', `Retrieved ${sportsGameOddsProps.length} props from Backend SportsGameOdds`);
+      // Get player props from Cloudflare Worker
+      const cfProps = await cloudflarePlayerPropsAPI.getPlayerProps(sport);
+      logAPI("UnifiedSportsAPI", `Retrieved ${cfProps.length} props from Cloudflare Worker`);
 
-      // Convert and filter for past games only
-      const unifiedProps = this.convertSportsGameOddsProps(sportsGameOddsProps);
+      // Convert and filter for past games only (reuse unified mapping above)
+      const unifiedProps = await this.getPlayerProps(sport);
       const filteredProps = this.filterPastGamesUnified(unifiedProps);
-      logAPI('UnifiedSportsAPI', `Filtered to ${filteredProps.length} past game props for analytics`);
+      logAPI(
+        "UnifiedSportsAPI",
+        `Filtered to ${filteredProps.length} past game props for analytics`,
+      );
 
       // Sort by date (most recent first) - props are already in unified format
-      const playerProps = filteredProps
-        .sort((a, b) => new Date(b.gameTime).getTime() - new Date(a.gameTime).getTime());
+      const playerProps = filteredProps.sort(
+        (a, b) => new Date(b.gameTime).getTime() - new Date(a.gameTime).getTime(),
+      );
 
-      logSuccess('UnifiedSportsAPI', `Returning ${playerProps.length} past player props for ${sport}`);
+      logSuccess(
+        "UnifiedSportsAPI",
+        `Returning ${playerProps.length} past player props for ${sport}`,
+      );
       return playerProps;
     } catch (error) {
-      logError('UnifiedSportsAPI', `Failed to get past player props for ${sport}:`, error);
+      logError("UnifiedSportsAPI", `Failed to get past player props for ${sport}:`, error);
       return [];
     }
   }
@@ -273,68 +320,35 @@ class UnifiedSportsAPI {
 
   private getTeamAbbreviation(teamName: string): string {
     const abbreviations: { [key: string]: string } = {
-      'Los Angeles Lakers': 'LAL',
-      'Boston Celtics': 'BOS',
-      'Golden State Warriors': 'GSW',
-      'Miami Heat': 'MIA',
-      'Chicago Bulls': 'CHI',
-      'New York Knicks': 'NYK',
-      'Dallas Mavericks': 'DAL',
-      'Phoenix Suns': 'PHX',
-      'Denver Nuggets': 'DEN',
-      'Milwaukee Bucks': 'MIL',
-      'Kansas City Chiefs': 'KC',
-      'Buffalo Bills': 'BUF',
-      'Miami Dolphins': 'MIA',
-      'New England Patriots': 'NE',
-      'Dallas Cowboys': 'DAL',
-      'Green Bay Packers': 'GB',
-      'San Francisco 49ers': 'SF',
-      'Los Angeles Rams': 'LAR',
-      'Tampa Bay Buccaneers': 'TB',
-      'New Orleans Saints': 'NO'
+      "Los Angeles Lakers": "LAL",
+      "Boston Celtics": "BOS",
+      "Golden State Warriors": "GSW",
+      "Miami Heat": "MIA",
+      "Chicago Bulls": "CHI",
+      "New York Knicks": "NYK",
+      "Dallas Mavericks": "DAL",
+      "Phoenix Suns": "PHX",
+      "Denver Nuggets": "DEN",
+      "Milwaukee Bucks": "MIL",
+      "Kansas City Chiefs": "KC",
+      "Buffalo Bills": "BUF",
+      "Miami Dolphins": "MIA",
+      "New England Patriots": "NE",
+      "Dallas Cowboys": "DAL",
+      "Green Bay Packers": "GB",
+      "San Francisco 49ers": "SF",
+      "Los Angeles Rams": "LAR",
+      "Tampa Bay Buccaneers": "TB",
+      "New Orleans Saints": "NO",
     };
     return abbreviations[teamName] || teamName.substring(0, 3).toUpperCase();
   }
 
-  private convertSportsGameOddsProps(props: SportsGameOddsPlayerProp[]): PlayerProp[] {
-    // Convert SportsGameOdds props to unified PlayerProp format
-    return props.map(sgProp => ({
-      id: sgProp.id,
-      playerId: sgProp.playerId,
-      playerName: sgProp.playerName,
-      team: sgProp.team,
-      teamAbbr: this.getTeamAbbreviation(sgProp.team),
-      opponent: sgProp.homeTeam === sgProp.team ? sgProp.awayTeam : sgProp.homeTeam,
-      opponentAbbr: this.getTeamAbbreviation(sgProp.homeTeam === sgProp.team ? sgProp.awayTeam : sgProp.homeTeam),
-      gameId: sgProp.gameId,
-      sport: sgProp.sport.toUpperCase(),
-      propType: sgProp.propType,
-      line: sgProp.line,
-      overOdds: sgProp.overOdds,
-      underOdds: sgProp.underOdds,
-      allSportsbookOdds: [{
-        sportsbook: sgProp.sportsbook,
-        line: sgProp.line,
-        overOdds: sgProp.overOdds,
-        underOdds: sgProp.underOdds,
-        lastUpdate: sgProp.lastUpdate
-      }],
-      gameDate: this.formatGameDate(sgProp.gameTime),
-      gameTime: sgProp.gameTime,
-      confidence: sgProp.confidence,
-      expectedValue: this.calculateExpectedValue(sgProp.line, sgProp.overOdds, sgProp.underOdds),
-      lastUpdated: new Date(sgProp.lastUpdate),
-      isLive: false,
-      marketId: `${sgProp.playerId}-${sgProp.propType}-${sgProp.gameId}-${sgProp.sport}`,
-      seasonStats: this.generateSeasonStats(sgProp.propType, sgProp.line),
-      aiPrediction: this.generateAIPrediction(sgProp.propType, sgProp.line, sgProp.overOdds, sgProp.underOdds)
-    }));
-  }
+  // Note: convertSportsGameOddsProps removed; Cloudflare mapping used directly in getPlayerProps
 
   private filterPastGamesUnified(props: PlayerProp[]): PlayerProp[] {
     const now = new Date();
-    return props.filter(prop => {
+    return props.filter((prop) => {
       const gameTime = new Date(prop.gameTime);
       return gameTime < now;
     });
@@ -345,27 +359,26 @@ class UnifiedSportsAPI {
       // Calculate implied probabilities from odds
       const overImpliedProb = this.americanToImpliedProb(overOdds);
       const underImpliedProb = this.americanToImpliedProb(underOdds);
-      
+
       // Calculate decimal odds for proper EV calculation
       const overDecimalOdds = this.americanToDecimalOdds(overOdds);
       const underDecimalOdds = this.americanToDecimalOdds(underOdds);
-      
+
       // Use more realistic true probability estimation (closer to 50/50 for most props)
       // Add small random variance to simulate slight edge detection
       const variance = (Math.random() - 0.5) * 0.1; // ±5% variance
       const estimatedOverProb = Math.max(0.35, Math.min(0.65, 0.5 + variance));
       const estimatedUnderProb = 1 - estimatedOverProb;
-      
+
       // Calculate EV for both sides
-      const overEV = (estimatedOverProb * (overDecimalOdds - 1)) - ((1 - estimatedOverProb) * 1);
-      const underEV = (estimatedUnderProb * (underDecimalOdds - 1)) - ((1 - estimatedUnderProb) * 1);
-      
+      const overEV = estimatedOverProb * (overDecimalOdds - 1) - (1 - estimatedOverProb) * 1;
+      const underEV = estimatedUnderProb * (underDecimalOdds - 1) - (1 - estimatedUnderProb) * 1;
+
       // Return the better EV as a percentage, capped at reasonable values
       const bestEV = Math.max(overEV, underEV) * 100;
-      
+
       // Cap EV at realistic values (-50% to +25%)
       return Math.max(-50, Math.min(25, bestEV));
-      
     } catch (error) {
       // Return neutral EV if calculation fails
       return 0;
@@ -374,46 +387,48 @@ class UnifiedSportsAPI {
 
   private americanToDecimalOdds(americanOdds: number): number {
     if (americanOdds > 0) {
-      return (americanOdds / 100) + 1;
+      return americanOdds / 100 + 1;
     } else {
-      return (100 / Math.abs(americanOdds)) + 1;
+      return 100 / Math.abs(americanOdds) + 1;
     }
   }
 
-  private estimateTrueProbability(line: number, side: 'over' | 'under'): number {
+  private estimateTrueProbability(line: number, side: "over" | "under"): number {
     // This is a simplified model - in reality, you'd use ML models, historical data, etc.
     // For now, we'll use a basic heuristic based on common prop lines
-    
+
     // Common prop lines and their rough probabilities
-    const propProbabilities: { [key: number]: { over: number, under: number } } = {
+    const propProbabilities: { [key: number]: { over: number; under: number } } = {
       0.5: { over: 0.52, under: 0.48 },
       1.5: { over: 0.55, under: 0.45 },
-      2.5: { over: 0.60, under: 0.40 },
+      2.5: { over: 0.6, under: 0.4 },
       3.5: { over: 0.65, under: 0.35 },
-      4.5: { over: 0.70, under: 0.30 },
+      4.5: { over: 0.7, under: 0.3 },
       5.5: { over: 0.75, under: 0.25 },
-      10.5: { over: 0.80, under: 0.20 },
+      10.5: { over: 0.8, under: 0.2 },
       15.5: { over: 0.85, under: 0.15 },
-      20.5: { over: 0.90, under: 0.10 },
-      25.5: { over: 0.95, under: 0.05 }
+      20.5: { over: 0.9, under: 0.1 },
+      25.5: { over: 0.95, under: 0.05 },
     };
-    
+
     // Find closest line or interpolate
-    const lines = Object.keys(propProbabilities).map(Number).sort((a, b) => a - b);
+    const lines = Object.keys(propProbabilities)
+      .map(Number)
+      .sort((a, b) => a - b);
     let closestLine = lines[0];
-    
+
     for (const l of lines) {
       if (Math.abs(l - line) < Math.abs(closestLine - line)) {
         closestLine = l;
       }
     }
-    
+
     const baseProb = propProbabilities[closestLine] || { over: 0.5, under: 0.5 };
-    
+
     // Add some randomness to make it more realistic
     const randomFactor = (Math.random() - 0.5) * 0.1; // ±5% variation
     const probability = baseProb[side] + randomFactor;
-    
+
     // Ensure probability is between 0.05 and 0.95
     return Math.max(0.05, Math.min(0.95, probability));
   }
@@ -429,21 +444,21 @@ class UnifiedSportsAPI {
   private formatGameDate(gameTime: string): string {
     try {
       const date = new Date(gameTime);
-      
+
       // If the date is in UTC, convert to Eastern Time for NFL games
       // This ensures we get the correct date for games that might cross midnight UTC
-      const easternDate = new Date(date.getTime() + (5 * 60 * 60 * 1000)); // UTC+5 for Eastern Time
-      
+      const easternDate = new Date(date.getTime() + 5 * 60 * 60 * 1000); // UTC+5 for Eastern Time
+
       // Format as YYYY-MM-DD
-      return easternDate.toISOString().split('T')[0];
+      return easternDate.toISOString().split("T")[0];
     } catch (error) {
-      console.error('Error formatting game date:', error);
+      console.error("Error formatting game date:", error);
       // Fallback to simple split if date parsing fails
-      return gameTime.split('T')[0];
+      return gameTime.split("T")[0];
     }
   }
 
-  private generateSeasonStats(propType: string, line: number): PlayerProp['seasonStats'] {
+  private generateSeasonStats(propType: string, line: number): PlayerProp["seasonStats"] {
     // Generate realistic season stats based on prop type and line
     const baseStats = {
       average: line * 0.95,
@@ -452,46 +467,51 @@ class UnifiedSportsAPI {
       hitRate: 0.6,
       last5Games: [line * 0.9, line * 1.1, line * 0.95, line * 1.05, line],
       seasonHigh: line * 1.3,
-      seasonLow: line * 0.7
+      seasonLow: line * 0.7,
     };
 
     return baseStats;
   }
 
-  private generateAIPrediction(propType: string, line: number, overOdds: number, underOdds: number): PlayerProp['aiPrediction'] {
+  private generateAIPrediction(
+    propType: string,
+    line: number,
+    overOdds: number,
+    underOdds: number,
+  ): PlayerProp["aiPrediction"] {
     // Simple AI prediction logic
     const overProb = this.americanToImpliedProb(overOdds);
     const underProb = this.americanToImpliedProb(underOdds);
-    
-    const recommended = overProb > underProb ? 'over' : 'under';
+
+    const recommended = overProb > underProb ? "over" : "under";
     const confidence = Math.max(overProb, underProb);
-    
+
     return {
       recommended,
       confidence,
       reasoning: `Based on recent form and matchup analysis, ${recommended} is the recommended play.`,
-      factors: ['Recent form', 'Matchup analysis', 'Weather conditions', 'Injury reports']
+      factors: ["Recent form", "Matchup analysis", "Weather conditions", "Injury reports"],
     };
   }
 
   // Deduplicate player props (prioritize SportsGameOdds for betting data)
   private deduplicatePlayerProps(props: PlayerProp[]): PlayerProp[] {
     const uniqueProps = new Map<string, PlayerProp>();
-    
-    props.forEach(prop => {
+
+    props.forEach((prop) => {
       const key = `${prop.playerName}-${prop.propType}-${prop.gameId}`;
-      
+
       if (!uniqueProps.has(key)) {
         uniqueProps.set(key, prop);
       } else {
         // Prioritize SportsGameOdds props (those with 'sgo-' prefix)
         const existing = uniqueProps.get(key)!;
-        if (prop.id.startsWith('sgo-') && !existing.id.startsWith('sgo-')) {
+        if (prop.id.startsWith("sgo-") && !existing.id.startsWith("sgo-")) {
           uniqueProps.set(key, prop);
         }
       }
     });
-    
+
     return Array.from(uniqueProps.values());
   }
 }
