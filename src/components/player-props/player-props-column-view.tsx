@@ -709,7 +709,7 @@ export function PlayerPropsColumnView({
     )
       return "DEF";
 
-    return "N/A";
+    return "—";
   };
 
   // Extract unique games for dropdown
@@ -1240,7 +1240,7 @@ export function PlayerPropsColumnView({
                           </span>
                         ) : (
                           <span className="text-xs text-muted-foreground group-hover:text-foreground/70 transition-colors duration-200">
-                            N/A
+                            —
                           </span>
                         )}
                       </div>
@@ -1437,14 +1437,14 @@ export function PlayerPropsColumnView({
                           {(() => {
                             if (hasStats && h2h.total > 0) return `${h2h.pct.toFixed(0)}%`;
                             // Use real data only - no mock data
-                            return "N/A";
+                            return "—";
                           })()}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {(() => {
                             if (hasStats && h2h.total > 0) return `${h2h.hits}/${h2h.total}`;
                             // Use real data only - no mock data
-                            return "N/A";
+                            return "—";
                           })()}
                         </div>
                       </div>
@@ -1455,7 +1455,7 @@ export function PlayerPropsColumnView({
                           {(() => {
                             if (hasStats && season.total > 0) return `${season.pct.toFixed(0)}%`;
                             // Use real data only - no mock data
-                            return "N/A";
+                            return "—";
                           })()}
                         </div>
                         <div className="text-xs text-muted-foreground">
@@ -1463,7 +1463,7 @@ export function PlayerPropsColumnView({
                             if (hasStats && season.total > 0)
                               return `${season.hits}/${season.total}`;
                             // Use real data only - no mock data
-                            return "N/A";
+                            return "—";
                           })()}
                         </div>
                       </div>
@@ -1474,14 +1474,14 @@ export function PlayerPropsColumnView({
                           {(() => {
                             if (hasStats && l5.total > 0) return `${l5.pct.toFixed(0)}%`;
                             // Use real data only - no mock data
-                            return "N/A";
+                            return "—";
                           })()}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {(() => {
                             if (hasStats && l5.total > 0) return `${l5.hits}/${l5.total}`;
                             // Use real data only - no mock data
-                            return "N/A";
+                            return "—";
                           })()}
                         </div>
                       </div>
@@ -1492,14 +1492,14 @@ export function PlayerPropsColumnView({
                           {(() => {
                             if (hasStats && l10.total > 0) return `${l10.pct.toFixed(0)}%`;
                             // Use real data only - no mock data
-                            return "N/A";
+                            return "—";
                           })()}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {(() => {
                             if (hasStats && l10.total > 0) return `${l10.hits}/${l10.total}`;
                             // Use real data only - no mock data
-                            return "N/A";
+                            return "—";
                           })()}
                         </div>
                       </div>
@@ -1510,7 +1510,7 @@ export function PlayerPropsColumnView({
                           {(() => {
                             if (hasStats && l20.total > 0) return `${l20.pct.toFixed(0)}%`;
                             // Use real data only - no mock data
-                            return "N/A";
+                            return "—";
                           })()}
                         </div>
                         <div className="text-xs text-muted-foreground">
