@@ -34,6 +34,7 @@
     "db:enrich": "tsx scripts/run-enrichment-sql.ts",
     "db:migrate:analytics": "tsx -e \"import 'dotenv/config';import postgres from 'postgres';import fs from 'fs/promises';(async()=>{const conn=process.env.NEON_DATABASE_URL||process.env.DATABASE_URL;if(!conn){console.error('No DB URL');process.exit(1);}const sql=postgres(conn,{prepare:false});try{const s=await fs.readFile('db/migrations/0007_create_player_analytics.sql','utf8');await sql.unsafe(s);console.log('Applied 0007_create_player_analytics.sql');}finally{await sql.end({timeout:2});}})()\"",
     "analytics:enrich": "tsx scripts/enrich-player-analytics.ts",
+  "analytics:enrich:2025": "ENRICH_SEASON=2025 ENRICH_LIMIT=2500 tsx scripts/enrich-player-analytics.ts",
     "hasura:setup": "node setup-hasura.js",
     "hasura:console": "echo 'Open Hasura Console: https://graphql-engine-latest-statpedia.onrender.com/console'",
     "ingest:props:drizzle": "tsx scripts/ingest-props-drizzle.ts",
