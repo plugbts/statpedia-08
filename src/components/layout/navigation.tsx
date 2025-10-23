@@ -40,6 +40,7 @@ import {
 import { cn } from "@/lib/utils";
 import { VerifiedCheckmark } from "@/components/ui/verified-checkmark";
 import { useBackgroundMusic } from "@/hooks/use-background-music";
+import DiagnosticsNavButton from "./diagnostics-nav-button";
 import { MusicTipBubble } from "@/components/ui/music-tip-bubble";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAccess } from "@/hooks/use-access";
@@ -47,6 +48,7 @@ import { analyticsClient } from "@/lib/analytics-client";
 import { getUserDisplayName as getUserDisplayNameUtil, getUserHandle } from "@/utils/user-display";
 import { userIdentificationService } from "@/services/user-identification-service";
 import { UserDisplay } from "@/components/ui/user-display";
+import DevBanner from "@/components/dev/dev-banner";
 
 interface NavigationProps {
   activeTab: string;
@@ -287,6 +289,8 @@ export const Navigation = ({
 
   return (
     <nav className="bg-card/30 backdrop-blur-md border-b border-border/50 sticky top-0 z-50 glass-morphism shadow-3d">
+      {/* Dev build banner */}
+      <DevBanner />
       <div
         className={`${activeTab === "player-props" ? "w-full min-w-[1320px]" : "max-w-7xl mx-auto"} ${activeTab === "player-props" ? "px-0" : "px-4 sm:px-6 lg:px-8"}`}
       >
@@ -475,6 +479,10 @@ export const Navigation = ({
           </div>
         </div>
 
+        {/* Diagnostics Button (dev/admin/owner only) */}
+        {(["owner", "admin", "mod"].includes(userRole) || process.env.NODE_ENV === "development") && (
+          <DiagnosticsNavButton />
+        )}
         {/* Sports Filter - Dropdown */}
         <div
           className="flex items-center justify-center gap-0.5 py-1.5 animate-slide-up"

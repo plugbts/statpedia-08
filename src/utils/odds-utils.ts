@@ -52,20 +52,12 @@ export function pickBestAmerican(prices: number[]): number {
 
 // Format American odds for display
 export function formatAmericanOdds(odds: number): string {
-  // Handle pickem props (odds very close to 0)
-  if (Math.abs(odds) < 5) {
-    return 'PK'; // Pickem
+  if (odds === null || odds === undefined || !Number.isFinite(Number(odds)) || Number(odds) === 0) {
+    return '—';
   }
-  
-  // Round to nearest .5 or .0 interval
-  const rounded = Math.round(odds * 2) / 2;
-  
-  // Format as American odds
-  if (rounded > 0) {
-    return `+${Math.round(rounded)}`;
-  } else {
-    return `${Math.round(rounded)}`;
-  }
+  const n = Number(odds);
+  // Display exact sportsbook American price without rounding
+  return n > 0 ? `+${n}` : `${n}`;
 }
 
 // Convert American odds to implied probability

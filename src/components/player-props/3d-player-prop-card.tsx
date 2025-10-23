@@ -175,14 +175,8 @@ export function PlayerPropCard3D({
 
   // Use shared odds utility for formatting
   const formatOdds = (odds: number | string | null): string => {
-    if (odds === null || odds === undefined) return 'N/A';
-    
-    const numericOdds = typeof odds === 'string' ? parseInt(odds) : odds;
-    if (isNaN(numericOdds)) return 'N/A';
-    
-    // Convert to American odds first, then format
-    const americanOdds = toAmericanOdds(numericOdds);
-    return americanOdds > 0 ? `+${americanOdds}` : americanOdds.toString();
+    // Delegate to shared helper which returns '+###', '-###', 'Pick \'em', or '—'
+    return toAmericanOdds(odds as any);
   };
 
   // Debug logging for first 10 props
@@ -360,7 +354,7 @@ export function PlayerPropCard3D({
               <div className="text-center space-y-1">
                 <div className="text-white text-xs font-semibold tracking-wide uppercase leading-tight animate-pulse" style={{ animationDuration: '3s' }}>
                   {(() => {
-                    const formattedPropType = formatPropType(prop.propType);
+                    const formattedPropType = formatPropType(prop.propType, prop.sport?.toLowerCase());
                     return formattedPropType.length > 15 ? (
                       <div className="space-y-0.5">
                         {formattedPropType.split(' ').map((word, index) => (
@@ -437,27 +431,27 @@ export function PlayerPropCard3D({
               <div className="text-center">
                 {(() => {
                   // Calculate real streak based on available data
-                  const hitRate = prop.hitRate || 0.5;
-                  const recentForm = typeof prop.recentForm === 'number' ? prop.recentForm : 0.5;
-                  const gamesTracked = prop.gamesTracked || 10;
+                  const hitRate = (prop as any).hitRate ?? 0.5;
+                  const recentForm = typeof (prop as any).recentForm === 'number' ? (prop as any).recentForm : 0.5;
+                  const gamesTracked = (prop as any).gamesTracked ?? 10;
                   
                   // Calculate current streak based on recent form and hit rate
                   let currentStreak = 0;
                   
                   // Use last5Games if available to calculate real streak
-                  if (prop.last5Games && prop.last5Games.length > 0) {
+                  if ((prop as any).last5Games && (prop as any).last5Games.length > 0) {
                     // Count consecutive hits from most recent games (last5Games is ordered most recent first)
-                    for (let i = 0; i < prop.last5Games.length; i++) {
-                      if (prop.last5Games[i] === 1) { // 1 = hit, 0 = miss
+                    for (let i = 0; i < (prop as any).last5Games.length; i++) {
+                      if ((prop as any).last5Games[i] === 1) { // 1 = hit, 0 = miss
                         currentStreak++;
                       } else {
                         break; // Stop counting when we hit a miss
                       }
                     }
-                  } else if (prop.seasonStats?.last5Games && prop.seasonStats.last5Games.length > 0) {
+                  } else if ((prop.seasonStats as any)?.last5Games && (prop.seasonStats as any).last5Games.length > 0) {
                     // Use season stats last5Games
-                    for (let i = 0; i < prop.seasonStats.last5Games.length; i++) {
-                      if (prop.seasonStats.last5Games[i] === 1) {
+                    for (let i = 0; i < (prop.seasonStats as any).last5Games.length; i++) {
+                      if ((prop.seasonStats as any).last5Games[i] === 1) {
                         currentStreak++;
                       } else {
                         break;

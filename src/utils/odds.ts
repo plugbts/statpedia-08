@@ -12,38 +12,44 @@ export function toAmericanOdds(val: number | string | null | undefined): string 
     return '—';
   }
 
-  const num = typeof val === 'string' ? parseFloat(val) : val;
+  const raw = typeof val === 'string' ? val.trim() : val;
+  const num = typeof raw === 'string' ? parseFloat(raw) : (raw as number);
   
   if (isNaN(num)) {
     return '—';
   }
 
-  // Check for pick 'em props (odds around +100, typically between +95 and +105)
-  if (num >= 95 && num <= 105) {
-    return 'Pick \'em';
+  // 1) If the string already looks like American odds "+123" or "-110"
+  if (typeof raw === 'string' && /^[-+]\d+$/.test(raw)) {
+    return raw.startsWith('+') ? raw : `${num >= 0 ? '+' : ''}${Math.trunc(num)}`;
   }
 
-  // If the value is already in American odds format (e.g., -110, +150)
-  if (num >= -1000 && num <= 1000 && num !== 0) {
-    return num > 0 ? `+${num}` : `${num}`;
+  // 2) If numeric american odds (absolute value >= 100)
+  if (Math.abs(num) >= 100) {
+    const rounded = Math.trunc(num);
+    return rounded > 0 ? `+${rounded}` : `${rounded}`;
   }
 
-  // If it's a probability (0-1), convert to decimal odds first
-  let decimalOdds: number;
-  if (num > 0 && num <= 1) {
+  // 3) Probability 0-1 => convert to decimal odds first
+  let decimalOdds: number | null = null;
+  if (num > 0 && num < 1) {
     decimalOdds = 1 / num;
-  } else {
-    // Assume it's already decimal odds
+  }
+
+  // 4) Decimal odds (> 1) => convert
+  if (decimalOdds === null && num > 1) {
     decimalOdds = num;
   }
 
-  // Convert decimal odds to American odds
+  if (decimalOdds === null) {
+    return '—';
+  }
+
+  // Convert decimal odds to American odds (rounded to integer as sportsbooks do)
   if (decimalOdds >= 2) {
-    // Positive American odds
     const americanOdds = Math.round((decimalOdds - 1) * 100);
     return `+${americanOdds}`;
   } else {
-    // Negative American odds
     const americanOdds = Math.round(-100 / (decimalOdds - 1));
     return `${americanOdds}`;
   }
@@ -61,8 +67,6 @@ export function formatOdds(val: number | string | null | undefined): string {
     return americanOdds;
   }
 
-  // Add color coding based on positive/negative
-  const isPositive = americanOdds.startsWith('+');
   return americanOdds;
 }
 
@@ -76,10 +80,6 @@ export function getOddsColorClass(val: number | string | null | undefined): stri
   
   if (americanOdds === '—') {
     return 'text-muted-foreground';
-  }
-
-  if (americanOdds === 'Pick \'em') {
-    return 'text-blue-600';
   }
 
   const isPositive = americanOdds.startsWith('+');

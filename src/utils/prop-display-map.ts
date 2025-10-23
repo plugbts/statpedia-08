@@ -22,14 +22,58 @@ export const PROP_DISPLAY_MAP: Record<string, string> = {
   strikeouts: "Strikeouts",
   hits: "Hits",
   home_runs: "Home Runs",
-  rbis: "RBIs",
+  rbis: "RBI",
+  rbi: "RBI",
   total_bases: "Total Bases",
   hits_allowed: "Hits Allowed",
   earned_runs: "Earned Runs",
-  outs_recorded: "Outs Recorded",
+  outs_recorded: "Pitching Outs",
+  stolen_bases: "Stolen Bases",
+  // Common combo markets
+  batting_hits_runs_rbi: "Hits + Runs + RBI",
+  hits_runs_rbi: "Hits + Runs + RBI",
   anytime_td: "Anytime TD",
   first_td: "First TD",
   last_td: "Last TD"
+};
+
+// League-aware overrides for display labels
+export const LEAGUE_PROP_DISPLAY_MAP: Record<string, Record<string, string>> = {
+  nfl: {
+    passing_yards: "Passing Yards",
+    receptions: "Receptions",
+    rush_rec_yards: "Rush + Rec Yards",
+    pass_rush_yards: "Pass + Rush Yards",
+    pass_rec_yards: "Pass + Rec Yards",
+    longest_completion: "Longest Completion",
+    longest_reception: "Longest Reception",
+    longest_rush: "Longest Rush",
+  },
+  nba: {
+    points: "Points",
+    rebounds: "Rebounds",
+    assists: "Assists",
+  },
+  mlb: {
+    strikeouts: "Strikeouts",
+    hits: "Hits",
+    total_bases: "Total Bases",
+    bases_on_balls: "Walks",
+    base_on_balls: "Walks",
+    walks: "Walks",
+    home_runs: "Home Runs",
+    rbis: "RBI",
+    rbi: "RBI",
+    hits_allowed: "Hits Allowed",
+    outs_recorded: "Pitching Outs",
+    stolen_bases: "Stolen Bases",
+    batting_hits_runs_rbi: "Hits + Runs + RBI",
+    hits_runs_rbi: "Hits + Runs + RBI",
+  },
+  nhl: {
+    shots_on_goal: "Shots on Goal",
+    goals_assists: "Goals + Assists",
+  },
 };
 
 /**
@@ -39,14 +83,80 @@ export const PROP_DISPLAY_MAP: Record<string, string> = {
  */
 export function displayPropType(key: string): string {
   if (!key) return "Unknown";
-  
-  // Direct mapping lookup
-  if (PROP_DISPLAY_MAP[key]) {
-    return PROP_DISPLAY_MAP[key];
+  // Normalize aggressively: collapse any non-alphanumeric to underscore
+  const canonical = key
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  // Synonym remapping to canonical keys
+  const SYNONYMS: Record<string, string> = {
+    // MLB walks
+    basesonballs: "walks",
+    baseonballs: "walks",
+    base_on_balls: "walks",
+    bases_on_balls: "walks",
+    bb: "walks",
+    // HR shorthand
+    hr: "home_runs",
+    // Hits + Runs + RBI variants
+    hitsrunsrbi: "hits_runs_rbi",
+    hits_plus_runs_plus_rbi: "hits_runs_rbi",
+    hits_runs_plus_rbi: "hits_runs_rbi",
+    hrr: "hits_runs_rbi",
+  };
+
+  const normalized = SYNONYMS[canonical] || canonical;
+
+  // Direct mapping lookup (canonical)
+  if (PROP_DISPLAY_MAP[normalized]) {
+    return PROP_DISPLAY_MAP[normalized];
   }
-  
-  // Fallback: convert underscores to spaces and title case
-  return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+  // Fallback: humanize original key
+  return key
+    .replace(/[_+\-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (l) => l.toUpperCase());
+}
+
+/**
+ * League-aware display function
+ * @param league - League key (e.g., 'nfl', 'mlb', 'nba', 'nhl')
+ * @param key - Canonical prop type key
+ */
+export function displayPropTypeForLeague(league: string | undefined, key: string): string {
+  if (!key) return "Unknown";
+  const lg = (league || '').toLowerCase();
+  const canonical = key
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  // Apply same synonym normalization
+  const SYNONYMS: Record<string, string> = {
+    basesonballs: "walks",
+    baseonballs: "walks",
+    base_on_balls: "walks",
+    bases_on_balls: "walks",
+    bb: "walks",
+    hr: "home_runs",
+    hitsrunsrbi: "hits_runs_rbi",
+    hits_plus_runs_plus_rbi: "hits_runs_rbi",
+    hits_runs_plus_rbi: "hits_runs_rbi",
+    hrr: "hits_runs_rbi",
+  };
+  const normalized = SYNONYMS[canonical] || canonical;
+
+  // Prefer league overrides (canonical)
+  const leagueMap = LEAGUE_PROP_DISPLAY_MAP[lg];
+  if (leagueMap && leagueMap[normalized]) return leagueMap[normalized];
+  // Fallback to global map
+  const global = displayPropType(normalized);
+  return global;
 }
 
 /**

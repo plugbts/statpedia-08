@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+  "dev": "vite --port 8080 --strictPort",
+  "dev:8081": "vite --port 8081",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
@@ -124,7 +125,9 @@
   "db:migrate:seasons": "tsx -e \"import 'dotenv/config';import postgres from 'postgres';import fs from 'fs/promises';(async()=>{const c=process.env.NEON_DATABASE_URL||process.env.DATABASE_URL;if(!c){console.error('No DB URL');process.exit(1);}const sql=postgres(c,{prepare:false});try{const s=await fs.readFile('db/migrations/0010_seed_league_season_windows.sql','utf8');await sql.unsafe(s);console.log('Applied 0010_seed_league_season_windows.sql');}finally{await sql.end({timeout:2});}})()\"",
     "api:server": "tsx src/server/api-server.ts",
     "enrichment:webhook": "tsx src/server/enrichment-webhook.ts",
-    "dev:full": "concurrently \"npm run api:server\" \"npm run dev\"",
+  "dev:full": "concurrently --raw --restart-tries 99 --restart-after 3000 -n API,WEB -c blue,magenta \"npm:api:server\" \"npm:dev\"",
+  "dev:full:8081": "concurrently --raw --restart-tries 99 --restart-after 3000 -n API,WEB -c blue,magenta \"npm:api:server\" \"npm:dev:8081\"",
+  "dev:ports:free": "bash -lc 'lsof -ti:8080 -sTCP:LISTEN | xargs -r kill -9; lsof -ti:3001 -sTCP:LISTEN | xargs -r kill -9'",
     "worker:deploy": "npm -w cloudflare-worker run deploy",
     "worker:deploy:staging": "npm -w cloudflare-worker run deploy:staging",
     "worker:deploy:production": "npm -w cloudflare-worker run deploy:production"

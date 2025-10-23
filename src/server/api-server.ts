@@ -175,6 +175,8 @@ function parsePlayerNameFromId(playerId: string): string {
 
 function normalizeStatId(statId?: string | null): string {
   if (!statId) return "Unknown";
+  // Normalize to snake for matching
+  const k = String(statId).trim().toLowerCase().replace(/[\s-]+/g, "_");
   const map: Record<string, string> = {
     passing_yards: "Passing Yards",
     rushing_yards: "Rushing Yards",
@@ -192,7 +194,10 @@ function normalizeStatId(statId?: string | null): string {
     rebounds: "Rebounds",
     shots_on_goal: "Shots on Goal",
     saves: "Saves",
-    batting_totalbases: "Total Bases",
+  batting_totalbases: "Total Bases",
+  bases_on_balls: "Total Bases",
+  base_on_balls: "Total Bases",
+  walks: "Walks",
     batting_homeruns: "Home Runs",
     batting_hits: "Hits",
     batting_doubles: "Doubles",
@@ -211,7 +216,7 @@ function normalizeStatId(statId?: string | null): string {
     defense_solo_tackles: "Solo Tackles",
     defense_assisted_tackles: "Assisted Tackles",
   };
-  return map[statId] || statId.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  return map[k] || k.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 async function fetchNormalizedPlayerProps(sport: string, limit = 200): Promise<NormalizedProp[]> {
@@ -1209,6 +1214,74 @@ app.get("/api/player-analytics", async (req, res) => {
   }
 });
 
+// Diagnostics: analytics status and join health (opt-in via DIAGNOSTICS_ENABLED=true)
+if (process.env.DIAGNOSTICS_ENABLED === "true") {
+app.get("/api/diagnostics/analytics-status", async (req, res) => {
+  try {
+    const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+    if (!connectionString) {
+      return res.status(500).json({ success: false, error: "DATABASE_URL is not configured" });
+    }
+    const postgres = (await import("postgres")).default;
+    const client = postgres(connectionString, { prepare: false });
+
+    const results: Record<string, any> = { success: true, checks: {} };
+    try {
+      const [{ count }] = await client.unsafe(
+        "select count(*)::int as count from proplines where team_id = 'UNK' or opponent_id = 'UNK'"
+      );
+      results.checks.unknownTeams = count;
+    } catch (e) {
+      results.checks.unknownTeams = { error: (e as Error).message };
+    }
+
+    try {
+      const [{ count }] = await client.unsafe(
+        "select count(*)::int as count from analytics_props"
+      );
+      results.checks.analyticsPropsCount = count;
+    } catch (e) {
+      results.checks.analyticsPropsCount = { error: (e as Error).message };
+    }
+
+    try {
+      const sample = await client.unsafe("select * from analytics_props limit 20");
+      results.checks.analyticsPropsSample = sample;
+    } catch (e) {
+      results.checks.analyticsPropsSample = { error: (e as Error).message };
+    }
+
+    try {
+      const [{ count }] = await client.unsafe(
+        "select count(*)::int as count from player_game_logs"
+      );
+      results.checks.playerGameLogsCount = count;
+    } catch (e) {
+      results.checks.playerGameLogsCount = { error: (e as Error).message };
+    }
+
+    try {
+      const [{ count }] = await client.unsafe(
+        "select count(*)::int as count from player_analytics"
+      );
+      results.checks.playerAnalyticsCount = count;
+    } catch (e) {
+      results.checks.playerAnalyticsCount = { error: (e as Error).message };
+    }
+
+    try {
+      await client.end({ timeout: 1 });
+    } catch {}
+
+    return res.json(results);
+  } catch (error) {
+    const err = error as Error;
+    console.error("Diagnostics error:", err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+}
+
 // Enriched player analytics routes
 app.get("/api/player-analytics-enriched", async (req, res) => {
   try {
@@ -1370,10 +1443,54 @@ app.post("/api/player-analytics-bulk", async (req, res) => {
     const requestedIds: string[] = Array.isArray(playerIds)
       ? Array.from(new Set((playerIds as string[]).filter((id) => typeof id === "string")))
       : [];
-    const uuidIds: string[] = requestedIds.filter(isUuid);
+    let uuidIds: string[] = requestedIds.filter(isUuid);
+    const nonUuidIds: string[] = requestedIds.filter((id) => !isUuid(id));
+
+    // If no UUIDs yet, attempt to map non-UUID playerIds to canonical UUIDs using players.external_id
+    // This supports external vendor IDs passed from the frontend
+    let mappedCount = 0;
+    if (nonUuidIds.length > 0) {
+      try {
+        // Import DB utilities only if we need them for mapping
+        const { drizzle } = await import("drizzle-orm/postgres-js");
+        const postgres = (await import("postgres")).default;
+        const { sql } = await import("drizzle-orm");
+
+        const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+        if (connectionString) {
+          const clientForMap = postgres(connectionString);
+          const dbForMap = drizzle(clientForMap);
+
+          // Map external_id -> id (uuid)
+          const mapRows = await dbForMap.execute(sql`
+            SELECT external_id, id
+            FROM public.players
+            WHERE external_id IN (${sql.join(nonUuidIds, sql`, `)})
+          `);
+
+          const mappedUUIDs: string[] = Array.isArray(mapRows)
+            ? (mapRows as any[])
+                .map((r) => (typeof r?.id === "string" && isUuid(r.id) ? r.id : null))
+                .filter(Boolean)
+            : [];
+
+          if (mappedUUIDs.length > 0) {
+            const set = new Set(uuidIds);
+            mappedUUIDs.forEach((id) => set.add(id));
+            uuidIds = Array.from(set);
+            mappedCount = mappedUUIDs.length;
+          }
+
+          await clientForMap.end({ timeout: 1 });
+        }
+      } catch (e) {
+        // Non-fatal: mapping is best-effort
+        console.warn("[analytics-bulk] external_id mapping failed:", e);
+      }
+    }
 
     if (uuidIds.length === 0) {
-      // No valid UUIDs to query; return empty analytics gracefully
+      // No valid UUIDs to query even after mapping; return empty analytics gracefully
       return res.json({ analytics: [] });
     }
 
@@ -1397,7 +1514,7 @@ app.post("/api/player-analytics-bulk", async (req, res) => {
     // Primary fetch (exact propType match)
     console.log(
       "[analytics-bulk] request",
-      JSON.stringify({ count: uuidIds.length, propType, season }),
+      JSON.stringify({ count: uuidIds.length, propType, season, mappedFromExternal: mappedCount }),
     );
 
     const analyticsResult = await db.execute(sql`

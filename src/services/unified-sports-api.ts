@@ -14,6 +14,7 @@ export interface SportsbookOdds {
 export interface PlayerProp {
   id: string;
   playerId: string;
+  externalId?: string;
   playerName: string;
   team: string;
   teamAbbr: string;
@@ -134,12 +135,16 @@ class UnifiedSportsAPI {
 
         const teamAbbr = (p.teamAbbr || p.team || "UNK").toString();
         const opponentAbbr = (p.opponentAbbr || p.opponent || "UNK").toString();
-        const playerId = p.playerId || p.player_id || "";
+        const rawId = p.playerId || p.player_id || p.apiPlayerId || p.api_player_id || p.externalId || p.external_id || "";
+        const isUuid = (v: unknown) => typeof v === "string" && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(v);
+        const playerId = String(rawId || "");
+        const externalId = !isUuid(rawId) && rawId ? String(rawId) : (p.externalId || p.external_id ? String(p.externalId || p.external_id) : undefined);
         const gameId = p.gameId || "";
 
         return {
           id: p.id || `cfw-${playerId}-${p.propType}-${gameId}-${sport}`,
           playerId: String(playerId),
+          externalId,
           playerName: p.playerName,
           team: p.team || teamAbbr,
           teamAbbr:

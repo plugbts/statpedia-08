@@ -38,7 +38,7 @@ import { SportsbookIconsList } from "@/components/ui/sportsbook-icons";
 import { SportsbookOverlay } from "@/components/ui/sportsbook-overlay";
 import { statpediaRatingService, StatpediaRating } from "@/services/statpedia-rating-service";
 import { toAmericanOdds, getOddsColorClass } from "@/utils/odds";
-import { formatPropName } from "@/utils/formatters";
+import { formatPropType } from "@/utils/prop-type-formatter";
 import { getPlayerHeadshot, getPlayerInitials, getKnownPlayerHeadshot } from "@/utils/headshots";
 import { StreakService } from "@/services/streak-service";
 import { useToast } from "@/hooks/use-toast";
@@ -415,9 +415,22 @@ export function PlayerPropsColumnView({
         return;
       }
 
+      // Helper to choose the best available player identifier for analytics lookups
+      const getBestPlayerId = (p: any): string => {
+        const cand =
+          p.playerId ??
+          p.player_id ??
+          (p as any).apiPlayerId ??
+          (p as any).api_player_id ??
+          (p as any).externalId ??
+          (p as any).external_id ??
+          "";
+        return typeof cand === "number" ? String(cand) : (cand || "").toString();
+      };
+
       // Convert props to the format expected by the simple analytics hook
       const propsToCalculate = props.slice(0, 50).map((prop) => ({
-        playerId: prop.playerId || prop.player_id || "",
+        playerId: getBestPlayerId(prop),
         playerName: prop.playerName || "Unknown Player",
         propType: prop.propType,
         line: prop.line || 0,
@@ -1065,11 +1078,46 @@ export function PlayerPropsColumnView({
                 playerId: prop.playerId,
               });
 
+              // Prepare a small dev-only badge to visualize which ID type is used for analytics
+              const bestIdForAnalytics = (() => {
+                const cand =
+                  (prop as any).playerId ??
+                  (prop as any).player_id ??
+                  (prop as any).apiPlayerId ??
+                  (prop as any).api_player_id ??
+                  (prop as any).externalId ??
+                  (prop as any).external_id ??
+                  "";
+                return typeof cand === "number" ? String(cand) : (cand || "").toString();
+              })();
+              const isUuidId = typeof bestIdForAnalytics === "string" &&
+                /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(
+                  bestIdForAnalytics,
+                );
+              const debugIdBadge = (import.meta as any)?.env?.DEV ? (
+                <span className="ml-2 inline-block align-middle text-[10px] text-muted-foreground border border-border/50 rounded px-1">
+                  ID:{isUuidId ? "uuid" : "ext"}
+                </span>
+              ) : null;
+
               // Get analytics data for this prop (graceful fallback if not available)
+              // Use the same best-ID selection as used when requesting analytics
+              const getBestPlayerIdForAnalytics = (p: any): string => {
+                const cand =
+                  p.playerId ??
+                  p.player_id ??
+                  (p as any).apiPlayerId ??
+                  (p as any).api_player_id ??
+                  (p as any).externalId ??
+                  (p as any).external_id ??
+                  "";
+                return typeof cand === "number" ? String(cand) : (cand || "").toString();
+              };
+
               let analytics = null;
               try {
                 analytics = getAnalytics(
-                  prop.playerId || prop.player_id || "",
+                  getBestPlayerIdForAnalytics(prop),
                   prop.propType,
                   prop.line || 0,
                   overUnderFilter,
@@ -1133,7 +1181,7 @@ export function PlayerPropsColumnView({
                   <CardContent className="p-3">
                     <div className="flex items-center">
                       {/* Player Info */}
-                      <div className="w-64 flex items-center gap-3">
+                      <div className="w-64 flex items-center justify-start gap-3">
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 flex items-center justify-center text-foreground font-bold text-sm overflow-hidden flex-shrink-0">
                           {(() => {
                             const knownHeadshotUrl = getKnownPlayerHeadshot(
@@ -1166,7 +1214,7 @@ export function PlayerPropsColumnView({
                             return getPlayerInitials(prop.playerName);
                           })()}
                         </div>
-                        <div className="min-w-0 flex-1">
+                        <div className="w-36 text-left">
                           <div className="font-bold text-foreground text-sm group-hover:text-primary transition-colors duration-200 truncate">
                             {prop.playerName || "Unknown Player"}
                           </div>
@@ -1200,7 +1248,8 @@ export function PlayerPropsColumnView({
                           className="text-xs font-medium text-white group-hover:text-white transition-all duration-300 transform group-hover:scale-105 truncate animate-pulse"
                           style={{ animationDuration: "3s" }}
                         >
-                          {formatPropName(prop.propType)}
+                          {formatPropType(prop.propType, prop.sport?.toLowerCase())}
+                          {debugIdBadge}
                         </div>
                       </div>
 
@@ -1212,7 +1261,7 @@ export function PlayerPropsColumnView({
                       </div>
 
                       {/* Odds + Rating */}
-                      <div className="w-28 text-center px-2">
+                      <div className="w-20 text-center px-2">
                         <div
                           className={`text-xs font-semibold transition-colors duration-200 ${
                             overUnderFilter === "over"

@@ -739,6 +739,16 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
           logDebug("PlayerPropsTab", "Normalized props sample:", result.slice(0, 2));
 
           // Transform API normalized props to the expected UI format
+          const toAbbr = (val?: string) => {
+            if (!val) return "UNK";
+            const s = String(val).trim();
+            if (!s) return "UNK";
+            if (/^[A-Za-z]{2,4}$/.test(s)) return s.toUpperCase();
+            const parts = s.split(/\s+/).filter(Boolean);
+            if (parts.length >= 2) return parts.map((w) => w[0]).join("").slice(0, 3).toUpperCase();
+            return s.substring(0, 3).toUpperCase();
+          };
+
           const transformedProps = result.map((prop, index) => {
             const offers = prop.offers || [];
             const overOdds =
@@ -759,9 +769,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
               playerName: prop.playerName || "Unknown Player",
               player_name: prop.playerName || "Unknown Player",
               team: prop.team || "UNK",
-              teamAbbr: (prop as any).team || "UNK",
+              teamAbbr: toAbbr(prop.team),
               opponent: prop.opponent || "UNK",
-              opponentAbbr: (prop as any).opponent || "UNK",
+              opponentAbbr: toAbbr(prop.opponent),
               gameId: prop.gameId,
               sport: prop.sport,
               propType: prop.propType,

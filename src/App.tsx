@@ -10,6 +10,7 @@ import { Admin } from "./pages/Admin";
 import PredictionDetail from "./pages/PredictionDetail";
 import { Settings } from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import Diagnostics from "./pages/Diagnostics";
 import { SubscriptionPlans } from "./components/auth/subscription-plans";
 import { SupportCenter } from "./components/support/support-center";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -167,6 +168,7 @@ const App = () => {
                   />
                   <Route path="/debug/auth" element={<DebugAuth />} />
                   <Route path="/auth-test" element={<AuthTest />} />
+                  <Route path="/diagnostics" element={<Diagnostics />} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>
