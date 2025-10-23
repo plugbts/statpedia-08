@@ -193,7 +193,10 @@ function parsePlayerNameFromId(playerId: string): string {
 function normalizeStatId(statId?: string | null): string {
   if (!statId) return "Unknown";
   // Normalize to snake for matching
-  const k = String(statId).trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const k = String(statId)
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
   const map: Record<string, string> = {
     passing_yards: "Passing Yards",
     rushing_yards: "Rushing Yards",
@@ -211,13 +214,13 @@ function normalizeStatId(statId?: string | null): string {
     rebounds: "Rebounds",
     shots_on_goal: "Shots on Goal",
     saves: "Saves",
-  batting_totalbases: "Total Bases",
-  // Correct MLB walks synonyms
-  bases_on_balls: "Walks",
-  base_on_balls: "Walks",
-  basesonballs: "Walks",
-  batting_basesonballs: "Walks",
-  walks: "Walks",
+    batting_totalbases: "Total Bases",
+    // Correct MLB walks synonyms
+    bases_on_balls: "Walks",
+    base_on_balls: "Walks",
+    basesonballs: "Walks",
+    batting_basesonballs: "Walks",
+    walks: "Walks",
     batting_homeruns: "Home Runs",
     batting_hits: "Hits",
     batting_doubles: "Doubles",
@@ -1236,70 +1239,72 @@ app.get("/api/player-analytics", async (req, res) => {
 
 // Diagnostics: analytics status and join health (opt-in via DIAGNOSTICS_ENABLED=true)
 if (process.env.DIAGNOSTICS_ENABLED === "true") {
-app.get("/api/diagnostics/analytics-status", async (req, res) => {
-  try {
-    const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
-    if (!connectionString) {
-      return res.status(500).json({ success: false, error: "DATABASE_URL is not configured" });
-    }
-    const postgres = (await import("postgres")).default;
-    const client = postgres(connectionString, { prepare: false });
-
-    const results: Record<string, any> = { success: true, checks: {} };
+  app.get("/api/diagnostics/analytics-status", async (req, res) => {
     try {
-      const [{ count }] = await client.unsafe(
-        "select count(*)::int as count from proplines where team_id = 'UNK' or opponent_id = 'UNK'"
-      );
-      results.checks.unknownTeams = count;
-    } catch (e) {
-      results.checks.unknownTeams = { error: (e as Error).message };
+      const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+      if (!connectionString) {
+        return res.status(500).json({ success: false, error: "DATABASE_URL is not configured" });
+      }
+      const postgres = (await import("postgres")).default;
+      const client = postgres(connectionString, { prepare: false });
+
+      const results: Record<string, any> = { success: true, checks: {} };
+      try {
+        const [{ count }] = await client.unsafe(
+          "select count(*)::int as count from proplines where team_id = 'UNK' or opponent_id = 'UNK'",
+        );
+        results.checks.unknownTeams = count;
+      } catch (e) {
+        results.checks.unknownTeams = { error: (e as Error).message };
+      }
+
+      try {
+        const [{ count }] = await client.unsafe(
+          "select count(*)::int as count from analytics_props",
+        );
+        results.checks.analyticsPropsCount = count;
+      } catch (e) {
+        results.checks.analyticsPropsCount = { error: (e as Error).message };
+      }
+
+      try {
+        const sample = await client.unsafe("select * from analytics_props limit 20");
+        results.checks.analyticsPropsSample = sample;
+      } catch (e) {
+        results.checks.analyticsPropsSample = { error: (e as Error).message };
+      }
+
+      try {
+        const [{ count }] = await client.unsafe(
+          "select count(*)::int as count from player_game_logs",
+        );
+        results.checks.playerGameLogsCount = count;
+      } catch (e) {
+        results.checks.playerGameLogsCount = { error: (e as Error).message };
+      }
+
+      try {
+        const [{ count }] = await client.unsafe(
+          "select count(*)::int as count from player_analytics",
+        );
+        results.checks.playerAnalyticsCount = count;
+      } catch (e) {
+        results.checks.playerAnalyticsCount = { error: (e as Error).message };
+      }
+
+      try {
+        await client.end({ timeout: 1 });
+      } catch (e) {
+        // noop: best-effort to close client
+      }
+
+      return res.json(results);
+    } catch (error) {
+      const err = error as Error;
+      console.error("Diagnostics error:", err.message);
+      return res.status(500).json({ success: false, error: err.message });
     }
-
-    try {
-      const [{ count }] = await client.unsafe(
-        "select count(*)::int as count from analytics_props"
-      );
-      results.checks.analyticsPropsCount = count;
-    } catch (e) {
-      results.checks.analyticsPropsCount = { error: (e as Error).message };
-    }
-
-    try {
-      const sample = await client.unsafe("select * from analytics_props limit 20");
-      results.checks.analyticsPropsSample = sample;
-    } catch (e) {
-      results.checks.analyticsPropsSample = { error: (e as Error).message };
-    }
-
-    try {
-      const [{ count }] = await client.unsafe(
-        "select count(*)::int as count from player_game_logs"
-      );
-      results.checks.playerGameLogsCount = count;
-    } catch (e) {
-      results.checks.playerGameLogsCount = { error: (e as Error).message };
-    }
-
-    try {
-      const [{ count }] = await client.unsafe(
-        "select count(*)::int as count from player_analytics"
-      );
-      results.checks.playerAnalyticsCount = count;
-    } catch (e) {
-      results.checks.playerAnalyticsCount = { error: (e as Error).message };
-    }
-
-    try {
-      await client.end({ timeout: 1 });
-    } catch {}
-
-    return res.json(results);
-  } catch (error) {
-    const err = error as Error;
-    console.error("Diagnostics error:", err.message);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
+  });
 }
 
 // Enriched player analytics routes

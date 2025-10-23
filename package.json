@@ -30,6 +30,7 @@
   "db:seed:mappings": "tsx scripts/apply-sql-file.ts scripts/create-team-abbrev-mapping-corrected.sql",
   "db:seed:mappings:auto": "tsx scripts/apply-sql-file.ts scripts/seed-team-abbrev-map-from-teams.sql",
   "db:seed:teams": "tsx scripts/seed-mlb-team-mapping.ts",
+    "db:backfill:opponents": "tsx scripts/backfill-opponent-team-ids.ts",
     "db:enrich": "tsx scripts/run-enrichment-sql.ts",
     "db:migrate:analytics": "tsx -e \"import 'dotenv/config';import postgres from 'postgres';import fs from 'fs/promises';(async()=>{const conn=process.env.NEON_DATABASE_URL||process.env.DATABASE_URL;if(!conn){console.error('No DB URL');process.exit(1);}const sql=postgres(conn,{prepare:false});try{const s=await fs.readFile('db/migrations/0007_create_player_analytics.sql','utf8');await sql.unsafe(s);console.log('Applied 0007_create_player_analytics.sql');}finally{await sql.end({timeout:2});}})()\"",
     "analytics:enrich": "tsx scripts/enrich-player-analytics.ts",

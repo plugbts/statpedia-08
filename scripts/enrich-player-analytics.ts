@@ -22,7 +22,7 @@ async function main() {
     `);
 
     let processed = 0;
-    let debugCount = 0;
+    const debugCount = 0;
     for (const row of combos as any[]) {
       const playerId: UUID = row.player_id;
       const propType: string = row.prop_type;
@@ -146,39 +146,46 @@ async function main() {
         ORDER BY g.game_date DESC
         LIMIT 1;
       `)) as any[];
+
+      // Fallback to props table if player_props had no odds
+      let line: number | null = null;
+      let overOdds: number | null = null;
+      let underOdds: number | null = null;
       if (Array.isArray(latest) && latest.length > 0) {
         const row = latest[0];
-        const line = row.line != null ? Number(row.line) : null;
-        const overOdds = row.over_odds != null ? Number(row.over_odds) : null;
-        const underOdds = row.under_odds != null ? Number(row.under_odds) : null;
-        // Choose a recent hit rate baseline
-        const hitRate =
-          (Number.isFinite(l10) && l10 > 0 ? l10 : Number.isFinite(l20) && l20 > 0 ? l20 : l5) /
-          100;
-        if (debugCount < 10) {
-          console.log("[EV% DEBUG]", {
-            playerId,
-            propType,
-            season,
-            line,
-            overOdds,
-            underOdds,
-            hitRate,
-            l5,
-            l10,
-            l20,
-            season_avg,
-            preferOver: season_avg != null && line != null ? season_avg > line : true,
-          });
-          debugCount++;
+        line = row.line != null ? Number(row.line) : null;
+        overOdds = row.over_odds != null ? Number(row.over_odds) : null;
+        underOdds = row.under_odds != null ? Number(row.under_odds) : null;
+      }
+      if (line == null || (overOdds == null && underOdds == null)) {
+        const alt = (await db.execute(dsql`
+          SELECT 
+            p.line::numeric AS line,
+            CASE WHEN p.best_odds_over ~ '^[+-]\\d+$' THEN CAST(REPLACE(p.best_odds_over, '+','') AS INT) END AS over_odds,
+            CASE WHEN p.best_odds_under ~ '^[+-]\\d+$' THEN CAST(REPLACE(p.best_odds_under, '+','') AS INT) END AS under_odds
+          FROM public.props p
+          WHERE p.player_id = ${playerId}
+            AND p.prop_type = ${propType}
+          ORDER BY p.updated_at DESC NULLS LAST
+          LIMIT 1;
+        `)) as any[];
+        if (Array.isArray(alt) && alt.length > 0) {
+          const r = alt[0];
+          line = line ?? (r.line != null ? Number(r.line) : null);
+          overOdds = overOdds ?? (r.over_odds != null ? Number(r.over_odds) : null);
+          underOdds = underOdds ?? (r.under_odds != null ? Number(r.under_odds) : null);
         }
-        if (line != null && (overOdds != null || underOdds != null) && Number.isFinite(hitRate)) {
-          const preferOver = season_avg != null && line != null ? season_avg > line : true;
-          const sideOdds = preferOver ? (overOdds ?? underOdds) : (underOdds ?? overOdds);
-          const implied = sideOdds != null ? americanToProb(sideOdds) : null;
-          if (implied != null && Number.isFinite(hitRate)) {
-            ev_percent = (hitRate - implied) * 100; // percentage edge
-          }
+      }
+
+      // Choose a recent hit rate baseline
+      const hitRate =
+        (Number.isFinite(l10) && l10 > 0 ? l10 : Number.isFinite(l20) && l20 > 0 ? l20 : l5) / 100;
+      if (line != null && (overOdds != null || underOdds != null) && Number.isFinite(hitRate)) {
+        const preferOver = season_avg != null && line != null ? season_avg > line : true;
+        const sideOdds = preferOver ? (overOdds ?? underOdds) : (underOdds ?? overOdds);
+        const implied = sideOdds != null ? americanToProb(sideOdds) : null;
+        if (implied != null) {
+          ev_percent = (hitRate - implied) * 100; // percentage edge
         }
       }
 
