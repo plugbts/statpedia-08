@@ -50,6 +50,23 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+// Lightweight diagnostics: preview normalized props from SGO
+app.get("/api/diagnostics/props", async (req, res) => {
+  try {
+    const sport = String(req.query.sport || "nfl").toLowerCase();
+    const limit = Math.min(200, Math.max(1, Number(req.query.limit || 10)));
+    const rows = await fetchNormalizedPlayerProps(sport, limit);
+    res.json({
+      sport,
+      count: rows.length,
+      sample: rows.slice(0, Math.min(10, rows.length)),
+      ts: new Date().toISOString(),
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || "diagnostics failed" });
+  }
+});
+
 // --- Minimal SGO normalization helpers (inline to avoid new files) ---
 type NormalizedOffer = {
   book: string;
@@ -195,8 +212,11 @@ function normalizeStatId(statId?: string | null): string {
     shots_on_goal: "Shots on Goal",
     saves: "Saves",
   batting_totalbases: "Total Bases",
-  bases_on_balls: "Total Bases",
-  base_on_balls: "Total Bases",
+  // Correct MLB walks synonyms
+  bases_on_balls: "Walks",
+  base_on_balls: "Walks",
+  basesonballs: "Walks",
+  batting_basesonballs: "Walks",
   walks: "Walks",
     batting_homeruns: "Home Runs",
     batting_hits: "Hits",

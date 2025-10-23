@@ -251,6 +251,9 @@ function normalizePropType(market: string): string {
       return "RBIs";
     case "batting_walks":
     case "batting_basesonballs":
+    case "bases_on_balls":
+    case "base_on_balls":
+    case "basesonballs":
     case "walks":
     case "bb":
       return "Walks";
