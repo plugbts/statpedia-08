@@ -42,6 +42,8 @@
     "ingest:enhanced": "tsx scripts/run-enhanced-ingestion.ts",
     "ingest:upcoming": "tsx scripts/run-upcoming-props-ingestion.ts",
     "ingest:full": "tsx scripts/run-full-ingestion.ts",
+  "sync:mlb:odds": "tsx scripts/sync-mlb-odds-to-neon.ts",
+  "sync:mlb:odds:supabase": "tsx scripts/sync-mlb-odds-from-supabase.ts",
     "test:fixtures": "tsx scripts/test-fixtures.ts",
     "test:harness": "tsx scripts/test-one-game-harness.ts",
     "git-sync": "node scripts/git-sync.js",

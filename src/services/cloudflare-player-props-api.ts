@@ -121,6 +121,16 @@ class CloudflarePlayerPropsAPI {
       const startTime = Date.now();
 
       // First, trigger ingestion to ensure we have fresh data
+      const ingestPayload: any = {
+        league: league,
+        season: "2025",
+        week: league === "NFL" ? "6" : undefined,
+      };
+      // Pass date through for MLB/NBA/NHL daily slates if provided
+      if (date) {
+        ingestPayload.date = date;
+      }
+
       const ingestResponse = await fetch(`${this.baseUrl}/ingest`, {
         method: "POST",
         mode: "cors",
@@ -128,11 +138,7 @@ class CloudflarePlayerPropsAPI {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          league: league,
-          season: "2025",
-          week: league === "NFL" ? "6" : undefined,
-        }),
+        body: JSON.stringify(ingestPayload),
       });
 
       if (!ingestResponse.ok) {
@@ -149,7 +155,9 @@ class CloudflarePlayerPropsAPI {
 
       // Now fetch the player props from the database with flexible date tolerance
       const url = new URL(`${this.baseUrl}/api/player-props`);
+      // Send both sport (lowercase) and league (UPPER) to be compatible with worker expectations
       url.searchParams.append("sport", sport.toLowerCase());
+      url.searchParams.append("league", league);
       if (forceRefresh) {
         url.searchParams.append("force_refresh", "true");
       }
