@@ -575,26 +575,100 @@ app.get("/api/props/best", requireAccess("analytics"), async (req, res) => {
 // Props list route (served directly from this API server)
 app.get("/api/props-list", async (req, res) => {
   try {
+    const {
+      league,
+      market,
+      from,
+      to,
+      limit: limitParam,
+    } = req.query as Record<string, string | undefined>;
+    const parsedLimit = parseInt(limitParam || "200", 10);
+    const limit = Math.min(Number.isFinite(parsedLimit) ? parsedLimit : 200, 500);
+
+    // Helper: map NormalizedProp -> props-list row shape
+    const toRow = (np: any) => {
+      const over = np?.best_over;
+      const under = np?.best_under;
+      // Pick a generic odds value if needed (prefer over)
+      const genericOdds = over?.american ?? under?.american ?? null;
+      // Optional EV percent: take the stronger edge
+      const evPct = [over?.edgePct, under?.edgePct]
+        .filter((x) => typeof x === "number")
+        .sort((a: number, b: number) => (b as number) - (a as number))[0] as number | undefined;
+      const leagueStr = mapSportToLeagueId(np.sport) || String(np.sport || "").toUpperCase();
+      return {
+        id: np.id,
+        full_name: np.playerName,
+        team: np.team ?? null,
+        opponent: np.opponent ?? "TBD",
+        market: np.propType,
+        line: np.line,
+        odds_american: genericOdds,
+        over_odds_american: over?.american ?? null,
+        under_odds_american: under?.american ?? null,
+        ev_percent: typeof evPct === "number" ? evPct : null,
+        streak_l5: null,
+        rating: null,
+        matchup_rank: null,
+        l5: null,
+        l10: null,
+        l20: null,
+        h2h_avg: null,
+        season_avg: null,
+        league: leagueStr,
+        game_date: np.startTime ?? null,
+        team_logo: null,
+        opponent_logo: null,
+      };
+    };
+
+    // Helper: SGO fallback path honoring basic filters
+    const sgoFallback = async () => {
+      // Infer sport from league when provided
+      const sport = (league || "").toLowerCase() || "nfl";
+      let items = await fetchNormalizedPlayerProps(sport, limit);
+      // If SGO isn't configured or returns nothing, provide minimal dev fakes (non-production only)
+      if ((!items || items.length === 0) && process.env.NODE_ENV !== "production") {
+        try {
+          items = generateFakeProps(sport, limit);
+        } catch {
+          items = [] as any[];
+        }
+      }
+      if (market) {
+        const m = market.toLowerCase();
+        items = items.filter((it) =>
+          String(it.propType || "")
+            .toLowerCase()
+            .includes(m),
+        );
+      }
+      if (from || to) {
+        const fromTs = from ? Date.parse(from) : undefined;
+        const toTs = to ? Date.parse(to) : undefined;
+        items = items.filter((it) => {
+          const t = it.startTime ? Date.parse(it.startTime) : NaN;
+          if (!Number.isFinite(t)) return true;
+          if (fromTs && t < fromTs) return false;
+          if (toTs && t > toTs) return false;
+          return true;
+        });
+      }
+      const rows = items.slice(0, limit).map(toRow);
+      return res.json({ count: rows.length, items: rows });
+    };
+
     const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
     if (!connectionString) {
-      return res.status(500).json({ error: "DATABASE_URL is not configured" });
+      // No DB configured → return SGO-backed list for dev visibility
+      return await sgoFallback();
     }
 
-    // Lazy import to keep startup fast
+    // Try DB first; if empty or error, fallback to SGO
     const postgres = (await import("postgres")).default;
     const client = postgres(connectionString, { prepare: false });
 
     try {
-      const {
-        league,
-        market,
-        from,
-        to,
-        limit: limitParam,
-      } = req.query as Record<string, string | undefined>;
-      const parsedLimit = parseInt(limitParam || "200", 10);
-      const limit = Math.min(Number.isFinite(parsedLimit) ? parsedLimit : 200, 500);
-
       const where: string[] = [];
       const params: string[] = [];
       if (league) {
@@ -630,7 +704,17 @@ app.get("/api/props-list", async (req, res) => {
       `;
 
       const rows = params.length > 0 ? await client.unsafe(sql, params) : await client.unsafe(sql);
-      res.json({ count: rows.length, items: rows });
+      if (Array.isArray(rows) && rows.length > 0) {
+        return res.json({ count: rows.length, items: rows });
+      }
+      // Empty DB result → fallback to SGO for dev usability
+      return await sgoFallback();
+    } catch (err) {
+      console.warn(
+        "/api/props-list DB path failed, using SGO fallback:",
+        (err as Error)?.message || err,
+      );
+      return await sgoFallback();
     } finally {
       // Always close the client quickly
       await client.end({ timeout: 1 });
