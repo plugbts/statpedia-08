@@ -71,22 +71,34 @@ async function schedule(
       const res = await fetchWithTimeout(
         `https://site.api.espn.com/apis/v2/sports/football/nfl/scoreboard?dates=${yyyymmdd}`,
       );
-      if (!res.ok) return [];
-      const data: any = await res.json();
-      const events = (data?.events as any[]) || [];
-      const out: Array<{ gameId: string; home?: string; away?: string }> = [];
-      for (const ev of events) {
-        const comp = ev?.competitions?.[0];
-        if (!comp) continue;
-        const home = comp?.competitors?.find((c: any) => c.homeAway === "home");
-        const away = comp?.competitors?.find((c: any) => c.homeAway === "away");
-        out.push({
-          gameId: String(comp.id),
-          home: home?.team?.abbreviation,
-          away: away?.team?.abbreviation,
-        });
+      if (res.ok) {
+        const data: any = await res.json();
+        const events = (data?.events as any[]) || [];
+        const out: Array<{ gameId: string; home?: string; away?: string }> = [];
+        for (const ev of events) {
+          const comp = ev?.competitions?.[0];
+          if (!comp) continue;
+          const home = comp?.competitors?.find((c: any) => c.homeAway === "home");
+          const away = comp?.competitors?.find((c: any) => c.homeAway === "away");
+          out.push({
+            gameId: String(comp.id),
+            home: home?.team?.abbreviation,
+            away: away?.team?.abbreviation,
+          });
+        }
+        if (out.length) return out;
       }
-      return out;
+      // Fallback to ESPN core v2 when scoreboard empty
+      const alt = await fetchWithTimeout(
+        `https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/events?dates=${yyyymmdd}&limit=300`,
+      );
+      if (!alt.ok) return [];
+      const j: any = await alt.json();
+      const items: any[] = j?.items || [];
+      return items
+        .map((it: any) => String(it?.$ref || it?.href || ""))
+        .filter((href) => href)
+        .map((href) => ({ gameId: href.split("/").filter(Boolean).pop() as string }));
     }
     if (league === "NHL") {
       const res = await fetchWithTimeout(

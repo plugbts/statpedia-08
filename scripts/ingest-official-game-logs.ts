@@ -123,24 +123,40 @@ async function fetchSchedule(
       const res = await fetchWithTimeout(
         `https://site.api.espn.com/apis/v2/sports/football/nfl/scoreboard?dates=${yyyymmdd}`,
       );
-      if (!res.ok) return [];
-      const data: any = await res.json();
-      const events = (data?.events as any[]) || [];
-      const out: Array<{ gameId: string; home: string; away: string }> = [];
-      for (const ev of events) {
-        const comp = ev?.competitions?.[0];
-        if (!comp) continue;
-        const home = comp?.competitors?.find((c: any) => c.homeAway === "home");
-        const away = comp?.competitors?.find((c: any) => c.homeAway === "away");
-        if (home?.team?.abbreviation && away?.team?.abbreviation) {
-          out.push({
-            gameId: String(comp.id),
-            home: home.team.abbreviation,
-            away: away.team.abbreviation,
-          });
+      if (res.ok) {
+        const data: any = await res.json();
+        const events = (data?.events as any[]) || [];
+        const out: Array<{ gameId: string; home: string; away: string }> = [];
+        for (const ev of events) {
+          const comp = ev?.competitions?.[0];
+          if (!comp) continue;
+          const home = comp?.competitors?.find((c: any) => c.homeAway === "home");
+          const away = comp?.competitors?.find((c: any) => c.homeAway === "away");
+          if (home?.team?.abbreviation && away?.team?.abbreviation) {
+            out.push({
+              gameId: String(comp.id),
+              home: home.team.abbreviation,
+              away: away.team.abbreviation,
+            });
+          }
         }
+        if (out.length) return out;
       }
-      return out;
+      // Fallback: ESPN core v2 events (IDs only)
+      const alt = await fetchWithTimeout(
+        `https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/events?dates=${yyyymmdd}&limit=300`,
+      );
+      if (!alt.ok) return [];
+      const j: any = await alt.json();
+      const items: any[] = j?.items || [];
+      return items
+        .map((it: any) => String(it?.$ref || it?.href || ""))
+        .filter((href) => href)
+        .map((href) => ({
+          gameId: href.split("/").filter(Boolean).pop() as string,
+          home: "",
+          away: "",
+        }));
     } catch {
       return [];
     }
@@ -527,7 +543,23 @@ async function ingestRange(league: League, start: Date, end: Date) {
         }
       }
 
-      // For non-MLB leagues, require schedule to provide codes
+      // For NFL as well, attempt to derive codes from raw summary if schedule didn't provide
+      if ((!homeCode || !awayCode) && league === "NFL") {
+        try {
+          const comp =
+            (raw as any)?.header?.competitions?.[0] || (raw as any)?.gameInfo?.competitions?.[0];
+          if (comp) {
+            const homeC = comp?.competitors?.find((c: any) => c.homeAway === "home");
+            const awayC = comp?.competitors?.find((c: any) => c.homeAway === "away");
+            homeCode = homeCode || homeC?.team?.abbreviation;
+            awayCode = awayCode || awayC?.team?.abbreviation;
+          }
+        } catch (e) {
+          // ignore parse errors; will skip if still missing codes
+        }
+      }
+
+      // If still missing, require codes for non-MLB/NHL leagues
       if (!homeCode || !awayCode) {
         console.warn(`[${league}] skip game with missing team codes:`, {
           gameId: g.gameId,
