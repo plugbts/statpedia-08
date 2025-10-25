@@ -622,7 +622,7 @@ app.get("/api/props-list", async (req, res) => {
       };
     };
 
-    // Helper: SGO fallback path honoring basic filters
+    // Helper: SGO fallback path honoring basic filters, with best-effort DB enrichment when available
     const sgoFallback = async () => {
       // Infer sport from league when provided
       const sport = (league || "").toLowerCase() || "nfl";
@@ -655,6 +655,69 @@ app.get("/api/props-list", async (req, res) => {
         });
       }
       const rows = items.slice(0, limit).map(toRow);
+
+      // Best-effort enrichment from DB analytics when available: map by player name + prop type + current season
+      try {
+        const connStr = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+        if (connStr) {
+          const pg = (await import("postgres")).default;
+          const client = pg(connStr, { prepare: false });
+          try {
+            // Derive a simple season string from today (sports-specific nuances are handled in enrichment already)
+            const today = new Date();
+            const season = String(today.getFullYear());
+            for (let i = 0; i < rows.length; i++) {
+              const r = rows[i] as any;
+              const name = (r?.full_name || "").toString().trim();
+              const propType = (r?.market || "").toString().trim();
+              if (!name || !propType) continue;
+              // Resolve player by exact name match first, fallback to ILIKE fuzzy
+              let playerRow: any | undefined = (
+                await client.unsafe(`SELECT id FROM public.players WHERE name = $1 LIMIT 1`, [name])
+              )[0];
+              if (!playerRow) {
+                playerRow = (
+                  await client.unsafe(
+                    `SELECT id FROM public.players WHERE LOWER(name) = LOWER($1) LIMIT 1`,
+                    [name],
+                  )
+                )[0];
+              }
+              const playerId: string | undefined = playerRow?.id;
+              if (!playerId) continue;
+              const a = (
+                await client.unsafe(
+                  `SELECT l5, l10, l20, current_streak, h2h_avg, season_avg, matchup_rank, ev_percent
+                   FROM public.player_analytics
+                   WHERE player_id = $1 AND prop_type = $2 AND season = $3
+                   ORDER BY last_updated DESC NULLS LAST
+                   LIMIT 1`,
+                  [playerId, propType, season],
+                )
+              )[0];
+              if (a) {
+                r.l5 = a.l5 ?? r.l5;
+                r.l10 = a.l10 ?? r.l10;
+                r.l20 = a.l20 ?? r.l20;
+                r.streak_l5 = r.streak_l5 ?? null; // keep placeholder
+                r.h2h_avg = a.h2h_avg ?? r.h2h_avg;
+                r.season_avg = a.season_avg ?? r.season_avg;
+                r.matchup_rank = a.matchup_rank ?? r.matchup_rank;
+                // Prefer DB EV if present; otherwise keep SGO-derived ev_percent
+                if (a.ev_percent != null && a.ev_percent !== undefined) {
+                  r.ev_percent = a.ev_percent;
+                }
+              }
+            }
+          } finally {
+            await client.end({ timeout: 1 });
+          }
+        }
+      } catch (e) {
+        // Non-fatal: fallback remains usable without enrichment
+        console.warn("props-list fallback enrichment skipped:", (e as Error)?.message || e);
+      }
+
       return res.json({ count: rows.length, items: rows, source: "sgo-fallback" });
     };
 
