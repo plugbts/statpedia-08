@@ -75,10 +75,20 @@ async function fetchSchedule(
   }
   if (league === "WNBA") {
     try {
+      // WNBA endpoint requires full browser-like headers and date in MM/DD/YYYY
+      const [y, m, d] = dateStr.split("-");
+      const gameDate = `${m}/${d}/${y}`;
       const res = await fetchWithTimeout(
-        `https://stats.wnba.com/stats/scoreboardv2?DayOffset=0&GameDate=${dateStr}&LeagueID=10`,
+        `https://stats.wnba.com/stats/scoreboardv2?DayOffset=0&GameDate=${encodeURIComponent(gameDate)}&LeagueID=10`,
         {
-          headers: { "User-Agent": "Mozilla/5.0", Accept: "application/json" },
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            Accept: "application/json, text/plain, */*",
+            Referer: "https://www.wnba.com/",
+            Origin: "https://www.wnba.com",
+            "Accept-Language": "en-US,en;q=0.9",
+          },
         },
       );
       if (!res.ok) return [];
@@ -108,8 +118,10 @@ async function fetchSchedule(
   }
   if (league === "NFL") {
     try {
+      // ESPN expects dates in YYYYMMDD format, not YYYY-MM-DD
+      const yyyymmdd = dateStr.replace(/-/g, "");
       const res = await fetchWithTimeout(
-        `https://site.api.espn.com/apis/v2/sports/football/nfl/scoreboard?dates=${dateStr}`,
+        `https://site.api.espn.com/apis/v2/sports/football/nfl/scoreboard?dates=${yyyymmdd}`,
       );
       if (!res.ok) return [];
       const data: any = await res.json();
@@ -167,7 +179,8 @@ async function fetchGameBoxscoreRaw(league: League, gameId: string): Promise<any
     const url = `${base}/boxscoretraditionalv2?GameID=${gameId}&StartPeriod=0&EndPeriod=0&StartRange=0&EndRange=0&RangeType=0`;
     const res = await fetchWithTimeout(url, {
       headers: {
-        "User-Agent": "Mozilla/5.0",
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
         Accept: "application/json",
         Referer: "https://www.wnba.com/",
         Origin: "https://www.wnba.com",

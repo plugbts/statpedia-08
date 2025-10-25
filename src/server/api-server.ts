@@ -655,7 +655,7 @@ app.get("/api/props-list", async (req, res) => {
         });
       }
       const rows = items.slice(0, limit).map(toRow);
-      return res.json({ count: rows.length, items: rows });
+      return res.json({ count: rows.length, items: rows, source: "sgo-fallback" });
     };
 
     const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
@@ -705,7 +705,7 @@ app.get("/api/props-list", async (req, res) => {
 
       const rows = params.length > 0 ? await client.unsafe(sql, params) : await client.unsafe(sql);
       if (Array.isArray(rows) && rows.length > 0) {
-        return res.json({ count: rows.length, items: rows });
+        return res.json({ count: rows.length, items: rows, source: "db" });
       }
       // Empty DB result → fallback to SGO for dev usability
       return await sgoFallback();
