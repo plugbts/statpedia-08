@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "deploy:auth": "wrangler deploy --name statpedia-auth auth-worker.js",
+    "deploy:auth": "wrangler deploy --name statpedia-auth auth-worker-simplified.js",
     "deploy:storage": "wrangler deploy --name statpedia-storage storage-worker.js",
     "deploy:proxy": "wrangler deploy --name statpedia-proxy proxy-worker.js",
     "tail": "wrangler tail",
@@ -14,10 +14,9 @@
     "r2:create": "wrangler r2 bucket create statpedia-player-images"
   },
   "devDependencies": {
-    "wrangler": "^3.0.0",
-    "@supabase/supabase-js": "^2.0.0"
+    "wrangler": "^3.0.0"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.0.0"
+    
   }
 }
