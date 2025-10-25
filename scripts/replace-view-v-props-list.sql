@@ -11,7 +11,7 @@ END$$;
 CREATE OR REPLACE VIEW public.v_props_list AS
 SELECT
   pp.id,
-  p.full_name,
+  COALESCE(p.full_name, p.name) AS full_name,
   t.abbreviation AS team,
   COALESCE(opp.abbreviation,
     CASE WHEN g.home_team_id = p.team_id THEN opp2.abbreviation WHEN g.away_team_id = p.team_id THEN home2.abbreviation ELSE NULL END
@@ -30,7 +30,7 @@ SELECT
   COALESCE(pes.l20, pa.l20) AS l20,
   COALESCE(pes.h2h_avg, pa.h2h_avg) AS h2h_avg,
   COALESCE(pes.season_avg, pa.season_avg) AS season_avg,
-  l.abbreviation::text AS league,
+  COALESCE(l.abbreviation, l.code)::text AS league,
   g.game_date,
   COALESCE(
     t.logo_url,

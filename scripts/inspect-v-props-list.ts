@@ -1,20 +1,19 @@
 import "dotenv/config";
-import fs from "fs/promises";
 import postgres from "postgres";
 
 async function run() {
-  const file = process.argv[2];
-  if (!file) {
-    console.error("Usage: tsx scripts/run-sql-file.ts <path-to-sql>");
-    process.exit(1);
-  }
   const conn = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
   if (!conn) throw new Error("No DB URL");
   const sql = postgres(conn, { prepare: false });
   try {
-    const content = await fs.readFile(file, "utf8");
-    await sql.unsafe(content);
-    console.log(`Executed SQL file: ${file}`);
+    const [{ c }] = await sql`SELECT COUNT(*)::int AS c FROM public.v_props_list`;
+    console.log("v_props_list count:", c);
+    const rows = await sql`
+      SELECT league, full_name, market, line, game_date, over_odds_american, under_odds_american
+      FROM public.v_props_list
+      ORDER BY game_date DESC NULLS LAST
+      LIMIT 10`;
+    console.log(rows);
   } finally {
     await sql.end({ timeout: 2 });
   }
