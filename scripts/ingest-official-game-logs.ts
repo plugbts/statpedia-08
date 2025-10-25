@@ -9,6 +9,10 @@ import { randomUUID } from "crypto";
 
 config({ path: ".env.local" });
 
+// Diagnostics controls
+const DRY_RUN = process.env.DRY_RUN === "1";
+const VERBOSE = process.env.VERBOSE === "1";
+
 const conn = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
 if (!conn) throw new Error("DATABASE_URL/NEON_DATABASE_URL missing");
 const sqlc = postgres(conn, { prepare: false });
@@ -229,6 +233,10 @@ async function fetchGameBoxscoreRaw(league: League, gameId: string): Promise<any
 
 // 3) Save raw and normalize records
 async function saveRaw(league: League, gameId: string, payload: any, season?: string) {
+  if (DRY_RUN) {
+    if (VERBOSE) console.log(`[DRY_RUN] skip saving raw ${league} ${gameId}`);
+    return;
+  }
   await sqlc.unsafe(
     `INSERT INTO public.player_game_logs_raw (league, season, game_external_id, payload)
      VALUES ($1,$2,$3,$4::jsonb)
@@ -247,13 +255,21 @@ function seasonFromDate(dateStr: string, league: League) {
   return String(y);
 }
 
-async function normalizeAndInsert(league: League, gameId: string, dateStr: string) {
+async function normalizeAndInsert(
+  league: League,
+  gameId: string,
+  dateStr: string,
+  payloadFromCaller?: any,
+) {
   // Very lightweight extractors; production logic would handle full mapping per league
-  const rows = (await db.execute(
-    sql`SELECT payload FROM public.player_game_logs_raw WHERE league=${league} AND game_external_id=${gameId} AND normalized=false LIMIT 1`,
-  )) as Array<{ payload: any }>;
-  if (!rows[0]) return 0;
-  const payload = rows[0].payload;
+  let payload: any | undefined = payloadFromCaller;
+  if (!payload) {
+    const rows = (await db.execute(
+      sql`SELECT payload FROM public.player_game_logs_raw WHERE league=${league} AND game_external_id=${gameId} AND normalized=false LIMIT 1`,
+    )) as Array<{ payload: any }>;
+    if (!rows[0]) return 0;
+    payload = rows[0].payload;
+  }
   const norm: Array<{
     player_ext: string;
     team_abbrev: string;
@@ -492,13 +508,24 @@ async function normalizeAndInsert(league: League, gameId: string, dateStr: strin
     inserted++;
   }
   if (logsToInsert.length) {
-    await db.insert(player_game_logs).values(logsToInsert as any);
+    if (DRY_RUN) {
+      if (VERBOSE)
+        console.log(
+          `[DRY_RUN] would insert ${logsToInsert.length} player_game_logs for ${league}:${gameId}`,
+        );
+    } else {
+      await db.insert(player_game_logs).values(logsToInsert as any);
+    }
   }
 
   // mark raw as normalized
-  await db.execute(
-    sql`UPDATE public.player_game_logs_raw SET normalized=true WHERE league=${league} AND game_external_id=${gameId}`,
-  );
+  if (!DRY_RUN) {
+    await db.execute(
+      sql`UPDATE public.player_game_logs_raw SET normalized=true WHERE league=${league} AND game_external_id=${gameId}`,
+    );
+  } else if (VERBOSE) {
+    console.log(`[DRY_RUN] would mark raw normalized for ${league}:${gameId}`);
+  }
   return inserted;
 }
 
@@ -574,34 +601,43 @@ async function ingestRange(league: League, start: Date, end: Date) {
         sql`SELECT id FROM games WHERE api_game_id=${g.gameId} LIMIT 1`,
       )) as Array<{ id: string }>;
       if (!exists[0]) {
-        // get or create teams directly by abbreviation, avoiding hard dependency on team_abbrev_map
-        const leagueId = await getLeagueId(league);
-        const homeTeamId = await getOrCreateTeam(league, String(homeCode));
-        const awayTeamId = await getOrCreateTeam(league, String(awayCode));
-        if (leagueId && homeTeamId && awayTeamId) {
-          await db
-            .insert(games)
-            .values({
-              league_id: leagueId,
-              home_team_id: homeTeamId,
-              away_team_id: awayTeamId,
-              game_date: dateStr,
-              season: seasonFromDate(dateStr, league),
-              season_type: "regular",
-              status: "completed",
-              api_game_id: g.gameId,
-            })
-            .onConflictDoNothing();
-        } else {
-          console.warn(`[${league}] missing mapping for ${awayCode} @ ${homeCode} ${dateStr}`);
+        if (DRY_RUN) {
+          if (VERBOSE)
+            console.log(
+              `[DRY_RUN] would create game ${g.gameId} ${awayCode} @ ${homeCode} on ${dateStr}`,
+            );
+          // In dry-run, skip actual creation and continue to next game
           continue;
+        } else {
+          // get or create teams directly by abbreviation, avoiding hard dependency on team_abbrev_map
+          const leagueId = await getLeagueId(league);
+          const homeTeamId = await getOrCreateTeam(league, String(homeCode));
+          const awayTeamId = await getOrCreateTeam(league, String(awayCode));
+          if (leagueId && homeTeamId && awayTeamId) {
+            await db
+              .insert(games)
+              .values({
+                league_id: leagueId,
+                home_team_id: homeTeamId,
+                away_team_id: awayTeamId,
+                game_date: dateStr,
+                season: seasonFromDate(dateStr, league),
+                season_type: "regular",
+                status: "completed",
+                api_game_id: g.gameId,
+              })
+              .onConflictDoNothing();
+          } else {
+            console.warn(`[${league}] missing mapping for ${awayCode} @ ${homeCode} ${dateStr}`);
+            continue;
+          }
         }
       }
 
       // save raw, normalize
       try {
         await saveRaw(league, g.gameId, raw, seasonFromDate(dateStr, league));
-        const inserted = await normalizeAndInsert(league, g.gameId, dateStr);
+        const inserted = await normalizeAndInsert(league, g.gameId, dateStr, raw);
         totalPlayers += inserted;
         totalGames++;
       } catch (e: any) {
