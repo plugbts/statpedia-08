@@ -16,7 +16,6 @@ import {
   runHistoricalPerformanceIngestion,
 } from "./jobs/performanceIngestion";
 import { fetchAllLeaguesEvents } from "./lib/sportsGameOddsPerformanceFetcher";
-import { supabaseFetch } from "./supabaseFetch";
 import {
   LEAGUES,
   getActiveLeagues,
@@ -44,28 +43,22 @@ import { getAuthService } from "./auth-service";
 let propTypeSyncInitialized = false;
 let supportedProps: SupportedProps = {};
 
+// Supabase fully removed: provide a stub to prevent build errors if legacy paths are hit
+const supabaseFetch = async (..._args: any[]): Promise<any> => {
+  throw new Error("Supabase paths have been removed from the worker");
+};
+
 export default {
   async fetch(req: Request, env: any) {
     try {
-      // Initialize prop type sync and supported props on first request
+      // Initialize worker-local state (Supabase removed)
       if (!propTypeSyncInitialized) {
         try {
-          await initializePropTypeSync(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
-          supportedProps = await initializeSupportedProps(
-            env.SUPABASE_URL,
-            env.SUPABASE_SERVICE_KEY,
-          );
-          await initializeCoverageReport(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
+          supportedProps = {};
           propTypeSyncInitialized = true;
-          console.log(
-            "✅ Prop type sync, supported props, and coverage report initialized successfully",
-          );
+          console.log("✅ Worker initialized (Supabase removed)");
         } catch (error) {
-          console.warn(
-            "⚠️ Failed to initialize prop type sync, supported props, or coverage report:",
-            error,
-          );
-          console.warn("⚠️ Falling back to hardcoded normalizers");
+          console.warn("⚠️ Worker init warning:", error);
         }
       }
 
@@ -425,92 +418,13 @@ export default {
 
       // Handle conflict key audit
       if (url.pathname === "/debug-conflict-audit") {
-        try {
-          const { createClient } = await import("@supabase/supabase-js");
-          const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
-
-          const { data, error } = await supabase
-            .from("player_game_logs")
-            .select("league, conflict_key, prop_type");
-
-          if (error) {
-            console.error("❌ Supabase error:", error);
-            return new Response(
-              JSON.stringify({
-                success: false,
-                error: error instanceof Error ? error.message : String(error),
-              }),
-              {
-                status: 500,
-                headers: {
-                  "Content-Type": "application/json",
-                  "Access-Control-Allow-Origin": "*",
-                },
-              },
-            );
-          }
-
-          // Aggregate counts
-          const results: Record<
-            string,
-            { bad: number; good: number; total: number; badExamples: string[] }
-          > = {};
-
-          data.forEach((row: any) => {
-            const league = row.league || "unknown";
-            if (!results[league]) results[league] = { bad: 0, good: 0, total: 0, badExamples: [] };
-
-            results[league].total++;
-            if (row.conflict_key.includes("|gamelog|")) {
-              results[league].bad++;
-              // Collect examples of bad conflict keys with prop types
-              if (results[league].badExamples.length < 3) {
-                results[league].badExamples.push(`${row.prop_type} -> ${row.conflict_key}`);
-              }
-            } else {
-              results[league].good++;
-            }
-          });
-
-          console.log("📊 Conflict Key Audit Results:");
-          Object.entries(results).forEach(([league, counts]) => {
-            console.log(
-              `${league.toUpperCase()}: total=${counts.total}, good=${counts.good}, bad=${counts.bad}`,
-            );
-            if (counts.badExamples.length > 0) {
-              console.log(`  Bad examples:`, counts.badExamples);
-            }
-          });
-
-          return new Response(
-            JSON.stringify({
-              success: true,
-              results,
-              message: "Conflict key audit completed",
-              timestamp: new Date().toISOString(),
-            }),
-            {
-              headers: {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-              },
-            },
-          );
-        } catch (error) {
-          return new Response(
-            JSON.stringify({
-              success: false,
-              error: error instanceof Error ? error.message : String(error),
-            }),
-            {
-              status: 500,
-              headers: {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-              },
-            },
-          );
-        }
+        return corsResponse(
+          {
+            success: false,
+            message: "Endpoint disabled: NO SUPABASE",
+          },
+          501,
+        );
       }
 
       // Handle TRUE streak analysis query
@@ -2092,54 +2006,13 @@ export default {
 
       // Debug endpoint to check database data
       if (url.pathname === "/debug/check-db") {
-        try {
-          console.log("🔍 DIAGNOSTIC: Checking database data...");
-
-          // Import Supabase client for direct database operations
-          const { createClient } = await import("@supabase/supabase-js");
-          const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
-
-          // Check proplines table
-          const { data: proplinesData, error: proplinesError } = await supabase
-            .from("proplines")
-            .select("player_name, team, opponent, prop_type, date")
-            .eq("league", "nfl")
-            .eq("date", "2025-10-11")
-            .limit(10);
-
-          // Check player_props_fixed view
-          const { data: viewData, error: viewError } = await supabase
-            .from("player_props_fixed")
-            .select("player_name, team_abbr, opponent_abbr, prop_type, prop_date")
-            .eq("league", "nfl")
-            .eq("prop_date", "2025-10-11")
-            .limit(10);
-
-          return corsResponse({
-            success: true,
-            message: "Database check completed",
-            proplines: {
-              count: proplinesData?.length || 0,
-              sample: proplinesData?.slice(0, 5) || [],
-              error: proplinesError?.message || null,
-            },
-            view: {
-              count: viewData?.length || 0,
-              sample: viewData?.slice(0, 5) || [],
-              error: viewError?.message || null,
-            },
-            timestamp: new Date().toISOString(),
-          });
-        } catch (error) {
-          console.error("❌ Database check failed:", error);
-
-          return corsResponse({
+        return corsResponse(
+          {
             success: false,
-            error: error instanceof Error ? error.message : String(error),
-            message: "Database check failed",
-            timestamp: new Date().toISOString(),
-          });
-        }
+            message: "Endpoint disabled: NO SUPABASE",
+          },
+          501,
+        );
       }
 
       // Diagnostic endpoint to test data persistence
@@ -2465,6 +2338,7 @@ export default {
           const date = url.searchParams.get("date"); // Don't default to today's date
           const dateFrom = url.searchParams.get("date_from");
           const dateTo = url.searchParams.get("date_to");
+          const leagueParam = url.searchParams.get("league")?.toUpperCase();
 
           // Get max props per request based on sport (recommended caps)
           const getMaxPropsForSport = (sport: string): number => {
@@ -2518,68 +2392,263 @@ export default {
 
           // Map sport to league
           const leagueMap: Record<string, string> = {
-            nfl: "nfl",
-            nba: "nba",
-            mlb: "mlb",
-            nhl: "nhl",
+            nfl: "NFL",
+            nba: "NBA",
+            mlb: "MLB",
+            nhl: "NHL",
           };
 
-          const league = leagueMap[sport] || "nfl";
+          const league = leagueParam || leagueMap[sport] || "NFL";
+
+          // Fast path: SGO-only fetch for MLB (and optionally others if Supabase is disabled)
+          // Supabase removed: always use SGO-only path for all sports
+          const shouldUseSgoOnly = true;
+          if (shouldUseSgoOnly) {
+            const started = Date.now();
+            const apiKey = env.SGO_API_KEY || env.SPORTSGAMEODDS_API_KEY || env.SPORTSODDS_API_KEY;
+            if (!apiKey) {
+              return corsResponse({ success: false, error: "SGO_API_KEY is not configured" }, 500);
+            }
+
+            // Build SGO v2/events URL; cap limit per sport
+            const limit = Math.min(
+              maxPropsPerRequest,
+              parseInt(env.MAX_PROPS_PER_REQUEST || "500"),
+            );
+            const sgoUrl = new URL("https://api.sportsgameodds.com/v2/events/");
+            sgoUrl.searchParams.set("apiKey", apiKey);
+            sgoUrl.searchParams.set("leagueID", league);
+            sgoUrl.searchParams.set("oddsAvailable", "true");
+            sgoUrl.searchParams.set("oddsType", "playerprops");
+            sgoUrl.searchParams.set("limit", String(limit));
+
+            let events: any[] = [];
+            try {
+              const resp = await fetch(sgoUrl.toString());
+              if (!resp.ok) {
+                const text = await resp.text().catch(() => "");
+                throw new Error(`SGO error ${resp.status}: ${text || resp.statusText}`);
+              }
+              const json: any = await resp.json().catch(() => ({}));
+              events = Array.isArray(json?.data) ? json.data : Array.isArray(json) ? json : [];
+            } catch (e) {
+              return corsResponse({ success: false, error: String(e) }, 500);
+            }
+
+            // Helper: title-case name from playerID like FIRST_LAST_1_MLB
+            const formatName = (raw: string) => {
+              const base = String(raw || "")
+                .replace(/_\d+_[A-Z]+$/, "")
+                .replace(/_/g, " ")
+                .toLowerCase()
+                .trim();
+              return base.replace(/(?:^|[\s'\-])(\p{L})/gu, (m) => m.toUpperCase());
+            };
+            // MLB prop normalization
+            const normalizeMlb = (s: string): string => {
+              const k = s.toLowerCase();
+              if (/home\s*run|\bhr\b|homer/.test(k)) return "Home Runs";
+              if (/\brbi\b|rbis|runs\s*batted\s*in/.test(k)) return "RBIs";
+              if (/total\s*bases|\btb\b/.test(k)) return "Total Bases";
+              if (/walks|\bbb\b|bases\s*on\s*balls/.test(k)) return "Walks";
+              if (/hits?/.test(k)) return "Hits";
+              if (/runs?/.test(k)) return "Runs";
+              return s;
+            };
+            const isValidAmerican = (n: any) =>
+              Number.isFinite(Number(n)) && Number(n) !== 0 && Math.abs(Number(n)) <= 2000;
+
+            // Filter events by date range if provided
+            const inRange = (iso?: string) => {
+              if (!iso) return !date && !dateFrom && !dateTo; // accept when no filter
+              const d = new Date(iso);
+              const ds = d.toISOString().split("T")[0];
+              if (date) return ds === date;
+              if (dateFrom && dateTo) return ds >= dateFrom && ds <= dateTo;
+              return true;
+            };
+
+            type Out = {
+              playerName: string;
+              propType: string;
+              line: number | null;
+              bestOver?: { bookmaker: string; side: string; price: string; line: number | null };
+              bestUnder?: { bookmaker: string; side: string; price: string; line: number | null };
+              allBooks?: Array<{
+                bookmaker: string;
+                side: string;
+                price: string;
+                line: number | null;
+                deeplink?: string;
+              }>;
+              gameDate: string;
+              gameId?: string;
+              teamAbbr: string;
+              opponentAbbr: string;
+            };
+
+            const out: Out[] = [];
+            const eventIdsIncluded = new Set<string>();
+
+            for (const ev of events) {
+              const gameId = ev.id || ev.gameId || ev.eventID || "unknown";
+              const when = ev.gameTime || ev.startTime || ev.start || ev.date || null;
+              const gameDate = when ? new Date(when).toISOString() : new Date().toISOString();
+              if (!inRange(gameDate)) continue;
+              eventIdsIncluded.add(String(gameId));
+
+              const homeAbbr = (
+                ev.homeTeamAbbr ||
+                ev.homeTeam ||
+                ev.home ||
+                ev.home_abbr ||
+                ev.homeAbbreviation ||
+                ev.homeShort ||
+                ev.home_code ||
+                ""
+              )
+                .toString()
+                .toUpperCase();
+              const awayAbbr = (
+                ev.awayTeamAbbr ||
+                ev.awayTeam ||
+                ev.away ||
+                ev.away_abbr ||
+                ev.awayAbbreviation ||
+                ev.awayShort ||
+                ev.away_code ||
+                ""
+              )
+                .toString()
+                .toUpperCase();
+              const oddsObj = ev.odds || {};
+
+              for (const [_, raw] of Object.entries(oddsObj)) {
+                const odd: any = raw;
+                if (!odd || !odd.playerID) continue;
+                if (odd.cancelled) continue;
+                const playerId = String(odd.playerID);
+                const playerName = formatName(playerId);
+                const statId = odd.statID || odd.market || "Unknown";
+                const propType = sport === "mlb" ? normalizeMlb(String(statId)) : String(statId);
+                const lineVal = Number(odd.bookOverUnder ?? odd.fairOverUnder ?? odd.line ?? NaN);
+                const line = Number.isFinite(lineVal) ? lineVal : null;
+                const side = (odd.sideID || odd.side || "").toString().toLowerCase();
+                const price = Number(odd.bookOdds ?? odd.fairOdds ?? NaN);
+
+                // Build per-book offers
+                const offersMap = new Map<
+                  string,
+                  { over?: number; under?: number; deeplink?: string }
+                >();
+                const byBookmaker = odd.byBookmaker || {};
+                const entries = Object.entries(byBookmaker) as Array<[string, any]>;
+                if (entries.length > 0) {
+                  for (const [bookRaw, info] of entries) {
+                    if (!info || info.available === false || info.odds == null) continue;
+                    const book = String(bookRaw).toLowerCase();
+                    const american = Number(info.odds);
+                    if (!isValidAmerican(american)) continue;
+                    const existing = offersMap.get(book) || {};
+                    if (side === "over") existing.over = american;
+                    if (side === "under") existing.under = american;
+                    if (info.deeplink && !existing.deeplink)
+                      existing.deeplink = String(info.deeplink);
+                    offersMap.set(book, existing);
+                  }
+                } else if (isValidAmerican(price)) {
+                  const existing = offersMap.get("consensus") || {};
+                  if (side === "over") existing.over = price;
+                  if (side === "under") existing.under = price;
+                  offersMap.set("consensus", existing);
+                }
+
+                const books = Array.from(offersMap.entries()).map(([book, v]) => ({
+                  bookmaker: book,
+                  side:
+                    v.over != null && v.under == null
+                      ? "over"
+                      : v.under != null && v.over == null
+                        ? "under"
+                        : "both",
+                  price: String(v.over ?? v.under ?? ""),
+                  line,
+                  deeplink: v.deeplink,
+                }));
+                // Compute best over/under
+                const bestOverCandidate = Array.from(offersMap.entries())
+                  .filter(([, v]) => isValidAmerican(v.over))
+                  .map(([book, v]) => ({ book, odds: Number(v.over), line }))
+                  .sort((a, b) => 1 + a.odds / 100 - (1 + b.odds / 100))
+                  .pop();
+                const bestUnderCandidate = Array.from(offersMap.entries())
+                  .filter(([, v]) => isValidAmerican(v.under))
+                  .map(([book, v]) => ({ book, odds: Number(v.under), line }))
+                  .sort((a, b) => 1 + a.odds / 100 - (1 + b.odds / 100))
+                  .pop();
+
+                const bestOver = bestOverCandidate
+                  ? {
+                      bookmaker: bestOverCandidate.book,
+                      side: "over",
+                      price: String(bestOverCandidate.odds),
+                      line,
+                    }
+                  : undefined;
+                const bestUnder = bestUnderCandidate
+                  ? {
+                      bookmaker: bestUnderCandidate.book,
+                      side: "under",
+                      price: String(bestUnderCandidate.odds),
+                      line,
+                    }
+                  : undefined;
+
+                const teamAbbr = (odd.playerTeam || odd.team || "").toString().toUpperCase();
+                const opp =
+                  teamAbbr && (teamAbbr === homeAbbr || teamAbbr === awayAbbr)
+                    ? teamAbbr === homeAbbr
+                      ? awayAbbr
+                      : homeAbbr
+                    : "";
+
+                out.push({
+                  playerName,
+                  propType,
+                  line,
+                  bestOver,
+                  bestUnder,
+                  allBooks: books,
+                  gameDate,
+                  gameId: String(gameId),
+                  teamAbbr: teamAbbr || "",
+                  opponentAbbr: opp || "",
+                });
+              }
+            }
+
+            const took = Date.now() - started;
+            return corsResponse({
+              success: true,
+              data: out,
+              cached: false,
+              cacheKey,
+              responseTime: took,
+              totalEvents: eventIdsIncluded.size,
+              totalProps: out.length,
+              sport,
+              date,
+            });
+          }
 
           // Use our new worker-centric pipeline
           let enrichedProps: EnrichedProp[] = [];
 
           try {
             if (date) {
-              // Single date query - dual-mode approach
-              console.log(`📊 DUAL-MODE: Fetching and enriching props for ${league} on ${date}...`);
-              // Query existing data from player_props_fixed using direct Supabase client
-              const { createClient } = await import("@supabase/supabase-js");
-              const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
-
-              const { data: dbProps, error: dbError } = await supabase
-                .from("player_props_fixed")
-                .select("*")
-                .eq("league", league)
-                .eq("prop_date", date)
-                .limit(150);
-
-              if (dbError) {
-                console.error(`❌ Database query failed:`, dbError);
-                enrichedProps = [];
-              } else {
-                enrichedProps = (dbProps || []).map((prop: any) => ({
-                  player_id: prop.player_id,
-                  clean_player_name: prop.clean_player_name || prop.player_name,
-                  team_abbr: prop.team_abbr || "UNK",
-                  team_logo: prop.team_logo,
-                  team_name: prop.team_abbr || "Unknown",
-                  opponent_abbr: prop.opponent_abbr || "UNK",
-                  opponent_logo: prop.opponent_logo,
-                  opponent_name: prop.opponent_abbr || "Unknown",
-                  prop_type: prop.prop_type,
-                  prop_type_display:
-                    prop.prop_type?.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()) ||
-                    prop.prop_type,
-                  bet_type: "over_under",
-                  line: prop.line,
-                  over_odds: prop.over_odds,
-                  under_odds: prop.under_odds,
-                  ev_percent: prop.ev_percent,
-                  last5_hits: prop.last5_streak || "0/5",
-                  last10_hits: prop.last10_streak || "0/10",
-                  last20_hits: prop.last20_streak || "0/20",
-                  h2h_hits: prop.h2h_streak || "0/0",
-                  game_id: prop.game_id,
-                  date_normalized: prop.prop_date,
-                  league: prop.league,
-                  season: prop.season,
-                  debug_team: { team_abbr: prop.team_abbr, opponent_abbr: prop.opponent_abbr },
-                }));
-                console.log(
-                  `📊 DATABASE: Retrieved ${enrichedProps.length} props from player_props_fixed for ${date}`,
-                );
-              }
+              // Single date query using SGO-only pipeline (NO SUPABASE)
+              console.log(`📊 Fetching and enriching props for ${league} on ${date} (SGO-only)...`);
+              enrichedProps = await ingestAndEnrich(env, league, date);
 
               // Persist in background (don't block response)
               if (enrichedProps.length > 0) {
@@ -2612,8 +2681,8 @@ export default {
               }
               enrichedProps = allProps;
             } else {
-              // No date filter - find the most recent date with data
-              console.log(`📊 NEW PIPELINE: Finding most recent date with data for ${league}...`);
+              // No date filter - find the most recent date with data via SGO-only pipeline
+              console.log(`📊 Finding most recent date with data for ${league} (SGO-only)...`);
 
               // Try to find a recent date with data by checking the last few days
               const today = new Date();
@@ -2625,54 +2694,10 @@ export default {
                 const dateStr = checkDate.toISOString().split("T")[0];
 
                 try {
-                  // Query existing data from player_props_fixed for this date using direct Supabase client
-                  const { createClient } = await import("@supabase/supabase-js");
-                  const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
-
-                  const { data: testDbProps, error: testDbError } = await supabase
-                    .from("player_props_fixed")
-                    .select("*")
-                    .eq("league", league)
-                    .eq("prop_date", dateStr)
-                    .limit(150);
-
-                  const testProps = testDbError
-                    ? []
-                    : (testDbProps || []).map((prop: any) => ({
-                        player_id: prop.player_id,
-                        clean_player_name: prop.clean_player_name || prop.player_name,
-                        team_abbr: prop.team_abbr || "UNK",
-                        team_logo: prop.team_logo,
-                        team_name: prop.team_abbr || "Unknown",
-                        opponent_abbr: prop.opponent_abbr || "UNK",
-                        opponent_logo: prop.opponent_logo,
-                        opponent_name: prop.opponent_abbr || "Unknown",
-                        prop_type: prop.prop_type,
-                        prop_type_display:
-                          prop.prop_type
-                            ?.replace(/_/g, " ")
-                            .replace(/\b\w/g, (l) => l.toUpperCase()) || prop.prop_type,
-                        bet_type: "over_under",
-                        line: prop.line,
-                        over_odds: prop.over_odds,
-                        under_odds: prop.under_odds,
-                        ev_percent: prop.ev_percent,
-                        last5_hits: prop.last5_streak || "0/5",
-                        last10_hits: prop.last10_streak || "0/10",
-                        last20_hits: prop.last20_streak || "0/20",
-                        h2h_hits: prop.h2h_streak || "0/0",
-                        game_id: prop.game_id,
-                        date_normalized: prop.prop_date,
-                        league: prop.league,
-                        season: prop.season,
-                        debug_team: {
-                          team_abbr: prop.team_abbr,
-                          opponent_abbr: prop.opponent_abbr,
-                        },
-                      }));
+                  const testProps = await ingestAndEnrich(env, league, dateStr);
                   if (testProps.length > 0) {
                     console.log(
-                      `📅 DUAL-MODE: Found data for ${league} on ${dateStr} (${testProps.length} props)`,
+                      `📅 Found data for ${league} on ${dateStr} (${testProps.length} props)`,
                     );
                     enrichedProps = testProps;
                     foundData = true;
@@ -3142,301 +3167,24 @@ export default {
 
       // Handle join diagnostics endpoint
       if (url.pathname === "/debug-join-diagnostics") {
-        try {
-          const { createClient } = await import("@supabase/supabase-js");
-
-          const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
-
-          console.log("🔍 Running join diagnostics...");
-
-          // 1. Game logs vs props coverage (remove limits to get real data)
-          const { data: gameLogs, error: glErr } = await supabase
-            .from("player_game_logs")
-            .select("player_id, game_id, prop_type, league, season, date, conflict_key")
-            .limit(1000);
-
-          const { data: props, error: prErr } = await supabase
-            .from("proplines")
-            .select(
-              "player_id, game_id, prop_type, league, season, date, date_normalized, conflict_key",
-            )
-            .limit(1000);
-
-          if (glErr || prErr) {
-            console.error("❌ Supabase error:", glErr || prErr);
-            return corsResponse(
-              {
-                success: false,
-                error: glErr?.message || prErr?.message,
-              },
-              500,
-            );
-          }
-
-          // Group by league
-          const results: Record<
-            string,
-            { totalLogs: number; matchedProps: number; unmatchedLogs: number }
-          > = {};
-
-          // Use normalizers for consistent prop type matching
-
-          gameLogs!.forEach((g) => {
-            const league = normalizeLeague(g.league);
-            if (!results[league]) {
-              results[league] = { totalLogs: 0, matchedProps: 0, unmatchedLogs: 0 };
-            }
-            results[league].totalLogs++;
-
-            // Normalize game log data
-            const normalizedGameLog = {
-              player_id: g.player_id,
-              game_id: g.game_id,
-              prop_type: normalizePropType(g.prop_type),
-              date: normalizeDate(g.date),
-              league: normalizeLeague(g.league),
-              season: g.season,
-            };
-
-            const match = props!.find((p) => {
-              // Normalize prop line data
-              const normalizedProp = {
-                player_id: p.player_id,
-                game_id: p.game_id,
-                prop_type: normalizePropType(p.prop_type),
-                date: normalizeDate(p.date_normalized || p.date),
-                league: normalizeLeague(p.league),
-                season: p.season,
-              };
-
-              return (
-                normalizedGameLog.player_id === normalizedProp.player_id &&
-                normalizedGameLog.game_id === normalizedProp.game_id &&
-                normalizedGameLog.prop_type === normalizedProp.prop_type &&
-                normalizedGameLog.date === normalizedProp.date &&
-                normalizedGameLog.league === normalizedProp.league &&
-                normalizedGameLog.season === normalizedProp.season
-              );
-            });
-
-            if (match) {
-              results[league].matchedProps++;
-            } else {
-              results[league].unmatchedLogs++;
-            }
-          });
-
-          console.log("📊 Join Diagnostic Results:");
-          Object.entries(results).forEach(([league, counts]) => {
-            console.log(
-              `${league.toUpperCase()}: totalLogs=${counts.totalLogs}, matchedProps=${counts.matchedProps}, unmatchedLogs=${counts.unmatchedLogs}`,
-            );
-          });
-
-          // 2. Reverse coverage: props without matching logs
-          const reverse: Record<
-            string,
-            { totalProps: number; matchedLogs: number; unmatchedProps: number }
-          > = {};
-
-          props!.forEach((p) => {
-            const league = p.league.toLowerCase();
-            if (!reverse[league]) {
-              reverse[league] = { totalProps: 0, matchedLogs: 0, unmatchedProps: 0 };
-            }
-            reverse[league].totalProps++;
-
-            const match = gameLogs!.find((g) => {
-              // Use the same conflict_key matching logic as the main API
-              const gameLogParts = g.conflict_key.split("|");
-              const [player_id, game_id, prop_type, league, season] = gameLogParts;
-
-              const propParts = p.conflict_key.split("|");
-              if (propParts.length !== 6) return false;
-
-              const [p_player_id, p_game_id, p_prop_type, p_sportsbook, p_league, p_season] =
-                propParts;
-
-              // Use normalizers for consistent prop type matching
-              const normalizedGameLogPropType = normalizePropType(prop_type);
-              const normalizedPropPropType = normalizePropType(p_prop_type);
-
-              return (
-                p_player_id === player_id &&
-                p_game_id === game_id &&
-                normalizedGameLogPropType === normalizedPropPropType &&
-                isDateMatch(g.date, p.date_normalized) &&
-                p_league === league &&
-                p_season === season
-              );
-            });
-
-            if (match) {
-              reverse[league].matchedLogs++;
-            } else {
-              reverse[league].unmatchedProps++;
-            }
-          });
-
-          console.log("📊 Reverse Diagnostic Results:");
-          Object.entries(reverse).forEach(([league, counts]) => {
-            console.log(
-              `${league.toUpperCase()}: totalProps=${counts.totalProps}, matchedLogs=${counts.matchedLogs}, unmatchedProps=${counts.unmatchedProps}`,
-            );
-          });
-
-          return corsResponse({
-            success: true,
-            forwardJoin: results,
-            reverseJoin: reverse,
-            summary: {
-              totalGameLogs: gameLogs?.length || 0,
-              totalProps: props?.length || 0,
-              totalMatched: Object.values(results).reduce((sum, r) => sum + r.matchedProps, 0),
-              totalUnmatched: Object.values(results).reduce((sum, r) => sum + r.unmatchedLogs, 0),
-            },
-            timestamp: new Date().toISOString(),
-          });
-        } catch (error) {
-          console.error("❌ Join diagnostics error:", error);
-          return corsResponse(
-            {
-              success: false,
-              error: error instanceof Error ? error.message : String(error),
-            },
-            500,
-          );
-        }
+        return corsResponse(
+          {
+            success: false,
+            message: "Endpoint disabled: NO SUPABASE",
+          },
+          501,
+        );
       }
 
       // Handle field-level mismatch diagnostics
       if (url.pathname === "/debug-field-mismatch") {
-        try {
-          const { createClient } = await import("@supabase/supabase-js");
-
-          const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
-
-          console.log("🔍 Running field-level mismatch diagnostics...");
-
-          const { data: gameLogs } = await supabase
-            .from("player_game_logs")
-            .select("player_id, prop_type, league, date, conflict_key");
-
-          const { data: props } = await supabase
-            .from("proplines")
-            .select("player_id, prop_type, league, date_normalized, conflict_key");
-
-          // Use normalizers for field-level diagnostics
-
-          function explainMismatch(gameLog: any, prop: any) {
-            const issues: string[] = [];
-
-            // Use the same conflict_key matching logic as the main API
-            const gameLogParts = gameLog.conflict_key.split("|");
-            const [player_id, game_id, prop_type, league, season] = gameLogParts;
-
-            const propParts = prop.conflict_key.split("|");
-            if (propParts.length !== 6) {
-              issues.push("prop conflict_key format mismatch (not 6 parts)");
-              return issues.join(", ");
-            }
-
-            const [p_player_id, p_game_id, p_prop_type, p_sportsbook, p_league, p_season] =
-              propParts;
-
-            if (player_id !== p_player_id) issues.push("player_id mismatch");
-            if (game_id !== p_game_id) issues.push("game_id mismatch");
-
-            // Use normalizers for consistent prop type matching
-            const normalizedGameLogPropType = normalizePropType(prop_type);
-            const normalizedPropPropType = normalizePropType(p_prop_type);
-            const propTypesMatch = normalizedGameLogPropType === normalizedPropPropType;
-
-            if (!propTypesMatch) issues.push(`prop_type mismatch (${prop_type} vs ${p_prop_type})`);
-            if (league !== p_league) issues.push(`league mismatch (${league} vs ${p_league})`);
-            if (season !== p_season) issues.push(`season mismatch (${season} vs ${p_season})`);
-
-            return issues.length ? issues.join(", ") : "all fields match";
-          }
-
-          console.log("📊 Field‑Level Mismatch Diagnostics");
-
-          const mismatches: any[] = [];
-          const noPropsForPlayer: any[] = [];
-
-          gameLogs!.slice(0, 50).forEach((g) => {
-            const candidates = props!.filter((p) => p.player_id === g.player_id);
-            if (candidates.length === 0) {
-              console.log(`❌ No props at all for player ${g.player_id}`);
-              noPropsForPlayer.push({
-                player_id: g.player_id,
-                prop_type: g.prop_type,
-                league: g.league,
-                date: g.date,
-              });
-            } else {
-              const match = candidates.find((p) => {
-                // Use the same conflict_key matching logic as the main API
-                const gameLogParts = g.conflict_key.split("|");
-                const [player_id, game_id, prop_type, league, season] = gameLogParts;
-
-                const propParts = p.conflict_key.split("|");
-                if (propParts.length !== 6) return false;
-
-                const [p_player_id, p_game_id, p_prop_type, p_sportsbook, p_league, p_season] =
-                  propParts;
-
-                // Use normalizers for consistent prop type matching
-                const normalizedGameLogPropType = normalizePropType(prop_type);
-                const normalizedPropPropType = normalizePropType(p_prop_type);
-                const propTypesMatch = normalizedGameLogPropType === normalizedPropPropType;
-
-                return (
-                  p_player_id === player_id &&
-                  p_game_id === game_id &&
-                  propTypesMatch &&
-                  p_league === league &&
-                  p_season === season
-                );
-              });
-              if (!match) {
-                // Show first candidate and explain why it failed
-                const reason = explainMismatch(g, candidates[0]);
-                console.log(`⚠️ Mismatch for player ${g.player_id}: ${reason}`);
-                mismatches.push({
-                  gameLog: g,
-                  candidate: candidates[0],
-                  reason: reason,
-                  allCandidates: candidates.slice(0, 3), // Show first 3 candidates
-                });
-              }
-            }
-          });
-
-          return corsResponse({
-            success: true,
-            summary: {
-              totalGameLogsChecked: Math.min(50, gameLogs?.length || 0),
-              totalProps: props?.length || 0,
-              mismatchesFound: mismatches.length,
-              playersWithNoProps: noPropsForPlayer.length,
-            },
-            mismatches: mismatches.slice(0, 10), // Limit to first 10 for response size
-            playersWithNoProps: noPropsForPlayer.slice(0, 10),
-            sampleGameLog: gameLogs?.[0],
-            sampleProp: props?.[0],
-            timestamp: new Date().toISOString(),
-          });
-        } catch (error) {
-          console.error("❌ Field mismatch diagnostics error:", error);
-          return corsResponse(
-            {
-              success: false,
-              error: error instanceof Error ? error.message : String(error),
-            },
-            500,
-          );
-        }
+        return corsResponse(
+          {
+            success: false,
+            message: "Endpoint disabled: NO SUPABASE",
+          },
+          501,
+        );
       }
 
       // Handle backfill-all endpoint
@@ -5272,118 +5020,11 @@ export default {
   },
 };
 
-// Performance Diagnostic Function
-async function runPerformanceDiagnostic(env: any): Promise<any> {
-  const { createClient } = await import("@supabase/supabase-js");
-
-  const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
-
-  const testRow = {
-    player_id: "TEST_PLAYER",
-    player_name: "Diagnostic Player",
-    date: new Date().toISOString().slice(0, 10), // YYYY-MM-DD
-    league: "NFL",
-    season: 2025,
-    game_id: "TEST_GAME",
-    prop_type: "Test Prop",
-    line: 1.5,
-    sportsbook: "SportsGameOdds",
-    over_odds: -110,
-    under_odds: 100,
-    conflict_key: `TEST_PLAYER|TEST_GAME|Test Prop|SportsGameOdds|NFL`,
+// Performance Diagnostic Function (NO SUPABASE)
+async function runPerformanceDiagnostic(_env: any): Promise<any> {
+  console.log("ℹ️ runPerformanceDiagnostic is disabled (NO SUPABASE)");
+  return {
+    disabled: true,
+    reason: "Supabase removed. Persistence diagnostics are not available in the worker.",
   };
-
-  const result: any = {
-    insertSuccess: false,
-    selectSuccess: false,
-    dataFound: false,
-    insertError: null,
-    selectError: null,
-    retrievedData: null,
-  };
-
-  try {
-    // 1. Try insert/upsert
-    const { error: insertError } = await supabase.from("proplines").upsert([testRow]);
-
-    if (insertError) {
-      console.error("❌ Insert failed:", insertError.message);
-      result.insertError = insertError.message;
-      return result;
-    }
-
-    result.insertSuccess = true;
-    console.log("✅ Insert successful");
-
-    // 2. Immediately query back
-    const { data, error: selectError } = await supabase
-      .from("proplines")
-      .select("*")
-      .eq("player_id", "TEST_PLAYER")
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    if (selectError) {
-      console.error("❌ Select failed:", selectError.message);
-      result.selectError = selectError.message;
-      return result;
-    }
-
-    result.selectSuccess = true;
-
-    if (data && data.length > 0) {
-      console.log("✅ Persistence confirmed:", data[0]);
-      result.dataFound = true;
-      result.retrievedData = data[0];
-    } else {
-      console.warn("⚠️ Insert appeared to succeed, but no row found. Likely RLS or wrong key.");
-      result.dataFound = false;
-    }
-
-    // 3. Try the same with player_game_logs
-    const gameLogTestRow = {
-      player_id: "TEST_PLAYER",
-      player_name: "Diagnostic Player",
-      team: "TEST",
-      opponent: "TEST2",
-      season: 2025,
-      date: new Date().toISOString().slice(0, 10),
-      prop_type: "Test Prop",
-      value: 2.5,
-      sport: "NFL",
-      league: "nfl",
-      game_id: "TEST_GAME",
-    };
-
-    const { error: gameLogInsertError } = await supabase
-      .from("player_game_logs")
-      .upsert([gameLogTestRow]);
-
-    if (gameLogInsertError) {
-      result.gameLogInsertError = gameLogInsertError.message;
-    } else {
-      result.gameLogInsertSuccess = true;
-
-      const { data: gameLogData, error: gameLogSelectError } = await supabase
-        .from("player_game_logs")
-        .select("*")
-        .eq("player_id", "TEST_PLAYER")
-        .limit(1);
-
-      if (gameLogSelectError) {
-        result.gameLogSelectError = gameLogSelectError.message;
-      } else {
-        result.gameLogSelectSuccess = true;
-        result.gameLogDataFound = gameLogData && gameLogData.length > 0;
-        if (gameLogData && gameLogData.length > 0) {
-          result.gameLogRetrievedData = gameLogData[0];
-        }
-      }
-    }
-  } catch (error) {
-    console.error("❌ Diagnostic failed:", error);
-    result.diagnosticError = error instanceof Error ? error.message : String(error);
-  }
-
-  return result;
 }

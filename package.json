@@ -43,7 +43,6 @@
     "ingest:upcoming": "tsx scripts/run-upcoming-props-ingestion.ts",
     "ingest:full": "tsx scripts/run-full-ingestion.ts",
   "sync:mlb:odds": "tsx scripts/sync-mlb-odds-to-neon.ts",
-  "sync:mlb:odds:supabase": "tsx scripts/sync-mlb-odds-from-supabase.ts",
     "test:fixtures": "tsx scripts/test-fixtures.ts",
     "test:harness": "tsx scripts/test-one-game-harness.ts",
     "git-sync": "node scripts/git-sync.js",
@@ -134,7 +133,8 @@
   "dev:ports:free": "bash -lc 'lsof -ti:8080 -sTCP:LISTEN | xargs -r kill -9; lsof -ti:3001 -sTCP:LISTEN | xargs -r kill -9'",
     "worker:deploy": "npm -w cloudflare-worker run deploy",
     "worker:deploy:staging": "npm -w cloudflare-worker run deploy:staging",
-    "worker:deploy:production": "npm -w cloudflare-worker run deploy:production"
+    "worker:deploy:production": "npm -w cloudflare-worker run deploy:production",
+    "worker:dev": "npm -w cloudflare-worker run dev"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -258,5 +258,8 @@
     "projectId": "statpedia-08",
     "autoSync": true,
     "syncInterval": 30000
-  }
+  },
+  "workspaces": [
+    "cloudflare-worker"
+  ]
 }

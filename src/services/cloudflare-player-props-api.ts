@@ -350,62 +350,7 @@ class CloudflarePlayerPropsAPI {
     }
   }
 
-  /**
-   * Fallback method to get player props from Supabase Edge Function
-   */
-  private async getPlayerPropsFromSupabase(
-    sport: string = "nfl",
-    forceRefresh: boolean = false,
-  ): Promise<PlayerProp[]> {
-    try {
-      console.log(`🔄 Fetching player props from Supabase Edge Function: ${sport}`);
-
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-      if (!supabaseUrl || !supabaseAnonKey) {
-        throw new Error("Supabase configuration not found");
-      }
-
-      const url = new URL(`${supabaseUrl}/functions/v1/sportsgameodds-api`);
-      url.searchParams.append("endpoint", "player-props");
-      url.searchParams.append("sport", sport);
-
-      if (forceRefresh) {
-        url.searchParams.append("force_refresh", "true");
-      }
-
-      const response = await fetch(url.toString(), {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${supabaseAnonKey}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Supabase Edge Function error: ${response.status}`);
-      }
-
-      const data: APIResponse = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error || "Failed to load player props from Supabase");
-      }
-
-      console.log(`✅ Player props loaded from Supabase: ${data.totalProps} props`);
-      const props = data.data || [];
-
-      // Enrich props with gameLogs and defenseStats for analytics
-      console.log(`🔧 Enriching ${props.length} player props with gameLogs and defenseStats...`);
-      const enrichedProps = await playerPropsEnricher.enrichPlayerProps(props);
-
-      console.log(`✅ Enriched ${enrichedProps.length} player props with analytics data`);
-      return enrichedProps;
-    } catch (error) {
-      console.error("❌ Supabase Edge Function error:", error);
-      throw error;
-    }
-  }
+  // Supabase fallback removed
 
   /**
    * Get cached player props (faster response) - backward compatibility

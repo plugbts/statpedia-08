@@ -2,10 +2,7 @@
 // Fetches real player performance data and integrates with betting lines
 
 import { getPerformanceFetcher, PerformanceData } from "../lib/performanceDataFetcher";
-import { PerformanceDataMatcher } from "../lib/performanceDataMatcher";
 import { getActiveLeagues } from "../config/leagues";
-import { supabaseFetch } from "../supabaseFetch";
-import { createClient } from "@supabase/supabase-js";
 import { buildConflictKey } from "../lib/conflictKeyGenerator";
 import { normalizePropType } from "../lib/propTypeNormalizer";
 
@@ -56,9 +53,8 @@ export async function runPerformanceIngestion(
     console.log(`📊 Target date: ${targetDate}`);
     console.log(`📊 Days to process: ${days}`);
 
-    const matcher = new PerformanceDataMatcher();
     const allPerformanceData: PerformanceData[] = [];
-    const totalMatches = 0;
+    const totalMatches = 0; // Matching disabled (NO SUPABASE)
 
     // Process each league
     for (const league of targetLeagues) {
@@ -88,30 +84,21 @@ export async function runPerformanceIngestion(
         console.log(`📊 Total ${league} performance records: ${leaguePerformanceData.length}`);
 
         if (leaguePerformanceData.length > 0) {
-          // Insert all performance data directly into player_game_logs (for testing)
+          // Persistence disabled in worker (NO SUPABASE)
           await insertPerformanceDataDirectly(env, leaguePerformanceData);
 
-          // Also try to match with existing prop lines
-          const matchingResult = await matcher.matchPerformanceWithProps(
-            env,
-            leaguePerformanceData,
-            targetDate,
-          );
-
-          // Update result
+          // Matching disabled (relied on Supabase). Report basic stats only.
           result.totalPerformanceRecords += leaguePerformanceData.length;
           result.leagues.push({
             league,
             performanceRecords: leaguePerformanceData.length,
-            matchedRecords: matchingResult.matchedRecords.length,
-            matchRate: matchingResult.matchRate,
+            matchedRecords: 0,
+            matchRate: 0,
           });
 
           allPerformanceData.push(...leaguePerformanceData);
 
-          console.log(
-            `✅ ${league} processing complete: ${matchingResult.matchedRecords.length} matches found`,
-          );
+          console.log(`✅ ${league} processing complete (NO SUPABASE matching)`);
         } else {
           console.log(`⚠️ No performance data found for ${league}`);
           result.leagues.push({
@@ -199,7 +186,7 @@ export async function runHistoricalPerformanceIngestion(
   });
 }
 
-// Helper function to insert performance data directly into player_game_logs using upsert
+// Helper function placeholder: log performance data count (NO SUPABASE)
 async function insertPerformanceDataDirectly(
   env: any,
   performanceData: PerformanceData[],
@@ -209,12 +196,11 @@ async function insertPerformanceDataDirectly(
     return;
   }
 
-  console.log(`📊 Upserting ${performanceData.length} performance records into both tables...`);
+  console.log(
+    `📊 [NO-OP] Would upsert ${performanceData.length} performance records (NO SUPABASE)`,
+  );
 
-  // Create Supabase client
-  const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
-
-  // Convert performance data to player_game_logs format
+  // Convert performance data to player_game_logs format (for logging only)
   const gameLogRows = performanceData.map((perf) => {
     const normalizedPropType = normalizePropType(perf.prop_type);
 
@@ -243,7 +229,7 @@ async function insertPerformanceDataDirectly(
     };
   });
 
-  // Convert performance data to proplines format
+  // Convert performance data to proplines format (for logging only)
   const propLinesRows = performanceData.map((perf) => {
     const normalizedPropType = normalizePropType(perf.prop_type);
 
@@ -272,94 +258,12 @@ async function insertPerformanceDataDirectly(
     };
   });
 
-  try {
-    // Use upsert to handle unique constraints gracefully
-    const { data, error } = await supabase
-      .from("player_game_logs")
-      .upsert(gameLogRows, { onConflict: "conflict_key" });
-
-    if (error) {
-      console.error(`❌ Upsert failed:`, error);
-      throw new Error(`Database operation failed: ${error.message}`);
-    }
-
-    console.log(`✅ Upserted ${performanceData.length} performance records to player_game_logs`);
-
-    // Also insert into proplines table
-    const { data: proplinesData, error: proplinesError } = await supabase
-      .from("proplines")
-      .upsert(propLinesRows, { onConflict: "conflict_key" });
-
-    if (proplinesError) {
-      console.error(`❌ Proplines upsert failed:`, proplinesError);
-      throw new Error(`Proplines database operation failed: ${proplinesError.message}`);
-    }
-
-    console.log(`✅ Upserted ${performanceData.length} performance records to proplines`);
-
-    // Persistence check
-    const { count, error: countError } = await supabase
-      .from("player_game_logs")
-      .select("id", { count: "exact", head: true });
-
-    console.log(
-      countError
-        ? `❌ Persistence check failed: ${countError.message}`
-        : `✅ Persistence check: ${count} rows currently in player_game_logs`,
-    );
-
-    // League-by-league health check
-    await logPerformanceHealthCheck(supabase);
-  } catch (error) {
-    console.error(`❌ Failed to insert performance data:`, error);
-    throw new Error(
-      `Performance data insertion failed: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
+  // Log sample for visibility
+  console.log("📋 Sample game log row:", gameLogRows[0]);
+  console.log("📋 Sample proplines row:", propLinesRows[0]);
 }
 
-// League-by-league health check function
-async function logPerformanceHealthCheck(supabase: any): Promise<void> {
-  try {
-    const { data, error } = await supabase
-      .from("player_game_logs")
-      .select("league", { count: "exact" });
-
-    if (error) {
-      console.error("❌ League health check failed:", error.message);
-      return;
-    }
-
-    // Aggregate counts per league
-    const leagueCounts: Record<string, number> = {};
-    for (const row of data ?? []) {
-      const league = row.league ?? "UNKNOWN";
-      leagueCounts[league] = (leagueCounts[league] || 0) + 1;
-    }
-
-    console.log("📊 Performance Persistence Health Check");
-    Object.entries(leagueCounts).forEach(([league, count]) => {
-      console.log(`- ${league}: ${count} rows`);
-    });
-
-    // Also check proplines for comparison
-    const { data: proplinesData, error: proplinesError } = await supabase
-      .from("proplines")
-      .select("league", { count: "exact" });
-
-    if (!proplinesError && proplinesData) {
-      const proplinesCounts: Record<string, number> = {};
-      for (const row of proplinesData ?? []) {
-        const league = row.league ?? "UNKNOWN";
-        proplinesCounts[league] = (proplinesCounts[league] || 0) + 1;
-      }
-
-      console.log("📊 Proplines Persistence Health Check");
-      Object.entries(proplinesCounts).forEach(([league, count]) => {
-        console.log(`- ${league}: ${count} rows`);
-      });
-    }
-  } catch (error) {
-    console.error("❌ Health check failed:", error);
-  }
+// League-by-league health check function placeholder (NO SUPABASE)
+async function logPerformanceHealthCheck(): Promise<void> {
+  console.log("ℹ️ Skipping performance persistence health check (NO SUPABASE)");
 }

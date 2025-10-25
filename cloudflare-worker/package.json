@@ -15,7 +15,6 @@
     "wrangler": "^3.78.12"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.74.0",
     "@types/luxon": "^3.7.1",
     "drizzle-orm": "^0.36.4",
     "luxon": "^3.4.4",
