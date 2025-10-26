@@ -656,7 +656,15 @@ async function main() {
   const end = new Date();
   const start = new Date();
   start.setDate(end.getDate() - days);
-  await ingestRange(league, start, end);
+  // Optional: aheadDays allows ingesting future schedules/games
+  const aheadDays = Number(process.argv[4] || process.env.AHEAD_DAYS || 0);
+  if (Number.isFinite(aheadDays) && aheadDays > 0) {
+    const endFuture = new Date(end);
+    endFuture.setDate(endFuture.getDate() + aheadDays);
+    await ingestRange(league, start, endFuture);
+  } else {
+    await ingestRange(league, start, end);
+  }
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

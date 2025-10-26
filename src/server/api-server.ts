@@ -752,14 +752,54 @@ app.get("/api/props-list", async (req, res) => {
       }
 
       const sql = `
-        SELECT id, full_name, team, COALESCE(opponent, 'TBD') AS opponent,
-               market, line, odds_american,
+        SELECT id,
+               COALESCE(full_name, 'Unknown Player') AS full_name,
+               COALESCE(team, 'UNK') AS team,
+               COALESCE(opponent, 'TBD') AS opponent,
+               market,
+               COALESCE(line, 0) AS line,
+               COALESCE(odds_american, 0) AS odds_american,
                COALESCE(over_odds_american, 0) AS over_odds_american,
                COALESCE(under_odds_american, 0) AS under_odds_american,
-               ev_percent, streak_l5, rating, matchup_rank,
-               l5, l10, l20, h2h_avg, season_avg,
-               league, game_date,
-               team_logo, opponent_logo
+               COALESCE(ev_percent, 0) AS ev_percent,
+               COALESCE(streak_l5, 0) AS streak_l5,
+               COALESCE(rating, 0) AS rating,
+               COALESCE(matchup_rank, 0) AS matchup_rank,
+               COALESCE(l5, 0) AS l5,
+               COALESCE(l10, 0) AS l10,
+               COALESCE(l20, 0) AS l20,
+               COALESCE(h2h_avg, 0) AS h2h_avg,
+               COALESCE(season_avg, 0) AS season_avg,
+               COALESCE(league, 'UNK') AS league,
+               game_date,
+               -- Ensure logos are never null: prefer DB-provided, else ESPN CDN by league/team/opponent, else empty string
+               -- Sanitize and fallback: remove CR/LF and whitespace from URLs
+               regexp_replace(
+                 COALESCE(
+                   team_logo,
+                   CASE UPPER(league)
+                     WHEN 'NFL' THEN 'https://a.espncdn.com/i/teamlogos/nfl/500/' || lower(COALESCE(team, '')) || '.png'
+                     WHEN 'NBA' THEN 'https://a.espncdn.com/i/teamlogos/nba/500/' || lower(COALESCE(team, '')) || '.png'
+                     WHEN 'MLB' THEN 'https://a.espncdn.com/i/teamlogos/mlb/500/' || lower(COALESCE(team, '')) || '.png'
+                     WHEN 'NHL' THEN 'https://a.espncdn.com/i/teamlogos/nhl/500/' || lower(COALESCE(team, '')) || '.png'
+                     ELSE ''
+                   END,
+                   ''
+                 ), E'[\r\n]', '', 'g'
+               ) AS team_logo,
+               regexp_replace(
+                 COALESCE(
+                   opponent_logo,
+                   CASE UPPER(league)
+                     WHEN 'NFL' THEN 'https://a.espncdn.com/i/teamlogos/nfl/500/' || lower(COALESCE(opponent, '')) || '.png'
+                     WHEN 'NBA' THEN 'https://a.espncdn.com/i/teamlogos/nba/500/' || lower(COALESCE(opponent, '')) || '.png'
+                     WHEN 'MLB' THEN 'https://a.espncdn.com/i/teamlogos/mlb/500/' || lower(COALESCE(opponent, '')) || '.png'
+                     WHEN 'NHL' THEN 'https://a.espncdn.com/i/teamlogos/nhl/500/' || lower(COALESCE(opponent, '')) || '.png'
+                     ELSE ''
+                   END,
+                   ''
+                 ), E'[\r\n]', '', 'g'
+               ) AS opponent_logo
         FROM public.v_props_list
         ${where.length ? "WHERE " + where.join(" AND ") : ""}
         ORDER BY game_date DESC NULLS LAST
