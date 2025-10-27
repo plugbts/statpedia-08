@@ -57,8 +57,8 @@ export async function runPerformanceIngestion(
     console.log(`📊 Days to process: ${days}`);
 
     const matcher = new PerformanceDataMatcher();
-    let allPerformanceData: PerformanceData[] = [];
-    let totalMatches = 0;
+    const allPerformanceData: PerformanceData[] = [];
+    const totalMatches = 0;
 
     // Process each league
     for (const league of targetLeagues) {

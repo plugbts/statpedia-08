@@ -87,7 +87,7 @@ async function getOrCreateGameUUID(db: any, apiGameId: string, league: string): 
  */
 async function getOrCreatePlayer(db: any, extId: string, name: string, league: string, teamId?: string): Promise<string> {
   // First try to find by external_id
-  let player = await db.query.players.findFirst({
+  const player = await db.query.players.findFirst({
     where: eq(players.external_id, extId)
   });
   

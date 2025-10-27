@@ -30,9 +30,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserDisplay } from '@/components/ui/user-display';
 
-interface SettingsProps {
-  // No props needed - using useAuth hook
-}
+type SettingsProps = unknown;
 
 export const Settings: React.FC<SettingsProps> = () => {
   const { 

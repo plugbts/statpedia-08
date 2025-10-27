@@ -336,7 +336,7 @@ serve(async (req) => {
     const endDate = url.searchParams.get('end_date');
 
     switch (action) {
-      case 'analytics':
+      case 'analytics': {
         const analytics = await service.getAnalytics(
           startDate || undefined,
           endDate || undefined
@@ -353,6 +353,7 @@ serve(async (req) => {
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
+      }
 
       case 'realtime':
         try {
@@ -414,7 +415,7 @@ serve(async (req) => {
           );
         }
 
-      case 'cleanup':
+      case 'cleanup': {
         const cleanupResult = await service.cleanupOldData();
         
         return new Response(
@@ -424,6 +425,7 @@ serve(async (req) => {
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
+      }
 
       default:
         return new Response(

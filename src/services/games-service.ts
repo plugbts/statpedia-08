@@ -258,14 +258,16 @@ class GamesService {
     const year = now.getFullYear();
     
     switch (sport.toLowerCase()) {
-      case 'nfl':
+      case 'nfl': {
         const nflStart = new Date(year, 8, 1); // September 1st
         const nflWeeks = Math.ceil((now.getTime() - nflStart.getTime()) / (7 * 24 * 60 * 60 * 1000));
         return Math.max(1, Math.min(18, nflWeeks));
-      case 'nba':
+      }
+      case 'nba': {
         const nbaStart = new Date(year, 9, 20); // October 20th
         const nbaWeeks = Math.ceil((now.getTime() - nbaStart.getTime()) / (7 * 24 * 60 * 60 * 1000));
         return Math.max(1, Math.min(26, nbaWeeks));
+      }
       default:
         return 1;
     }

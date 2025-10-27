@@ -254,7 +254,7 @@ class BetSlipSharingService {
         throw new Error('Supabase client not initialized');
       }
 
-      let query = this.supabase
+      const query = this.supabase
         .from('shared_bet_slips')
         .select(`
           *,

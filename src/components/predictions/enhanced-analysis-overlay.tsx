@@ -1703,7 +1703,7 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFi
           });
         }
         break;
-      case 'trend-analysis':
+      case 'trend-analysis': {
         // Generate real trend analysis based on actual data
         const gameHistory = generateEnhancedGameHistory(enhancedData);
         const last5Games = gameHistory.slice(0, 5);
@@ -1749,6 +1749,7 @@ export function EnhancedAnalysisOverlay({ prediction, isOpen, onClose, currentFi
           ]
         });
         break;
+      }
       case 'custom-alerts':
         setFeatureData({
           type: 'custom-alerts',

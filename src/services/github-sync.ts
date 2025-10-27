@@ -176,7 +176,7 @@ class GitHubSyncService {
       
       // Watch for file changes in src directory
       const watcher = chokidar.watch('src/**/*', {
-        ignored: /(^|[\/\\])\../, // ignore dotfiles
+        ignored: /(^|[/\\])\../, // ignore dotfiles
         persistent: true,
         ignoreInitial: true,
       });

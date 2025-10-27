@@ -46,7 +46,7 @@ export async function runBackfill(env: any, config: BackfillConfig): Promise<{
   let totalProps = 0;
   let totalGameLogs = 0;
   let totalErrors = 0;
-  let tier = 1;
+  const tier = 1;
   
   try {
     // Fetch events using fallback strategy

@@ -280,7 +280,7 @@ async function processGame(league: string, game: any, leagueId: string, dateStr:
   playersCreated: number;
 }> {
   let gamesProcessed = 0;
-  let playersCreated = 0;
+  const playersCreated = 0;
   
   // Check if game already exists
   const existingGameResult = await db.execute(sql`SELECT id FROM games WHERE api_game_id = ${game.gameId.toString()} LIMIT 1`);

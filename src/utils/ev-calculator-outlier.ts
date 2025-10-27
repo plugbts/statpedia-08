@@ -100,7 +100,7 @@ class OutlierEVCalculator {
     const underImplied = this.convertToImpliedProbability(propData.underOdds);
     const totalImplied = overImplied + underImplied;
     
-    let baseProbability = side === 'over' 
+    const baseProbability = side === 'over' 
       ? overImplied / totalImplied 
       : underImplied / totalImplied;
     

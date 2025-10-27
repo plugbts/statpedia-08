@@ -257,7 +257,7 @@ async function runIngestion(env: Env, league?: string, season: string = '2025', 
 }
 
 async function fetchEvents(env: Env, sportID: string, season: string, week?: string): Promise<any[]> {
-  let allEvents: any[] = [];
+  const allEvents: any[] = [];
   let nextCursor: string | null = null;
   let pageCount = 0;
   const maxPages = 5; // Can be higher in worker environment
@@ -547,7 +547,7 @@ async function upsertProps(env: Env, props: any[]): Promise<{ inserted: number; 
   }
 
   let inserted = 0;
-  let updated = 0;
+  const updated = 0;
   let errors = 0;
 
   try {

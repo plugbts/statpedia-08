@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Supabase removed - using Hasura + Neon only
 
 export interface EmailTemplate {
