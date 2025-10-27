@@ -137,11 +137,11 @@ export function normalizePropType(rawPropType: string): string {
   if (lowerKey.includes('batting') && lowerKey.includes('double')) return 'doubles';
   if (lowerKey.includes('batting') && lowerKey.includes('triple')) return 'triples';
   if (lowerKey.includes('batting') && lowerKey.includes('hit')) return 'hits';
-  if (lowerKey.includes('batting') && (lowerKey.includes('homerun') || lowerKey.includes('home_run'))) return 'home_runs';
+  if (lowerKey.includes('batting') && (lowerKey.includes('homerun') || lowerKey.includes('home_run') || lowerKey.includes('home run'))) return 'home_runs';
   if (lowerKey.includes('batting') && lowerKey.includes('rbi')) return 'rbi';
   if (lowerKey.includes('batting') && lowerKey.includes('run') && !lowerKey.includes('rbi')) return 'runs';
-  if (lowerKey.includes('batting') && (lowerKey.includes('walk') || lowerKey.includes('basesonballs'))) return 'walks';
-  if (lowerKey.includes('batting') && (lowerKey.includes('stolenbase') || lowerKey.includes('stolen_base'))) return 'stolen_bases';
+  if (lowerKey.includes('batting') && (lowerKey.includes('walk') || lowerKey.includes('basesonballs') || lowerKey.includes('bases on balls'))) return 'walks';
+  if (lowerKey.includes('batting') && (lowerKey.includes('stolenbase') || lowerKey.includes('stolen_base') || lowerKey.includes('stolen base'))) return 'stolen_bases';
   if (lowerKey.includes('batting') && lowerKey.includes('strikeout')) return 'strikeouts';
   if (lowerKey.includes('total') && lowerKey.includes('base')) return 'total_bases';
   
