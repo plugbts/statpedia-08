@@ -10,7 +10,7 @@ export interface BetSlipPick {
   sport: string;
   team: string;
   opponent: string;
-  prediction: 'over' | 'under';
+  prediction: "over" | "under";
   confidence: number;
   evPercentage: number;
   aiRating: number;
@@ -52,7 +52,7 @@ export interface BetSlipTail {
 export interface BetSlipNotification {
   id: string;
   userId: string;
-  type: 'bet_shared' | 'bet_tailed' | 'bet_liked' | 'bet_commented';
+  type: "bet_shared" | "bet_tailed" | "bet_liked" | "bet_commented";
   betSlipId: string;
   actorUserId: string;
   actorUserName: string;
@@ -67,7 +67,7 @@ class BetSlipSharingService {
 
   constructor() {
     // Import Supabase client dynamically to avoid SSR issues
-    import('@/integrations/supabase/client').then(({ supabase }) => {
+    import("@/integrations/supabase/client").then(({ supabase }) => {
       this.supabase = supabase;
     });
   }
@@ -79,11 +79,11 @@ class BetSlipSharingService {
     description: string,
     picks: BetSlipPick[],
     stake: number,
-    isPublic: boolean = true
+    isPublic: boolean = true,
   ): Promise<SharedBetSlip> {
     try {
       if (!this.supabase) {
-        throw new Error('Supabase client not initialized');
+        throw new Error("Supabase client not initialized");
       }
 
       // Calculate total odds and potential payout
@@ -92,14 +92,14 @@ class BetSlipSharingService {
 
       // Get user profile info
       const { data: userProfile } = await this.supabase
-        .from('user_profiles')
-        .select('display_name, avatar_url')
-        .eq('user_id', userId)
+        .from("user_profiles")
+        .select("display_name, avatar_url")
+        .eq("user_id", userId)
         .single();
 
       const betSlipData = {
         user_id: userId,
-        user_name: userProfile?.display_name || 'Unknown User',
+        user_name: userProfile?.display_name || "Unknown User",
         user_avatar: userProfile?.avatar_url,
         title,
         description,
@@ -108,16 +108,16 @@ class BetSlipSharingService {
         potential_payout: potentialPayout,
         stake,
         game_date: picks[0]?.gameDate || new Date().toISOString(),
-        sport: picks[0]?.sport || 'nba',
+        sport: picks[0]?.sport || "nba",
         is_public: isPublic,
         tail_count: 0,
         like_count: 0,
         comment_count: 0,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
       };
 
       const { data, error } = await this.supabase
-        .from('shared_bet_slips')
+        .from("shared_bet_slips")
         .insert(betSlipData)
         .select()
         .single();
@@ -125,11 +125,11 @@ class BetSlipSharingService {
       if (error) throw error;
 
       // Create notification for followers
-      await this.notifyFollowers(userId, 'bet_shared', data.id, title);
+      await this.notifyFollowers(userId, "bet_shared", data.id, title);
 
       return this.formatSharedBetSlip(data);
     } catch (error) {
-      console.error('Failed to share bet slip:', error);
+      console.error("Failed to share bet slip:", error);
       throw error;
     }
   }
@@ -138,14 +138,14 @@ class BetSlipSharingService {
   async tailBetSlip(betSlipId: string, userId: string, stake: number): Promise<BetSlipTail> {
     try {
       if (!this.supabase) {
-        throw new Error('Supabase client not initialized');
+        throw new Error("Supabase client not initialized");
       }
 
       // Get the shared bet slip
       const { data: betSlip, error: betSlipError } = await this.supabase
-        .from('shared_bet_slips')
-        .select('*')
-        .eq('id', betSlipId)
+        .from("shared_bet_slips")
+        .select("*")
+        .eq("id", betSlipId)
         .single();
 
       if (betSlipError) throw betSlipError;
@@ -158,23 +158,23 @@ class BetSlipSharingService {
 
       // Create tail record
       const { data: userProfile } = await this.supabase
-        .from('user_profiles')
-        .select('display_name, avatar_url')
-        .eq('user_id', userId)
+        .from("user_profiles")
+        .select("display_name, avatar_url")
+        .eq("user_id", userId)
         .single();
 
       const tailData = {
         bet_slip_id: betSlipId,
         user_id: userId,
-        user_name: userProfile?.display_name || 'Unknown User',
+        user_name: userProfile?.display_name || "Unknown User",
         user_avatar: userProfile?.avatar_url,
         stake,
         is_active: true,
-        tailed_at: new Date().toISOString()
+        tailed_at: new Date().toISOString(),
       };
 
       const { data, error } = await this.supabase
-        .from('bet_slip_tails')
+        .from("bet_slip_tails")
         .insert(tailData)
         .select()
         .single();
@@ -185,11 +185,11 @@ class BetSlipSharingService {
       await this.updateTailCount(betSlipId);
 
       // Notify bet slip owner
-      await this.notifyBetSlipOwner(betSlip.user_id, userId, betSlipId, 'bet_tailed');
+      await this.notifyBetSlipOwner(betSlip.user_id, userId, betSlipId, "bet_tailed");
 
       return this.formatBetSlipTail(data);
     } catch (error) {
-      console.error('Failed to tail bet slip:', error);
+      console.error("Failed to tail bet slip:", error);
       throw error;
     }
   }
@@ -198,51 +198,49 @@ class BetSlipSharingService {
   async likeBetSlip(betSlipId: string, userId: string): Promise<void> {
     try {
       if (!this.supabase) {
-        throw new Error('Supabase client not initialized');
+        throw new Error("Supabase client not initialized");
       }
 
       // Check if already liked
       const { data: existingLike } = await this.supabase
-        .from('bet_slip_likes')
-        .select('id')
-        .eq('bet_slip_id', betSlipId)
-        .eq('user_id', userId)
+        .from("bet_slip_likes")
+        .select("id")
+        .eq("bet_slip_id", betSlipId)
+        .eq("user_id", userId)
         .single();
 
       if (existingLike) {
         // Unlike
         await this.supabase
-          .from('bet_slip_likes')
+          .from("bet_slip_likes")
           .delete()
-          .eq('bet_slip_id', betSlipId)
-          .eq('user_id', userId);
+          .eq("bet_slip_id", betSlipId)
+          .eq("user_id", userId);
 
         await this.updateLikeCount(betSlipId, -1);
       } else {
         // Like
-        await this.supabase
-          .from('bet_slip_likes')
-          .insert({
-            bet_slip_id: betSlipId,
-            user_id: userId,
-            created_at: new Date().toISOString()
-          });
+        await this.supabase.from("bet_slip_likes").insert({
+          bet_slip_id: betSlipId,
+          user_id: userId,
+          created_at: new Date().toISOString(),
+        });
 
         await this.updateLikeCount(betSlipId, 1);
 
         // Notify bet slip owner
         const { data: betSlip } = await this.supabase
-          .from('shared_bet_slips')
-          .select('user_id')
-          .eq('id', betSlipId)
+          .from("shared_bet_slips")
+          .select("user_id")
+          .eq("id", betSlipId)
           .single();
 
         if (betSlip && betSlip.user_id !== userId) {
-          await this.notifyBetSlipOwner(betSlip.user_id, userId, betSlipId, 'bet_liked');
+          await this.notifyBetSlipOwner(betSlip.user_id, userId, betSlipId, "bet_liked");
         }
       }
     } catch (error) {
-      console.error('Failed to like bet slip:', error);
+      console.error("Failed to like bet slip:", error);
       throw error;
     }
   }
@@ -251,18 +249,20 @@ class BetSlipSharingService {
   async getSharedBetSlips(userId?: string, limit: number = 20): Promise<SharedBetSlip[]> {
     try {
       if (!this.supabase) {
-        throw new Error('Supabase client not initialized');
+        throw new Error("Supabase client not initialized");
       }
 
-      let query = this.supabase
-        .from('shared_bet_slips')
-        .select(`
+      const query = this.supabase
+        .from("shared_bet_slips")
+        .select(
+          `
           *,
           bet_slip_likes!inner(user_id),
           bet_slip_tails!inner(user_id)
-        `)
-        .eq('is_public', true)
-        .order('created_at', { ascending: false })
+        `,
+        )
+        .eq("is_public", true)
+        .order("created_at", { ascending: false })
         .limit(limit);
 
       const { data, error } = await query;
@@ -271,7 +271,7 @@ class BetSlipSharingService {
 
       return data.map((betSlip: any) => this.formatSharedBetSlip(betSlip, userId));
     } catch (error) {
-      console.error('Failed to get shared bet slips:', error);
+      console.error("Failed to get shared bet slips:", error);
       return [];
     }
   }
@@ -280,20 +280,20 @@ class BetSlipSharingService {
   async getUserSharedBetSlips(userId: string): Promise<SharedBetSlip[]> {
     try {
       if (!this.supabase) {
-        throw new Error('Supabase client not initialized');
+        throw new Error("Supabase client not initialized");
       }
 
       const { data, error } = await this.supabase
-        .from('shared_bet_slips')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+        .from("shared_bet_slips")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
 
       return data.map((betSlip: any) => this.formatSharedBetSlip(betSlip));
     } catch (error) {
-      console.error('Failed to get user shared bet slips:', error);
+      console.error("Failed to get user shared bet slips:", error);
       return [];
     }
   }
@@ -302,21 +302,21 @@ class BetSlipSharingService {
   async getBetSlipTails(betSlipId: string): Promise<BetSlipTail[]> {
     try {
       if (!this.supabase) {
-        throw new Error('Supabase client not initialized');
+        throw new Error("Supabase client not initialized");
       }
 
       const { data, error } = await this.supabase
-        .from('bet_slip_tails')
-        .select('*')
-        .eq('bet_slip_id', betSlipId)
-        .eq('is_active', true)
-        .order('tailed_at', { ascending: false });
+        .from("bet_slip_tails")
+        .select("*")
+        .eq("bet_slip_id", betSlipId)
+        .eq("is_active", true)
+        .order("tailed_at", { ascending: false });
 
       if (error) throw error;
 
       return data.map((tail: any) => this.formatBetSlipTail(tail));
     } catch (error) {
-      console.error('Failed to get bet slip tails:', error);
+      console.error("Failed to get bet slip tails:", error);
       return [];
     }
   }
@@ -325,21 +325,21 @@ class BetSlipSharingService {
   async getNotifications(userId: string): Promise<BetSlipNotification[]> {
     try {
       if (!this.supabase) {
-        throw new Error('Supabase client not initialized');
+        throw new Error("Supabase client not initialized");
       }
 
       const { data, error } = await this.supabase
-        .from('bet_slip_notifications')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
+        .from("bet_slip_notifications")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
         .limit(50);
 
       if (error) throw error;
 
       return data.map((notification: any) => this.formatNotification(notification));
     } catch (error) {
-      console.error('Failed to get notifications:', error);
+      console.error("Failed to get notifications:", error);
       return [];
     }
   }
@@ -348,15 +348,15 @@ class BetSlipSharingService {
   async markNotificationAsRead(notificationId: string): Promise<void> {
     try {
       if (!this.supabase) {
-        throw new Error('Supabase client not initialized');
+        throw new Error("Supabase client not initialized");
       }
 
       await this.supabase
-        .from('bet_slip_notifications')
+        .from("bet_slip_notifications")
         .update({ is_read: true })
-        .eq('id', notificationId);
+        .eq("id", notificationId);
     } catch (error) {
-      console.error('Failed to mark notification as read:', error);
+      console.error("Failed to mark notification as read:", error);
     }
   }
 
@@ -371,16 +371,16 @@ class BetSlipSharingService {
   private convertToDecimalOdds(americanOdds: string): number {
     const odds = parseInt(americanOdds);
     if (odds > 0) {
-      return (odds / 100) + 1;
+      return odds / 100 + 1;
     } else {
-      return (100 / Math.abs(odds)) + 1;
+      return 100 / Math.abs(odds) + 1;
     }
   }
 
   private async addPicksToMyPicks(userId: string, picks: BetSlipPick[]): Promise<void> {
     // This would integrate with the existing my picks system
     // For now, we'll store them in a separate table
-    const myPicksData = picks.map(pick => ({
+    const myPicksData = picks.map((pick) => ({
       user_id: userId,
       prop_id: pick.id,
       player_name: pick.playerName,
@@ -394,90 +394,91 @@ class BetSlipSharingService {
       confidence: pick.confidence,
       ev_percentage: pick.evPercentage,
       ai_rating: pick.aiRating,
-      added_at: new Date().toISOString()
+      added_at: new Date().toISOString(),
     }));
 
-    await this.supabase
-      .from('user_tailed_picks')
-      .insert(myPicksData);
+    await this.supabase.from("user_tailed_picks").insert(myPicksData);
   }
 
   private async updateTailCount(betSlipId: string): Promise<void> {
     const { count } = await this.supabase
-      .from('bet_slip_tails')
-      .select('*', { count: 'exact', head: true })
-      .eq('bet_slip_id', betSlipId)
-      .eq('is_active', true);
+      .from("bet_slip_tails")
+      .select("*", { count: "exact", head: true })
+      .eq("bet_slip_id", betSlipId)
+      .eq("is_active", true);
 
-    await this.supabase
-      .from('shared_bet_slips')
-      .update({ tail_count: count })
-      .eq('id', betSlipId);
+    await this.supabase.from("shared_bet_slips").update({ tail_count: count }).eq("id", betSlipId);
   }
 
   private async updateLikeCount(betSlipId: string, increment: number): Promise<void> {
     const { data: betSlip } = await this.supabase
-      .from('shared_bet_slips')
-      .select('like_count')
-      .eq('id', betSlipId)
+      .from("shared_bet_slips")
+      .select("like_count")
+      .eq("id", betSlipId)
       .single();
 
     await this.supabase
-      .from('shared_bet_slips')
+      .from("shared_bet_slips")
       .update({ like_count: (betSlip.like_count || 0) + increment })
-      .eq('id', betSlipId);
+      .eq("id", betSlipId);
   }
 
-  private async notifyFollowers(userId: string, type: string, betSlipId: string, title: string): Promise<void> {
+  private async notifyFollowers(
+    userId: string,
+    type: string,
+    betSlipId: string,
+    title: string,
+  ): Promise<void> {
     // Get user's followers
     const { data: followers } = await this.supabase
-      .from('friends')
-      .select('user_id')
-      .eq('friend_id', userId)
-      .eq('status', 'accepted');
+      .from("friends")
+      .select("user_id")
+      .eq("friend_id", userId)
+      .eq("status", "accepted");
 
     if (!followers?.length) return;
 
     // Create notifications for followers
-    const notifications = followers.map(follower => ({
+    const notifications = followers.map((follower) => ({
       user_id: follower.user_id,
       type,
       bet_slip_id: betSlipId,
       actor_user_id: userId,
       message: `shared a new bet slip: "${title}"`,
       is_read: false,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
     }));
 
-    await this.supabase
-      .from('bet_slip_notifications')
-      .insert(notifications);
+    await this.supabase.from("bet_slip_notifications").insert(notifications);
   }
 
-  private async notifyBetSlipOwner(ownerId: string, actorId: string, betSlipId: string, type: string): Promise<void> {
+  private async notifyBetSlipOwner(
+    ownerId: string,
+    actorId: string,
+    betSlipId: string,
+    type: string,
+  ): Promise<void> {
     const { data: actorProfile } = await this.supabase
-      .from('user_profiles')
-      .select('display_name')
-      .eq('user_id', actorId)
+      .from("user_profiles")
+      .select("display_name")
+      .eq("user_id", actorId)
       .single();
 
     const messages = {
-      bet_tailed: `${actorProfile?.display_name || 'Someone'} tailed your bet slip`,
-      bet_liked: `${actorProfile?.display_name || 'Someone'} liked your bet slip`
+      bet_tailed: `${actorProfile?.display_name || "Someone"} tailed your bet slip`,
+      bet_liked: `${actorProfile?.display_name || "Someone"} liked your bet slip`,
     };
 
-    await this.supabase
-      .from('bet_slip_notifications')
-      .insert({
-        user_id: ownerId,
-        type,
-        bet_slip_id: betSlipId,
-        actor_user_id: actorId,
-        actor_user_name: actorProfile?.display_name,
-        message: messages[type as keyof typeof messages],
-        is_read: false,
-        created_at: new Date().toISOString()
-      });
+    await this.supabase.from("bet_slip_notifications").insert({
+      user_id: ownerId,
+      type,
+      bet_slip_id: betSlipId,
+      actor_user_id: actorId,
+      actor_user_name: actorProfile?.display_name,
+      message: messages[type as keyof typeof messages],
+      is_read: false,
+      created_at: new Date().toISOString(),
+    });
   }
 
   private formatSharedBetSlip(data: any, currentUserId?: string): SharedBetSlip {
@@ -500,7 +501,7 @@ class BetSlipSharingService {
       likeCount: data.like_count || 0,
       commentCount: data.comment_count || 0,
       isLiked: data.bet_slip_likes?.some((like: any) => like.user_id === currentUserId),
-      isTailed: data.bet_slip_tails?.some((tail: any) => tail.user_id === currentUserId)
+      isTailed: data.bet_slip_tails?.some((tail: any) => tail.user_id === currentUserId),
     };
   }
 
@@ -513,7 +514,7 @@ class BetSlipSharingService {
       userAvatar: data.user_avatar,
       tailedAt: data.tailed_at,
       stake: data.stake,
-      isActive: data.is_active
+      isActive: data.is_active,
     };
   }
 
@@ -528,7 +529,7 @@ class BetSlipSharingService {
       actorUserAvatar: data.actor_user_avatar,
       message: data.message,
       isRead: data.is_read,
-      createdAt: data.created_at
+      createdAt: data.created_at,
     };
   }
 }

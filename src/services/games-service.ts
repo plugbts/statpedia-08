@@ -1,7 +1,7 @@
 // Games Service for fetching real sports data
 // Integrates with SportsGameOdds API to get current week's games
 
-import { sportsGameOddsAPI } from './sportsgameodds-api';
+import { sportsGameOddsAPI } from "./sportsgameodds-api";
 
 export interface RealGame {
   id: string;
@@ -32,7 +32,7 @@ export interface RealGame {
   };
   weather: string;
   venue: string;
-  status: 'upcoming' | 'live' | 'finished';
+  status: "upcoming" | "live" | "finished";
   homeScore?: number;
   awayScore?: number;
   homeTeamId: string;
@@ -50,7 +50,7 @@ export interface PredictionCardProps {
   opponent: string;
   prop: string;
   line: number;
-  predictionDirection: 'over' | 'under';
+  predictionDirection: "over" | "under";
   confidence: number;
   odds: number;
   overOdds?: number | null;
@@ -76,7 +76,7 @@ class GamesService {
     const cached = this.cache.get(cacheKey);
     const now = Date.now();
 
-    if (cached && (now - cached.timestamp) < this.cacheTimeout) {
+    if (cached && now - cached.timestamp < this.cacheTimeout) {
       return cached.data;
     }
 
@@ -84,7 +84,7 @@ class GamesService {
       console.log(`🏈 [GamesService] Fetching current week games for ${sport}...`);
       const apiGames = await sportsRadarAPI.getGames(sport);
       const realGames = this.convertAPIGamesToRealGames(apiGames);
-      
+
       this.cache.set(cacheKey, { data: realGames, timestamp: now });
       console.log(`✅ [GamesService] Successfully fetched ${realGames.length} games for ${sport}`);
       return realGames;
@@ -101,7 +101,7 @@ class GamesService {
     const now = Date.now();
 
     // Shorter cache for live data (30 seconds)
-    if (cached && (now - cached.timestamp) < 30000) {
+    if (cached && now - cached.timestamp < 30000) {
       return cached.data;
     }
 
@@ -109,9 +109,11 @@ class GamesService {
       console.log(`🔴 [GamesService] Fetching live games for ${sport}...`);
       const apiGames = await sportsRadarAPI.getGames(sport);
       const realGames = this.convertAPIGamesToRealGames(apiGames);
-      
+
       this.cache.set(cacheKey, { data: realGames, timestamp: now });
-      console.log(`✅ [GamesService] Successfully fetched ${realGames.length} live games for ${sport}`);
+      console.log(
+        `✅ [GamesService] Successfully fetched ${realGames.length} live games for ${sport}`,
+      );
       return realGames;
     } catch (error) {
       console.error(`❌ [GamesService] Failed to fetch live games for ${sport}:`, error);
@@ -125,7 +127,7 @@ class GamesService {
     const cached = this.cache.get(cacheKey);
     const now = Date.now();
 
-    if (cached && (now - cached.timestamp) < this.cacheTimeout) {
+    if (cached && now - cached.timestamp < this.cacheTimeout) {
       return cached.data;
     }
 
@@ -135,9 +137,11 @@ class GamesService {
       const apiGames = await sportsRadarAPI.getGames(sport);
       const apiPredictions = this.convertGamesToPredictions(apiGames);
       const realPredictions = this.convertAPIPredictionsToRealPredictions(apiPredictions);
-      
+
       this.cache.set(cacheKey, { data: realPredictions, timestamp: now });
-      console.log(`✅ [GamesService] Successfully fetched ${realPredictions.length} predictions for ${sport}`);
+      console.log(
+        `✅ [GamesService] Successfully fetched ${realPredictions.length} predictions for ${sport}`,
+      );
       return realPredictions;
     } catch (error) {
       console.error(`❌ [GamesService] Failed to fetch predictions for ${sport}:`, error);
@@ -152,7 +156,7 @@ class GamesService {
     const now = Date.now();
 
     // Shorter cache for live data (30 seconds)
-    if (cached && (now - cached.timestamp) < 30000) {
+    if (cached && now - cached.timestamp < 30000) {
       return cached.data;
     }
 
@@ -161,14 +165,19 @@ class GamesService {
       const allPredictions = await this.getCurrentWeekPredictions(sport);
       const liveGames = await this.getLiveGames(sport);
       const upcomingGames = await this.getCurrentWeekGames(sport);
-      const allActiveGames = [...liveGames, ...upcomingGames.filter(g => g.status === 'scheduled')];
-      
-      const livePredictions = allPredictions.filter(prediction => 
-        allActiveGames.some(game => game.id === prediction.game?.id)
+      const allActiveGames = [
+        ...liveGames,
+        ...upcomingGames.filter((g) => g.status === "scheduled"),
+      ];
+
+      const livePredictions = allPredictions.filter((prediction) =>
+        allActiveGames.some((game) => game.id === prediction.game?.id),
       );
-      
+
       this.cache.set(cacheKey, { data: livePredictions, timestamp: now });
-      console.log(`✅ [GamesService] Successfully fetched ${livePredictions.length} live predictions for ${sport}`);
+      console.log(
+        `✅ [GamesService] Successfully fetched ${livePredictions.length} live predictions for ${sport}`,
+      );
       return livePredictions;
     } catch (error) {
       console.error(`❌ [GamesService] Failed to fetch live predictions for ${sport}:`, error);
@@ -178,7 +187,7 @@ class GamesService {
 
   // Convert API games to RealGame format
   private convertAPIGamesToRealGames(apiGames: any[]): RealGame[] {
-    return apiGames.map(game => ({
+    return apiGames.map((game) => ({
       id: game.id,
       homeTeam: game.homeTeam,
       awayTeam: game.awayTeam,
@@ -194,29 +203,34 @@ class GamesService {
       awayForm: this.generateFormData(),
       h2hData: this.generateH2HData(),
       venue: game.venue,
-      weather: game.weather?.condition || 'Unknown',
+      weather: game.weather?.condition || "Unknown",
       injuries: {
-        home: game.injuries?.filter((i: any) => i.team === game.homeTeam).map((i: any) => i.player) || [],
-        away: game.injuries?.filter((i: any) => i.team === game.awayTeam).map((i: any) => i.player) || [],
+        home:
+          game.injuries?.filter((i: any) => i.team === game.homeTeam).map((i: any) => i.player) ||
+          [],
+        away:
+          game.injuries?.filter((i: any) => i.team === game.awayTeam).map((i: any) => i.player) ||
+          [],
       },
       restDays: {
         home: Math.floor(Math.random() * 3) + 1,
         away: Math.floor(Math.random() * 3) + 1,
       },
-      status: game.status === 'scheduled' ? 'upcoming' : game.status === 'live' ? 'live' : 'finished',
+      status:
+        game.status === "scheduled" ? "upcoming" : game.status === "live" ? "live" : "finished",
       homeScore: game.homeScore,
       awayScore: game.awayScore,
-      homeTeamId: game.homeTeamId?.toString() || '',
-      awayTeamId: game.awayTeamId?.toString() || '',
+      homeTeamId: game.homeTeamId?.toString() || "",
+      awayTeamId: game.awayTeamId?.toString() || "",
       league: game.sport,
-      season: '2025',
+      season: "2025",
       week: this.getCurrentWeek(game.sport),
     }));
   }
 
   // Convert API predictions to RealPredictions format
   private convertAPIPredictionsToRealPredictions(apiPredictions: any[]): PredictionCardProps[] {
-    return apiPredictions.map(prediction => ({
+    return apiPredictions.map((prediction) => ({
       id: prediction.id,
       sport: prediction.sport,
       player: prediction.player,
@@ -235,7 +249,7 @@ class GamesService {
       gameDate: prediction.gameDate,
       gameTime: prediction.gameTime,
       factors: prediction.factors || [],
-      reasoning: prediction.reasoning || '',
+      reasoning: prediction.reasoning || "",
       lastUpdated: prediction.lastUpdated || new Date().toISOString(),
     }));
   }
@@ -256,16 +270,22 @@ class GamesService {
   private getCurrentWeek(sport: string): number {
     const now = new Date();
     const year = now.getFullYear();
-    
+
     switch (sport.toLowerCase()) {
-      case 'nfl':
+      case "nfl": {
         const nflStart = new Date(year, 8, 1); // September 1st
-        const nflWeeks = Math.ceil((now.getTime() - nflStart.getTime()) / (7 * 24 * 60 * 60 * 1000));
+        const nflWeeks = Math.ceil(
+          (now.getTime() - nflStart.getTime()) / (7 * 24 * 60 * 60 * 1000),
+        );
         return Math.max(1, Math.min(18, nflWeeks));
-      case 'nba':
+      }
+      case "nba": {
         const nbaStart = new Date(year, 9, 20); // October 20th
-        const nbaWeeks = Math.ceil((now.getTime() - nbaStart.getTime()) / (7 * 24 * 60 * 60 * 1000));
+        const nbaWeeks = Math.ceil(
+          (now.getTime() - nbaStart.getTime()) / (7 * 24 * 60 * 60 * 1000),
+        );
         return Math.max(1, Math.min(26, nbaWeeks));
+      }
       default:
         return 1;
     }
@@ -274,10 +294,10 @@ class GamesService {
   // Format number for display
   formatNumber(value: number, decimals: number = 1): string {
     if (value >= 1000000) {
-      return (value / 1000000).toFixed(decimals) + 'M';
+      return (value / 1000000).toFixed(decimals) + "M";
     }
     if (value >= 1000) {
-      return (value / 1000).toFixed(decimals) + 'K';
+      return (value / 1000).toFixed(decimals) + "K";
     }
     return value.toFixed(decimals);
   }
@@ -285,7 +305,7 @@ class GamesService {
   // Cache management
   clearCache(): void {
     this.cache.clear();
-    console.log('🧹 [GamesService] Cache cleared');
+    console.log("🧹 [GamesService] Cache cleared");
   }
 
   getCacheStats(): { size: number; keys: string[] } {
@@ -297,7 +317,7 @@ class GamesService {
 
   // Convert games data to predictions format
   private convertGamesToPredictions(games: any[]): any[] {
-    return games.map(game => ({
+    return games.map((game) => ({
       id: game.id,
       homeTeam: game.homeTeam,
       awayTeam: game.awayTeam,
@@ -308,10 +328,10 @@ class GamesService {
       underOdds: -110, // Default under odds
       homeOdds: -110, // Default home odds
       awayOdds: -110, // Default away odds
-      drawOdds: game.sport === 'soccer' ? -110 : undefined,
-      prediction: 'home', // Default prediction
+      drawOdds: game.sport === "soccer" ? -110 : undefined,
+      prediction: "home", // Default prediction
       confidence: 0.6, // Default confidence
-      reasoning: 'Based on current form and head-to-head record'
+      reasoning: "Based on current form and head-to-head record",
     }));
   }
 }

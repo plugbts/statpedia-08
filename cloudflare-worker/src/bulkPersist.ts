@@ -1,6 +1,6 @@
 /**
  * Bulk Persistence Functions for Cloudflare Worker
- * 
+ *
  * This module provides bulk upsert functions to reduce Cloudflare's subrequest limit
  * by using Supabase RPC functions instead of individual database calls.
  */
@@ -28,7 +28,7 @@ export async function bulkUpsertProps(env: any, props: any[]): Promise<BulkUpser
     const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
 
     // Transform props to the format expected by the RPC function
-    const rows = props.map(prop => ({
+    const rows = props.map((prop) => ({
       player_id: prop.player_id,
       player_name: prop.player_name,
       team: prop.team,
@@ -43,15 +43,15 @@ export async function bulkUpsertProps(env: any, props: any[]): Promise<BulkUpser
       over_odds: prop.over_odds,
       under_odds: prop.under_odds,
       odds: prop.odds,
-      sportsbook: prop.sportsbook || 'SportsGameOdds',
-      conflict_key: prop.conflict_key
+      sportsbook: prop.sportsbook || "SportsGameOdds",
+      conflict_key: prop.conflict_key,
     }));
 
     console.log(`📊 [bulkUpsertProps] Prepared ${rows.length} rows for bulk upsert`);
 
     // Call the RPC function
-    const { data, error } = await supabase.rpc('bulk_upsert_proplines', { 
-      rows: rows 
+    const { data, error } = await supabase.rpc("bulk_upsert_proplines", {
+      rows: rows,
     });
 
     if (error) {
@@ -60,11 +60,11 @@ export async function bulkUpsertProps(env: any, props: any[]): Promise<BulkUpser
     }
 
     const result = data?.[0] || { inserted_count: 0, updated_count: 0, error_count: 0, errors: [] };
-    
+
     console.log(`✅ [bulkUpsertProps] Bulk upsert completed:`, {
       inserted: result.inserted_count,
       updated: result.updated_count,
-      errors: result.error_count
+      errors: result.error_count,
     });
 
     if (result.error_count > 0) {
@@ -72,10 +72,9 @@ export async function bulkUpsertProps(env: any, props: any[]): Promise<BulkUpser
     }
 
     return result;
-
   } catch (error) {
     console.error(`❌ [bulkUpsertProps] Bulk upsert failed:`, error);
-    
+
     // Fallback to chunked individual upserts if RPC fails
     console.log(`🔄 [bulkUpsertProps] Falling back to chunked individual upserts...`);
     return await chunkedUpsertProps(env, props);
@@ -96,7 +95,7 @@ export async function bulkUpsertPlayerGameLogs(env: any, logs: any[]): Promise<B
     const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
 
     // Transform logs to the format expected by the RPC function
-    const rows = logs.map(log => ({
+    const rows = logs.map((log) => ({
       player_id: log.player_id,
       player_name: log.player_name,
       team: log.team,
@@ -109,15 +108,15 @@ export async function bulkUpsertPlayerGameLogs(env: any, logs: any[]): Promise<B
       league: log.league,
       game_id: log.game_id,
       home_away: log.home_away,
-      weather_conditions: log.weather_conditions || 'unknown',
-      injury_status: log.injury_status || 'healthy'
+      weather_conditions: log.weather_conditions || "unknown",
+      injury_status: log.injury_status || "healthy",
     }));
 
     console.log(`📊 [bulkUpsertPlayerGameLogs] Prepared ${rows.length} rows for bulk upsert`);
 
     // Call the RPC function
-    const { data, error } = await supabase.rpc('bulk_upsert_player_game_logs', { 
-      rows: rows 
+    const { data, error } = await supabase.rpc("bulk_upsert_player_game_logs", {
+      rows: rows,
     });
 
     if (error) {
@@ -126,22 +125,24 @@ export async function bulkUpsertPlayerGameLogs(env: any, logs: any[]): Promise<B
     }
 
     const result = data?.[0] || { inserted_count: 0, updated_count: 0, error_count: 0, errors: [] };
-    
+
     console.log(`✅ [bulkUpsertPlayerGameLogs] Bulk upsert completed:`, {
       inserted: result.inserted_count,
       updated: result.updated_count,
-      errors: result.error_count
+      errors: result.error_count,
     });
 
     if (result.error_count > 0) {
-      console.warn(`⚠️ [bulkUpsertPlayerGameLogs] ${result.error_count} errors occurred:`, result.errors);
+      console.warn(
+        `⚠️ [bulkUpsertPlayerGameLogs] ${result.error_count} errors occurred:`,
+        result.errors,
+      );
     }
 
     return result;
-
   } catch (error) {
     console.error(`❌ [bulkUpsertPlayerGameLogs] Bulk upsert failed:`, error);
-    
+
     // Fallback to chunked individual upserts if RPC fails
     console.log(`🔄 [bulkUpsertPlayerGameLogs] Falling back to chunked individual upserts...`);
     return await chunkedUpsertPlayerGameLogs(env, logs);
@@ -155,17 +156,17 @@ async function chunkedUpsertProps(env: any, props: any[]): Promise<BulkUpsertRes
   const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
   const chunkSize = 25; // Smaller chunks to avoid subrequest limits
   let totalInserted = 0;
-  let totalUpdated = 0;
+  const totalUpdated = 0;
   let totalErrors = 0;
   const allErrors: any[] = [];
 
   for (let i = 0; i < props.length; i += chunkSize) {
     const chunk = props.slice(i, i + chunkSize);
-    
+
     try {
       const { error } = await supabase
         .from("proplines")
-        .upsert(chunk, { onConflict: 'player_id,date,prop_type,sportsbook,line' });
+        .upsert(chunk, { onConflict: "player_id,date,prop_type,sportsbook,line" });
 
       if (error) {
         console.error(`❌ [chunkedUpsertProps] Chunk ${i}-${i + chunk.length} failed:`, error);
@@ -185,7 +186,7 @@ async function chunkedUpsertProps(env: any, props: any[]): Promise<BulkUpsertRes
     inserted_count: totalInserted,
     updated_count: 0, // Can't easily determine updates in chunked approach
     error_count: totalErrors,
-    errors: allErrors
+    errors: allErrors,
   };
 }
 
@@ -196,27 +197,33 @@ async function chunkedUpsertPlayerGameLogs(env: any, logs: any[]): Promise<BulkU
   const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
   const chunkSize = 25; // Smaller chunks to avoid subrequest limits
   let totalInserted = 0;
-  let totalUpdated = 0;
+  const totalUpdated = 0;
   let totalErrors = 0;
   const allErrors: any[] = [];
 
   for (let i = 0; i < logs.length; i += chunkSize) {
     const chunk = logs.slice(i, i + chunkSize);
-    
+
     try {
       const { error } = await supabase
         .from("player_game_logs")
-        .upsert(chunk, { onConflict: 'player_id,date,prop_type' });
+        .upsert(chunk, { onConflict: "player_id,date,prop_type" });
 
       if (error) {
-        console.error(`❌ [chunkedUpsertPlayerGameLogs] Chunk ${i}-${i + chunk.length} failed:`, error);
+        console.error(
+          `❌ [chunkedUpsertPlayerGameLogs] Chunk ${i}-${i + chunk.length} failed:`,
+          error,
+        );
         totalErrors += chunk.length;
         allErrors.push({ chunk: i, error: error.message });
       } else {
         totalInserted += chunk.length;
       }
     } catch (err) {
-      console.error(`❌ [chunkedUpsertPlayerGameLogs] Chunk ${i}-${i + chunk.length} exception:`, err);
+      console.error(
+        `❌ [chunkedUpsertPlayerGameLogs] Chunk ${i}-${i + chunk.length} exception:`,
+        err,
+      );
       totalErrors += chunk.length;
       allErrors.push({ chunk: i, error: err instanceof Error ? err.message : String(err) });
     }
@@ -226,6 +233,6 @@ async function chunkedUpsertPlayerGameLogs(env: any, logs: any[]): Promise<BulkU
     inserted_count: totalInserted,
     updated_count: 0, // Can't easily determine updates in chunked approach
     error_count: totalErrors,
-    errors: allErrors
+    errors: allErrors,
   };
 }
