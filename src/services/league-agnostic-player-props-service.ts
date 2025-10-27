@@ -1,18 +1,24 @@
-import { NormalizedPlayerProp } from './hasura-player-props-normalized-service';
+import { NormalizedPlayerProp } from "./hasura-player-props-normalized-service";
 
-export interface LeagueAgnosticPlayerPropsService {
+export interface ILeagueAgnosticPlayerPropsService {
   // League filtering
   getLeagues(): Promise<string[]>;
   getActiveLeagues(): Promise<string[]>;
-  
+
   // Player props by league
-  getPlayerPropsByLeague(league: string, options?: PlayerPropsOptions): Promise<NormalizedPlayerProp[]>;
+  getPlayerPropsByLeague(
+    league: string,
+    options?: PlayerPropsOptions,
+  ): Promise<NormalizedPlayerProp[]>;
   getUpcomingGamesByLeague(league: string, days?: number): Promise<Game[]>;
-  
+
   // Multi-league queries
   getAllPlayerProps(options?: PlayerPropsOptions): Promise<NormalizedPlayerProp[]>;
-  getPlayerPropsByLeagues(leagues: string[], options?: PlayerPropsOptions): Promise<NormalizedPlayerProp[]>;
-  
+  getPlayerPropsByLeagues(
+    leagues: string[],
+    options?: PlayerPropsOptions,
+  ): Promise<NormalizedPlayerProp[]>;
+
   // League-specific stats
   getLeagueStats(league: string): Promise<LeagueStats>;
   getPlayerStatsByLeague(playerId: string, league: string): Promise<PlayerStats>;
@@ -28,8 +34,8 @@ export interface PlayerPropsOptions {
   playerId?: string;
   gameId?: string;
   sportsbookId?: string;
-  sortBy?: 'ev_percent' | 'line' | 'odds' | 'created_at';
-  sortOrder?: 'asc' | 'desc';
+  sortBy?: "ev_percent" | "line" | "odds" | "created_at";
+  sortOrder?: "asc" | "desc";
 }
 
 export interface Game {
@@ -71,21 +77,23 @@ export interface PlayerStats {
   rating: number;
 }
 
-export class LeagueAgnosticPlayerPropsService implements LeagueAgnosticPlayerPropsService {
+export class LeagueAgnosticPlayerPropsService implements ILeagueAgnosticPlayerPropsService {
   private hasuraEndpoint: string;
   private adminSecret: string;
 
   constructor() {
-    this.hasuraEndpoint = process.env.HASURA_ENDPOINT || 'https://graphql-engine-latest-statpedia.onrender.com/v1/graphql';
-    this.adminSecret = process.env.HASURA_ADMIN_SECRET || '';
+    this.hasuraEndpoint =
+      process.env.HASURA_ENDPOINT ||
+      "https://graphql-engine-latest-statpedia.onrender.com/v1/graphql";
+    this.adminSecret = process.env.HASURA_ADMIN_SECRET || "";
   }
 
   private async graphqlQuery(query: string, variables: any = {}) {
     const response = await fetch(this.hasuraEndpoint, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'x-hasura-admin-secret': this.adminSecret,
+        "Content-Type": "application/json",
+        "x-hasura-admin-secret": this.adminSecret,
       },
       body: JSON.stringify({
         query,
@@ -131,7 +139,10 @@ export class LeagueAgnosticPlayerPropsService implements LeagueAgnosticPlayerPro
     return data.teams_canonical.map((item: any) => item.league);
   }
 
-  async getPlayerPropsByLeague(league: string, options: PlayerPropsOptions = {}): Promise<NormalizedPlayerProp[]> {
+  async getPlayerPropsByLeague(
+    league: string,
+    options: PlayerPropsOptions = {},
+  ): Promise<NormalizedPlayerProp[]> {
     const {
       limit = 50,
       offset = 0,
@@ -142,36 +153,36 @@ export class LeagueAgnosticPlayerPropsService implements LeagueAgnosticPlayerPro
       playerId,
       gameId,
       sportsbookId,
-      sortBy = 'ev_percent',
-      sortOrder = 'desc'
+      sortBy = "ev_percent",
+      sortOrder = "desc",
     } = options;
 
     let whereClause = `league: {_eq: "${league}"}`;
-    
+
     if (market) {
       whereClause += `, market: {_eq: "${market}"}`;
     }
-    
+
     if (minEvPercent !== undefined) {
       whereClause += `, ev_percent: {_gte: ${minEvPercent}}`;
     }
-    
+
     if (maxEvPercent !== undefined) {
       whereClause += `, ev_percent: {_lte: ${maxEvPercent}}`;
     }
-    
+
     if (teamId) {
       whereClause += `, team_id: {_eq: "${teamId}"}`;
     }
-    
+
     if (playerId) {
       whereClause += `, player_id: {_eq: "${playerId}"}`;
     }
-    
+
     if (gameId) {
       whereClause += `, game_id: {_eq: "${gameId}"}`;
     }
-    
+
     if (sportsbookId) {
       whereClause += `, sportsbook_id: {_eq: "${sportsbookId}"}`;
     }
@@ -286,36 +297,36 @@ export class LeagueAgnosticPlayerPropsService implements LeagueAgnosticPlayerPro
       playerId,
       gameId,
       sportsbookId,
-      sortBy = 'ev_percent',
-      sortOrder = 'desc'
+      sortBy = "ev_percent",
+      sortOrder = "desc",
     } = options;
 
-    let whereClause = '';
-    
+    let whereClause = "";
+
     if (market) {
       whereClause += `market: {_eq: "${market}"}, `;
     }
-    
+
     if (minEvPercent !== undefined) {
       whereClause += `ev_percent: {_gte: ${minEvPercent}}, `;
     }
-    
+
     if (maxEvPercent !== undefined) {
       whereClause += `ev_percent: {_lte: ${maxEvPercent}}, `;
     }
-    
+
     if (teamId) {
       whereClause += `team_id: {_eq: "${teamId}"}, `;
     }
-    
+
     if (playerId) {
       whereClause += `player_id: {_eq: "${playerId}"}, `;
     }
-    
+
     if (gameId) {
       whereClause += `game_id: {_eq: "${gameId}"}, `;
     }
-    
+
     if (sportsbookId) {
       whereClause += `sportsbook_id: {_eq: "${sportsbookId}"}, `;
     }
@@ -369,7 +380,10 @@ export class LeagueAgnosticPlayerPropsService implements LeagueAgnosticPlayerPro
     return data.player_props_normalized;
   }
 
-  async getPlayerPropsByLeagues(leagues: string[], options: PlayerPropsOptions = {}): Promise<NormalizedPlayerProp[]> {
+  async getPlayerPropsByLeagues(
+    leagues: string[],
+    options: PlayerPropsOptions = {},
+  ): Promise<NormalizedPlayerProp[]> {
     const {
       limit = 100,
       offset = 0,
@@ -380,36 +394,36 @@ export class LeagueAgnosticPlayerPropsService implements LeagueAgnosticPlayerPro
       playerId,
       gameId,
       sportsbookId,
-      sortBy = 'ev_percent',
-      sortOrder = 'desc'
+      sortBy = "ev_percent",
+      sortOrder = "desc",
     } = options;
 
-    let whereClause = `league: {_in: [${leagues.map(l => `"${l}"`).join(', ')}]}`;
-    
+    let whereClause = `league: {_in: [${leagues.map((l) => `"${l}"`).join(", ")}]}`;
+
     if (market) {
       whereClause += `, market: {_eq: "${market}"}`;
     }
-    
+
     if (minEvPercent !== undefined) {
       whereClause += `, ev_percent: {_gte: ${minEvPercent}}`;
     }
-    
+
     if (maxEvPercent !== undefined) {
       whereClause += `, ev_percent: {_lte: ${maxEvPercent}}`;
     }
-    
+
     if (teamId) {
       whereClause += `, team_id: {_eq: "${teamId}"}`;
     }
-    
+
     if (playerId) {
       whereClause += `, player_id: {_eq: "${playerId}"}`;
     }
-    
+
     if (gameId) {
       whereClause += `, game_id: {_eq: "${gameId}"}`;
     }
-    
+
     if (sportsbookId) {
       whereClause += `, sportsbook_id: {_eq: "${sportsbookId}"}`;
     }
@@ -508,7 +522,7 @@ export class LeagueAgnosticPlayerPropsService implements LeagueAgnosticPlayerPro
     `;
 
     const data = await this.graphqlQuery(query);
-    
+
     return {
       league,
       total_props: data.props_count.aggregate.count,
@@ -542,16 +556,17 @@ export class LeagueAgnosticPlayerPropsService implements LeagueAgnosticPlayerPro
 
     const data = await this.graphqlQuery(query);
     const props = data.player_props_normalized;
-    
+
     if (props.length === 0) {
       throw new Error(`No props found for player ${playerId} in league ${league}`);
     }
 
     const totalProps = props.length;
-    const avgEvPercent = props.reduce((sum: number, prop: any) => sum + (prop.ev_percent || 0), 0) / totalProps;
+    const avgEvPercent =
+      props.reduce((sum: number, prop: any) => sum + (prop.ev_percent || 0), 0) / totalProps;
     const markets = props.map((prop: any) => prop.market);
-    const bestMarket = markets.reduce((a: string, b: string) => 
-      markets.filter(v => v === a).length >= markets.filter(v => v === b).length ? a : b
+    const bestMarket = markets.reduce((a: string, b: string) =>
+      markets.filter((v) => v === a).length >= markets.filter((v) => v === b).length ? a : b,
     );
 
     return {
@@ -562,7 +577,7 @@ export class LeagueAgnosticPlayerPropsService implements LeagueAgnosticPlayerPro
       total_props: totalProps,
       avg_ev_percent: avgEvPercent,
       best_market: bestMarket,
-      recent_form: props[0].streak || '0/0',
+      recent_form: props[0].streak || "0/0",
       rating: props[0].rating || 0,
     };
   }

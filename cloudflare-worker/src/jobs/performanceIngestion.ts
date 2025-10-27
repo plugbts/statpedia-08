@@ -1,13 +1,13 @@
 // Performance Data Ingestion Job
 // Fetches real player performance data and integrates with betting lines
 
-import { getPerformanceFetcher, PerformanceData } from '../lib/performanceDataFetcher';
-import { PerformanceDataMatcher } from '../lib/performanceDataMatcher';
-import { getActiveLeagues } from '../config/leagues';
-import { supabaseFetch } from '../supabaseFetch';
-import { createClient } from '@supabase/supabase-js';
-import { buildConflictKey } from '../lib/conflictKeyGenerator';
-import { normalizePropType } from '../lib/propTypeNormalizer';
+import { getPerformanceFetcher, PerformanceData } from "../lib/performanceDataFetcher";
+import { PerformanceDataMatcher } from "../lib/performanceDataMatcher";
+import { getActiveLeagues } from "../config/leagues";
+import { supabaseFetch } from "../supabaseFetch";
+import { createClient } from "@supabase/supabase-js";
+import { buildConflictKey } from "../lib/conflictKeyGenerator";
+import { normalizePropType } from "../lib/propTypeNormalizer";
 
 export interface PerformanceIngestionResult {
   success: boolean;
@@ -26,15 +26,15 @@ export interface PerformanceIngestionResult {
 }
 
 export async function runPerformanceIngestion(
-  env: any, 
+  env: any,
   options: {
     leagues?: string[];
     date?: string;
     days?: number;
-  } = {}
+  } = {},
 ): Promise<PerformanceIngestionResult> {
   console.log(`🔄 Starting performance data ingestion...`);
-  
+
   const startTime = Date.now();
   const result: PerformanceIngestionResult = {
     success: true,
@@ -44,76 +44,83 @@ export async function runPerformanceIngestion(
     matchRate: 0,
     hitRate: 0,
     leagues: [],
-    errors: []
+    errors: [],
   };
 
   try {
-    const targetLeagues = options.leagues || getActiveLeagues().map(l => l.id);
-    const targetDate = options.date || new Date().toISOString().split('T')[0];
+    const targetLeagues = options.leagues || getActiveLeagues().map((l) => l.id);
+    const targetDate = options.date || new Date().toISOString().split("T")[0];
     const days = options.days || 1;
 
-    console.log(`📊 Target leagues: ${targetLeagues.join(', ')}`);
+    console.log(`📊 Target leagues: ${targetLeagues.join(", ")}`);
     console.log(`📊 Target date: ${targetDate}`);
     console.log(`📊 Days to process: ${days}`);
 
     const matcher = new PerformanceDataMatcher();
-    let allPerformanceData: PerformanceData[] = [];
-    let totalMatches = 0;
+    const allPerformanceData: PerformanceData[] = [];
+    const totalMatches = 0;
 
     // Process each league
     for (const league of targetLeagues) {
       console.log(`\n🏈 Processing ${league} performance data...`);
-      
+
       try {
         const fetcher = getPerformanceFetcher(league);
-        
+
         // Fetch performance data for the specified date range
         const leaguePerformanceData: PerformanceData[] = [];
-        
+
         for (let i = 0; i < days; i++) {
           const currentDate = new Date(targetDate);
           currentDate.setDate(currentDate.getDate() - i);
-          const dateString = currentDate.toISOString().split('T')[0];
-          
+          const dateString = currentDate.toISOString().split("T")[0];
+
           console.log(`📊 Fetching ${league} performance data for ${dateString}...`);
-          
+
           const dayPerformanceData = await fetcher.fetchPlayerStats(league, dateString, env);
           leaguePerformanceData.push(...dayPerformanceData);
-          
-          console.log(`📊 Fetched ${dayPerformanceData.length} performance records for ${dateString}`);
+
+          console.log(
+            `📊 Fetched ${dayPerformanceData.length} performance records for ${dateString}`,
+          );
         }
 
         console.log(`📊 Total ${league} performance records: ${leaguePerformanceData.length}`);
-        
+
         if (leaguePerformanceData.length > 0) {
           // Insert all performance data directly into player_game_logs (for testing)
           await insertPerformanceDataDirectly(env, leaguePerformanceData);
-          
+
           // Also try to match with existing prop lines
-          const matchingResult = await matcher.matchPerformanceWithProps(env, leaguePerformanceData, targetDate);
-          
+          const matchingResult = await matcher.matchPerformanceWithProps(
+            env,
+            leaguePerformanceData,
+            targetDate,
+          );
+
           // Update result
           result.totalPerformanceRecords += leaguePerformanceData.length;
           result.leagues.push({
             league,
             performanceRecords: leaguePerformanceData.length,
             matchedRecords: matchingResult.matchedRecords.length,
-            matchRate: matchingResult.matchRate
+            matchRate: matchingResult.matchRate,
           });
-          
+
           allPerformanceData.push(...leaguePerformanceData);
-          
-          console.log(`✅ ${league} processing complete: ${matchingResult.matchedRecords.length} matches found`);
+
+          console.log(
+            `✅ ${league} processing complete: ${matchingResult.matchedRecords.length} matches found`,
+          );
         } else {
           console.log(`⚠️ No performance data found for ${league}`);
           result.leagues.push({
             league,
             performanceRecords: 0,
             matchedRecords: 0,
-            matchRate: 0
+            matchRate: 0,
           });
         }
-        
       } catch (error) {
         const errorMsg = `${league} performance ingestion failed: ${error instanceof Error ? error.message : String(error)}`;
         console.error(`❌ ${errorMsg}`);
@@ -124,11 +131,13 @@ export async function runPerformanceIngestion(
     // Calculate final statistics
     result.matchedRecords = totalMatches;
     result.unmatchedRecords = result.totalPerformanceRecords - totalMatches;
-    result.matchRate = result.totalPerformanceRecords > 0 ? 
-      (totalMatches / result.totalPerformanceRecords) * 100 : 0;
+    result.matchRate =
+      result.totalPerformanceRecords > 0
+        ? (totalMatches / result.totalPerformanceRecords) * 100
+        : 0;
 
     const duration = Date.now() - startTime;
-    
+
     console.log(`\n🎉 Performance ingestion complete:`);
     console.log(`⏱️ Duration: ${Math.round(duration / 1000)}s`);
     console.log(`📊 Total performance records: ${result.totalPerformanceRecords}`);
@@ -137,62 +146,66 @@ export async function runPerformanceIngestion(
     console.log(`📊 Leagues processed: ${result.leagues.length}`);
 
     return result;
-    
   } catch (error) {
     const errorMsg = `Performance ingestion failed: ${error instanceof Error ? error.message : String(error)}`;
     console.error(`❌ ${errorMsg}`);
-    
+
     result.success = false;
     result.errors.push(errorMsg);
-    
+
     return result;
   }
 }
 
 // Single league performance ingestion
 export async function runSingleLeaguePerformanceIngestion(
-  env: any, 
-  league: string, 
+  env: any,
+  league: string,
   options: {
     date?: string;
     days?: number;
-  } = {}
+  } = {},
 ): Promise<PerformanceIngestionResult> {
   console.log(`🔄 Starting single league performance ingestion for ${league}...`);
-  
+
   return runPerformanceIngestion(env, {
     leagues: [league],
     date: options.date,
-    days: options.days
+    days: options.days,
   });
 }
 
 // Historical performance ingestion
 export async function runHistoricalPerformanceIngestion(
-  env: any, 
+  env: any,
   options: {
     leagues?: string[];
     startDate: string;
     endDate: string;
-  }
+  },
 ): Promise<PerformanceIngestionResult> {
-  console.log(`🔄 Starting historical performance ingestion from ${options.startDate} to ${options.endDate}...`);
-  
+  console.log(
+    `🔄 Starting historical performance ingestion from ${options.startDate} to ${options.endDate}...`,
+  );
+
   const startDate = new Date(options.startDate);
   const endDate = new Date(options.endDate);
   const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-  
+
   return runPerformanceIngestion(env, {
     leagues: options.leagues,
     date: options.endDate,
-    days: days
+    days: days,
   });
 }
 
 // Helper function to insert performance data directly into player_game_logs using upsert
-async function insertPerformanceDataDirectly(env: any, performanceData: PerformanceData[]): Promise<void> {
+async function insertPerformanceDataDirectly(
+  env: any,
+  performanceData: PerformanceData[],
+): Promise<void> {
   if (performanceData.length === 0) {
-    console.log('⚠️ No performance data to insert');
+    console.log("⚠️ No performance data to insert");
     return;
   }
 
@@ -202,9 +215,9 @@ async function insertPerformanceDataDirectly(env: any, performanceData: Performa
   const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
 
   // Convert performance data to player_game_logs format
-  const gameLogRows = performanceData.map(perf => {
+  const gameLogRows = performanceData.map((perf) => {
     const normalizedPropType = normalizePropType(perf.prop_type);
-    
+
     return {
       player_id: perf.player_id,
       player_name: perf.player_name,
@@ -217,21 +230,23 @@ async function insertPerformanceDataDirectly(env: any, performanceData: Performa
       sport: perf.league.toUpperCase(),
       league: perf.league,
       game_id: perf.game_id,
-      conflict_key: perf.conflict_key || buildConflictKey({
-        playerId: perf.player_id,
-        gameId: perf.game_id,
-        propType: normalizedPropType,
-        sportsbook: "SportsGameOdds",
-        league: perf.league,
-        season: perf.season
-      })
+      conflict_key:
+        perf.conflict_key ||
+        buildConflictKey({
+          playerId: perf.player_id,
+          gameId: perf.game_id,
+          propType: normalizedPropType,
+          sportsbook: "SportsGameOdds",
+          league: perf.league,
+          season: perf.season,
+        }),
     };
   });
 
   // Convert performance data to proplines format
-  const propLinesRows = performanceData.map(perf => {
+  const propLinesRows = performanceData.map((perf) => {
     const normalizedPropType = normalizePropType(perf.prop_type);
-    
+
     return {
       player_id: perf.player_id,
       player_name: perf.player_name,
@@ -244,14 +259,16 @@ async function insertPerformanceDataDirectly(env: any, performanceData: Performa
       under_odds: 100, // Default odds
       league: perf.league.toLowerCase(),
       game_id: perf.game_id,
-      conflict_key: perf.conflict_key || buildConflictKey({
-        playerId: perf.player_id,
-        gameId: perf.game_id,
-        propType: normalizedPropType,
-        sportsbook: "SportsGameOdds",
-        league: perf.league,
-        season: perf.season
-      })
+      conflict_key:
+        perf.conflict_key ||
+        buildConflictKey({
+          playerId: perf.player_id,
+          gameId: perf.game_id,
+          propType: normalizedPropType,
+          sportsbook: "SportsGameOdds",
+          league: perf.league,
+          season: perf.season,
+        }),
     };
   });
 
@@ -288,15 +305,16 @@ async function insertPerformanceDataDirectly(env: any, performanceData: Performa
     console.log(
       countError
         ? `❌ Persistence check failed: ${countError.message}`
-        : `✅ Persistence check: ${count} rows currently in player_game_logs`
+        : `✅ Persistence check: ${count} rows currently in player_game_logs`,
     );
 
     // League-by-league health check
     await logPerformanceHealthCheck(supabase);
-
   } catch (error) {
     console.error(`❌ Failed to insert performance data:`, error);
-    throw new Error(`Performance data insertion failed: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Performance data insertion failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 
@@ -341,7 +359,6 @@ async function logPerformanceHealthCheck(supabase: any): Promise<void> {
         console.log(`- ${league}: ${count} rows`);
       });
     }
-
   } catch (error) {
     console.error("❌ Health check failed:", error);
   }

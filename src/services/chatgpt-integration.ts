@@ -1,11 +1,10 @@
-// @ts-nocheck
 /**
  * ChatGPT Integration Service
  * Provides dual AI debugging and coding assistance
  */
 
 interface ChatGPTMessage {
-  role: 'system' | 'user' | 'assistant';
+  role: "system" | "user" | "assistant";
   content: string;
 }
 
@@ -36,18 +35,17 @@ interface DebugContext {
 
 class ChatGPTIntegrationService {
   private apiKey: string | null = null;
-  private baseUrl = 'https://api.openai.com/v1/chat/completions';
+  private baseUrl = "https://api.openai.com/v1/chat/completions";
 
   constructor() {
     // Try to get API key from environment or localStorage
-    this.apiKey = import.meta.env.VITE_OPENAI_API_KEY || 
-                  localStorage.getItem('openai_api_key') || 
-                  null;
+    this.apiKey =
+      import.meta.env.VITE_OPENAI_API_KEY || localStorage.getItem("openai_api_key") || null;
   }
 
   setApiKey(apiKey: string): void {
     this.apiKey = apiKey;
-    localStorage.setItem('openai_api_key', apiKey);
+    localStorage.setItem("openai_api_key", apiKey);
   }
 
   isConfigured(): boolean {
@@ -56,22 +54,22 @@ class ChatGPTIntegrationService {
 
   async sendMessage(messages: ChatGPTMessage[]): Promise<string> {
     if (!this.apiKey) {
-      throw new Error('OpenAI API key not configured');
+      throw new Error("OpenAI API key not configured");
     }
 
     try {
       const response = await fetch(this.baseUrl, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify({
-          model: 'gpt-4',
+          model: "gpt-4",
           messages,
           max_tokens: 2000,
-          temperature: 0.7
-        })
+          temperature: 0.7,
+        }),
       });
 
       if (!response.ok) {
@@ -80,9 +78,9 @@ class ChatGPTIntegrationService {
       }
 
       const data: ChatGPTResponse = await response.json();
-      return data.choices[0]?.message?.content || 'No response received';
+      return data.choices[0]?.message?.content || "No response received";
     } catch (error) {
-      console.error('ChatGPT API error:', error);
+      console.error("ChatGPT API error:", error);
       throw error;
     }
   }
@@ -102,25 +100,49 @@ Be concise but thorough. Focus on actionable solutions.`;
 DEBUGGING CONTEXT:
 Issue: ${context.issue}
 
-${context.codeSnippet ? `CODE SNIPPET:
+${
+  context.codeSnippet
+    ? `CODE SNIPPET:
 \`\`\`typescript
 ${context.codeSnippet}
-\`\`\`` : ''}
+\`\`\``
+    : ""
+}
 
-${context.errorMessage ? `ERROR MESSAGE:
-${context.errorMessage}` : ''}
+${
+  context.errorMessage
+    ? `ERROR MESSAGE:
+${context.errorMessage}`
+    : ""
+}
 
-${context.expectedBehavior ? `EXPECTED BEHAVIOR:
-${context.expectedBehavior}` : ''}
+${
+  context.expectedBehavior
+    ? `EXPECTED BEHAVIOR:
+${context.expectedBehavior}`
+    : ""
+}
 
-${context.actualBehavior ? `ACTUAL BEHAVIOR:
-${context.actualBehavior}` : ''}
+${
+  context.actualBehavior
+    ? `ACTUAL BEHAVIOR:
+${context.actualBehavior}`
+    : ""
+}
 
-${context.environment ? `ENVIRONMENT:
-${context.environment}` : ''}
+${
+  context.environment
+    ? `ENVIRONMENT:
+${context.environment}`
+    : ""
+}
 
-${context.additionalInfo ? `ADDITIONAL INFO:
-${context.additionalInfo}` : ''}
+${
+  context.additionalInfo
+    ? `ADDITIONAL INFO:
+${context.additionalInfo}`
+    : ""
+}
 
 Please provide:
 1. Your analysis of the root cause
@@ -130,8 +152,8 @@ Please provide:
 `;
 
     const messages: ChatGPTMessage[] = [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt }
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
     ];
 
     return await this.sendMessage(messages);
@@ -165,8 +187,8 @@ Please provide:
 `;
 
     const messages: ChatGPTMessage[] = [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt }
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
     ];
 
     return await this.sendMessage(messages);
@@ -186,8 +208,12 @@ Be creative but practical.`;
 PROBLEM TO SOLVE:
 ${problem}
 
-${constraints ? `CONSTRAINTS:
-${constraints}` : ''}
+${
+  constraints
+    ? `CONSTRAINTS:
+${constraints}`
+    : ""
+}
 
 Please brainstorm:
 1. 3-5 different approaches to solve this problem
@@ -198,8 +224,8 @@ Please brainstorm:
 `;
 
     const messages: ChatGPTMessage[] = [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt }
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
     ];
 
     return await this.sendMessage(messages);
@@ -231,8 +257,8 @@ Please provide:
 `;
 
     const messages: ChatGPTMessage[] = [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt }
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
     ];
 
     return await this.sendMessage(messages);

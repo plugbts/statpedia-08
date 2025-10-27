@@ -63,42 +63,44 @@ export interface EnrichmentResult {
  * Resolves player team and opponent from event context and team mappings
  */
 export function enrichTeams(
-  event: EventContext, 
-  prop: PropContext, 
-  playersById: Record<string, any> = {}
+  event: EventContext,
+  prop: PropContext,
+  playersById: Record<string, any> = {},
 ): EnrichmentResult {
-  const league = event.league || 'unknown';
-  
+  const league = event.league || "unknown";
+
   // Extract team information from event context
-  const homeTeam = event.homeTeam || 
-                   event.homeTeamName || 
-                   event.teams?.home?.names?.short || 
-                   event.teams?.home?.names?.long || 
-                   event.teams?.home?.teamID;
-                   
-  const awayTeam = event.awayTeam || 
-                   event.awayTeamName || 
-                   event.teams?.away?.names?.short || 
-                   event.teams?.away?.names?.long || 
-                   event.teams?.away?.teamID;
+  const homeTeam =
+    event.homeTeam ||
+    event.homeTeamName ||
+    event.teams?.home?.names?.short ||
+    event.teams?.home?.names?.long ||
+    event.teams?.home?.teamID;
+
+  const awayTeam =
+    event.awayTeam ||
+    event.awayTeamName ||
+    event.teams?.away?.names?.short ||
+    event.teams?.away?.names?.long ||
+    event.teams?.away?.teamID;
 
   console.log(`🔍 [enrichTeams] Event ${event.id}: ${homeTeam} vs ${awayTeam} (league: ${league})`);
 
   // Strategy 1: Try to resolve player's team from registry or event roster
   let playerTeam = null;
-  let teamStrategy: EnrichmentResult['strategy']['team'] = 'fallback';
-  
+  let teamStrategy: EnrichmentResult["strategy"]["team"] = "fallback";
+
   // Check players registry first
   if (prop.playerId && playersById[prop.playerId]?.teamAbbr) {
     playerTeam = playersById[prop.playerId].teamAbbr;
-    teamStrategy = 'player_mapping';
+    teamStrategy = "player_mapping";
     console.log(`🔍 [enrichTeams] Found team from players registry: ${playerTeam}`);
   }
   // Check player team fields
-  else if (prop.playerTeam || prop.playerTeamName || prop.playerTeamID) {
-    const rawTeam = prop.playerTeam || prop.playerTeamName || prop.playerTeamID;
+  else if (prop.playerTeam || prop.playerTeamName) {
+    const rawTeam = prop.playerTeam || prop.playerTeamName;
     playerTeam = normalizeTeam(league, rawTeam);
-    teamStrategy = playerTeam !== 'UNK' ? 'team_mapping' : 'fallback';
+    teamStrategy = playerTeam !== "UNK" ? "team_mapping" : "fallback";
     console.log(`🔍 [enrichTeams] Found team from prop fields: ${rawTeam} -> ${playerTeam}`);
   }
   // Try to match player's team ID to home/away teams
@@ -107,56 +109,66 @@ export function enrichTeams(
     // For now, we'll use a heuristic based on team ID matching
     const homeTeamNorm = normalizeTeam(league, homeTeam);
     const awayTeamNorm = normalizeTeam(league, awayTeam);
-    
+
     // If playerTeamID contains home team abbreviation, player is on home team
-    if (homeTeamNorm !== 'UNK' && prop.playerTeamID.toLowerCase().includes(homeTeamNorm.toLowerCase())) {
+    if (
+      homeTeamNorm !== "UNK" &&
+      prop.playerTeamID.toLowerCase().includes(homeTeamNorm.toLowerCase())
+    ) {
       playerTeam = homeTeamNorm;
-      teamStrategy = 'event_context';
+      teamStrategy = "event_context";
     }
     // If playerTeamID contains away team abbreviation, player is on away team
-    else if (awayTeamNorm !== 'UNK' && prop.playerTeamID.toLowerCase().includes(awayTeamNorm.toLowerCase())) {
+    else if (
+      awayTeamNorm !== "UNK" &&
+      prop.playerTeamID.toLowerCase().includes(awayTeamNorm.toLowerCase())
+    ) {
       playerTeam = awayTeamNorm;
-      teamStrategy = 'event_context';
+      teamStrategy = "event_context";
     }
     // Default to home team if we can't determine
-    else if (homeTeamNorm !== 'UNK') {
+    else if (homeTeamNorm !== "UNK") {
       playerTeam = homeTeamNorm;
-      teamStrategy = 'event_context';
+      teamStrategy = "event_context";
     }
-    
-    console.log(`🔍 [enrichTeams] Resolved team from event context: ${playerTeam} (strategy: ${teamStrategy})`);
+
+    console.log(
+      `🔍 [enrichTeams] Resolved team from event context: ${playerTeam} (strategy: ${teamStrategy})`,
+    );
   }
 
   // Strategy 2: Determine opponent team
   let opponentTeam = null;
-  let opponentStrategy: EnrichmentResult['strategy']['opponent'] = 'fallback';
-  
-  if (playerTeam && playerTeam !== 'UNK' && homeTeam && awayTeam) {
+  let opponentStrategy: EnrichmentResult["strategy"]["opponent"] = "fallback";
+
+  if (playerTeam && playerTeam !== "UNK" && homeTeam && awayTeam) {
     const homeTeamNorm = normalizeTeam(league, homeTeam);
     const awayTeamNorm = normalizeTeam(league, awayTeam);
-    
+
     // Opponent is the other team in the event
-    if (playerTeam === homeTeamNorm && awayTeamNorm !== 'UNK') {
+    if (playerTeam === homeTeamNorm && awayTeamNorm !== "UNK") {
       opponentTeam = awayTeamNorm;
-      opponentStrategy = 'event_context';
-    } else if (playerTeam === awayTeamNorm && homeTeamNorm !== 'UNK') {
+      opponentStrategy = "event_context";
+    } else if (playerTeam === awayTeamNorm && homeTeamNorm !== "UNK") {
       opponentTeam = homeTeamNorm;
-      opponentStrategy = 'event_context';
+      opponentStrategy = "event_context";
     }
-    
-    console.log(`🔍 [enrichTeams] Resolved opponent: ${opponentTeam} (strategy: ${opponentStrategy})`);
+
+    console.log(
+      `🔍 [enrichTeams] Resolved opponent: ${opponentTeam} (strategy: ${opponentStrategy})`,
+    );
   }
 
   // Fallback: if we still don't have teams, try to normalize the raw event teams
-  if (!playerTeam || playerTeam === 'UNK') {
+  if (!playerTeam || playerTeam === "UNK") {
     if (homeTeam) {
       playerTeam = normalizeTeam(league, homeTeam);
-      teamStrategy = playerTeam !== 'UNK' ? 'team_mapping' : 'fallback';
+      teamStrategy = playerTeam !== "UNK" ? "team_mapping" : "fallback";
     }
-    if (!opponentTeam || opponentTeam === 'UNK') {
+    if (!opponentTeam || opponentTeam === "UNK") {
       if (awayTeam) {
         opponentTeam = normalizeTeam(league, awayTeam);
-        opponentStrategy = opponentTeam !== 'UNK' ? 'team_mapping' : 'fallback';
+        opponentStrategy = opponentTeam !== "UNK" ? "team_mapping" : "fallback";
       }
     }
   }
@@ -172,7 +184,7 @@ export function enrichTeams(
     opponent: finalOpponent,
     strategy: {
       team: teamStrategy,
-      opponent: opponentStrategy
+      opponent: opponentStrategy,
     },
     debug: {
       rawTeam: prop.playerTeam || prop.playerTeamName || prop.playerTeamID,
@@ -180,8 +192,8 @@ export function enrichTeams(
       eventHomeTeam: homeTeam,
       eventAwayTeam: awayTeam,
       playerTeamID: prop.playerTeamID,
-      teamMappings: getTeamMappings(league)
-    }
+      teamMappings: getTeamMappings(league),
+    },
   };
 }
 
@@ -191,11 +203,11 @@ export function enrichTeams(
 export function enrichTeamsBatch(
   event: EventContext,
   props: PropContext[],
-  playersById: Record<string, any> = {}
+  playersById: Record<string, any> = {},
 ): Array<PropContext & EnrichmentResult> {
-  return props.map(prop => ({
+  return props.map((prop) => ({
     ...prop,
-    ...enrichTeams(event, prop, playersById)
+    ...enrichTeams(event, prop, playersById),
   }));
 }
 
@@ -205,14 +217,14 @@ export function enrichTeamsBatch(
 export function extractPropWithTeams(
   event: EventContext,
   prop: PropContext,
-  playersById: Record<string, any> = {}
+  playersById: Record<string, any> = {},
 ) {
   const { team, opponent, strategy, debug } = enrichTeams(event, prop, playersById);
-  
+
   return {
     player_id: prop.playerId,
     player_name: prop.playerName,
-    prop_type: prop.playerTeam || 'unknown', // This should be statType in real implementation
+    prop_type: prop.playerTeam || "unknown", // This should be statType in real implementation
     line: 0, // This should come from the prop data
     over_odds: null,
     under_odds: null,
@@ -222,7 +234,7 @@ export function extractPropWithTeams(
     league: event.league,
     date: new Date().toISOString(),
     strategy,
-    debug
+    debug,
   };
 }
 
@@ -241,16 +253,16 @@ export function validateTeamEnrichment(results: Array<PropContext & EnrichmentRe
     resolved: 0,
     unresolved: 0,
     teamStats: {} as Record<string, number>,
-    opponentStats: {} as Record<string, number>
+    opponentStats: {} as Record<string, number>,
   };
 
   for (const result of results) {
-    if (result.team !== 'UNK' && result.opponent !== 'UNK') {
+    if (result.team !== "UNK" && result.opponent !== "UNK") {
       stats.resolved++;
     } else {
       stats.unresolved++;
     }
-    
+
     stats.teamStats[result.team] = (stats.teamStats[result.team] || 0) + 1;
     stats.opponentStats[result.opponent] = (stats.opponentStats[result.opponent] || 0) + 1;
   }

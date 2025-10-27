@@ -27,9 +27,9 @@ export class YouTubeDirectPlayer {
       }
 
       this.isInitialized = true;
-      console.log('YouTube Direct Player initialized');
+      console.log("YouTube Direct Player initialized");
     } catch (error) {
-      console.error('Failed to initialize YouTube Direct Player:', error);
+      console.error("Failed to initialize YouTube Direct Player:", error);
     }
   }
 
@@ -40,16 +40,16 @@ export class YouTubeDirectPlayer {
         return;
       }
 
-      const script = document.createElement('script');
-      script.src = 'https://www.youtube.com/iframe_api';
+      const script = document.createElement("script");
+      script.src = "https://www.youtube.com/iframe_api";
       script.onload = () => {
         window.onYouTubeIframeAPIReady = () => {
-          console.log('YouTube iframe API loaded');
+          console.log("YouTube iframe API loaded");
           resolve();
         };
       };
       script.onerror = () => {
-        reject(new Error('Failed to load YouTube iframe API'));
+        reject(new Error("Failed to load YouTube iframe API"));
       };
       document.head.appendChild(script);
     });
@@ -57,23 +57,28 @@ export class YouTubeDirectPlayer {
 
   // Get YouTube video ID from URL
   private getVideoId(url: string): string | null {
-    const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+    const regex =
+      /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/;
     const match = url.match(regex);
     return match ? match[1] : null;
   }
 
   // Play YouTube video audio
-  async playYouTubeAudio(videoUrl: string, volume: number = 0.15, onStateChange?: (isPlaying: boolean) => void): Promise<boolean> {
+  async playYouTubeAudio(
+    videoUrl: string,
+    volume: number = 0.15,
+    onStateChange?: (isPlaying: boolean) => void,
+  ): Promise<boolean> {
     try {
       await this.initialize();
-      
+
       if (!window.YT) {
-        throw new Error('YouTube iframe API not available');
+        throw new Error("YouTube iframe API not available");
       }
 
       const videoId = this.getVideoId(videoUrl);
       if (!videoId) {
-        throw new Error('Invalid YouTube URL');
+        throw new Error("Invalid YouTube URL");
       }
 
       // Clean up existing player
@@ -83,21 +88,21 @@ export class YouTubeDirectPlayer {
       }
 
       // Create hidden div for YouTube player
-      const playerDiv = document.createElement('div');
-      playerDiv.id = 'youtube-player';
-      playerDiv.style.display = 'none';
-      playerDiv.style.position = 'absolute';
-      playerDiv.style.left = '-9999px';
-      playerDiv.style.top = '-9999px';
+      const playerDiv = document.createElement("div");
+      playerDiv.id = "youtube-player";
+      playerDiv.style.display = "none";
+      playerDiv.style.position = "absolute";
+      playerDiv.style.left = "-9999px";
+      playerDiv.style.top = "-9999px";
       document.body.appendChild(playerDiv);
 
       // Store callback
       this.onStateChange = onStateChange;
 
       // Create YouTube player
-      this.player = new window.YT.Player('youtube-player', {
-        height: '0',
-        width: '0',
+      this.player = new window.YT.Player("youtube-player", {
+        height: "0",
+        width: "0",
         videoId: videoId,
         playerVars: {
           autoplay: 1,
@@ -112,33 +117,33 @@ export class YouTubeDirectPlayer {
           fs: 0,
           cc_load_policy: 0,
           start: 0,
-          end: 0
+          end: 0,
         },
         events: {
           onReady: (event: any) => {
-            console.log('YouTube player ready');
+            console.log("YouTube player ready");
             event.target.setVolume(volume * 100); // YouTube uses 0-100 scale
             event.target.playVideo();
           },
           onStateChange: (event: any) => {
             const isPlaying = event.data === window.YT.PlayerState.PLAYING;
-            console.log('YouTube player state changed:', isPlaying ? 'PLAYING' : 'PAUSED');
-            
+            console.log("YouTube player state changed:", isPlaying ? "PLAYING" : "PAUSED");
+
             if (this.onStateChange) {
               this.onStateChange(isPlaying);
             }
           },
           onError: (event: any) => {
-            console.error('YouTube player error:', event.data);
-          }
-        }
+            console.error("YouTube player error:", event.data);
+          },
+        },
       });
 
       this.currentVideoId = videoId;
-      console.log('YouTube video loaded:', videoId);
+      console.log("YouTube video loaded:", videoId);
       return true;
     } catch (error) {
-      console.error('Failed to play YouTube audio:', error);
+      console.error("Failed to play YouTube audio:", error);
       return false;
     }
   }
@@ -146,22 +151,22 @@ export class YouTubeDirectPlayer {
   // Stop the audio
   stopAudio(): void {
     try {
-      if (this.player && typeof this.player.stopVideo === 'function') {
+      if (this.player && typeof this.player.stopVideo === "function") {
         this.player.stopVideo();
-      } else if (this.player && typeof this.player.pauseVideo === 'function') {
+      } else if (this.player && typeof this.player.pauseVideo === "function") {
         this.player.pauseVideo();
       }
-      
+
       // Remove player div
-      const playerDiv = document.getElementById('youtube-player');
+      const playerDiv = document.getElementById("youtube-player");
       if (playerDiv) {
         playerDiv.remove();
       }
-      
+
       this.currentVideoId = null;
-      console.log('YouTube audio stopped');
+      console.log("YouTube audio stopped");
     } catch (error) {
-      console.error('Failed to stop audio:', error);
+      console.error("Failed to stop audio:", error);
     }
   }
 
@@ -172,7 +177,7 @@ export class YouTubeDirectPlayer {
         this.player.pauseVideo();
       }
     } catch (error) {
-      console.error('Failed to pause audio:', error);
+      console.error("Failed to pause audio:", error);
     }
   }
 
@@ -183,7 +188,7 @@ export class YouTubeDirectPlayer {
         this.player.playVideo();
       }
     } catch (error) {
-      console.error('Failed to resume audio:', error);
+      console.error("Failed to resume audio:", error);
     }
   }
 
@@ -194,7 +199,7 @@ export class YouTubeDirectPlayer {
         this.player.setVolume(volume * 100); // YouTube uses 0-100 scale
       }
     } catch (error) {
-      console.error('Failed to set volume:', error);
+      console.error("Failed to set volume:", error);
     }
   }
 
@@ -203,7 +208,7 @@ export class YouTubeDirectPlayer {
     try {
       return this.player ? this.player.getPlayerState() === window.YT.PlayerState.PLAYING : false;
     } catch (error) {
-      console.error('Failed to check playing state:', error);
+      console.error("Failed to check playing state:", error);
       return false;
     }
   }

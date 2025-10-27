@@ -1,24 +1,29 @@
-// @ts-nocheck
-import React, { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { 
-  Users, 
-  Search, 
-  Filter, 
-  MoreVertical, 
-  Shield, 
-  Crown, 
-  UserCheck, 
-  UserX, 
-  Mail, 
+import React, { useState, useEffect, useMemo } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Users,
+  Search,
+  Filter,
+  MoreVertical,
+  Shield,
+  Crown,
+  UserCheck,
+  UserX,
+  Mail,
   Calendar,
   TrendingUp,
   Activity,
@@ -32,12 +37,12 @@ import {
   Upload,
   AlertTriangle,
   CheckCircle,
-  XCircle
-} from 'lucide-react';
-import { useUser } from '@/contexts/user-context';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
+  XCircle,
+} from "lucide-react";
+import { useUser } from "@/contexts/user-context";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 interface UserData {
   id: string;
@@ -67,7 +72,8 @@ interface UserStats {
 }
 
 export function UserManagement() {
-  const { userRole, validateUserAccess, getMaskedEmail, logSecurityEvent, isOwnerEmail } = useUser();
+  const { userRole, validateUserAccess, getMaskedEmail, logSecurityEvent, isOwnerEmail } =
+    useUser();
   const [users, setUsers] = useState<UserData[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserData[]>([]);
   const [stats, setStats] = useState<UserStats>({
@@ -76,126 +82,117 @@ export function UserManagement() {
     newUsersToday: 0,
     premiumUsers: 0,
     adminUsers: 0,
-    mutedUsers: 0
+    mutedUsers: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [roleFilter, setRoleFilter] = useState('all');
-  const [subscriptionFilter, setSubscriptionFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [subscriptionFilter, setSubscriptionFilter] = useState("all");
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [showUserDetails, setShowUserDetails] = useState(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [subscriptionChange, setSubscriptionChange] = useState({
-    userId: '',
-    newTier: '',
-    reason: ''
+    userId: "",
+    newTier: "",
+    reason: "",
   });
   const { toast } = useToast();
 
-  // Check if user has admin access
-  if (!validateUserAccess('admin')) {
-    return (
-      <Alert className="border-destructive">
-        <AlertTriangle className="h-4 w-4" />
-        <AlertDescription>
-          You don't have permission to access user management.
-        </AlertDescription>
-      </Alert>
-    );
-  }
-
+  // Load users on mount
   useEffect(() => {
     loadUsers();
-    
+
     // Set up periodic refresh every 30 seconds to keep usernames in sync
     const refreshInterval = setInterval(() => {
       loadUsers();
     }, 30000);
-    
+
     // Listen for user context refresh events
     const handleUserContextRefresh = () => {
       loadUsers();
     };
-    
-    window.addEventListener('userContextRefresh', handleUserContextRefresh);
-    
+
+    window.addEventListener("userContextRefresh", handleUserContextRefresh);
+
     return () => {
       clearInterval(refreshInterval);
-      window.removeEventListener('userContextRefresh', handleUserContextRefresh);
+      window.removeEventListener("userContextRefresh", handleUserContextRefresh);
     };
   }, []);
 
+  // Filter users when filters change
   useEffect(() => {
     filterUsers();
   }, [users, searchQuery, roleFilter, subscriptionFilter]);
 
+  // Check if user has admin access
+  const hasAdminAccess = validateUserAccess("admin");
+
   const loadUsers = async () => {
     try {
       setIsLoading(true);
-      
+
       // Load users from profiles table
       const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .from("profiles")
+        .select("*")
+        .order("created_at", { ascending: false });
 
       if (profilesError) throw profilesError;
 
       // Load user profiles for social data
       const { data: userProfiles, error: userProfilesError } = await supabase
-        .from('user_profiles')
-        .select('*');
+        .from("user_profiles")
+        .select("*");
 
       if (userProfilesError) {
-        console.warn('Could not load user profiles:', userProfilesError);
+        console.warn("Could not load user profiles:", userProfilesError);
       }
 
       // Load user roles from user_roles table
       const { data: userRoles, error: userRolesError } = await supabase
-        .from('user_roles')
-        .select('user_id, role');
+        .from("user_roles")
+        .select("user_id, role");
 
       if (userRolesError) {
-        console.warn('Could not load user roles:', userRolesError);
+        console.warn("Could not load user roles:", userRolesError);
       }
 
       // Combine data
       const usersData: UserData[] = profiles.map((profile: any) => {
         const userProfile = userProfiles?.find((up: any) => up.user_id === profile.user_id);
-        
+
         // Get role from user_roles table, fallback to email-based detection
         const userRole = userRoles?.find((ur: any) => ur.user_id === profile.user_id);
-        let role = userRole?.role || 'user';
-        
+        let role = userRole?.role || "user";
+
         // Fallback to email-based detection if no role found in user_roles table
         if (!userRole && profile.email && isOwnerEmail(profile.email)) {
-          role = 'owner';
-        } else if (!userRole && profile.email?.includes('admin')) {
-          role = 'admin';
-        } else if (!userRole && profile.email?.includes('mod')) {
-          role = 'moderator';
+          role = "owner";
+        } else if (!userRole && profile.email?.includes("admin")) {
+          role = "admin";
+        } else if (!userRole && profile.email?.includes("mod")) {
+          role = "moderator";
         }
-        
+
         // Get username with better fallback - prioritize social tab username
         let username = userProfile?.username;
         if (!username) {
           // Try to get from email prefix
-          username = profile.email?.split('@')[0] || `user_${profile.user_id.slice(0, 8)}`;
+          username = profile.email?.split("@")[0] || `user_${profile.user_id.slice(0, 8)}`;
         }
-        
+
         // Ensure username is consistent with social tab format
-        if (username && !username.startsWith('@')) {
-          // Username should not have @ prefix in data, but display with @
-          username = username;
-        }
-        
+        // Username should not have @ prefix in data, but display with @
+        // (username already has correct value, no transformation needed)
+
         return {
           id: profile.user_id,
-          email: profile.email || '',
-          display_name: profile.display_name || profile.email?.split('@')[0] || 'Unknown',
+          email: profile.email || "",
+          display_name: profile.display_name || profile.email?.split("@")[0] || "Unknown",
           username: username,
           role: role,
-          subscription_tier: profile.subscription_tier || 'free',
+          subscription_tier: profile.subscription_tier || "free",
           created_at: profile.created_at,
           last_sign_in: profile.last_sign_in || profile.created_at,
           is_active: profile.is_active !== false,
@@ -204,23 +201,23 @@ export function UserManagement() {
           total_posts: userProfile?.total_posts || 0,
           total_comments: userProfile?.total_comments || 0,
           is_muted: userProfile?.is_muted || false,
-          avatar_url: userProfile?.avatar_url
+          avatar_url: userProfile?.avatar_url,
         };
       });
 
       setUsers(usersData);
       calculateStats(usersData);
-      
-      logSecurityEvent('ADMIN_USER_DATA_LOADED', { 
+
+      logSecurityEvent("ADMIN_USER_DATA_LOADED", {
         userCount: usersData.length,
-        adminRole: userRole 
+        adminRole: userRole,
       });
     } catch (error) {
-      console.error('Failed to load users:', error);
+      console.error("Failed to load users:", error);
       toast({
         title: "Error",
         description: "Failed to load user data",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -230,14 +227,14 @@ export function UserManagement() {
   const calculateStats = (usersData: UserData[]) => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
+
     setStats({
       totalUsers: usersData.length,
-      activeUsers: usersData.filter(u => u.is_active).length,
-      newUsersToday: usersData.filter(u => new Date(u.created_at) >= today).length,
-      premiumUsers: usersData.filter(u => u.subscription_tier !== 'free').length,
-      adminUsers: usersData.filter(u => ['admin', 'owner'].includes(u.role)).length,
-      mutedUsers: usersData.filter(u => u.is_muted).length
+      activeUsers: usersData.filter((u) => u.is_active).length,
+      newUsersToday: usersData.filter((u) => new Date(u.created_at) >= today).length,
+      premiumUsers: usersData.filter((u) => u.subscription_tier !== "free").length,
+      adminUsers: usersData.filter((u) => ["admin", "owner"].includes(u.role)).length,
+      mutedUsers: usersData.filter((u) => u.is_muted).length,
     });
   };
 
@@ -247,21 +244,22 @@ export function UserManagement() {
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(user => 
-        user.display_name.toLowerCase().includes(query) ||
-        user.email.toLowerCase().includes(query) ||
-        user.username.toLowerCase().includes(query)
+      filtered = filtered.filter(
+        (user) =>
+          user.display_name.toLowerCase().includes(query) ||
+          user.email.toLowerCase().includes(query) ||
+          user.username.toLowerCase().includes(query),
       );
     }
 
     // Role filter
-    if (roleFilter !== 'all') {
-      filtered = filtered.filter(user => user.role === roleFilter);
+    if (roleFilter !== "all") {
+      filtered = filtered.filter((user) => user.role === roleFilter);
     }
 
     // Subscription filter
-    if (subscriptionFilter !== 'all') {
-      filtered = filtered.filter(user => user.subscription_tier === subscriptionFilter);
+    if (subscriptionFilter !== "all") {
+      filtered = filtered.filter((user) => user.subscription_tier === subscriptionFilter);
     }
 
     setFilteredUsers(filtered);
@@ -271,82 +269,78 @@ export function UserManagement() {
     try {
       // Check if user role exists in user_roles table
       const { data: existingRole } = await supabase
-        .from('user_roles')
-        .select('*')
-        .eq('user_id', userId)
+        .from("user_roles")
+        .select("*")
+        .eq("user_id", userId)
         .single();
 
       if (existingRole) {
         // Update existing role
         const { error } = await supabase
-          .from('user_roles')
+          .from("user_roles")
           .update({ role: newRole })
-          .eq('user_id', userId);
+          .eq("user_id", userId);
 
         if (error) throw error;
       } else {
         // Create new role entry
-        const { error } = await supabase
-          .from('user_roles')
-          .insert({
-            user_id: userId,
-            role: newRole
-          });
+        const { error } = await supabase.from("user_roles").insert({
+          user_id: userId,
+          role: newRole,
+        });
 
         if (error) throw error;
       }
 
       // Also ensure user_profiles entry exists for social features
       const { data: existingProfile } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('user_id', userId)
+        .from("user_profiles")
+        .select("*")
+        .eq("user_id", userId)
         .single();
 
       if (!existingProfile) {
         // Create new profile entry
-        const user = users.find(u => u.id === userId);
+        const user = users.find((u) => u.id === userId);
         if (user) {
-          const { error } = await supabase
-            .from('user_profiles')
-            .insert({
-              user_id: userId,
-              username: user.username,
-              display_name: user.display_name,
-              karma: 0,
-              roi_percentage: 0,
-              total_posts: 0,
-              total_comments: 0,
-              is_muted: false,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            });
+          const { error } = await supabase.from("user_profiles").insert({
+            user_id: userId,
+            username: user.username,
+            display_name: user.display_name,
+            karma: 0,
+            roi_percentage: 0,
+            total_posts: 0,
+            total_comments: 0,
+            is_muted: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
 
-          if (error) console.warn('Failed to create user profile:', error);
+          if (error) console.warn("Failed to create user profile:", error);
         }
       }
 
       // Update local state
-      setUsers(prev => prev.map(user => 
-        user.id === userId ? { ...user, role: newRole } : user
-      ));
+      setUsers((prev) =>
+        prev.map((user) => (user.id === userId ? { ...user, role: newRole } : user)),
+      );
 
-      logSecurityEvent('USER_ROLE_CHANGED', {
+      logSecurityEvent("USER_ROLE_CHANGED", {
         targetUserId: userId,
         newRole,
-        adminRole: userRole
+        adminRole: userRole,
       });
 
       toast({
         title: "Success",
-        description: `User role updated to ${newRole}`
+        description: `User role updated to ${newRole}`,
       });
     } catch (error) {
-      console.error('Failed to update role:', error);
+      console.error("Failed to update role:", error);
       toast({
         title: "Error",
-        description: `Failed to update user role: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        variant: "destructive"
+        description: `Failed to update user role: ${error instanceof Error ? error.message : "Unknown error"}`,
+        variant: "destructive",
       });
     }
   };
@@ -355,63 +349,61 @@ export function UserManagement() {
     try {
       // First, check if user profile exists
       const { data: existingProfile } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('user_id', userId)
+        .from("user_profiles")
+        .select("*")
+        .eq("user_id", userId)
         .single();
 
       if (existingProfile) {
         // Update existing profile
         const { error } = await supabase
-          .from('user_profiles')
+          .from("user_profiles")
           .update({ is_muted: isMuted })
-          .eq('user_id', userId);
+          .eq("user_id", userId);
 
         if (error) throw error;
       } else {
         // Create new profile with mute status
-        const user = users.find(u => u.id === userId);
-        if (!user) throw new Error('User not found');
+        const user = users.find((u) => u.id === userId);
+        if (!user) throw new Error("User not found");
 
-        const { error } = await supabase
-          .from('user_profiles')
-          .insert({
-            user_id: userId,
-            username: user.username,
-            display_name: user.display_name,
-            role: user.role,
-            karma: 0,
-            roi_percentage: 0,
-            total_posts: 0,
-            total_comments: 0,
-            is_muted: isMuted,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
+        const { error } = await supabase.from("user_profiles").insert({
+          user_id: userId,
+          username: user.username,
+          display_name: user.display_name,
+          role: user.role,
+          karma: 0,
+          roi_percentage: 0,
+          total_posts: 0,
+          total_comments: 0,
+          is_muted: isMuted,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
 
         if (error) throw error;
       }
 
-      setUsers(prev => prev.map(user => 
-        user.id === userId ? { ...user, is_muted: isMuted } : user
-      ));
+      setUsers((prev) =>
+        prev.map((user) => (user.id === userId ? { ...user, is_muted: isMuted } : user)),
+      );
 
-      logSecurityEvent('USER_MUTE_TOGGLED', {
+      logSecurityEvent("USER_MUTE_TOGGLED", {
         targetUserId: userId,
         isMuted,
-        adminRole: userRole
+        adminRole: userRole,
       });
 
       toast({
         title: "Success",
-        description: `User ${isMuted ? 'muted' : 'unmuted'}`
+        description: `User ${isMuted ? "muted" : "unmuted"}`,
       });
     } catch (error) {
-      console.error('Failed to toggle mute:', error);
+      console.error("Failed to toggle mute:", error);
       toast({
         title: "Error",
-        description: `Failed to update user mute status: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        variant: "destructive"
+        description: `Failed to update user mute status: ${error instanceof Error ? error.message : "Unknown error"}`,
+        variant: "destructive",
       });
     }
   };
@@ -421,7 +413,7 @@ export function UserManagement() {
       toast({
         title: "Error",
         description: "Please select a user and subscription tier",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -429,60 +421,62 @@ export function UserManagement() {
     try {
       // Update subscription in profiles table
       const { error: profileError } = await supabase
-        .from('profiles')
+        .from("profiles")
         .update({ subscription_tier: subscriptionChange.newTier })
-        .eq('user_id', subscriptionChange.userId);
+        .eq("user_id", subscriptionChange.userId);
 
       if (profileError) throw profileError;
 
       // Update subscription in user_profiles table if it exists
       const { data: existingProfile } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('user_id', subscriptionChange.userId)
+        .from("user_profiles")
+        .select("*")
+        .eq("user_id", subscriptionChange.userId)
         .single();
 
       if (existingProfile) {
         const { error: userProfileError } = await supabase
-          .from('user_profiles')
+          .from("user_profiles")
           .update({ subscription_tier: subscriptionChange.newTier })
-          .eq('user_id', subscriptionChange.userId);
+          .eq("user_id", subscriptionChange.userId);
 
         if (userProfileError) throw userProfileError;
       }
 
       // Update local state
-      setUsers(prev => prev.map(user => 
-        user.id === subscriptionChange.userId 
-          ? { ...user, subscription_tier: subscriptionChange.newTier }
-          : user
-      ));
+      setUsers((prev) =>
+        prev.map((user) =>
+          user.id === subscriptionChange.userId
+            ? { ...user, subscription_tier: subscriptionChange.newTier }
+            : user,
+        ),
+      );
 
-      logSecurityEvent('USER_SUBSCRIPTION_CHANGED', {
+      logSecurityEvent("USER_SUBSCRIPTION_CHANGED", {
         targetUserId: subscriptionChange.userId,
         newTier: subscriptionChange.newTier,
         reason: subscriptionChange.reason,
-        adminRole: userRole
+        adminRole: userRole,
       });
 
       toast({
         title: "Success",
-        description: `User subscription updated to ${subscriptionChange.newTier}`
+        description: `User subscription updated to ${subscriptionChange.newTier}`,
       });
 
       // Reset form
       setSubscriptionChange({
-        userId: '',
-        newTier: '',
-        reason: ''
+        userId: "",
+        newTier: "",
+        reason: "",
       });
       setShowSubscriptionModal(false);
     } catch (error) {
-      console.error('Failed to update subscription:', error);
+      console.error("Failed to update subscription:", error);
       toast({
         title: "Error",
-        description: `Failed to update subscription: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        variant: "destructive"
+        description: `Failed to update subscription: ${error instanceof Error ? error.message : "Unknown error"}`,
+        variant: "destructive",
       });
     }
   };
@@ -491,74 +485,74 @@ export function UserManagement() {
     try {
       // First, check if user profile exists
       const { data: existingProfile } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('user_id', userId)
+        .from("user_profiles")
+        .select("*")
+        .eq("user_id", userId)
         .single();
 
       if (existingProfile) {
         // Update existing profile
         const { error: userProfileError } = await supabase
-          .from('user_profiles')
-          .update({ 
+          .from("user_profiles")
+          .update({
             username: newUsername,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
           })
-          .eq('user_id', userId);
+          .eq("user_id", userId);
 
         if (userProfileError) throw userProfileError;
       } else {
         // Create new profile with username
-        const user = users.find(u => u.id === userId);
-        if (!user) throw new Error('User not found');
+        const user = users.find((u) => u.id === userId);
+        if (!user) throw new Error("User not found");
 
-        const { error: createError } = await supabase
-          .from('user_profiles')
-          .insert({
-            user_id: userId,
-            username: newUsername,
-            display_name: user.display_name,
-            role: user.role,
-            karma: 0,
-            roi_percentage: 0,
-            total_posts: 0,
-            total_comments: 0,
-            is_muted: false,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
+        const { error: createError } = await supabase.from("user_profiles").insert({
+          user_id: userId,
+          username: newUsername,
+          display_name: user.display_name,
+          role: user.role,
+          karma: 0,
+          roi_percentage: 0,
+          total_posts: 0,
+          total_comments: 0,
+          is_muted: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
 
         if (createError) throw createError;
       }
 
       // Update local state
-      setUsers(prev => prev.map(user => 
-        user.id === userId ? { ...user, username: newUsername } : user
-      ));
+      setUsers((prev) =>
+        prev.map((user) => (user.id === userId ? { ...user, username: newUsername } : user)),
+      );
 
       // Refresh user context if this is the current user
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
       if (currentUser && currentUser.id === userId) {
         // Trigger user context refresh
-        window.dispatchEvent(new CustomEvent('userContextRefresh'));
+        window.dispatchEvent(new CustomEvent("userContextRefresh"));
       }
 
-      logSecurityEvent('USERNAME_SYNCED', {
+      logSecurityEvent("USERNAME_SYNCED", {
         targetUserId: userId,
         newUsername,
-        adminRole: userRole
+        adminRole: userRole,
       });
 
       toast({
         title: "Success",
-        description: "Username synced with social tab"
+        description: "Username synced with social tab",
       });
     } catch (error: any) {
-      console.error('Failed to sync username:', error);
+      console.error("Failed to sync username:", error);
       toast({
         title: "Error",
-        description: `Failed to sync username: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        variant: "destructive"
+        description: `Failed to sync username: ${error instanceof Error ? error.message : "Unknown error"}`,
+        variant: "destructive",
       });
     }
   };
@@ -572,28 +566,26 @@ export function UserManagement() {
         try {
           // Check if user has a profile in user_profiles
           const { data: existingProfile } = await supabase
-            .from('user_profiles')
-            .select('*')
-            .eq('user_id', user.id)
+            .from("user_profiles")
+            .select("*")
+            .eq("user_id", user.id)
             .single();
 
           if (!existingProfile) {
             // Create profile for user
-            const { error: createError } = await supabase
-              .from('user_profiles')
-              .insert({
-                user_id: user.id,
-                username: user.username,
-                display_name: user.display_name,
-                role: user.role,
-                karma: 0,
-                roi_percentage: 0,
-                total_posts: 0,
-                total_comments: 0,
-                is_muted: false,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-              });
+            const { error: createError } = await supabase.from("user_profiles").insert({
+              user_id: user.id,
+              username: user.username,
+              display_name: user.display_name,
+              role: user.role,
+              karma: 0,
+              roi_percentage: 0,
+              total_posts: 0,
+              total_comments: 0,
+              is_muted: false,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            });
 
             if (!createError) {
               syncedCount++;
@@ -603,12 +595,12 @@ export function UserManagement() {
           } else if (existingProfile.username !== user.username) {
             // Update username if different
             const { error: updateError } = await supabase
-              .from('user_profiles')
-              .update({ 
+              .from("user_profiles")
+              .update({
                 username: user.username,
-                updated_at: new Date().toISOString()
+                updated_at: new Date().toISOString(),
               })
-              .eq('user_id', user.id);
+              .eq("user_id", user.id);
 
             if (!updateError) {
               syncedCount++;
@@ -625,51 +617,55 @@ export function UserManagement() {
       }
 
       // Refresh user context
-      window.dispatchEvent(new CustomEvent('userContextRefresh'));
+      window.dispatchEvent(new CustomEvent("userContextRefresh"));
 
-      logSecurityEvent('ALL_USERNAMES_SYNCED', {
+      logSecurityEvent("ALL_USERNAMES_SYNCED", {
         syncedCount,
         errorCount,
         totalUsers: users.length,
-        adminRole: userRole
+        adminRole: userRole,
       });
 
       toast({
         title: "Sync Complete",
-        description: `Synced ${syncedCount} users. ${errorCount > 0 ? `${errorCount} errors occurred.` : 'All users synced successfully.'}`
+        description: `Synced ${syncedCount} users. ${errorCount > 0 ? `${errorCount} errors occurred.` : "All users synced successfully."}`,
       });
 
       // Reload users to get updated data
       loadUsers();
     } catch (error: any) {
-      console.error('Failed to sync all usernames:', error);
+      console.error("Failed to sync all usernames:", error);
       toast({
         title: "Error",
-        description: `Failed to sync usernames: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        variant: "destructive"
+        description: `Failed to sync usernames: ${error instanceof Error ? error.message : "Unknown error"}`,
+        variant: "destructive",
       });
     }
   };
 
   const getRoleIcon = (role: string) => {
     switch (role) {
-      case 'owner': return <Crown className="w-4 h-4 text-yellow-500" />;
-      case 'admin': return <Shield className="w-4 h-4 text-red-500" />;
-      case 'mod': return <UserCheck className="w-4 h-4 text-blue-500" />;
-      default: return <Users className="w-4 h-4 text-gray-500" />;
+      case "owner":
+        return <Crown className="w-4 h-4 text-yellow-500" />;
+      case "admin":
+        return <Shield className="w-4 h-4 text-red-500" />;
+      case "mod":
+        return <UserCheck className="w-4 h-4 text-blue-500" />;
+      default:
+        return <Users className="w-4 h-4 text-gray-500" />;
     }
   };
 
   const getRoleBadge = (role: string) => {
     const variants = {
-      owner: 'default',
-      admin: 'destructive',
-      mod: 'secondary',
-      user: 'outline'
+      owner: "default",
+      admin: "destructive",
+      mod: "secondary",
+      user: "outline",
     } as const;
 
     return (
-      <Badge variant={variants[role as keyof typeof variants] || 'outline'}>
+      <Badge variant={variants[role as keyof typeof variants] || "outline"}>
         {getRoleIcon(role)}
         <span className="ml-1 capitalize">{role}</span>
       </Badge>
@@ -678,13 +674,13 @@ export function UserManagement() {
 
   const getSubscriptionBadge = (tier: string) => {
     const variants = {
-      premium: 'default',
-      pro: 'secondary',
-      free: 'outline'
+      premium: "default",
+      pro: "secondary",
+      free: "outline",
     } as const;
 
     return (
-      <Badge variant={variants[tier as keyof typeof variants] || 'outline'}>
+      <Badge variant={variants[tier as keyof typeof variants] || "outline"}>
         {tier.toUpperCase()}
       </Badge>
     );
@@ -698,30 +694,38 @@ export function UserManagement() {
     );
   }
 
+  // Check if user has admin access (after hooks)
+  if (!hasAdminAccess) {
+    return (
+      <Alert className="border-destructive">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertDescription>You don't have permission to access user management.</AlertDescription>
+      </Alert>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">User Management</h2>
-          <p className="text-muted-foreground">
-            Manage user accounts, roles, and permissions
-          </p>
+          <p className="text-muted-foreground">Manage user accounts, roles, and permissions</p>
         </div>
-                <div className="flex gap-2">
-                  <Button onClick={loadUsers} variant="outline" size="sm">
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Refresh
-                  </Button>
-                  <Button onClick={syncAllUsernames} variant="outline" size="sm">
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Sync All Usernames
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <Download className="w-4 h-4 mr-2" />
-                    Export
-                  </Button>
-                </div>
+        <div className="flex gap-2">
+          <Button onClick={loadUsers} variant="outline" size="sm">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh
+          </Button>
+          <Button onClick={syncAllUsernames} variant="outline" size="sm">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Sync All Usernames
+          </Button>
+          <Button variant="outline" size="sm">
+            <Download className="w-4 h-4 mr-2" />
+            Export
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -845,14 +849,12 @@ export function UserManagement() {
       </Card>
 
       {/* Users Table */}
-    <Card>
-      <CardHeader>
+      <Card>
+        <CardHeader>
           <CardTitle>Users ({filteredUsers.length})</CardTitle>
-          <CardDescription>
-            Manage user accounts and permissions
-          </CardDescription>
-      </CardHeader>
-      <CardContent>
+          <CardDescription>Manage user accounts and permissions</CardDescription>
+        </CardHeader>
+        <CardContent>
           <div className="space-y-4">
             {filteredUsers.map((user) => (
               <div
@@ -862,9 +864,7 @@ export function UserManagement() {
                 <div className="flex items-center gap-4">
                   <Avatar className="w-10 h-10">
                     <AvatarImage src={user.avatar_url} />
-                    <AvatarFallback>
-                      {user.display_name.charAt(0).toUpperCase()}
-                    </AvatarFallback>
+                    <AvatarFallback>{user.display_name.charAt(0).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <div>
                     <div className="flex items-center gap-2">
@@ -898,7 +898,7 @@ export function UserManagement() {
                   >
                     <Eye className="w-4 h-4" />
                   </Button>
-                  {validateUserAccess('admin') && (
+                  {validateUserAccess("admin") && (
                     <>
                       <Select
                         value={user.role}
@@ -911,7 +911,7 @@ export function UserManagement() {
                           <SelectItem value="user">User</SelectItem>
                           <SelectItem value="mod">Moderator</SelectItem>
                           <SelectItem value="admin">Admin</SelectItem>
-                          {validateUserAccess('owner') && (
+                          {validateUserAccess("owner") && (
                             <SelectItem value="owner">Owner</SelectItem>
                           )}
                         </SelectContent>
@@ -923,7 +923,7 @@ export function UserManagement() {
                           setSubscriptionChange({
                             userId: user.id,
                             newTier: user.subscription_tier,
-                            reason: ''
+                            reason: "",
                           });
                           setShowSubscriptionModal(true);
                         }}
@@ -944,7 +944,11 @@ export function UserManagement() {
                         variant="outline"
                         onClick={() => handleMuteToggle(user.id, !user.is_muted)}
                       >
-                        {user.is_muted ? <Unlock className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
+                        {user.is_muted ? (
+                          <Unlock className="w-4 h-4" />
+                        ) : (
+                          <Ban className="w-4 h-4" />
+                        )}
                       </Button>
                     </>
                   )}
@@ -987,7 +991,9 @@ export function UserManagement() {
               </div>
               <div>
                 <Label>Subscription</Label>
-                <p className="text-sm font-medium">{selectedUser.subscription_tier.toUpperCase()}</p>
+                <p className="text-sm font-medium">
+                  {selectedUser.subscription_tier.toUpperCase()}
+                </p>
               </div>
               <div>
                 <Label>Status</Label>
@@ -998,7 +1004,7 @@ export function UserManagement() {
                     <XCircle className="w-4 h-4 text-red-500" />
                   )}
                   <span className="text-sm font-medium">
-                    {selectedUser.is_active ? 'Active' : 'Inactive'}
+                    {selectedUser.is_active ? "Active" : "Inactive"}
                   </span>
                 </div>
               </div>
@@ -1032,10 +1038,7 @@ export function UserManagement() {
               </div>
             </div>
             <div className="flex justify-end">
-              <Button
-                variant="outline"
-                onClick={() => setShowUserDetails(false)}
-              >
+              <Button variant="outline" onClick={() => setShowUserDetails(false)}>
                 Close
               </Button>
             </div>
@@ -1048,9 +1051,7 @@ export function UserManagement() {
         <Card className="fixed inset-4 z-50 overflow-auto">
           <CardHeader>
             <CardTitle>Manage User Subscription</CardTitle>
-            <CardDescription>
-              Change user subscription plan
-            </CardDescription>
+            <CardDescription>Change user subscription plan</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -1058,7 +1059,9 @@ export function UserManagement() {
                 <Label htmlFor="user-select">User</Label>
                 <Select
                   value={subscriptionChange.userId}
-                  onValueChange={(value) => setSubscriptionChange(prev => ({ ...prev, userId: value }))}
+                  onValueChange={(value) =>
+                    setSubscriptionChange((prev) => ({ ...prev, userId: value }))
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select user" />
@@ -1076,7 +1079,9 @@ export function UserManagement() {
                 <Label htmlFor="subscription-tier">Subscription Tier</Label>
                 <Select
                   value={subscriptionChange.newTier}
-                  onValueChange={(value) => setSubscriptionChange(prev => ({ ...prev, newTier: value }))}
+                  onValueChange={(value) =>
+                    setSubscriptionChange((prev) => ({ ...prev, newTier: value }))
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select tier" />
@@ -1095,7 +1100,9 @@ export function UserManagement() {
                 id="reason"
                 placeholder="Enter reason for subscription change..."
                 value={subscriptionChange.reason}
-                onChange={(e) => setSubscriptionChange(prev => ({ ...prev, reason: e.target.value }))}
+                onChange={(e) =>
+                  setSubscriptionChange((prev) => ({ ...prev, reason: e.target.value }))
+                }
               />
             </div>
             <div className="flex justify-end gap-2">
@@ -1103,17 +1110,15 @@ export function UserManagement() {
                 variant="outline"
                 onClick={() => {
                   setShowSubscriptionModal(false);
-                  setSubscriptionChange({ userId: '', newTier: '', reason: '' });
+                  setSubscriptionChange({ userId: "", newTier: "", reason: "" });
                 }}
               >
                 Cancel
               </Button>
-              <Button onClick={handleSubscriptionChange}>
-                Update Subscription
-              </Button>
+              <Button onClick={handleSubscriptionChange}>Update Subscription</Button>
             </div>
-      </CardContent>
-    </Card>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

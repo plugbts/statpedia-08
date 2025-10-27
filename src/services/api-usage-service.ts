@@ -1,5 +1,4 @@
-// @ts-nocheck
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from "@/integrations/supabase/client";
 
 export interface APIUsageLog {
   id: string;
@@ -76,19 +75,21 @@ class APIUsageService {
   // Log API usage
   async logUsage(
     endpoint: string,
-    method: string = 'GET',
+    method: string = "GET",
     sport: string | null = null,
     responseStatus: number,
     responseTimeMs: number,
     cacheHit: boolean = false,
     apiKeyUsed: string | null = null,
     userAgent: string | null = null,
-    ipAddress: string | null = null
+    ipAddress: string | null = null,
   ): Promise<void> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      const { error } = await supabase.rpc('log_sportsgameodds_api_usage', {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      const { error } = await supabase.rpc("log_sportsgameodds_api_usage", {
         p_user_id: user?.id || null,
         p_endpoint: endpoint,
         p_method: method,
@@ -98,38 +99,35 @@ class APIUsageService {
         p_cache_hit: cacheHit,
         p_api_key_used: apiKeyUsed,
         p_user_agent: userAgent,
-        p_ip_address: ipAddress
+        p_ip_address: ipAddress,
       });
 
       if (error) {
-        console.error('Failed to log API usage:', error);
+        console.error("Failed to log API usage:", error);
       }
     } catch (error) {
-      console.error('Error logging API usage:', error);
+      console.error("Error logging API usage:", error);
     }
   }
 
   // Get API usage statistics
-  async getUsageStats(
-    userId?: string,
-    startDate?: Date,
-    endDate?: Date
-  ): Promise<APIUsageStats[]> {
+  async getUsageStats(userId?: string, startDate?: Date, endDate?: Date): Promise<APIUsageStats[]> {
     try {
-      const { data, error } = await supabase.rpc('get_sportsgameodds_api_usage_stats', {
+      const { data, error } = await supabase.rpc("get_sportsgameodds_api_usage_stats", {
         p_user_id: userId || null,
-        p_start_date: startDate?.toISOString() || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-        p_end_date: endDate?.toISOString() || new Date().toISOString()
+        p_start_date:
+          startDate?.toISOString() || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+        p_end_date: endDate?.toISOString() || new Date().toISOString(),
       });
 
       if (error) {
-        console.error('Failed to fetch API usage stats:', error);
+        console.error("Failed to fetch API usage stats:", error);
         throw error;
       }
 
       return data || [];
     } catch (error) {
-      console.error('Error fetching API usage stats:', error);
+      console.error("Error fetching API usage stats:", error);
       throw error;
     }
   }
@@ -137,18 +135,18 @@ class APIUsageService {
   // Get API usage vs plan
   async getUsageVsPlan(userId?: string): Promise<APIUsageVsPlan[]> {
     try {
-      const { data, error } = await supabase.rpc('get_sportsgameodds_api_usage_vs_plan', {
-        p_user_id: userId || null
+      const { data, error } = await supabase.rpc("get_sportsgameodds_api_usage_vs_plan", {
+        p_user_id: userId || null,
       });
 
       if (error) {
-        console.error('Failed to fetch API usage vs plan:', error);
+        console.error("Failed to fetch API usage vs plan:", error);
         throw error;
       }
 
       return data || [];
     } catch (error) {
-      console.error('Error fetching API usage vs plan:', error);
+      console.error("Error fetching API usage vs plan:", error);
       throw error;
     }
   }
@@ -157,19 +155,19 @@ class APIUsageService {
   async getPlanConfigs(): Promise<APIPlanConfig[]> {
     try {
       const { data, error } = await supabase
-        .from('api_plan_config')
-        .select('*')
-        .eq('is_active', true)
-        .order('monthly_request_limit', { ascending: true });
+        .from("api_plan_config")
+        .select("*")
+        .eq("is_active", true)
+        .order("monthly_request_limit", { ascending: true });
 
       if (error) {
-        console.error('Failed to fetch plan configs:', error);
+        console.error("Failed to fetch plan configs:", error);
         throw error;
       }
 
       return data || [];
     } catch (error) {
-      console.error('Error fetching plan configs:', error);
+      console.error("Error fetching plan configs:", error);
       throw error;
     }
   }
@@ -178,20 +176,20 @@ class APIUsageService {
   async getCurrentUsage(userId?: string): Promise<APIUsageSummary[]> {
     try {
       const { data, error } = await supabase
-        .from('api_current_usage')
-        .select('*')
-        .eq('user_id', userId || (await supabase.auth.getUser()).data.user?.id)
-        .eq('current_month_start', new Date().toISOString().substring(0, 7) + '-01')
+        .from("api_current_usage")
+        .select("*")
+        .eq("user_id", userId || (await supabase.auth.getUser()).data.user?.id)
+        .eq("current_month_start", new Date().toISOString().substring(0, 7) + "-01")
         .single();
 
       if (error) {
-        console.error('Failed to fetch current usage:', error);
+        console.error("Failed to fetch current usage:", error);
         throw error;
       }
 
       return data ? [data] : [];
     } catch (error) {
-      console.error('Error fetching current usage:', error);
+      console.error("Error fetching current usage:", error);
       throw error;
     }
   }
@@ -200,29 +198,29 @@ class APIUsageService {
   async getUsageLogs(
     userId?: string,
     limit: number = 100,
-    offset: number = 0
+    offset: number = 0,
   ): Promise<APIUsageLog[]> {
     try {
       let query = supabase
-        .from('api_usage_logs')
-        .select('*')
-        .order('created_at', { ascending: false })
+        .from("api_usage_logs")
+        .select("*")
+        .order("created_at", { ascending: false })
         .range(offset, offset + limit - 1);
 
       if (userId) {
-        query = query.eq('user_id', userId);
+        query = query.eq("user_id", userId);
       }
 
       const { data, error } = await query;
 
       if (error) {
-        console.error('Failed to fetch usage logs:', error);
+        console.error("Failed to fetch usage logs:", error);
         throw error;
       }
 
       return data || [];
     } catch (error) {
-      console.error('Error fetching usage logs:', error);
+      console.error("Error fetching usage logs:", error);
       throw error;
     }
   }
@@ -230,7 +228,7 @@ class APIUsageService {
   // Get usage analytics for admin dashboard
   async getUsageAnalytics(
     startDate?: Date,
-    endDate?: Date
+    endDate?: Date,
   ): Promise<{
     totalRequests: number;
     uniqueUsers: number;
@@ -247,11 +245,7 @@ class APIUsageService {
     }>;
   }> {
     try {
-      const stats = await this.getUsageStats(
-        undefined,
-        startDate,
-        endDate
-      );
+      const stats = await this.getUsageStats(undefined, startDate, endDate);
 
       if (stats.length === 0) {
         return {
@@ -263,59 +257,71 @@ class APIUsageService {
           totalCost: 0,
           requestsByEndpoint: {},
           requestsBySport: {},
-          topUsers: []
+          topUsers: [],
         };
       }
 
-      const totalStats = stats.reduce((acc, stat) => ({
-        totalRequests: acc.totalRequests + stat.total_requests,
-        totalResponseTime: acc.totalResponseTime + stat.total_response_time_ms,
-        totalCost: acc.totalCost + stat.total_cost_usd,
-        totalErrors: acc.totalErrors + (stat.total_requests * stat.error_rate / 100),
-        totalCacheHits: acc.totalCacheHits + (stat.total_requests * stat.cache_hit_rate / 100),
-        requestsByEndpoint: { ...acc.requestsByEndpoint, ...stat.requests_by_endpoint },
-        requestsBySport: { ...acc.requestsBySport, ...stat.requests_by_sport },
-        users: [...acc.users, { user_id: stat.user_id, request_count: stat.total_requests }]
-      }), {
-        totalRequests: 0,
-        totalResponseTime: 0,
-        totalCost: 0,
-        totalErrors: 0,
-        totalCacheHits: 0,
-        requestsByEndpoint: {} as Record<string, number>,
-        requestsBySport: {} as Record<string, number>,
-        users: [] as Array<{ user_id: string; request_count: number }>
-      });
+      const totalStats = stats.reduce(
+        (acc, stat) => ({
+          totalRequests: acc.totalRequests + stat.total_requests,
+          totalResponseTime: acc.totalResponseTime + stat.total_response_time_ms,
+          totalCost: acc.totalCost + stat.total_cost_usd,
+          totalErrors: acc.totalErrors + (stat.total_requests * stat.error_rate) / 100,
+          totalCacheHits: acc.totalCacheHits + (stat.total_requests * stat.cache_hit_rate) / 100,
+          requestsByEndpoint: { ...acc.requestsByEndpoint, ...stat.requests_by_endpoint },
+          requestsBySport: { ...acc.requestsBySport, ...stat.requests_by_sport },
+          users: [...acc.users, { user_id: stat.user_id, request_count: stat.total_requests }],
+        }),
+        {
+          totalRequests: 0,
+          totalResponseTime: 0,
+          totalCost: 0,
+          totalErrors: 0,
+          totalCacheHits: 0,
+          requestsByEndpoint: {} as Record<string, number>,
+          requestsBySport: {} as Record<string, number>,
+          users: [] as Array<{ user_id: string; request_count: number }>,
+        },
+      );
 
       // Get user emails for top users
       const topUsers = totalStats.users
         .sort((a, b) => b.request_count - a.request_count)
         .slice(0, 10);
 
-      const userIds = topUsers.map(u => u.user_id);
+      const userIds = topUsers.map((u) => u.user_id);
       const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, email')
-        .in('user_id', userIds);
+        .from("profiles")
+        .select("user_id, email")
+        .in("user_id", userIds);
 
-      const topUsersWithEmails = topUsers.map(user => ({
+      const topUsersWithEmails = topUsers.map((user) => ({
         ...user,
-        email: profiles?.find(p => p.user_id === user.user_id)?.email
+        email: profiles?.find((p) => p.user_id === user.user_id)?.email,
       }));
 
       return {
         totalRequests: totalStats.totalRequests,
         uniqueUsers: stats.length,
-        avgResponseTime: totalStats.totalRequests > 0 ? totalStats.totalResponseTime / totalStats.totalRequests : 0,
-        cacheHitRate: totalStats.totalRequests > 0 ? (totalStats.totalCacheHits / totalStats.totalRequests) * 100 : 0,
-        errorRate: totalStats.totalRequests > 0 ? (totalStats.totalErrors / totalStats.totalRequests) * 100 : 0,
+        avgResponseTime:
+          totalStats.totalRequests > 0
+            ? totalStats.totalResponseTime / totalStats.totalRequests
+            : 0,
+        cacheHitRate:
+          totalStats.totalRequests > 0
+            ? (totalStats.totalCacheHits / totalStats.totalRequests) * 100
+            : 0,
+        errorRate:
+          totalStats.totalRequests > 0
+            ? (totalStats.totalErrors / totalStats.totalRequests) * 100
+            : 0,
         totalCost: totalStats.totalCost,
         requestsByEndpoint: totalStats.requestsByEndpoint,
         requestsBySport: totalStats.requestsBySport,
-        topUsers: topUsersWithEmails
+        topUsers: topUsersWithEmails,
       };
     } catch (error) {
-      console.error('Error fetching usage analytics:', error);
+      console.error("Error fetching usage analytics:", error);
       throw error;
     }
   }
@@ -334,73 +340,79 @@ class APIUsageService {
 
       if (usageVsPlan.length === 0 || planConfigs.length === 0) {
         return {
-          currentPlan: 'Unknown',
-          recommendedPlan: 'Free Tier',
-          reason: 'No usage data available'
+          currentPlan: "Unknown",
+          recommendedPlan: "Free Tier",
+          reason: "No usage data available",
         };
       }
 
       const currentUsage = usageVsPlan[0];
-      const currentPlan = planConfigs.find(p => p.plan_name === currentUsage.plan_name);
-      
+      const currentPlan = planConfigs.find((p) => p.plan_name === currentUsage.plan_name);
+
       if (!currentPlan) {
         return {
           currentPlan: currentUsage.plan_name,
-          recommendedPlan: 'Free Tier',
-          reason: 'Current plan not found'
+          recommendedPlan: "Free Tier",
+          reason: "Current plan not found",
         };
       }
 
       // Calculate projected monthly usage
-      const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+      const daysInMonth = new Date(
+        new Date().getFullYear(),
+        new Date().getMonth() + 1,
+        0,
+      ).getDate();
       const daysPassed = new Date().getDate();
       const projectedMonthlyRequests = Math.round(
-        (currentUsage.total_requests / daysPassed) * daysInMonth
+        (currentUsage.total_requests / daysPassed) * daysInMonth,
       );
 
       // Find appropriate plan
       let recommendedPlan = currentPlan;
-      let reason = 'Current plan is appropriate';
+      let reason = "Current plan is appropriate";
 
       if (projectedMonthlyRequests > currentPlan.monthly_request_limit * 0.9) {
         // Need to upgrade
-        const nextPlan = planConfigs.find(p => p.monthly_request_limit > currentPlan.monthly_request_limit);
+        const nextPlan = planConfigs.find(
+          (p) => p.monthly_request_limit > currentPlan.monthly_request_limit,
+        );
         if (nextPlan) {
           recommendedPlan = nextPlan;
           reason = `Projected usage (${projectedMonthlyRequests.toLocaleString()} requests) exceeds current plan limit`;
-          
+
           const currentCost = projectedMonthlyRequests * currentPlan.cost_per_request_usd;
           const recommendedCost = projectedMonthlyRequests * nextPlan.cost_per_request_usd;
           const costSavings = currentCost - recommendedCost;
-          
+
           return {
             currentPlan: currentPlan.plan_name,
             recommendedPlan: nextPlan.plan_name,
             reason,
             costSavings: costSavings > 0 ? costSavings : undefined,
-            additionalRequests: nextPlan.monthly_request_limit - currentPlan.monthly_request_limit
+            additionalRequests: nextPlan.monthly_request_limit - currentPlan.monthly_request_limit,
           };
         }
       } else if (projectedMonthlyRequests < currentPlan.monthly_request_limit * 0.3) {
         // Could downgrade
         const prevPlan = planConfigs
-          .filter(p => p.monthly_request_limit < currentPlan.monthly_request_limit)
+          .filter((p) => p.monthly_request_limit < currentPlan.monthly_request_limit)
           .sort((a, b) => b.monthly_request_limit - a.monthly_request_limit)[0];
-        
+
         if (prevPlan && projectedMonthlyRequests <= prevPlan.monthly_request_limit) {
           recommendedPlan = prevPlan;
           reason = `Usage is low (${projectedMonthlyRequests.toLocaleString()} requests) - could save money with smaller plan`;
-          
+
           const currentCost = projectedMonthlyRequests * currentPlan.cost_per_request_usd;
           const recommendedCost = projectedMonthlyRequests * prevPlan.cost_per_request_usd;
           const costSavings = currentCost - recommendedCost;
-          
+
           return {
             currentPlan: currentPlan.plan_name,
             recommendedPlan: prevPlan.plan_name,
             reason,
             costSavings: costSavings > 0 ? costSavings : undefined,
-            additionalRequests: prevPlan.monthly_request_limit - currentPlan.monthly_request_limit
+            additionalRequests: prevPlan.monthly_request_limit - currentPlan.monthly_request_limit,
           };
         }
       }
@@ -408,10 +420,10 @@ class APIUsageService {
       return {
         currentPlan: currentPlan.plan_name,
         recommendedPlan: currentPlan.plan_name,
-        reason
+        reason,
       };
     } catch (error) {
-      console.error('Error getting plan recommendations:', error);
+      console.error("Error getting plan recommendations:", error);
       throw error;
     }
   }

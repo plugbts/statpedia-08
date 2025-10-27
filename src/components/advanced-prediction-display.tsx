@@ -1,29 +1,28 @@
-// @ts-nocheck
 // Advanced Prediction Display Component
 // Shows comprehensive predictions with all advanced features
 
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Brain, 
-  TrendingUp, 
-  AlertTriangle, 
-  Lightbulb, 
-  BarChart3, 
-  Cloud, 
+import React, { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Brain,
+  TrendingUp,
+  AlertTriangle,
+  Lightbulb,
+  BarChart3,
+  Cloud,
   Wind,
   Clock,
   Target,
   Zap,
   Shield,
-  Activity
-} from 'lucide-react';
-import { ComprehensivePrediction } from '@/services/advanced-prediction-service';
-import { evCalculatorService } from '@/services/ev-calculator';
+  Activity,
+} from "lucide-react";
+import { ComprehensivePrediction } from "@/services/advanced-prediction-service";
+import { evCalculatorService } from "@/services/ev-calculator";
 
 interface AdvancedPredictionDisplayProps {
   prediction: ComprehensivePrediction;
@@ -32,9 +31,9 @@ interface AdvancedPredictionDisplayProps {
 
 export const AdvancedPredictionDisplay: React.FC<AdvancedPredictionDisplayProps> = ({
   prediction,
-  onClose
+  onClose,
 }) => {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState("overview");
   const [evCalculation, setEvCalculation] = useState<any>(null);
 
   useEffect(() => {
@@ -46,17 +45,17 @@ export const AdvancedPredictionDisplay: React.FC<AdvancedPredictionDisplayProps>
           playerName: prediction.playerName,
           propType: prediction.propType,
           line: prediction.line,
-          odds: '-110', // Default odds
-          sport: 'nfl',
-          team: prediction.advancedPrediction.advancedFactors.contextual.homeTeam || 'Unknown',
-          opponent: prediction.advancedPrediction.advancedFactors.contextual.awayTeam || 'Unknown',
+          odds: "-110", // Default odds
+          sport: "nfl",
+          team: prediction.advancedPrediction.advancedFactors.contextual.homeTeam || "Unknown",
+          opponent: prediction.advancedPrediction.advancedFactors.contextual.awayTeam || "Unknown",
           gameDate: prediction.lastUpdated,
         };
-        
+
         const ev = await evCalculatorService.calculateAIRating(propData);
         setEvCalculation(ev);
       } catch (error) {
-        console.error('Error calculating EV:', error);
+        console.error("Error calculating EV:", error);
       }
     };
 
@@ -64,20 +63,20 @@ export const AdvancedPredictionDisplay: React.FC<AdvancedPredictionDisplayProps>
   }, [prediction]);
 
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 80) return 'text-green-600';
-    if (confidence >= 60) return 'text-yellow-600';
-    return 'text-red-600';
+    if (confidence >= 80) return "text-green-600";
+    if (confidence >= 60) return "text-yellow-600";
+    return "text-red-600";
   };
 
   const getEVColor = (ev: number) => {
-    if (ev > 5) return 'text-green-600';
-    if (ev > 0) return 'text-green-500';
-    if (ev > -5) return 'text-yellow-500';
-    return 'text-red-500';
+    if (ev > 5) return "text-green-600";
+    if (ev > 0) return "text-green-500";
+    if (ev > -5) return "text-yellow-500";
+    return "text-red-500";
   };
 
   const getPredictionColor = (direction: string) => {
-    return direction === 'over' ? 'text-green-600' : 'text-red-600';
+    return direction === "over" ? "text-green-600" : "text-red-600";
   };
 
   return (
@@ -86,9 +85,7 @@ export const AdvancedPredictionDisplay: React.FC<AdvancedPredictionDisplayProps>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <div className="flex items-center space-x-2">
             <Brain className="h-6 w-6 text-blue-600" />
-            <CardTitle className="text-2xl font-bold">
-              Advanced Prediction Analysis
-            </CardTitle>
+            <CardTitle className="text-2xl font-bold">Advanced Prediction Analysis</CardTitle>
           </div>
           {onClose && (
             <Button variant="ghost" size="sm" onClick={onClose}>
@@ -124,10 +121,7 @@ export const AdvancedPredictionDisplay: React.FC<AdvancedPredictionDisplayProps>
                 <div className={`text-2xl font-bold ${getConfidenceColor(prediction.confidence)}`}>
                   {prediction.confidence.toFixed(1)}%
                 </div>
-                <Progress 
-                  value={prediction.confidence} 
-                  className="mt-2"
-                />
+                <Progress value={prediction.confidence} className="mt-2" />
               </CardContent>
             </Card>
 
@@ -138,11 +132,16 @@ export const AdvancedPredictionDisplay: React.FC<AdvancedPredictionDisplayProps>
                   <h3 className="font-semibold">Expected Value</h3>
                 </div>
                 <div className={`text-2xl font-bold ${getEVColor(prediction.expectedValue)}`}>
-                  {prediction.expectedValue > 0 ? '+' : ''}{prediction.expectedValue.toFixed(1)}%
+                  {prediction.expectedValue > 0 ? "+" : ""}
+                  {prediction.expectedValue.toFixed(1)}%
                 </div>
                 <div className="text-sm text-gray-600">
                   {evCalculation?.recommendation && (
-                    <Badge variant={evCalculation.recommendation === 'strong_bet' ? 'default' : 'secondary'}>
+                    <Badge
+                      variant={
+                        evCalculation.recommendation === "strong_bet" ? "default" : "secondary"
+                      }
+                    >
                       {evCalculatorService.getRecommendationText(evCalculation.recommendation)}
                     </Badge>
                   )}
@@ -225,19 +224,27 @@ export const AdvancedPredictionDisplay: React.FC<AdvancedPredictionDisplayProps>
                 <CardContent>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="flex items-center space-x-2">
-                      <div className={`w-3 h-3 rounded-full ${prediction.dataSources.nflfastr ? 'bg-green-500' : 'bg-gray-300'}`} />
+                      <div
+                        className={`w-3 h-3 rounded-full ${prediction.dataSources.nflfastr ? "bg-green-500" : "bg-gray-300"}`}
+                      />
                       <span className="text-sm">NFLfastR</span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <div className={`w-3 h-3 rounded-full ${prediction.dataSources.pff ? 'bg-green-500' : 'bg-gray-300'}`} />
+                      <div
+                        className={`w-3 h-3 rounded-full ${prediction.dataSources.pff ? "bg-green-500" : "bg-gray-300"}`}
+                      />
                       <span className="text-sm">PFF</span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <div className={`w-3 h-3 rounded-full ${prediction.dataSources.dvoa ? 'bg-green-500' : 'bg-gray-300'}`} />
+                      <div
+                        className={`w-3 h-3 rounded-full ${prediction.dataSources.dvoa ? "bg-green-500" : "bg-gray-300"}`}
+                      />
                       <span className="text-sm">DVOA</span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <div className={`w-3 h-3 rounded-full ${prediction.dataSources.nextGen ? 'bg-green-500' : 'bg-gray-300'}`} />
+                      <div
+                        className={`w-3 h-3 rounded-full ${prediction.dataSources.nextGen ? "bg-green-500" : "bg-gray-300"}`}
+                      />
                       <span className="text-sm">Next Gen</span>
                     </div>
                   </div>
@@ -258,23 +265,43 @@ export const AdvancedPredictionDisplay: React.FC<AdvancedPredictionDisplayProps>
                   <CardContent className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-sm">Temperature</span>
-                      <span>{prediction.advancedPrediction.advancedFactors.contextual.weatherConditions.temperature}°F</span>
+                      <span>
+                        {
+                          prediction.advancedPrediction.advancedFactors.contextual.weatherConditions
+                            .temperature
+                        }
+                        °F
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm">Wind Speed</span>
                       <span className="flex items-center space-x-1">
                         <Wind className="h-4 w-4" />
-                        <span>{prediction.advancedPrediction.advancedFactors.contextual.weatherConditions.windSpeed} mph</span>
+                        <span>
+                          {
+                            prediction.advancedPrediction.advancedFactors.contextual
+                              .weatherConditions.windSpeed
+                          }{" "}
+                          mph
+                        </span>
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm">Precipitation</span>
-                      <span>{prediction.advancedPrediction.advancedFactors.contextual.weatherConditions.precipitation.toFixed(2)}"</span>
+                      <span>
+                        {prediction.advancedPrediction.advancedFactors.contextual.weatherConditions.precipitation.toFixed(
+                          2,
+                        )}
+                        "
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm">Field Surface</span>
                       <Badge variant="outline">
-                        {prediction.advancedPrediction.advancedFactors.contextual.weatherConditions.fieldSurface}
+                        {
+                          prediction.advancedPrediction.advancedFactors.contextual.weatherConditions
+                            .fieldSurface
+                        }
                       </Badge>
                     </div>
                   </CardContent>
@@ -291,22 +318,46 @@ export const AdvancedPredictionDisplay: React.FC<AdvancedPredictionDisplayProps>
                   <CardContent className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-sm">Rest Differential</span>
-                      <span className={prediction.advancedPrediction.advancedFactors.contextual.restDifferential > 0 ? 'text-green-600' : 'text-red-600'}>
-                        {prediction.advancedPrediction.advancedFactors.contextual.restDifferential > 0 ? '+' : ''}
-                        {prediction.advancedPrediction.advancedFactors.contextual.restDifferential} days
+                      <span
+                        className={
+                          prediction.advancedPrediction.advancedFactors.contextual
+                            .restDifferential > 0
+                            ? "text-green-600"
+                            : "text-red-600"
+                        }
+                      >
+                        {prediction.advancedPrediction.advancedFactors.contextual.restDifferential >
+                        0
+                          ? "+"
+                          : ""}
+                        {prediction.advancedPrediction.advancedFactors.contextual.restDifferential}{" "}
+                        days
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm">Travel Distance</span>
-                      <span>{prediction.advancedPrediction.advancedFactors.contextual.travelFatigue.distanceMiles.toFixed(0)} miles</span>
+                      <span>
+                        {prediction.advancedPrediction.advancedFactors.contextual.travelFatigue.distanceMiles.toFixed(
+                          0,
+                        )}{" "}
+                        miles
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm">Time Zone Change</span>
-                      <span>{prediction.advancedPrediction.advancedFactors.contextual.travelFatigue.timeZoneChange} hours</span>
+                      <span>
+                        {
+                          prediction.advancedPrediction.advancedFactors.contextual.travelFatigue
+                            .timeZoneChange
+                        }{" "}
+                        hours
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm">Altitude</span>
-                      <span>{prediction.advancedPrediction.advancedFactors.contextual.altitude} ft</span>
+                      <span>
+                        {prediction.advancedPrediction.advancedFactors.contextual.altitude} ft
+                      </span>
                     </div>
                   </CardContent>
                 </Card>
@@ -324,19 +375,25 @@ export const AdvancedPredictionDisplay: React.FC<AdvancedPredictionDisplayProps>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="text-center">
                       <div className="text-2xl font-bold text-blue-600">
-                        {prediction.advancedPrediction.advancedFactors.situational.restAdvantage.toFixed(2)}
+                        {prediction.advancedPrediction.advancedFactors.situational.restAdvantage.toFixed(
+                          2,
+                        )}
                       </div>
                       <div className="text-sm text-gray-600">Rest Advantage</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-green-600">
-                        {prediction.advancedPrediction.advancedFactors.situational.matchupStrength.toFixed(2)}
+                        {prediction.advancedPrediction.advancedFactors.situational.matchupStrength.toFixed(
+                          2,
+                        )}
                       </div>
                       <div className="text-sm text-gray-600">Matchup Strength</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-purple-600">
-                        {prediction.advancedPrediction.advancedFactors.situational.motivationFactor.toFixed(2)}
+                        {prediction.advancedPrediction.advancedFactors.situational.motivationFactor.toFixed(
+                          2,
+                        )}
                       </div>
                       <div className="text-sm text-gray-600">Motivation Factor</div>
                     </div>
@@ -358,26 +415,62 @@ export const AdvancedPredictionDisplay: React.FC<AdvancedPredictionDisplayProps>
                   <CardContent className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-sm">Home Offense</span>
-                      <span className={prediction.advancedPrediction.advancedFactors.contextual.epaPerPlay.homeOffense > 0 ? 'text-green-600' : 'text-red-600'}>
-                        {prediction.advancedPrediction.advancedFactors.contextual.epaPerPlay.homeOffense.toFixed(3)}
+                      <span
+                        className={
+                          prediction.advancedPrediction.advancedFactors.contextual.epaPerPlay
+                            .homeOffense > 0
+                            ? "text-green-600"
+                            : "text-red-600"
+                        }
+                      >
+                        {prediction.advancedPrediction.advancedFactors.contextual.epaPerPlay.homeOffense.toFixed(
+                          3,
+                        )}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm">Home Defense</span>
-                      <span className={prediction.advancedPrediction.advancedFactors.contextual.epaPerPlay.homeDefense < 0 ? 'text-green-600' : 'text-red-600'}>
-                        {prediction.advancedPrediction.advancedFactors.contextual.epaPerPlay.homeDefense.toFixed(3)}
+                      <span
+                        className={
+                          prediction.advancedPrediction.advancedFactors.contextual.epaPerPlay
+                            .homeDefense < 0
+                            ? "text-green-600"
+                            : "text-red-600"
+                        }
+                      >
+                        {prediction.advancedPrediction.advancedFactors.contextual.epaPerPlay.homeDefense.toFixed(
+                          3,
+                        )}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm">Away Offense</span>
-                      <span className={prediction.advancedPrediction.advancedFactors.contextual.epaPerPlay.awayOffense > 0 ? 'text-green-600' : 'text-red-600'}>
-                        {prediction.advancedPrediction.advancedFactors.contextual.epaPerPlay.awayOffense.toFixed(3)}
+                      <span
+                        className={
+                          prediction.advancedPrediction.advancedFactors.contextual.epaPerPlay
+                            .awayOffense > 0
+                            ? "text-green-600"
+                            : "text-red-600"
+                        }
+                      >
+                        {prediction.advancedPrediction.advancedFactors.contextual.epaPerPlay.awayOffense.toFixed(
+                          3,
+                        )}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm">Away Defense</span>
-                      <span className={prediction.advancedPrediction.advancedFactors.contextual.epaPerPlay.awayDefense < 0 ? 'text-green-600' : 'text-red-600'}>
-                        {prediction.advancedPrediction.advancedFactors.contextual.epaPerPlay.awayDefense.toFixed(3)}
+                      <span
+                        className={
+                          prediction.advancedPrediction.advancedFactors.contextual.epaPerPlay
+                            .awayDefense < 0
+                            ? "text-green-600"
+                            : "text-red-600"
+                        }
+                      >
+                        {prediction.advancedPrediction.advancedFactors.contextual.epaPerPlay.awayDefense.toFixed(
+                          3,
+                        )}
                       </span>
                     </div>
                   </CardContent>
@@ -394,19 +487,43 @@ export const AdvancedPredictionDisplay: React.FC<AdvancedPredictionDisplayProps>
                   <CardContent className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-sm">Home Offense</span>
-                      <span>{(prediction.advancedPrediction.advancedFactors.contextual.successRate.homeOffense * 100).toFixed(1)}%</span>
+                      <span>
+                        {(
+                          prediction.advancedPrediction.advancedFactors.contextual.successRate
+                            .homeOffense * 100
+                        ).toFixed(1)}
+                        %
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm">Home Defense</span>
-                      <span>{(prediction.advancedPrediction.advancedFactors.contextual.successRate.homeDefense * 100).toFixed(1)}%</span>
+                      <span>
+                        {(
+                          prediction.advancedPrediction.advancedFactors.contextual.successRate
+                            .homeDefense * 100
+                        ).toFixed(1)}
+                        %
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm">Away Offense</span>
-                      <span>{(prediction.advancedPrediction.advancedFactors.contextual.successRate.awayOffense * 100).toFixed(1)}%</span>
+                      <span>
+                        {(
+                          prediction.advancedPrediction.advancedFactors.contextual.successRate
+                            .awayOffense * 100
+                        ).toFixed(1)}
+                        %
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm">Away Defense</span>
-                      <span>{(prediction.advancedPrediction.advancedFactors.contextual.successRate.awayDefense * 100).toFixed(1)}%</span>
+                      <span>
+                        {(
+                          prediction.advancedPrediction.advancedFactors.contextual.successRate
+                            .awayDefense * 100
+                        ).toFixed(1)}
+                        %
+                      </span>
                     </div>
                   </CardContent>
                 </Card>
@@ -424,19 +541,28 @@ export const AdvancedPredictionDisplay: React.FC<AdvancedPredictionDisplayProps>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="text-center">
                       <div className="text-2xl font-bold text-blue-600">
-                        {prediction.advancedPrediction.advancedFactors.contextual.pace.homeTeam.toFixed(1)}s
+                        {prediction.advancedPrediction.advancedFactors.contextual.pace.homeTeam.toFixed(
+                          1,
+                        )}
+                        s
                       </div>
                       <div className="text-sm text-gray-600">Home Team Pace</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-red-600">
-                        {prediction.advancedPrediction.advancedFactors.contextual.pace.awayTeam.toFixed(1)}s
+                        {prediction.advancedPrediction.advancedFactors.contextual.pace.awayTeam.toFixed(
+                          1,
+                        )}
+                        s
                       </div>
                       <div className="text-sm text-gray-600">Away Team Pace</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-gray-600">
-                        {prediction.advancedPrediction.advancedFactors.contextual.pace.leagueAverage.toFixed(1)}s
+                        {prediction.advancedPrediction.advancedFactors.contextual.pace.leagueAverage.toFixed(
+                          1,
+                        )}
+                        s
                       </div>
                       <div className="text-sm text-gray-600">League Average</div>
                     </div>
@@ -458,18 +584,27 @@ export const AdvancedPredictionDisplay: React.FC<AdvancedPredictionDisplayProps>
                   <CardContent className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-sm">Prediction</span>
-                      <Badge variant={prediction.advancedPrediction.prediction === 'over' ? 'default' : 'destructive'}>
+                      <Badge
+                        variant={
+                          prediction.advancedPrediction.prediction === "over"
+                            ? "default"
+                            : "destructive"
+                        }
+                      >
                         {prediction.advancedPrediction.prediction.toUpperCase()}
                       </Badge>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm">Confidence</span>
-                      <span className="font-semibold">{prediction.advancedPrediction.confidence.toFixed(1)}%</span>
+                      <span className="font-semibold">
+                        {prediction.advancedPrediction.confidence.toFixed(1)}%
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm">Expected Value</span>
                       <span className={getEVColor(prediction.advancedPrediction.expectedValue)}>
-                        {prediction.advancedPrediction.expectedValue > 0 ? '+' : ''}{prediction.advancedPrediction.expectedValue.toFixed(1)}%
+                        {prediction.advancedPrediction.expectedValue > 0 ? "+" : ""}
+                        {prediction.advancedPrediction.expectedValue.toFixed(1)}%
                       </span>
                     </div>
                     <div className="text-sm text-gray-600 mt-2">
@@ -489,23 +624,34 @@ export const AdvancedPredictionDisplay: React.FC<AdvancedPredictionDisplayProps>
                   <CardContent className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-sm">Prediction</span>
-                      <Badge variant={prediction.mlPrediction.prediction === 'over' ? 'default' : 'destructive'}>
+                      <Badge
+                        variant={
+                          prediction.mlPrediction.prediction === "over" ? "default" : "destructive"
+                        }
+                      >
                         {prediction.mlPrediction.prediction.toUpperCase()}
                       </Badge>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm">Confidence</span>
-                      <span className="font-semibold">{prediction.mlPrediction.confidence.toFixed(1)}%</span>
+                      <span className="font-semibold">
+                        {prediction.mlPrediction.confidence.toFixed(1)}%
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm">Expected Value</span>
                       <span className={getEVColor(prediction.mlPrediction.expectedValue)}>
-                        {prediction.mlPrediction.expectedValue > 0 ? '+' : ''}{prediction.mlPrediction.expectedValue.toFixed(1)}%
+                        {prediction.mlPrediction.expectedValue > 0 ? "+" : ""}
+                        {prediction.mlPrediction.expectedValue.toFixed(1)}%
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm">Risk Score</span>
-                      <span className={prediction.mlPrediction.riskScore > 70 ? 'text-red-600' : 'text-green-600'}>
+                      <span
+                        className={
+                          prediction.mlPrediction.riskScore > 70 ? "text-red-600" : "text-green-600"
+                        }
+                      >
                         {prediction.mlPrediction.riskScore.toFixed(0)}
                       </span>
                     </div>
@@ -529,7 +675,9 @@ export const AdvancedPredictionDisplay: React.FC<AdvancedPredictionDisplayProps>
                         <div key={feature} className="flex items-center space-x-2">
                           <div className="w-24 text-sm text-gray-600 truncate">{feature}</div>
                           <Progress value={importance * 100} className="flex-1" />
-                          <div className="w-12 text-sm text-right">{(importance * 100).toFixed(1)}%</div>
+                          <div className="w-12 text-sm text-right">
+                            {(importance * 100).toFixed(1)}%
+                          </div>
                         </div>
                       ))}
                   </div>
@@ -549,7 +697,10 @@ export const AdvancedPredictionDisplay: React.FC<AdvancedPredictionDisplayProps>
                   <div className="space-y-3">
                     {prediction.riskFactors.length > 0 ? (
                       prediction.riskFactors.map((risk, index) => (
-                        <div key={index} className="flex items-start space-x-2 p-3 bg-yellow-50 rounded-lg">
+                        <div
+                          key={index}
+                          className="flex items-start space-x-2 p-3 bg-yellow-50 rounded-lg"
+                        >
                           <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
                           <span className="text-sm text-yellow-800">{risk}</span>
                         </div>

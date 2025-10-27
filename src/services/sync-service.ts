@@ -1,15 +1,15 @@
-import { loveableClient } from '@/integrations/loveable/client';
+import { loveableClient } from "@/integrations/loveable/client";
 // Removed Supabase - using Hasura + Neon only
 // Removed Supabase types - using Hasura + Neon only
 
 interface SyncEvent {
   id: string;
-  type: 'code' | 'ui' | 'data' | 'config';
+  type: "code" | "ui" | "data" | "config";
   table?: string;
-  action: 'create' | 'update' | 'delete' | 'sync';
+  action: "create" | "update" | "delete" | "sync";
   data: any;
   timestamp: number;
-  source: 'loveable' | 'supabase' | 'local';
+  source: "loveable" | "supabase" | "local";
   retryCount?: number;
 }
 
@@ -25,7 +25,7 @@ class SyncService {
   private syncQueue: SyncEvent[] = [];
   private isProcessing = false;
   private syncInterval: NodeJS.Timeout | null = null;
-  private eventListeners: Map<string, Function[]> = new Map();
+  private eventListeners: Map<string, ((...args: unknown[]) => void)[]> = new Map();
 
   constructor(config: Partial<SyncServiceConfig> = {}) {
     this.config = {
@@ -54,9 +54,9 @@ class SyncService {
   private async initializeLoveableSync() {
     try {
       await loveableClient.connect();
-      console.log('Loveable sync initialized');
+      console.log("Loveable sync initialized");
     } catch (error) {
-      console.error('Failed to initialize Loveable sync:', error);
+      console.error("Failed to initialize Loveable sync:", error);
     }
   }
 
@@ -64,12 +64,12 @@ class SyncService {
     try {
       // TODO: Replace with Hasura/Cloudflare Workers equivalent
       // Disable Supabase calls to avoid 406/400 errors
-      console.warn('Supabase realtime disabled - using Hasura API instead');
+      console.warn("Supabase realtime disabled - using Hasura API instead");
       this.config.enableSupabaseRealtime = false;
       return;
-      console.log('Supabase realtime initialized');
+      console.log("Supabase realtime initialized");
     } catch (error) {
-      console.warn('Failed to initialize Supabase realtime, disabling:', error);
+      console.warn("Failed to initialize Supabase realtime, disabling:", error);
       // Disable Supabase realtime if it fails
       this.config.enableSupabaseRealtime = false;
     }
@@ -101,25 +101,25 @@ class SyncService {
   private async processSyncEvent(event: SyncEvent) {
     try {
       switch (event.type) {
-        case 'code':
+        case "code":
           await this.processSyncCode(event);
           break;
-        case 'ui':
+        case "ui":
           await this.processSyncUI(event);
           break;
-        case 'data':
+        case "data":
           await this.processSyncData(event);
           break;
-        case 'config':
+        case "config":
           await this.processSyncConfig(event);
           break;
       }
 
-      this.emit('sync-success', event);
+      this.emit("sync-success", event);
     } catch (error) {
-      console.error('Sync event failed:', error);
-      this.emit('sync-error', { event, error });
-      
+      console.error("Sync event failed:", error);
+      this.emit("sync-error", { event, error });
+
       // Retry logic
       const retryCount = event.retryCount || 0;
       if (retryCount < this.config.maxRetries) {
@@ -145,16 +145,16 @@ class SyncService {
     if (event.table && this.config.enableSupabaseRealtime) {
       // Handle data synchronization with Supabase
       const { action, data } = event;
-      
+
       switch (action) {
-        case 'create':
+        case "create":
           await supabase.from(event.table).insert(data);
           break;
-        case 'update':
-          await supabase.from(event.table).update(data).eq('id', data.id);
+        case "update":
+          await supabase.from(event.table).update(data).eq("id", data.id);
           break;
-        case 'delete':
-          await supabase.from(event.table).delete().eq('id', data.id);
+        case "delete":
+          await supabase.from(event.table).delete().eq("id", data.id);
           break;
       }
     }
@@ -167,7 +167,7 @@ class SyncService {
   }
 
   // Public API methods
-  public queueSyncEvent(event: Omit<SyncEvent, 'id' | 'timestamp'>) {
+  public queueSyncEvent(event: Omit<SyncEvent, "id" | "timestamp">) {
     const syncEvent: SyncEvent = {
       ...event,
       id: this.generateId(),
@@ -175,55 +175,55 @@ class SyncService {
     };
 
     this.syncQueue.push(syncEvent);
-    this.emit('sync-queued', syncEvent);
+    this.emit("sync-queued", syncEvent);
   }
 
-  public syncCode(codeData: any, source: 'loveable' | 'supabase' | 'local' = 'local') {
+  public syncCode(codeData: any, source: "loveable" | "supabase" | "local" = "local") {
     this.queueSyncEvent({
-      type: 'code',
-      action: 'sync',
+      type: "code",
+      action: "sync",
       data: codeData,
       source,
     });
   }
 
-  public syncUI(uiData: any, source: 'loveable' | 'supabase' | 'local' = 'local') {
+  public syncUI(uiData: any, source: "loveable" | "supabase" | "local" = "local") {
     this.queueSyncEvent({
-      type: 'ui',
-      action: 'sync',
+      type: "ui",
+      action: "sync",
       data: uiData,
       source,
     });
   }
 
-  public syncData(table: TableName, action: 'create' | 'update' | 'delete', data: any) {
+  public syncData(table: TableName, action: "create" | "update" | "delete", data: any) {
     this.queueSyncEvent({
-      type: 'data',
+      type: "data",
       table,
       action,
       data,
-      source: 'local',
+      source: "local",
     });
   }
 
-  public syncConfig(configData: any, source: 'loveable' | 'supabase' | 'local' = 'local') {
+  public syncConfig(configData: any, source: "loveable" | "supabase" | "local" = "local") {
     this.queueSyncEvent({
-      type: 'config',
-      action: 'sync',
+      type: "config",
+      action: "sync",
       data: configData,
       source,
     });
   }
 
   // Event system
-  public on(event: string, callback: Function) {
+  public on(event: string, callback: (...args: unknown[]) => void) {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, []);
     }
     this.eventListeners.get(event)!.push(callback);
   }
 
-  public off(event: string, callback: Function) {
+  public off(event: string, callback: (...args: unknown[]) => void) {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
       const index = listeners.indexOf(callback);
@@ -236,7 +236,7 @@ class SyncService {
   private emit(event: string, data: any) {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
-      listeners.forEach(callback => callback(data));
+      listeners.forEach((callback) => callback(data));
     }
   }
 
@@ -249,7 +249,7 @@ class SyncService {
       clearInterval(this.syncInterval);
       this.syncInterval = null;
     }
-    
+
     loveableClient.disconnect();
     this.syncQueue = [];
     this.eventListeners.clear();
