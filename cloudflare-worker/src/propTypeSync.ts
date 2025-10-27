@@ -226,36 +226,73 @@ export const PROP_TYPE_MAP: Record<string, string> = {
   "so": "strikeouts",
   "hits": "hits",
   "hit": "hits",
+  "singles": "singles",
+  "single": "singles",
+  "1b": "singles",
+  "batting singles": "singles",
+  "batting single": "singles",
+  "doubles": "doubles",
+  "double": "doubles",
+  "2b": "doubles",
+  "batting doubles": "doubles",
+  "batting double": "doubles",
+  "triples": "triples",
+  "triple": "triples",
+  "3b": "triples",
+  "batting triples": "triples",
+  "batting triple": "triples",
   "home runs": "home_runs",
   "home run": "home_runs",
   "hr": "home_runs",
+  "homeruns": "home_runs",
+  "homerun": "home_runs",
+  "batting homeruns": "home_runs",
+  "batting home runs": "home_runs",
   "rbis": "runs_batted_in",
   "rbi": "runs_batted_in",
   "runs batted in": "runs_batted_in",
   "run batted in": "runs_batted_in",
+  "batting rbis": "runs_batted_in",
+  "batting rbi": "runs_batted_in",
   "runs": "runs",
   "run": "runs",
+  "batting runs": "runs",
   "total bases": "total_bases",
   "total base": "total_bases",
+  "batting total bases": "total_bases",
   "walks": "walks",
   "walk": "walks",
+  "bb": "walks",
+  "bases on balls": "walks",
+  "batting walks": "walks",
+  "batting basesonballs": "walks",
   "stolen bases": "stolen_bases",
   "stolen base": "stolen_bases",
   "sb": "stolen_bases",
+  "batting stolen bases": "stolen_bases",
+  "batting stolenbases": "stolen_bases",
+  "batting strikeouts": "strikeouts",
   "outs recorded": "outs_recorded",
   "out recorded": "outs_recorded",
+  "pitcher outs": "outs_recorded",
+  "pitching outs": "outs_recorded",
   "earned runs": "earned_runs",
   "earned run": "earned_runs",
+  "er": "earned_runs",
+  "pitching earned runs": "earned_runs",
+  "pitching earnedruns": "earned_runs",
   "hits allowed": "hits_allowed",
   "hit allowed": "hits_allowed",
+  "pitching hits allowed": "hits_allowed",
+  "pitching hitsallowed": "hits_allowed",
   "runs allowed": "runs_allowed",
   "run allowed": "runs_allowed",
-  "singles": "singles",
-  "single": "singles",
-  "doubles": "doubles",
-  "double": "doubles",
-  "triples": "triples",
-  "triple": "triples",
+  "pitcher strikeouts": "strikeouts",
+  "pitching strikeouts": "strikeouts",
+  "pitcher walks": "walks",
+  "pitching walks": "walks",
+  "innings pitched": "innings_pitched",
+  "pitching innings": "innings_pitched",
 
   // ---------------- NBA ----------------
   "points": "points",
@@ -352,14 +389,32 @@ export function normalizePropType(raw: string): string {
   if (key.includes("longest") && key.includes("rush")) return "longest_rush";
 
   // --- MLB - Expanded Coverage ---
+  // Batting - Singles, Doubles, Triples
+  if (key.includes("batting") && key.includes("single")) return "singles";
+  if (key.includes("batting") && key.includes("double")) return "doubles";
+  if (key.includes("batting") && key.includes("triple")) return "triples";
+  
+  // Standalone batting props
+  if (key === "singles" || key === "single" || key === "1b") return "singles";
+  if (key === "doubles" || key === "double" || key === "2b") return "doubles";
+  if (key === "triples" || key === "triple" || key === "3b") return "triples";
+  
+  // Other MLB batting
   if (key.includes("strikeout") || key.includes("strike out") || key === "ks" || key === "k") return "strikeouts";
   if (key.includes("total bases") || key.includes("total base")) return "total_bases";
   if (key.includes("home run") || key.includes("homer") || key.includes("hr")) return "home_runs";
   if (key.includes("rbis") || key.includes("rbi") || key.includes("runs batted in")) return "rbis";
+  if (key.includes("stolen") && key.includes("base")) return "stolen_bases";
+  if ((key.includes("walk") || key.includes("bases on balls")) && !key.includes("pitcher")) return "walks";
+  
+  // MLB pitching
   if (key.includes("hits allowed") || key.includes("hits allow")) return "hits_allowed";
   if (key.includes("earned runs") || key.includes("earned run") || key.includes("er")) return "earned_runs";
-  if (key.includes("outs recorded") || key.includes("out recorded")) return "outs_recorded";
+  if (key.includes("outs recorded") || key.includes("out recorded") || key.includes("pitcher outs")) return "outs_recorded";
+  
+  // MLB hits (must be after "hits allowed" check)
   if (key.includes("hits") && !key.includes("allowed")) return "hits";
+  if (key.includes("runs") && !key.includes("batted") && !key.includes("allowed") && !key.includes("earned")) return "runs";
 
   return "unknown"; // only fallback if truly exotic
 }

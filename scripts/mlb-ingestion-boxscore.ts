@@ -37,6 +37,9 @@ interface MLBBoxScoreResponse {
           batting?: {
             atBats: number;
             hits: number;
+            singles?: number;
+            doubles?: number;
+            triples?: number;
             runs: number;
             homeRuns: number;
             strikeOuts: number;
@@ -63,6 +66,9 @@ interface MLBBoxScoreResponse {
           batting?: {
             atBats: number;
             hits: number;
+            singles?: number;
+            doubles?: number;
+            triples?: number;
             runs: number;
             homeRuns: number;
             strikeOuts: number;
@@ -104,6 +110,9 @@ interface MLBPlayerLog {
   date: string;
   stats: {
     hits?: number;
+    singles?: number;
+    doubles?: number;
+    triples?: number;
     runs?: number;
     homeRuns?: number;
     strikeOuts?: number;
@@ -336,6 +345,23 @@ function processMLBPlayer(
       stats.strikeOuts = batting.strikeOuts || 0;
       stats.walks = batting.walks || 0;
       stats.rbi = batting.rbi || 0;
+      
+      // Add singles, doubles, triples if available
+      if (batting.singles !== undefined) {
+        stats.singles = batting.singles;
+      }
+      if (batting.doubles !== undefined) {
+        stats.doubles = batting.doubles;
+      }
+      if (batting.triples !== undefined) {
+        stats.triples = batting.triples;
+      }
+      
+      // If singles/doubles/triples are not provided, calculate singles
+      // Singles = Hits - (Doubles + Triples + HomeRuns)
+      if (batting.singles === undefined && batting.doubles !== undefined && batting.triples !== undefined) {
+        stats.singles = batting.hits - (batting.doubles + batting.triples + batting.homeRuns);
+      }
     }
   }
   
@@ -442,6 +468,57 @@ async function upsertMLBPlayerLog(log: MLBPlayerLog, gameId: string) {
     });
   }
   
+  // Singles
+  if (log.stats.singles !== undefined) {
+    logEntries.push({
+      player_id: playerId,
+      team_id: teamId,
+      game_id: gameId,
+      opponent_id: opponentTeamId,
+      prop_type: 'Singles',
+      line: log.stats.singles,
+      actual_value: log.stats.singles,
+      hit: true,
+      game_date: log.date,
+      season: new Date(log.date).getFullYear().toString(),
+      home_away: 'away' as const
+    });
+  }
+  
+  // Doubles
+  if (log.stats.doubles !== undefined) {
+    logEntries.push({
+      player_id: playerId,
+      team_id: teamId,
+      game_id: gameId,
+      opponent_id: opponentTeamId,
+      prop_type: 'Doubles',
+      line: log.stats.doubles,
+      actual_value: log.stats.doubles,
+      hit: true,
+      game_date: log.date,
+      season: new Date(log.date).getFullYear().toString(),
+      home_away: 'away' as const
+    });
+  }
+  
+  // Triples
+  if (log.stats.triples !== undefined) {
+    logEntries.push({
+      player_id: playerId,
+      team_id: teamId,
+      game_id: gameId,
+      opponent_id: opponentTeamId,
+      prop_type: 'Triples',
+      line: log.stats.triples,
+      actual_value: log.stats.triples,
+      hit: true,
+      game_date: log.date,
+      season: new Date(log.date).getFullYear().toString(),
+      home_away: 'away' as const
+    });
+  }
+  
   // Runs
   if (log.stats.runs !== undefined) {
     logEntries.push({
@@ -503,6 +580,23 @@ async function upsertMLBPlayerLog(log: MLBPlayerLog, gameId: string) {
       prop_type: 'RBI',
       line: log.stats.rbi,
       actual_value: log.stats.rbi,
+      hit: true,
+      game_date: log.date,
+      season: new Date(log.date).getFullYear().toString(),
+      home_away: 'away' as const
+    });
+  }
+  
+  // Walks
+  if (log.stats.walks !== undefined) {
+    logEntries.push({
+      player_id: playerId,
+      team_id: teamId,
+      game_id: gameId,
+      opponent_id: opponentTeamId,
+      prop_type: 'Walks',
+      line: log.stats.walks,
+      actual_value: log.stats.walks,
       hit: true,
       game_date: log.date,
       season: new Date(log.date).getFullYear().toString(),
