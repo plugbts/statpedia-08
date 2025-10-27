@@ -54,19 +54,9 @@ export const SocialAdmin: React.FC = () => {
   const [muteDuration, setMuteDuration] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
-
-  // Check if user has admin access
-  if (!validateUserAccess('admin')) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-center">
-          <Shield className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-semibold">Access Denied</h3>
-          <p className="text-muted-foreground">You don't have permission to access social administration.</p>
-        </div>
-      </div>
-    );
-  }
+  
+  // Check admin access - must happen after hooks
+  const hasAdminAccess = validateUserAccess('admin');
 
   useEffect(() => {
     loadData();
@@ -315,6 +305,19 @@ export const SocialAdmin: React.FC = () => {
     return (
       <div className="flex items-center justify-center p-8">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+  
+  // Check admin access - render after hooks are called
+  if (!hasAdminAccess) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center">
+          <Shield className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-semibold">Access Denied</h3>
+          <p className="text-muted-foreground">You don't have permission to access social administration.</p>
+        </div>
       </div>
     );
   }

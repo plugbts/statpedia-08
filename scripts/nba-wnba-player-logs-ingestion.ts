@@ -343,13 +343,14 @@ async function main() {
         await debugSingleGame(gameId, league);
         break;
 
-      case 'batch':
+      case 'batch': {
         if (!gameId) {
           throw new Error('Comma-separated game IDs required for batch mode');
         }
         const gameIds = gameId.split(',').map(id => id.trim());
         await ingestAllGames(db, gameIds, league);
         break;
+      }
 
       default:
         console.log(`

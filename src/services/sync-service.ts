@@ -25,7 +25,7 @@ class SyncService {
   private syncQueue: SyncEvent[] = [];
   private isProcessing = false;
   private syncInterval: NodeJS.Timeout | null = null;
-  private eventListeners: Map<string, Function[]> = new Map();
+  private eventListeners: Map<string, ((...args: unknown[]) => unknown)[]> = new Map();
 
   constructor(config: Partial<SyncServiceConfig> = {}) {
     this.config = {
@@ -216,14 +216,14 @@ class SyncService {
   }
 
   // Event system
-  public on(event: string, callback: Function) {
+  public on(event: string, callback: (...args: unknown[]) => unknown) {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, []);
     }
     this.eventListeners.get(event)!.push(callback);
   }
 
-  public off(event: string, callback: Function) {
+  public off(event: string, callback: (...args: unknown[]) => unknown) {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
       const index = listeners.indexOf(callback);
