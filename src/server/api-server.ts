@@ -754,8 +754,25 @@ app.get("/api/props-list", async (req, res) => {
       const sql = `
         SELECT id,
                COALESCE(full_name, 'Unknown Player') AS full_name,
-               COALESCE(team, 'UNK') AS team,
-               COALESCE(opponent, 'TBD') AS opponent,
+               -- Prefer DB-provided team/opponent; if missing, derive from logo URL path (ESPN pattern) to avoid 'UNK'/'TBD'
+               COALESCE(
+                 team,
+                 UPPER(NULLIF(regexp_replace(
+                   COALESCE(team_logo, ''),
+                   '.*\/([a-z0-9]+)\\.png$',
+                   '\\1'
+                 ), '')),
+                 'UNK'
+               ) AS team,
+               COALESCE(
+                 opponent,
+                 UPPER(NULLIF(regexp_replace(
+                   COALESCE(opponent_logo, ''),
+                   '.*\/([a-z0-9]+)\\.png$',
+                   '\\1'
+                 ), '')),
+                 'TBD'
+               ) AS opponent,
                market,
                COALESCE(line, 0) AS line,
                COALESCE(odds_american, 0) AS odds_american,

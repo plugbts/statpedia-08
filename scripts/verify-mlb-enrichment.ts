@@ -7,7 +7,7 @@ async function run() {
   const sql = postgres(conn, { prepare: false });
   try {
     const rows = (await sql /* sql */ `
-      SELECT league, full_name, market, l5, l10, l20, season_avg, ev_percent, team_logo, opponent_logo
+      SELECT league, full_name, market, team, opponent, l5, l10, l20, season_avg, ev_percent, team_logo, opponent_logo
       FROM public.v_props_list
       WHERE league = 'MLB'
       ORDER BY game_date DESC NULLS LAST
@@ -38,6 +38,8 @@ async function run() {
           sample: rows.slice(0, 5).map((r) => ({
             name: r.full_name,
             market: r.market,
+            team: r.team,
+            opponent: r.opponent,
             l5: r.l5,
             l10: r.l10,
             l20: r.l20,
