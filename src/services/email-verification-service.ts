@@ -3,7 +3,6 @@
  * Handles sending and verifying email codes for sensitive operations
  */
 
-// @ts-nocheck
 import { supabase } from '@/integrations/supabase/client';
 
 export interface VerificationCode {

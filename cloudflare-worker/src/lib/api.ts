@@ -145,7 +145,7 @@ export async function getEventsWithFallbacks(env: any, leagueID: string, season:
   // Tier 1: Current season, ±7 days
   try {
     console.log(`Tier 1: ${leagueID} ${season} (±7 days)`);
-    let events = await fetchEventsWithProps(env, leagueID, { 
+    const events = await fetchEventsWithProps(env, leagueID, { 
       season, 
       dateFrom: d7Past, 
       dateTo: d7Future, 
@@ -162,7 +162,7 @@ export async function getEventsWithFallbacks(env: any, leagueID: string, season:
   // Tier 2: Current season, ±14 days
   try {
     console.log(`Tier 2: ${leagueID} ${season} (±14 days)`);
-    let events = await fetchEventsWithProps(env, leagueID, { 
+    const events = await fetchEventsWithProps(env, leagueID, { 
       season, 
       dateFrom: d14Past, 
       dateTo: d14Future, 
@@ -179,7 +179,7 @@ export async function getEventsWithFallbacks(env: any, leagueID: string, season:
   // Tier 3: Previous season, ±14 days
   try {
     console.log(`Tier 3: ${leagueID} ${season - 1} (±14 days)`);
-    let events = await fetchEventsWithProps(env, leagueID, { 
+    const events = await fetchEventsWithProps(env, leagueID, { 
       season: season - 1, 
       dateFrom: d14Past, 
       dateTo: d14Future, 
@@ -196,7 +196,7 @@ export async function getEventsWithFallbacks(env: any, leagueID: string, season:
   // Tier 4: Current season, ±14 days, no oddIDs filter
   try {
     console.log(`Tier 4: ${leagueID} ${season} (±14 days, no oddIDs)`);
-    let events = await fetchEventsWithProps(env, leagueID, { 
+    const events = await fetchEventsWithProps(env, leagueID, { 
       season, 
       dateFrom: d14Past, 
       dateTo: d14Future 
@@ -212,7 +212,7 @@ export async function getEventsWithFallbacks(env: any, leagueID: string, season:
   // Tier 5: Previous season, ±14 days, no oddIDs filter
   try {
     console.log(`Tier 5: ${leagueID} ${season - 1} (±14 days, no oddIDs)`);
-    let events = await fetchEventsWithProps(env, leagueID, { 
+    const events = await fetchEventsWithProps(env, leagueID, { 
       season: season - 1, 
       dateFrom: d14Past, 
       dateTo: d14Future 
@@ -247,7 +247,7 @@ export async function getEventsWithAggressiveFallbacks(env: any, leagueID: strin
   // Tier 6: Current season, ±30 days
   try {
     console.log(`Tier 6: ${leagueID} ${season} (±30 days)`);
-    let events = await fetchEventsWithProps(env, leagueID, { 
+    const events = await fetchEventsWithProps(env, leagueID, { 
       season, 
       dateFrom: d30Past, 
       dateTo: d30Future, 
@@ -264,7 +264,7 @@ export async function getEventsWithAggressiveFallbacks(env: any, leagueID: strin
   // Tier 7: Current season, ±90 days
   try {
     console.log(`Tier 7: ${leagueID} ${season} (±90 days)`);
-    let events = await fetchEventsWithProps(env, leagueID, { 
+    const events = await fetchEventsWithProps(env, leagueID, { 
       season, 
       dateFrom: d90Past, 
       dateTo: d90Future, 
@@ -281,7 +281,7 @@ export async function getEventsWithAggressiveFallbacks(env: any, leagueID: strin
   // Tier 8: Previous season, ±90 days
   try {
     console.log(`Tier 8: ${leagueID} ${season - 1} (±90 days)`);
-    let events = await fetchEventsWithProps(env, leagueID, { 
+    const events = await fetchEventsWithProps(env, leagueID, { 
       season: season - 1, 
       dateFrom: d90Past, 
       dateTo: d90Future, 
@@ -298,7 +298,7 @@ export async function getEventsWithAggressiveFallbacks(env: any, leagueID: strin
   // Tier 9: No date filters, current season
   try {
     console.log(`Tier 9: ${leagueID} ${season} (no date filters)`);
-    let events = await fetchEventsWithProps(env, leagueID, { 
+    const events = await fetchEventsWithProps(env, leagueID, { 
       season, 
       oddIDs 
     });
@@ -313,7 +313,7 @@ export async function getEventsWithAggressiveFallbacks(env: any, leagueID: strin
   // Tier 10: No date filters, previous season
   try {
     console.log(`Tier 10: ${leagueID} ${season - 1} (no date filters)`);
-    let events = await fetchEventsWithProps(env, leagueID, { 
+    const events = await fetchEventsWithProps(env, leagueID, { 
       season: season - 1, 
       oddIDs 
     });

@@ -133,22 +133,26 @@ export default function PlayerPropsAnalyticsEnhanced({ league }: { league: strin
               return a.market_type.localeCompare(b.market_type);
             case "line":
               return (a.line || 0) - (b.line || 0);
-            case "matchup_rank":
+            case "matchup_rank": {
               const aRank = a.analytics?.matchupRank?.hit || 0;
               const bRank = b.analytics?.matchupRank?.hit || 0;
               return bRank - aRank;
-            case "last5_avg":
+            }
+            case "last5_avg": {
               const aLast5 = a.analytics?.last5?.avg_value || 0;
               const bLast5 = b.analytics?.last5?.avg_value || 0;
               return bLast5 - aLast5;
-            case "last10_avg":
+            }
+            case "last10_avg": {
               const aLast10 = a.analytics?.last10?.avg_value || 0;
               const bLast10 = b.analytics?.last10?.avg_value || 0;
               return bLast10 - aLast10;
-            case "last20_avg":
+            }
+            case "last20_avg": {
               const aLast20 = a.analytics?.last20?.avg_value || 0;
               const bLast20 = b.analytics?.last20?.avg_value || 0;
               return bLast20 - aLast20;
+            }
             default:
               return 0;
           }

@@ -29,7 +29,7 @@ export async function runIngestion(env: any): Promise<IngestionResult> {
   const startTime = Date.now();
   let totalProps = 0;
   let totalInserted = 0;
-  let totalUpdated = 0;
+  const totalUpdated = 0;
   let totalErrors = 0;
   const leagueResults: Array<{
     league: string;

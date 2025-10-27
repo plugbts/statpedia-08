@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * ChatGPT Integration Service
  * Provides dual AI debugging and coding assistance

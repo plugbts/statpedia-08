@@ -155,7 +155,7 @@ async function chunkedUpsertProps(env: any, props: any[]): Promise<BulkUpsertRes
   const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
   const chunkSize = 25; // Smaller chunks to avoid subrequest limits
   let totalInserted = 0;
-  let totalUpdated = 0;
+  const totalUpdated = 0;
   let totalErrors = 0;
   const allErrors: any[] = [];
 
@@ -196,7 +196,7 @@ async function chunkedUpsertPlayerGameLogs(env: any, logs: any[]): Promise<BulkU
   const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
   const chunkSize = 25; // Smaller chunks to avoid subrequest limits
   let totalInserted = 0;
-  let totalUpdated = 0;
+  const totalUpdated = 0;
   let totalErrors = 0;
   const allErrors: any[] = [];
 
