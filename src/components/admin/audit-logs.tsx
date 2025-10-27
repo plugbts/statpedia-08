@@ -1,19 +1,25 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  Shield, 
-  Search, 
-  Filter, 
-  Download, 
-  RefreshCw, 
-  Eye, 
+import React, { useState, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Shield,
+  Search,
+  Filter,
+  Download,
+  RefreshCw,
+  Eye,
   AlertTriangle,
   CheckCircle,
   XCircle,
@@ -31,12 +37,12 @@ import {
   TrendingUp,
   TrendingDown,
   Calendar,
-  BarChart3
-} from 'lucide-react';
-import { useUser } from '@/contexts/user-context';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
+  BarChart3,
+} from "lucide-react";
+import { useUser } from "@/contexts/user-context";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 interface AuditLog {
   id: string;
@@ -50,8 +56,8 @@ interface AuditLog {
   details: any;
   ip_address?: string;
   user_agent?: string;
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  status: 'success' | 'failed' | 'pending';
+  severity: "low" | "medium" | "high" | "critical";
+  status: "success" | "failed" | "pending";
 }
 
 interface AuditStats {
@@ -73,134 +79,127 @@ export function AuditLogs() {
     criticalEvents: 0,
     failedEvents: 0,
     uniqueUsers: 0,
-    topEvents: []
+    topEvents: [],
   });
   const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [eventTypeFilter, setEventTypeFilter] = useState('all');
-  const [severityFilter, setSeverityFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [eventTypeFilter, setEventTypeFilter] = useState("all");
+  const [severityFilter, setSeverityFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
   const [showLogDetails, setShowLogDetails] = useState(false);
   const { toast } = useToast();
 
-  // Check if user has admin access
-  if (!validateUserAccess('admin')) {
-    return (
-      <Alert className="border-destructive">
-        <AlertTriangle className="h-4 w-4" />
-        <AlertDescription>
-          You don't have permission to access audit logs.
-        </AlertDescription>
-      </Alert>
-    );
-  }
-
+  // Load audit logs on mount
   useEffect(() => {
     loadAuditLogs();
   }, []);
 
+  // Filter logs when filters change
   useEffect(() => {
     filterLogs();
   }, [logs, searchQuery, eventTypeFilter, severityFilter, statusFilter]);
 
+  // Check if user has admin access
+  const hasAdminAccess = validateUserAccess("admin");
+
   const loadAuditLogs = async () => {
     try {
       setIsLoading(true);
-      
+
       // For now, we'll create mock audit logs since we don't have a dedicated audit table
       // In production, this would query a real audit_logs table
       const mockLogs: AuditLog[] = [
         {
-          id: '1',
+          id: "1",
           timestamp: new Date().toISOString(),
-          event_type: 'USER_LOGIN',
-          user_id: 'user1',
-          user_email: 'user@example.com',
-          user_role: 'user',
-          action: 'login',
-          resource: 'auth',
-          details: { method: 'email', success: true },
-          ip_address: '192.168.1.1',
-          user_agent: 'Mozilla/5.0...',
-          severity: 'low',
-          status: 'success'
+          event_type: "USER_LOGIN",
+          user_id: "user1",
+          user_email: "user@example.com",
+          user_role: "user",
+          action: "login",
+          resource: "auth",
+          details: { method: "email", success: true },
+          ip_address: "192.168.1.1",
+          user_agent: "Mozilla/5.0...",
+          severity: "low",
+          status: "success",
         },
         {
-          id: '2',
+          id: "2",
           timestamp: new Date(Date.now() - 3600000).toISOString(),
-          event_type: 'ADMIN_USER_DATA_LOADED',
-          user_id: 'admin1',
-          user_email: 'admin@statpedia.com',
-          user_role: 'admin',
-          action: 'view_users',
-          resource: 'admin_panel',
-          details: { userCount: 150, adminRole: 'admin' },
-          ip_address: '192.168.1.2',
-          user_agent: 'Mozilla/5.0...',
-          severity: 'medium',
-          status: 'success'
+          event_type: "ADMIN_USER_DATA_LOADED",
+          user_id: "admin1",
+          user_email: "admin@statpedia.com",
+          user_role: "admin",
+          action: "view_users",
+          resource: "admin_panel",
+          details: { userCount: 150, adminRole: "admin" },
+          ip_address: "192.168.1.2",
+          user_agent: "Mozilla/5.0...",
+          severity: "medium",
+          status: "success",
         },
         {
-          id: '3',
+          id: "3",
           timestamp: new Date(Date.now() - 7200000).toISOString(),
-          event_type: 'USER_ROLE_CHANGED',
-          user_id: 'admin1',
-          user_email: 'admin@statpedia.com',
-          user_role: 'admin',
-          action: 'change_role',
-          resource: 'user_management',
-          details: { targetUserId: 'user2', newRole: 'mod', adminRole: 'admin' },
-          ip_address: '192.168.1.2',
-          user_agent: 'Mozilla/5.0...',
-          severity: 'high',
-          status: 'success'
+          event_type: "USER_ROLE_CHANGED",
+          user_id: "admin1",
+          user_email: "admin@statpedia.com",
+          user_role: "admin",
+          action: "change_role",
+          resource: "user_management",
+          details: { targetUserId: "user2", newRole: "mod", adminRole: "admin" },
+          ip_address: "192.168.1.2",
+          user_agent: "Mozilla/5.0...",
+          severity: "high",
+          status: "success",
         },
         {
-          id: '4',
+          id: "4",
           timestamp: new Date(Date.now() - 10800000).toISOString(),
-          event_type: 'RATE_LIMIT_EXCEEDED',
-          user_id: 'user3',
-          user_email: 'user3@example.com',
-          user_role: 'user',
-          action: 'api_request',
-          resource: 'api',
-          details: { requestCount: 15, endpoint: '/api/users' },
-          ip_address: '192.168.1.3',
-          user_agent: 'Mozilla/5.0...',
-          severity: 'medium',
-          status: 'failed'
+          event_type: "RATE_LIMIT_EXCEEDED",
+          user_id: "user3",
+          user_email: "user3@example.com",
+          user_role: "user",
+          action: "api_request",
+          resource: "api",
+          details: { requestCount: 15, endpoint: "/api/users" },
+          ip_address: "192.168.1.3",
+          user_agent: "Mozilla/5.0...",
+          severity: "medium",
+          status: "failed",
         },
         {
-          id: '5',
+          id: "5",
           timestamp: new Date(Date.now() - 14400000).toISOString(),
-          event_type: 'UNAUTHORIZED_ROLE_UPDATE_ATTEMPT',
-          user_id: 'user4',
-          user_email: 'user4@example.com',
-          user_role: 'user',
-          action: 'unauthorized_access',
-          resource: 'user_management',
-          details: { attemptedRole: 'admin', currentRole: 'user' },
-          ip_address: '192.168.1.4',
-          user_agent: 'Mozilla/5.0...',
-          severity: 'critical',
-          status: 'failed'
-        }
+          event_type: "UNAUTHORIZED_ROLE_UPDATE_ATTEMPT",
+          user_id: "user4",
+          user_email: "user4@example.com",
+          user_role: "user",
+          action: "unauthorized_access",
+          resource: "user_management",
+          details: { attemptedRole: "admin", currentRole: "user" },
+          ip_address: "192.168.1.4",
+          user_agent: "Mozilla/5.0...",
+          severity: "critical",
+          status: "failed",
+        },
       ];
 
       setLogs(mockLogs);
       calculateStats(mockLogs);
-      
-      logSecurityEvent('AUDIT_LOGS_ACCESSED', { 
+
+      logSecurityEvent("AUDIT_LOGS_ACCESSED", {
         adminRole: userRole,
-        logCount: mockLogs.length 
+        logCount: mockLogs.length,
       });
     } catch (error) {
-      console.error('Failed to load audit logs:', error);
+      console.error("Failed to load audit logs:", error);
       toast({
         title: "Error",
         description: "Failed to load audit logs",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -210,39 +209,33 @@ export function AuditLogs() {
   const calculateStats = (logsData: AuditLog[]) => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
-    const eventsToday = logsData.filter(log => 
-      new Date(log.timestamp) >= today
-    ).length;
-    
-    const criticalEvents = logsData.filter(log => 
-      log.severity === 'critical'
-    ).length;
-    
-    const failedEvents = logsData.filter(log => 
-      log.status === 'failed'
-    ).length;
-    
-    const uniqueUsers = new Set(logsData.map(log => log.user_id)).size;
-    
+
+    const eventsToday = logsData.filter((log) => new Date(log.timestamp) >= today).length;
+
+    const criticalEvents = logsData.filter((log) => log.severity === "critical").length;
+
+    const failedEvents = logsData.filter((log) => log.status === "failed").length;
+
+    const uniqueUsers = new Set(logsData.map((log) => log.user_id)).size;
+
     // Top events
     const eventCounts: { [key: string]: number } = {};
-    logsData.forEach(log => {
+    logsData.forEach((log) => {
       eventCounts[log.event_type] = (eventCounts[log.event_type] || 0) + 1;
     });
-    
+
     const topEvents = Object.entries(eventCounts)
       .map(([event, count]) => ({ event, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
-    
+
     setStats({
       totalEvents: logsData.length,
       eventsToday,
       criticalEvents,
       failedEvents,
       uniqueUsers,
-      topEvents
+      topEvents,
     });
   };
 
@@ -252,27 +245,28 @@ export function AuditLogs() {
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(log => 
-        log.event_type.toLowerCase().includes(query) ||
-        log.action.toLowerCase().includes(query) ||
-        log.resource.toLowerCase().includes(query) ||
-        log.user_email.toLowerCase().includes(query)
+      filtered = filtered.filter(
+        (log) =>
+          log.event_type.toLowerCase().includes(query) ||
+          log.action.toLowerCase().includes(query) ||
+          log.resource.toLowerCase().includes(query) ||
+          log.user_email.toLowerCase().includes(query),
       );
     }
 
     // Event type filter
-    if (eventTypeFilter !== 'all') {
-      filtered = filtered.filter(log => log.event_type === eventTypeFilter);
+    if (eventTypeFilter !== "all") {
+      filtered = filtered.filter((log) => log.event_type === eventTypeFilter);
     }
 
     // Severity filter
-    if (severityFilter !== 'all') {
-      filtered = filtered.filter(log => log.severity === severityFilter);
+    if (severityFilter !== "all") {
+      filtered = filtered.filter((log) => log.severity === severityFilter);
     }
 
     // Status filter
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(log => log.status === statusFilter);
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((log) => log.status === statusFilter);
     }
 
     setFilteredLogs(filtered);
@@ -280,24 +274,29 @@ export function AuditLogs() {
 
   const getSeverityIcon = (severity: string) => {
     switch (severity) {
-      case 'critical': return <AlertTriangle className="w-4 h-4 text-red-500" />;
-      case 'high': return <XCircle className="w-4 h-4 text-orange-500" />;
-      case 'medium': return <Info className="w-4 h-4 text-yellow-500" />;
-      case 'low': return <CheckCircle className="w-4 h-4 text-green-500" />;
-      default: return <Info className="w-4 h-4 text-gray-500" />;
+      case "critical":
+        return <AlertTriangle className="w-4 h-4 text-red-500" />;
+      case "high":
+        return <XCircle className="w-4 h-4 text-orange-500" />;
+      case "medium":
+        return <Info className="w-4 h-4 text-yellow-500" />;
+      case "low":
+        return <CheckCircle className="w-4 h-4 text-green-500" />;
+      default:
+        return <Info className="w-4 h-4 text-gray-500" />;
     }
   };
 
   const getSeverityBadge = (severity: string) => {
     const variants = {
-      critical: 'destructive',
-      high: 'destructive',
-      medium: 'secondary',
-      low: 'outline'
+      critical: "destructive",
+      high: "destructive",
+      medium: "secondary",
+      low: "outline",
     } as const;
 
     return (
-      <Badge variant={variants[severity as keyof typeof variants] || 'outline'}>
+      <Badge variant={variants[severity as keyof typeof variants] || "outline"}>
         {getSeverityIcon(severity)}
         <span className="ml-1 capitalize">{severity}</span>
       </Badge>
@@ -306,27 +305,27 @@ export function AuditLogs() {
 
   const getStatusBadge = (status: string) => {
     const variants = {
-      success: 'default',
-      failed: 'destructive',
-      pending: 'secondary'
+      success: "default",
+      failed: "destructive",
+      pending: "secondary",
     } as const;
 
     return (
-      <Badge variant={variants[status as keyof typeof variants] || 'outline'}>
-        {status === 'success' && <CheckCircle className="w-3 h-3 mr-1" />}
-        {status === 'failed' && <XCircle className="w-3 h-3 mr-1" />}
-        {status === 'pending' && <Clock className="w-3 h-3 mr-1" />}
+      <Badge variant={variants[status as keyof typeof variants] || "outline"}>
+        {status === "success" && <CheckCircle className="w-3 h-3 mr-1" />}
+        {status === "failed" && <XCircle className="w-3 h-3 mr-1" />}
+        {status === "pending" && <Clock className="w-3 h-3 mr-1" />}
         <span className="capitalize">{status}</span>
       </Badge>
     );
   };
 
   const getEventTypeIcon = (eventType: string) => {
-    if (eventType.includes('LOGIN')) return <User className="w-4 h-4" />;
-    if (eventType.includes('ROLE')) return <Shield className="w-4 h-4" />;
-    if (eventType.includes('RATE_LIMIT')) return <Activity className="w-4 h-4" />;
-    if (eventType.includes('UNAUTHORIZED')) return <Lock className="w-4 h-4" />;
-    if (eventType.includes('DATA')) return <Database className="w-4 h-4" />;
+    if (eventType.includes("LOGIN")) return <User className="w-4 h-4" />;
+    if (eventType.includes("ROLE")) return <Shield className="w-4 h-4" />;
+    if (eventType.includes("RATE_LIMIT")) return <Activity className="w-4 h-4" />;
+    if (eventType.includes("UNAUTHORIZED")) return <Lock className="w-4 h-4" />;
+    if (eventType.includes("DATA")) return <Database className="w-4 h-4" />;
     return <Activity className="w-4 h-4" />;
   };
 
@@ -335,6 +334,16 @@ export function AuditLogs() {
       <div className="flex items-center justify-center p-8">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
       </div>
+    );
+  }
+
+  // Check if user has admin access (after hooks)
+  if (!hasAdminAccess) {
+    return (
+      <Alert className="border-destructive">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertDescription>You don't have permission to access audit logs.</AlertDescription>
+      </Alert>
     );
   }
 
@@ -448,7 +457,9 @@ export function AuditLogs() {
                   <SelectItem value="ADMIN_USER_DATA_LOADED">Admin Data Access</SelectItem>
                   <SelectItem value="USER_ROLE_CHANGED">Role Changes</SelectItem>
                   <SelectItem value="RATE_LIMIT_EXCEEDED">Rate Limiting</SelectItem>
-                  <SelectItem value="UNAUTHORIZED_ROLE_UPDATE_ATTEMPT">Unauthorized Access</SelectItem>
+                  <SelectItem value="UNAUTHORIZED_ROLE_UPDATE_ATTEMPT">
+                    Unauthorized Access
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -510,9 +521,7 @@ export function AuditLogs() {
       <Card>
         <CardHeader>
           <CardTitle>Audit Logs ({filteredLogs.length})</CardTitle>
-          <CardDescription>
-            System activity and security events
-          </CardDescription>
+          <CardDescription>System activity and security events</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -534,7 +543,8 @@ export function AuditLogs() {
                         {log.action} • {log.resource}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {getMaskedEmail(log.user_email)} • {log.user_role} • {new Date(log.timestamp).toLocaleString()}
+                        {getMaskedEmail(log.user_email)} • {log.user_role} •{" "}
+                        {new Date(log.timestamp).toLocaleString()}
                       </p>
                     </div>
                   </div>
@@ -589,9 +599,7 @@ export function AuditLogs() {
               </div>
               <div>
                 <Label>Status</Label>
-                <div className="flex items-center gap-2">
-                  {getStatusBadge(selectedLog.status)}
-                </div>
+                <div className="flex items-center gap-2">{getStatusBadge(selectedLog.status)}</div>
               </div>
               <div>
                 <Label>User</Label>
@@ -609,13 +617,11 @@ export function AuditLogs() {
               </div>
               <div>
                 <Label>IP Address</Label>
-                <p className="text-sm font-medium">{selectedLog.ip_address || 'N/A'}</p>
+                <p className="text-sm font-medium">{selectedLog.ip_address || "N/A"}</p>
               </div>
               <div>
                 <Label>User Agent</Label>
-                <p className="text-sm font-medium truncate">
-                  {selectedLog.user_agent || 'N/A'}
-                </p>
+                <p className="text-sm font-medium truncate">{selectedLog.user_agent || "N/A"}</p>
               </div>
             </div>
             <div>
@@ -625,10 +631,7 @@ export function AuditLogs() {
               </div>
             </div>
             <div className="flex justify-end">
-              <Button
-                variant="outline"
-                onClick={() => setShowLogDetails(false)}
-              >
+              <Button variant="outline" onClick={() => setShowLogDetails(false)}>
                 Close
               </Button>
             </div>

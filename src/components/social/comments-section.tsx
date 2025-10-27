@@ -1,33 +1,32 @@
-// @ts-nocheck
-import React, { useState, useEffect, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  MessageCircle, 
-  ThumbsUp, 
-  ThumbsDown, 
-  Send, 
+import React, { useState, useEffect, useRef } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  MessageCircle,
+  ThumbsUp,
+  ThumbsDown,
+  Send,
   MoreVertical,
   Trash2,
-  AlertCircle
-} from 'lucide-react';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from '@/components/ui/dropdown-menu';
-import { socialService, type Comment, type UserProfile } from '@/services/social-service';
-import { recommendationService } from '@/services/recommendation-service';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+  AlertCircle,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { socialService, type Comment, type UserProfile } from "@/services/social-service";
+import { recommendationService } from "@/services/recommendation-service";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CommentsSectionProps {
-  parentType: 'player_prop' | 'prediction' | 'post';
+  parentType: "player_prop" | "prediction" | "post";
   parentId: string;
   userRole?: string;
 }
@@ -35,12 +34,12 @@ interface CommentsSectionProps {
 export const CommentsSection: React.FC<CommentsSectionProps> = ({
   parentType,
   parentId,
-  userRole
+  userRole,
 }) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [newComment, setNewComment] = useState('');
+  const [newComment, setNewComment] = useState("");
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [typingUsers, setTypingUsers] = useState<UserProfile[]>([]);
   const [isTyping, setIsTyping] = useState(false);
@@ -51,7 +50,7 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
     loadComments();
     loadUserProfile();
     setupTypingIndicators();
-    
+
     // Cleanup typing indicators on unmount
     return () => {
       if (isTyping) {
@@ -64,33 +63,35 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
     try {
       setIsLoading(true);
       const commentsData = await socialService.getComments(parentType, parentId);
-      
+
       // Get user votes for comments
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (user && commentsData.length > 0) {
-        const commentIds = commentsData.map(c => c.id);
-        const userVotes = await socialService.getUserVotes('comment', commentIds);
-        
+        const commentIds = commentsData.map((c) => c.id);
+        const userVotes = await socialService.getUserVotes("comment", commentIds);
+
         // Add user vote info to comments
-        const commentsWithVotes = commentsData.map(comment => {
-          const userVote = userVotes.find(v => v.target_id === comment.id);
+        const commentsWithVotes = commentsData.map((comment) => {
+          const userVote = userVotes.find((v) => v.target_id === comment.id);
           return {
             ...comment,
-            user_vote: userVote?.vote_type
+            user_vote: userVote?.vote_type,
           };
         });
-        
+
         setComments(commentsWithVotes);
       } else {
         setComments(commentsData);
       }
     } catch (error: any) {
-      console.error('Failed to load comments:', error);
-      if (error?.code !== 'PGRST116' && !error?.message?.includes('relation')) {
+      console.error("Failed to load comments:", error);
+      if (error?.code !== "PGRST116" && !error?.message?.includes("relation")) {
         toast({
           title: "Error",
           description: "Failed to load comments",
-          variant: "destructive"
+          variant: "destructive",
         });
       }
     } finally {
@@ -100,13 +101,15 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
 
   const loadUserProfile = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       const profile = await socialService.getUserProfile(user.id);
       setUserProfile(profile);
     } catch (error) {
-      console.error('Failed to load user profile:', error);
+      console.error("Failed to load user profile:", error);
     }
   };
 
@@ -114,16 +117,20 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
     // Set up real-time subscription for typing indicators
     const typingSubscription = supabase
       .channel(`typing-${parentType}-${parentId}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'typing_indicators',
-        filter: `target_type=eq.${parentType}`
-      }, (payload) => {
-        if (payload.new.target_id === parentId) {
-          loadTypingIndicators();
-        }
-      })
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "typing_indicators",
+          filter: `target_type=eq.${parentType}`,
+        },
+        (payload) => {
+          if (payload.new.target_id === parentId) {
+            loadTypingIndicators();
+          }
+        },
+      )
       .subscribe();
 
     // Load initial typing indicators
@@ -137,9 +144,9 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
   const loadTypingIndicators = async () => {
     try {
       const typingData = await socialService.getTypingIndicators(parentType, parentId);
-      setTypingUsers(typingData.map(t => t.user_profile!).filter(Boolean));
+      setTypingUsers(typingData.map((t) => t.user_profile!).filter(Boolean));
     } catch (error) {
-      console.error('Failed to load typing indicators:', error);
+      console.error("Failed to load typing indicators:", error);
     }
   };
 
@@ -149,43 +156,43 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
     try {
       setIsSubmitting(true);
       await socialService.createComment(parentType, parentId, newComment.trim());
-      
-      setNewComment('');
+
+      setNewComment("");
       setIsTyping(false);
       await socialService.setTypingIndicator(parentType, parentId, false);
-      
+
       toast({
         title: "Success",
-        description: "Comment posted successfully"
+        description: "Comment posted successfully",
       });
-      
+
       loadComments();
     } catch (error: any) {
-      console.error('Failed to create comment:', error);
+      console.error("Failed to create comment:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to post comment",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleVote = async (commentId: string, voteType: 'upvote' | 'downvote') => {
+  const handleVote = async (commentId: string, voteType: "upvote" | "downvote") => {
     try {
-      await socialService.vote('comment', commentId, voteType);
-      
+      await socialService.vote("comment", commentId, voteType);
+
       // Track the interaction
-      await recommendationService.trackInteraction('vote', 'comment', commentId);
-      
+      await recommendationService.trackInteraction("vote", "comment", commentId);
+
       loadComments(); // Reload to get updated vote counts
     } catch (error: any) {
-      console.error('Failed to vote:', error);
+      console.error("Failed to vote:", error);
       toast({
         title: "Error",
         description: "Failed to vote on comment",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -195,15 +202,15 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
       await socialService.deleteComment(commentId, userProfile!.user_id);
       toast({
         title: "Success",
-        description: "Comment deleted successfully"
+        description: "Comment deleted successfully",
       });
       loadComments();
     } catch (error: any) {
-      console.error('Failed to delete comment:', error);
+      console.error("Failed to delete comment:", error);
       toast({
         title: "Error",
         description: "Failed to delete comment",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -213,22 +220,22 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
       await socialService.deleteCommentAsAdmin(commentId);
       toast({
         title: "Success",
-        description: "Comment deleted by admin"
+        description: "Comment deleted by admin",
       });
       loadComments();
     } catch (error: any) {
-      console.error('Failed to delete comment as admin:', error);
+      console.error("Failed to delete comment as admin:", error);
       toast({
         title: "Error",
         description: "Failed to delete comment",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
 
   const handleTyping = (value: string) => {
     setNewComment(value);
-    
+
     // Clear existing timeout
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
@@ -251,14 +258,18 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
     const now = new Date();
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-    if (diffInSeconds < 60) return 'just now';
+    if (diffInSeconds < 60) return "just now";
     if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
     if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
     return `${Math.floor(diffInSeconds / 86400)}d ago`;
   };
 
   const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase();
   };
 
   if (isLoading) {
@@ -294,7 +305,9 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
             <div className="flex gap-3">
               <Avatar className="w-8 h-8">
                 <AvatarImage src={userProfile.avatar_url} />
-                <AvatarFallback>{getInitials(userProfile.display_name || userProfile.username)}</AvatarFallback>
+                <AvatarFallback>
+                  {getInitials(userProfile.display_name || userProfile.username)}
+                </AvatarFallback>
               </Avatar>
               <div className="flex-1">
                 <Textarea
@@ -314,12 +327,12 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
                     size="sm"
                   >
                     <Send className="w-4 h-4 mr-2" />
-                    {isSubmitting ? 'Posting...' : 'Post'}
+                    {isSubmitting ? "Posting..." : "Post"}
                   </Button>
                 </div>
               </div>
             </div>
-            
+
             {/* Typing Indicators */}
             {typingUsers.length > 0 && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -334,10 +347,9 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
                   ))}
                 </div>
                 <span>
-                  {typingUsers.length === 1 
+                  {typingUsers.length === 1
                     ? `${typingUsers[0].display_name || typingUsers[0].username} is typing...`
-                    : `${typingUsers.length} people are typing...`
-                  }
+                    : `${typingUsers.length} people are typing...`}
                 </span>
               </div>
             )}
@@ -345,9 +357,7 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
         ) : (
           <Alert>
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Please create a profile to comment
-            </AlertDescription>
+            <AlertDescription>Please create a profile to comment</AlertDescription>
           </Alert>
         )}
 
@@ -363,14 +373,18 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
                 <Avatar className="w-8 h-8">
                   <AvatarImage src={comment.user_profile?.avatar_url} />
                   <AvatarFallback>
-                    {getInitials(comment.user_profile?.display_name || comment.user_profile?.username || 'U')}
+                    {getInitials(
+                      comment.user_profile?.display_name || comment.user_profile?.username || "U",
+                    )}
                   </AvatarFallback>
                 </Avatar>
-                
+
                 <div className="flex-1 space-y-2">
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-sm">
-                      {comment.user_profile?.display_name || comment.user_profile?.username || 'Unknown User'}
+                      {comment.user_profile?.display_name ||
+                        comment.user_profile?.username ||
+                        "Unknown User"}
                     </span>
                     <Badge variant="outline" className="text-xs">
                       {comment.user_profile?.karma || 0} karma
@@ -379,16 +393,16 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
                       {formatTimeAgo(comment.created_at)}
                     </span>
                   </div>
-                  
+
                   <p className="text-sm">{comment.content}</p>
-                  
+
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-1">
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleVote(comment.id, 'upvote')}
-                        className={`h-8 w-8 p-0 ${comment.user_vote === 'upvote' ? 'text-green-500' : ''}`}
+                        onClick={() => handleVote(comment.id, "upvote")}
+                        className={`h-8 w-8 p-0 ${comment.user_vote === "upvote" ? "text-green-500" : ""}`}
                       >
                         <ThumbsUp className="w-4 h-4" />
                       </Button>
@@ -398,15 +412,17 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleVote(comment.id, 'downvote')}
-                        className={`h-8 w-8 p-0 ${comment.user_vote === 'downvote' ? 'text-red-500' : ''}`}
+                        onClick={() => handleVote(comment.id, "downvote")}
+                        className={`h-8 w-8 p-0 ${comment.user_vote === "downvote" ? "text-red-500" : ""}`}
                       >
                         <ThumbsDown className="w-4 h-4" />
                       </Button>
                     </div>
-                    
+
                     {/* Comment Actions */}
-                    {(userProfile?.user_id === comment.user_id || userRole === 'admin' || userRole === 'owner') && (
+                    {(userProfile?.user_id === comment.user_id ||
+                      userRole === "admin" ||
+                      userRole === "owner") && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -423,7 +439,7 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
                               Delete
                             </DropdownMenuItem>
                           )}
-                          {(userRole === 'admin' || userRole === 'owner') && (
+                          {(userRole === "admin" || userRole === "owner") && (
                             <DropdownMenuItem
                               onClick={() => handleDeleteCommentAsAdmin(comment.id)}
                               className="text-destructive"

@@ -1,17 +1,22 @@
-// @ts-nocheck
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  TrendingUp, 
-  Target, 
-  Brain, 
-  BarChart3, 
+import React, { useState, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  TrendingUp,
+  Target,
+  Brain,
+  BarChart3,
   RefreshCw,
   AlertCircle,
   CheckCircle,
@@ -24,23 +29,27 @@ import {
   MapPin,
   Shield,
   Star,
-  TrendingDown
-} from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { underdogAnalysisService, UnderdogAnalysis, WeeklyUnderdogReport } from '@/services/underdog-analysis-service';
-import { cn } from '@/lib/utils';
+  TrendingDown,
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import {
+  underdogAnalysisService,
+  UnderdogAnalysis,
+  WeeklyUnderdogReport,
+} from "@/services/underdog-analysis-service";
+import { cn } from "@/lib/utils";
 
 interface UnderdogAnalysisProps {
   selectedSport?: string;
 }
 
-export const UnderdogAnalysis: React.FC<UnderdogAnalysisProps> = ({ selectedSport = 'nfl' }) => {
+export const UnderdogAnalysis: React.FC<UnderdogAnalysisProps> = ({ selectedSport = "nfl" }) => {
   const [underdogs, setUnderdogs] = useState<UnderdogAnalysis[]>([]);
   const [weeklyReport, setWeeklyReport] = useState<WeeklyUnderdogReport | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [localSelectedSport, setLocalSelectedSport] = useState(selectedSport);
-  const [activeTab, setActiveTab] = useState('analysis');
+  const [activeTab, setActiveTab] = useState("analysis");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -54,23 +63,23 @@ export const UnderdogAnalysis: React.FC<UnderdogAnalysisProps> = ({ selectedSpor
   const loadUnderdogAnalysis = async () => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const [underdogData, reportData] = await Promise.all([
         underdogAnalysisService.getTopUnderdogs(localSelectedSport, 3),
-        underdogAnalysisService.getWeeklyUnderdogReport(localSelectedSport)
+        underdogAnalysisService.getWeeklyUnderdogReport(localSelectedSport),
       ]);
-      
+
       setUnderdogs(underdogData);
       setWeeklyReport(reportData);
-      
+
       toast({
-        title: 'Underdog Analysis Updated',
+        title: "Underdog Analysis Updated",
         description: `Found ${underdogData.length} high-value underdog opportunities`,
       });
     } catch (err) {
-      setError('Failed to load underdog analysis');
-      console.error('Error loading analysis:', err);
+      setError("Failed to load underdog analysis");
+      console.error("Error loading analysis:", err);
     } finally {
       setIsLoading(false);
     }
@@ -81,49 +90,57 @@ export const UnderdogAnalysis: React.FC<UnderdogAnalysisProps> = ({ selectedSpor
   };
 
   const getOddsColor = (odds: number) => {
-    if (odds > 0) return 'text-green-500';
-    if (odds < -150) return 'text-red-500';
-    return 'text-yellow-500';
+    if (odds > 0) return "text-green-500";
+    if (odds < -150) return "text-red-500";
+    return "text-yellow-500";
   };
 
   const getValueColor = (value: number) => {
-    if (value >= 8) return 'text-green-500';
-    if (value >= 6) return 'text-yellow-500';
-    return 'text-red-500';
+    if (value >= 8) return "text-green-500";
+    if (value >= 6) return "text-yellow-500";
+    return "text-red-500";
   };
 
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.8) return 'text-green-500';
-    if (confidence >= 0.6) return 'text-yellow-500';
-    return 'text-red-500';
+    if (confidence >= 0.8) return "text-green-500";
+    if (confidence >= 0.6) return "text-yellow-500";
+    return "text-red-500";
   };
 
   const getStakeColor = (stake: string) => {
     switch (stake) {
-      case 'large': return 'text-green-500 bg-green-500/10';
-      case 'medium': return 'text-yellow-500 bg-yellow-500/10';
-      case 'small': return 'text-blue-500 bg-blue-500/10';
-      default: return 'text-gray-500 bg-gray-500/10';
+      case "large":
+        return "text-green-500 bg-green-500/10";
+      case "medium":
+        return "text-yellow-500 bg-yellow-500/10";
+      case "small":
+        return "text-blue-500 bg-blue-500/10";
+      default:
+        return "text-gray-500 bg-gray-500/10";
     }
   };
 
   const getSportIcon = (sport: string) => {
     const icons = {
-      NBA: '🏀',
-      NFL: '🏈',
-      MLB: '⚾',
-      NHL: '🏒',
-      SOCCER: '⚽'
+      NBA: "🏀",
+      NFL: "🏈",
+      MLB: "⚾",
+      NHL: "🏒",
+      SOCCER: "⚽",
     };
-    return icons[sport as keyof typeof icons] || '🎯';
+    return icons[sport as keyof typeof icons] || "🎯";
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'live': return 'text-red-500 bg-red-500/10';
-      case 'upcoming': return 'text-blue-500 bg-blue-500/10';
-      case 'finished': return 'text-gray-500 bg-gray-500/10';
-      default: return 'text-gray-500 bg-gray-500/10';
+      case "live":
+        return "text-red-500 bg-red-500/10";
+      case "upcoming":
+        return "text-blue-500 bg-blue-500/10";
+      case "finished":
+        return "text-gray-500 bg-gray-500/10";
+      default:
+        return "text-gray-500 bg-gray-500/10";
     }
   };
 
@@ -145,12 +162,7 @@ export const UnderdogAnalysis: React.FC<UnderdogAnalysisProps> = ({ selectedSpor
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
             {error}
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={loadUnderdogAnalysis}
-              className="ml-2"
-            >
+            <Button variant="outline" size="sm" onClick={loadUnderdogAnalysis} className="ml-2">
               <RefreshCw className="w-4 h-4 mr-1" />
               Retry
             </Button>
@@ -220,9 +232,7 @@ export const UnderdogAnalysis: React.FC<UnderdogAnalysisProps> = ({ selectedSpor
             <p className="text-2xl font-bold text-foreground">
               {weeklyReport.summary.underdogOpportunities}
             </p>
-            <p className="text-sm text-muted-foreground">
-              High-value opportunities found
-            </p>
+            <p className="text-sm text-muted-foreground">High-value opportunities found</p>
           </Card>
 
           <Card className="p-6 bg-gradient-card border-border/50">
@@ -233,9 +243,7 @@ export const UnderdogAnalysis: React.FC<UnderdogAnalysisProps> = ({ selectedSpor
             <p className="text-2xl font-bold text-foreground">
               {weeklyReport.summary.averageValueRating.toFixed(1)}/10
             </p>
-            <p className="text-sm text-muted-foreground">
-              Average value rating
-            </p>
+            <p className="text-sm text-muted-foreground">Average value rating</p>
           </Card>
 
           <Card className="p-6 bg-gradient-card border-border/50">
@@ -246,9 +254,7 @@ export const UnderdogAnalysis: React.FC<UnderdogAnalysisProps> = ({ selectedSpor
             <p className="text-2xl font-bold text-foreground">
               {weeklyReport.summary.highestValueRating.toFixed(1)}/10
             </p>
-            <p className="text-sm text-muted-foreground">
-              Highest value rating
-            </p>
+            <p className="text-sm text-muted-foreground">Highest value rating</p>
           </Card>
 
           <Card className="p-6 bg-gradient-card border-border/50">
@@ -259,9 +265,7 @@ export const UnderdogAnalysis: React.FC<UnderdogAnalysisProps> = ({ selectedSpor
             <p className="text-2xl font-bold text-foreground">
               {weeklyReport.summary.marketEfficiency.toFixed(0)}%
             </p>
-            <p className="text-sm text-muted-foreground">
-              Market efficiency score
-            </p>
+            <p className="text-sm text-muted-foreground">Market efficiency score</p>
           </Card>
         </div>
       )}
@@ -352,20 +356,38 @@ export const UnderdogAnalysis: React.FC<UnderdogAnalysisProps> = ({ selectedSpor
                   <div className="grid grid-cols-3 gap-4">
                     <div className="text-center space-y-2 p-4 bg-muted/30 rounded-lg">
                       <div className="text-sm text-muted-foreground">Value Rating</div>
-                      <div className={cn("text-2xl font-bold", getValueColor(underdog.underdog.valueRating))}>
+                      <div
+                        className={cn(
+                          "text-2xl font-bold",
+                          getValueColor(underdog.underdog.valueRating),
+                        )}
+                      >
                         {underdog.underdog.valueRating.toFixed(1)}/10
                       </div>
                     </div>
                     <div className="text-center space-y-2 p-4 bg-muted/30 rounded-lg">
                       <div className="text-sm text-muted-foreground">Confidence</div>
-                      <div className={cn("text-2xl font-bold", getConfidenceColor(underdog.underdog.confidence))}>
+                      <div
+                        className={cn(
+                          "text-2xl font-bold",
+                          getConfidenceColor(underdog.underdog.confidence),
+                        )}
+                      >
                         {(underdog.underdog.confidence * 100).toFixed(0)}%
                       </div>
                     </div>
                     <div className="text-center space-y-2 p-4 bg-muted/30 rounded-lg">
                       <div className="text-sm text-muted-foreground">Expected Value</div>
-                      <div className={cn("text-2xl font-bold", underdog.recommendation.expectedValue > 0 ? "text-green-500" : "text-red-500")}>
-                        {underdog.recommendation.expectedValue > 0 ? '+' : ''}{(underdog.recommendation.expectedValue * 100).toFixed(1)}%
+                      <div
+                        className={cn(
+                          "text-2xl font-bold",
+                          underdog.recommendation.expectedValue > 0
+                            ? "text-green-500"
+                            : "text-red-500",
+                        )}
+                      >
+                        {underdog.recommendation.expectedValue > 0 ? "+" : ""}
+                        {(underdog.recommendation.expectedValue * 100).toFixed(1)}%
                       </div>
                     </div>
                   </div>
@@ -380,21 +402,21 @@ export const UnderdogAnalysis: React.FC<UnderdogAnalysisProps> = ({ selectedSpor
                         </div>
                         <div className="flex items-center gap-1">
                           {Array.from({ length: 5 }, (_, i) => (
-                            <Star 
-                              key={i} 
+                            <Star
+                              key={i}
                               className={cn(
                                 "w-4 h-4",
-                                i < underdog.crossReference!.valueRating 
-                                  ? "text-yellow-400 fill-current" 
-                                  : "text-muted-foreground"
-                              )} 
+                                i < underdog.crossReference!.valueRating
+                                  ? "text-yellow-400 fill-current"
+                                  : "text-muted-foreground",
+                              )}
                             />
                           ))}
                         </div>
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        {underdog.crossReference.consensus.toUpperCase()} • 
-                        {underdog.crossReference.agreement.toFixed(0)}% Agreement • 
+                        {underdog.crossReference.consensus.toUpperCase()} •
+                        {underdog.crossReference.agreement.toFixed(0)}% Agreement •
                         {underdog.crossReference.riskLevel.toUpperCase()} Risk
                       </div>
                       <div className="text-sm text-foreground">
@@ -412,15 +434,18 @@ export const UnderdogAnalysis: React.FC<UnderdogAnalysisProps> = ({ selectedSpor
                           <div className="flex items-center justify-between">
                             <span className="font-medium">{factor.name}</span>
                             <div className="flex items-center gap-2">
-                              <Progress 
-                                value={Math.abs(factor.impact) * 100} 
+                              <Progress
+                                value={Math.abs(factor.impact) * 100}
                                 className="w-16 h-2"
                               />
-                              <span className={cn(
-                                "font-mono text-sm",
-                                factor.impact > 0 ? "text-green-500" : "text-red-500"
-                              )}>
-                                {factor.impact > 0 ? '+' : ''}{(factor.impact * 100).toFixed(0)}%
+                              <span
+                                className={cn(
+                                  "font-mono text-sm",
+                                  factor.impact > 0 ? "text-green-500" : "text-red-500",
+                                )}
+                              >
+                                {factor.impact > 0 ? "+" : ""}
+                                {(factor.impact * 100).toFixed(0)}%
                               </span>
                             </div>
                           </div>
@@ -454,7 +479,12 @@ export const UnderdogAnalysis: React.FC<UnderdogAnalysisProps> = ({ selectedSpor
                   <div className="space-y-3 p-4 bg-primary/10 rounded-lg border border-primary/20">
                     <h3 className="text-lg font-semibold text-primary">Betting Recommendation</h3>
                     <div className="flex items-center gap-4">
-                      <Badge className={cn("text-sm", getStakeColor(underdog.recommendation.suggestedStake))}>
+                      <Badge
+                        className={cn(
+                          "text-sm",
+                          getStakeColor(underdog.recommendation.suggestedStake),
+                        )}
+                      >
                         {underdog.recommendation.suggestedStake.toUpperCase()} STAKE
                       </Badge>
                       <Badge variant="outline" className="text-sm">
@@ -474,7 +504,10 @@ export const UnderdogAnalysis: React.FC<UnderdogAnalysisProps> = ({ selectedSpor
                       </h3>
                       <ul className="space-y-1">
                         {underdog.analysis.riskFactors.map((risk, index) => (
-                          <li key={index} className="text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
+                          <li
+                            key={index}
+                            className="text-sm text-red-600 dark:text-red-400 flex items-center gap-2"
+                          >
                             <XCircle className="w-3 h-3" />
                             {risk}
                           </li>
@@ -515,7 +548,10 @@ export const UnderdogAnalysis: React.FC<UnderdogAnalysisProps> = ({ selectedSpor
                   <CardContent>
                     <ul className="space-y-2">
                       {weeklyReport.trends.sportTrends.map((trend, index) => (
-                        <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
+                        <li
+                          key={index}
+                          className="text-sm text-muted-foreground flex items-start gap-2"
+                        >
                           <CheckCircle className="w-3 h-3 text-green-500 mt-0.5 flex-shrink-0" />
                           {trend}
                         </li>
@@ -534,7 +570,10 @@ export const UnderdogAnalysis: React.FC<UnderdogAnalysisProps> = ({ selectedSpor
                   <CardContent>
                     <ul className="space-y-2">
                       {weeklyReport.trends.marketTrends.map((trend, index) => (
-                        <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
+                        <li
+                          key={index}
+                          className="text-sm text-muted-foreground flex items-start gap-2"
+                        >
                           <Activity className="w-3 h-3 text-blue-500 mt-0.5 flex-shrink-0" />
                           {trend}
                         </li>
@@ -553,7 +592,10 @@ export const UnderdogAnalysis: React.FC<UnderdogAnalysisProps> = ({ selectedSpor
                   <CardContent>
                     <ul className="space-y-2">
                       {weeklyReport.trends.injuryTrends.map((trend, index) => (
-                        <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
+                        <li
+                          key={index}
+                          className="text-sm text-muted-foreground flex items-start gap-2"
+                        >
                           <AlertCircle className="w-3 h-3 text-purple-500 mt-0.5 flex-shrink-0" />
                           {trend}
                         </li>
@@ -578,15 +620,21 @@ export const UnderdogAnalysis: React.FC<UnderdogAnalysisProps> = ({ selectedSpor
                       <div className="text-sm text-muted-foreground">Total Games</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-green-500">{weeklyReport.summary.underdogOpportunities}</div>
+                      <div className="text-2xl font-bold text-green-500">
+                        {weeklyReport.summary.underdogOpportunities}
+                      </div>
                       <div className="text-sm text-muted-foreground">Opportunities</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-blue-500">{weeklyReport.summary.averageValueRating.toFixed(1)}</div>
+                      <div className="text-2xl font-bold text-blue-500">
+                        {weeklyReport.summary.averageValueRating.toFixed(1)}
+                      </div>
                       <div className="text-sm text-muted-foreground">Avg Value</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-purple-500">{weeklyReport.summary.marketEfficiency.toFixed(0)}%</div>
+                      <div className="text-2xl font-bold text-purple-500">
+                        {weeklyReport.summary.marketEfficiency.toFixed(0)}%
+                      </div>
                       <div className="text-sm text-muted-foreground">Market Efficiency</div>
                     </div>
                   </div>

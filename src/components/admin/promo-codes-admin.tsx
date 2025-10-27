@@ -1,34 +1,39 @@
-// @ts-nocheck
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { supabase } from '@/integrations/supabase/client';
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Copy, 
-  Calendar, 
-  Percent, 
-  Gift, 
-  Users, 
+import React, { useState, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Copy,
+  Calendar,
+  Percent,
+  Gift,
+  Users,
   TrendingUp,
   CheckCircle,
   AlertCircle,
-  Clock
-} from 'lucide-react';
+  Clock,
+} from "lucide-react";
 
 interface PromoCode {
   id: string;
   code: string;
   description: string;
-  discount_type: 'percentage' | 'free_trial';
+  discount_type: "percentage" | "free_trial";
   discount_value: number;
   is_active: boolean;
   expires_at: string | null;
@@ -55,12 +60,12 @@ export const PromoCodesAdmin: React.FC = () => {
 
   // Form state
   const [formData, setFormData] = useState({
-    code: '',
-    description: '',
-    discount_type: 'percentage' as 'percentage' | 'free_trial',
+    code: "",
+    description: "",
+    discount_type: "percentage" as "percentage" | "free_trial",
     discount_value: 0,
-    expires_at: '',
-    is_active: true
+    expires_at: "",
+    is_active: true,
   });
 
   // Load promo codes and usage data
@@ -72,9 +77,9 @@ export const PromoCodesAdmin: React.FC = () => {
   const loadPromoCodes = async () => {
     try {
       const { data, error } = await supabase
-        .from('promo_codes')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .from("promo_codes")
+        .select("*")
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
 
@@ -82,17 +87,17 @@ export const PromoCodesAdmin: React.FC = () => {
       const codesWithUsage = await Promise.all(
         data.map(async (code: any) => {
           const { count } = await supabase
-            .from('promo_code_usage')
-            .select('*', { count: 'exact', head: true })
-            .eq('promo_code', code.code);
+            .from("promo_code_usage")
+            .select("*", { count: "exact", head: true })
+            .eq("promo_code", code.code);
 
           return { ...code, usage_count: count || 0 };
-        })
+        }),
       );
 
       setPromoCodes(codesWithUsage as any);
     } catch (error) {
-      console.error('Error loading promo codes:', error);
+      console.error("Error loading promo codes:", error);
     } finally {
       setIsLoading(false);
     }
@@ -101,48 +106,48 @@ export const PromoCodesAdmin: React.FC = () => {
   const loadPromoUsage = async () => {
     try {
       const { data, error } = await supabase
-        .from('promo_code_usage')
-        .select(`
+        .from("promo_code_usage")
+        .select(
+          `
           *,
           profiles:user_id(email)
-        `)
-        .order('used_at', { ascending: false });
+        `,
+        )
+        .order("used_at", { ascending: false });
 
       if (error) throw error;
 
       setPromoUsage((data || []) as any);
     } catch (error) {
-      console.error('Error loading promo usage:', error);
+      console.error("Error loading promo usage:", error);
     }
   };
 
   const handleCreatePromoCode = async () => {
     try {
-      const { error } = await supabase
-        .from('promo_codes')
-        .insert({
-          code: formData.code.toUpperCase(),
-          description: formData.description,
-          discount_type: formData.discount_type,
-          discount_value: formData.discount_value,
-          expires_at: formData.expires_at || null,
-          is_active: formData.is_active
-        });
+      const { error } = await supabase.from("promo_codes").insert({
+        code: formData.code.toUpperCase(),
+        description: formData.description,
+        discount_type: formData.discount_type,
+        discount_value: formData.discount_value,
+        expires_at: formData.expires_at || null,
+        is_active: formData.is_active,
+      });
 
       if (error) throw error;
 
       setShowCreateForm(false);
       setFormData({
-        code: '',
-        description: '',
-        discount_type: 'percentage',
+        code: "",
+        description: "",
+        discount_type: "percentage",
         discount_value: 0,
-        expires_at: '',
-        is_active: true
+        expires_at: "",
+        is_active: true,
       });
       loadPromoCodes();
     } catch (error) {
-      console.error('Error creating promo code:', error);
+      console.error("Error creating promo code:", error);
     }
   };
 
@@ -151,47 +156,44 @@ export const PromoCodesAdmin: React.FC = () => {
 
     try {
       const { error } = await supabase
-        .from('promo_codes')
+        .from("promo_codes")
         .update({
           code: formData.code.toUpperCase(),
           description: formData.description,
           discount_type: formData.discount_type,
           discount_value: formData.discount_value,
           expires_at: formData.expires_at || null,
-          is_active: formData.is_active
+          is_active: formData.is_active,
         })
-        .eq('id', editingCode.id);
+        .eq("id", editingCode.id);
 
       if (error) throw error;
 
       setEditingCode(null);
       setFormData({
-        code: '',
-        description: '',
-        discount_type: 'percentage',
+        code: "",
+        description: "",
+        discount_type: "percentage",
         discount_value: 0,
-        expires_at: '',
-        is_active: true
+        expires_at: "",
+        is_active: true,
       });
       loadPromoCodes();
     } catch (error) {
-      console.error('Error updating promo code:', error);
+      console.error("Error updating promo code:", error);
     }
   };
 
   const handleDeletePromoCode = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this promo code?')) return;
+    if (!confirm("Are you sure you want to delete this promo code?")) return;
 
     try {
-      const { error } = await supabase
-        .from('promo_codes')
-        .delete()
-        .eq('id', id);
+      const { error } = await supabase.from("promo_codes").delete().eq("id", id);
 
       if (error) throw error;
       loadPromoCodes();
     } catch (error) {
-      console.error('Error deleting promo code:', error);
+      console.error("Error deleting promo code:", error);
     }
   };
 
@@ -203,11 +205,11 @@ export const PromoCodesAdmin: React.FC = () => {
     if (!code.is_active) {
       return <Badge variant="secondary">Inactive</Badge>;
     }
-    
+
     if (code.expires_at && new Date(code.expires_at) < new Date()) {
       return <Badge variant="destructive">Expired</Badge>;
     }
-    
+
     return <Badge variant="default">Active</Badge>;
   };
 
@@ -224,7 +226,9 @@ export const PromoCodesAdmin: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-foreground">Promo Codes Management</h2>
-          <p className="text-muted-foreground">Create and manage promotional codes for discounts and free trials</p>
+          <p className="text-muted-foreground">
+            Create and manage promotional codes for discounts and free trials
+          </p>
         </div>
         <Button onClick={() => setShowCreateForm(true)} className="gap-2">
           <Plus className="h-4 w-4" />
@@ -269,8 +273,8 @@ export const PromoCodesAdmin: React.FC = () => {
                             description: code.description,
                             discount_type: code.discount_type,
                             discount_value: code.discount_value,
-                            expires_at: code.expires_at || '',
-                            is_active: code.is_active
+                            expires_at: code.expires_at || "",
+                            is_active: code.is_active,
                           });
                         }}
                       >
@@ -292,23 +296,22 @@ export const PromoCodesAdmin: React.FC = () => {
                     <div>
                       <Label className="text-xs text-muted-foreground">Type</Label>
                       <div className="flex items-center gap-1 mt-1">
-                        {code.discount_type === 'percentage' ? (
+                        {code.discount_type === "percentage" ? (
                           <Percent className="h-4 w-4 text-blue-500" />
                         ) : (
                           <Calendar className="h-4 w-4 text-green-500" />
                         )}
                         <span className="text-sm font-medium">
-                          {code.discount_type === 'percentage' ? 'Percentage' : 'Free Trial'}
+                          {code.discount_type === "percentage" ? "Percentage" : "Free Trial"}
                         </span>
                       </div>
                     </div>
                     <div>
                       <Label className="text-xs text-muted-foreground">Value</Label>
                       <p className="text-sm font-medium mt-1">
-                        {code.discount_type === 'percentage' 
-                          ? `${code.discount_value}%` 
-                          : `${code.discount_value} days`
-                        }
+                        {code.discount_type === "percentage"
+                          ? `${code.discount_value}%`
+                          : `${code.discount_value} days`}
                       </p>
                     </div>
                     <div>
@@ -318,7 +321,7 @@ export const PromoCodesAdmin: React.FC = () => {
                     <div>
                       <Label className="text-xs text-muted-foreground">Expires</Label>
                       <p className="text-sm font-medium mt-1">
-                        {code.expires_at ? new Date(code.expires_at).toLocaleDateString() : 'Never'}
+                        {code.expires_at ? new Date(code.expires_at).toLocaleDateString() : "Never"}
                       </p>
                     </div>
                   </div>
@@ -340,17 +343,16 @@ export const PromoCodesAdmin: React.FC = () => {
                         <div>
                           <p className="font-medium">{usage.promo_code}</p>
                           <p className="text-sm text-muted-foreground">
-                            {usage.user_email || 'Unknown User'}
+                            {usage.user_email || "Unknown User"}
                           </p>
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-medium">
-                        {usage.discount_type === 'percentage' 
+                        {usage.discount_type === "percentage"
                           ? `${usage.discount_value}% discount`
-                          : `${usage.discount_value} day trial`
-                        }
+                          : `${usage.discount_value} day trial`}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {new Date(usage.used_at).toLocaleString()}
@@ -369,9 +371,7 @@ export const PromoCodesAdmin: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="w-full max-w-md mx-4">
             <CardHeader>
-              <CardTitle>
-                {editingCode ? 'Edit Promo Code' : 'Create Promo Code'}
-              </CardTitle>
+              <CardTitle>{editingCode ? "Edit Promo Code" : "Create Promo Code"}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -383,7 +383,7 @@ export const PromoCodesAdmin: React.FC = () => {
                   placeholder="e.g., WELCOME20"
                 />
               </div>
-              
+
               <div>
                 <Label htmlFor="description">Description</Label>
                 <Input
@@ -398,7 +398,7 @@ export const PromoCodesAdmin: React.FC = () => {
                 <Label htmlFor="discount_type">Discount Type</Label>
                 <Select
                   value={formData.discount_type}
-                  onValueChange={(value: 'percentage' | 'free_trial') => 
+                  onValueChange={(value: "percentage" | "free_trial") =>
                     setFormData({ ...formData, discount_type: value })
                   }
                 >
@@ -414,14 +414,16 @@ export const PromoCodesAdmin: React.FC = () => {
 
               <div>
                 <Label htmlFor="discount_value">
-                  {formData.discount_type === 'percentage' ? 'Discount Percentage' : 'Trial Days'}
+                  {formData.discount_type === "percentage" ? "Discount Percentage" : "Trial Days"}
                 </Label>
                 <Input
                   id="discount_value"
                   type="number"
                   value={formData.discount_value}
-                  onChange={(e) => setFormData({ ...formData, discount_value: Number(e.target.value) })}
-                  placeholder={formData.discount_type === 'percentage' ? '20' : '3'}
+                  onChange={(e) =>
+                    setFormData({ ...formData, discount_value: Number(e.target.value) })
+                  }
+                  placeholder={formData.discount_type === "percentage" ? "20" : "3"}
                 />
               </div>
 
@@ -450,7 +452,7 @@ export const PromoCodesAdmin: React.FC = () => {
                   onClick={editingCode ? handleUpdatePromoCode : handleCreatePromoCode}
                   className="flex-1"
                 >
-                  {editingCode ? 'Update' : 'Create'}
+                  {editingCode ? "Update" : "Create"}
                 </Button>
                 <Button
                   variant="outline"
@@ -458,12 +460,12 @@ export const PromoCodesAdmin: React.FC = () => {
                     setShowCreateForm(false);
                     setEditingCode(null);
                     setFormData({
-                      code: '',
-                      description: '',
-                      discount_type: 'percentage',
+                      code: "",
+                      description: "",
+                      discount_type: "percentage",
                       discount_value: 0,
-                      expires_at: '',
-                      is_active: true
+                      expires_at: "",
+                      is_active: true,
                     });
                   }}
                 >

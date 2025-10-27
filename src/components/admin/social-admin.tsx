@@ -1,46 +1,52 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from '@/components/ui/table';
-import { 
-  AlertDialog, 
-  AlertDialogAction, 
-  AlertDialogCancel, 
-  AlertDialogContent, 
-  AlertDialogDescription, 
-  AlertDialogFooter, 
-  AlertDialogHeader, 
-  AlertDialogTitle, 
-  AlertDialogTrigger 
-} from '@/components/ui/alert-dialog';
-import { 
-  Users, 
-  Search, 
-  Shield, 
-  VolumeX, 
-  Volume2, 
-  Trash2, 
+import React, { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Users,
+  Search,
+  Shield,
+  VolumeX,
+  Volume2,
+  Trash2,
   TrendingUp,
   TrendingDown,
   Star,
-  MessageSquare
-} from 'lucide-react';
-import { socialService, type UserProfile, type Post, type Comment, type KarmaHistory } from '@/services/social-service';
-import { useToast } from '@/hooks/use-toast';
-import { useUser } from '@/contexts/user-context';
-import { supabase } from '@/integrations/supabase/client';
+  MessageSquare,
+} from "lucide-react";
+import {
+  socialService,
+  type UserProfile,
+  type Post,
+  type Comment,
+  type KarmaHistory,
+} from "@/services/social-service";
+import { useToast } from "@/hooks/use-toast";
+import { useUser } from "@/contexts/user-context";
+import { supabase } from "@/integrations/supabase/client";
 
 export const SocialAdmin: React.FC = () => {
   const { userRole, validateUserAccess, getMaskedEmail, logSecurityEvent } = useUser();
@@ -48,83 +54,80 @@ export const SocialAdmin: React.FC = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [karmaHistory, setKarmaHistory] = useState<KarmaHistory[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
-  const [karmaAdjustment, setKarmaAdjustment] = useState('');
-  const [muteDuration, setMuteDuration] = useState('');
+  const [karmaAdjustment, setKarmaAdjustment] = useState("");
+  const [muteDuration, setMuteDuration] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  // Check if user has admin access
-  if (!validateUserAccess('admin')) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-center">
-          <Shield className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-semibold">Access Denied</h3>
-          <p className="text-muted-foreground">You don't have permission to access social administration.</p>
-        </div>
-      </div>
-    );
-  }
-
+  // Load data on mount
   useEffect(() => {
     loadData();
   }, []);
 
+  // Check if user has admin access
+  const hasAdminAccess = validateUserAccess("admin");
+
   const loadData = async () => {
     try {
       setIsLoading(true);
-      
+
       // Load users
       const usersData = await socialService.getAllUsers(100);
       setUsers(usersData || []);
-      
+
       // Load posts
       const postsData = await socialService.getPosts(100);
       setPosts(postsData || []);
-      
+
       // Load comments - we need to get all comments, so we'll use a different approach
       let commentsData: Comment[] = [];
       try {
-      // Try to get comments from all posts
+        // Try to get comments from all posts
         const { data: comments, error: commentsError } = await supabase
-          .from('comments')
-          .select(`
+          .from("comments")
+          .select(
+            `
             *,
             user_profile:user_profiles(*)
-          `)
-          .order('created_at', { ascending: false })
+          `,
+          )
+          .order("created_at", { ascending: false })
           .limit(100);
-        
+
         if (!commentsError && comments) {
           commentsData = comments as any;
         }
       } catch (commentError) {
-        console.warn('Could not load comments:', commentError);
+        console.warn("Could not load comments:", commentError);
       }
-      
+
       setComments(commentsData as any);
-      
-      logSecurityEvent('SOCIAL_ADMIN_DATA_LOADED', { 
+
+      logSecurityEvent("SOCIAL_ADMIN_DATA_LOADED", {
         userCount: usersData?.length || 0,
         postCount: postsData?.length || 0,
         commentCount: commentsData.length,
-        adminRole: userRole 
+        adminRole: userRole,
       });
     } catch (error: any) {
-      console.error('Failed to load admin data:', error);
-      
+      console.error("Failed to load admin data:", error);
+
       // Set empty arrays on error to prevent UI crashes
       setUsers([]);
       setPosts([]);
       setComments([]);
-      
-      if (error?.code !== 'PGRST116' && !error?.message?.includes('relation') && !error?.message?.includes('schema cache')) {
+
+      if (
+        error?.code !== "PGRST116" &&
+        !error?.message?.includes("relation") &&
+        !error?.message?.includes("schema cache")
+      ) {
         toast({
           title: "Error",
           description: "Failed to load admin data. Some features may not be available.",
-          variant: "destructive"
+          variant: "destructive",
         });
       }
     } finally {
@@ -142,14 +145,18 @@ export const SocialAdmin: React.FC = () => {
       const results = await socialService.searchUsers(searchQuery);
       setUsers(results || []);
     } catch (error: any) {
-      console.error('Failed to search users:', error);
+      console.error("Failed to search users:", error);
       setUsers([]);
-      
-      if (error?.code !== 'PGRST116' && !error?.message?.includes('relation') && !error?.message?.includes('schema cache')) {
+
+      if (
+        error?.code !== "PGRST116" &&
+        !error?.message?.includes("relation") &&
+        !error?.message?.includes("schema cache")
+      ) {
         toast({
           title: "Error",
           description: "Failed to search users",
-          variant: "destructive"
+          variant: "destructive",
         });
       }
     }
@@ -163,46 +170,46 @@ export const SocialAdmin: React.FC = () => {
       toast({
         title: "Error",
         description: "Please enter a valid number",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
 
     try {
-      await socialService.updateUserKarma(
-        selectedUser.user_id, 
-        amount, 
-        'admin_adjustment'
-      );
+      await socialService.updateUserKarma(selectedUser.user_id, amount, "admin_adjustment");
 
-      logSecurityEvent('USER_KARMA_ADJUSTED', {
+      logSecurityEvent("USER_KARMA_ADJUSTED", {
         targetUserId: selectedUser.user_id,
         adjustment: amount,
-        adminRole: userRole
+        adminRole: userRole,
       });
 
       toast({
         title: "Success",
-        description: `Karma adjusted by ${amount > 0 ? '+' : ''}${amount}`,
+        description: `Karma adjusted by ${amount > 0 ? "+" : ""}${amount}`,
       });
 
-      setKarmaAdjustment('');
+      setKarmaAdjustment("");
       setSelectedUser(null);
       loadData();
     } catch (error: any) {
-      console.error('Failed to adjust karma:', error);
-      
-      if (error?.code !== 'PGRST116' && !error?.message?.includes('relation') && !error?.message?.includes('schema cache')) {
+      console.error("Failed to adjust karma:", error);
+
+      if (
+        error?.code !== "PGRST116" &&
+        !error?.message?.includes("relation") &&
+        !error?.message?.includes("schema cache")
+      ) {
         toast({
           title: "Error",
           description: "Failed to adjust karma. Please try again.",
-          variant: "destructive"
+          variant: "destructive",
         });
       } else {
         toast({
           title: "Warning",
           description: "Karma adjustment may not be available. Database tables may not be set up.",
-          variant: "destructive"
+          variant: "destructive",
         });
       }
     }
@@ -212,31 +219,39 @@ export const SocialAdmin: React.FC = () => {
     if (!selectedUser) return;
 
     try {
-      const muteUntil = muteDuration ? new Date(Date.now() + parseInt(muteDuration) * 24 * 60 * 60 * 1000).toISOString() : undefined;
+      const muteUntil = muteDuration
+        ? new Date(Date.now() + parseInt(muteDuration) * 24 * 60 * 60 * 1000).toISOString()
+        : undefined;
       await socialService.muteUser(selectedUser.user_id, muteUntil);
 
       toast({
         title: "Success",
-        description: muteDuration ? `User muted for ${muteDuration} days` : "User muted indefinitely",
+        description: muteDuration
+          ? `User muted for ${muteDuration} days`
+          : "User muted indefinitely",
       });
 
-      setMuteDuration('');
+      setMuteDuration("");
       setSelectedUser(null);
       loadData();
     } catch (error: any) {
-      console.error('Failed to mute user:', error);
-      
-      if (error?.code !== 'PGRST116' && !error?.message?.includes('relation') && !error?.message?.includes('schema cache')) {
+      console.error("Failed to mute user:", error);
+
+      if (
+        error?.code !== "PGRST116" &&
+        !error?.message?.includes("relation") &&
+        !error?.message?.includes("schema cache")
+      ) {
         toast({
           title: "Error",
           description: "Failed to mute user. Please try again.",
-          variant: "destructive"
+          variant: "destructive",
         });
       } else {
         toast({
           title: "Warning",
           description: "User muting may not be available. Database tables may not be set up.",
-          variant: "destructive"
+          variant: "destructive",
         });
       }
     }
@@ -251,19 +266,23 @@ export const SocialAdmin: React.FC = () => {
       });
       loadData();
     } catch (error: any) {
-      console.error('Failed to unmute user:', error);
-      
-      if (error?.code !== 'PGRST116' && !error?.message?.includes('relation') && !error?.message?.includes('schema cache')) {
+      console.error("Failed to unmute user:", error);
+
+      if (
+        error?.code !== "PGRST116" &&
+        !error?.message?.includes("relation") &&
+        !error?.message?.includes("schema cache")
+      ) {
         toast({
           title: "Error",
           description: "Failed to unmute user. Please try again.",
-          variant: "destructive"
+          variant: "destructive",
         });
       } else {
         toast({
           title: "Warning",
           description: "User unmuting may not be available. Database tables may not be set up.",
-          variant: "destructive"
+          variant: "destructive",
         });
       }
     }
@@ -278,19 +297,23 @@ export const SocialAdmin: React.FC = () => {
       });
       loadData();
     } catch (error: any) {
-      console.error('Failed to delete comment:', error);
-      
-      if (error?.code !== 'PGRST116' && !error?.message?.includes('relation') && !error?.message?.includes('schema cache')) {
+      console.error("Failed to delete comment:", error);
+
+      if (
+        error?.code !== "PGRST116" &&
+        !error?.message?.includes("relation") &&
+        !error?.message?.includes("schema cache")
+      ) {
         toast({
           title: "Error",
           description: "Failed to delete comment. Please try again.",
-          variant: "destructive"
+          variant: "destructive",
         });
       } else {
         toast({
           title: "Warning",
           description: "Comment deletion may not be available. Database tables may not be set up.",
-          variant: "destructive"
+          variant: "destructive",
         });
       }
     }
@@ -301,20 +324,39 @@ export const SocialAdmin: React.FC = () => {
     const now = new Date();
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-    if (diffInSeconds < 60) return 'just now';
+    if (diffInSeconds < 60) return "just now";
     if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
     if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
     return `${Math.floor(diffInSeconds / 86400)}d ago`;
   };
 
   const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase();
   };
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  // Check if user has admin access (after hooks)
+  if (!hasAdminAccess) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center">
+          <Shield className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-semibold">Access Denied</h3>
+          <p className="text-muted-foreground">
+            You don't have permission to access social administration.
+          </p>
+        </div>
       </div>
     );
   }
@@ -349,7 +391,7 @@ export const SocialAdmin: React.FC = () => {
                   placeholder="Search users by username or display name..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSearchUsers()}
+                  onKeyPress={(e) => e.key === "Enter" && handleSearchUsers()}
                 />
                 <Button onClick={handleSearchUsers}>
                   <Search className="w-4 h-4" />
@@ -421,7 +463,8 @@ export const SocialAdmin: React.FC = () => {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Adjust Karma</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Adjust karma for {user.display_name || user.username} (Current: {user.karma})
+                                  Adjust karma for {user.display_name || user.username} (Current:{" "}
+                                  {user.karma})
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <div className="space-y-4">
@@ -514,18 +557,20 @@ export const SocialAdmin: React.FC = () => {
             <CardContent>
               <div className="space-y-4">
                 {posts.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No posts found
-                  </div>
+                  <div className="text-center py-8 text-muted-foreground">No posts found</div>
                 ) : (
                   posts.map((post) => (
                     <div key={post.id} className="p-4 border rounded-lg">
                       <div className="flex items-center gap-2 mb-2">
                         <div className="w-6 h-6 bg-muted rounded-full flex items-center justify-center text-xs font-medium">
-                          {getInitials(post.user_profile?.display_name || post.user_profile?.username || 'U')}
+                          {getInitials(
+                            post.user_profile?.display_name || post.user_profile?.username || "U",
+                          )}
                         </div>
                         <span className="font-medium text-sm">
-                          {post.user_profile?.display_name || post.user_profile?.username || 'Unknown User'}
+                          {post.user_profile?.display_name ||
+                            post.user_profile?.username ||
+                            "Unknown User"}
                         </span>
                         <Badge variant="outline" className="text-xs">
                           {post.user_profile?.karma || 0} karma
@@ -564,19 +609,23 @@ export const SocialAdmin: React.FC = () => {
             <CardContent>
               <div className="space-y-4">
                 {comments.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No comments found
-                  </div>
+                  <div className="text-center py-8 text-muted-foreground">No comments found</div>
                 ) : (
                   comments.map((comment) => (
                     <div key={comment.id} className="p-4 border rounded-lg">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <div className="w-6 h-6 bg-muted rounded-full flex items-center justify-center text-xs font-medium">
-                            {getInitials(comment.user_profile?.display_name || comment.user_profile?.username || 'U')}
+                            {getInitials(
+                              comment.user_profile?.display_name ||
+                                comment.user_profile?.username ||
+                                "U",
+                            )}
                           </div>
                           <span className="font-medium text-sm">
-                            {comment.user_profile?.display_name || comment.user_profile?.username || 'Unknown User'}
+                            {comment.user_profile?.display_name ||
+                              comment.user_profile?.username ||
+                              "Unknown User"}
                           </span>
                           <Badge variant="outline" className="text-xs">
                             {comment.user_profile?.karma || 0} karma
@@ -595,7 +644,8 @@ export const SocialAdmin: React.FC = () => {
                             <AlertDialogHeader>
                               <AlertDialogTitle>Delete Comment</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Are you sure you want to delete this comment? This action cannot be undone.
+                                Are you sure you want to delete this comment? This action cannot be
+                                undone.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
@@ -647,13 +697,13 @@ export const SocialAdmin: React.FC = () => {
                 </div>
                 <div className="text-center p-4 border rounded-lg">
                   <div className="text-2xl font-bold text-green-500">
-                    {users.filter(user => user.karma > 0).length}
+                    {users.filter((user) => user.karma > 0).length}
                   </div>
                   <div className="text-sm text-muted-foreground">Positive Karma Users</div>
                 </div>
                 <div className="text-center p-4 border rounded-lg">
                   <div className="text-2xl font-bold text-red-500">
-                    {users.filter(user => user.karma < 0).length}
+                    {users.filter((user) => user.karma < 0).length}
                   </div>
                   <div className="text-sm text-muted-foreground">Negative Karma Users</div>
                 </div>
@@ -680,7 +730,9 @@ export const SocialAdmin: React.FC = () => {
                               {getInitials(user.display_name || user.username)}
                             </div>
                             <div>
-                              <div className="font-medium">{user.display_name || user.username}</div>
+                              <div className="font-medium">
+                                {user.display_name || user.username}
+                              </div>
                               <div className="text-xs text-muted-foreground">@{user.username}</div>
                             </div>
                           </div>
@@ -688,7 +740,7 @@ export const SocialAdmin: React.FC = () => {
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <Star className="w-4 h-4 text-yellow-500" />
-                            <span className={user.karma >= 0 ? 'text-green-600' : 'text-red-600'}>
+                            <span className={user.karma >= 0 ? "text-green-600" : "text-red-600"}>
                               {user.karma}
                             </span>
                           </div>
@@ -702,7 +754,11 @@ export const SocialAdmin: React.FC = () => {
                             ) : (
                               <TrendingDown className="w-4 h-4 text-red-500" />
                             )}
-                            <span className={user.roi_percentage >= 0 ? 'text-green-600' : 'text-red-600'}>
+                            <span
+                              className={
+                                user.roi_percentage >= 0 ? "text-green-600" : "text-red-600"
+                              }
+                            >
                               {user.roi_percentage.toFixed(1)}%
                             </span>
                           </div>

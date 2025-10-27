@@ -1,5 +1,5 @@
 // GitHub synchronization service for real-time code updates
-import { syncService } from './sync-service';
+import { syncService } from "./sync-service";
 
 interface GitHubConfig {
   repository: string;
@@ -14,7 +14,7 @@ interface GitHubConfig {
 interface GitHubFileChange {
   path: string;
   content: string;
-  action: 'created' | 'modified' | 'deleted';
+  action: "created" | "modified" | "deleted";
   timestamp: number;
   commitHash?: string;
 }
@@ -28,8 +28,8 @@ class GitHubSyncService {
 
   constructor(config: Partial<GitHubConfig> = {}) {
     this.config = {
-      repository: 'statpedia-08', // Default repository name
-      branch: 'main',
+      repository: "statpedia-08", // Default repository name
+      branch: "main",
       syncInterval: 30000, // 30 seconds
       autoCommit: true,
       autoPush: true,
@@ -39,16 +39,16 @@ class GitHubSyncService {
 
   async startWatching(): Promise<void> {
     if (this.isWatching) {
-      console.log('GitHub sync is already running');
+      console.log("GitHub sync is already running");
       return;
     }
 
     try {
-      console.log('Starting GitHub synchronization...');
-      
+      console.log("Starting GitHub synchronization...");
+
       // Get initial commit hash
       await this.updateLastCommitHash();
-      
+
       // Start polling for changes
       this.watchInterval = setInterval(async () => {
         await this.checkForUpdates();
@@ -58,13 +58,12 @@ class GitHubSyncService {
       await this.startFileSystemWatching();
 
       this.isWatching = true;
-      console.log('GitHub sync started successfully');
-      
+      console.log("GitHub sync started successfully");
+
       // Sync initial state
       await this.syncToGitHub();
-      
     } catch (error) {
-      console.error('Failed to start GitHub sync:', error);
+      console.error("Failed to start GitHub sync:", error);
       throw error;
     }
   }
@@ -80,11 +79,11 @@ class GitHubSyncService {
     }
 
     // Stop file system watchers
-    this.fileWatchers.forEach(watcher => watcher.close());
+    this.fileWatchers.forEach((watcher) => watcher.close());
     this.fileWatchers.clear();
 
     this.isWatching = false;
-    console.log('GitHub sync stopped');
+    console.log("GitHub sync stopped");
   }
 
   private async updateLastCommitHash(): Promise<void> {
@@ -93,19 +92,19 @@ class GitHubSyncService {
         `https://api.github.com/repos/${this.config.repository}/commits/${this.config.branch}`,
         {
           headers: {
-            'Authorization': this.config.accessToken ? `token ${this.config.accessToken}` : '',
-            'Accept': 'application/vnd.github.v3+json',
+            Authorization: this.config.accessToken ? `token ${this.config.accessToken}` : "",
+            Accept: "application/vnd.github.v3+json",
           },
-        }
+        },
       );
 
       if (response.ok) {
         const data = await response.json();
         this.lastCommitHash = data.sha;
-        console.log('Updated last commit hash:', this.lastCommitHash);
+        console.log("Updated last commit hash:", this.lastCommitHash);
       }
     } catch (error) {
-      console.error('Failed to update commit hash:', error);
+      console.error("Failed to update commit hash:", error);
     }
   }
 
@@ -115,10 +114,10 @@ class GitHubSyncService {
         `https://api.github.com/repos/${this.config.repository}/commits/${this.config.branch}`,
         {
           headers: {
-            'Authorization': this.config.accessToken ? `token ${this.config.accessToken}` : '',
-            'Accept': 'application/vnd.github.v3+json',
+            Authorization: this.config.accessToken ? `token ${this.config.accessToken}` : "",
+            Accept: "application/vnd.github.v3+json",
           },
-        }
+        },
       );
 
       if (response.ok) {
@@ -126,96 +125,99 @@ class GitHubSyncService {
         const currentCommitHash = data.sha;
 
         if (this.lastCommitHash && currentCommitHash !== this.lastCommitHash) {
-          console.log('New commit detected:', currentCommitHash);
+          console.log("New commit detected:", currentCommitHash);
           await this.pullChanges();
           this.lastCommitHash = currentCommitHash;
         }
       }
     } catch (error) {
-      console.error('Failed to check for updates:', error);
+      console.error("Failed to check for updates:", error);
     }
   }
 
   private async pullChanges(): Promise<void> {
     try {
-      console.log('Pulling changes from GitHub...');
-      
+      console.log("Pulling changes from GitHub...");
+
       // Execute git pull
-      const { exec } = await import('child_process');
-      const { promisify } = await import('util');
+      const { exec } = await import("child_process");
+      const { promisify } = await import("util");
       const execAsync = promisify(exec);
 
-      const { stdout, stderr } = await execAsync('git pull origin main');
-      
-      if (stderr && !stderr.includes('Already up to date')) {
-        console.log('Git pull output:', stdout);
-        console.log('Git pull errors:', stderr);
+      const { stdout, stderr } = await execAsync("git pull origin main");
+
+      if (stderr && !stderr.includes("Already up to date")) {
+        console.log("Git pull output:", stdout);
+        console.log("Git pull errors:", stderr);
       }
 
       // Notify sync service about the update
       syncService.queueSyncEvent({
-        type: 'code',
-        action: 'sync',
+        type: "code",
+        action: "sync",
         data: {
-          type: 'github-pull',
+          type: "github-pull",
           timestamp: Date.now(),
-          message: 'Code updated from GitHub',
+          message: "Code updated from GitHub",
         },
-        source: 'local',
+        source: "local",
       });
 
-      console.log('Successfully pulled changes from GitHub');
+      console.log("Successfully pulled changes from GitHub");
     } catch (error) {
-      console.error('Failed to pull changes:', error);
+      console.error("Failed to pull changes:", error);
     }
   }
 
   private async startFileSystemWatching(): Promise<void> {
     try {
-      const chokidar = await import('chokidar');
-      
+      const chokidar = await import("chokidar");
+
       // Watch for file changes in src directory
-      const watcher = chokidar.watch('src/**/*', {
-        ignored: /(^|[\/\\])\../, // ignore dotfiles
+      const watcher = chokidar.watch("src/**/*", {
+        ignored: /(^|[/\\])\../, // ignore dotfiles
         persistent: true,
         ignoreInitial: true,
       });
 
-      watcher.on('change', async (path) => {
-        console.log('File changed:', path);
-        await this.handleFileChange(path, 'modified');
+      watcher.on("change", async (path) => {
+        console.log("File changed:", path);
+        await this.handleFileChange(path, "modified");
       });
 
-      watcher.on('add', async (path) => {
-        console.log('File added:', path);
-        await this.handleFileChange(path, 'created');
+      watcher.on("add", async (path) => {
+        console.log("File added:", path);
+        await this.handleFileChange(path, "created");
       });
 
-      watcher.on('unlink', async (path) => {
-        console.log('File deleted:', path);
-        await this.handleFileChange(path, 'deleted');
+      watcher.on("unlink", async (path) => {
+        console.log("File deleted:", path);
+        await this.handleFileChange(path, "deleted");
       });
 
-      this.fileWatchers.set('src', watcher);
-      console.log('File system watching started for src directory');
+      this.fileWatchers.set("src", watcher);
+      console.log("File system watching started for src directory");
     } catch (error) {
-      console.error('Failed to start file system watching:', error);
+      console.error("Failed to start file system watching:", error);
       // Fallback to basic polling if chokidar is not available
-      console.log('Using fallback polling method');
+      console.log("Using fallback polling method");
     }
   }
 
-  private async handleFileChange(path: string, action: 'created' | 'modified' | 'deleted'): Promise<void> {
+  private async handleFileChange(
+    path: string,
+    action: "created" | "modified" | "deleted",
+  ): Promise<void> {
     try {
-      let content = '';
-      
+      let content = "";
+
       // Read file content if it exists
-      if (action !== 'deleted') {
+      if (action !== "deleted") {
         try {
-          const fs = await import('fs/promises');
-          content = await fs.readFile(path, 'utf-8');
+          const fs = await import("fs/promises");
+          content = await fs.readFile(path, "utf-8");
         } catch (error) {
-          console.error('Failed to read file content:', error);
+          console.error("Failed to read file content:", error);
         }
       }
 
@@ -233,18 +235,17 @@ class GitHubSyncService {
 
       // Notify sync service
       syncService.queueSyncEvent({
-        type: 'code',
-        action: 'sync',
+        type: "code",
+        action: "sync",
         data: {
-          type: 'file-change',
+          type: "file-change",
           fileChange,
           timestamp: Date.now(),
         },
-        source: 'local',
+        source: "local",
       });
-
     } catch (error) {
-      console.error('Failed to handle file change:', error);
+      console.error("Failed to handle file change:", error);
     }
   }
 
@@ -254,36 +255,35 @@ class GitHubSyncService {
         return;
       }
 
-      console.log('Syncing changes to GitHub...');
-      
-      const { exec } = await import('child_process');
-      const { promisify } = await import('util');
+      console.log("Syncing changes to GitHub...");
+
+      const { exec } = await import("child_process");
+      const { promisify } = await import("util");
       const execAsync = promisify(exec);
 
       // Add all changes
-      await execAsync('git add .');
-      
+      await execAsync("git add .");
+
       // Check if there are changes to commit
-      const { stdout: statusOutput } = await execAsync('git status --porcelain');
-      
+      const { stdout: statusOutput } = await execAsync("git status --porcelain");
+
       if (statusOutput.trim()) {
         // Commit changes
         const commitMessage = `Auto-sync: ${new Date().toISOString()}`;
         await execAsync(`git commit -m "${commitMessage}"`);
-        
+
         // Push changes if auto-push is enabled
         if (this.config.autoPush) {
-          await execAsync('git push origin main');
-          console.log('Changes pushed to GitHub');
+          await execAsync("git push origin main");
+          console.log("Changes pushed to GitHub");
         }
-        
-        console.log('Changes committed to local repository');
-      } else {
-        console.log('No changes to commit');
-      }
 
+        console.log("Changes committed to local repository");
+      } else {
+        console.log("No changes to commit");
+      }
     } catch (error) {
-      console.error('Failed to sync to GitHub:', error);
+      console.error("Failed to sync to GitHub:", error);
     }
   }
 
@@ -311,8 +311,8 @@ class GitHubSyncService {
 
 // Create and export the GitHub sync service instance
 export const githubSyncService = new GitHubSyncService({
-  repository: 'statpedia-08',
-  branch: 'main',
+  repository: "statpedia-08",
+  branch: "main",
   syncInterval: 30000, // 30 seconds
   autoCommit: true,
   autoPush: true,

@@ -1,6 +1,5 @@
-// @ts-nocheck
-import { supabase } from '@/integrations/supabase/client';
-import { notificationService } from './notification-service';
+import { supabase } from "@/integrations/supabase/client";
+import { notificationService } from "./notification-service";
 
 export interface UserBankroll {
   id: string;
@@ -19,9 +18,9 @@ export interface SportsbookConnection {
   user_id: string;
   sportsbook_name: string;
   account_username?: string;
-  connection_status: 'pending' | 'connected' | 'failed' | 'disconnected';
+  connection_status: "pending" | "connected" | "failed" | "disconnected";
   last_sync_at?: string;
-  sync_frequency: 'daily' | 'weekly' | 'monthly';
+  sync_frequency: "daily" | "weekly" | "monthly";
   api_credentials?: any;
   created_at: string;
   updated_at: string;
@@ -32,8 +31,8 @@ export interface UserBet {
   user_id: string;
   bankroll_id: string;
   sportsbook_id?: string;
-  bet_type: 'single' | 'parlay' | 'teaser' | 'round_robin' | 'system';
-  bet_category: 'moneyline' | 'spread' | 'total' | 'prop' | 'futures';
+  bet_type: "single" | "parlay" | "teaser" | "round_robin" | "system";
+  bet_category: "moneyline" | "spread" | "total" | "prop" | "futures";
   sport: string;
   bet_amount: number;
   odds: number;
@@ -42,7 +41,7 @@ export interface UserBet {
   home_team: string;
   away_team: string;
   bet_selection: string;
-  bet_status: 'pending' | 'won' | 'lost' | 'push' | 'cancelled';
+  bet_status: "pending" | "won" | "lost" | "push" | "cancelled";
   actual_payout: number;
   settled_at?: string;
   used_statpedia: boolean;
@@ -64,7 +63,7 @@ export interface ParlayLeg {
   away_team: string;
   bet_selection: string;
   odds: number;
-  leg_status: 'pending' | 'won' | 'lost' | 'push';
+  leg_status: "pending" | "won" | "lost" | "push";
   created_at: string;
 }
 
@@ -97,10 +96,10 @@ export interface BettingGoal {
   id: string;
   user_id: string;
   bankroll_id: string;
-  goal_type: 'win_percentage' | 'roi' | 'profit' | 'bankroll_growth';
+  goal_type: "win_percentage" | "roi" | "profit" | "bankroll_growth";
   target_value: number;
   current_value: number;
-  time_period: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  time_period: "daily" | "weekly" | "monthly" | "yearly";
   start_date: string;
   end_date: string;
   is_achieved: boolean;
@@ -126,9 +125,11 @@ export interface BettingStats {
 
 class BetTrackingService {
   // Bankroll Management
-  async createBankroll(bankroll: Omit<UserBankroll, 'id' | 'created_at' | 'updated_at'>): Promise<UserBankroll> {
+  async createBankroll(
+    bankroll: Omit<UserBankroll, "id" | "created_at" | "updated_at">,
+  ): Promise<UserBankroll> {
     const { data, error } = await supabase
-      .from('user_bankrolls')
+      .from("user_bankrolls")
       .insert(bankroll)
       .select()
       .single();
@@ -139,16 +140,20 @@ class BetTrackingService {
 
   async getUserBankrolls(userId: string): Promise<UserBankroll[]> {
     const { data, error } = await supabase
-      .from('user_bankrolls')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('is_active', true)
-      .order('created_at', { ascending: false });
+      .from("user_bankrolls")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
 
     if (error) {
       // Handle table not existing gracefully
-      if (error.code === 'PGRST116' || error.message?.includes('relation') || error.message?.includes('does not exist')) {
-        console.log('User bankrolls table not yet created');
+      if (
+        error.code === "PGRST116" ||
+        error.message?.includes("relation") ||
+        error.message?.includes("does not exist")
+      ) {
+        console.log("User bankrolls table not yet created");
         return [];
       }
       throw error;
@@ -158,9 +163,9 @@ class BetTrackingService {
 
   async updateBankroll(bankrollId: string, updates: Partial<UserBankroll>): Promise<UserBankroll> {
     const { data, error } = await supabase
-      .from('user_bankrolls')
+      .from("user_bankrolls")
       .update(updates)
-      .eq('id', bankrollId)
+      .eq("id", bankrollId)
       .select()
       .single();
 
@@ -169,9 +174,11 @@ class BetTrackingService {
   }
 
   // Sportsbook Connections
-  async createSportsbookConnection(connection: Omit<SportsbookConnection, 'id' | 'created_at' | 'updated_at'>): Promise<SportsbookConnection> {
+  async createSportsbookConnection(
+    connection: Omit<SportsbookConnection, "id" | "created_at" | "updated_at">,
+  ): Promise<SportsbookConnection> {
     const { data, error } = await supabase
-      .from('sportsbook_connections')
+      .from("sportsbook_connections")
       .insert(connection)
       .select()
       .single();
@@ -182,15 +189,19 @@ class BetTrackingService {
 
   async getUserSportsbookConnections(userId: string): Promise<SportsbookConnection[]> {
     const { data, error } = await supabase
-      .from('sportsbook_connections')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+      .from("sportsbook_connections")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
 
     if (error) {
       // Handle table not existing gracefully
-      if (error.code === 'PGRST116' || error.message?.includes('relation') || error.message?.includes('does not exist')) {
-        console.log('Sportsbook connections table not yet created');
+      if (
+        error.code === "PGRST116" ||
+        error.message?.includes("relation") ||
+        error.message?.includes("does not exist")
+      ) {
+        console.log("Sportsbook connections table not yet created");
         return [];
       }
       throw error;
@@ -198,11 +209,14 @@ class BetTrackingService {
     return data || [];
   }
 
-  async updateSportsbookConnection(connectionId: string, updates: Partial<SportsbookConnection>): Promise<SportsbookConnection> {
+  async updateSportsbookConnection(
+    connectionId: string,
+    updates: Partial<SportsbookConnection>,
+  ): Promise<SportsbookConnection> {
     const { data, error } = await supabase
-      .from('sportsbook_connections')
+      .from("sportsbook_connections")
       .update(updates)
-      .eq('id', connectionId)
+      .eq("id", connectionId)
       .select()
       .single();
 
@@ -211,12 +225,8 @@ class BetTrackingService {
   }
 
   // Bet Management
-  async createBet(bet: Omit<UserBet, 'id' | 'created_at' | 'updated_at'>): Promise<UserBet> {
-    const { data, error } = await supabase
-      .from('user_bets')
-      .insert(bet)
-      .select()
-      .single();
+  async createBet(bet: Omit<UserBet, "id" | "created_at" | "updated_at">): Promise<UserBet> {
+    const { data, error } = await supabase.from("user_bets").insert(bet).select().single();
 
     if (error) throw error;
     return data;
@@ -224,22 +234,26 @@ class BetTrackingService {
 
   async getUserBets(userId: string, bankrollId?: string, limit: number = 50): Promise<UserBet[]> {
     let query = supabase
-      .from('user_bets')
-      .select('*')
-      .eq('user_id', userId)
-      .order('game_date', { ascending: false })
+      .from("user_bets")
+      .select("*")
+      .eq("user_id", userId)
+      .order("game_date", { ascending: false })
       .limit(limit);
 
     if (bankrollId) {
-      query = query.eq('bankroll_id', bankrollId);
+      query = query.eq("bankroll_id", bankrollId);
     }
 
     const { data, error } = await query;
 
     if (error) {
       // Handle table not existing gracefully
-      if (error.code === 'PGRST116' || error.message?.includes('relation') || error.message?.includes('does not exist')) {
-        console.log('User bets table not yet created');
+      if (
+        error.code === "PGRST116" ||
+        error.message?.includes("relation") ||
+        error.message?.includes("does not exist")
+      ) {
+        console.log("User bets table not yet created");
         return [];
       }
       throw error;
@@ -249,9 +263,9 @@ class BetTrackingService {
 
   async updateBet(betId: string, updates: Partial<UserBet>): Promise<UserBet> {
     const { data, error } = await supabase
-      .from('user_bets')
+      .from("user_bets")
       .update(updates)
-      .eq('id', betId)
+      .eq("id", betId)
       .select()
       .single();
 
@@ -259,44 +273,45 @@ class BetTrackingService {
     return data;
   }
 
-  async settleBet(betId: string, status: 'won' | 'lost' | 'push', payout: number = 0): Promise<UserBet> {
+  async settleBet(
+    betId: string,
+    status: "won" | "lost" | "push",
+    payout: number = 0,
+  ): Promise<UserBet> {
     const { data: bet, error: betError } = await supabase
-      .from('user_bets')
-      .select('bankroll_id, bet_amount')
-      .eq('id', betId)
+      .from("user_bets")
+      .select("bankroll_id, bet_amount")
+      .eq("id", betId)
       .single();
 
     if (betError) throw betError;
 
     const { data, error } = await supabase
-      .from('user_bets')
+      .from("user_bets")
       .update({
         bet_status: status,
         actual_payout: payout,
-        settled_at: new Date().toISOString()
+        settled_at: new Date().toISOString(),
       })
-      .eq('id', betId)
+      .eq("id", betId)
       .select()
       .single();
 
     if (error) throw error;
 
     // Update bankroll
-    await supabase.rpc('update_bankroll_after_bet', {
+    await supabase.rpc("update_bankroll_after_bet", {
       p_bankroll_id: bet.bankroll_id,
       p_bet_amount: bet.bet_amount,
-      p_payout: payout
+      p_payout: payout,
     });
 
     return data;
   }
 
   // Parlay Legs
-  async createParlayLegs(legs: Omit<ParlayLeg, 'id' | 'created_at'>[]): Promise<ParlayLeg[]> {
-    const { data, error } = await supabase
-      .from('parlay_legs')
-      .insert(legs)
-      .select();
+  async createParlayLegs(legs: Omit<ParlayLeg, "id" | "created_at">[]): Promise<ParlayLeg[]> {
+    const { data, error } = await supabase.from("parlay_legs").insert(legs).select();
 
     if (error) throw error;
     return data || [];
@@ -304,28 +319,36 @@ class BetTrackingService {
 
   async getParlayLegs(betId: string): Promise<ParlayLeg[]> {
     const { data, error } = await supabase
-      .from('parlay_legs')
-      .select('*')
-      .eq('bet_id', betId)
-      .order('leg_number', { ascending: true });
+      .from("parlay_legs")
+      .select("*")
+      .eq("bet_id", betId)
+      .order("leg_number", { ascending: true });
 
     if (error) throw error;
     return data || [];
   }
 
   // Analytics
-  async getBettingStats(userId: string, bankrollId?: string, days: number = 30): Promise<BettingStats> {
-    const { data, error } = await supabase
-      .rpc('get_user_betting_stats', {
-        p_user_id: userId,
-        p_bankroll_id: bankrollId,
-        p_days: days
-      });
+  async getBettingStats(
+    userId: string,
+    bankrollId?: string,
+    days: number = 30,
+  ): Promise<BettingStats> {
+    const { data, error } = await supabase.rpc("get_user_betting_stats", {
+      p_user_id: userId,
+      p_bankroll_id: bankrollId,
+      p_days: days,
+    });
 
     if (error) {
       // Handle function or table not existing gracefully
-      if (error.code === 'PGRST116' || error.message?.includes('relation') || error.message?.includes('does not exist') || error.message?.includes('function')) {
-        console.log('Betting stats function or tables not yet created');
+      if (
+        error.code === "PGRST116" ||
+        error.message?.includes("relation") ||
+        error.message?.includes("does not exist") ||
+        error.message?.includes("function")
+      ) {
+        console.log("Betting stats function or tables not yet created");
         return {
           total_bets: 0,
           won_bets: 0,
@@ -338,53 +361,64 @@ class BetTrackingService {
           roi_percentage: 0,
           statpedia_bets: 0,
           statpedia_wins: 0,
-          statpedia_win_percentage: 0
+          statpedia_win_percentage: 0,
         };
       }
       throw error;
     }
-    return data?.[0] || {
-      total_bets: 0,
-      won_bets: 0,
-      lost_bets: 0,
-      push_bets: 0,
-      total_wagered: 0,
-      total_won: 0,
-      net_profit: 0,
-      win_percentage: 0,
-      roi_percentage: 0,
-      statpedia_bets: 0,
-      statpedia_wins: 0,
-      statpedia_win_percentage: 0
-    };
+    return (
+      data?.[0] || {
+        total_bets: 0,
+        won_bets: 0,
+        lost_bets: 0,
+        push_bets: 0,
+        total_wagered: 0,
+        total_won: 0,
+        net_profit: 0,
+        win_percentage: 0,
+        roi_percentage: 0,
+        statpedia_bets: 0,
+        statpedia_wins: 0,
+        statpedia_win_percentage: 0,
+      }
+    );
   }
 
-  async getMonthlyAnalytics(userId: string, bankrollId?: string, year?: number, month?: number): Promise<MonthlyAnalytics[]> {
+  async getMonthlyAnalytics(
+    userId: string,
+    bankrollId?: string,
+    year?: number,
+    month?: number,
+  ): Promise<MonthlyAnalytics[]> {
     let query = supabase
-      .from('monthly_analytics')
-      .select('*')
-      .eq('user_id', userId)
-      .order('year', { ascending: false })
-      .order('month', { ascending: false });
+      .from("monthly_analytics")
+      .select("*")
+      .eq("user_id", userId)
+      .order("year", { ascending: false })
+      .order("month", { ascending: false });
 
     if (bankrollId) {
-      query = query.eq('bankroll_id', bankrollId);
+      query = query.eq("bankroll_id", bankrollId);
     }
 
     if (year) {
-      query = query.eq('year', year);
+      query = query.eq("year", year);
     }
 
     if (month) {
-      query = query.eq('month', month);
+      query = query.eq("month", month);
     }
 
     const { data, error } = await query;
 
     if (error) {
       // Handle table not existing gracefully
-      if (error.code === 'PGRST116' || error.message?.includes('relation') || error.message?.includes('does not exist')) {
-        console.log('Monthly analytics table not yet created');
+      if (
+        error.code === "PGRST116" ||
+        error.message?.includes("relation") ||
+        error.message?.includes("does not exist")
+      ) {
+        console.log("Monthly analytics table not yet created");
         return [];
       }
       throw error;
@@ -392,25 +426,27 @@ class BetTrackingService {
     return data || [];
   }
 
-  async calculateMonthlyAnalytics(userId: string, bankrollId: string, year: number, month: number): Promise<void> {
-    const { error } = await supabase
-      .rpc('calculate_monthly_analytics', {
-        p_user_id: userId,
-        p_bankroll_id: bankrollId,
-        p_year: year,
-        p_month: month
-      });
+  async calculateMonthlyAnalytics(
+    userId: string,
+    bankrollId: string,
+    year: number,
+    month: number,
+  ): Promise<void> {
+    const { error } = await supabase.rpc("calculate_monthly_analytics", {
+      p_user_id: userId,
+      p_bankroll_id: bankrollId,
+      p_year: year,
+      p_month: month,
+    });
 
     if (error) throw error;
   }
 
   // Betting Goals
-  async createBettingGoal(goal: Omit<BettingGoal, 'id' | 'created_at' | 'updated_at'>): Promise<BettingGoal> {
-    const { data, error } = await supabase
-      .from('betting_goals')
-      .insert(goal)
-      .select()
-      .single();
+  async createBettingGoal(
+    goal: Omit<BettingGoal, "id" | "created_at" | "updated_at">,
+  ): Promise<BettingGoal> {
+    const { data, error } = await supabase.from("betting_goals").insert(goal).select().single();
 
     if (error) throw error;
     return data;
@@ -418,13 +454,13 @@ class BetTrackingService {
 
   async getUserBettingGoals(userId: string, bankrollId?: string): Promise<BettingGoal[]> {
     let query = supabase
-      .from('betting_goals')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+      .from("betting_goals")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
 
     if (bankrollId) {
-      query = query.eq('bankroll_id', bankrollId);
+      query = query.eq("bankroll_id", bankrollId);
     }
 
     const { data, error } = await query;
@@ -435,9 +471,9 @@ class BetTrackingService {
 
   async updateBettingGoal(goalId: string, updates: Partial<BettingGoal>): Promise<BettingGoal> {
     const { data, error } = await supabase
-      .from('betting_goals')
+      .from("betting_goals")
       .update(updates)
-      .eq('id', goalId)
+      .eq("id", goalId)
       .select()
       .single();
 
@@ -449,9 +485,9 @@ class BetTrackingService {
   calculatePayout(betAmount: number, odds: number): number {
     // American odds format
     if (odds > 0) {
-      return betAmount + (betAmount * odds / 100);
+      return betAmount + (betAmount * odds) / 100;
     } else {
-      return betAmount + (betAmount * 100 / Math.abs(odds));
+      return betAmount + (betAmount * 100) / Math.abs(odds);
     }
   }
 
@@ -465,53 +501,53 @@ class BetTrackingService {
 
   getSportsbookOptions(): Array<{ value: string; label: string; logo?: string }> {
     return [
-      { value: 'draftkings', label: 'DraftKings' },
-      { value: 'fanduel', label: 'FanDuel' },
-      { value: 'betmgm', label: 'BetMGM' },
-      { value: 'caesars', label: 'Caesars Sportsbook' },
-      { value: 'bet365', label: 'Bet365' },
-      { value: 'pointsbet', label: 'PointsBet' },
-      { value: 'betrivers', label: 'BetRivers' },
-      { value: 'unibet', label: 'Unibet' },
-      { value: 'fox_bet', label: 'FOX Bet' },
-      { value: 'other', label: 'Other' }
+      { value: "draftkings", label: "DraftKings" },
+      { value: "fanduel", label: "FanDuel" },
+      { value: "betmgm", label: "BetMGM" },
+      { value: "caesars", label: "Caesars Sportsbook" },
+      { value: "bet365", label: "Bet365" },
+      { value: "pointsbet", label: "PointsBet" },
+      { value: "betrivers", label: "BetRivers" },
+      { value: "unibet", label: "Unibet" },
+      { value: "fox_bet", label: "FOX Bet" },
+      { value: "other", label: "Other" },
     ];
   }
 
   getSportOptions(): Array<{ value: string; label: string }> {
     return [
-      { value: 'nfl', label: 'NFL' },
-      { value: 'nba', label: 'NBA' },
-      { value: 'mlb', label: 'MLB' },
-      { value: 'nhl', label: 'NHL' },
-      { value: 'ncaaf', label: 'NCAA Football' },
-      { value: 'ncaab', label: 'NCAA Basketball' },
-      { value: 'soccer', label: 'Soccer' },
-      { value: 'tennis', label: 'Tennis' },
-      { value: 'golf', label: 'Golf' },
-      { value: 'mma', label: 'MMA' },
-      { value: 'boxing', label: 'Boxing' },
-      { value: 'other', label: 'Other' }
+      { value: "nfl", label: "NFL" },
+      { value: "nba", label: "NBA" },
+      { value: "mlb", label: "MLB" },
+      { value: "nhl", label: "NHL" },
+      { value: "ncaaf", label: "NCAA Football" },
+      { value: "ncaab", label: "NCAA Basketball" },
+      { value: "soccer", label: "Soccer" },
+      { value: "tennis", label: "Tennis" },
+      { value: "golf", label: "Golf" },
+      { value: "mma", label: "MMA" },
+      { value: "boxing", label: "Boxing" },
+      { value: "other", label: "Other" },
     ];
   }
 
   getBetTypeOptions(): Array<{ value: string; label: string }> {
     return [
-      { value: 'single', label: 'Single Bet' },
-      { value: 'parlay', label: 'Parlay' },
-      { value: 'teaser', label: 'Teaser' },
-      { value: 'round_robin', label: 'Round Robin' },
-      { value: 'system', label: 'System Bet' }
+      { value: "single", label: "Single Bet" },
+      { value: "parlay", label: "Parlay" },
+      { value: "teaser", label: "Teaser" },
+      { value: "round_robin", label: "Round Robin" },
+      { value: "system", label: "System Bet" },
     ];
   }
 
   getBetCategoryOptions(): Array<{ value: string; label: string }> {
     return [
-      { value: 'moneyline', label: 'Moneyline' },
-      { value: 'spread', label: 'Point Spread' },
-      { value: 'total', label: 'Over/Under' },
-      { value: 'prop', label: 'Prop Bet' },
-      { value: 'futures', label: 'Futures' }
+      { value: "moneyline", label: "Moneyline" },
+      { value: "spread", label: "Point Spread" },
+      { value: "total", label: "Over/Under" },
+      { value: "prop", label: "Prop Bet" },
+      { value: "futures", label: "Futures" },
     ];
   }
 
@@ -520,61 +556,56 @@ class BetTrackingService {
     try {
       // Get all pending bets for the user
       const { data: pendingBets, error } = await supabase
-        .from('user_bets')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('status', 'pending')
-        .lt('game_date', new Date().toISOString()); // Games that should have finished
+        .from("user_bets")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("status", "pending")
+        .lt("game_date", new Date().toISOString()); // Games that should have finished
 
       if (error) throw error;
 
       for (const bet of pendingBets || []) {
         // Simulate checking bet results (in real implementation, this would check actual game results)
         const result = this.simulateBetResult(bet);
-        
-        if (result !== 'pending') {
+
+        if (result !== "pending") {
           // Update bet status
           await supabase
-            .from('user_bets')
-            .update({ 
+            .from("user_bets")
+            .update({
               status: result,
-              result: result === 'won' ? 'win' : 'loss',
-              updated_at: new Date().toISOString()
+              result: result === "won" ? "win" : "loss",
+              updated_at: new Date().toISOString(),
             })
-            .eq('id', bet.id);
+            .eq("id", bet.id);
 
           // Send notification
-          await notificationService.notifyBetResult(
-            userId,
-            bet.id,
-            result,
-            {
-              playerName: bet.player_name,
-              propType: bet.prop_type,
-              line: bet.line,
-              odds: bet.odds,
-              stake: bet.stake
-            }
-          );
+          await notificationService.notifyBetResult(userId, bet.id, result, {
+            playerName: bet.player_name,
+            propType: bet.prop_type,
+            line: bet.line,
+            odds: bet.odds,
+            stake: bet.stake,
+          });
         }
       }
     } catch (error) {
-      console.error('Failed to check bet results:', error);
+      console.error("Failed to check bet results:", error);
     }
   }
 
   // Simulate bet result (replace with actual game result checking)
-  private simulateBetResult(bet: any): 'won' | 'lost' | 'pending' {
+  private simulateBetResult(bet: any): "won" | "lost" | "pending" {
     // This is a simulation - in real implementation, you would check actual game results
     const random = Math.random();
-    
+
     // 60% chance of winning (simulating good picks)
     if (random < 0.6) {
-      return 'won';
+      return "won";
     } else if (random < 0.9) {
-      return 'lost';
+      return "lost";
     } else {
-      return 'pending'; // Game still in progress
+      return "pending"; // Game still in progress
     }
   }
 }

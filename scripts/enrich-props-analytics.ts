@@ -1,8 +1,8 @@
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
-import { eq, and, desc, sql } from 'drizzle-orm';
-import { props, players, teams, player_game_logs, defense_ranks } from '../src/db/schema/index';
-import dotenv from 'dotenv';
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import { eq, and, desc, sql } from "drizzle-orm";
+import { props, players, teams, player_game_logs, defense_ranks } from "../src/db/schema/index";
+import dotenv from "dotenv";
 
 dotenv.config();
 
@@ -25,17 +25,20 @@ interface AnalyticsData {
 /**
  * Calculate hit rates for L5, L10, L20 games
  */
-async function calculateHitRates(playerId: string, propType: string, line: number): Promise<{
+async function calculateHitRates(
+  playerId: string,
+  propType: string,
+  line: number,
+): Promise<{
   hitRateL5: number | null;
   hitRateL10: number | null;
   hitRateL20: number | null;
   gamesTracked: number;
 }> {
-  const logs = await db.select().from(player_game_logs)
-    .where(and(
-      eq(player_game_logs.playerId, playerId),
-      eq(player_game_logs.propType, propType)
-    ))
+  const logs = await db
+    .select()
+    .from(player_game_logs)
+    .where(and(eq(player_game_logs.playerId, playerId), eq(player_game_logs.propType, propType)))
     .orderBy(desc(player_game_logs.gameDate))
     .limit(20);
 
@@ -50,7 +53,7 @@ async function calculateHitRates(playerId: string, propType: string, line: numbe
 
   const calculateHitRate = (logs: any[]) => {
     if (logs.length === 0) return null;
-    const hits = logs.filter(log => log.hit).length;
+    const hits = logs.filter((log) => log.hit).length;
     return (hits / logs.length) * 100;
   };
 
@@ -58,7 +61,7 @@ async function calculateHitRates(playerId: string, propType: string, line: numbe
     hitRateL5: calculateHitRate(l5Logs),
     hitRateL10: calculateHitRate(l10Logs),
     hitRateL20: calculateHitRate(l20Logs),
-    gamesTracked: logs.length
+    gamesTracked: logs.length,
   };
 }
 
@@ -66,18 +69,17 @@ async function calculateHitRates(playerId: string, propType: string, line: numbe
  * Calculate current streak
  */
 async function calculateStreak(playerId: string, propType: string): Promise<number | null> {
-  const logs = await db.select().from(player_game_logs)
-    .where(and(
-      eq(player_game_logs.playerId, playerId),
-      eq(player_game_logs.propType, propType)
-    ))
+  const logs = await db
+    .select()
+    .from(player_game_logs)
+    .where(and(eq(player_game_logs.playerId, playerId), eq(player_game_logs.propType, propType)))
     .orderBy(desc(player_game_logs.gameDate))
     .limit(20);
 
   if (logs.length === 0) return null;
 
   let streak = 0;
-  let isPositive = logs[0].hit;
+  const isPositive = logs[0].hit;
 
   for (const log of logs) {
     if (log.hit === isPositive) {
@@ -94,36 +96,42 @@ async function calculateStreak(playerId: string, propType: string): Promise<numb
  * Calculate H2H hit rate vs specific opponent
  */
 async function calculateH2HHitRate(
-  playerId: string, 
-  propType: string, 
-  opponentId: string
+  playerId: string,
+  propType: string,
+  opponentId: string,
 ): Promise<number | null> {
-  const logs = await db.select().from(player_game_logs)
-    .where(and(
-      eq(player_game_logs.playerId, playerId),
-      eq(player_game_logs.propType, propType),
-      eq(player_game_logs.opponentId, opponentId)
-    ))
+  const logs = await db
+    .select()
+    .from(player_game_logs)
+    .where(
+      and(
+        eq(player_game_logs.playerId, playerId),
+        eq(player_game_logs.propType, propType),
+        eq(player_game_logs.opponentId, opponentId),
+      ),
+    )
     .orderBy(desc(player_game_logs.gameDate));
 
   if (logs.length === 0) return null;
 
-  const hits = logs.filter(log => log.hit).length;
+  const hits = logs.filter((log) => log.hit).length;
   return (hits / logs.length) * 100;
 }
 
 /**
  * Get matchup rank and grade for opponent vs prop type
  */
-async function getMatchupData(opponentId: string, propType: string): Promise<{
+async function getMatchupData(
+  opponentId: string,
+  propType: string,
+): Promise<{
   matchupRank: number | null;
   matchupGrade: number | null;
 }> {
-  const defenseRank = await db.select().from(defense_ranks)
-    .where(and(
-      eq(defense_ranks.teamId, opponentId),
-      eq(defense_ranks.propType, propType)
-    ))
+  const defenseRank = await db
+    .select()
+    .from(defense_ranks)
+    .where(and(eq(defense_ranks.teamId, opponentId), eq(defense_ranks.propType, propType)))
     .limit(1);
 
   if (defenseRank.length === 0) {
@@ -139,7 +147,10 @@ async function getMatchupData(opponentId: string, propType: string): Promise<{
 /**
  * Calculate historical average for the prop type
  */
-async function calculateHistoricalAverage(playerId: string, propType: string): Promise<number | null> {
+async function calculateHistoricalAverage(
+  playerId: string,
+  propType: string,
+): Promise<number | null> {
   const result = await db.execute(sql`
     SELECT AVG(actual_value) as avg_value
     FROM player_game_logs
@@ -158,22 +169,24 @@ async function enrichPropAnalytics(
   teamId: string,
   propType: string,
   line: number,
-  opponentId?: string
+  opponentId?: string,
 ): Promise<AnalyticsData> {
   console.log(`📊 Enriching analytics for player ${playerId} - ${propType}`);
 
   // Calculate hit rates
   const hitRates = await calculateHitRates(playerId, propType, line);
-  
+
   // Calculate streak
   const streakCurrent = await calculateStreak(playerId, propType);
-  
+
   // Calculate H2H if opponent is provided
   const h2hHitRate = opponentId ? await calculateH2HHitRate(playerId, propType, opponentId) : null;
-  
+
   // Get matchup data
-  const matchupData = opponentId ? await getMatchupData(opponentId, propType) : { matchupRank: null, matchupGrade: null };
-  
+  const matchupData = opponentId
+    ? await getMatchupData(opponentId, propType)
+    : { matchupRank: null, matchupGrade: null };
+
   // Calculate historical average
   const historicalAverage = await calculateHistoricalAverage(playerId, propType);
 
@@ -186,7 +199,7 @@ async function enrichPropAnalytics(
     matchupRank: matchupData.matchupRank,
     matchupGrade: matchupData.matchupGrade,
     historicalAverage,
-    gamesTracked: hitRates.gamesTracked
+    gamesTracked: hitRates.gamesTracked,
   };
 }
 
@@ -195,17 +208,19 @@ async function enrichPropAnalytics(
  */
 async function enrichAllPropsAnalytics() {
   try {
-    console.log('🔍 Starting props analytics enrichment...');
-    
+    console.log("🔍 Starting props analytics enrichment...");
+
     // Get all props that need enrichment
-    const propsToEnrich = await db.select().from(props)
-      .where(eq(props.source, 'sportsbook'))
+    const propsToEnrich = await db
+      .select()
+      .from(props)
+      .where(eq(props.source, "sportsbook"))
       .limit(100); // Process in batches
-    
+
     console.log(`📊 Found ${propsToEnrich.length} props to enrich`);
-    
+
     let enrichedCount = 0;
-    
+
     for (const prop of propsToEnrich) {
       try {
         // Get opponent team ID from the game
@@ -218,20 +233,21 @@ async function enrichAllPropsAnalytics() {
           FROM games g
           WHERE g.id = ${prop.gameId}
         `);
-        
+
         const opponentId = gameData[0]?.opponent_id || null;
-        
+
         // Enrich analytics
         const analytics = await enrichPropAnalytics(
           prop.playerId,
           prop.teamId,
           prop.propType,
           prop.line,
-          opponentId
+          opponentId,
         );
-        
+
         // Update the prop with analytics data
-        await db.update(props)
+        await db
+          .update(props)
           .set({
             hitRateL5: analytics.hitRateL5,
             hitRateL10: analytics.hitRateL10,
@@ -242,22 +258,20 @@ async function enrichAllPropsAnalytics() {
             matchupGrade: analytics.matchupGrade,
             historicalAverage: analytics.historicalAverage,
             gamesTracked: analytics.gamesTracked,
-            updatedAt: new Date()
+            updatedAt: new Date(),
           })
           .where(eq(props.id, prop.id));
-        
+
         enrichedCount++;
         console.log(`✅ Enriched prop ${prop.id} (${enrichedCount}/${propsToEnrich.length})`);
-        
       } catch (error) {
         console.error(`❌ Error enriching prop ${prop.id}:`, error);
       }
     }
-    
+
     console.log(`🎉 Successfully enriched ${enrichedCount} props with analytics data`);
-    
   } catch (error) {
-    console.error('❌ Error enriching props analytics:', error);
+    console.error("❌ Error enriching props analytics:", error);
   } finally {
     await client.end();
   }

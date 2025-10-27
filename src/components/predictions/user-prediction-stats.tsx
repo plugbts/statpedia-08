@@ -1,24 +1,27 @@
-// @ts-nocheck
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Button } from '@/components/ui/button';
-import { 
-  Target, 
-  TrendingUp, 
-  TrendingDown, 
-  BarChart3, 
+import React, { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import {
+  Target,
+  TrendingUp,
+  TrendingDown,
+  BarChart3,
   Trophy,
   Eye,
   EyeOff,
   Settings,
   Star,
-  Minus
-} from 'lucide-react';
-import { predictionService, type UserPredictionStats, type UserPrivacySettings } from '@/services/prediction-service';
-import { KarmaExplanation } from './karma-explanation';
-import { useToast } from '@/hooks/use-toast';
+  Minus,
+} from "lucide-react";
+import {
+  predictionService,
+  type UserPredictionStats,
+  type UserPrivacySettings,
+} from "@/services/prediction-service";
+import { KarmaExplanation } from "./karma-explanation";
+import { useToast } from "@/hooks/use-toast";
 
 interface UserPredictionStatsProps {
   userId?: string;
@@ -27,7 +30,7 @@ interface UserPredictionStatsProps {
 
 export const UserPredictionStats: React.FC<UserPredictionStatsProps> = ({
   userId,
-  isOwnProfile = false
+  isOwnProfile = false,
 }) => {
   const [stats, setStats] = useState<UserPredictionStats | null>(null);
   const [privacySettings, setPrivacySettings] = useState<UserPrivacySettings | null>(null);
@@ -52,71 +55,71 @@ export const UserPredictionStats: React.FC<UserPredictionStatsProps> = ({
       const [statsData, privacyData, karmaData] = await Promise.all([
         predictionService.getUserPredictionStats(userId),
         isOwnProfile ? predictionService.getUserPrivacySettings() : Promise.resolve(null),
-        predictionService.getPredictionKarmaSummary(userId)
+        predictionService.getPredictionKarmaSummary(userId),
       ]);
-      
+
       setStats(statsData);
       setPrivacySettings(privacyData);
       setKarmaSummary(karmaData);
     } catch (error) {
-      console.error('Failed to load prediction stats:', error);
+      console.error("Failed to load prediction stats:", error);
       toast({
         title: "Error",
         description: "Failed to load prediction statistics",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handlePrivacyToggle = async (setting: 'hide_roi' | 'hide_prediction_stats') => {
+  const handlePrivacyToggle = async (setting: "hide_roi" | "hide_prediction_stats") => {
     if (!privacySettings) return;
 
     try {
       const newValue = !privacySettings[setting];
       const updatedSettings = await predictionService.updateUserPrivacySettings({
-        [setting]: newValue
+        [setting]: newValue,
       });
-      
+
       setPrivacySettings(updatedSettings);
-      
+
       toast({
         title: "Settings Updated",
-        description: `Privacy setting updated successfully`
+        description: `Privacy setting updated successfully`,
       });
     } catch (error: any) {
-      console.error('Failed to update privacy settings:', error);
+      console.error("Failed to update privacy settings:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to update privacy settings",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
 
   const getWinRateColor = (rate: number) => {
-    if (rate >= 60) return 'text-green-500';
-    if (rate >= 50) return 'text-yellow-500';
-    return 'text-red-500';
+    if (rate >= 60) return "text-green-500";
+    if (rate >= 50) return "text-yellow-500";
+    return "text-red-500";
   };
 
   const getWinRateBadge = (rate: number) => {
-    if (rate >= 60) return 'bg-green-500';
-    if (rate >= 50) return 'bg-yellow-500';
-    return 'bg-red-500';
+    if (rate >= 60) return "bg-green-500";
+    if (rate >= 50) return "bg-yellow-500";
+    return "bg-red-500";
   };
 
   const getROIColor = (roi: number) => {
-    if (roi > 0) return 'text-green-500';
-    if (roi < 0) return 'text-red-500';
-    return 'text-muted-foreground';
+    if (roi > 0) return "text-green-500";
+    if (roi < 0) return "text-red-500";
+    return "text-muted-foreground";
   };
 
   const getROIBadge = (roi: number) => {
-    if (roi > 0) return 'bg-green-500';
-    if (roi < 0) return 'bg-red-500';
-    return 'bg-muted';
+    if (roi > 0) return "bg-green-500";
+    if (roi < 0) return "bg-red-500";
+    return "bg-muted";
   };
 
   if (isLoading) {
@@ -149,9 +152,7 @@ export const UserPredictionStats: React.FC<UserPredictionStatsProps> = ({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center text-muted-foreground py-4">
-            No prediction data available
-          </div>
+          <div className="text-center text-muted-foreground py-4">No prediction data available</div>
         </CardContent>
       </Card>
     );
@@ -169,11 +170,7 @@ export const UserPredictionStats: React.FC<UserPredictionStatsProps> = ({
             Prediction Stats
           </CardTitle>
           {isOwnProfile && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowSettings(!showSettings)}
-            >
+            <Button variant="outline" size="sm" onClick={() => setShowSettings(!showSettings)}>
               <Settings className="w-4 h-4 mr-2" />
               Privacy
             </Button>
@@ -194,9 +191,13 @@ export const UserPredictionStats: React.FC<UserPredictionStatsProps> = ({
                 <Button
                   variant={privacySettings?.hide_roi ? "default" : "outline"}
                   size="sm"
-                  onClick={() => handlePrivacyToggle('hide_roi')}
+                  onClick={() => handlePrivacyToggle("hide_roi")}
                 >
-                  {privacySettings?.hide_roi ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {privacySettings?.hide_roi ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
                 </Button>
               </div>
               <div className="flex items-center justify-between">
@@ -207,9 +208,13 @@ export const UserPredictionStats: React.FC<UserPredictionStatsProps> = ({
                 <Button
                   variant={privacySettings?.hide_prediction_stats ? "default" : "outline"}
                   size="sm"
-                  onClick={() => handlePrivacyToggle('hide_prediction_stats')}
+                  onClick={() => handlePrivacyToggle("hide_prediction_stats")}
                 >
-                  {privacySettings?.hide_prediction_stats ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {privacySettings?.hide_prediction_stats ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
                 </Button>
               </div>
             </div>
@@ -259,17 +264,13 @@ export const UserPredictionStats: React.FC<UserPredictionStatsProps> = ({
                 </Badge>
               ) : (
                 <Badge className={getROIBadge(stats.roi_percentage)}>
-                  {stats.roi_percentage > 0 ? '+' : ''}{stats.roi_percentage.toFixed(1)}%
+                  {stats.roi_percentage > 0 ? "+" : ""}
+                  {stats.roi_percentage.toFixed(1)}%
                 </Badge>
               )}
             </div>
           </div>
-          {!shouldHideROI && (
-            <Progress 
-              value={Math.abs(stats.roi_percentage)} 
-              className="h-2"
-            />
-          )}
+          {!shouldHideROI && <Progress value={Math.abs(stats.roi_percentage)} className="h-2" />}
         </div>
 
         {/* Record Display */}
@@ -279,7 +280,9 @@ export const UserPredictionStats: React.FC<UserPredictionStatsProps> = ({
             {stats.correct_predictions}/{stats.total_predictions}
           </div>
           <div className="text-xs text-muted-foreground">
-            {stats.total_predictions > 0 ? `${stats.win_percentage.toFixed(1)}% win rate` : 'No predictions yet'}
+            {stats.total_predictions > 0
+              ? `${stats.win_percentage.toFixed(1)}% win rate`
+              : "No predictions yet"}
           </div>
         </div>
 
@@ -309,11 +312,17 @@ export const UserPredictionStats: React.FC<UserPredictionStatsProps> = ({
             </div>
             <div className="text-center p-2 bg-muted/50 rounded">
               <div className="text-sm text-muted-foreground">Net Karma Change</div>
-              <div className={`text-lg font-bold ${
-                karmaSummary.net_karma_change > 0 ? 'text-green-600' : 
-                karmaSummary.net_karma_change < 0 ? 'text-red-600' : 'text-muted-foreground'
-              }`}>
-                {karmaSummary.net_karma_change > 0 ? '+' : ''}{karmaSummary.net_karma_change}
+              <div
+                className={`text-lg font-bold ${
+                  karmaSummary.net_karma_change > 0
+                    ? "text-green-600"
+                    : karmaSummary.net_karma_change < 0
+                      ? "text-red-600"
+                      : "text-muted-foreground"
+                }`}
+              >
+                {karmaSummary.net_karma_change > 0 ? "+" : ""}
+                {karmaSummary.net_karma_change}
               </div>
             </div>
           </div>

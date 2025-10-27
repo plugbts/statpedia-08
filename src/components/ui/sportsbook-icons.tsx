@@ -1,5 +1,4 @@
-// @ts-nocheck
-import React from 'react';
+import React from "react";
 
 // Professional sportsbook icon components with authentic colors and compact design
 export const SportsbookIcons = {
@@ -89,21 +88,21 @@ export const SportsbookIcons = {
     <div className="w-5 h-5 bg-gradient-to-br from-gray-500 to-gray-700 rounded-sm flex items-center justify-center text-white text-[10px] font-extrabold shadow-sm border border-gray-400/30">
       {name.substring(0, 2).toUpperCase()}
     </div>
-  )
+  ),
 };
 
 // Map sportsbook keys to display names
 export const SportsbookNames = {
-  draftkings: 'DraftKings',
-  fanduel: 'FanDuel',
-  betmgm: 'BetMGM',
-  caesars: 'Caesars',
-  pointsbet: 'PointsBet',
-  barstool: 'Barstool',
-  betrivers: 'BetRivers',
-  unibet: 'Unibet',
-  wynnbet: 'WynnBET',
-  superbook: 'SuperBook'
+  draftkings: "DraftKings",
+  fanduel: "FanDuel",
+  betmgm: "BetMGM",
+  caesars: "Caesars",
+  pointsbet: "PointsBet",
+  barstool: "Barstool",
+  betrivers: "BetRivers",
+  unibet: "Unibet",
+  wynnbet: "WynnBET",
+  superbook: "SuperBook",
 };
 
 // Component to render sportsbook icon
@@ -113,21 +112,23 @@ interface SportsbookIconProps {
   showTooltip?: boolean;
 }
 
-export const SportsbookIcon: React.FC<SportsbookIconProps> = ({ 
-  sportsbookKey, 
-  className = "", 
-  showTooltip = true 
+export const SportsbookIcon: React.FC<SportsbookIconProps> = ({
+  sportsbookKey,
+  className = "",
+  showTooltip = true,
 }) => {
   // Handle undefined or null sportsbookKey
-  if (!sportsbookKey || typeof sportsbookKey !== 'string') {
+  if (!sportsbookKey || typeof sportsbookKey !== "string") {
     return null;
   }
-  
-  const IconComponent = SportsbookIcons[sportsbookKey as keyof typeof SportsbookIcons] || 
-                       (() => SportsbookIcons.generic(sportsbookKey));
-  
-  const displayName = SportsbookNames[sportsbookKey as keyof typeof SportsbookNames] || 
-                     (sportsbookKey.charAt(0)?.toUpperCase() || '') + sportsbookKey.slice(1);
+
+  const IconComponent =
+    SportsbookIcons[sportsbookKey as keyof typeof SportsbookIcons] ||
+    (() => SportsbookIcons.generic(sportsbookKey));
+
+  const displayName =
+    SportsbookNames[sportsbookKey as keyof typeof SportsbookNames] ||
+    (sportsbookKey.charAt(0)?.toUpperCase() || "") + sportsbookKey.slice(1);
 
   return (
     <div className={`inline-flex ${className}`} title={showTooltip ? displayName : undefined}>
@@ -144,27 +145,44 @@ interface SportsbookIconsListProps {
   onClick?: (sportsbooks: string[]) => void;
 }
 
-export const SportsbookIconsList: React.FC<SportsbookIconsListProps> = ({ 
-  sportsbooks, 
+export const SportsbookIconsList: React.FC<SportsbookIconsListProps> = ({
+  sportsbooks,
   maxVisible = 3, // Show only 3 most popular by default
   className = "",
-  onClick
+  onClick,
 }) => {
   // Handle undefined or null sportsbooks array
   if (!sportsbooks || !Array.isArray(sportsbooks)) {
     return null;
   }
-  
+
   // Remove duplicates and sort by popularity (most popular sportsbooks first)
-  const uniqueBooks = [...new Set(sportsbooks.filter(book => book && typeof book === 'string'))];
-  const popularityOrder = ['draftkings', 'fanduel', 'betmgm', 'caesars', 'pointsbet', 'espnbet', 'bet365', 'barstool', 'betrivers', 'unibet', 'wynnbet', 'superbook', 'bovada', 'hardrockbet', 'underdog', 'prizepicks'];
-  
+  const uniqueBooks = [...new Set(sportsbooks.filter((book) => book && typeof book === "string"))];
+  const popularityOrder = [
+    "draftkings",
+    "fanduel",
+    "betmgm",
+    "caesars",
+    "pointsbet",
+    "espnbet",
+    "bet365",
+    "barstool",
+    "betrivers",
+    "unibet",
+    "wynnbet",
+    "superbook",
+    "bovada",
+    "hardrockbet",
+    "underdog",
+    "prizepicks",
+  ];
+
   const sortedBooks = uniqueBooks.sort((a, b) => {
     const aIndex = popularityOrder.indexOf(a.toLowerCase());
     const bIndex = popularityOrder.indexOf(b.toLowerCase());
     return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
   });
-  
+
   const visibleBooks = sortedBooks.slice(0, maxVisible);
   const remainingCount = uniqueBooks.length - maxVisible;
 
@@ -175,8 +193,8 @@ export const SportsbookIconsList: React.FC<SportsbookIconsListProps> = ({
   };
 
   return (
-    <div 
-      className={`flex items-center space-x-1 ${onClick ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''} ${className}`}
+    <div
+      className={`flex items-center space-x-1 ${onClick ? "cursor-pointer hover:opacity-80 transition-opacity" : ""} ${className}`}
       onClick={handleClick}
     >
       {visibleBooks.map((book, index) => (

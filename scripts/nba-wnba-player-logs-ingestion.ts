@@ -2,25 +2,25 @@
 
 /**
  * NBA/WNBA Player Logs Ingestion System
- * 
+ *
  * This script implements resilient data ingestion for NBA/WNBA player game logs
  * with proper schema validation, error handling, and observability.
  */
 
-import { config } from 'dotenv';
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
-import { eq } from 'drizzle-orm';
-import { games, players, teams, player_game_logs } from '../src/db/schema/index';
-import { randomUUID } from 'crypto';
+import { config } from "dotenv";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import { eq } from "drizzle-orm";
+import { games, players, teams, player_game_logs } from "../src/db/schema/index";
+import { randomUUID } from "crypto";
 
 // Load environment variables
-config({ path: '.env.local' });
+config({ path: ".env.local" });
 
 // Database connection
 const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
 if (!connectionString) {
-  throw new Error('Database connection string not found. Please check your .env.local file.');
+  throw new Error("Database connection string not found. Please check your .env.local file.");
 }
 
 const sql = postgres(connectionString);
@@ -31,41 +31,42 @@ const db = drizzle(sql, { schema: { games, players, teams, player_game_logs } })
  */
 async function fetchWithRetry(url: string, retries = 3, customHeaders?: any): Promise<any> {
   const headers = customHeaders || {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Accept': 'application/json, text/plain, */*',
-    'Accept-Language': 'en-US,en;q=0.9',
-    'Referer': 'https://www.nba.com/',
-    'Origin': 'https://www.nba.com',
-    'Sec-Fetch-Dest': 'empty',
-    'Sec-Fetch-Mode': 'cors',
-    'Sec-Fetch-Site': 'same-site',
-    'Cache-Control': 'no-cache',
-    'Pragma': 'no-cache'
+    "User-Agent":
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    Accept: "application/json, text/plain, */*",
+    "Accept-Language": "en-US,en;q=0.9",
+    Referer: "https://www.nba.com/",
+    Origin: "https://www.nba.com",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-site",
+    "Cache-Control": "no-cache",
+    Pragma: "no-cache",
   };
 
   for (let i = 0; i < retries; i++) {
     try {
       console.log(`Fetching: ${url} (attempt ${i + 1}/${retries})`);
       const res = await fetch(url, { headers });
-      
+
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       }
-      
+
       const data = await res.json();
       console.log(`✅ Successfully fetched data from ${url}`);
       return data;
     } catch (error: any) {
       console.error(`❌ Attempt ${i + 1} failed:`, error.message);
-      
+
       if (i === retries - 1) {
         throw error;
       }
-      
+
       // Exponential backoff: 1s, 2s, 4s
       const delay = 1000 * Math.pow(2, i);
       console.log(`⏳ Waiting ${delay}ms before retry...`);
-      await new Promise(resolve => setTimeout(resolve, delay));
+      await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
 }
@@ -74,14 +75,14 @@ async function fetchWithRetry(url: string, retries = 3, customHeaders?: any): Pr
  * Resolve game UUID by api_game_id
  */
 async function getGameUUID(db: any, apiGameId: string): Promise<string> {
-  const game = await db.query.games.findFirst({ 
-    where: eq(games.api_game_id, apiGameId) 
+  const game = await db.query.games.findFirst({
+    where: eq(games.api_game_id, apiGameId),
   });
-  
+
   if (!game) {
     throw new Error(`Game ${apiGameId} not found`);
   }
-  
+
   return game.id;
 }
 
@@ -89,34 +90,37 @@ async function getGameUUID(db: any, apiGameId: string): Promise<string> {
  * Upsert player by external_id (NBA/WNBA numeric ID)
  */
 async function getOrCreatePlayer(
-  db: any, 
-  extId: string, 
-  name: string, 
-  league: string, 
-  teamId?: string
+  db: any,
+  extId: string,
+  name: string,
+  league: string,
+  teamId?: string,
 ): Promise<string> {
   // First try to find existing player by external_id
-  const existingPlayer = await db.query.players.findFirst({ 
-    where: eq(players.external_id, extId) 
+  const existingPlayer = await db.query.players.findFirst({
+    where: eq(players.external_id, extId),
   });
-  
+
   if (existingPlayer) {
     return existingPlayer.id;
   }
-  
+
   // Create new player
   const newPlayerId = randomUUID();
-  const inserted = await db.insert(players).values({
-    id: newPlayerId,
-    external_id: extId,
-    name: name,
-    position: 'Unknown', // Will be updated later
-    status: 'Active',
-    team_id: teamId || null,
-    created_at: new Date(),
-    updated_at: new Date()
-  }).returning({ id: players.id });
-  
+  const inserted = await db
+    .insert(players)
+    .values({
+      id: newPlayerId,
+      external_id: extId,
+      name: name,
+      position: "Unknown", // Will be updated later
+      status: "Active",
+      team_id: teamId || null,
+      created_at: new Date(),
+      updated_at: new Date(),
+    })
+    .returning({ id: players.id });
+
   console.log(`✅ Created new player: ${name} (${extId})`);
   return inserted[0].id;
 }
@@ -130,11 +134,11 @@ async function resolveTeamId(db: any, league: string, apiAbbrev: string): Promis
     WHERE league = ${league} AND api_abbrev = ${apiAbbrev} 
     LIMIT 1
   `;
-  
+
   if (!result[0]) {
     throw new Error(`Missing team mapping ${league}:${apiAbbrev}`);
   }
-  
+
   return result[0].team_id;
 }
 
@@ -148,7 +152,7 @@ async function insertPlayerLog(
   playerName: string,
   league: string,
   teamAbbrev: string,
-  stats: any
+  stats: any,
 ): Promise<void> {
   try {
     const gameId = await getGameUUID(db, apiGameId);
@@ -156,32 +160,35 @@ async function insertPlayerLog(
     const playerId = await getOrCreatePlayer(db, apiPlayerId, playerName, league, teamId);
 
     // Insert player game log
-    await db.insert(player_game_logs).values({
-      id: randomUUID(),
-      player_id: playerId,
-      team_id: teamId,
-      game_id: gameId,
-      opponent_id: teamId, // Use same team for now, will be fixed later
-      prop_type: 'Game Stats', // Generic prop type for now
-      line: 0, // Not applicable for raw stats
-      actual_value: stats.PTS || 0, // Use points as primary metric
-      hit: false, // Not applicable for raw stats
-      game_date: '2024-10-14', // Will be populated from game data
-      season: '2024-25', // Will be dynamic
-      home_away: 'home' as const, // Will be determined from game context
-      created_at: new Date(),
-      updated_at: new Date()
-    }).onConflictDoNothing(); // Safe after uniqueness index exists
+    await db
+      .insert(player_game_logs)
+      .values({
+        id: randomUUID(),
+        player_id: playerId,
+        team_id: teamId,
+        game_id: gameId,
+        opponent_id: teamId, // Use same team for now, will be fixed later
+        prop_type: "Game Stats", // Generic prop type for now
+        line: 0, // Not applicable for raw stats
+        actual_value: stats.PTS || 0, // Use points as primary metric
+        hit: false, // Not applicable for raw stats
+        game_date: "2024-10-14", // Will be populated from game data
+        season: "2024-25", // Will be dynamic
+        home_away: "home" as const, // Will be determined from game context
+        created_at: new Date(),
+        updated_at: new Date(),
+      })
+      .onConflictDoNothing(); // Safe after uniqueness index exists
 
     console.log(`✅ Inserted player log: ${playerName} (${apiPlayerId}) for game ${apiGameId}`);
   } catch (err: any) {
-    console.error('❌ Player log insert failed', {
-      apiGameId, 
-      apiPlayerId, 
-      playerName, 
-      league, 
+    console.error("❌ Player log insert failed", {
+      apiGameId,
+      apiPlayerId,
+      playerName,
+      league,
       teamAbbrev,
-      error: err.message
+      error: err.message,
     });
     throw err;
   }
@@ -190,47 +197,48 @@ async function insertPlayerLog(
 /**
  * Fetch and parse boxscoretraditionalv2 for one game
  */
-async function ingestGameBoxscore(db: any, apiGameId: string, league = 'NBA'): Promise<void> {
+async function ingestGameBoxscore(db: any, apiGameId: string, league = "NBA"): Promise<void> {
   console.log(`\n🎯 Starting ingestion for game ${apiGameId} (${league})`);
-  
+
   try {
     // Use appropriate API endpoint based on league
-    const baseUrl = league === 'WNBA' 
-      ? 'https://stats.wnba.com/stats'
-      : 'https://stats.nba.com/stats';
-    
-    const requestHeaders = league === 'WNBA' 
-      ? {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-          'Accept': 'application/json, text/plain, */*',
-          'Referer': 'https://www.wnba.com/',
-          'Origin': 'https://www.wnba.com'
-        }
-      : {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'application/json, text/plain, */*',
-          'Accept-Language': 'en-US,en;q=0.9',
-          'Referer': 'https://www.nba.com/',
-          'Origin': 'https://www.nba.com',
-          'Sec-Fetch-Dest': 'empty',
-          'Sec-Fetch-Mode': 'cors',
-          'Sec-Fetch-Site': 'same-site',
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
-        };
+    const baseUrl =
+      league === "WNBA" ? "https://stats.wnba.com/stats" : "https://stats.nba.com/stats";
+
+    const requestHeaders =
+      league === "WNBA"
+        ? {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+            Accept: "application/json, text/plain, */*",
+            Referer: "https://www.wnba.com/",
+            Origin: "https://www.wnba.com",
+          }
+        : {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            Accept: "application/json, text/plain, */*",
+            "Accept-Language": "en-US,en;q=0.9",
+            Referer: "https://www.nba.com/",
+            Origin: "https://www.nba.com",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-site",
+            "Cache-Control": "no-cache",
+            Pragma: "no-cache",
+          };
 
     const data = await fetchWithRetry(
       `${baseUrl}/boxscoretraditionalv2?GameID=${apiGameId}&StartPeriod=0&EndPeriod=14`,
       3,
-      requestHeaders
+      requestHeaders,
     );
 
-    const playerSet = data.resultSets.find((s: any) => 
-      (s.name || '').toLowerCase().includes('player')
+    const playerSet = data.resultSets.find((s: any) =>
+      (s.name || "").toLowerCase().includes("player"),
     );
-    
+
     if (!playerSet) {
-      throw new Error('No player data found in response');
+      throw new Error("No player data found in response");
     }
 
     const headers = playerSet.headers;
@@ -241,7 +249,7 @@ async function ingestGameBoxscore(db: any, apiGameId: string, league = 'NBA'): P
     // Convert rows to objects
     const toObj = (row: any[]) => {
       const o: any = {};
-      headers.forEach((h: string, i: number) => o[h] = row[i]);
+      headers.forEach((h: string, i: number) => (o[h] = row[i]));
       return o;
     };
 
@@ -253,7 +261,7 @@ async function ingestGameBoxscore(db: any, apiGameId: string, league = 'NBA'): P
       const teamAbbrev = player.TEAM_ABBREVIATION;
 
       // Skip if player didn't play
-      if (!player.MIN || player.MIN === '') {
+      if (!player.MIN || player.MIN === "") {
         continue;
       }
 
@@ -264,7 +272,7 @@ async function ingestGameBoxscore(db: any, apiGameId: string, league = 'NBA'): P
         AST: player.AST,
         STL: player.STL,
         BLK: player.BLK,
-        TOV: player.TOV
+        TOV: player.TOV,
       });
 
       processed++;
@@ -280,9 +288,9 @@ async function ingestGameBoxscore(db: any, apiGameId: string, league = 'NBA'): P
 /**
  * Process games sequentially with throttling and metrics
  */
-async function ingestAllGames(db: any, gameIds: string[], league = 'NBA'): Promise<void> {
+async function ingestAllGames(db: any, gameIds: string[], league = "NBA"): Promise<void> {
   console.log(`\n🚀 Starting batch ingestion for ${gameIds.length} games (${league})`);
-  
+
   let inserted = 0;
   let failed = 0;
   const startTime = Date.now();
@@ -297,7 +305,7 @@ async function ingestAllGames(db: any, gameIds: string[], league = 'NBA'): Promi
     }
 
     // Throttle requests to avoid rate limiting
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   }
 
   const duration = Date.now() - startTime;
@@ -306,16 +314,16 @@ async function ingestAllGames(db: any, gameIds: string[], league = 'NBA'): Promi
     inserted,
     failed,
     duration: `${(duration / 1000).toFixed(1)}s`,
-    avgTimePerGame: `${(duration / gameIds.length / 1000).toFixed(1)}s`
+    avgTimePerGame: `${(duration / gameIds.length / 1000).toFixed(1)}s`,
   });
 }
 
 /**
  * Single-game debug harness
  */
-async function debugSingleGame(apiGameId: string, league = 'NBA'): Promise<void> {
+async function debugSingleGame(apiGameId: string, league = "NBA"): Promise<void> {
   console.log(`🔍 Debug mode: Testing single game ${apiGameId}`);
-  
+
   try {
     await ingestGameBoxscore(db, apiGameId, league);
     console.log(`✅ Debug test successful for game ${apiGameId}`);
@@ -332,24 +340,25 @@ async function main() {
   const args = process.argv.slice(2);
   const command = args[0];
   const gameId = args[1];
-  const league = args[2] || 'NBA';
+  const league = args[2] || "NBA";
 
   try {
     switch (command) {
-      case 'debug':
+      case "debug":
         if (!gameId) {
-          throw new Error('Game ID required for debug mode');
+          throw new Error("Game ID required for debug mode");
         }
         await debugSingleGame(gameId, league);
         break;
 
-      case 'batch':
+      case "batch": {
         if (!gameId) {
-          throw new Error('Comma-separated game IDs required for batch mode');
+          throw new Error("Comma-separated game IDs required for batch mode");
         }
-        const gameIds = gameId.split(',').map(id => id.trim());
+        const gameIds = gameId.split(",").map((id) => id.trim());
         await ingestAllGames(db, gameIds, league);
         break;
+      }
 
       default:
         console.log(`
@@ -363,7 +372,7 @@ Examples:
         `);
     }
   } catch (error: any) {
-    console.error('❌ Fatal error:', error.message);
+    console.error("❌ Fatal error:", error.message);
     process.exit(1);
   } finally {
     await sql.end();
@@ -383,5 +392,5 @@ export {
   ingestGameBoxscore,
   ingestAllGames,
   debugSingleGame,
-  fetchWithRetry
+  fetchWithRetry,
 };
