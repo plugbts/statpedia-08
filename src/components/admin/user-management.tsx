@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -91,18 +90,9 @@ export function UserManagement() {
     reason: ''
   });
   const { toast } = useToast();
-
-  // Check if user has admin access
-  if (!validateUserAccess('admin')) {
-    return (
-      <Alert className="border-destructive">
-        <AlertTriangle className="h-4 w-4" />
-        <AlertDescription>
-          You don't have permission to access user management.
-        </AlertDescription>
-      </Alert>
-    );
-  }
+  
+  // Check if user has admin access - must happen after hooks
+  const hasAdminAccess = validateUserAccess('admin');
 
   useEffect(() => {
     loadUsers();
@@ -184,10 +174,7 @@ export function UserManagement() {
         }
         
         // Ensure username is consistent with social tab format
-        if (username && !username.startsWith('@')) {
-          // Username should not have @ prefix in data, but display with @
-          username = username;
-        }
+        // (username should not have @ prefix in data, but display with @)
         
         return {
           id: profile.user_id,
@@ -695,6 +682,18 @@ export function UserManagement() {
       <div className="flex items-center justify-center p-8">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
       </div>
+    );
+  }
+  
+  // Check admin access - render after hooks are called
+  if (!hasAdminAccess) {
+    return (
+      <Alert className="border-destructive">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertDescription>
+          You don't have permission to access user management.
+        </AlertDescription>
+      </Alert>
     );
   }
 

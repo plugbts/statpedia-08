@@ -653,12 +653,13 @@ export function PlayerPropsColumnView({
     let bValue = 0;
 
     switch (sortBy) {
-      case 'statpediaRating':
+      case 'statpediaRating': {
         const aRating = statpediaRatingService.calculateRating(a, overUnderFilter);
         const bRating = statpediaRatingService.calculateRating(b, overUnderFilter);
         aValue = aRating.overall;
         bValue = bRating.overall;
         break;
+      }
       case 'expectedValue':
         aValue = a.expectedValue || 0;
         bValue = b.expectedValue || 0;
@@ -675,11 +676,12 @@ export function PlayerPropsColumnView({
         aValue = a.playerName.localeCompare(b.playerName);
         bValue = 0;
         break;
-      case 'order':
+      case 'order': {
         // Sort by prop priority order
         const aPriority = getPropPriority(a.propType);
         const bPriority = getPropPriority(b.propType);
         return aPriority - bPriority;
+      }
       default:
         aValue = a.confidence || 0;
         bValue = b.confidence || 0;

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,9 +29,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { UserDisplay } from '@/components/ui/user-display';
 
-interface SupportCenterProps {
-  // No props needed - using useAuth hook
-}
+type SupportCenterProps = Record<string, never>;
 
 interface Message {
   id: string;
