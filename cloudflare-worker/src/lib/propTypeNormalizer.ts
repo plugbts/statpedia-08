@@ -160,11 +160,11 @@ export function normalizePropType(rawPropType: string): string {
   if (lowerKey === 'doubles' || lowerKey === 'double') return 'doubles';
   if (lowerKey === 'triples' || lowerKey === 'triple') return 'triples';
   if (lowerKey === 'hits' || lowerKey === 'hit') return 'hits';
-  if (lowerKey === 'home_runs' || lowerKey === 'homeruns' || lowerKey === 'hr') return 'home_runs';
+  if (lowerKey === 'home_runs' || lowerKey === 'homeruns' || lowerKey === 'home runs' || lowerKey === 'hr') return 'home_runs';
   if (lowerKey === 'rbis' || lowerKey === 'rbi') return 'rbi';
   if (lowerKey === 'runs' || lowerKey === 'run') return 'runs';
   if (lowerKey === 'walks' || lowerKey === 'walk' || lowerKey === 'bb') return 'walks';
-  if (lowerKey === 'stolen_bases' || lowerKey === 'stolenbases' || lowerKey === 'sb') return 'stolen_bases';
+  if (lowerKey === 'stolen_bases' || lowerKey === 'stolenbases' || lowerKey === 'stolen bases' || lowerKey === 'sb') return 'stolen_bases';
   
   // Default: return normalized version
   return rawPropType.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
