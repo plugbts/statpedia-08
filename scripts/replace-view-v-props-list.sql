@@ -135,7 +135,7 @@ SELECT
   COALESCE(pes.h2h_avg, pa_ev.h2h_avg) AS h2h_avg,
   COALESCE(pes.season_avg, pa_ev.season_avg) AS season_avg,
   COALESCE(pes.matchup_rank, pa_ev.matchup_rank) AS matchup_rank,
-  COALESCE(pes.rating, pa_ev.rating) AS rating,
+  pes.rating AS rating,
   COALESCE(pes.streak_l5, 0) AS current_streak,
   
   -- legacy analytics fields for backward compatibility
@@ -214,6 +214,5 @@ CROSS JOIN LATERAL (
     COALESCE(pa_exact.l20, pa_latest.l20) AS l20,
     COALESCE(pa_exact.h2h_avg, pa_latest.h2h_avg) AS h2h_avg,
     COALESCE(pa_exact.season_avg, pa_latest.season_avg) AS season_avg,
-    COALESCE(pa_exact.matchup_rank, pa_latest.matchup_rank) AS matchup_rank,
-    COALESCE(pa_exact.rating, pa_latest.rating) AS rating
+    COALESCE(pa_exact.matchup_rank, pa_latest.matchup_rank) AS matchup_rank
 ) pa_ev;
