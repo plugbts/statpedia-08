@@ -5,11 +5,12 @@
 
 CREATE OR REPLACE VIEW public.v_props_list AS
 WITH
-  -- Derive league_code once for reuse
+  -- Derive league_code and season once for reuse
   league_info AS (
     SELECT
       g.id AS game_id,
-      LOWER(COALESCE(l.abbreviation, l.code)) AS league_code
+      LOWER(COALESCE(l.abbreviation, l.code)) AS league_code,
+      EXTRACT(YEAR FROM g.game_date)::text AS season
     FROM public.games g
     JOIN public.leagues l ON l.id = g.league_id
   ),
@@ -117,7 +118,7 @@ SELECT
   pp.under_odds_american,
   
   -- analytics fields with fallbacks (pes first, then pa_ev)
-  COALESCE(pes.ev_percent, pa_ev.ev_percent)::numeric(8,3) AS ev_percent,
+  COALESCE(pes.ev_percent::numeric(8,3), pa_ev.ev_percent::numeric(8,3)) AS ev_percent,
   COALESCE(pes.l5, pa_ev.l5) AS l5,
   COALESCE(pes.l10, pa_ev.l10) AS l10,
   COALESCE(pes.l20, pa_ev.l20) AS l20,
@@ -182,7 +183,7 @@ LEFT JOIN public.player_enriched_stats pes
 LEFT JOIN public.player_analytics pa_exact
   ON pa_exact.player_id = pp.player_id
   AND pa_exact.prop_type = pt.name
-  AND pa_exact.season = EXTRACT(YEAR FROM g.game_date)::text
+  AND pa_exact.season = li.season
 
 -- player_analytics latest season fallback (only if no exact match)
 LEFT JOIN LATERAL (
