@@ -101,7 +101,7 @@ SELECT
   ROUND(AVG(CASE WHEN l5 IS NOT NULL THEN 1 ELSE 0 END) * 100, 2) as l5_populated,
   ROUND(AVG(CASE WHEN l10 IS NOT NULL THEN 1 ELSE 0 END) * 100, 2) as l10_populated,
   ROUND(AVG(CASE WHEN l20 IS NOT NULL THEN 1 ELSE 0 END) * 100, 2) as l20_populated,
-  ROUND(AVG(CASE WHEN current_streak != 0 THEN 1 ELSE 0 END) * 100, 2) as has_streak
+  ROUND(AVG(CASE WHEN current_streak IS NOT NULL THEN 1 ELSE 0 END) * 100, 2) as has_streak
 FROM v_props_list
 GROUP BY league
 ORDER BY league;
