@@ -6,8 +6,8 @@ CREATE OR REPLACE VIEW public.v_props_list AS
 SELECT
   pp.id,
   COALESCE(p.full_name, p.name) AS full_name,
-  team_abbrev,
-  opponent_abbrev,
+  abbrevs.team_abbrev AS team,
+  abbrevs.opponent_abbrev AS opponent,
   pt.name AS market,
   pp.line,
   COALESCE(pp.odds_american, CASE WHEN pp.odds ~ '^[+-]\\d+$' THEN CAST(REPLACE(pp.odds, '+', '') AS INT) ELSE NULL END) AS odds_american,
@@ -15,17 +15,17 @@ SELECT
   pp.under_odds_american,
   COALESCE(l.abbreviation, l.code)::text AS league,
   g.game_date,
-  team_logo,
-  opponent_logo,
-  ev_percent,
-  l5,
-  l10,
-  l20,
-  h2h_avg,
-  season_avg,
-  matchup_rank,
-  rating,
-  current_streak
+  logos.team_logo,
+  logos.opponent_logo,
+  analytics.ev_percent,
+  analytics.l5,
+  analytics.l10,
+  analytics.l20,
+  analytics.h2h_avg,
+  analytics.season_avg,
+  analytics.matchup_rank,
+  analytics.rating,
+  analytics.current_streak
 FROM public.player_props pp
 JOIN public.players p ON p.id = pp.player_id
 JOIN public.prop_types pt ON pt.id = pp.prop_type_id
