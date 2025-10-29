@@ -74,7 +74,7 @@ SELECT
   COALESCE(pes.season_avg, pa_ev.season_avg) AS season_avg,
   COALESCE(pes.matchup_rank, pa_ev.matchup_rank) AS matchup_rank,
   COALESCE(pes.rating, pa_ev.rating) AS rating,
-  COALESCE(pes.streak_l5, 0) AS current_streak,
+  COALESCE(pes.current_streak, 0) AS current_streak,
   
   -- League and game date
   COALESCE(l.abbreviation, l.code)::text AS league,
