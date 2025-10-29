@@ -105,7 +105,8 @@
     "backfill:clean-unk:dry-run": "tsx scripts/backfill-clean-unk-values.ts --dry-run",
     "backfill:clean-unk:delete": "tsx scripts/backfill-clean-unk-values.ts --delete-unresolvable",
     "monitor:unk": "tsx scripts/monitor-unk-blocking.ts",
-    "db:check-unk": "tsx scripts/monitor-unk-blocking.ts"
+    "db:check-unk": "tsx scripts/monitor-unk-blocking.ts",
+    "test:unk-prevention": "tsx scripts/test-unk-prevention.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
