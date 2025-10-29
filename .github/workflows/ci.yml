@@ -62,3 +62,7 @@ jobs:
 
       - name: Run debug dashboard (Neon)
         run: node scripts/ci-debug-pipeline.mjs
+
+      - name: Monitor for UNK values
+        run: npx tsx scripts/monitor-unk-blocking.ts
+        continue-on-error: false

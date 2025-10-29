@@ -59,6 +59,55 @@ This project is built with:
 - React
 - shadcn-ui
 - Tailwind CSS
+- Drizzle ORM
+- PostgreSQL (Neon)
+- GitHub Actions
+
+## 🔒 Data Quality & UNK Prevention System
+
+This project includes a comprehensive system to prevent `UNK` and `-` values from entering the database. The system provides multi-layered protection:
+
+### Quick Start
+
+```bash
+# Validate data before ingestion
+npm run validate:ingestion
+
+# Check for UNK values in database
+npm run monitor:unk
+
+# Clean existing UNK values
+npm run backfill:clean-unk:dry-run  # Preview changes
+npm run backfill:clean-unk:delete   # Execute cleanup
+
+# Run integration tests
+npm run test:unk-prevention
+```
+
+### Features
+
+- ✅ **Database Constraints** - CHECK constraints prevent UNK/dash values at insertion
+- ✅ **Pre-Ingestion Validation** - Validate data before it reaches the database
+- ✅ **Automated Cleanup** - Scripts to find and remove existing bad data
+- ✅ **Continuous Monitoring** - Automatic checks in CI/CD pipeline
+- ✅ **Comprehensive Testing** - Integration tests verify system works correctly
+
+### Documentation
+
+- [`UNK_PREVENTION_GUIDE.md`](UNK_PREVENTION_GUIDE.md) - Complete usage guide
+- [`IMPLEMENTATION_SUMMARY.md`](IMPLEMENTATION_SUMMARY.md) - Technical implementation details
+- [`db/migrations/0005_prevent_unk_values.sql`](db/migrations/0005_prevent_unk_values.sql) - Database constraints
+
+### Architecture
+
+The system implements defense in depth:
+
+1. **Layer 1**: Pre-validation catches bad data before database
+2. **Layer 2**: Database constraints enforce data quality
+3. **Layer 3**: Continuous monitoring detects any issues
+4. **Layer 4**: CI/CD integration blocks bad deployments
+
+See the documentation for complete details on implementation and usage.
 
 ## How can I deploy this project?
 
