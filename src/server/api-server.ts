@@ -538,8 +538,8 @@ function requireAccess(feature: import("../lib/auth/access").FeatureId) {
   };
 }
 
-// Player props: normalized with best odds
-app.get("/api/props", requireAccess("analytics"), async (req, res) => {
+// Player props: normalized with best odds (public endpoint - no auth required for basic access)
+app.get("/api/props", async (req, res) => {
   try {
     const sport = (req.query.sport as string) || "nfl";
     const limit = Number(req.query.limit || 200);
@@ -551,8 +551,8 @@ app.get("/api/props", requireAccess("analytics"), async (req, res) => {
   }
 });
 
-// Player props best list by side
-app.get("/api/props/best", requireAccess("analytics"), async (req, res) => {
+// Player props best list by side (public endpoint - no auth required for basic access)
+app.get("/api/props/best", async (req, res) => {
   try {
     const sport = (req.query.sport as string) || "nfl";
     const side = ((req.query.side as string) || "over").toLowerCase();
