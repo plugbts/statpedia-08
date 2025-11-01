@@ -359,18 +359,94 @@ async function normalizeAndInsert(
       }
     }
   } else if (league === "NFL") {
+    // ESPN NFL API structure: boxscore.players[].statistics[]
+    // Each statGroup has: name (e.g. "passing"), labels (e.g. ["C/ATT", "YDS", ...]), athletes[].stats[]
     const teamsData = payload?.boxscore?.players || [];
+
     for (const team of teamsData) {
-      const teamAbbr = team?.team?.abbrev;
-      for (const g of team?.groups || []) {
-        for (const a of g?.athletes || []) {
-          norm.push({
-            player_ext: String(a?.athlete?.id),
-            team_abbrev: String(teamAbbr || ""),
-            opponent_abbrev: "",
-            prop_type: "Yards",
-            value: Number(a?.stats?.[0]?.value || 0),
-            player_name: a?.athlete?.displayName || a?.athlete?.shortName || undefined,
+      const teamAbbr = team?.team?.abbreviation || team?.team?.abbrev;
+      const statGroups = team?.statistics || [];
+
+      for (const statGroup of statGroups) {
+        const category = statGroup.name; // "passing", "rushing", "receiving", etc.
+        const labels = statGroup.labels || [];
+        const athletes = statGroup.athletes || [];
+
+        // Map stat categories to prop types
+        const propTypeMapping: Record<string, Record<string, string>> = {
+          passing: {
+            YDS: "Passing Yards",
+            TD: "Passing TDs",
+            INT: "Passing Interceptions",
+            "C/ATT": "Passing Completions",
+          },
+          rushing: {
+            CAR: "Rushing Attempts",
+            YDS: "Rushing Yards",
+            TD: "Rushing TDs",
+          },
+          receiving: {
+            REC: "Receptions",
+            YDS: "Receiving Yards",
+            TD: "Receiving TDs",
+            TGTS: "Receiving Targets",
+          },
+          defensive: {
+            TOT: "Total Tackles",
+            SOLO: "Solo Tackles",
+            SACKS: "Sacks",
+            INT: "Interceptions",
+          },
+          kicking: {
+            FG: "Field Goals Made",
+            "FG%": "Field Goal Percentage",
+            XP: "Extra Points Made",
+            PTS: "Kicking Points",
+          },
+        };
+
+        const categoryMappings = propTypeMapping[category];
+        if (!categoryMappings) continue; // Skip fumbles, returns, etc.
+
+        for (const athlete of athletes) {
+          const playerId = athlete?.athlete?.id;
+          const playerName = athlete?.athlete?.displayName || athlete?.athlete?.shortName;
+          const stats = athlete?.stats || [];
+
+          if (!playerId || !playerName) continue;
+
+          // Extract each stat based on label mapping
+          labels.forEach((label: string, idx: number) => {
+            const propType = categoryMappings[label];
+            if (!propType) return; // Skip unmapped stats
+
+            const rawValue = stats[idx];
+            if (rawValue === undefined || rawValue === null) return;
+
+            // Parse value (handle formats like "12/18" for completions, "5-46" for sacks)
+            let value = 0;
+            if (typeof rawValue === "string") {
+              // Handle compound stats like "12/18" - extract first number (completions)
+              if (rawValue.includes("/")) {
+                value = Number(rawValue.split("/")[0]) || 0;
+              } else if (rawValue.includes("-")) {
+                // Handle "5-46" format - extract first number (sack count)
+                value = Number(rawValue.split("-")[0]) || 0;
+              } else {
+                value = Number(rawValue) || 0;
+              }
+            } else {
+              value = Number(rawValue) || 0;
+            }
+
+            norm.push({
+              player_ext: String(playerId),
+              team_abbrev: String(teamAbbr || ""),
+              opponent_abbrev: "", // Will be resolved later
+              prop_type: propType,
+              value: value,
+              player_name: playerName,
+            });
           });
         }
       }
