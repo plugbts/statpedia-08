@@ -42,42 +42,52 @@ import '@/styles/streak-animations.css';
 // Using shared utility functions from prop-type-formatter.ts
 
 // Team logo component with better fallback handling
-const TeamLogo = ({ team, teamAbbr, sport = 'nfl' }: { team: string, teamAbbr: string, sport?: string }) => {
+const TeamLogo = ({ team, teamAbbr, sport = 'nfl', teamLogo }: { 
+  team: string, 
+  teamAbbr: string, 
+  sport?: string,
+  teamLogo?: string 
+}) => {
   const finalTeamAbbr = getTeamAbbreviation(team, teamAbbr);
 
   const getTeamLogoUrl = (teamAbbr: string, sport: string) => {
     // Return team logo URL based on sport and team abbreviation
     const baseUrl = 'https://a.espncdn.com/i/teamlogos';
+    const sportLower = sport.toLowerCase();
     
-    if (sport.toLowerCase() === 'nfl') {
+    if (sportLower === 'nfl') {
       return `${baseUrl}/nfl/500/${teamAbbr.toLowerCase()}.png`;
-    } else if (sport.toLowerCase() === 'nba') {
+    } else if (sportLower === 'nba') {
       return `${baseUrl}/nba/500/${teamAbbr.toLowerCase()}.png`;
-    } else if (sport.toLowerCase() === 'mlb') {
+    } else if (sportLower === 'mlb') {
       return `${baseUrl}/mlb/500/${teamAbbr.toLowerCase()}.png`;
-    } else if (sport.toLowerCase() === 'nhl') {
+    } else if (sportLower === 'nhl') {
       return `${baseUrl}/nhl/500/${teamAbbr.toLowerCase()}.png`;
     }
     
-    return `${baseUrl}/nfl/500/${teamAbbr.toLowerCase()}.png`; // Default to NFL
+    // Default to NFL
+    return `${baseUrl}/nfl/500/${teamAbbr.toLowerCase()}.png`;
   };
 
-  // Don't show logo if abbreviation is UNK
-  if (finalTeamAbbr === 'UNK') {
+  // Don't show logo if abbreviation is UNK or empty
+  if (!finalTeamAbbr || finalTeamAbbr === 'UNK' || finalTeamAbbr === '—') {
     return (
       <div className="flex flex-col items-center gap-1">
         <div className="w-6 h-6 rounded bg-muted flex items-center justify-center">
           <span className="text-xs font-medium text-muted-foreground">?</span>
         </div>
-        <span className="text-xs font-medium text-muted-foreground">UNK</span>
+        <span className="text-xs font-medium text-muted-foreground">—</span>
       </div>
     );
   }
 
+  // Use provided teamLogo URL if available, otherwise construct from ESPN
+  const logoUrl = teamLogo || getTeamLogoUrl(finalTeamAbbr, sport);
+
   return (
     <div className="flex flex-col items-center gap-1">
       <img 
-        src={getTeamLogoUrl(finalTeamAbbr, sport)} 
+        src={logoUrl} 
         alt={finalTeamAbbr}
         className="w-6 h-6 object-contain"
         onError={(e) => {
@@ -85,9 +95,9 @@ const TeamLogo = ({ team, teamAbbr, sport = 'nfl' }: { team: string, teamAbbr: s
           target.style.display = 'none';
           // Show fallback icon when image fails to load
           const parent = target.parentElement;
-          if (parent) {
+          if (parent && !parent.querySelector('.fallback-icon')) {
             const fallback = document.createElement('div');
-            fallback.className = 'w-6 h-6 rounded bg-muted flex items-center justify-center';
+            fallback.className = 'w-6 h-6 rounded bg-muted flex items-center justify-center fallback-icon';
             fallback.innerHTML = '<span class="text-xs font-medium text-muted-foreground">?</span>';
             parent.appendChild(fallback);
           }
@@ -981,8 +991,9 @@ export function PlayerPropsColumnView({
                   <div className="w-20 text-center px-2">
          <TeamLogo 
            team={prop.team || ''} 
-           teamAbbr={prop.teamAbbr || prop.team || '—'} 
-           sport={selectedSport} 
+           teamAbbr={prop.teamAbbr || (prop as any).team_abbr || prop.team || '—'} 
+           sport={prop.sport || selectedSport}
+           teamLogo={(prop as any).team_logo || (prop as any).teamLogo || prop.homeTeamLogo || prop.awayTeamLogo}
          />
        </div>
 
@@ -1003,9 +1014,25 @@ export function PlayerPropsColumnView({
                   {/* Odds */}
                   <div className="w-20 text-center px-2">
                     <div className={`text-xs font-semibold transition-colors duration-200 ${
-                      overUnderFilter === 'over' ? 'text-green-500 group-hover:text-green-400' : 
-                      overUnderFilter === 'under' ? 'text-red-500 group-hover:text-red-400' : 
-                      'text-foreground group-hover:text-primary/90'
+                      (() => {
+                        const oddsValue = overUnderFilter === 'over' 
+                          ? (prop.best_over || prop.overOdds)
+                          : overUnderFilter === 'under' 
+                            ? (prop.best_under || prop.underOdds)
+                            : (prop.best_over || prop.overOdds);
+                        
+                        // Use the odds color class utility for consistent coloring
+                        const colorClass = getOddsColorClass(oddsValue);
+                        
+                        // Override with filter-specific colors if needed
+                        if (overUnderFilter === 'over') {
+                          return colorClass.includes('green') ? 'text-green-500 group-hover:text-green-400' : colorClass;
+                        } else if (overUnderFilter === 'under') {
+                          return colorClass.includes('red') ? 'text-red-500 group-hover:text-red-400' : colorClass;
+                        }
+                        
+                        return colorClass + ' group-hover:opacity-80';
+                      })()
                   }`}>
                     {overUnderFilter === 'over' ? toAmericanOdds(prop.best_over || prop.overOdds) :
                      overUnderFilter === 'under' ? toAmericanOdds(prop.best_under || prop.underOdds) :
@@ -1162,13 +1189,32 @@ export function PlayerPropsColumnView({
                 {/* Matchup */}
                 <div className="w-24 text-center px-1 py-3">
                   <div className="text-xs font-medium text-foreground mb-1">
-                    {prop.opponentAbbr || prop.opponent || '—'}
+                    {(() => {
+                      // Check multiple possible field names for opponent abbreviation
+                      const opponentAbbr = prop.opponentAbbr || 
+                                          (prop as any).opponent_abbr || 
+                                          (prop as any).opponentAbbr;
+                      const opponent = prop.opponent || (prop as any).opponent;
+                      
+                      // Use getTeamAbbreviation to resolve opponent abbreviation
+                      const finalOpponentAbbr = getTeamAbbreviation(opponent || '', opponentAbbr || '');
+                      
+                      return finalOpponentAbbr !== 'UNK' ? finalOpponentAbbr : '—';
+                    })()}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {(() => {
                       // Generate defensive ranking based on prop type
                       const propType = (prop.propType || '').toLowerCase();
-                      const opponent = prop.opponentAbbr || prop.opponent || '—';
+                      const opponentAbbr = prop.opponentAbbr || 
+                                          (prop as any).opponent_abbr || 
+                                          (prop as any).opponentAbbr;
+                      const opponent = prop.opponent || (prop as any).opponent;
+                      const finalOpponentAbbr = getTeamAbbreviation(opponent || '', opponentAbbr || '');
+                      
+                      if (finalOpponentAbbr === 'UNK' || finalOpponentAbbr === '—') {
+                        return '—';
+                      }
                       
                       if (propType.includes('pass') || propType.includes('passing')) {
                         const rank = Math.floor(Math.random() * 10) + 1; // Random rank 1-10
