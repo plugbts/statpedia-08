@@ -302,6 +302,9 @@ class HasuraPlayerPropsAPI {
             opponentName = game.home_team.name;
           } else {
             // Fallback: if team doesn't match either, use away as opponent
+            console.log(
+              `⚠️ Team mismatch: Player team "${teamAbbr}" doesn't match home "${homeAbbr}" or away "${awayAbbr}". Using away as opponent.`,
+            );
             opponentAbbr = awayAbbr;
             opponentName = game.away_team.name;
           }
