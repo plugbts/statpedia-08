@@ -379,34 +379,75 @@ async function normalizeAndInsert(
             TD: "Passing TDs",
             INT: "Passing Interceptions",
             "C/ATT": "Passing Completions",
+            ATT: "Passing Attempts",
+            RTG: "Passer Rating",
+            QBR: "QBR",
           },
           rushing: {
             CAR: "Rushing Attempts",
             YDS: "Rushing Yards",
             TD: "Rushing TDs",
+            AVG: "Rushing Average",
+            LONG: "Rushing Long",
           },
           receiving: {
             REC: "Receptions",
             YDS: "Receiving Yards",
             TD: "Receiving TDs",
             TGTS: "Receiving Targets",
+            AVG: "Receiving Average",
+            LONG: "Receiving Long",
           },
           defensive: {
             TOT: "Total Tackles",
             SOLO: "Solo Tackles",
             SACKS: "Sacks",
             INT: "Interceptions",
+            ASST: "Assisted Tackles",
+            TFL: "Tackles For Loss",
+            PD: "Pass Deflections",
+            FF: "Forced Fumbles",
+            FR: "Fumble Recoveries",
+            TD: "Defensive TDs",
+            QBH: "QB Hits",
+            COMB: "Combined Tackles",
           },
           kicking: {
             FG: "Field Goals Made",
             "FG%": "Field Goal Percentage",
             XP: "Extra Points Made",
             PTS: "Kicking Points",
+            LONG: "Longest Field Goal",
+          },
+          punting: {
+            NO: "Punts",
+            YDS: "Punt Yards",
+            AVG: "Punt Average",
+            TB: "Touchbacks",
+            IN20: "Inside 20",
+            LONG: "Longest Punt",
+          },
+          kickReturns: {
+            NO: "Kick Returns",
+            YDS: "Kick Return Yards",
+            AVG: "Kick Return Average",
+            LONG: "Longest Kick Return",
+            TD: "Kick Return TDs",
+          },
+          puntReturns: {
+            NO: "Punt Returns",
+            YDS: "Punt Return Yards",
+            AVG: "Punt Return Average",
+            LONG: "Longest Punt Return",
+            TD: "Punt Return TDs",
           },
         };
 
         const categoryMappings = propTypeMapping[category];
-        if (!categoryMappings) continue; // Skip fumbles, returns, etc.
+        if (!categoryMappings) {
+          if (VERBOSE) console.log(`⚠️ [NFL] Skipping unmapped category: ${category}`);
+          continue; // Skip unmapped categories (fumbles, etc.)
+        }
 
         for (const athlete of athletes) {
           const playerId = athlete?.athlete?.id;
@@ -418,7 +459,14 @@ async function normalizeAndInsert(
           // Extract each stat based on label mapping
           labels.forEach((label: string, idx: number) => {
             const propType = categoryMappings[label];
-            if (!propType) return; // Skip unmapped stats
+            if (!propType) {
+              // Log unmapped stats for debugging
+              if (VERBOSE)
+                console.log(
+                  `⚠️ [NFL] Unmapped stat label "${label}" in category "${category}" for player ${playerName}`,
+                );
+              return; // Skip unmapped stats
+            }
 
             const rawValue = stats[idx];
             if (rawValue === undefined || rawValue === null) return;
@@ -568,12 +616,33 @@ async function normalizeAndInsert(
     const opponentId = teamId === homeTeamId ? awayTeamId : homeTeamId;
     const homeAway = teamId === homeTeamId ? "home" : "away";
 
+    // Validate prop_type before inserting (reject single chars, special chars, "UNK ?", "-", etc.)
+    const propType = r.prop_type?.trim();
+    if (!propType || propType.length === 0) {
+      if (VERBOSE) console.log(`⚠️ [${league}] Skipping empty prop_type for player ${playerId}`);
+      continue;
+    }
+    if (propType.length === 1 || propType === "-" || propType === "UNK ?" || propType === "?") {
+      if (VERBOSE)
+        console.log(
+          `⚠️ [${league}] Skipping invalid prop_type "${propType}" for player ${playerId}`,
+        );
+      continue;
+    }
+    if (!/[a-zA-Z]/.test(propType)) {
+      if (VERBOSE)
+        console.log(
+          `⚠️ [${league}] Skipping prop_type with no letters: "${propType}" for player ${playerId}`,
+        );
+      continue;
+    }
+
     logsToInsert.push({
       player_id: playerId,
       team_id: teamId,
       game_id: gameUuid,
       opponent_id: opponentId,
-      prop_type: r.prop_type,
+      prop_type: propType,
       line: "0",
       actual_value: String(r.value ?? 0),
       hit: false,
