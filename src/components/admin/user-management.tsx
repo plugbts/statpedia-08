@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -68,6 +67,8 @@ interface UserStats {
 
 export function UserManagement() {
   const { userRole, validateUserAccess, getMaskedEmail, logSecurityEvent, isOwnerEmail } = useUser();
+  const { toast } = useToast();
+  
   const [users, setUsers] = useState<UserData[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserData[]>([]);
   const [stats, setStats] = useState<UserStats>({
@@ -90,21 +91,11 @@ export function UserManagement() {
     newTier: '',
     reason: ''
   });
-  const { toast } = useToast();
-
-  // Check if user has admin access
-  if (!validateUserAccess('admin')) {
-    return (
-      <Alert className="border-destructive">
-        <AlertTriangle className="h-4 w-4" />
-        <AlertDescription>
-          You don't have permission to access user management.
-        </AlertDescription>
-      </Alert>
-    );
-  }
+  
+  const hasAccess = validateUserAccess('admin');
 
   useEffect(() => {
+    if (!hasAccess) return;
     loadUsers();
     
     // Set up periodic refresh every 30 seconds to keep usernames in sync
@@ -123,11 +114,24 @@ export function UserManagement() {
       clearInterval(refreshInterval);
       window.removeEventListener('userContextRefresh', handleUserContextRefresh);
     };
-  }, []);
+  }, [hasAccess]);
 
   useEffect(() => {
+    if (!hasAccess) return;
     filterUsers();
-  }, [users, searchQuery, roleFilter, subscriptionFilter]);
+  }, [users, searchQuery, roleFilter, subscriptionFilter, hasAccess]);
+
+  // Check if user has admin access
+  if (!hasAccess) {
+    return (
+      <Alert className="border-destructive">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertDescription>
+          You don't have permission to access user management.
+        </AlertDescription>
+      </Alert>
+    );
+  }
 
   const loadUsers = async () => {
     try {
@@ -186,7 +190,7 @@ export function UserManagement() {
         // Ensure username is consistent with social tab format
         if (username && !username.startsWith('@')) {
           // Username should not have @ prefix in data, but display with @
-          username = username;
+          // No modification needed
         }
         
         return {

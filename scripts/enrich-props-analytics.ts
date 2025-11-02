@@ -77,7 +77,7 @@ async function calculateStreak(playerId: string, propType: string): Promise<numb
   if (logs.length === 0) return null;
 
   let streak = 0;
-  let isPositive = logs[0].hit;
+  const isPositive = logs[0].hit;
 
   for (const log of logs) {
     if (log.hit === isPositive) {

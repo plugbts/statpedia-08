@@ -1051,12 +1051,13 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
       let aValue: any, bValue: any;
       
       switch (sortBy) {
-        case 'statpediaRating':
+        case 'statpediaRating': {
           const aRating = statpediaRatingService.calculateRating(a, overUnderFilter);
           const bRating = statpediaRatingService.calculateRating(b, overUnderFilter);
           aValue = aRating.overall;
           bValue = bRating.overall;
           break;
+        }
         case 'ev':
           aValue = a.expectedValue || 0;
           bValue = b.expectedValue || 0;
@@ -1069,11 +1070,12 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({
           aValue = a.playerName;
           bValue = b.playerName;
           break;
-        case 'order':
+        case 'order': {
           // Sort by prop priority order
           const aOrderPriority = getPropPriority(a.propType);
           const bOrderPriority = getPropPriority(b.propType);
           return aOrderPriority - bOrderPriority;
+        }
         default:
           aValue = a.confidence || 0;
           bValue = b.confidence || 0;

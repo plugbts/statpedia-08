@@ -428,12 +428,12 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
   // Generate advanced analysis for a player prop
   const generateAdvancedAnalysis = (prop: any, sport: string) => {
     // Base confidence calculation
-    let baseConfidence = 50;
+    const baseConfidence = 50;
     
     // Factor-based adjustments
     const factors: string[] = [];
     let confidenceAdjustment = 0;
-    let valueAdjustment = 0;
+    const valueAdjustment = 0;
     
     // Recent form analysis
     if (prop.recentForm === 'hot') {
@@ -1091,193 +1091,7 @@ export const PredictionsTab: React.FC<PredictionsTabProps> = ({
         </div>
       )}
 
-      {/* Legacy card rendering - keeping for reference but not used */}
-      {false && sortedPredictions.map((prediction) => (
-            <Card 
-              key={prediction.id} 
-              className="relative overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
-              onClick={() => handlePredictionClick(prediction)}
-            >
-              {/* Bookmark Button */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleBookmark(prediction.id);
-                }}
-                className="absolute top-3 right-3 z-10 p-1 rounded-full hover:bg-muted/50 transition-colors"
-              >
-                {prediction.isBookmarked ? (
-                  <BookmarkCheck className="w-4 h-4 text-primary" />
-                ) : (
-                  <Bookmark className="w-4 h-4 text-muted-foreground" />
-                )}
-              </button>
-
-              {/* Confidence Interval Button - REMOVED to prevent double overlay */}
-
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between mb-2">
-                  <Badge variant="outline" className="text-xs">
-                    {prediction.sport?.toUpperCase() || 'Unknown'}
-                  </Badge>
-                  {prediction.available && (
-                    <Badge variant="destructive" className="text-xs animate-pulse">
-                      <Activity className="w-3 h-3 mr-1" />
-                      LIVE
-                    </Badge>
-                  )}
-                </div>
-                
-                <CardTitle className="text-lg">
-                  {prediction.marketType === 'player-prop' ? (
-                    `${prediction.playerName} - ${prediction.propType} ${prediction.line}`
-                  ) : (
-                    `${prediction.homeTeamAbbr} vs ${prediction.awayTeamAbbr}`
-                  )}
-                </CardTitle>
-                
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Calendar className="w-4 h-4" />
-                  {prediction.gameDate ? new Date(prediction.gameDate).toLocaleDateString() : 'TBD'}
-                  <span className="mx-1">•</span>
-                  <span>
-                    {prediction.marketType === 'player-prop' ? (
-                      `${prediction.teamAbbr} vs ${prediction.opponentAbbr}`
-                    ) : (
-                      `${prediction.marketType?.toUpperCase()} ${prediction.period !== 'full_game' ? `(${prediction.period})` : ''}`
-                    )}
-                  </span>
-                </div>
-              </CardHeader>
-
-              <CardContent className="space-y-4">
-                {/* Confidence & Value */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium">Confidence</span>
-                      <span className={`text-sm font-bold ${getConfidenceColor((prediction.confidence || 0) * 100)}`}>
-                        {Math.round((prediction.confidence || 0) * 100)}%
-                      </span>
-                    </div>
-                    <Progress value={(prediction.confidence || 0) * 100} className="h-2" />
-                  </div>
-                  
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium">Value Rating</span>
-                      <span className="text-sm font-bold text-primary">
-                        {Math.round((prediction.expectedValue || 0) * 100)}/100
-                      </span>
-                    </div>
-                    <Progress value={Math.abs((prediction.expectedValue || 0) * 100)} className="h-2" />
-                  </div>
-                </div>
-
-                {/* Risk Level */}
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Risk Level</span>
-                  <Badge className={cn("text-xs", getRiskColor(getRiskLevel(prediction)))}>
-                    {getRiskLevel(prediction).toUpperCase()}
-                  </Badge>
-                </div>
-
-                {/* Prediction Details */}
-                  <div className="space-y-2">
-                  {prediction.marketType === 'player-prop' ? (
-                    <>
-                    <div className="text-sm">
-                      <span className="font-medium">AI Recommendation: </span>
-                      <span className={cn(
-                        "font-bold",
-                          prediction.recommendation === 'strong_bet' || prediction.recommendation === 'good_bet'
-                          ? "text-green-600" 
-                            : prediction.recommendation === 'avoid' || prediction.recommendation === 'strong_avoid'
-                            ? "text-red-600"
-                            : "text-yellow-600"
-                      )}>
-                          {prediction.recommendation?.replace('_', ' ').toUpperCase() || 'NEUTRAL'}
-                      </span>
-                    </div>
-                    
-                    <div className="text-sm">
-                      <span className="font-medium">Expected Value: </span>
-                      <span className={cn(
-                        "font-bold",
-                          (prediction.expectedValue || 0) > 0 ? "text-green-600" : "text-red-600"
-                      )}>
-                          {(prediction.expectedValue || 0) > 0 ? '+' : ''}{((prediction.expectedValue || 0) * 100).toFixed(1)}%
-                      </span>
-                    </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="text-sm">
-                        <span className="font-medium">Market Type: </span>
-                        <span className="font-bold text-primary">
-                          {prediction.marketType?.toUpperCase()} {prediction.period !== 'full_game' ? `(${prediction.period.replace('_', ' ')})` : ''}
-                        </span>
-                      </div>
-                      
-                      {prediction.marketType === 'moneyline' && (
-                        <div className="text-sm">
-                          <span className="font-medium">Odds: </span>
-                          <span className="font-bold">
-                            {prediction.homeTeamAbbr}: {prediction.homeOdds > 0 ? '+' : ''}{prediction.homeOdds} | 
-                            {prediction.awayTeamAbbr}: {prediction.awayOdds > 0 ? '+' : ''}{prediction.awayOdds}
-                          </span>
-                  </div>
-                )}
-                      
-                      {prediction.marketType === 'spread' && (
-                        <div className="text-sm">
-                          <span className="font-medium">Spread: </span>
-                          <span className="font-bold">
-                            {prediction.homeTeamAbbr}: {prediction.spread > 0 ? '+' : ''}{prediction.spread} ({prediction.homeOdds > 0 ? '+' : ''}{prediction.homeOdds}) | 
-                            {prediction.awayTeamAbbr}: {prediction.spread < 0 ? '+' : ''}{-prediction.spread} ({prediction.awayOdds > 0 ? '+' : ''}{prediction.awayOdds})
-                          </span>
-                        </div>
-                      )}
-                      
-                      {prediction.marketType === 'total' && (
-                        <div className="text-sm">
-                          <span className="font-medium">Total: </span>
-                          <span className="font-bold">
-                            {prediction.total} - Over: {prediction.overOdds > 0 ? '+' : ''}{prediction.overOdds} | 
-                            Under: {prediction.underOdds > 0 ? '+' : ''}{prediction.underOdds}
-                          </span>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-
-                {/* Cross-Reference Analysis - Temporarily disabled */}
-                {/* TODO: Add cross-reference analysis to EnhancedPlayerProp interface */}
-
-                {/* Advanced Insights - Temporarily disabled */}
-                {/* TODO: Add keyInsights to EnhancedPlayerProp interface */}
-
-                {/* Key Factors */}
-                <div className="space-y-1">
-                  <span className="text-sm font-medium">Analysis Factors:</span>
-                  <div className="space-y-1">
-                    {generateAnalysisFactors(prediction).slice(0, 3).map((factor, index) => (
-                      <div key={index} className="text-xs text-muted-foreground">
-                        • {factor}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Last Updated */}
-                <div className="text-xs text-muted-foreground">
-                  Updated: {prediction.lastUpdate ? new Date(prediction.lastUpdate).toLocaleTimeString() : 'Unknown'}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-
+      {/* Legacy card rendering removed - was never shown due to false condition */}
       {/* No Predictions */}
       {!isLoading && sortedPredictions.length === 0 && (
         <div className="text-center py-12">

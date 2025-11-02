@@ -526,7 +526,7 @@ class SportGameOddsAPIService {
         }
 
         // Extract player name from player ID (remove _1_NFL suffix)
-        let playerName = playerIdPart.replace(/_1_NFL$/, '').replace(/_/g, ' ');
+        const playerName = playerIdPart.replace(/_1_NFL$/, '').replace(/_/g, ' ');
         
         // Handle special cases for team totals - skip them as they're not player props
         if (playerName.toLowerCase() === 'all' || 
@@ -900,7 +900,7 @@ class SportGameOddsAPIService {
     if (!teamName || teamName === 'UNK') return 'UNK';
     
     // Clean up common formatting issues
-    let normalized = teamName.trim();
+    const normalized = teamName.trim();
     
     // Team name mappings for common variations
     const teamMappings: { [key: string]: string } = {

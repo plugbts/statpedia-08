@@ -71,10 +71,10 @@ function deriveNameFromId(playerId: string | null | undefined): string | null {
   if (!base) return null;
   
   // Remove common suffixes like "_1_NFL", "_2_NBA", etc.
-  let cleaned = base.replace(/_\d+_[A-Z]+$/, '');
+  const cleaned = base.replace(/_\d+_[A-Z]+$/, '');
   
   // Split by underscores, hyphens, and dots
-  const parts = cleaned.split(/[_\-\.]/).filter(Boolean);
+  const parts = cleaned.split(/[_\-.]/).filter(Boolean);
   if (parts.length === 0) return null;
   
   // Capitalize each part properly

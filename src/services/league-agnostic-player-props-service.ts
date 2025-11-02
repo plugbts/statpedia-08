@@ -1,6 +1,6 @@
 import { NormalizedPlayerProp } from './hasura-player-props-normalized-service';
 
-export interface LeagueAgnosticPlayerPropsService {
+export interface ILeagueAgnosticPlayerPropsService {
   // League filtering
   getLeagues(): Promise<string[]>;
   getActiveLeagues(): Promise<string[]>;
@@ -71,7 +71,7 @@ export interface PlayerStats {
   rating: number;
 }
 
-export class LeagueAgnosticPlayerPropsService implements LeagueAgnosticPlayerPropsService {
+export class LeagueAgnosticPlayerPropsService implements ILeagueAgnosticPlayerPropsService {
   private hasuraEndpoint: string;
   private adminSecret: string;
 

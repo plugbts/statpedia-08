@@ -11,7 +11,7 @@ export const formatPropType = (propType: string): string => {
   }
   
   // Remove player name if it appears in prop type - MORE AGGRESSIVE CLEANING
-  let cleanPropType = propType
+  const cleanPropType = propType
     .replace(/^[A-Za-z\s]+(?:'s)?\s+/, '') // Remove player name prefix like "Josh Allen's" or "Josh Allen"
     .replace(/^[A-Za-z\s]+(?:\s+[A-Za-z]+)?\s+/, '') // Remove any two-word player names
     .replace(/^(Passing|Rushing|Receiving|Defense|Kicking|Field Goal|Extra Point)\s+/, '') // Remove redundant prefixes
@@ -19,7 +19,7 @@ export const formatPropType = (propType: string): string => {
     .replace(/^[A-Z][a-z]+\s+/, '') // Remove any remaining single word names at start
   
   // Convert snake_case to Title Case
-  let formatted = cleanPropType
+  const formatted = cleanPropType
     .split('_')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');
