@@ -59,20 +59,21 @@ const SupportCenterWrapper = () => {
 };
 
 const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const sync = useSync();
-  const emailCron = useEmailCron();
+  // TEMPORARILY DISABLED - causing infinite loop/hang
+  // const sync = useSync();
+  // const emailCron = useEmailCron();
 
-  console.log(
-    "Sync connected:",
-    sync.isLoveableConnected,
-    "queue:",
-    sync.syncQueueLength,
-    "last:",
-    sync.lastSync,
-    "error:",
-    sync.error,
-  );
-  console.log("Email Cron Status:", emailCron.status);
+  // console.log(
+  //   "Sync connected:",
+  //   sync.isLoveableConnected,
+  //   "queue:",
+  //   sync.syncQueueLength,
+  //   "last:",
+  //   sync.lastSync,
+  //   "error:",
+  //   sync.error,
+  // );
+  // console.log("Email Cron Status:", emailCron.status);
 
   return <>{children}</>;
 };
