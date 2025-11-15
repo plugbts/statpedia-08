@@ -893,6 +893,8 @@ app.post("/api/auth/signup", async (req, res) => {
 });
 
 app.post("/api/auth/login", async (req, res) => {
+  console.log("🔐 [API] Login endpoint hit");
+
   try {
     const { email, password } = req.body;
 
@@ -902,6 +904,8 @@ app.post("/api/auth/login", async (req, res) => {
         error: "Email and password are required",
       });
     }
+
+    console.log("🔐 [API] Login request for:", email);
 
     // Get client info
     const ip_address =
@@ -919,6 +923,8 @@ app.post("/api/auth/login", async (req, res) => {
       },
     );
 
+    console.log("✅ [API] Login successful");
+
     res.json({
       success: true,
       data: {
@@ -928,7 +934,7 @@ app.post("/api/auth/login", async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Login error:", error);
+    console.error("❌ [API] Login error:", error);
     res.status(400).json({
       success: false,
       error: error.message || "Login failed",
@@ -937,10 +943,13 @@ app.post("/api/auth/login", async (req, res) => {
 });
 
 app.get("/api/auth/me", async (req, res) => {
+  console.log("👤 [API] /api/auth/me endpoint hit");
+
   try {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.log("⚠️ [API] No auth header");
       return res.status(401).json({
         success: false,
         error: "Authorization header required",
@@ -948,15 +957,19 @@ app.get("/api/auth/me", async (req, res) => {
     }
 
     const token = authHeader.substring(7);
+    console.log("🔑 [API] Token received:", token.substring(0, 20) + "...");
+
     const { userId, valid } = authService.verifyToken(token);
 
     if (!valid) {
+      console.log("❌ [API] Invalid token");
       return res.status(401).json({
         success: false,
         error: "Invalid token",
       });
     }
 
+    console.log("✅ [API] Token valid, fetching user:", userId);
     const user = await authService.getUserById(userId);
 
     if (!user) {
@@ -976,6 +989,7 @@ app.get("/api/auth/me", async (req, res) => {
     const subscription_tier =
       role === "owner" ? "premium" : ["admin", "mod"].includes(role) ? "pro" : "free";
 
+    console.log("✅ [API] User fetched successfully");
     res.json({
       success: true,
       data: { ...user, role, subscription_tier },
@@ -1275,6 +1289,8 @@ app.post("/api/auth/update-subscription", async (req, res) => {
 
 // Get user role route
 app.get("/api/auth/user-role/:userId", async (req, res) => {
+  console.log("👑 [API] /api/auth/user-role endpoint hit");
+
   try {
     const { userId } = req.params;
 
@@ -1285,14 +1301,16 @@ app.get("/api/auth/user-role/:userId", async (req, res) => {
       });
     }
 
+    console.log("📋 [API] Fetching role for user:", userId);
     const role = await authService.getUserRole(userId);
 
+    console.log("✅ [API] Role fetched:", role);
     res.json({
       success: true,
       data: { role },
     });
   } catch (error) {
-    console.error("Get user role error:", error);
+    console.error("❌ [API] Get user role error:", error);
     res.status(500).json({
       success: false,
       error: error.message || "Failed to get user role",

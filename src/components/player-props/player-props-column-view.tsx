@@ -282,28 +282,122 @@ export function PlayerPropsColumnView({
   isLoading = false,
   overUnderFilter = "both",
 }: PlayerPropsColumnViewProps) {
-  console.log("[PLAYER_PROPS] Component rendered with props:", props.length);
-  console.log("[PLAYER_PROPS] Props data:", props.slice(0, 2));
-  console.log(
-    "[PLAYER_PROPS] First prop details:",
-    props[0]
-      ? {
-          playerName: props[0].playerName,
-          propType: props[0].propType,
-          line: props[0].line,
-          team: props[0].team,
-          opponent: props[0].opponent,
-        }
-      : "No props",
-  );
-  // Normalize props data
-  const normalizedProps = props.map((prop) => ({
-    ...prop,
-    team: normalizeTeam(prop.team),
-    opponent: normalizeOpponent(prop.opponent),
-    opponentAbbr: normalizeOpponent(prop.opponentAbbr || prop.opponent),
-    position: normalizePosition(prop.position),
-  }));
+  // 🔍 STEP 1: Comprehensive incoming props inspection
+  console.log("🔍 [COLUMN_VIEW_DEBUG] =====================================");
+  console.log("🔍 [COLUMN_VIEW_DEBUG] Component rendered with props:", props.length);
+  console.log("🔍 [COLUMN_VIEW_DEBUG] selectedSport:", selectedSport);
+  console.log("🔍 [COLUMN_VIEW_DEBUG] overUnderFilter:", overUnderFilter);
+
+  if (props.length > 0) {
+    const firstProp = props[0];
+    console.log("🔍 [COLUMN_VIEW_DEBUG] First prop complete data:", firstProp);
+    console.log("🔍 [COLUMN_VIEW_DEBUG] First prop field check:", {
+      // Player info
+      playerName: firstProp.playerName ?? "❌ MISSING",
+      playerId: firstProp.playerId ?? "❌ MISSING",
+      player_id: firstProp.player_id ?? "❌ MISSING",
+
+      // Team info
+      team: firstProp.team ?? "❌ MISSING",
+      teamAbbr: firstProp.teamAbbr ?? "❌ MISSING",
+      opponent: firstProp.opponent ?? "❌ MISSING",
+      opponentAbbr: firstProp.opponentAbbr ?? "❌ MISSING",
+
+      // Prop details
+      propType: firstProp.propType ?? "❌ MISSING",
+      line: firstProp.line ?? "❌ MISSING",
+      sport: firstProp.sport ?? "❌ MISSING",
+
+      // Odds
+      overOdds: firstProp.overOdds ?? "❌ MISSING",
+      underOdds: firstProp.underOdds ?? "❌ MISSING",
+      best_over: firstProp.best_over ?? "❌ MISSING",
+      best_under: firstProp.best_under ?? "❌ MISSING",
+
+      // Analytics
+      expectedValue: firstProp.expectedValue ?? "❌ MISSING",
+      confidence: firstProp.confidence ?? "❌ MISSING",
+
+      // Rating fields
+      rating_over_normalized: firstProp.rating_over_normalized ?? "❌ MISSING",
+      rating_over_raw: firstProp.rating_over_raw ?? "❌ MISSING",
+      rating_under_normalized: firstProp.rating_under_normalized ?? "❌ MISSING",
+      rating_under_raw: firstProp.rating_under_raw ?? "❌ MISSING",
+
+      // Game logs
+      gameLogs: firstProp.gameLogs ? `✅ ${firstProp.gameLogs.length} logs` : "❌ MISSING",
+      defenseStats: firstProp.defenseStats
+        ? `✅ ${firstProp.defenseStats.length} stats`
+        : "❌ MISSING",
+    });
+
+    console.log("🔍 [COLUMN_VIEW_DEBUG] First 3 props summary:");
+    props.slice(0, 3).forEach((p, i) => {
+      console.log(
+        `  ${i + 1}. ${p.playerName || "NO_NAME"} - ${p.propType || "NO_TYPE"} - Line: ${p.line ?? "N/A"}`,
+      );
+    });
+  } else {
+    console.warn("⚠️ [COLUMN_VIEW_DEBUG] NO PROPS RECEIVED!");
+  }
+  console.log("🔍 [COLUMN_VIEW_DEBUG] =====================================");
+
+  // 🔍 STEP 2: Normalize props data with comprehensive fallbacks
+  const normalizedProps = props.map((prop, index) => {
+    const normalized = {
+      ...prop,
+      // ✅ Team/opponent normalization
+      team: normalizeTeam(prop.team) || (prop as any).teamName || (prop as any).teamAbbr || "UNK",
+      opponent:
+        normalizeOpponent(prop.opponent) ||
+        (prop as any).opponentName ||
+        prop.opponentAbbr ||
+        "UNK",
+      opponentAbbr: normalizeOpponent(prop.opponentAbbr || prop.opponent) || "UNK",
+      position: normalizePosition(prop.position) || "—",
+
+      // ✅ Ensure player data never null
+      playerName: prop.playerName || "Unknown Player",
+      playerId: prop.playerId || prop.player_id || `unknown-${index}`,
+
+      // ✅ Ensure prop details never null
+      propType: prop.propType || "Unknown Prop",
+      line: prop.line ?? 0,
+      sport: prop.sport || selectedSport || "NFL",
+
+      // ✅ Ensure odds never null (best_over/best_under are strings in this interface)
+      overOdds:
+        prop.overOdds ??
+        (typeof prop.best_over === "object" ? (prop.best_over as any).odds : undefined) ??
+        -110,
+      underOdds:
+        prop.underOdds ??
+        (typeof prop.best_under === "object" ? (prop.best_under as any).odds : undefined) ??
+        -110,
+
+      // ✅ Ensure analytics never null
+      expectedValue: typeof prop.expectedValue === "number" ? prop.expectedValue : 0,
+      confidence: typeof prop.confidence === "number" ? prop.confidence : 0.5,
+
+      // ✅ Ensure rating fields exist
+      rating_over_normalized: prop.rating_over_normalized ?? 50,
+      rating_under_normalized: prop.rating_under_normalized ?? 50,
+      rating_over_raw: prop.rating_over_raw ?? 50,
+      rating_under_raw: prop.rating_under_raw ?? 50,
+
+      // ✅ Ensure arrays exist
+      gameLogs: prop.gameLogs || [],
+      defenseStats: prop.defenseStats || [],
+    };
+
+    if (index === 0) {
+      console.log("🔄 [NORMALIZE_DEBUG] First prop after normalization:", normalized);
+    }
+
+    return normalized;
+  });
+
+  console.log("✅ [NORMALIZE_DEBUG] Normalization complete for", normalizedProps.length, "props");
 
   // Prime rating service with current slate
   try {
@@ -1090,7 +1184,8 @@ export function PlayerPropsColumnView({
                   "";
                 return typeof cand === "number" ? String(cand) : (cand || "").toString();
               })();
-              const isUuidId = typeof bestIdForAnalytics === "string" &&
+              const isUuidId =
+                typeof bestIdForAnalytics === "string" &&
                 /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(
                   bestIdForAnalytics,
                 );
@@ -1248,7 +1343,7 @@ export function PlayerPropsColumnView({
                           className="text-xs font-medium text-white group-hover:text-white transition-all duration-300 transform group-hover:scale-105 truncate animate-pulse"
                           style={{ animationDuration: "3s" }}
                         >
-                          {formatPropType(prop.propType, prop.sport?.toLowerCase())}
+                          {formatPropType(prop.propType)}
                           {debugIdBadge}
                         </div>
                       </div>
@@ -1571,6 +1666,61 @@ export function PlayerPropsColumnView({
                         </div>
                       </div>
                     </div>
+
+                    {/* 🔧 DEBUG OVERLAY - Remove this section in production */}
+                    {process.env.NODE_ENV === "development" && index < 3 && (
+                      <div className="mt-2 border-t border-muted pt-2">
+                        <details className="cursor-pointer">
+                          <summary className="text-[10px] text-muted-foreground hover:text-primary">
+                            🔍 Debug Data (Click to expand)
+                          </summary>
+                          <pre className="text-[9px] text-muted-foreground opacity-70 mt-1 p-2 bg-muted/50 rounded overflow-x-auto max-h-48 overflow-y-auto">
+                            {JSON.stringify(
+                              {
+                                // Core fields
+                                playerName: prop.playerName ?? "❌ NULL",
+                                playerId: prop.playerId ?? "❌ NULL",
+                                team: prop.team ?? "❌ NULL",
+                                opponent: prop.opponent ?? "❌ NULL",
+                                propType: prop.propType ?? "❌ NULL",
+                                line: prop.line ?? "❌ NULL",
+                                sport: prop.sport ?? "❌ NULL",
+
+                                // Odds
+                                overOdds: prop.overOdds ?? "❌ NULL",
+                                underOdds: prop.underOdds ?? "❌ NULL",
+
+                                // Analytics
+                                expectedValue: prop.expectedValue ?? "❌ NULL",
+                                confidence: prop.confidence ?? "❌ NULL",
+
+                                // Ratings
+                                rating_over_normalized: prop.rating_over_normalized ?? "❌ NULL",
+                                rating_under_normalized: prop.rating_under_normalized ?? "❌ NULL",
+
+                                // Stats availability
+                                hasGameLogs: !!prop.gameLogs && prop.gameLogs.length > 0,
+                                gameLogsCount: prop.gameLogs?.length ?? 0,
+                                hasDefenseStats:
+                                  !!prop.defenseStats && prop.defenseStats.length > 0,
+                                defenseStatsCount: prop.defenseStats?.length ?? 0,
+
+                                // Analytics from hook
+                                hasAnalyticsData: hasStats,
+                                streak: streak,
+                                h2h_total: h2h.total,
+                                season_total: season.total,
+                                l5_total: l5.total,
+                                l10_total: l10.total,
+                                l20_total: l20.total,
+                              },
+                              null,
+                              2,
+                            )}
+                          </pre>
+                        </details>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               );

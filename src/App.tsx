@@ -79,8 +79,12 @@ const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 };
 
 const App = () => {
+  // 🔍 DEBUG: Log app render
+  console.log("🚀 [APP_DEBUG] App component rendering...");
+
   // Initialize theme on app start
   useEffect(() => {
+    console.log("🎨 [APP_DEBUG] Theme initialization useEffect running");
     const savedTheme = localStorage.getItem("statpedia-theme");
     const html = document.documentElement;
 
@@ -92,7 +96,10 @@ const App = () => {
       html.classList.remove("light");
       html.classList.add("dark");
     }
+    console.log("✅ [APP_DEBUG] Theme set to:", savedTheme || "dark (default)");
   }, []);
+
+  console.log("📍 [APP_DEBUG] About to render BrowserRouter...");
 
   return (
     <QueryClientProvider client={queryClient}>

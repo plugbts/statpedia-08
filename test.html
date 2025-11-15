@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .status {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid;
+        }
+        .success { border-color: #10b981; background: #064e3b; }
+        .error { border-color: #ef4444; background: #7f1d1d; }
+        .info { border-color: #3b82f6; background: #1e3a8a; }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            background: #3b82f6;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        pre {
+            background: #000;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Statpedia Debug Test Page</h1>
+    <p>This page tests if servers are responding correctly.</p>
+    
+    <div id="results"></div>
+    
+    <button onclick="testAPI()">Test API (/api/props)</button>
+    <button onclick="testHealth()">Test Health</button>
+    <button onclick="testFrontend()">Test Frontend HTML</button>
+    
+    <script>
+        const results = document.getElementById('results');
+        
+        function addResult(status, message, data = null) {
+            const div = document.createElement('div');
+            div.className = `status ${status}`;
+            div.innerHTML = `<strong>${message}</strong>`;
+            if (data) {
+                div.innerHTML += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            }
+            results.appendChild(div);
+        }
+        
+        async function testHealth() {
+            results.innerHTML = '';
+            try {
+                const response = await fetch('http://localhost:3001/health');
+                const data = await response.json();
+                addResult('success', '✅ API Health Check Passed', data);
+            } catch (error) {
+                addResult('error', '❌ API Health Check Failed', { error: error.message });
+            }
+        }
+        
+        async function testAPI() {
+            results.innerHTML = '';
+            try {
+                addResult('info', '⏳ Fetching props from API...');
+                const response = await fetch('http://localhost:3001/api/props?sport=nfl&limit=3');
+                const data = await response.json();
+                
+                if (data.success && data.items) {
+                    addResult('success', `✅ API returned ${data.items.length} props`, {
+                        count: data.items.length,
+                        firstProp: data.items[0] ? {
+                            playerName: data.items[0].playerName,
+                            team: data.items[0].team,
+                            propType: data.items[0].propType,
+                            line: data.items[0].line
+                        } : null
+                    });
+                } else {
+                    addResult('error', '❌ API returned unexpected format', data);
+                }
+            } catch (error) {
+                addResult('error', '❌ API Request Failed', { error: error.message });
+            }
+        }
+        
+        async function testFrontend() {
+            results.innerHTML = '';
+            try {
+                addResult('info', '⏳ Fetching frontend HTML...');
+                const response = await fetch('http://localhost:8083/');
+                const html = await response.text();
+                
+                const hasRoot = html.includes('id="root"');
+                const hasScript = html.includes('/src/main.tsx');
+                
+                if (hasRoot && hasScript) {
+                    addResult('success', '✅ Frontend HTML looks good', {
+                        hasRoot,
+                        hasScript,
+                        htmlLength: html.length
+                    });
+                } else {
+                    addResult('error', '❌ Frontend HTML missing expected elements', {
+                        hasRoot,
+                        hasScript
+                    });
+                }
+            } catch (error) {
+                addResult('error', '❌ Frontend Request Failed', { error: error.message });
+            }
+        }
+        
+        // Auto-run tests on load
+        window.addEventListener('load', async () => {
+            addResult('info', '🚀 Running automatic tests...');
+            await testHealth();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await testAPI();
+        });
+    </script>
+</body>
+</html>

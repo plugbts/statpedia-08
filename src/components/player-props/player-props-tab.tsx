@@ -221,6 +221,12 @@ const isOffensiveProp = (propType: string): boolean => {
 
 // Prop priority mapping (matches Cloudflare Worker logic)
 const getPropPriority = (propType: string): number => {
+  // ✅ Safety check for undefined/null propType
+  if (!propType) {
+    console.warn("⚠️ [PRIORITY_DEBUG] getPropPriority called with undefined/null propType");
+    return 99; // Low priority for invalid props
+  }
+
   const lowerPropType = propType.toLowerCase();
 
   // Core props (highest priority)
@@ -508,6 +514,16 @@ interface MyPick {
 }
 
 export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport }) => {
+  // �🔥🔥 ULTRA DEBUG: Log IMMEDIATELY when component function runs
+  console.log("🔥🔥🔥 [BODY_DEBUG] PlayerPropsTab function body executing!");
+  console.log("🔥🔥🔥 [BODY_DEBUG] selectedSport:", selectedSport);
+
+  // �🚨 CRITICAL: Component mounted debug
+  React.useEffect(() => {
+    console.log("🚨 [COMPONENT_DEBUG] ===== PlayerPropsTab MOUNTED =====");
+    console.log("🚨 [COMPONENT_DEBUG] selectedSport prop:", selectedSport);
+  }, []);
+
   const navigate = useNavigate();
   const { toast } = useToast();
   const access = useAccess();
@@ -675,6 +691,15 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
       logState("PlayerPropsTab", `Force refresh at ${new Date().toISOString()}`);
       logDebug("PlayerPropsTab", `Current realProps length before load: ${realProps.length}`);
 
+      // 🚨 CRITICAL: About to fetch
+      console.log("🚨 [FETCH_DEBUG] ===== ABOUT TO FETCH PROPS =====");
+      console.log("🚨 [FETCH_DEBUG] Sport:", sport);
+      console.log("🚨 [FETCH_DEBUG] Auth headers present:", !!authHeaders);
+      console.log(
+        "🚨 [FETCH_DEBUG] API URL:",
+        `/api/props?sport=${encodeURIComponent(sport)}&limit=500`,
+      );
+
       setIsLoadingData(true);
       setRealProps([]); // Clear data
 
@@ -689,7 +714,39 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
         }
         const result: PlayerPropNormalized[] = payload.items || [];
         logAPI("PlayerPropsTab", `Local API returned ${result?.length || 0} props`);
-        console.log("🔍 [API_DEBUG] API result:", result);
+
+        // 🔍 COMPREHENSIVE API RESPONSE DEBUG
+        console.log("🔍 [API_DEBUG] ===== API Response Received =====");
+        console.log("🔍 [API_DEBUG] Status:", resp.ok ? "✅ SUCCESS" : "❌ FAILED");
+        console.log("🔍 [API_DEBUG] Sport requested:", sport);
+        console.log("🔍 [API_DEBUG] Props count:", result?.length || 0);
+
+        if (!result || result.length === 0) {
+          console.warn("⚠️ [API_DEBUG] NO PROPS RETURNED FROM API!");
+          console.log("🔍 [API_DEBUG] Full payload:", payload);
+        } else {
+          console.log("🔍 [API_DEBUG] First prop complete data:", result[0]);
+          console.log("🔍 [API_DEBUG] First prop field check:", {
+            playerName: result[0].playerName ?? "❌ NULL",
+            playerId: result[0].playerId ?? "❌ NULL",
+            team: result[0].team ?? "❌ NULL",
+            opponent: result[0].opponent ?? "❌ NULL",
+            propType: result[0].propType ?? "❌ NULL",
+            line: result[0].line ?? "❌ NULL",
+            sport: result[0].sport ?? "❌ NULL",
+            best_over: result[0].best_over ?? "❌ NULL",
+            best_under: result[0].best_under ?? "❌ NULL",
+            offers: result[0].offers ? `✅ ${result[0].offers.length} offers` : "❌ NULL",
+          });
+
+          console.log("🔍 [API_DEBUG] First 5 props summary:");
+          result.slice(0, 5).forEach((prop: any, index) => {
+            console.log(
+              `  ${index + 1}. ${prop.playerName || "NO_NAME"} - ${prop.propType || "NO_TYPE"} - ${prop.line ?? "N/A"}`,
+            );
+          });
+        }
+        console.log("🔍 [API_DEBUG] ===== End API Response =====");
 
         // 🔍 COMPREHENSIVE FRONTEND DEBUG LOGGING
         if (result && result.length > 0) {
@@ -697,7 +754,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
           console.log(`📊 Props Received: ${result.length}`);
           console.log(`📝 First 10 Props (Priority Order):`);
           result.slice(0, 10).forEach((prop: any, index) => {
-            console.log(`${index + 1}. ${prop.propType} - ${prop.playerName}`);
+            // ✅ Safety check for undefined propType
+            const propType = prop?.propType || "NO_TYPE";
+            const playerName = prop?.playerName || "NO_NAME";
+            console.log(`${index + 1}. ${propType} - ${playerName}`);
           });
 
           // Analyze the first prop in detail
@@ -745,75 +805,129 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
             if (!s) return "UNK";
             if (/^[A-Za-z]{2,4}$/.test(s)) return s.toUpperCase();
             const parts = s.split(/\s+/).filter(Boolean);
-            if (parts.length >= 2) return parts.map((w) => w[0]).join("").slice(0, 3).toUpperCase();
+            if (parts.length >= 2)
+              return parts
+                .map((w) => w[0])
+                .join("")
+                .slice(0, 3)
+                .toUpperCase();
             return s.substring(0, 3).toUpperCase();
           };
 
-          const transformedProps = result.map((prop, index) => {
-            const offers = prop.offers || [];
-            const overOdds =
-              prop.best_over?.odds ??
-              offers.reduce((acc, o) => (o.overOdds != null ? o.overOdds : acc), 0);
-            const underOdds =
-              prop.best_under?.odds ??
-              offers.reduce((acc, o) => (o.underOdds != null ? o.underOdds : acc), 0);
-            const edgeOver =
-              typeof prop.best_over?.edgePct === "number" ? prop.best_over!.edgePct! : 0;
-            const edgeUnder =
-              typeof prop.best_under?.edgePct === "number" ? prop.best_under!.edgePct! : 0;
-            const bestEdgePct = Math.max(edgeOver, edgeUnder);
-            return {
-              id: prop.id,
-              playerId: prop.playerId || "",
-              player_id: prop.playerId || "",
-              playerName: prop.playerName || "Unknown Player",
-              player_name: prop.playerName || "Unknown Player",
-              team: prop.team || "UNK",
-              teamAbbr: toAbbr(prop.team),
-              opponent: prop.opponent || "UNK",
-              opponentAbbr: toAbbr(prop.opponent),
-              gameId: prop.gameId,
-              sport: prop.sport,
-              propType: prop.propType,
-              line: prop.line,
-              overOdds: typeof overOdds === "number" ? overOdds : 0,
-              underOdds: typeof underOdds === "number" ? underOdds : 0,
-              gameDate: prop.startTime || new Date().toISOString(),
-              gameTime: prop.startTime || new Date().toISOString(),
-              // expose best book odds for UI rendering
-              best_over: prop.best_over?.odds,
-              best_under: prop.best_under?.odds,
-              // basic EV proxy from best edge vs average price; convert % to 0-1
-              expectedValue: Number.isFinite(bestEdgePct)
-                ? Math.max(-1, Math.min(1, bestEdgePct / 100))
-                : 0,
-              confidence: Number.isFinite(bestEdgePct)
-                ? Math.max(0, Math.min(1, (bestEdgePct + 20) / 120))
-                : 0.5,
-              // books display
-              availableSportsbooks: offers.map((o) => o.book),
-              allSportsbookOdds: offers.map((o) => ({
-                sportsbook: o.book,
-                overOdds: o.overOdds,
-                underOdds: o.underOdds,
-                deeplink: o.deeplink,
-              })),
-              originalIndex: index,
-            } as any;
-          });
+          console.log("🔄 [TRANSFORM_DEBUG] Starting transformation of", result.length, "props");
+
+          const transformedProps = result
+            .map((prop, index) => {
+              try {
+                // ✅ Safety check for undefined prop
+                if (!prop) {
+                  console.warn(`⚠️ [TRANSFORM_DEBUG] Skipping undefined prop at index ${index}`);
+                  return null;
+                }
+
+                // ✅ Safe array access with fallback
+                const offers = Array.isArray(prop.offers) ? prop.offers : [];
+
+                // ✅ Safe odds extraction with multiple fallbacks
+                const overOdds =
+                  prop.best_over?.odds ??
+                  offers.reduce((acc, o) => (o.overOdds != null ? o.overOdds : acc), -110);
+                const underOdds =
+                  prop.best_under?.odds ??
+                  offers.reduce((acc, o) => (o.underOdds != null ? o.underOdds : acc), -110);
+
+                // ✅ Safe edge calculation
+                const edgeOver =
+                  typeof prop.best_over?.edgePct === "number" ? prop.best_over!.edgePct! : 0;
+                const edgeUnder =
+                  typeof prop.best_under?.edgePct === "number" ? prop.best_under!.edgePct! : 0;
+                const bestEdgePct = Math.max(edgeOver, edgeUnder);
+
+                const transformed = {
+                  id: prop.id || `prop-${index}`,
+                  playerId: prop.playerId || `unknown-${index}`,
+                  player_id: prop.playerId || `unknown-${index}`,
+                  playerName: prop.playerName || "Unknown Player",
+                  player_name: prop.playerName || "Unknown Player",
+                  team: prop.team || "UNK",
+                  teamAbbr: toAbbr(prop.team) || "UNK",
+                  opponent: prop.opponent || "UNK",
+                  opponentAbbr: toAbbr(prop.opponent) || "UNK",
+                  gameId: prop.gameId || `game-${index}`,
+                  sport: prop.sport || sport,
+                  propType: prop.propType || "Unknown",
+                  line: prop.line ?? 0,
+                  overOdds:
+                    typeof overOdds === "number" && Number.isFinite(overOdds) ? overOdds : -110,
+                  underOdds:
+                    typeof underOdds === "number" && Number.isFinite(underOdds) ? underOdds : -110,
+                  gameDate: prop.startTime || new Date().toISOString(),
+                  gameTime: prop.startTime || new Date().toISOString(),
+                  // expose best book odds for UI rendering
+                  best_over: prop.best_over?.odds ?? -110,
+                  best_under: prop.best_under?.odds ?? -110,
+                  // basic EV proxy from best edge vs average price; convert % to 0-1
+                  expectedValue: Number.isFinite(bestEdgePct)
+                    ? Math.max(-1, Math.min(1, bestEdgePct / 100))
+                    : 0,
+                  confidence: Number.isFinite(bestEdgePct)
+                    ? Math.max(0, Math.min(1, (bestEdgePct + 20) / 120))
+                    : 0.5,
+                  // books display
+                  availableSportsbooks: offers.map((o) => o.book),
+                  allSportsbookOdds: offers.map((o) => ({
+                    sportsbook: o.book,
+                    overOdds: o.overOdds,
+                    underOdds: o.underOdds,
+                    deeplink: o.deeplink,
+                  })),
+                  originalIndex: index,
+                };
+              } catch (error) {
+                console.error(
+                  `❌ [TRANSFORM_DEBUG] Error transforming prop at index ${index}:`,
+                  error,
+                );
+                console.error(`❌ [TRANSFORM_DEBUG] Problematic prop:`, prop);
+                return null; // Skip this prop
+              }
+            })
+            .filter(Boolean); // Remove null entries
 
           // Sort by original index to preserve API order
           const sortedPropsWithEV = transformedProps.sort(
-            (a, b) => (a.originalIndex || 0) - (b.originalIndex || 0),
+            (a: any, b: any) => (a.originalIndex || 0) - (b.originalIndex || 0),
           );
 
           // Debug: Log the first 10 props to verify order
           console.log("🎯 PRIORITY ORDER DEBUG - First 10 props after EV calculation:");
           sortedPropsWithEV.slice(0, 10).forEach((prop: any, index) => {
+            // ✅ Safety check for undefined values
+            const propType = prop?.propType || "NO_TYPE";
+            const playerName = prop?.playerName || "NO_NAME";
+            const originalIndex = prop?.originalIndex ?? "N/A";
             console.log(
-              `${index + 1}. ${prop.propType} - ${prop.playerName} (originalIndex: ${prop.originalIndex})`,
+              `${index + 1}. ${propType} - ${playerName} (originalIndex: ${originalIndex})`,
             );
           });
+
+          // 🔍 Final data check before setting state
+          console.log("🔄 [TRANSFORM_DEBUG] Transformation complete!");
+          console.log("🔄 [TRANSFORM_DEBUG] First transformed prop:", transformedProps[0]);
+          console.log("🔄 [TRANSFORM_DEBUG] sortedPropsWithEV count:", sortedPropsWithEV.length);
+
+          if (sortedPropsWithEV.length > 0) {
+            const firstProp: any = sortedPropsWithEV[0];
+            console.log("✅ [TRANSFORM_DEBUG] First prop after sorting:", {
+              playerName: firstProp.playerName ?? "❌ NULL",
+              propType: firstProp.propType ?? "❌ NULL",
+              line: firstProp.line ?? "❌ NULL",
+              team: firstProp.team ?? "❌ NULL",
+              opponent: firstProp.opponent ?? "❌ NULL",
+              overOdds: firstProp.overOdds ?? "❌ NULL",
+              expectedValue: firstProp.expectedValue ?? "❌ NULL",
+            });
+          }
 
           // Set all props at once (no pagination)
           console.log(
@@ -821,7 +935,22 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
             sortedPropsWithEV.length,
             "props",
           );
-          setRealProps(sortedPropsWithEV as PlayerProp[]);
+
+          // 🚨 CRITICAL DEBUG: Log what we're about to set
+          console.log("🚨 [STATE_DEBUG] ===== SETTING STATE =====");
+          console.log("🚨 [STATE_DEBUG] sortedPropsWithEV.length:", sortedPropsWithEV.length);
+          console.log(
+            "🚨 [STATE_DEBUG] First 3 props being set:",
+            sortedPropsWithEV.slice(0, 3).map((p) => ({
+              id: p.id,
+              playerName: p.playerName,
+              propType: p.propType,
+              line: p.line,
+              team: p.team,
+            })),
+          );
+
+          setRealProps(sortedPropsWithEV as any as PlayerProp[]);
 
           // Validate headshot player ID matches
           validateHeadshots(sortedPropsWithEV as any[]);
@@ -1019,19 +1148,25 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
 
   // Update sport filter when selectedSport changes (debounced one-shot)
   useEffect(() => {
-    logState("PlayerPropsTab", `Sport changed: ${selectedSport}`);
-    setSportFilter(selectedSport);
-    if (!selectedSport) {
-      logWarning("PlayerPropsTab", "No sport selected, skipping load");
-      return;
-    }
+    // 🚨 CRITICAL: useEffect triggered
+    console.log("🚨 [USEEFFECT_DEBUG] ===== SPORT CHANGED USEEFFECT =====");
+    console.log("🚨 [USEEFFECT_DEBUG] selectedSport:", selectedSport);
+
+    // 🔥 NUCLEAR FIX: Always use "nfl" if selectedSport is falsy
+    const sportToLoad = selectedSport || "nfl";
+    console.log("🔥 [USEEFFECT_DEBUG] sportToLoad (after fallback):", sportToLoad);
+
+    logState("PlayerPropsTab", `Sport changed: ${sportToLoad}`);
+    setSportFilter(sportToLoad);
+
     autoRelaxedRef.current = false; // reset per league
     // Ensure permissive defaults when switching leagues so we see the full slate
-    silentPermissiveReset(selectedSport);
+    silentPermissiveReset(sportToLoad);
     const t = setTimeout(() => {
-      logState("PlayerPropsTab", `Initial load for sport: ${selectedSport}`);
-      loadPlayerProps(selectedSport);
-      loadAvailableSportsbooks(selectedSport);
+      logState("PlayerPropsTab", `Initial load for sport: ${sportToLoad}`);
+      console.log("✅ [USEEFFECT_DEBUG] Calling loadPlayerProps for:", sportToLoad);
+      loadPlayerProps(sportToLoad);
+      loadAvailableSportsbooks(sportToLoad);
     }, 50);
     return () => clearTimeout(t);
   }, [selectedSport]);
@@ -1143,6 +1278,25 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
   // Only show sportsbook props - no Pick'em props
   const allProps = realProps;
 
+  // 🚨 CRITICAL DEBUG: Check state after load
+  console.log("🚨 [DISPLAY_DEBUG] ===== PREPARING TO DISPLAY =====");
+  console.log("🚨 [DISPLAY_DEBUG] realProps.length:", realProps.length);
+  console.log("🚨 [DISPLAY_DEBUG] allProps.length:", allProps.length);
+  console.log("🚨 [DISPLAY_DEBUG] isLoadingData:", isLoadingData);
+  if (allProps.length > 0) {
+    console.log(
+      "🚨 [DISPLAY_DEBUG] First 3 props:",
+      allProps.slice(0, 3).map((p) => ({
+        id: p.id,
+        playerName: p.playerName,
+        propType: p.propType,
+        line: p.line,
+      })),
+    );
+  } else {
+    console.error("❌ [DISPLAY_DEBUG] NO PROPS IN allProps!");
+  }
+
   // Prime rating service with the current slate for normalization context
   try {
     statpediaRatingService.setSlateProps(allProps as any[]);
@@ -1158,6 +1312,12 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
 
   // Simplified filtering - much less restrictive
   const filteredProps = propsWithRatings.filter((prop) => {
+    // ✅ Safety check for undefined prop or propType
+    if (!prop || !prop.propType) {
+      console.warn("⚠️ [FILTER_DEBUG] Skipping prop with undefined propType:", prop);
+      return false;
+    }
+
     const matchesSearch =
       searchQuery === "" ||
       prop.playerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1208,6 +1368,85 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
     return passes;
   });
 
+  // 🚨 CRITICAL DEBUG: Check what survived filtering
+  console.log("🚨 [FILTER_DEBUG] ===== AFTER FILTERING =====");
+  console.log("🚨 [FILTER_DEBUG] propsWithRatings.length:", propsWithRatings.length);
+  console.log("🚨 [FILTER_DEBUG] filteredProps.length:", filteredProps.length);
+  console.log("🚨 [FILTER_DEBUG] Active filters:", {
+    searchQuery,
+    propTypeFilter,
+    minConfidence,
+    minEV,
+    showOnlyPositiveEV,
+    minLine,
+    maxLine,
+    useOddsFilter,
+    minOdds,
+    maxOdds,
+    overUnderFilter,
+  });
+
+  if (filteredProps.length === 0 && propsWithRatings.length > 0) {
+    console.error("❌ [FILTER_DEBUG] ALL PROPS FILTERED OUT!");
+    console.log("🔍 [FILTER_DEBUG] First prop that was filtered:", propsWithRatings[0]);
+    console.log("🔍 [FILTER_DEBUG] Checking why it was filtered:");
+    const testProp = propsWithRatings[0];
+    console.log(
+      "  - searchQuery:",
+      searchQuery,
+      "matches:",
+      searchQuery === "" ||
+        testProp.playerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        testProp.team?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        testProp.propType?.toLowerCase().includes(searchQuery.toLowerCase()),
+    );
+    console.log(
+      "  - propTypeFilter:",
+      propTypeFilter,
+      "matches:",
+      propTypeFilter === "all" ||
+        testProp.propType?.replace(/_/g, " ").toLowerCase() === propTypeFilter.toLowerCase(),
+    );
+    console.log(
+      "  - minConfidence:",
+      minConfidence,
+      "prop confidence:",
+      (testProp.confidence || 0.5) * 100,
+      "passes:",
+      (testProp.confidence || 0.5) >= minConfidence / 100,
+    );
+    console.log(
+      "  - minEV:",
+      minEV,
+      "prop EV:",
+      (testProp.expectedValue || 0) * 100,
+      "passes:",
+      (testProp.expectedValue || 0) >= minEV / 100,
+    );
+    console.log(
+      "  - minLine:",
+      minLine,
+      "maxLine:",
+      maxLine,
+      "prop line:",
+      testProp.line,
+      "passes:",
+      testProp.line >= minLine && testProp.line <= maxLine,
+    );
+  } else if (filteredProps.length > 0) {
+    console.log("✅ [FILTER_DEBUG] Showing", filteredProps.length, "props");
+    console.log(
+      "🔍 [FILTER_DEBUG] First 3 filtered props:",
+      filteredProps.slice(0, 3).map((p) => ({
+        playerName: p.playerName,
+        propType: p.propType,
+        line: p.line,
+        confidence: p.confidence,
+        expectedValue: p.expectedValue,
+      })),
+    );
+  }
+
   // PropFinder-style sorting: normalize entire slate first, then sort
   let sortedProps = filteredProps;
 
@@ -1254,8 +1493,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
           break;
         case "order":
           // Sort by prop priority order
-          const aOrderPriority = getPropPriority(a.propType);
-          const bOrderPriority = getPropPriority(b.propType);
+          // ✅ Safety check for undefined propType
+          const aOrderPriority = getPropPriority(a?.propType || "Unknown");
+          const bOrderPriority = getPropPriority(b?.propType || "Unknown");
           return aOrderPriority - bOrderPriority;
         default:
           aValue = a.confidence || 0;
@@ -1277,6 +1517,31 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
 
   // Use sorted props (PropFinder-style for 'api' sort, traditional for others)
   const mixedProps = sortedProps;
+
+  // 🚨 CRITICAL DEBUG: Final props to display
+  console.log("🚨 [RENDER_DEBUG] ===== FINAL PROPS FOR DISPLAY =====");
+  console.log("🚨 [RENDER_DEBUG] sortedProps.length:", sortedProps.length);
+  console.log("🚨 [RENDER_DEBUG] mixedProps.length:", mixedProps.length);
+  console.log("🚨 [RENDER_DEBUG] isLoadingData:", isLoadingData);
+
+  if (mixedProps.length === 0) {
+    console.error("❌ [RENDER_DEBUG] NO PROPS TO DISPLAY!");
+    console.log("🔍 [RENDER_DEBUG] Tracing backwards:");
+    console.log("  - realProps.length:", realProps.length);
+    console.log("  - allProps.length:", allProps.length);
+    console.log("  - filteredProps.length:", filteredProps.length);
+    console.log("  - sortedProps.length:", sortedProps.length);
+  } else {
+    console.log("✅ [RENDER_DEBUG] Will display", mixedProps.length, "props");
+    console.log("🔍 [RENDER_DEBUG] First prop to render:", {
+      id: mixedProps[0].id,
+      playerName: mixedProps[0].playerName,
+      propType: mixedProps[0].propType,
+      line: mixedProps[0].line,
+      confidence: mixedProps[0].confidence,
+      expectedValue: mixedProps[0].expectedValue,
+    });
+  }
 
   // Auto-relax filters if we end up with a very small visible slate relative to available props
   useEffect(() => {
@@ -1328,28 +1593,86 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
 
   // Final ordering with stable tie-breakers using useMemo
   const orderedProps = React.useMemo(() => {
-    if (!mixedProps || mixedProps.length === 0) return [];
+    console.log("🔍 [ORDERED_PROPS_DEBUG] ===== Building orderedProps =====");
+    console.log("🔍 [ORDERED_PROPS_DEBUG] Input mixedProps:", mixedProps?.length ?? 0);
+    console.log("🔍 [ORDERED_PROPS_DEBUG] sportFilter:", sportFilter);
+
+    if (!mixedProps || mixedProps.length === 0) {
+      console.warn("⚠️ [ORDERED_PROPS_DEBUG] No mixedProps available!");
+      return [];
+    }
 
     // Copy to avoid mutating upstream
     const arr = [...mixedProps];
 
+    // Sample first prop before filtering
+    if (arr.length > 0) {
+      console.log("🔍 [ORDERED_PROPS_DEBUG] First prop before filtering:", {
+        playerName: arr[0].playerName ?? "❌ NULL",
+        propType: arr[0].propType ?? "❌ NULL",
+        sport: arr[0].sport ?? "❌ NULL",
+        line: arr[0].line ?? "❌ NULL",
+        overOdds: arr[0].overOdds ?? "❌ NULL",
+        expectedValue: arr[0].expectedValue ?? "❌ NULL",
+      });
+    }
+
     // Ensure we only show props for the currently selected league; do not exclude categories
     const league = (sportFilter || "").toLowerCase();
-    const leagueProps = arr.filter((p) => !p.sport || String(p.sport).toLowerCase() === league);
+    console.log("🔍 [ORDERED_PROPS_DEBUG] Filtering for league:", league);
+
+    const leagueProps = arr.filter((p) => {
+      const propSport = p.sport ? String(p.sport).toLowerCase() : null;
+      const matches = !propSport || propSport === league;
+
+      if (!matches && arr.indexOf(p) < 3) {
+        console.log(`  ⏩ Filtered out: ${p.playerName} (sport: ${propSport})`);
+      }
+
+      return matches;
+    });
+
+    console.log("🔍 [ORDERED_PROPS_DEBUG] After league filter:", leagueProps.length, "props");
 
     // Sort by Statpedia rating first (highest to lowest), then by priority
     leagueProps.sort((a, b) => {
+      // ✅ STEP 3: Safe null checks for odds
+      const safeOverOddsA =
+        a.overOdds && typeof a.overOdds === "number" ? Number(a.overOdds) : null;
+      const safeUnderOddsA =
+        a.underOdds && typeof a.underOdds === "number" ? Number(a.underOdds) : null;
+      const safeOverOddsB =
+        b.overOdds && typeof b.overOdds === "number" ? Number(b.overOdds) : null;
+      const safeUnderOddsB =
+        b.underOdds && typeof b.underOdds === "number" ? Number(b.underOdds) : null;
+
       // Check if props are pick 'em (odds around +100)
       const aIsPickEm =
-        (a.overOdds && Number(a.overOdds) >= 95 && Number(a.overOdds) <= 105) ||
-        (a.underOdds && Number(a.underOdds) >= 95 && Number(a.underOdds) <= 105);
+        (safeOverOddsA && safeOverOddsA >= 95 && safeOverOddsA <= 105) ||
+        (safeUnderOddsA && safeUnderOddsA >= 95 && safeUnderOddsA <= 105);
       const bIsPickEm =
-        (b.overOdds && Number(b.overOdds) >= 95 && Number(b.overOdds) <= 105) ||
-        (b.underOdds && Number(b.underOdds) >= 95 && Number(b.underOdds) <= 105);
+        (safeOverOddsB && safeOverOddsB >= 95 && safeOverOddsB <= 105) ||
+        (safeUnderOddsB && safeUnderOddsB >= 95 && safeUnderOddsB <= 105);
 
-      // First: Sort by Statpedia rating (highest first)
-      const aRating = statpediaRatingService.calculateRating(a, "both");
-      const bRating = statpediaRatingService.calculateRating(b, "both");
+      // ✅ STEP 4: Safe rating calculation with error handling
+      let aRating = { overall: 50, color: "gray" as "gray" | "green" | "yellow" | "red" };
+      let bRating = { overall: 50, color: "gray" as "gray" | "green" | "yellow" | "red" };
+
+      try {
+        if (a && a.propType) {
+          aRating = statpediaRatingService.calculateRating(a, "both");
+        }
+      } catch (error) {
+        console.warn(`⚠️ [ORDERED_PROPS_DEBUG] Rating calc failed for ${a.playerName}:`, error);
+      }
+
+      try {
+        if (b && b.propType) {
+          bRating = statpediaRatingService.calculateRating(b, "both");
+        }
+      } catch (error) {
+        console.warn(`⚠️ [ORDERED_PROPS_DEBUG] Rating calc failed for ${b.playerName}:`, error);
+      }
 
       // If one is pick 'em and the other isn't, handle special case
       if (aIsPickEm && !bIsPickEm) {
@@ -1378,27 +1701,39 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
         }
       }
 
-      // Second: Use priority for tie-breakers
-      const pa = getPriority(a.propType);
-      const pb = getPriority(b.propType);
+      // ✅ STEP 5: Safe priority calculation with null checks
+      const pa = a.propType ? getPriority(a.propType) : 99;
+      const pb = b.propType ? getPriority(b.propType) : 99;
       if (pa !== pb) return pa - pb;
 
       // Third: Tie-break within offense types
-      const sa = offenseSubOrder(a.propType);
-      const sb = offenseSubOrder(b.propType);
+      const sa = a.propType ? offenseSubOrder(a.propType) : 99;
+      const sb = b.propType ? offenseSubOrder(b.propType) : 99;
       if (sa !== sb) return sa - sb;
 
-      // Final stable fallbacks
+      // Final stable fallbacks with null safety
       const mt = String(a.propType || "").localeCompare(String(b.propType || ""));
       if (mt !== 0) return mt;
 
       return String(a.playerName || "").localeCompare(String(b.playerName || ""));
     });
 
-    // Debug logging (remove after confirming)
-    leagueProps.slice(0, 10).forEach((p) => {
-      console.debug("[ORDERED]", p.propType, p.playerName, getPriority(p.propType));
+    // Debug logging for first few props
+    console.log("🔍 [ORDERED_PROPS_DEBUG] First 5 ordered props:");
+    leagueProps.slice(0, 5).forEach((p, i) => {
+      let rating = { overall: 50 };
+      try {
+        rating = statpediaRatingService.calculateRating(p, "both");
+      } catch (e) {
+        // silent
+      }
+      console.log(
+        `  ${i + 1}. ${p.playerName || "NO_NAME"} - ${p.propType || "NO_TYPE"} - Priority: ${getPriority(p.propType || "")} - Rating: ${rating.overall}`,
+      );
     });
+
+    console.log("✅ [ORDERED_PROPS_DEBUG] Final count:", leagueProps.length, "props");
+    console.log("🔍 [ORDERED_PROPS_DEBUG] ===== orderedProps build complete =====");
 
     return leagueProps;
   }, [mixedProps, sportFilter]);
@@ -1412,8 +1747,13 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
     const propTypeCounts = new Map<string, number>();
 
     mixedProps.forEach((prop) => {
-      playerCounts.set(prop.playerName, (playerCounts.get(prop.playerName) || 0) + 1);
-      propTypeCounts.set(prop.propType, (propTypeCounts.get(prop.propType) || 0) + 1);
+      // ✅ Safety check for undefined values
+      if (prop && prop.playerName) {
+        playerCounts.set(prop.playerName, (playerCounts.get(prop.playerName) || 0) + 1);
+      }
+      if (prop && prop.propType) {
+        propTypeCounts.set(prop.propType, (propTypeCounts.get(prop.propType) || 0) + 1);
+      }
     });
 
     logDebug("PlayerPropsTab", "Props Results:", {
@@ -1571,7 +1911,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
 
   // Get unique prop types for filter (exclude defense and kicking for NFL)
   const propTypes = Array.from(
-    new Set(mixedProps.map((prop) => prop.propType.replace(/_/g, " "))),
+    new Set(
+      mixedProps
+        .filter((prop) => prop && prop.propType) // ✅ Safety check
+        .map((prop) => prop.propType.replace(/_/g, " ")),
+    ),
   ).sort();
 
   if (!isSubscribed) {

@@ -93,6 +93,9 @@ const apiRequest = async (url: string, options: RequestInit = {}) => {
   const baseUrl = getApiBaseUrl();
   const fullUrl = `${baseUrl}${url}`;
 
+  console.log(`📡 [API_REQUEST] Fetching: ${fullUrl}`);
+  console.log(`📡 [API_REQUEST] Method: ${options.method || "GET"}`);
+
   let response: Response;
   try {
     response = await fetch(fullUrl, {
@@ -102,7 +105,9 @@ const apiRequest = async (url: string, options: RequestInit = {}) => {
         ...options.headers,
       },
     });
+    console.log(`✅ [API_REQUEST] Response status: ${response.status}`);
   } catch (e: any) {
+    console.error(`❌ [API_REQUEST] Fetch failed:`, e);
     // Network or CORS error
     const hint = import.meta.env.DEV
       ? 'Auth server not reachable. Make sure it is running with "npm run api:server" or "npm run dev:full".'
@@ -113,7 +118,9 @@ const apiRequest = async (url: string, options: RequestInit = {}) => {
   let data: any = null;
   try {
     data = await response.json();
+    console.log(`📦 [API_REQUEST] Response data:`, data);
   } catch {
+    console.warn(`⚠️ [API_REQUEST] Response not JSON`);
     // Not JSON response
     if (!response.ok) {
       throw new Error(`Request failed with status ${response.status}`);
@@ -122,6 +129,7 @@ const apiRequest = async (url: string, options: RequestInit = {}) => {
   }
 
   if (!response.ok) {
+    console.error(`❌ [API_REQUEST] Request failed:`, data.error);
     throw new Error(data.error || "Request failed");
   }
 
@@ -188,12 +196,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Silent token refresh
   const refreshTokenSilently = async (refreshToken: string): Promise<boolean> => {
     try {
+      console.log("🔄 [AUTH_DEBUG] Attempting silent token refresh");
+
+      // Skip refresh for mock tokens (old bypass tokens)
+      if (refreshToken.startsWith("mock-refresh-")) {
+        console.log("⚠️ [AUTH_DEBUG] Skipping refresh for mock token");
+        return false;
+      }
+
       const response = await apiRequest("/api/auth/refresh", {
         method: "POST",
         body: JSON.stringify({ refreshToken }),
       });
 
       if (response.success) {
+        console.log("✅ [AUTH_DEBUG] Token refreshed successfully");
         const newTokens: AuthTokens = {
           token: response.data.token,
           refreshToken,
@@ -240,13 +257,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Login function
   const login = useCallback(async (email: string, password: string) => {
+    console.log("🔐 [AUTH_DEBUG] Login attempt started for:", email);
+
     try {
-      const response = await apiRequest("/api/auth/login", {
-        method: "POST",
-        body: JSON.stringify({ email, password }),
-      });
+      console.log("📡 [AUTH_DEBUG] Calling /api/auth/login...");
+
+      const response = (await Promise.race([
+        apiRequest("/api/auth/login", {
+          method: "POST",
+          body: JSON.stringify({ email, password }),
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Login timeout after 10s")), 10000),
+        ),
+      ])) as any;
+
+      console.log("✅ [AUTH_DEBUG] Login response:", response);
 
       if (response.success) {
+        console.log("🎫 [AUTH_DEBUG] Login successful, setting tokens...");
         const newTokens: AuthTokens = {
           token: response.data.token,
           refreshToken: response.data.refreshToken,
@@ -256,47 +285,73 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setTokens(newTokens);
         saveTokens(newTokens);
 
+        console.log("👤 [AUTH_DEBUG] Fetching user data...");
         // Fetch user data
         await fetchUserData(response.data.token);
+        console.log("✅ [AUTH_DEBUG] Login complete!");
+      } else {
+        console.error("❌ [AUTH_DEBUG] Login failed:", response);
+        throw new Error(response.error || "Login failed");
       }
     } catch (error) {
-      console.error("Login error:", error);
+      console.error("❌ [AUTH_DEBUG] Login error:", error);
       throw error;
     }
   }, []);
 
   // Fetch user data
   const fetchUserData = async (token: string) => {
+    console.log("👤 [AUTH_DEBUG] fetchUserData called");
+
     try {
-      const response = await apiRequest("/api/auth/me", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      console.log("📡 [AUTH_DEBUG] Calling /api/auth/me...");
+
+      const response = (await Promise.race([
+        apiRequest("/api/auth/me", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Fetch user timeout after 10s")), 10000),
+        ),
+      ])) as any;
+
+      console.log("✅ [AUTH_DEBUG] User data response:", response);
 
       if (response.success) {
         const userData = response.data;
 
+        console.log("📡 [AUTH_DEBUG] Fetching user role...");
         // Fetch user role
         try {
-          const roleResponse = await apiRequest(`/api/auth/user-role/${userData.id}`);
+          const roleResponse = (await Promise.race([
+            apiRequest(`/api/auth/user-role/${userData.id}`),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error("Role fetch timeout after 5s")), 5000),
+            ),
+          ])) as any;
+
           if (roleResponse.success) {
             userData.role = roleResponse.data.role;
+            console.log("✅ [AUTH_DEBUG] User role:", userData.role);
           }
         } catch (roleError) {
-          console.error("Failed to fetch user role:", roleError);
+          console.error("⚠️ [AUTH_DEBUG] Failed to fetch user role:", roleError);
           userData.role = "user"; // Default role
         }
 
         // Owner override based on config email list
         const emailLc = (userData.email || "").toLowerCase();
         if (OWNER_EMAILS.includes(emailLc)) {
+          console.log("👑 [AUTH_DEBUG] User is owner:", emailLc);
           userData.role = "owner";
         }
 
         // Determine subscription tier (placeholder: default to 'free' until real billing integration)
         // If your backend adds subscription_tier, we'll pick it up here.
         const sub = userData.subscription_tier || "free";
+        console.log("💳 [AUTH_DEBUG] User subscription:", sub);
         setUserSubscription(sub);
 
         setUser(userData);
