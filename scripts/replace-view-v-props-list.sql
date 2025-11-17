@@ -11,26 +11,10 @@ END$$;
 CREATE OR REPLACE VIEW public.v_props_list AS
 SELECT
   pp.id,
-  COALESCE(p.full_name, p.name) AS full_name,
-  -- Prefer player.team_id -> team abbrev; fallback to logs' team_id; fallback to game sides
-  COALESCE(
-    t.abbreviation,
-    t_pgl.abbreviation,
-    CASE 
-      WHEN g.home_team_id = p.team_id THEN home2.abbreviation
-      WHEN g.away_team_id = p.team_id THEN opp2.abbreviation
-      ELSE NULL
-    END
-  ) AS team,
-  -- Prefer explicit opponent from logs or enriched_stats; else infer from game sides
-  COALESCE(
-    opp.abbreviation,
-    t_pgl_opp.abbreviation,
-    CASE 
-      WHEN g.home_team_id = p.team_id THEN opp2.abbreviation
-      WHEN g.away_team_id = p.team_id THEN home2.abbreviation
-      ELSE NULL
-    END
+  p.full_name,
+  t.abbreviation AS team,
+  COALESCE(opp.abbreviation,
+    CASE WHEN g.home_team_id = p.team_id THEN opp2.abbreviation WHEN g.away_team_id = p.team_id THEN home2.abbreviation ELSE NULL END
   ) AS opponent,
   pt.name AS market,
   pp.line,
@@ -46,31 +30,28 @@ SELECT
   COALESCE(pes.l20, pa.l20) AS l20,
   COALESCE(pes.h2h_avg, pa.h2h_avg) AS h2h_avg,
   COALESCE(pes.season_avg, pa.season_avg) AS season_avg,
-  COALESCE(l.abbreviation, l.code)::text AS league,
+  l.abbreviation::text AS league,
   g.game_date,
-  -- Logos: derive from chosen team/opponent abbreviations with ESPN fallback
   COALESCE(
     t.logo_url,
-    t_pgl.logo_url,
     CASE l.abbreviation
-      WHEN 'NFL' THEN 'https://a.espncdn.com/i/teamlogos/nfl/500/' || lower(COALESCE(t.abbreviation, t_pgl.abbreviation)) || '.png'
-      WHEN 'NBA' THEN 'https://a.espncdn.com/i/teamlogos/nba/500/' || lower(COALESCE(t.abbreviation, t_pgl.abbreviation)) || '.png'
-      WHEN 'MLB' THEN 'https://a.espncdn.com/i/teamlogos/mlb/500/' || lower(COALESCE(t.abbreviation, t_pgl.abbreviation)) || '.png'
-      WHEN 'NHL' THEN 'https://a.espncdn.com/i/teamlogos/nhl/500/' || lower(COALESCE(t.abbreviation, t_pgl.abbreviation)) || '.png'
+      WHEN 'NFL' THEN 'https://a.espncdn.com/i/teamlogos/nfl/500/' || lower(t.abbreviation) || '.png'
+      WHEN 'NBA' THEN 'https://a.espncdn.com/i/teamlogos/nba/500/' || lower(t.abbreviation) || '.png'
+      WHEN 'MLB' THEN 'https://a.espncdn.com/i/teamlogos/mlb/500/' || lower(t.abbreviation) || '.png'
+      WHEN 'NHL' THEN 'https://a.espncdn.com/i/teamlogos/nhl/500/' || lower(t.abbreviation) || '.png'
       ELSE NULL
     END
   ) AS team_logo,
   COALESCE(
     opp.logo_url,
-    t_pgl_opp.logo_url,
     CASE l.abbreviation
-      WHEN 'NFL' THEN 'https://a.espncdn.com/i/teamlogos/nfl/500/' || lower(COALESCE(opp.abbreviation, t_pgl_opp.abbreviation,
+      WHEN 'NFL' THEN 'https://a.espncdn.com/i/teamlogos/nfl/500/' || lower(COALESCE(opp.abbreviation,
         CASE WHEN g.home_team_id = p.team_id THEN opp2.abbreviation WHEN g.away_team_id = p.team_id THEN home2.abbreviation ELSE NULL END)) || '.png'
-      WHEN 'NBA' THEN 'https://a.espncdn.com/i/teamlogos/nba/500/' || lower(COALESCE(opp.abbreviation, t_pgl_opp.abbreviation,
+      WHEN 'NBA' THEN 'https://a.espncdn.com/i/teamlogos/nba/500/' || lower(COALESCE(opp.abbreviation,
         CASE WHEN g.home_team_id = p.team_id THEN opp2.abbreviation WHEN g.away_team_id = p.team_id THEN home2.abbreviation ELSE NULL END)) || '.png'
-      WHEN 'MLB' THEN 'https://a.espncdn.com/i/teamlogos/mlb/500/' || lower(COALESCE(opp.abbreviation, t_pgl_opp.abbreviation,
+      WHEN 'MLB' THEN 'https://a.espncdn.com/i/teamlogos/mlb/500/' || lower(COALESCE(opp.abbreviation,
         CASE WHEN g.home_team_id = p.team_id THEN opp2.abbreviation WHEN g.away_team_id = p.team_id THEN home2.abbreviation ELSE NULL END)) || '.png'
-      WHEN 'NHL' THEN 'https://a.espncdn.com/i/teamlogos/nhl/500/' || lower(COALESCE(opp.abbreviation, t_pgl_opp.abbreviation,
+      WHEN 'NHL' THEN 'https://a.espncdn.com/i/teamlogos/nhl/500/' || lower(COALESCE(opp.abbreviation,
         CASE WHEN g.home_team_id = p.team_id THEN opp2.abbreviation WHEN g.away_team_id = p.team_id THEN home2.abbreviation ELSE NULL END)) || '.png'
       ELSE NULL
     END
@@ -83,16 +64,10 @@ JOIN public.leagues l ON l.id = g.league_id
 LEFT JOIN public.teams t ON t.id = p.team_id
 LEFT JOIN public.teams home2 ON home2.id = g.home_team_id
 LEFT JOIN public.teams opp2 ON opp2.id = g.away_team_id
--- Prefer opponent from enriched stats if present
 LEFT JOIN public.teams opp ON opp.id = (
   SELECT pes2.opponent_team_id FROM public.player_enriched_stats pes2
   WHERE pes2.player_id = pp.player_id AND pes2.game_id = pp.game_id LIMIT 1
 )
--- Also leverage player_game_logs for robust team/opponent mapping
-LEFT JOIN public.player_game_logs pgl 
-  ON pgl.player_id = pp.player_id AND pgl.game_id = pp.game_id
-LEFT JOIN public.teams t_pgl ON t_pgl.id = pgl.team_id
-LEFT JOIN public.teams t_pgl_opp ON t_pgl_opp.id = pgl.opponent_id
 LEFT JOIN public.player_enriched_stats pes
   ON pes.player_id = pp.player_id AND pes.game_id = pp.game_id
 -- Also join precomputed analytics by player/prop/season

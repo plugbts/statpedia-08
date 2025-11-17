@@ -37,19 +37,9 @@ import {
 } from "@/components/ads/ad-placements";
 import { useAuth } from "@/contexts/AuthContext";
 
-// 🚨🚨🚨 ULTRA DEBUG: This runs when the file is imported
-console.log("🔥🔥🔥 [MODULE_DEBUG] Index.tsx file imported/loaded!");
-
 const Index = () => {
-  console.log("🔥🔥🔥 [RENDER_DEBUG] Index component rendering!");
-
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("dashboard");
-
-  // 🚨 DEBUG: Log activeTab changes
-  React.useEffect(() => {
-    console.log("🚨 [INDEX_DEBUG] activeTab changed to:", activeTab);
-  }, [activeTab]);
 
   const { user: authUser, isAuthenticated, isLoading: authLoading, logout: authLogout } = useAuth();
 
@@ -952,15 +942,7 @@ const Index = () => {
             onPredictionsCountChange={setPredictionsCount}
           />
         )}
-        {activeTab === "player-props" && (
-          <>
-            {console.log(
-              "🚨 [INDEX_DEBUG] Rendering PlayerPropsTab, selectedSport:",
-              selectedSport,
-            )}
-            <PlayerPropsTab selectedSport={selectedSport} />
-          </>
-        )}
+        {activeTab === "player-props" && <PlayerPropsTab selectedSport={selectedSport} />}
         {activeTab === "insights" && <InsightsTab selectedSport={selectedSport} />}
         {activeTab === "bet-tracking" && <BetTrackingTab userRole={userRole} />}
         {/* Social tab temporarily disabled */}

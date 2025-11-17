@@ -1,26 +1,40 @@
-import "dotenv/config";
-import fs from "fs/promises";
+import { config } from "dotenv";
+import fs from "fs";
+import path from "path";
 import postgres from "postgres";
 
-async function run() {
+// Load .env first, then override with .env.local if present
+config();
+config({ path: ".env.local" });
+
+async function main() {
   const file = process.argv[2];
   if (!file) {
-    console.error("Usage: tsx scripts/run-sql-file.ts <path-to-sql>");
+    console.error("Usage: tsx scripts/run-sql-file.ts <sql-file-path>");
     process.exit(1);
   }
-  const conn = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
-  if (!conn) throw new Error("No DB URL");
-  const sql = postgres(conn, { prepare: false });
+
+  const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+  if (!connectionString) {
+    console.error("No DB URL (NEON_DATABASE_URL or DATABASE_URL)");
+    process.exit(1);
+  }
+
+  const sql = postgres(connectionString, { prepare: false });
   try {
-    const content = await fs.readFile(file, "utf8");
-    await sql.unsafe(content);
-    console.log(`Executed SQL file: ${file}`);
+    const abs = path.isAbsolute(file) ? file : path.join(process.cwd(), file);
+    const text = fs.readFileSync(abs, "utf8");
+    console.log(`Running SQL file: ${abs} (\u2264${text.length} bytes)`);
+    await sql.unsafe(text);
+    console.log("\n✅ SQL executed successfully");
+  } catch (e: any) {
+    console.error("\n❌ SQL execution failed:", e?.message || e);
+    process.exit(1);
   } finally {
-    await sql.end({ timeout: 2 });
+    await sql.end();
   }
 }
 
-run().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main();
+}

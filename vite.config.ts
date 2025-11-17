@@ -27,7 +27,6 @@ export default defineConfig(({ mode }) => ({
   },
   optimizeDeps: {
     exclude: ["fsevents"],
-    force: true, // Force re-optimization on every restart
   },
   build: {
     rollupOptions: {

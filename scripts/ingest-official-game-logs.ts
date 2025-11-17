@@ -9,10 +9,6 @@ import { randomUUID } from "crypto";
 
 config({ path: ".env.local" });
 
-// Diagnostics controls
-const DRY_RUN = process.env.DRY_RUN === "1";
-const VERBOSE = process.env.VERBOSE === "1";
-
 const conn = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
 if (!conn) throw new Error("DATABASE_URL/NEON_DATABASE_URL missing");
 const sqlc = postgres(conn, { prepare: false });
@@ -79,20 +75,10 @@ async function fetchSchedule(
   }
   if (league === "WNBA") {
     try {
-      // WNBA endpoint requires full browser-like headers and date in MM/DD/YYYY
-      const [y, m, d] = dateStr.split("-");
-      const gameDate = `${m}/${d}/${y}`;
       const res = await fetchWithTimeout(
-        `https://stats.wnba.com/stats/scoreboardv2?DayOffset=0&GameDate=${encodeURIComponent(gameDate)}&LeagueID=10`,
+        `https://stats.wnba.com/stats/scoreboardv2?DayOffset=0&GameDate=${dateStr}&LeagueID=10`,
         {
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-            Accept: "application/json, text/plain, */*",
-            Referer: "https://www.wnba.com/",
-            Origin: "https://www.wnba.com",
-            "Accept-Language": "en-US,en;q=0.9",
-          },
+          headers: { "User-Agent": "Mozilla/5.0", Accept: "application/json" },
         },
       );
       if (!res.ok) return [];
@@ -122,45 +108,27 @@ async function fetchSchedule(
   }
   if (league === "NFL") {
     try {
-      // ESPN expects dates in YYYYMMDD format, not YYYY-MM-DD
-      const yyyymmdd = dateStr.replace(/-/g, "");
       const res = await fetchWithTimeout(
-        `https://site.api.espn.com/apis/v2/sports/football/nfl/scoreboard?dates=${yyyymmdd}`,
+        `https://site.api.espn.com/apis/v2/sports/football/nfl/scoreboard?dates=${dateStr}`,
       );
-      if (res.ok) {
-        const data: any = await res.json();
-        const events = (data?.events as any[]) || [];
-        const out: Array<{ gameId: string; home: string; away: string }> = [];
-        for (const ev of events) {
-          const comp = ev?.competitions?.[0];
-          if (!comp) continue;
-          const home = comp?.competitors?.find((c: any) => c.homeAway === "home");
-          const away = comp?.competitors?.find((c: any) => c.homeAway === "away");
-          if (home?.team?.abbreviation && away?.team?.abbreviation) {
-            out.push({
-              gameId: String(comp.id),
-              home: home.team.abbreviation,
-              away: away.team.abbreviation,
-            });
-          }
+      if (!res.ok) return [];
+      const data: any = await res.json();
+      const events = (data?.events as any[]) || [];
+      const out: Array<{ gameId: string; home: string; away: string }> = [];
+      for (const ev of events) {
+        const comp = ev?.competitions?.[0];
+        if (!comp) continue;
+        const home = comp?.competitors?.find((c: any) => c.homeAway === "home");
+        const away = comp?.competitors?.find((c: any) => c.homeAway === "away");
+        if (home?.team?.abbreviation && away?.team?.abbreviation) {
+          out.push({
+            gameId: String(comp.id),
+            home: home.team.abbreviation,
+            away: away.team.abbreviation,
+          });
         }
-        if (out.length) return out;
       }
-      // Fallback: ESPN core v2 events (IDs only)
-      const alt = await fetchWithTimeout(
-        `https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/events?dates=${yyyymmdd}&limit=300`,
-      );
-      if (!alt.ok) return [];
-      const j: any = await alt.json();
-      const items: any[] = j?.items || [];
-      return items
-        .map((it: any) => String(it?.$ref || it?.href || ""))
-        .filter((href) => href)
-        .map((href) => ({
-          gameId: href.split("/").filter(Boolean).pop() as string,
-          home: "",
-          away: "",
-        }));
+      return out;
     } catch {
       return [];
     }
@@ -199,8 +167,7 @@ async function fetchGameBoxscoreRaw(league: League, gameId: string): Promise<any
     const url = `${base}/boxscoretraditionalv2?GameID=${gameId}&StartPeriod=0&EndPeriod=0&StartRange=0&EndRange=0&RangeType=0`;
     const res = await fetchWithTimeout(url, {
       headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0",
         Accept: "application/json",
         Referer: "https://www.wnba.com/",
         Origin: "https://www.wnba.com",
@@ -233,10 +200,6 @@ async function fetchGameBoxscoreRaw(league: League, gameId: string): Promise<any
 
 // 3) Save raw and normalize records
 async function saveRaw(league: League, gameId: string, payload: any, season?: string) {
-  if (DRY_RUN) {
-    if (VERBOSE) console.log(`[DRY_RUN] skip saving raw ${league} ${gameId}`);
-    return;
-  }
   await sqlc.unsafe(
     `INSERT INTO public.player_game_logs_raw (league, season, game_external_id, payload)
      VALUES ($1,$2,$3,$4::jsonb)
@@ -255,21 +218,13 @@ function seasonFromDate(dateStr: string, league: League) {
   return String(y);
 }
 
-async function normalizeAndInsert(
-  league: League,
-  gameId: string,
-  dateStr: string,
-  payloadFromCaller?: any,
-) {
+async function normalizeAndInsert(league: League, gameId: string, dateStr: string) {
   // Very lightweight extractors; production logic would handle full mapping per league
-  let payload: any | undefined = payloadFromCaller;
-  if (!payload) {
-    const rows = (await db.execute(
-      sql`SELECT payload FROM public.player_game_logs_raw WHERE league=${league} AND game_external_id=${gameId} AND normalized=false LIMIT 1`,
-    )) as Array<{ payload: any }>;
-    if (!rows[0]) return 0;
-    payload = rows[0].payload;
-  }
+  const rows = (await db.execute(
+    sql`SELECT payload FROM public.player_game_logs_raw WHERE league=${league} AND game_external_id=${gameId} AND normalized=false LIMIT 1`,
+  )) as Array<{ payload: any }>;
+  if (!rows[0]) return 0;
+  const payload = rows[0].payload;
   const norm: Array<{
     player_ext: string;
     team_abbrev: string;
@@ -359,142 +314,18 @@ async function normalizeAndInsert(
       }
     }
   } else if (league === "NFL") {
-    // ESPN NFL API structure: boxscore.players[].statistics[]
-    // Each statGroup has: name (e.g. "passing"), labels (e.g. ["C/ATT", "YDS", ...]), athletes[].stats[]
     const teamsData = payload?.boxscore?.players || [];
-
     for (const team of teamsData) {
-      const teamAbbr = team?.team?.abbreviation || team?.team?.abbrev;
-      const statGroups = team?.statistics || [];
-
-      for (const statGroup of statGroups) {
-        const category = statGroup.name; // "passing", "rushing", "receiving", etc.
-        const labels = statGroup.labels || [];
-        const athletes = statGroup.athletes || [];
-
-        // Map stat categories to prop types
-        const propTypeMapping: Record<string, Record<string, string>> = {
-          passing: {
-            YDS: "Passing Yards",
-            TD: "Passing TDs",
-            INT: "Passing Interceptions",
-            "C/ATT": "Passing Completions",
-            ATT: "Passing Attempts",
-            RTG: "Passer Rating",
-            QBR: "QBR",
-          },
-          rushing: {
-            CAR: "Rushing Attempts",
-            YDS: "Rushing Yards",
-            TD: "Rushing TDs",
-            AVG: "Rushing Average",
-            LONG: "Rushing Long",
-          },
-          receiving: {
-            REC: "Receptions",
-            YDS: "Receiving Yards",
-            TD: "Receiving TDs",
-            TGTS: "Receiving Targets",
-            AVG: "Receiving Average",
-            LONG: "Receiving Long",
-          },
-          defensive: {
-            TOT: "Total Tackles",
-            SOLO: "Solo Tackles",
-            SACKS: "Sacks",
-            INT: "Interceptions",
-            ASST: "Assisted Tackles",
-            TFL: "Tackles For Loss",
-            PD: "Pass Deflections",
-            FF: "Forced Fumbles",
-            FR: "Fumble Recoveries",
-            TD: "Defensive TDs",
-            QBH: "QB Hits",
-            COMB: "Combined Tackles",
-          },
-          kicking: {
-            FG: "Field Goals Made",
-            "FG%": "Field Goal Percentage",
-            XP: "Extra Points Made",
-            PTS: "Kicking Points",
-            LONG: "Longest Field Goal",
-          },
-          punting: {
-            NO: "Punts",
-            YDS: "Punt Yards",
-            AVG: "Punt Average",
-            TB: "Touchbacks",
-            IN20: "Inside 20",
-            LONG: "Longest Punt",
-          },
-          kickReturns: {
-            NO: "Kick Returns",
-            YDS: "Kick Return Yards",
-            AVG: "Kick Return Average",
-            LONG: "Longest Kick Return",
-            TD: "Kick Return TDs",
-          },
-          puntReturns: {
-            NO: "Punt Returns",
-            YDS: "Punt Return Yards",
-            AVG: "Punt Return Average",
-            LONG: "Longest Punt Return",
-            TD: "Punt Return TDs",
-          },
-        };
-
-        const categoryMappings = propTypeMapping[category];
-        if (!categoryMappings) {
-          if (VERBOSE) console.log(`⚠️ [NFL] Skipping unmapped category: ${category}`);
-          continue; // Skip unmapped categories (fumbles, etc.)
-        }
-
-        for (const athlete of athletes) {
-          const playerId = athlete?.athlete?.id;
-          const playerName = athlete?.athlete?.displayName || athlete?.athlete?.shortName;
-          const stats = athlete?.stats || [];
-
-          if (!playerId || !playerName) continue;
-
-          // Extract each stat based on label mapping
-          labels.forEach((label: string, idx: number) => {
-            const propType = categoryMappings[label];
-            if (!propType) {
-              // Log unmapped stats for debugging
-              if (VERBOSE)
-                console.log(
-                  `⚠️ [NFL] Unmapped stat label "${label}" in category "${category}" for player ${playerName}`,
-                );
-              return; // Skip unmapped stats
-            }
-
-            const rawValue = stats[idx];
-            if (rawValue === undefined || rawValue === null) return;
-
-            // Parse value (handle formats like "12/18" for completions, "5-46" for sacks)
-            let value = 0;
-            if (typeof rawValue === "string") {
-              // Handle compound stats like "12/18" - extract first number (completions)
-              if (rawValue.includes("/")) {
-                value = Number(rawValue.split("/")[0]) || 0;
-              } else if (rawValue.includes("-")) {
-                // Handle "5-46" format - extract first number (sack count)
-                value = Number(rawValue.split("-")[0]) || 0;
-              } else {
-                value = Number(rawValue) || 0;
-              }
-            } else {
-              value = Number(rawValue) || 0;
-            }
-
-            norm.push({
-              player_ext: String(playerId),
-              team_abbrev: String(teamAbbr || ""),
-              opponent_abbrev: "", // Will be resolved later
-              prop_type: propType,
-              value: value,
-              player_name: playerName,
-            });
+      const teamAbbr = team?.team?.abbrev;
+      for (const g of team?.groups || []) {
+        for (const a of g?.athletes || []) {
+          norm.push({
+            player_ext: String(a?.athlete?.id),
+            team_abbrev: String(teamAbbr || ""),
+            opponent_abbrev: "",
+            prop_type: "Yards",
+            value: Number(a?.stats?.[0]?.value || 0),
+            player_name: a?.athlete?.displayName || a?.athlete?.shortName || undefined,
           });
         }
       }
@@ -616,33 +447,12 @@ async function normalizeAndInsert(
     const opponentId = teamId === homeTeamId ? awayTeamId : homeTeamId;
     const homeAway = teamId === homeTeamId ? "home" : "away";
 
-    // Validate prop_type before inserting (reject single chars, special chars, "UNK ?", "-", etc.)
-    const propType = r.prop_type?.trim();
-    if (!propType || propType.length === 0) {
-      if (VERBOSE) console.log(`⚠️ [${league}] Skipping empty prop_type for player ${playerId}`);
-      continue;
-    }
-    if (propType.length === 1 || propType === "-" || propType === "UNK ?" || propType === "?") {
-      if (VERBOSE)
-        console.log(
-          `⚠️ [${league}] Skipping invalid prop_type "${propType}" for player ${playerId}`,
-        );
-      continue;
-    }
-    if (!/[a-zA-Z]/.test(propType)) {
-      if (VERBOSE)
-        console.log(
-          `⚠️ [${league}] Skipping prop_type with no letters: "${propType}" for player ${playerId}`,
-        );
-      continue;
-    }
-
     logsToInsert.push({
       player_id: playerId,
       team_id: teamId,
       game_id: gameUuid,
       opponent_id: opponentId,
-      prop_type: propType,
+      prop_type: r.prop_type,
       line: "0",
       actual_value: String(r.value ?? 0),
       hit: false,
@@ -653,24 +463,13 @@ async function normalizeAndInsert(
     inserted++;
   }
   if (logsToInsert.length) {
-    if (DRY_RUN) {
-      if (VERBOSE)
-        console.log(
-          `[DRY_RUN] would insert ${logsToInsert.length} player_game_logs for ${league}:${gameId}`,
-        );
-    } else {
-      await db.insert(player_game_logs).values(logsToInsert as any);
-    }
+    await db.insert(player_game_logs).values(logsToInsert as any);
   }
 
   // mark raw as normalized
-  if (!DRY_RUN) {
-    await db.execute(
-      sql`UPDATE public.player_game_logs_raw SET normalized=true WHERE league=${league} AND game_external_id=${gameId}`,
-    );
-  } else if (VERBOSE) {
-    console.log(`[DRY_RUN] would mark raw normalized for ${league}:${gameId}`);
-  }
+  await db.execute(
+    sql`UPDATE public.player_game_logs_raw SET normalized=true WHERE league=${league} AND game_external_id=${gameId}`,
+  );
   return inserted;
 }
 
@@ -715,23 +514,7 @@ async function ingestRange(league: League, start: Date, end: Date) {
         }
       }
 
-      // For NFL as well, attempt to derive codes from raw summary if schedule didn't provide
-      if ((!homeCode || !awayCode) && league === "NFL") {
-        try {
-          const comp =
-            (raw as any)?.header?.competitions?.[0] || (raw as any)?.gameInfo?.competitions?.[0];
-          if (comp) {
-            const homeC = comp?.competitors?.find((c: any) => c.homeAway === "home");
-            const awayC = comp?.competitors?.find((c: any) => c.homeAway === "away");
-            homeCode = homeCode || homeC?.team?.abbreviation;
-            awayCode = awayCode || awayC?.team?.abbreviation;
-          }
-        } catch (e) {
-          // ignore parse errors; will skip if still missing codes
-        }
-      }
-
-      // If still missing, require codes for non-MLB/NHL leagues
+      // For non-MLB leagues, require schedule to provide codes
       if (!homeCode || !awayCode) {
         console.warn(`[${league}] skip game with missing team codes:`, {
           gameId: g.gameId,
@@ -746,43 +529,34 @@ async function ingestRange(league: League, start: Date, end: Date) {
         sql`SELECT id FROM games WHERE api_game_id=${g.gameId} LIMIT 1`,
       )) as Array<{ id: string }>;
       if (!exists[0]) {
-        if (DRY_RUN) {
-          if (VERBOSE)
-            console.log(
-              `[DRY_RUN] would create game ${g.gameId} ${awayCode} @ ${homeCode} on ${dateStr}`,
-            );
-          // In dry-run, skip actual creation and continue to next game
-          continue;
+        // get or create teams directly by abbreviation, avoiding hard dependency on team_abbrev_map
+        const leagueId = await getLeagueId(league);
+        const homeTeamId = await getOrCreateTeam(league, String(homeCode));
+        const awayTeamId = await getOrCreateTeam(league, String(awayCode));
+        if (leagueId && homeTeamId && awayTeamId) {
+          await db
+            .insert(games)
+            .values({
+              league_id: leagueId,
+              home_team_id: homeTeamId,
+              away_team_id: awayTeamId,
+              game_date: dateStr,
+              season: seasonFromDate(dateStr, league),
+              season_type: "regular",
+              status: "completed",
+              api_game_id: g.gameId,
+            })
+            .onConflictDoNothing();
         } else {
-          // get or create teams directly by abbreviation, avoiding hard dependency on team_abbrev_map
-          const leagueId = await getLeagueId(league);
-          const homeTeamId = await getOrCreateTeam(league, String(homeCode));
-          const awayTeamId = await getOrCreateTeam(league, String(awayCode));
-          if (leagueId && homeTeamId && awayTeamId) {
-            await db
-              .insert(games)
-              .values({
-                league_id: leagueId,
-                home_team_id: homeTeamId,
-                away_team_id: awayTeamId,
-                game_date: dateStr,
-                season: seasonFromDate(dateStr, league),
-                season_type: "regular",
-                status: "completed",
-                api_game_id: g.gameId,
-              })
-              .onConflictDoNothing();
-          } else {
-            console.warn(`[${league}] missing mapping for ${awayCode} @ ${homeCode} ${dateStr}`);
-            continue;
-          }
+          console.warn(`[${league}] missing mapping for ${awayCode} @ ${homeCode} ${dateStr}`);
+          continue;
         }
       }
 
       // save raw, normalize
       try {
         await saveRaw(league, g.gameId, raw, seasonFromDate(dateStr, league));
-        const inserted = await normalizeAndInsert(league, g.gameId, dateStr, raw);
+        const inserted = await normalizeAndInsert(league, g.gameId, dateStr);
         totalPlayers += inserted;
         totalGames++;
       } catch (e: any) {
@@ -801,15 +575,7 @@ async function main() {
   const end = new Date();
   const start = new Date();
   start.setDate(end.getDate() - days);
-  // Optional: aheadDays allows ingesting future schedules/games
-  const aheadDays = Number(process.argv[4] || process.env.AHEAD_DAYS || 0);
-  if (Number.isFinite(aheadDays) && aheadDays > 0) {
-    const endFuture = new Date(end);
-    endFuture.setDate(endFuture.getDate() + aheadDays);
-    await ingestRange(league, start, endFuture);
-  } else {
-    await ingestRange(league, start, end);
-  }
+  await ingestRange(league, start, end);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

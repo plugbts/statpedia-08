@@ -622,7 +622,7 @@ app.get("/api/props-list", async (req, res) => {
       };
     };
 
-    // Helper: SGO fallback path honoring basic filters, with best-effort DB enrichment when available
+    // Helper: SGO fallback path honoring basic filters
     const sgoFallback = async () => {
       // Infer sport from league when provided
       const sport = (league || "").toLowerCase() || "nfl";
@@ -655,70 +655,7 @@ app.get("/api/props-list", async (req, res) => {
         });
       }
       const rows = items.slice(0, limit).map(toRow);
-
-      // Best-effort enrichment from DB analytics when available: map by player name + prop type + current season
-      try {
-        const connStr = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
-        if (connStr) {
-          const pg = (await import("postgres")).default;
-          const client = pg(connStr, { prepare: false });
-          try {
-            // Derive a simple season string from today (sports-specific nuances are handled in enrichment already)
-            const today = new Date();
-            const season = String(today.getFullYear());
-            for (let i = 0; i < rows.length; i++) {
-              const r = rows[i] as any;
-              const name = (r?.full_name || "").toString().trim();
-              const propType = (r?.market || "").toString().trim();
-              if (!name || !propType) continue;
-              // Resolve player by exact name match first, fallback to ILIKE fuzzy
-              let playerRow: any | undefined = (
-                await client.unsafe(`SELECT id FROM public.players WHERE name = $1 LIMIT 1`, [name])
-              )[0];
-              if (!playerRow) {
-                playerRow = (
-                  await client.unsafe(
-                    `SELECT id FROM public.players WHERE LOWER(name) = LOWER($1) LIMIT 1`,
-                    [name],
-                  )
-                )[0];
-              }
-              const playerId: string | undefined = playerRow?.id;
-              if (!playerId) continue;
-              const a = (
-                await client.unsafe(
-                  `SELECT l5, l10, l20, current_streak, h2h_avg, season_avg, matchup_rank, ev_percent
-                   FROM public.player_analytics
-                   WHERE player_id = $1 AND prop_type = $2 AND season = $3
-                   ORDER BY last_updated DESC NULLS LAST
-                   LIMIT 1`,
-                  [playerId, propType, season],
-                )
-              )[0];
-              if (a) {
-                r.l5 = a.l5 ?? r.l5;
-                r.l10 = a.l10 ?? r.l10;
-                r.l20 = a.l20 ?? r.l20;
-                r.streak_l5 = r.streak_l5 ?? null; // keep placeholder
-                r.h2h_avg = a.h2h_avg ?? r.h2h_avg;
-                r.season_avg = a.season_avg ?? r.season_avg;
-                r.matchup_rank = a.matchup_rank ?? r.matchup_rank;
-                // Prefer DB EV if present; otherwise keep SGO-derived ev_percent
-                if (a.ev_percent != null && a.ev_percent !== undefined) {
-                  r.ev_percent = a.ev_percent;
-                }
-              }
-            }
-          } finally {
-            await client.end({ timeout: 1 });
-          }
-        }
-      } catch (e) {
-        // Non-fatal: fallback remains usable without enrichment
-        console.warn("props-list fallback enrichment skipped:", (e as Error)?.message || e);
-      }
-
-      return res.json({ count: rows.length, items: rows, source: "sgo-fallback" });
+      return res.json({ count: rows.length, items: rows });
     };
 
     const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
@@ -752,71 +689,14 @@ app.get("/api/props-list", async (req, res) => {
       }
 
       const sql = `
-        SELECT id,
-               COALESCE(full_name, 'Unknown Player') AS full_name,
-               -- Prefer DB-provided team/opponent; if missing, derive from logo URL path (ESPN pattern) to avoid 'UNK'/'TBD'
-               COALESCE(
-                 team,
-                 UPPER(NULLIF(regexp_replace(
-                   COALESCE(team_logo, ''),
-                   '.*\/([a-z0-9]+)\\.png$',
-                   '\\1'
-                 ), '')),
-                 'UNK'
-               ) AS team,
-               COALESCE(
-                 opponent,
-                 UPPER(NULLIF(regexp_replace(
-                   COALESCE(opponent_logo, ''),
-                   '.*\/([a-z0-9]+)\\.png$',
-                   '\\1'
-                 ), '')),
-                 'TBD'
-               ) AS opponent,
-               market,
-               COALESCE(line, 0) AS line,
-               COALESCE(odds_american, 0) AS odds_american,
+        SELECT id, full_name, team, COALESCE(opponent, 'TBD') AS opponent,
+               market, line, odds_american,
                COALESCE(over_odds_american, 0) AS over_odds_american,
                COALESCE(under_odds_american, 0) AS under_odds_american,
-               COALESCE(ev_percent, 0) AS ev_percent,
-               COALESCE(streak_l5, 0) AS streak_l5,
-               COALESCE(rating, 0) AS rating,
-               COALESCE(matchup_rank, 0) AS matchup_rank,
-               COALESCE(l5, 0) AS l5,
-               COALESCE(l10, 0) AS l10,
-               COALESCE(l20, 0) AS l20,
-               COALESCE(h2h_avg, 0) AS h2h_avg,
-               COALESCE(season_avg, 0) AS season_avg,
-               COALESCE(league, 'UNK') AS league,
-               game_date,
-               -- Ensure logos are never null: prefer DB-provided, else ESPN CDN by league/team/opponent, else empty string
-               -- Sanitize and fallback: remove CR/LF and whitespace from URLs
-               regexp_replace(
-                 COALESCE(
-                   team_logo,
-                   CASE UPPER(league)
-                     WHEN 'NFL' THEN 'https://a.espncdn.com/i/teamlogos/nfl/500/' || lower(COALESCE(team, '')) || '.png'
-                     WHEN 'NBA' THEN 'https://a.espncdn.com/i/teamlogos/nba/500/' || lower(COALESCE(team, '')) || '.png'
-                     WHEN 'MLB' THEN 'https://a.espncdn.com/i/teamlogos/mlb/500/' || lower(COALESCE(team, '')) || '.png'
-                     WHEN 'NHL' THEN 'https://a.espncdn.com/i/teamlogos/nhl/500/' || lower(COALESCE(team, '')) || '.png'
-                     ELSE ''
-                   END,
-                   ''
-                 ), E'[\r\n]', '', 'g'
-               ) AS team_logo,
-               regexp_replace(
-                 COALESCE(
-                   opponent_logo,
-                   CASE UPPER(league)
-                     WHEN 'NFL' THEN 'https://a.espncdn.com/i/teamlogos/nfl/500/' || lower(COALESCE(opponent, '')) || '.png'
-                     WHEN 'NBA' THEN 'https://a.espncdn.com/i/teamlogos/nba/500/' || lower(COALESCE(opponent, '')) || '.png'
-                     WHEN 'MLB' THEN 'https://a.espncdn.com/i/teamlogos/mlb/500/' || lower(COALESCE(opponent, '')) || '.png'
-                     WHEN 'NHL' THEN 'https://a.espncdn.com/i/teamlogos/nhl/500/' || lower(COALESCE(opponent, '')) || '.png'
-                     ELSE ''
-                   END,
-                   ''
-                 ), E'[\r\n]', '', 'g'
-               ) AS opponent_logo
+               ev_percent, streak_l5, rating, matchup_rank,
+               l5, l10, l20, h2h_avg, season_avg,
+               league, game_date,
+               team_logo, opponent_logo
         FROM public.v_props_list
         ${where.length ? "WHERE " + where.join(" AND ") : ""}
         ORDER BY game_date DESC NULLS LAST
@@ -825,7 +705,7 @@ app.get("/api/props-list", async (req, res) => {
 
       const rows = params.length > 0 ? await client.unsafe(sql, params) : await client.unsafe(sql);
       if (Array.isArray(rows) && rows.length > 0) {
-        return res.json({ count: rows.length, items: rows, source: "db" });
+        return res.json({ count: rows.length, items: rows });
       }
       // Empty DB result → fallback to SGO for dev usability
       return await sgoFallback();
@@ -893,8 +773,6 @@ app.post("/api/auth/signup", async (req, res) => {
 });
 
 app.post("/api/auth/login", async (req, res) => {
-  console.log("🔐 [API] Login endpoint hit");
-
   try {
     const { email, password } = req.body;
 
@@ -904,8 +782,6 @@ app.post("/api/auth/login", async (req, res) => {
         error: "Email and password are required",
       });
     }
-
-    console.log("🔐 [API] Login request for:", email);
 
     // Get client info
     const ip_address =
@@ -923,8 +799,6 @@ app.post("/api/auth/login", async (req, res) => {
       },
     );
 
-    console.log("✅ [API] Login successful");
-
     res.json({
       success: true,
       data: {
@@ -934,7 +808,7 @@ app.post("/api/auth/login", async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("❌ [API] Login error:", error);
+    console.error("Login error:", error);
     res.status(400).json({
       success: false,
       error: error.message || "Login failed",
@@ -943,13 +817,10 @@ app.post("/api/auth/login", async (req, res) => {
 });
 
 app.get("/api/auth/me", async (req, res) => {
-  console.log("👤 [API] /api/auth/me endpoint hit");
-
   try {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      console.log("⚠️ [API] No auth header");
       return res.status(401).json({
         success: false,
         error: "Authorization header required",
@@ -957,19 +828,15 @@ app.get("/api/auth/me", async (req, res) => {
     }
 
     const token = authHeader.substring(7);
-    console.log("🔑 [API] Token received:", token.substring(0, 20) + "...");
-
     const { userId, valid } = authService.verifyToken(token);
 
     if (!valid) {
-      console.log("❌ [API] Invalid token");
       return res.status(401).json({
         success: false,
         error: "Invalid token",
       });
     }
 
-    console.log("✅ [API] Token valid, fetching user:", userId);
     const user = await authService.getUserById(userId);
 
     if (!user) {
@@ -989,7 +856,6 @@ app.get("/api/auth/me", async (req, res) => {
     const subscription_tier =
       role === "owner" ? "premium" : ["admin", "mod"].includes(role) ? "pro" : "free";
 
-    console.log("✅ [API] User fetched successfully");
     res.json({
       success: true,
       data: { ...user, role, subscription_tier },
@@ -1289,8 +1155,6 @@ app.post("/api/auth/update-subscription", async (req, res) => {
 
 // Get user role route
 app.get("/api/auth/user-role/:userId", async (req, res) => {
-  console.log("👑 [API] /api/auth/user-role endpoint hit");
-
   try {
     const { userId } = req.params;
 
@@ -1301,16 +1165,14 @@ app.get("/api/auth/user-role/:userId", async (req, res) => {
       });
     }
 
-    console.log("📋 [API] Fetching role for user:", userId);
     const role = await authService.getUserRole(userId);
 
-    console.log("✅ [API] Role fetched:", role);
     res.json({
       success: true,
       data: { role },
     });
   } catch (error) {
-    console.error("❌ [API] Get user role error:", error);
+    console.error("Get user role error:", error);
     res.status(500).json({
       success: false,
       error: error.message || "Failed to get user role",
@@ -1842,6 +1704,47 @@ app.post("/api/player-analytics-bulk", async (req, res) => {
       "[analytics-bulk] response",
       JSON.stringify({ requested: (playerIds as string[]).length, returned: rows.length }),
     );
+
+    // Enrich rows with H2H hit counts (best-effort). This computes the number of games
+    // and hit rate vs the stored opponent_team_id for each returned analytics row so the
+    // frontend can display hits/total/pct for H2H without requiring a schema change.
+    for (const r of rows) {
+      try {
+        const opponentId = r?.opponent_team_id || null;
+        if (!opponentId) {
+          r.h2h_games = 0;
+          r.h2h_hits = 0;
+          r.h2h_pct = 0;
+          continue;
+        }
+
+        const stats = await db.execute(sql`
+          SELECT
+            COUNT(*)::int AS total,
+            SUM((CASE WHEN (pgl.hit IS TRUE) THEN 1 ELSE 0 END))::int AS hits
+          FROM public.player_game_logs pgl
+          WHERE pgl.player_id = ${r.player_id}
+            AND pgl.prop_type = ${propType}
+            AND ${season ? sql`EXTRACT(YEAR FROM pgl.game_date)::text = ${season}` : sql`TRUE`}
+            AND (pgl.opponent_team_id = ${opponentId} OR pgl.opponent_id = ${opponentId})
+        `);
+
+        const statRow = Array.isArray(stats) && stats.length > 0 ? stats[0] : null;
+        const total = statRow?.total ? Number(statRow.total) : 0;
+        const hits = statRow?.hits ? Number(statRow.hits) : 0;
+
+        r.h2h_games = total;
+        r.h2h_hits = hits;
+        r.h2h_pct = total > 0 ? (hits / total) * 100 : 0;
+      } catch (e) {
+        // Best-effort enrichment only; don't fail the whole response
+        console.debug("[analytics-bulk] h2h enrichment failed for", r?.player_id, e);
+        r.h2h_games = 0;
+        r.h2h_hits = 0;
+        r.h2h_pct = 0;
+      }
+    }
+
     res.json({ analytics: rows });
   } catch (error) {
     const err = error as Error;

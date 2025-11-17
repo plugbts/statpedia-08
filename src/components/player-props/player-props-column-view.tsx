@@ -32,13 +32,11 @@ import {
   ToggleLeft,
   ToggleRight,
 } from "lucide-react";
-import { statpediaRatingService as _rating } from "@/services/statpedia-rating-service";
 import { cn } from "@/lib/utils";
 import { SportsbookIconsList } from "@/components/ui/sportsbook-icons";
 import { SportsbookOverlay } from "@/components/ui/sportsbook-overlay";
 import { statpediaRatingService, StatpediaRating } from "@/services/statpedia-rating-service";
 import { toAmericanOdds, getOddsColorClass } from "@/utils/odds";
-import { formatPropType } from "@/utils/prop-type-formatter";
 import { getPlayerHeadshot, getPlayerInitials, getKnownPlayerHeadshot } from "@/utils/headshots";
 import { StreakService } from "@/services/streak-service";
 import { useToast } from "@/hooks/use-toast";
@@ -49,66 +47,94 @@ import "@/styles/streak-animations.css";
 
 // Using shared utility functions from prop-type-formatter.ts
 
+// Helper function to get odds display class based on filter and odds value
+const getOddsDisplayClass = (
+  prop: PlayerProp,
+  overUnderFilter: "over" | "under" | "both",
+): string => {
+  const oddsValue =
+    overUnderFilter === "over"
+      ? prop.best_over || prop.overOdds
+      : overUnderFilter === "under"
+        ? prop.best_under || prop.underOdds
+        : prop.best_over || prop.overOdds;
+
+  // Use the odds color class utility for consistent coloring
+  const colorClass = getOddsColorClass(oddsValue);
+
+  // Override with filter-specific colors if needed
+  if (overUnderFilter === "over" && colorClass.includes("green")) {
+    return "text-green-500 group-hover:text-green-400";
+  } else if (overUnderFilter === "under" && colorClass.includes("red")) {
+    return "text-red-500 group-hover:text-red-400";
+  }
+
+  return `${colorClass} group-hover:opacity-80`;
+};
+
 // Team logo component with better fallback handling
 const TeamLogo = ({
   team,
   teamAbbr,
   sport = "nfl",
+  teamLogo,
 }: {
   team: string;
   teamAbbr: string;
   sport?: string;
+  teamLogo?: string;
 }) => {
+  const [imageError, setImageError] = React.useState(false);
   const finalTeamAbbr = getTeamAbbreviation(team, teamAbbr);
 
   const getTeamLogoUrl = (teamAbbr: string, sport: string) => {
     // Return team logo URL based on sport and team abbreviation
     const baseUrl = "https://a.espncdn.com/i/teamlogos";
+    const sportLower = sport.toLowerCase();
 
-    if (sport.toLowerCase() === "nfl") {
+    if (sportLower === "nfl") {
       return `${baseUrl}/nfl/500/${teamAbbr.toLowerCase()}.png`;
-    } else if (sport.toLowerCase() === "nba") {
+    } else if (sportLower === "nba") {
       return `${baseUrl}/nba/500/${teamAbbr.toLowerCase()}.png`;
-    } else if (sport.toLowerCase() === "mlb") {
+    } else if (sportLower === "mlb") {
       return `${baseUrl}/mlb/500/${teamAbbr.toLowerCase()}.png`;
-    } else if (sport.toLowerCase() === "nhl") {
+    } else if (sportLower === "nhl") {
       return `${baseUrl}/nhl/500/${teamAbbr.toLowerCase()}.png`;
     }
 
-    return `${baseUrl}/nfl/500/${teamAbbr.toLowerCase()}.png`; // Default to NFL
+    // Default to NFL
+    return `${baseUrl}/nfl/500/${teamAbbr.toLowerCase()}.png`;
   };
 
-  // Don't show logo if abbreviation is UNK
-  if (finalTeamAbbr === "UNK") {
+  // Don't show logo if abbreviation is UNK or empty
+  if (!finalTeamAbbr || finalTeamAbbr === "UNK" || finalTeamAbbr === "—") {
     return (
       <div className="flex flex-col items-center gap-1">
         <div className="w-6 h-6 rounded bg-muted flex items-center justify-center">
           <span className="text-xs font-medium text-muted-foreground">?</span>
         </div>
-        <span className="text-xs font-medium text-muted-foreground">UNK</span>
+        <span className="text-xs font-medium text-muted-foreground">—</span>
       </div>
     );
   }
 
+  // Use provided teamLogo URL if available, otherwise construct from ESPN
+  const logoUrl = teamLogo || getTeamLogoUrl(finalTeamAbbr, sport);
+
   return (
     <div className="flex flex-col items-center gap-1">
-      <img
-        src={getTeamLogoUrl(finalTeamAbbr, sport)}
-        alt={finalTeamAbbr}
-        className="w-6 h-6 object-contain"
-        onError={(e) => {
-          const target = e.target as HTMLImageElement;
-          target.style.display = "none";
-          // Show fallback icon when image fails to load
-          const parent = target.parentElement;
-          if (parent) {
-            const fallback = document.createElement("div");
-            fallback.className = "w-6 h-6 rounded bg-muted flex items-center justify-center";
-            fallback.innerHTML = '<span class="text-xs font-medium text-muted-foreground">?</span>';
-            parent.appendChild(fallback);
-          }
-        }}
-      />
+      {!imageError ? (
+        <img
+          src={logoUrl}
+          alt={finalTeamAbbr}
+          className="w-6 h-6 object-contain"
+          onError={() => setImageError(true)}
+        />
+      ) : (
+        <div className="w-6 h-6 rounded bg-muted flex items-center justify-center">
+          <span className="text-xs font-medium text-muted-foreground">?</span>
+        </div>
+      )}
       <span className="text-xs font-medium text-foreground">{finalTeamAbbr}</span>
     </div>
   );
@@ -282,129 +308,28 @@ export function PlayerPropsColumnView({
   isLoading = false,
   overUnderFilter = "both",
 }: PlayerPropsColumnViewProps) {
-  // 🔍 STEP 1: Comprehensive incoming props inspection
-  console.log("🔍 [COLUMN_VIEW_DEBUG] =====================================");
-  console.log("🔍 [COLUMN_VIEW_DEBUG] Component rendered with props:", props.length);
-  console.log("🔍 [COLUMN_VIEW_DEBUG] selectedSport:", selectedSport);
-  console.log("🔍 [COLUMN_VIEW_DEBUG] overUnderFilter:", overUnderFilter);
-
-  if (props.length > 0) {
-    const firstProp = props[0];
-    console.log("🔍 [COLUMN_VIEW_DEBUG] First prop complete data:", firstProp);
-    console.log("🔍 [COLUMN_VIEW_DEBUG] First prop field check:", {
-      // Player info
-      playerName: firstProp.playerName ?? "❌ MISSING",
-      playerId: firstProp.playerId ?? "❌ MISSING",
-      player_id: firstProp.player_id ?? "❌ MISSING",
-
-      // Team info
-      team: firstProp.team ?? "❌ MISSING",
-      teamAbbr: firstProp.teamAbbr ?? "❌ MISSING",
-      opponent: firstProp.opponent ?? "❌ MISSING",
-      opponentAbbr: firstProp.opponentAbbr ?? "❌ MISSING",
-
-      // Prop details
-      propType: firstProp.propType ?? "❌ MISSING",
-      line: firstProp.line ?? "❌ MISSING",
-      sport: firstProp.sport ?? "❌ MISSING",
-
-      // Odds
-      overOdds: firstProp.overOdds ?? "❌ MISSING",
-      underOdds: firstProp.underOdds ?? "❌ MISSING",
-      best_over: firstProp.best_over ?? "❌ MISSING",
-      best_under: firstProp.best_under ?? "❌ MISSING",
-
-      // Analytics
-      expectedValue: firstProp.expectedValue ?? "❌ MISSING",
-      confidence: firstProp.confidence ?? "❌ MISSING",
-
-      // Rating fields
-      rating_over_normalized: firstProp.rating_over_normalized ?? "❌ MISSING",
-      rating_over_raw: firstProp.rating_over_raw ?? "❌ MISSING",
-      rating_under_normalized: firstProp.rating_under_normalized ?? "❌ MISSING",
-      rating_under_raw: firstProp.rating_under_raw ?? "❌ MISSING",
-
-      // Game logs
-      gameLogs: firstProp.gameLogs ? `✅ ${firstProp.gameLogs.length} logs` : "❌ MISSING",
-      defenseStats: firstProp.defenseStats
-        ? `✅ ${firstProp.defenseStats.length} stats`
-        : "❌ MISSING",
-    });
-
-    console.log("🔍 [COLUMN_VIEW_DEBUG] First 3 props summary:");
-    props.slice(0, 3).forEach((p, i) => {
-      console.log(
-        `  ${i + 1}. ${p.playerName || "NO_NAME"} - ${p.propType || "NO_TYPE"} - Line: ${p.line ?? "N/A"}`,
-      );
-    });
-  } else {
-    console.warn("⚠️ [COLUMN_VIEW_DEBUG] NO PROPS RECEIVED!");
-  }
-  console.log("🔍 [COLUMN_VIEW_DEBUG] =====================================");
-
-  // 🔍 STEP 2: Normalize props data with comprehensive fallbacks
-  const normalizedProps = props.map((prop, index) => {
-    const normalized = {
-      ...prop,
-      // ✅ Team/opponent normalization
-      team: normalizeTeam(prop.team) || (prop as any).teamName || (prop as any).teamAbbr || "UNK",
-      opponent:
-        normalizeOpponent(prop.opponent) ||
-        (prop as any).opponentName ||
-        prop.opponentAbbr ||
-        "UNK",
-      opponentAbbr: normalizeOpponent(prop.opponentAbbr || prop.opponent) || "UNK",
-      position: normalizePosition(prop.position) || "—",
-
-      // ✅ Ensure player data never null
-      playerName: prop.playerName || "Unknown Player",
-      playerId: prop.playerId || prop.player_id || `unknown-${index}`,
-
-      // ✅ Ensure prop details never null
-      propType: prop.propType || "Unknown Prop",
-      line: prop.line ?? 0,
-      sport: prop.sport || selectedSport || "NFL",
-
-      // ✅ Ensure odds never null (best_over/best_under are strings in this interface)
-      overOdds:
-        prop.overOdds ??
-        (typeof prop.best_over === "object" ? (prop.best_over as any).odds : undefined) ??
-        -110,
-      underOdds:
-        prop.underOdds ??
-        (typeof prop.best_under === "object" ? (prop.best_under as any).odds : undefined) ??
-        -110,
-
-      // ✅ Ensure analytics never null
-      expectedValue: typeof prop.expectedValue === "number" ? prop.expectedValue : 0,
-      confidence: typeof prop.confidence === "number" ? prop.confidence : 0.5,
-
-      // ✅ Ensure rating fields exist
-      rating_over_normalized: prop.rating_over_normalized ?? 50,
-      rating_under_normalized: prop.rating_under_normalized ?? 50,
-      rating_over_raw: prop.rating_over_raw ?? 50,
-      rating_under_raw: prop.rating_under_raw ?? 50,
-
-      // ✅ Ensure arrays exist
-      gameLogs: prop.gameLogs || [],
-      defenseStats: prop.defenseStats || [],
-    };
-
-    if (index === 0) {
-      console.log("🔄 [NORMALIZE_DEBUG] First prop after normalization:", normalized);
-    }
-
-    return normalized;
-  });
-
-  console.log("✅ [NORMALIZE_DEBUG] Normalization complete for", normalizedProps.length, "props");
-
-  // Prime rating service with current slate
-  try {
-    _rating.setSlateProps(normalizedProps as any[]);
-  } catch (e) {
-    // intentionally ignore errors from slate priming
-  }
+  console.log("[PLAYER_PROPS] Component rendered with props:", props.length);
+  console.log("[PLAYER_PROPS] Props data:", props.slice(0, 2));
+  console.log(
+    "[PLAYER_PROPS] First prop details:",
+    props[0]
+      ? {
+          playerName: props[0].playerName,
+          propType: props[0].propType,
+          line: props[0].line,
+          team: props[0].team,
+          opponent: props[0].opponent,
+        }
+      : "No props",
+  );
+  // Normalize props data
+  const normalizedProps = props.map((prop) => ({
+    ...prop,
+    team: normalizeTeam(prop.team),
+    opponent: normalizeOpponent(prop.opponent),
+    opponentAbbr: normalizeOpponent(prop.opponentAbbr || prop.opponent),
+    position: normalizePosition(prop.position),
+  }));
 
   const [sortBy, setSortBy] = useState("api");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
@@ -425,74 +350,6 @@ export function PlayerPropsColumnView({
   } = useSimpleAnalytics();
   const { toast } = useToast();
 
-  // --- League-aware alternative lines grouping helpers ---
-  // Build a stable group key so we can aggregate all lines for the same player/prop/game
-  const getGroupKey = React.useCallback((p: any) => {
-    const pid = p.playerId || p.player_id || p.playerName; // prefer playerId when available
-    return `${pid}__${(p.propType || "").toLowerCase()}__${p.gameId || "unknown"}`;
-  }, []);
-
-  // Count available sportsbooks for a prop line (fallbacks if arrays missing)
-  const getBooksCount = (p: any) => {
-    if (Array.isArray(p.availableSportsbooks)) return p.availableSportsbooks.length;
-    if (Array.isArray(p.allSportsbookOdds)) return p.allSportsbookOdds.length;
-    return 0;
-  };
-
-  // Pick the "main" line in a group using sportsbook coverage, then median line as tie-breaker,
-  // then odds proximity to -110 to break any remaining ties. Works across leagues.
-  const pickMainLine = React.useCallback((group: any[], league: string) => {
-    if (!group || group.length === 0) return undefined;
-
-    // 1) Prefer the line with the most sportsbook coverage
-    const sortedByBooks = [...group].sort((a, b) => getBooksCount(b) - getBooksCount(a));
-    const topBooksCount = getBooksCount(sortedByBooks[0]);
-    const topCandidates = sortedByBooks.filter((p) => getBooksCount(p) === topBooksCount);
-
-    if (topCandidates.length === 1) {
-      return topCandidates[0].line;
-    }
-
-    // 2) Tie-break by median line (closest to the median of candidate lines)
-    const lines = topCandidates.map((p) => Number(p.line)).filter((n) => Number.isFinite(n));
-    if (lines.length === 0) return sortedByBooks[0].line;
-    const sortedLines = [...lines].sort((a, b) => a - b);
-    const mid = Math.floor(sortedLines.length / 2);
-    const median =
-      sortedLines.length % 2 === 0
-        ? (sortedLines[mid - 1] + sortedLines[mid]) / 2
-        : sortedLines[mid];
-
-    let closest = topCandidates[0];
-    let bestDist = Math.abs(Number(topCandidates[0].line) - median);
-    for (let i = 1; i < topCandidates.length; i++) {
-      const d = Math.abs(Number(topCandidates[i].line) - median);
-      if (d < bestDist) {
-        bestDist = d;
-        closest = topCandidates[i];
-      }
-    }
-
-    // 3) Final tie-break: odds proximity to -110 on chosen direction isn't strictly necessary here
-    return closest.line;
-  }, []);
-
-  // Precompute group -> mainLine for the current slate
-  const mainLineByGroup = React.useMemo(() => {
-    const map = new Map<string, number | undefined>();
-    const groups = new Map<string, any[]>();
-    for (const p of normalizedProps) {
-      const key = getGroupKey(p);
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(p);
-    }
-    groups.forEach((group, key) => {
-      const mainLine = pickMainLine(group, selectedSport);
-      map.set(key, typeof mainLine === "number" ? mainLine : Number(mainLine));
-    });
-    return map;
-  }, [normalizedProps, getGroupKey, pickMainLine, selectedSport]);
-
   // Load analytics data for props using the simple analytics hook
   const loadAnalyticsData = React.useCallback(
     async (props: PlayerProp[]) => {
@@ -509,22 +366,9 @@ export function PlayerPropsColumnView({
         return;
       }
 
-      // Helper to choose the best available player identifier for analytics lookups
-      const getBestPlayerId = (p: any): string => {
-        const cand =
-          p.playerId ??
-          p.player_id ??
-          (p as any).apiPlayerId ??
-          (p as any).api_player_id ??
-          (p as any).externalId ??
-          (p as any).external_id ??
-          "";
-        return typeof cand === "number" ? String(cand) : (cand || "").toString();
-      };
-
       // Convert props to the format expected by the simple analytics hook
       const propsToCalculate = props.slice(0, 50).map((prop) => ({
-        playerId: getBestPlayerId(prop),
+        playerId: prop.playerId || prop.player_id || "",
         playerName: prop.playerName || "Unknown Player",
         propType: prop.propType,
         line: prop.line || 0,
@@ -574,29 +418,57 @@ export function PlayerPropsColumnView({
     } else if (normalizedProps.length === 0) {
       console.log("📭 [ANALYTICS_LOAD] No props to load analytics for");
     }
-  }, [normalizedProps, overUnderFilter, loadAnalyticsData, getGroupKey]);
+  }, [normalizedProps, overUnderFilter, loadAnalyticsData]);
 
   // Handle alternative lines toggle with confirmation
   const handleAlternativeLinesToggle = (checked: boolean) => {
     console.log(`🔍 Toggle Alternative Lines: ${checked ? "ON" : "OFF"}`);
 
     if (checked) {
-      // Calculate how many additional props will be shown when revealing alt lines
+      // Calculate how many additional props will be shown
       const propsWithoutAlternatives = normalizedProps.filter((prop) => {
-        if (selectedGame !== "all" && prop.gameId !== selectedGame) return false;
-        const key = getGroupKey(prop);
-        const mainLine = mainLineByGroup.get(key);
-        const groupSize = normalizedProps.filter((p) => getGroupKey(p) === key).length;
-        // If group has multiple lines, keep only the main line
-        if (groupSize > 1) return Number(prop.line) === Number(mainLine);
+        // Game filter
+        if (selectedGame !== "all" && prop.gameId !== selectedGame) {
+          return false;
+        }
+
+        // Alternative lines filter (show only main lines)
+        const allPropsForPlayer = normalizedProps.filter(
+          (p) =>
+            p.playerName === prop.playerName &&
+            p.propType === prop.propType &&
+            p.gameId === prop.gameId, // Add gameId to ensure we're looking at the same game
+        );
+
+        if (allPropsForPlayer.length > 1) {
+          // Find the most common line (main line) including current prop
+          const lineCounts = allPropsForPlayer.reduce(
+            (acc, p) => {
+              acc[p.line] = (acc[p.line] || 0) + 1;
+              return acc;
+            },
+            {} as Record<number, number>,
+          );
+
+          const mainLine = Object.entries(lineCounts).sort(([, a], [, b]) => b - a)[0]?.[0];
+
+          // Only show the main line, hide alternatives
+          if (prop.line !== Number(mainLine)) {
+            return false;
+          }
+        }
         return true;
       });
 
-      const totalProps = normalizedProps.filter(
-        (prop) => selectedGame === "all" || prop.gameId === selectedGame,
-      );
+      const totalProps = normalizedProps.filter((prop) => {
+        // Game filter
+        if (selectedGame !== "all" && prop.gameId !== selectedGame) {
+          return false;
+        }
+        return true;
+      });
 
-      const additionalProps = Math.max(0, totalProps.length - propsWithoutAlternatives.length);
+      const additionalProps = totalProps.length - propsWithoutAlternatives.length;
 
       // Enhanced debug logging
       console.log("🔍 Alternative Lines Toggle Debug:", {
@@ -610,13 +482,16 @@ export function PlayerPropsColumnView({
       // Log specific examples of alternative lines found
       const groupedProps = normalizedProps.reduce(
         (acc, prop) => {
-          const key = getGroupKey(prop);
-          if (!acc[key]) acc[key] = [];
+          const key = `${prop.playerName}-${prop.propType}-${prop.gameId}`;
+          if (!acc[key]) {
+            acc[key] = [];
+          }
           acc[key].push(prop);
           return acc;
         },
         {} as Record<string, any[]>,
       );
+
       const alternativeLineGroups = Object.entries(groupedProps).filter(
         ([_, propGroup]) => propGroup.length > 1,
       );
@@ -687,8 +562,10 @@ export function PlayerPropsColumnView({
       // Group props by player and prop type to check for alternative lines
       const groupedProps = normalizedProps.reduce(
         (acc, prop) => {
-          const key = getGroupKey(prop);
-          if (!acc[key]) acc[key] = [];
+          const key = `${prop.playerName}-${prop.propType}-${prop.gameId}`;
+          if (!acc[key]) {
+            acc[key] = [];
+          }
           acc[key].push(prop);
           return acc;
         },
@@ -766,8 +643,7 @@ export function PlayerPropsColumnView({
         }
       }
     }
-    // Add getGroupKey to dependency array to fix React hook warning
-  }, [normalizedProps, getGroupKey]);
+  }, [normalizedProps]);
 
   const formatPercentage = (value: number): string => {
     return `${(value * 100).toFixed(1)}%`;
@@ -816,7 +692,7 @@ export function PlayerPropsColumnView({
     )
       return "DEF";
 
-    return "—";
+    return "N/A";
   };
 
   // Extract unique games for dropdown
@@ -857,20 +733,40 @@ export function PlayerPropsColumnView({
 
     // Alternative lines filter - FIXED LOGIC
     if (!showAlternativeLines) {
-      const key = getGroupKey(prop);
-      const groupMainLine = mainLineByGroup.get(key);
-      const groupSize = normalizedProps.filter((p) => getGroupKey(p) === key).length;
-      if (groupSize > 1) {
-        const willShow = Number(prop.line) === Number(groupMainLine);
-        // Debug logging for alternative lines decision
+      // Group by player + prop type combination
+      const allPropsForPlayer = normalizedProps.filter(
+        (p) =>
+          p.playerName === prop.playerName &&
+          p.propType === prop.propType &&
+          p.gameId === prop.gameId, // Add gameId to ensure we're looking at the same game
+      );
+
+      if (allPropsForPlayer.length > 1) {
+        // Find the most common line (main line) including current prop
+        const lineCounts = allPropsForPlayer.reduce(
+          (acc, p) => {
+            acc[p.line] = (acc[p.line] || 0) + 1;
+            return acc;
+          },
+          {} as Record<number, number>,
+        );
+
+        const mainLine = Object.entries(lineCounts).sort(([, a], [, b]) => b - a)[0]?.[0];
+
+        // Debug logging for alternative lines
         console.log(`🔍 Alternative Lines Filter - ${prop.playerName} ${prop.propType}:`, {
-          groupSize,
-          groupMainLine,
+          allPropsForPlayer: allPropsForPlayer.length,
+          lineCounts,
+          mainLine: Number(mainLine),
           currentLine: prop.line,
-          willShow,
+          willShow: prop.line === Number(mainLine),
           showAlternativeLines,
         });
-        if (!willShow) return false;
+
+        // Only show the main line, hide alternatives
+        if (prop.line !== Number(mainLine)) {
+          return false;
+        }
       }
     }
 
@@ -891,12 +787,13 @@ export function PlayerPropsColumnView({
           let bValue = 0;
 
           switch (sortBy) {
-            case "statpediaRating":
+            case "statpediaRating": {
               const aRating = statpediaRatingService.calculateRating(a, overUnderFilter);
               const bRating = statpediaRatingService.calculateRating(b, overUnderFilter);
               aValue = aRating.overall;
               bValue = bRating.overall;
               break;
+            }
             case "expectedValue":
               aValue = a.expectedValue || 0;
               bValue = b.expectedValue || 0;
@@ -913,11 +810,12 @@ export function PlayerPropsColumnView({
               aValue = a.playerName.localeCompare(b.playerName);
               bValue = 0;
               break;
-            case "order":
+            case "order": {
               // Sort by prop priority order
               const aPriority = getPropPriority(a.propType);
               const bPriority = getPropPriority(b.propType);
               return aPriority - bPriority;
+            }
             default:
               aValue = a.confidence || 0;
               bValue = b.confidence || 0;
@@ -1172,47 +1070,11 @@ export function PlayerPropsColumnView({
                 playerId: prop.playerId,
               });
 
-              // Prepare a small dev-only badge to visualize which ID type is used for analytics
-              const bestIdForAnalytics = (() => {
-                const cand =
-                  (prop as any).playerId ??
-                  (prop as any).player_id ??
-                  (prop as any).apiPlayerId ??
-                  (prop as any).api_player_id ??
-                  (prop as any).externalId ??
-                  (prop as any).external_id ??
-                  "";
-                return typeof cand === "number" ? String(cand) : (cand || "").toString();
-              })();
-              const isUuidId =
-                typeof bestIdForAnalytics === "string" &&
-                /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(
-                  bestIdForAnalytics,
-                );
-              const debugIdBadge = (import.meta as any)?.env?.DEV ? (
-                <span className="ml-2 inline-block align-middle text-[10px] text-muted-foreground border border-border/50 rounded px-1">
-                  ID:{isUuidId ? "uuid" : "ext"}
-                </span>
-              ) : null;
-
               // Get analytics data for this prop (graceful fallback if not available)
-              // Use the same best-ID selection as used when requesting analytics
-              const getBestPlayerIdForAnalytics = (p: any): string => {
-                const cand =
-                  p.playerId ??
-                  p.player_id ??
-                  (p as any).apiPlayerId ??
-                  (p as any).api_player_id ??
-                  (p as any).externalId ??
-                  (p as any).external_id ??
-                  "";
-                return typeof cand === "number" ? String(cand) : (cand || "").toString();
-              };
-
               let analytics = null;
               try {
                 analytics = getAnalytics(
-                  getBestPlayerIdForAnalytics(prop),
+                  prop.playerId || prop.player_id || "",
                   prop.propType,
                   prop.line || 0,
                   overUnderFilter,
@@ -1242,23 +1104,23 @@ export function PlayerPropsColumnView({
               });
 
               // Use real analytics data or fallback to defaults with UI guardrails
-              const hasStats = !!analytics;
+              const hasGameLogs = prop.gameLogs && prop.gameLogs.length > 0;
               const hasDefenseStats = prop.defenseStats && prop.defenseStats.length > 0;
 
-              const streak = hasStats ? analytics?.streak?.current || 0 : 0;
-              const h2h = hasStats
+              const streak = hasGameLogs ? analytics?.streak?.current || 0 : 0;
+              const h2h = hasGameLogs
                 ? analytics?.h2h || { hits: 0, total: 0, pct: 0 }
                 : { hits: 0, total: 0, pct: 0 };
-              const season = hasStats
+              const season = hasGameLogs
                 ? analytics?.season || { hits: 0, total: 0, pct: 0 }
                 : { hits: 0, total: 0, pct: 0 };
-              const l5 = hasStats
+              const l5 = hasGameLogs
                 ? analytics?.l5 || { hits: 0, total: 0, pct: 0 }
                 : { hits: 0, total: 0, pct: 0 };
-              const l10 = hasStats
+              const l10 = hasGameLogs
                 ? analytics?.l10 || { hits: 0, total: 0, pct: 0 }
                 : { hits: 0, total: 0, pct: 0 };
-              const l20 = hasStats
+              const l20 = hasGameLogs
                 ? analytics?.l20 || { hits: 0, total: 0, pct: 0 }
                 : { hits: 0, total: 0, pct: 0 };
 
@@ -1276,7 +1138,7 @@ export function PlayerPropsColumnView({
                   <CardContent className="p-3">
                     <div className="flex items-center">
                       {/* Player Info */}
-                      <div className="w-64 flex items-center justify-start gap-3">
+                      <div className="w-64 flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 flex items-center justify-center text-foreground font-bold text-sm overflow-hidden flex-shrink-0">
                           {(() => {
                             const knownHeadshotUrl = getKnownPlayerHeadshot(
@@ -1309,7 +1171,7 @@ export function PlayerPropsColumnView({
                             return getPlayerInitials(prop.playerName);
                           })()}
                         </div>
-                        <div className="w-36 text-left">
+                        <div className="min-w-0 flex-1">
                           <div className="font-bold text-foreground text-sm group-hover:text-primary transition-colors duration-200 truncate">
                             {prop.playerName || "Unknown Player"}
                           </div>
@@ -1332,8 +1194,14 @@ export function PlayerPropsColumnView({
                       <div className="w-20 text-center px-2">
                         <TeamLogo
                           team={prop.team || ""}
-                          teamAbbr={prop.teamAbbr || prop.team || "—"}
-                          sport={selectedSport}
+                          teamAbbr={prop.teamAbbr || (prop as any).team_abbr || prop.team || "—"}
+                          sport={prop.sport || selectedSport}
+                          teamLogo={
+                            (prop as any).team_logo ||
+                            (prop as any).teamLogo ||
+                            prop.homeTeamLogo ||
+                            prop.awayTeamLogo
+                          }
                         />
                       </div>
 
@@ -1343,8 +1211,7 @@ export function PlayerPropsColumnView({
                           className="text-xs font-medium text-white group-hover:text-white transition-all duration-300 transform group-hover:scale-105 truncate animate-pulse"
                           style={{ animationDuration: "3s" }}
                         >
-                          {formatPropType(prop.propType)}
-                          {debugIdBadge}
+                          {prop.propType}
                         </div>
                       </div>
 
@@ -1355,16 +1222,10 @@ export function PlayerPropsColumnView({
                         </div>
                       </div>
 
-                      {/* Odds + Rating */}
+                      {/* Odds */}
                       <div className="w-20 text-center px-2">
                         <div
-                          className={`text-xs font-semibold transition-colors duration-200 ${
-                            overUnderFilter === "over"
-                              ? "text-green-500 group-hover:text-green-400"
-                              : overUnderFilter === "under"
-                                ? "text-red-500 group-hover:text-red-400"
-                                : "text-foreground group-hover:text-primary/90"
-                          }`}
+                          className={`text-xs font-semibold transition-colors duration-200 ${getOddsDisplayClass(prop, overUnderFilter)}`}
                         >
                           {overUnderFilter === "over"
                             ? toAmericanOdds(prop.best_over || prop.overOdds)
@@ -1372,7 +1233,6 @@ export function PlayerPropsColumnView({
                               ? toAmericanOdds(prop.best_under || prop.underOdds)
                               : toAmericanOdds(prop.best_over || prop.overOdds)}
                         </div>
-                        {/* Removed small badge under the odds per request */}
                       </div>
 
                       {/* EV% */}
@@ -1384,7 +1244,7 @@ export function PlayerPropsColumnView({
                           </span>
                         ) : (
                           <span className="text-xs text-muted-foreground group-hover:text-foreground/70 transition-colors duration-200">
-                            —
+                            N/A
                           </span>
                         )}
                       </div>
@@ -1394,8 +1254,8 @@ export function PlayerPropsColumnView({
                         <div
                           className={`text-xs font-bold group-hover:opacity-80 transition-all duration-300 relative animate-pulse ${(() => {
                             // Use REAL streak data only - no mock data
-                            const actualStreak = hasStats ? Math.abs(streak) : 0;
-                            const streakType = hasStats ? (streak > 0 ? "W" : "L") : "N";
+                            const actualStreak = hasGameLogs ? Math.abs(streak) : 0;
+                            const streakType = hasGameLogs ? (streak > 0 ? "W" : "L") : "N";
 
                             // Determine streak type and styling
                             if (streakType === "W" && actualStreak >= 2) {
@@ -1410,8 +1270,8 @@ export function PlayerPropsColumnView({
                         >
                           {/* Lava ONLY for hot streaks (2W+) */}
                           {(() => {
-                            const actualStreak = hasStats ? Math.abs(streak) : 0;
-                            const streakType = hasStats ? (streak > 0 ? "W" : "L") : "N";
+                            const actualStreak = hasGameLogs ? Math.abs(streak) : 0;
+                            const streakType = hasGameLogs ? (streak > 0 ? "W" : "L") : "N";
 
                             return streakType === "W" && actualStreak >= 2 ? (
                               <>
@@ -1432,8 +1292,8 @@ export function PlayerPropsColumnView({
 
                           {/* Snow ONLY for cold streaks (2L+) */}
                           {(() => {
-                            const actualStreak = hasStats ? Math.abs(streak) : 0;
-                            const streakType = hasStats ? (streak > 0 ? "W" : "L") : "N";
+                            const actualStreak = hasGameLogs ? Math.abs(streak) : 0;
+                            const streakType = hasGameLogs ? (streak > 0 ? "W" : "L") : "N";
 
                             return streakType === "L" && actualStreak >= 2 ? (
                               <>
@@ -1453,7 +1313,7 @@ export function PlayerPropsColumnView({
                           })()}
 
                           {(() => {
-                            if (hasStats && streak !== 0) {
+                            if (hasGameLogs && streak !== 0) {
                               return `${Math.abs(streak)}${streak > 0 ? "W" : "L"}`;
                             }
                             return "—";
@@ -1548,13 +1408,40 @@ export function PlayerPropsColumnView({
                       {/* Matchup */}
                       <div className="w-24 text-center px-1 py-3">
                         <div className="text-xs font-medium text-foreground mb-1">
-                          {prop.opponentAbbr || prop.opponent || "—"}
+                          {(() => {
+                            // Check multiple possible field names for opponent abbreviation
+                            const opponentAbbr =
+                              prop.opponentAbbr ||
+                              (prop as any).opponent_abbr ||
+                              (prop as any).opponentAbbr;
+                            const opponent = prop.opponent || (prop as any).opponent;
+
+                            // Use getTeamAbbreviation to resolve opponent abbreviation
+                            const finalOpponentAbbr = getTeamAbbreviation(
+                              opponent || "",
+                              opponentAbbr || "",
+                            );
+
+                            return finalOpponentAbbr !== "UNK" ? finalOpponentAbbr : "—";
+                          })()}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {(() => {
                             // Generate defensive ranking based on prop type
                             const propType = (prop.propType || "").toLowerCase();
-                            const opponent = prop.opponentAbbr || prop.opponent || "—";
+                            const opponentAbbr =
+                              prop.opponentAbbr ||
+                              (prop as any).opponent_abbr ||
+                              (prop as any).opponentAbbr;
+                            const opponent = prop.opponent || (prop as any).opponent;
+                            const finalOpponentAbbr = getTeamAbbreviation(
+                              opponent || "",
+                              opponentAbbr || "",
+                            );
+
+                            if (finalOpponentAbbr === "UNK" || finalOpponentAbbr === "—") {
+                              return "—";
+                            }
 
                             if (propType.includes("pass") || propType.includes("passing")) {
                               const rank = Math.floor(Math.random() * 10) + 1; // Random rank 1-10
@@ -1579,16 +1466,16 @@ export function PlayerPropsColumnView({
                       <div className="w-24 text-center px-1 py-3">
                         <div className="text-xs font-medium text-foreground">
                           {(() => {
-                            if (hasStats && h2h.total > 0) return `${h2h.pct.toFixed(0)}%`;
+                            if (hasGameLogs && h2h.total > 0) return `${h2h.pct.toFixed(0)}%`;
                             // Use real data only - no mock data
-                            return "—";
+                            return "N/A";
                           })()}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {(() => {
-                            if (hasStats && h2h.total > 0) return `${h2h.hits}/${h2h.total}`;
+                            if (hasGameLogs && h2h.total > 0) return `${h2h.hits}/${h2h.total}`;
                             // Use real data only - no mock data
-                            return "—";
+                            return "N/A";
                           })()}
                         </div>
                       </div>
@@ -1597,17 +1484,17 @@ export function PlayerPropsColumnView({
                       <div className="w-24 text-center px-1 py-3">
                         <div className="text-xs font-medium text-foreground">
                           {(() => {
-                            if (hasStats && season.total > 0) return `${season.pct.toFixed(0)}%`;
+                            if (hasGameLogs && season.total > 0) return `${season.pct.toFixed(0)}%`;
                             // Use real data only - no mock data
-                            return "—";
+                            return "N/A";
                           })()}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {(() => {
-                            if (hasStats && season.total > 0)
+                            if (hasGameLogs && season.total > 0)
                               return `${season.hits}/${season.total}`;
                             // Use real data only - no mock data
-                            return "—";
+                            return "N/A";
                           })()}
                         </div>
                       </div>
@@ -1616,16 +1503,16 @@ export function PlayerPropsColumnView({
                       <div className="w-24 text-center px-1 py-3">
                         <div className="text-xs font-medium text-foreground">
                           {(() => {
-                            if (hasStats && l5.total > 0) return `${l5.pct.toFixed(0)}%`;
+                            if (hasGameLogs && l5.total > 0) return `${l5.pct.toFixed(0)}%`;
                             // Use real data only - no mock data
-                            return "—";
+                            return "N/A";
                           })()}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {(() => {
-                            if (hasStats && l5.total > 0) return `${l5.hits}/${l5.total}`;
+                            if (hasGameLogs && l5.total > 0) return `${l5.hits}/${l5.total}`;
                             // Use real data only - no mock data
-                            return "—";
+                            return "N/A";
                           })()}
                         </div>
                       </div>
@@ -1634,16 +1521,16 @@ export function PlayerPropsColumnView({
                       <div className="w-24 text-center px-1 py-3">
                         <div className="text-xs font-medium text-foreground">
                           {(() => {
-                            if (hasStats && l10.total > 0) return `${l10.pct.toFixed(0)}%`;
+                            if (hasGameLogs && l10.total > 0) return `${l10.pct.toFixed(0)}%`;
                             // Use real data only - no mock data
-                            return "—";
+                            return "N/A";
                           })()}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {(() => {
-                            if (hasStats && l10.total > 0) return `${l10.hits}/${l10.total}`;
+                            if (hasGameLogs && l10.total > 0) return `${l10.hits}/${l10.total}`;
                             // Use real data only - no mock data
-                            return "—";
+                            return "N/A";
                           })()}
                         </div>
                       </div>
@@ -1652,75 +1539,20 @@ export function PlayerPropsColumnView({
                       <div className="w-24 text-center px-1 py-3">
                         <div className="text-xs font-medium text-foreground">
                           {(() => {
-                            if (hasStats && l20.total > 0) return `${l20.pct.toFixed(0)}%`;
+                            if (hasGameLogs && l20.total > 0) return `${l20.pct.toFixed(0)}%`;
                             // Use real data only - no mock data
-                            return "—";
+                            return "N/A";
                           })()}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {(() => {
-                            if (hasStats && l20.total > 0) return `${l20.hits}/${l20.total}`;
+                            if (hasGameLogs && l20.total > 0) return `${l20.hits}/${l20.total}`;
                             // Use real data only - no mock data
                             return "N/A";
                           })()}
                         </div>
                       </div>
                     </div>
-
-                    {/* 🔧 DEBUG OVERLAY - Remove this section in production */}
-                    {process.env.NODE_ENV === "development" && index < 3 && (
-                      <div className="mt-2 border-t border-muted pt-2">
-                        <details className="cursor-pointer">
-                          <summary className="text-[10px] text-muted-foreground hover:text-primary">
-                            🔍 Debug Data (Click to expand)
-                          </summary>
-                          <pre className="text-[9px] text-muted-foreground opacity-70 mt-1 p-2 bg-muted/50 rounded overflow-x-auto max-h-48 overflow-y-auto">
-                            {JSON.stringify(
-                              {
-                                // Core fields
-                                playerName: prop.playerName ?? "❌ NULL",
-                                playerId: prop.playerId ?? "❌ NULL",
-                                team: prop.team ?? "❌ NULL",
-                                opponent: prop.opponent ?? "❌ NULL",
-                                propType: prop.propType ?? "❌ NULL",
-                                line: prop.line ?? "❌ NULL",
-                                sport: prop.sport ?? "❌ NULL",
-
-                                // Odds
-                                overOdds: prop.overOdds ?? "❌ NULL",
-                                underOdds: prop.underOdds ?? "❌ NULL",
-
-                                // Analytics
-                                expectedValue: prop.expectedValue ?? "❌ NULL",
-                                confidence: prop.confidence ?? "❌ NULL",
-
-                                // Ratings
-                                rating_over_normalized: prop.rating_over_normalized ?? "❌ NULL",
-                                rating_under_normalized: prop.rating_under_normalized ?? "❌ NULL",
-
-                                // Stats availability
-                                hasGameLogs: !!prop.gameLogs && prop.gameLogs.length > 0,
-                                gameLogsCount: prop.gameLogs?.length ?? 0,
-                                hasDefenseStats:
-                                  !!prop.defenseStats && prop.defenseStats.length > 0,
-                                defenseStatsCount: prop.defenseStats?.length ?? 0,
-
-                                // Analytics from hook
-                                hasAnalyticsData: hasStats,
-                                streak: streak,
-                                h2h_total: h2h.total,
-                                season_total: season.total,
-                                l5_total: l5.total,
-                                l10_total: l10.total,
-                                l20_total: l20.total,
-                              },
-                              null,
-                              2,
-                            )}
-                          </pre>
-                        </details>
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
               );

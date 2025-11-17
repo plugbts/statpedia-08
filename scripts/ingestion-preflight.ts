@@ -177,7 +177,7 @@ async function dbProbe() {
     try {
       await sql.end({ timeout: 2 });
     } catch (e) {
-      // ignore end errors
+      /* ignore cleanup errors */
     }
   }
 }

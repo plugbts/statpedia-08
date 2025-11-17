@@ -109,13 +109,25 @@ export function useSimpleAnalytics() {
               const currentStreak = Number(row.current_streak ?? 0);
               const matchupRank = Number(row.matchup_rank ?? 0) || 0;
 
+              // Compute hit counts from percent values where appropriate (best-effort)
+              const l5Total = 5;
+              const l10Total = 10;
+              const l20Total = 20;
+              const l5Hits = Number.isFinite(l5Pct) ? Math.round((l5Pct / 100) * l5Total) : 0;
+              const l10Hits = Number.isFinite(l10Pct) ? Math.round((l10Pct / 100) * l10Total) : 0;
+              const l20Hits = Number.isFinite(l20Pct) ? Math.round((l20Pct / 100) * l20Total) : 0;
+
+              const h2hGames = Number(row.h2h_games ?? row.h2h_games_count ?? 0);
+              const h2hHits = Number(row.h2h_hits ?? 0);
+              const h2hPct = Number(row.h2h_pct ?? row.h2h_hit_rate ?? 0);
+
               const analytics: AnalyticsResult = {
                 matchupRank: { rank: matchupRank, display: matchupRank ? `#${matchupRank}` : "—" },
-                h2h: { hits: 0, total: 0, pct: 0 },
+                h2h: { hits: h2hHits, total: h2hGames, pct: h2hPct },
                 season: { hits: 0, total: 0, pct: 0 },
-                l5: { hits: 0, total: 5, pct: l5Pct },
-                l10: { hits: 0, total: 10, pct: l10Pct },
-                l20: { hits: 0, total: 20, pct: l20Pct },
+                l5: { hits: l5Hits, total: l5Total, pct: l5Pct },
+                l10: { hits: l10Hits, total: l10Total, pct: l10Pct },
+                l20: { hits: l20Hits, total: l20Total, pct: l20Pct },
                 streak: {
                   current: currentStreak,
                   longest: Math.abs(currentStreak),

@@ -1,4 +1,5 @@
 #!/usr/bin/env sh
+. "$(dirname "$0")/_/husky.sh"
 
 # Run staged file linters, formatters, and type-check staged TS files only
 npx --no-install lint-staged

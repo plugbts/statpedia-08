@@ -299,53 +299,62 @@ export const Navigation = ({
         >
           {/* Logo with Extras Dropdown */}
           <div className="flex items-center gap-1 animate-fade-in">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-1 hover-scale cursor-pointer group px-1">
-                  <div className="w-6 h-6 bg-gradient-primary rounded-md flex items-center justify-center shadow-glow transition-all duration-300 group-hover:shadow-xl">
-                    <BarChart3 className="w-3 h-3 text-white" />
-                  </div>
-                  <h1 className="text-lg font-display font-bold text-foreground hidden sm:block">
-                    Statpedia
-                  </h1>
-                  <MoreVertical className="w-3 h-3 text-muted-foreground group-hover:text-foreground transition-colors" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                className="w-56 bg-card/95 backdrop-blur-md border-border/50 z-[100]"
-              >
-                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                  Extra Features
-                </div>
-                <DropdownMenuSeparator />
-                {extraItems.map((item) => (
-                  <DropdownMenuItem
-                    key={item.id}
-                    onClick={() => handlePremiumFeatureClick(item.id)}
-                    className="gap-2 cursor-pointer"
-                  >
-                    {item.icon}
-                    {item.label}
-                    {item.badge && (
-                      <Badge variant="secondary" className="ml-auto text-xs">
-                        {item.badge}
-                      </Badge>
-                    )}
-                    {/* Show lock icon for premium features if user doesn't have access */}
-                    {((!hasProAccess &&
-                      (item.id === "strikeout-center" || item.id === "most-likely")) ||
-                      (item.id === "parlay-gen" && !hasPremiumAccess)) && (
-                      <div className="ml-auto">
-                        <div className="w-3 h-3 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 flex items-center justify-center">
-                          <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="flex items-center gap-1 hover-scale cursor-pointer group px-1">
+                        <div className="w-6 h-6 bg-gradient-primary rounded-md flex items-center justify-center shadow-glow transition-all duration-300 group-hover:shadow-xl">
+                          <BarChart3 className="w-3 h-3 text-white" />
                         </div>
+                        <h1 className="text-lg font-display font-bold text-foreground hidden sm:block">
+                          Statpedia
+                        </h1>
+                        <MoreVertical className="w-3 h-3 text-muted-foreground group-hover:text-foreground transition-colors" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="start"
+                      className="w-56 bg-card/95 backdrop-blur-md border-border/50 z-[100]"
+                    >
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                        Extra Features
                       </div>
-                    )}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                      <DropdownMenuSeparator />
+                      {extraItems.map((item) => (
+                        <DropdownMenuItem
+                          key={item.id}
+                          onClick={() => handlePremiumFeatureClick(item.id)}
+                          className="gap-2 cursor-pointer"
+                        >
+                          {item.icon}
+                          {item.label}
+                          {item.badge && (
+                            <Badge variant="secondary" className="ml-auto text-xs">
+                              {item.badge}
+                            </Badge>
+                          )}
+                          {/* Show lock icon for premium features if user doesn't have access */}
+                          {((!hasProAccess &&
+                            (item.id === "strikeout-center" || item.id === "most-likely")) ||
+                            (item.id === "parlay-gen" && !hasPremiumAccess)) && (
+                            <div className="ml-auto">
+                              <div className="w-3 h-3 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 flex items-center justify-center">
+                                <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                              </div>
+                            </div>
+                          )}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  {getLogoTooltipContent()}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
 
           {/* Main Navigation - Responsive */}

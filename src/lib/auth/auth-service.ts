@@ -81,15 +81,7 @@ function getDatabase() {
         "Database connection string not set. Add NEON_DATABASE_URL (preferred) or DATABASE_URL to .env.local.",
       );
     }
-    // Add connection timeout and query timeout to prevent hanging
-    client = postgres(DATABASE_URL, {
-      prepare: false,
-      connect_timeout: 10, // 10 seconds to connect
-      idle_timeout: 20, // 20 seconds idle before closing connection
-      max_lifetime: 60 * 30, // 30 minutes max connection lifetime
-      statement_timeout: 5000, // 5 seconds per query
-      max: 10, // max 10 connections in pool
-    });
+    client = postgres(DATABASE_URL, { prepare: false });
     db = drizzle(client);
   }
   return { client: client!, db: db! };

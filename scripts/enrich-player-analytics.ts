@@ -38,18 +38,11 @@ async function main() {
     const seasonFilter = (process.argv[2] || process.env.ENRICH_SEASON || "").trim();
     const maxLimit = Number(process.argv[3] || process.env.ENRICH_LIMIT || 2000);
     const batchSize = Number(process.env.ENRICH_BATCH || 250);
-    const activeOnly =
-      process.env.ENRICH_ACTIVE_ONLY === "1" ||
-      (process.argv[4] && ["1", "true", "yes"].includes(String(process.argv[4]).toLowerCase()));
-    const windowBackDays = Number(process.env.ENRICH_BACK_DAYS || 3);
-    const windowAheadDays = Number(process.env.ENRICH_AHEAD_DAYS || 3);
     const targetSeasonSql = seasonFilter
       ? dsql`AND EXTRACT(YEAR FROM pgl.game_date)::text = ${seasonFilter}`
       : dsql``;
 
-    console.log(
-      `[enrich] season=${seasonFilter || "ALL"} limit=${maxLimit} batch=${batchSize} activeOnly=${activeOnly} windowBack=${windowBackDays} windowAhead=${windowAheadDays}`,
-    );
+    console.log(`[enrich] season=${seasonFilter || "ALL"} limit=${maxLimit} batch=${batchSize}`);
 
     for (let offset = 0; processed < maxLimit; offset += batchSize) {
       const remaining = Math.max(0, maxLimit - processed);
@@ -58,29 +51,14 @@ async function main() {
       console.log(
         `[enrich] fetching page offset=${offset} take=${take} season=${seasonFilter || "ALL"}`,
       );
-      let page: any[];
-      if (activeOnly) {
-        // Focus only on combos that have player_props in a small date window around today
-        page = (await db.execute(dsql`
-          SELECT DISTINCT pp.player_id, pt.name AS prop_type, EXTRACT(YEAR FROM g.game_date)::text AS season
-          FROM public.player_props pp
-          JOIN public.prop_types pt ON pt.id = pp.prop_type_id
-          JOIN public.games g ON g.id = pp.game_id
-          WHERE g.game_date BETWEEN (CURRENT_DATE - ${windowBackDays}::int) AND (CURRENT_DATE + ${windowAheadDays}::int)
-            ${seasonFilter ? dsql`AND EXTRACT(YEAR FROM g.game_date)::text = ${seasonFilter}` : dsql``}
-          ORDER BY season DESC
-          LIMIT ${take} OFFSET ${offset};
-        `)) as any[];
-      } else {
-        page = (await db.execute(dsql`
-          SELECT pgl.player_id, pgl.prop_type, EXTRACT(YEAR FROM pgl.game_date)::text as season
-          FROM public.player_game_logs pgl
-          WHERE TRUE ${targetSeasonSql}
-          GROUP BY pgl.player_id, pgl.prop_type, EXTRACT(YEAR FROM pgl.game_date)
-          ORDER BY season DESC
-          LIMIT ${take} OFFSET ${offset};
-        `)) as any[];
-      }
+      const page = await db.execute(dsql`
+        SELECT pgl.player_id, pgl.prop_type, EXTRACT(YEAR FROM pgl.game_date)::text as season
+        FROM public.player_game_logs pgl
+        WHERE TRUE ${targetSeasonSql}
+        GROUP BY pgl.player_id, pgl.prop_type, EXTRACT(YEAR FROM pgl.game_date)
+        ORDER BY season DESC
+        LIMIT ${take} OFFSET ${offset};
+      `);
 
       const rows = page as any[];
       if (!rows.length) break;

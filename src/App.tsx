@@ -59,32 +59,27 @@ const SupportCenterWrapper = () => {
 };
 
 const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // TEMPORARILY DISABLED - causing infinite loop/hang
-  // const sync = useSync();
-  // const emailCron = useEmailCron();
+  const sync = useSync();
+  const emailCron = useEmailCron();
 
-  // console.log(
-  //   "Sync connected:",
-  //   sync.isLoveableConnected,
-  //   "queue:",
-  //   sync.syncQueueLength,
-  //   "last:",
-  //   sync.lastSync,
-  //   "error:",
-  //   sync.error,
-  // );
-  // console.log("Email Cron Status:", emailCron.status);
+  console.log(
+    "Sync connected:",
+    sync.isLoveableConnected,
+    "queue:",
+    sync.syncQueueLength,
+    "last:",
+    sync.lastSync,
+    "error:",
+    sync.error,
+  );
+  console.log("Email Cron Status:", emailCron.status);
 
   return <>{children}</>;
 };
 
 const App = () => {
-  // 🔍 DEBUG: Log app render
-  console.log("🚀 [APP_DEBUG] App component rendering...");
-
   // Initialize theme on app start
   useEffect(() => {
-    console.log("🎨 [APP_DEBUG] Theme initialization useEffect running");
     const savedTheme = localStorage.getItem("statpedia-theme");
     const html = document.documentElement;
 
@@ -96,10 +91,7 @@ const App = () => {
       html.classList.remove("light");
       html.classList.add("dark");
     }
-    console.log("✅ [APP_DEBUG] Theme set to:", savedTheme || "dark (default)");
   }, []);
-
-  console.log("📍 [APP_DEBUG] About to render BrowserRouter...");
 
   return (
     <QueryClientProvider client={queryClient}>
