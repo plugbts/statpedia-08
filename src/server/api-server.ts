@@ -658,7 +658,12 @@ app.get("/api/props-list", async (req, res) => {
       return res.json({ count: rows.length, items: rows });
     };
 
-    const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+    // Support both Supabase and Neon connections
+    // Priority: SUPABASE_DATABASE_URL > NEON_DATABASE_URL > DATABASE_URL
+    const connectionString =
+      process.env.SUPABASE_DATABASE_URL ||
+      process.env.NEON_DATABASE_URL ||
+      process.env.DATABASE_URL;
     if (!connectionString) {
       // No DB configured → return SGO-backed list for dev visibility
       return await sgoFallback();
@@ -1221,7 +1226,10 @@ app.get("/api/player-analytics", async (req, res) => {
     const postgres = (await import("postgres")).default;
     const { sql } = await import("drizzle-orm");
 
-    const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+    const connectionString =
+      process.env.SUPABASE_DATABASE_URL ||
+      process.env.NEON_DATABASE_URL ||
+      process.env.DATABASE_URL;
     if (!connectionString) {
       return res.status(500).json({ success: false, error: "DATABASE_URL is not configured" });
     }
@@ -1349,7 +1357,10 @@ app.get("/api/player-analytics", async (req, res) => {
 if (process.env.DIAGNOSTICS_ENABLED === "true") {
   app.get("/api/diagnostics/analytics-status", async (req, res) => {
     try {
-      const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+      const connectionString =
+        process.env.SUPABASE_DATABASE_URL ||
+        process.env.NEON_DATABASE_URL ||
+        process.env.DATABASE_URL;
       if (!connectionString) {
         return res.status(500).json({ success: false, error: "DATABASE_URL is not configured" });
       }
@@ -1454,7 +1465,10 @@ app.get("/api/player-analytics-enriched", async (req, res) => {
     const postgres = (await import("postgres")).default;
     const { sql } = await import("drizzle-orm");
 
-    const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+    const connectionString =
+      process.env.SUPABASE_DATABASE_URL ||
+      process.env.NEON_DATABASE_URL ||
+      process.env.DATABASE_URL;
     if (!connectionString) {
       return res.status(500).json({ success: false, error: "DATABASE_URL is not configured" });
     }
@@ -1589,7 +1603,10 @@ app.post("/api/player-analytics-bulk", async (req, res) => {
         const postgres = (await import("postgres")).default;
         const { sql } = await import("drizzle-orm");
 
-        const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+        const connectionString =
+          process.env.SUPABASE_DATABASE_URL ||
+          process.env.NEON_DATABASE_URL ||
+          process.env.DATABASE_URL;
         if (connectionString) {
           const clientForMap = postgres(connectionString);
           const dbForMap = drizzle(clientForMap);
@@ -1632,7 +1649,10 @@ app.post("/api/player-analytics-bulk", async (req, res) => {
     const postgres = (await import("postgres")).default;
     const { sql } = await import("drizzle-orm");
 
-    const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+    const connectionString =
+      process.env.SUPABASE_DATABASE_URL ||
+      process.env.NEON_DATABASE_URL ||
+      process.env.DATABASE_URL;
     if (!connectionString) {
       return res.status(500).json({ success: false, error: "DATABASE_URL is not configured" });
     }
