@@ -693,7 +693,7 @@ app.get("/api/props-list", async (req, res) => {
                market, line, odds_american,
                COALESCE(over_odds_american, 0) AS over_odds_american,
                COALESCE(under_odds_american, 0) AS under_odds_american,
-               ev_percent, streak_l5, rating, matchup_rank,
+               ev_percent, current_streak AS streak_l5, rating, matchup_rank,
                l5, l10, l20, h2h_avg, season_avg,
                league, game_date,
                team_logo, opponent_logo
@@ -705,6 +705,30 @@ app.get("/api/props-list", async (req, res) => {
 
       const rows = params.length > 0 ? await client.unsafe(sql, params) : await client.unsafe(sql);
       if (Array.isArray(rows) && rows.length > 0) {
+        // Enhanced debug logging for analytics
+        const analyticsCount = rows.filter(
+          (r) =>
+            r.l5 !== null ||
+            r.l10 !== null ||
+            r.l20 !== null ||
+            r.h2h_avg !== null ||
+            r.season_avg !== null,
+        ).length;
+        console.log(`[API] Props returned: ${rows.length}, with analytics: ${analyticsCount}`);
+        if (rows[0]) {
+          console.log("[API] Sample row analytics:", {
+            full_name: rows[0].full_name,
+            market: rows[0].market,
+            l5: rows[0].l5,
+            l10: rows[0].l10,
+            l20: rows[0].l20,
+            h2h_avg: rows[0].h2h_avg,
+            season_avg: rows[0].season_avg,
+            current_streak: rows[0].streak_l5,
+            matchup_rank: rows[0].matchup_rank,
+            ev_percent: rows[0].ev_percent,
+          });
+        }
         return res.json({ count: rows.length, items: rows });
       }
       // Empty DB result → fallback to SGO for dev usability

@@ -803,6 +803,17 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
                 underOdds: o.underOdds,
                 deeplink: o.deeplink,
               })),
+              // Analytics fields - pass through if present in prop (from /api/props-list)
+              l5: (prop as any).l5 ?? null,
+              l10: (prop as any).l10 ?? null,
+              l20: (prop as any).l20 ?? null,
+              h2h_avg: (prop as any).h2h_avg ?? null,
+              season_avg: (prop as any).season_avg ?? null,
+              current_streak: (prop as any).current_streak ?? (prop as any).streak_l5 ?? null,
+              streak_l5: (prop as any).streak_l5 ?? (prop as any).current_streak ?? null,
+              matchup_rank: (prop as any).matchup_rank ?? null,
+              ev_percent: (prop as any).ev_percent ?? null,
+              rating: (prop as any).rating ?? null,
               originalIndex: index,
             } as any;
           });

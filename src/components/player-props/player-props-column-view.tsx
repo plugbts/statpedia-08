@@ -278,6 +278,17 @@ interface PlayerProp {
   rating_under_raw?: number;
   // Analytics properties
   marketType?: string;
+  // Direct analytics fields from API (from v_props_list)
+  l5?: number | null;
+  l10?: number | null;
+  l20?: number | null;
+  h2h_avg?: number | null;
+  season_avg?: number | null;
+  current_streak?: number | null;
+  streak_l5?: number | null;
+  matchup_rank?: number | null;
+  ev_percent?: number | null;
+  rating?: number | null;
   // Enriched properties for analytics
   gameLogs?: Array<{
     date: string;
@@ -1070,7 +1081,7 @@ export function PlayerPropsColumnView({
                 playerId: prop.playerId,
               });
 
-              // Get analytics data for this prop (graceful fallback if not available)
+              // Get analytics data for this prop - prioritize direct fields from API response
               let analytics = null;
               try {
                 analytics = getAnalytics(
@@ -1080,54 +1091,103 @@ export function PlayerPropsColumnView({
                   overUnderFilter,
                 );
               } catch (error) {
-                console.warn("[ANALYTICS_DEBUG] Analytics not available, using fallbacks:", error);
+                console.warn(
+                  "[ANALYTICS_DEBUG] Analytics hook not available, using direct fields:",
+                  error,
+                );
               }
+
+              // Check if prop has direct analytics fields from API (from v_props_list)
+              const hasDirectAnalytics =
+                (prop.l5 !== null && prop.l5 !== undefined) ||
+                (prop.l10 !== null && prop.l10 !== undefined) ||
+                (prop.l20 !== null && prop.l20 !== undefined) ||
+                (prop.h2h_avg !== null && prop.h2h_avg !== undefined) ||
+                (prop.season_avg !== null && prop.season_avg !== undefined);
 
               // Debug analytics retrieval
               console.log(
                 `[ANALYTICS_DEBUG] Prop: ${prop.playerName} ${prop.propType} ${prop.line} ${overUnderFilter}`,
               );
-              console.log(`[ANALYTICS_DEBUG] Analytics result:`, analytics);
-
-              // Log defense stats keys for debugging
-              if (prop.defenseStats && prop.defenseStats.length > 0) {
-                console.debug("[DEFENSE KEYS]", prop.defenseStats.slice(0, 5));
-              } else {
-                console.debug("[DEFENSE KEYS]", "No defense stats available");
-              }
-
-              // Debug analytics data
-              console.debug("[ANALYTICS]", {
-                key: `${prop.playerId}-${prop.propType}-${prop.line}-${overUnderFilter}`,
-                hasAnalytics: !!analytics,
-                analytics: analytics,
+              console.log(`[ANALYTICS_DEBUG] Direct analytics:`, {
+                l5: prop.l5,
+                l10: prop.l10,
+                l20: prop.l20,
+                h2h_avg: prop.h2h_avg,
+                season_avg: prop.season_avg,
+                current_streak: prop.current_streak || prop.streak_l5,
+                matchup_rank: prop.matchup_rank,
               });
+              console.log(`[ANALYTICS_DEBUG] Hook analytics result:`, analytics);
 
               // Use real analytics data or fallback to defaults with UI guardrails
+              // Priority: Direct fields from API > Analytics hook > Defaults
               const hasGameLogs = prop.gameLogs && prop.gameLogs.length > 0;
               const hasDefenseStats = prop.defenseStats && prop.defenseStats.length > 0;
 
-              const streak = hasGameLogs ? analytics?.streak?.current || 0 : 0;
-              const h2h = hasGameLogs
-                ? analytics?.h2h || { hits: 0, total: 0, pct: 0 }
-                : { hits: 0, total: 0, pct: 0 };
-              const season = hasGameLogs
-                ? analytics?.season || { hits: 0, total: 0, pct: 0 }
-                : { hits: 0, total: 0, pct: 0 };
-              const l5 = hasGameLogs
-                ? analytics?.l5 || { hits: 0, total: 0, pct: 0 }
-                : { hits: 0, total: 0, pct: 0 };
-              const l10 = hasGameLogs
-                ? analytics?.l10 || { hits: 0, total: 0, pct: 0 }
-                : { hits: 0, total: 0, pct: 0 };
-              const l20 = hasGameLogs
-                ? analytics?.l20 || { hits: 0, total: 0, pct: 0 }
-                : { hits: 0, total: 0, pct: 0 };
+              // Extract analytics - prioritize direct fields from prop
+              const l5Pct =
+                hasDirectAnalytics && prop.l5 !== null && prop.l5 !== undefined
+                  ? Number(prop.l5)
+                  : analytics?.l5?.pct || 0;
+              const l10Pct =
+                hasDirectAnalytics && prop.l10 !== null && prop.l10 !== undefined
+                  ? Number(prop.l10)
+                  : analytics?.l10?.pct || 0;
+              const l20Pct =
+                hasDirectAnalytics && prop.l20 !== null && prop.l20 !== undefined
+                  ? Number(prop.l20)
+                  : analytics?.l20?.pct || 0;
 
-              // Get defensive rank
-              const defensiveRank = hasDefenseStats
-                ? analytics?.matchupRank || { rank: 0, display: "—" }
-                : { rank: 0, display: "—" };
+              // Convert percentages to hits/total format
+              const l5Total = 5;
+              const l10Total = 10;
+              const l20Total = 20;
+              const l5Hits = Number.isFinite(l5Pct) ? Math.round((l5Pct / 100) * l5Total) : 0;
+              const l10Hits = Number.isFinite(l10Pct) ? Math.round((l10Pct / 100) * l10Total) : 0;
+              const l20Hits = Number.isFinite(l20Pct) ? Math.round((l20Pct / 100) * l20Total) : 0;
+
+              const l5 = { hits: l5Hits, total: l5Total, pct: l5Pct };
+              const l10 = { hits: l10Hits, total: l10Total, pct: l10Pct };
+              const l20 = { hits: l20Hits, total: l20Total, pct: l20Pct };
+
+              // Streak - use direct field or fallback
+              const streakValue = hasDirectAnalytics
+                ? prop.current_streak !== null && prop.current_streak !== undefined
+                  ? Number(prop.current_streak)
+                  : prop.streak_l5 !== null && prop.streak_l5 !== undefined
+                    ? Number(prop.streak_l5)
+                    : 0
+                : analytics?.streak?.current || 0;
+              const streak = {
+                current: streakValue,
+                longest: Math.abs(streakValue),
+                direction: streakValue >= 0 ? "over" : "under",
+              };
+
+              // H2H - use direct field or fallback
+              const h2hAvg =
+                hasDirectAnalytics && prop.h2h_avg !== null && prop.h2h_avg !== undefined
+                  ? Number(prop.h2h_avg)
+                  : null;
+              const h2h = analytics?.h2h || { hits: 0, total: 0, pct: 0 };
+
+              // Season - use direct field or fallback
+              const seasonAvg =
+                hasDirectAnalytics && prop.season_avg !== null && prop.season_avg !== undefined
+                  ? Number(prop.season_avg)
+                  : null;
+              const season = analytics?.season || { hits: 0, total: 0, pct: 0 };
+
+              // Get defensive rank - use direct field or fallback
+              const matchupRankValue =
+                hasDirectAnalytics && prop.matchup_rank !== null && prop.matchup_rank !== undefined
+                  ? Number(prop.matchup_rank)
+                  : analytics?.matchupRank?.rank || 0;
+              const defensiveRank = {
+                rank: matchupRankValue,
+                display: matchupRankValue ? `#${matchupRankValue}` : "—",
+              };
 
               return (
                 <Card
