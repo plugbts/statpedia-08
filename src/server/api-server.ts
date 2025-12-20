@@ -309,7 +309,11 @@ async function fetchNormalizedPlayerProps(sport: string, limit = 200): Promise<N
     const gameId = ev.id || ev.gameId || ev.eventID || "unknown";
     const gameTime = ev.gameTime || ev.startTime || ev.start || ev.date || undefined;
     // Try to infer home/away team abbreviations to derive opponent
+    // Prefer structured team fields returned by SGO (v2/events) when present
+    const homeTeamId = ev?.teams?.home?.teamID;
+    const awayTeamId = ev?.teams?.away?.teamID;
     const homeAbbr =
+      ev?.teams?.home?.names?.short ||
       ev.homeTeamAbbr ||
       ev.homeTeam ||
       ev.home ||
@@ -319,6 +323,7 @@ async function fetchNormalizedPlayerProps(sport: string, limit = 200): Promise<N
       ev.home_code ||
       undefined;
     const awayAbbr =
+      ev?.teams?.away?.names?.short ||
       ev.awayTeamAbbr ||
       ev.awayTeam ||
       ev.away ||
@@ -344,11 +349,30 @@ async function fetchNormalizedPlayerProps(sport: string, limit = 200): Promise<N
       const period = odd.period || odd.segment || "full_game";
 
       const key2 = `${playerId}:${gameId}:${propType}:${lineNum}:${period}`;
+      // SGO v2/events provides the player's team via event.players[playerID].teamID (not on the odd)
+      const playerTeamId = ev?.players?.[playerId]?.teamID;
+      const home = (homeAbbr || "").toString().toUpperCase();
+      const away = (awayAbbr || "").toString().toUpperCase();
+
+      // Prefer team/opponent derived from teamID matching (most reliable)
+      let derivedTeam: string | undefined;
+      let derivedOpp: string | undefined;
+      if (playerTeamId && homeTeamId && awayTeamId) {
+        if (playerTeamId === homeTeamId) {
+          derivedTeam = home;
+          derivedOpp = away;
+        } else if (playerTeamId === awayTeamId) {
+          derivedTeam = away;
+          derivedOpp = home;
+        }
+      }
+
+      // Fallback: use any team field present on the odd (less reliable) and try to infer opponent
       const playerTeamRaw = (odd.playerTeam || odd.team || "").toString();
-      const pt = playerTeamRaw.toUpperCase();
-      const h = (homeAbbr || "").toString().toUpperCase();
-      const a = (awayAbbr || "").toString().toUpperCase();
-      const inferredOpp = pt && (pt === h || pt === a) ? (pt === h ? a : h) : undefined;
+      const pt = (playerTeamRaw || derivedTeam || "").toString().toUpperCase();
+      const inferredOpp =
+        derivedOpp ||
+        (pt && (pt === home || pt === away) ? (pt === home ? away : home) : undefined);
       let acc = grouped.get(key2);
       if (!acc) {
         acc = {
@@ -359,7 +383,8 @@ async function fetchNormalizedPlayerProps(sport: string, limit = 200): Promise<N
             startTime: gameTime,
             playerId,
             playerName,
-            team: playerTeamRaw || undefined,
+            // Prefer derived abbreviations so the frontend can render logos reliably
+            team: derivedTeam || playerTeamRaw || undefined,
             opponent: inferredOpp,
             propType,
             line: lineNum,
