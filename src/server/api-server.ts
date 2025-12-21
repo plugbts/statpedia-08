@@ -572,6 +572,22 @@ async function enrichPropsWithAnalytics(
   if (candidates.length === 0) return props;
 
   const postgres = (await import("postgres")).default;
+  // Cache: defense rank per (sport, season, prop_type). Keeps API fast and stable.
+  // Key: `${sport}|${season}|${propTypeLower}`
+  const defenseRankCache: Map<
+    string,
+    { ts: number; byTeamId: Map<string, { rank: number; games: number; allowedPerGame: number }> }
+  > = (globalThis as any).__STATPEDIA_DEF_RANK_CACHE__ || new Map();
+  (globalThis as any).__STATPEDIA_DEF_RANK_CACHE__ = defenseRankCache;
+
+  const cacheTtlMs = 30 * 60 * 1000; // 30 minutes
+
+  const nflSeasonForDate = (d: Date): string => {
+    const y = d.getUTCFullYear();
+    const m = d.getUTCMonth() + 1; // 1-12
+    // NFL season belongs to prior year for Jan/Feb (playoffs).
+    return String(m <= 2 ? y - 1 : y);
+  };
 
   for (const connectionString of candidates) {
     const client = postgres(connectionString, { prepare: false });
@@ -882,6 +898,129 @@ async function enrichPropsWithAnalytics(
       }
 
       /**
+       * NFL Matchup Rank (Defense vs Prop Type)
+       *
+       * Goal: For each prop type, rank all defenses 1..32 based on how much they allow
+       * per game for that stat in the given season. Rank 1 = best defense (allows least),
+       * rank 32 = worst defense (allows most).
+       *
+       * We compute from `player_game_logs`:
+       * - For a defense team D and a game G: allowed(D,G,prop) = SUM(actual_value) for all
+       *   offensive players who played *against* D in G with that prop_type.
+       * - For a season: allowed_per_game(D,prop) = AVG(allowed(D,G,prop)) across games.
+       *
+       * Then rank ascending by allowed_per_game.
+       */
+      const shouldComputeDefenseRank = String(sport || "").toLowerCase() === "nfl";
+      const defenseRankByPropType = new Map<
+        string,
+        Map<string, { rank: number; games: number; allowedPerGame: number }>
+      >();
+
+      if (shouldComputeDefenseRank && propTypesLower.length > 0) {
+        const season = nflSeasonForDate(new Date());
+
+        // Only compute for prop types we actually need and can rank meaningfully.
+        // (We can expand later; keep it focused to core offensive markets.)
+        const rankable = new Set([
+          "passing yards",
+          "passing attempts",
+          "passing completions",
+          "passing tds",
+          "rushing yards",
+          "rushing attempts",
+          "rushing tds",
+          "receiving yards",
+          "receptions",
+          "receiving tds",
+        ]);
+
+        const propTypesToRank = Array.from(
+          new Set(
+            propTypesLower.filter((pt) =>
+              rankable.has(
+                String(pt || "")
+                  .trim()
+                  .toLowerCase(),
+              ),
+            ),
+          ),
+        );
+
+        for (const ptLower of propTypesToRank) {
+          const cacheKey = `${String(sport).toLowerCase()}|${season}|${ptLower}`;
+          const cached = defenseRankCache.get(cacheKey);
+          if (cached && Date.now() - cached.ts < cacheTtlMs) {
+            defenseRankByPropType.set(ptLower, cached.byTeamId);
+            continue;
+          }
+
+          // Compute defense ranks from logs for this prop_type + season.
+          // Note: join teams/leagues so we only rank NFL defenses.
+          const rows = (await client.unsafe(
+            `
+              WITH per_game AS (
+                SELECT
+                  pgl.opponent_id AS team_id,
+                  pgl.game_id,
+                  SUM(pgl.actual_value::numeric) AS allowed
+                FROM public.player_game_logs pgl
+                JOIN public.teams t ON t.id = pgl.opponent_id
+                JOIN public.leagues l ON l.id = t.league_id
+                WHERE pgl.season = $1
+                  AND LOWER(TRIM(pgl.prop_type)) = $2
+                  AND (UPPER(l.code) = 'NFL' OR UPPER(COALESCE(l.abbreviation, l.code)) = 'NFL')
+                GROUP BY pgl.opponent_id, pgl.game_id
+              ),
+              per_team AS (
+                SELECT
+                  team_id,
+                  AVG(allowed) AS allowed_per_game,
+                  COUNT(*)::int AS games_tracked
+                FROM per_game
+                GROUP BY team_id
+              ),
+              ranked AS (
+                SELECT
+                  team_id,
+                  games_tracked,
+                  allowed_per_game,
+                  RANK() OVER (ORDER BY allowed_per_game ASC) AS rank
+                FROM per_team
+              )
+              SELECT team_id, rank::int AS rank, games_tracked, allowed_per_game
+              FROM ranked
+            `,
+            [season, ptLower],
+          )) as Array<{
+            team_id: string;
+            rank: number;
+            games_tracked: number;
+            allowed_per_game: string | number;
+          }>;
+
+          const byTeamId = new Map<
+            string,
+            { rank: number; games: number; allowedPerGame: number }
+          >();
+          for (const r of rows) {
+            const apg =
+              typeof r.allowed_per_game === "number"
+                ? r.allowed_per_game
+                : Number(String(r.allowed_per_game));
+            byTeamId.set(String(r.team_id), {
+              rank: Number(r.rank) || 0,
+              games: Number(r.games_tracked) || 0,
+              allowedPerGame: Number.isFinite(apg) ? apg : 0,
+            });
+          }
+
+          defenseRankCache.set(cacheKey, { ts: Date.now(), byTeamId });
+          defenseRankByPropType.set(ptLower, byTeamId);
+        }
+      }
+
+      /**
        * Critical fix:
        * `player_game_logs.hit` and `player_game_logs.line` are not reliable in this dataset
        * (we've observed line=0 and hit=false even when actual_value > 0).
@@ -1033,6 +1172,20 @@ async function enrichPropsWithAnalytics(
           .toLowerCase();
         const r = analyticsByKey.get(`${pid}:${propTypeKey}`);
 
+        // Compute opponent defense rank for this prop type (NFL only).
+        const oppAbbrForRank = nflAbbrAlias(
+          String(p.opponent || "")
+            .trim()
+            .toUpperCase(),
+        );
+        const oppIdForRank = oppAbbrForRank ? teamIdByAbbr.get(oppAbbrForRank) : undefined;
+        const defenseRankRow =
+          oppIdForRank && defenseRankByPropType.get(propTypeKey)
+            ? defenseRankByPropType.get(propTypeKey)!.get(oppIdForRank)
+            : undefined;
+        const computedMatchupRank =
+          defenseRankRow && defenseRankRow.rank > 0 ? defenseRankRow.rank : null;
+
         // Start with DB analytics when present (fallback to existing values otherwise)
         let out: NormalizedProp = {
           ...p,
@@ -1042,7 +1195,9 @@ async function enrichPropsWithAnalytics(
           l20: r ? toNumberOrNull(r.l20) : (p.l20 ?? null),
           h2h_avg: r ? toNumberOrNull(r.h2h_avg) : (p.h2h_avg ?? null),
           season_avg: r ? toNumberOrNull(r.season_avg) : (p.season_avg ?? null),
-          matchup_rank: r ? toNumberOrNull(r.matchup_rank) : (p.matchup_rank ?? null),
+          // Prefer computed defense rank (NFL) -> DB -> existing.
+          matchup_rank:
+            computedMatchupRank ?? (r ? toNumberOrNull(r.matchup_rank) : (p.matchup_rank ?? null)),
           ev_percent: r ? toNumberOrNull(r.ev_percent) : (p.ev_percent ?? null),
           current_streak: r ? toNumberOrNull(r.current_streak) : (p.current_streak ?? null),
           streak_l5: r ? toNumberOrNull(r.current_streak) : (p.streak_l5 ?? null),
