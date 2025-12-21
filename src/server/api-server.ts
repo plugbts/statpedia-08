@@ -1458,6 +1458,35 @@ async function enrichPropsWithAnalytics(
         slateCatsByPlayer.set(pid, cat);
       }
 
+      // Pre-fetch ESPN positions for all NFL players (batch to avoid rate limits)
+      const espnPositionsByKey = new Map<string, string | null>();
+      if (String(sport || "").toLowerCase() === "nfl") {
+        const uniquePlayers = new Map<string, { team: string; playerName: string }>();
+        for (const p of props) {
+          const team = String(p.team || "")
+            .trim()
+            .toUpperCase();
+          const playerName = String(p.playerName || "").trim();
+          if (team && playerName) {
+            const key = `${team}|${playerName}`;
+            if (!uniquePlayers.has(key)) {
+              uniquePlayers.set(key, { team, playerName });
+            }
+          }
+        }
+        // Fetch positions in parallel (limit concurrency to avoid rate limits)
+        const positionPromises = Array.from(uniquePlayers.entries()).map(
+          async ([key, { team, playerName }]) => {
+            const pos = await fetchEspnPosition(team, playerName);
+            return [key, pos] as [string, string | null];
+          },
+        );
+        const positionResults = await Promise.all(positionPromises);
+        for (const [key, pos] of positionResults) {
+          espnPositionsByKey.set(key, pos);
+        }
+      }
+
       const enriched = props.map((p, idx) => {
         const pid = resolvedPlayerIdByIdx.get(idx);
         if (!pid) return p;
@@ -1526,6 +1555,19 @@ async function enrichPropsWithAnalytics(
         const computedMatchupRank =
           defenseRankRow && defenseRankRow.rank > 0 ? defenseRankRow.rank : null;
 
+        // Get ESPN position from pre-fetched cache (prioritized over all other sources)
+        let espnPos: string | null = null;
+        if (String(sport || "").toLowerCase() === "nfl" && p.team && p.playerName) {
+          const teamAbbr = String(p.team || "")
+            .trim()
+            .toUpperCase();
+          const playerName = String(p.playerName || "").trim();
+          if (teamAbbr && playerName) {
+            const key = `${teamAbbr}|${playerName}`;
+            espnPos = espnPositionsByKey.get(key) ?? null;
+          }
+        }
+
         // Start with DB analytics when present (fallback to existing values otherwise)
         const sgoPos =
           String(p.position || "")
@@ -1537,7 +1579,8 @@ async function enrichPropsWithAnalytics(
             .toUpperCase() || null;
         const inferredPos =
           String(sport || "").toLowerCase() === "nfl" ? inferNflPositionFromLogs(pid) : null;
-        const finalPos = sgoPos || dbPos || inferredPos || null;
+        // Priority: ESPN > SGO > DB > Inferred
+        const finalPos = espnPos || sgoPos || dbPos || inferredPos || null;
 
         let out: NormalizedProp = {
           ...p,
@@ -2092,6 +2135,121 @@ app.get("/api/nfl/injury-status", async (req, res) => {
     return res.status(500).json({ success: false, error: "Failed to fetch injury status" });
   }
 });
+
+// Real NFL player position lookup (ESPN public endpoint)
+// Usage: /api/nfl/player-position?team=BUF&player=Aaron%20Rodgers
+app.get("/api/nfl/player-position", async (req, res) => {
+  try {
+    const team = String((req.query.team || "") as string)
+      .trim()
+      .toUpperCase();
+    const player = String((req.query.player || "") as string).trim();
+    if (!team || !player) {
+      return res.status(400).json({ success: false, error: "Missing team and player params" });
+    }
+    const teamId = nflEspnTeamIdByAbbr[team] || "";
+    if (!teamId) {
+      return res.status(400).json({ success: false, error: `Unknown NFL team abbr: ${team}` });
+    }
+
+    // Cache for 1 hour (in-memory)
+    const cacheKey = `espn-position:${teamId}:${normalizeHumanNameLoose(player)}`;
+    (globalThis as any).__espnPositionCache = (globalThis as any).__espnPositionCache || new Map();
+    const cache: Map<string, { ts: number; data: any }> = (globalThis as any).__espnPositionCache;
+    const now = Date.now();
+    const cached = cache.get(cacheKey);
+    if (cached && now - cached.ts < 60 * 60 * 1000) {
+      return res.json(cached.data);
+    }
+
+    const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${teamId}/roster`;
+    const espnRes = await fetch(url);
+    if (!espnRes.ok) {
+      throw new Error(`ESPN API error ${espnRes.status}`);
+    }
+    const espnJson = await espnRes.json();
+
+    const athletes = espnJson.athletes || [];
+    const normalizedPlayer = normalizeHumanNameLoose(player);
+    const found = athletes.find((a: any) => {
+      const fullName = String(a.fullName || "").trim();
+      return normalizeHumanNameLoose(fullName) === normalizedPlayer;
+    });
+
+    if (!found) {
+      const result = { success: true, team, player, position: null, source: "espn" };
+      cache.set(cacheKey, { data: result, ts: now });
+      return res.json(result);
+    }
+
+    const position = String(found.position?.abbreviation || found.position?.name || "")
+      .trim()
+      .toUpperCase();
+    const result = {
+      success: true,
+      team,
+      player,
+      position: position || null,
+      source: "espn",
+      updated_at: new Date(now).toISOString(),
+    };
+    cache.set(cacheKey, { data: result, ts: now });
+    res.json(result);
+  } catch (e) {
+    console.error("GET /api/nfl/player-position error:", e);
+    return res.status(500).json({ success: false, error: "Failed to fetch player position" });
+  }
+});
+
+// Helper function to fetch ESPN position (used by enrichment)
+async function fetchEspnPosition(teamAbbr: string, playerName: string): Promise<string | null> {
+  try {
+    const team = String(teamAbbr || "")
+      .trim()
+      .toUpperCase();
+    const player = String(playerName || "").trim();
+    if (!team || !player) return null;
+
+    const teamId = nflEspnTeamIdByAbbr[team] || "";
+    if (!teamId) return null;
+
+    // Check cache first
+    const cacheKey = `espn-position:${teamId}:${normalizeHumanNameLoose(player)}`;
+    (globalThis as any).__espnPositionCache = (globalThis as any).__espnPositionCache || new Map();
+    const cache: Map<string, { ts: number; data: any }> = (globalThis as any).__espnPositionCache;
+    const now = Date.now();
+    const cached = cache.get(cacheKey);
+    if (cached && now - cached.ts < 60 * 60 * 1000) {
+      return cached.data.position || null;
+    }
+
+    const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${teamId}/roster`;
+    const espnRes = await fetch(url);
+    if (!espnRes.ok) return null;
+    const espnJson = await espnRes.json();
+
+    const athletes = espnJson.athletes || [];
+    const normalizedPlayer = normalizeHumanNameLoose(player);
+    const found = athletes.find((a: any) => {
+      const fullName = String(a.fullName || "").trim();
+      return normalizeHumanNameLoose(fullName) === normalizedPlayer;
+    });
+
+    if (!found) {
+      cache.set(cacheKey, { data: { position: null }, ts: now });
+      return null;
+    }
+
+    const position = String(found.position?.abbreviation || found.position?.name || "")
+      .trim()
+      .toUpperCase();
+    cache.set(cacheKey, { data: { position }, ts: now });
+    return position || null;
+  } catch (e) {
+    console.warn("[ESPN] Failed to fetch position for", teamAbbr, playerName, e);
+    return null;
+  }
+}
 
 // Props list route (served directly from this API server)
 app.get("/api/props-list", async (req, res) => {
