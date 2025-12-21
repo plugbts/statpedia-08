@@ -1,109 +1,151 @@
 // @ts-nocheck
-import React from 'react';
+import React from "react";
 
-// Professional sportsbook icon components with authentic colors and compact design
+import logoFanduelMono from "@/assets/logos/mono/fanduel.svg";
+import logoDraftkingsMono from "@/assets/logos/mono/draftkings.svg";
+import logoBetmgmMono from "@/assets/logos/mono/betmgm.svg";
+import logoCaesarsMono from "@/assets/logos/mono/caesars.svg";
+import logoBet365Mono from "@/assets/logos/mono/bet365.svg";
+import logoEspnbetMono from "@/assets/logos/mono/espnbet.svg";
+import logoHardrockMono from "@/assets/logos/mono/hardrock.svg";
+import logoSleeperMono from "@/assets/logos/mono/sleeper.svg";
+import logoPrizepicksMono from "@/assets/logos/mono/prizepicks.svg";
+import logoUnderdogMono from "@/assets/logos/mono/underdog.svg";
+import logoPinnacleMono from "@/assets/logos/mono/pinnacle.svg";
+
+const MONO: Record<string, string> = {
+  fanduel: logoFanduelMono,
+  draftkings: logoDraftkingsMono,
+  betmgm: logoBetmgmMono,
+  caesars: logoCaesarsMono,
+  bet365: logoBet365Mono,
+  espnbet: logoEspnbetMono,
+  hardrock: logoHardrockMono,
+  hardrockbet: logoHardrockMono,
+  sleeper: logoSleeperMono,
+  prizepicks: logoPrizepicksMono,
+  underdog: logoUnderdogMono,
+  pinnacle: logoPinnacleMono,
+};
+
+function normalizeBookKey(raw: string): string {
+  const s = String(raw || "")
+    .toLowerCase()
+    .trim();
+  const compact = s.replace(/[^a-z0-9]/g, "");
+  const alias: Record<string, string> = {
+    fanduel: "fanduel",
+    fanduelsportsbook: "fanduel",
+    draftkings: "draftkings",
+    draftking: "draftkings",
+    betmgm: "betmgm",
+    mgm: "betmgm",
+    caesars: "caesars",
+    williamhill: "caesars",
+    bet365: "bet365",
+    espnbet: "espnbet",
+    espn: "espnbet",
+    hardrock: "hardrock",
+    hardrockbet: "hardrock",
+    sleeper: "sleeper",
+    prizepicks: "prizepicks",
+    underdog: "underdog",
+    pinnacle: "pinnacle",
+  };
+  return alias[compact] || compact || "unknown";
+}
+
+const MonoIcon = ({ sportsbookKey }: { sportsbookKey: string }) => {
+  const key = normalizeBookKey(sportsbookKey);
+  const src = MONO[key];
+  if (!src) return null;
+  return <img src={src} alt={key} className="h-4 w-4 opacity-95" />;
+};
+
+// Professional sportsbook icon components (PropFinder-style: white mono mark in a dark tile)
 export const SportsbookIcons = {
   draftkings: () => (
-    <div className="w-5 h-5 bg-gradient-to-br from-green-500 to-green-700 rounded-sm flex items-center justify-center text-white text-[10px] font-extrabold shadow-sm border border-green-400/30">
-      DK
+    <div className="w-5 h-5 rounded-sm flex items-center justify-center bg-black/40 border border-white/10">
+      <MonoIcon sportsbookKey="draftkings" />
     </div>
   ),
   fanduel: () => (
-    <div className="w-5 h-5 bg-gradient-to-br from-blue-500 to-blue-700 rounded-sm flex items-center justify-center text-white text-[10px] font-extrabold shadow-sm border border-blue-400/30">
-      FD
+    <div className="w-5 h-5 rounded-sm flex items-center justify-center bg-black/40 border border-white/10">
+      <MonoIcon sportsbookKey="fanduel" />
     </div>
   ),
   betmgm: () => (
-    <div className="w-5 h-5 bg-gradient-to-br from-yellow-500 to-yellow-700 rounded-sm flex items-center justify-center text-white text-[9px] font-extrabold shadow-sm border border-yellow-400/30">
-      MGM
+    <div className="w-5 h-5 rounded-sm flex items-center justify-center bg-black/40 border border-white/10">
+      <MonoIcon sportsbookKey="betmgm" />
     </div>
   ),
   caesars: () => (
-    <div className="w-5 h-5 bg-gradient-to-br from-purple-600 to-purple-800 rounded-sm flex items-center justify-center text-white text-[10px] font-extrabold shadow-sm border border-purple-400/30">
-      CZR
+    <div className="w-5 h-5 rounded-sm flex items-center justify-center bg-black/40 border border-white/10">
+      <MonoIcon sportsbookKey="caesars" />
     </div>
   ),
-  pointsbet: () => (
-    <div className="w-5 h-5 bg-gradient-to-br from-red-500 to-red-700 rounded-sm flex items-center justify-center text-white text-[10px] font-extrabold shadow-sm border border-red-400/30">
-      PB
-    </div>
-  ),
-  barstool: () => (
-    <div className="w-5 h-5 bg-gradient-to-br from-pink-500 to-pink-700 rounded-sm flex items-center justify-center text-white text-[10px] font-extrabold shadow-sm border border-pink-400/30">
-      BS
-    </div>
-  ),
-  betrivers: () => (
-    <div className="w-5 h-5 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-sm flex items-center justify-center text-white text-[10px] font-extrabold shadow-sm border border-indigo-400/30">
-      BR
-    </div>
-  ),
-  unibet: () => (
-    <div className="w-5 h-5 bg-gradient-to-br from-orange-500 to-orange-700 rounded-sm flex items-center justify-center text-white text-[10px] font-extrabold shadow-sm border border-orange-400/30">
-      UB
-    </div>
-  ),
-  wynnbet: () => (
-    <div className="w-5 h-5 bg-gradient-to-br from-amber-500 to-amber-700 rounded-sm flex items-center justify-center text-white text-[10px] font-extrabold shadow-sm border border-amber-400/30">
-      WB
-    </div>
-  ),
-  superbook: () => (
-    <div className="w-5 h-5 bg-gradient-to-br from-teal-500 to-teal-700 rounded-sm flex items-center justify-center text-white text-[10px] font-extrabold shadow-sm border border-teal-400/30">
-      SB
-    </div>
-  ),
-  // Additional popular sportsbooks
   bet365: () => (
-    <div className="w-5 h-5 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-sm flex items-center justify-center text-black text-[9px] font-extrabold shadow-sm border border-yellow-300/30">
-      365
-    </div>
-  ),
-  bovada: () => (
-    <div className="w-5 h-5 bg-gradient-to-br from-red-600 to-red-800 rounded-sm flex items-center justify-center text-white text-[9px] font-extrabold shadow-sm border border-red-400/30">
-      BOV
-    </div>
-  ),
-  hardrockbet: () => (
-    <div className="w-5 h-5 bg-gradient-to-br from-pink-600 to-pink-800 rounded-sm flex items-center justify-center text-white text-[9px] font-extrabold shadow-sm border border-pink-400/30">
-      HR
-    </div>
-  ),
-  underdog: () => (
-    <div className="w-5 h-5 bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-sm flex items-center justify-center text-white text-[9px] font-extrabold shadow-sm border border-emerald-400/30">
-      UD
-    </div>
-  ),
-  prizepicks: () => (
-    <div className="w-5 h-5 bg-gradient-to-br from-violet-500 to-violet-700 rounded-sm flex items-center justify-center text-white text-[9px] font-extrabold shadow-sm border border-violet-400/30">
-      PP
+    <div className="w-5 h-5 rounded-sm flex items-center justify-center bg-black/40 border border-white/10">
+      <MonoIcon sportsbookKey="bet365" />
     </div>
   ),
   espnbet: () => (
-    <div className="w-5 h-5 bg-gradient-to-br from-blue-600 to-blue-800 rounded-sm flex items-center justify-center text-white text-[9px] font-extrabold shadow-sm border border-blue-400/30">
-      ESPN
+    <div className="w-5 h-5 rounded-sm flex items-center justify-center bg-black/40 border border-white/10">
+      <MonoIcon sportsbookKey="espnbet" />
     </div>
   ),
-  // Generic fallback for unknown sportsbooks
-  generic: (name: string) => (
-    <div className="w-5 h-5 bg-gradient-to-br from-gray-500 to-gray-700 rounded-sm flex items-center justify-center text-white text-[10px] font-extrabold shadow-sm border border-gray-400/30">
-      {name.substring(0, 2).toUpperCase()}
+  hardrock: () => (
+    <div className="w-5 h-5 rounded-sm flex items-center justify-center bg-black/40 border border-white/10">
+      <MonoIcon sportsbookKey="hardrock" />
     </div>
-  )
+  ),
+  sleeper: () => (
+    <div className="w-5 h-5 rounded-sm flex items-center justify-center bg-black/40 border border-white/10">
+      <MonoIcon sportsbookKey="sleeper" />
+    </div>
+  ),
+  prizepicks: () => (
+    <div className="w-5 h-5 rounded-sm flex items-center justify-center bg-black/40 border border-white/10">
+      <MonoIcon sportsbookKey="prizepicks" />
+    </div>
+  ),
+  underdog: () => (
+    <div className="w-5 h-5 rounded-sm flex items-center justify-center bg-black/40 border border-white/10">
+      <MonoIcon sportsbookKey="underdog" />
+    </div>
+  ),
+  pinnacle: () => (
+    <div className="w-5 h-5 rounded-sm flex items-center justify-center bg-black/40 border border-white/10">
+      <MonoIcon sportsbookKey="pinnacle" />
+    </div>
+  ),
+  // Generic fallback for unknown sportsbooks: show a star (better than PI/FA/CO text)
+  generic: () => (
+    <div className="w-5 h-5 rounded-sm flex items-center justify-center bg-black/40 border border-white/10 text-white text-[10px] font-extrabold">
+      ★
+    </div>
+  ),
 };
 
 // Map sportsbook keys to display names
 export const SportsbookNames = {
-  draftkings: 'DraftKings',
-  fanduel: 'FanDuel',
-  betmgm: 'BetMGM',
-  caesars: 'Caesars',
-  pointsbet: 'PointsBet',
-  barstool: 'Barstool',
-  betrivers: 'BetRivers',
-  unibet: 'Unibet',
-  wynnbet: 'WynnBET',
-  superbook: 'SuperBook'
+  draftkings: "DraftKings",
+  fanduel: "FanDuel",
+  betmgm: "BetMGM",
+  caesars: "Caesars",
+  pointsbet: "PointsBet",
+  barstool: "Barstool",
+  betrivers: "BetRivers",
+  unibet: "Unibet",
+  wynnbet: "WynnBET",
+  superbook: "SuperBook",
+  hardrock: "Hard Rock",
+  sleeper: "Sleeper",
+  prizepicks: "PrizePicks",
+  underdog: "Underdog",
+  bet365: "bet365",
+  espnbet: "ESPN BET",
+  pinnacle: "Pinnacle",
 };
 
 // Component to render sportsbook icon
@@ -113,21 +155,23 @@ interface SportsbookIconProps {
   showTooltip?: boolean;
 }
 
-export const SportsbookIcon: React.FC<SportsbookIconProps> = ({ 
-  sportsbookKey, 
-  className = "", 
-  showTooltip = true 
+export const SportsbookIcon: React.FC<SportsbookIconProps> = ({
+  sportsbookKey,
+  className = "",
+  showTooltip = true,
 }) => {
   // Handle undefined or null sportsbookKey
-  if (!sportsbookKey || typeof sportsbookKey !== 'string') {
+  if (!sportsbookKey || typeof sportsbookKey !== "string") {
     return null;
   }
-  
-  const IconComponent = SportsbookIcons[sportsbookKey as keyof typeof SportsbookIcons] || 
-                       (() => SportsbookIcons.generic(sportsbookKey));
-  
-  const displayName = SportsbookNames[sportsbookKey as keyof typeof SportsbookNames] || 
-                     (sportsbookKey.charAt(0)?.toUpperCase() || '') + sportsbookKey.slice(1);
+
+  const IconComponent =
+    SportsbookIcons[sportsbookKey as keyof typeof SportsbookIcons] ||
+    (() => SportsbookIcons.generic(sportsbookKey));
+
+  const displayName =
+    SportsbookNames[sportsbookKey as keyof typeof SportsbookNames] ||
+    (sportsbookKey.charAt(0)?.toUpperCase() || "") + sportsbookKey.slice(1);
 
   return (
     <div className={`inline-flex ${className}`} title={showTooltip ? displayName : undefined}>
@@ -144,27 +188,44 @@ interface SportsbookIconsListProps {
   onClick?: (sportsbooks: string[]) => void;
 }
 
-export const SportsbookIconsList: React.FC<SportsbookIconsListProps> = ({ 
-  sportsbooks, 
+export const SportsbookIconsList: React.FC<SportsbookIconsListProps> = ({
+  sportsbooks,
   maxVisible = 3, // Show only 3 most popular by default
   className = "",
-  onClick
+  onClick,
 }) => {
   // Handle undefined or null sportsbooks array
   if (!sportsbooks || !Array.isArray(sportsbooks)) {
     return null;
   }
-  
+
   // Remove duplicates and sort by popularity (most popular sportsbooks first)
-  const uniqueBooks = [...new Set(sportsbooks.filter(book => book && typeof book === 'string'))];
-  const popularityOrder = ['draftkings', 'fanduel', 'betmgm', 'caesars', 'pointsbet', 'espnbet', 'bet365', 'barstool', 'betrivers', 'unibet', 'wynnbet', 'superbook', 'bovada', 'hardrockbet', 'underdog', 'prizepicks'];
-  
+  const uniqueBooks = [...new Set(sportsbooks.filter((book) => book && typeof book === "string"))];
+  const popularityOrder = [
+    "draftkings",
+    "fanduel",
+    "betmgm",
+    "caesars",
+    "pointsbet",
+    "espnbet",
+    "bet365",
+    "barstool",
+    "betrivers",
+    "unibet",
+    "wynnbet",
+    "superbook",
+    "bovada",
+    "hardrockbet",
+    "underdog",
+    "prizepicks",
+  ];
+
   const sortedBooks = uniqueBooks.sort((a, b) => {
     const aIndex = popularityOrder.indexOf(a.toLowerCase());
     const bIndex = popularityOrder.indexOf(b.toLowerCase());
     return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
   });
-  
+
   const visibleBooks = sortedBooks.slice(0, maxVisible);
   const remainingCount = uniqueBooks.length - maxVisible;
 
@@ -175,8 +236,8 @@ export const SportsbookIconsList: React.FC<SportsbookIconsListProps> = ({
   };
 
   return (
-    <div 
-      className={`flex items-center space-x-1 ${onClick ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''} ${className}`}
+    <div
+      className={`flex items-center space-x-1 ${onClick ? "cursor-pointer hover:opacity-80 transition-opacity" : ""} ${className}`}
       onClick={handleClick}
     >
       {visibleBooks.map((book, index) => (

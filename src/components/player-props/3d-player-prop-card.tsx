@@ -31,6 +31,11 @@ import logoBetmgmMono from "@/assets/logos/mono/betmgm.svg";
 import logoCaesarsMono from "@/assets/logos/mono/caesars.svg";
 import logoBet365Mono from "@/assets/logos/mono/bet365.svg";
 import logoEspnbetMono from "@/assets/logos/mono/espnbet.svg";
+import logoHardrockMono from "@/assets/logos/mono/hardrock.svg";
+import logoSleeperMono from "@/assets/logos/mono/sleeper.svg";
+import logoPrizepicksMono from "@/assets/logos/mono/prizepicks.svg";
+import logoUnderdogMono from "@/assets/logos/mono/underdog.svg";
+import logoPinnacleMono from "@/assets/logos/mono/pinnacle.svg";
 
 const sportsbookMonoLogo: Record<string, string> = {
   fanduel: logoFanduelMono,
@@ -39,7 +44,44 @@ const sportsbookMonoLogo: Record<string, string> = {
   caesars: logoCaesarsMono,
   bet365: logoBet365Mono,
   espnbet: logoEspnbetMono,
+  hardrock: logoHardrockMono,
+  hardrockbet: logoHardrockMono,
+  sleeper: logoSleeperMono,
+  prizepicks: logoPrizepicksMono,
+  underdog: logoUnderdogMono,
+  pinnacle: logoPinnacleMono,
 };
+
+function normalizeBookKey(raw: string): string {
+  const s = String(raw || "")
+    .toLowerCase()
+    .trim();
+  const compact = s.replace(/[^a-z0-9]/g, "");
+  const alias: Record<string, string> = {
+    fanduel: "fanduel",
+    fanduelsportsbook: "fanduel",
+    draftkings: "draftkings",
+    draftking: "draftkings",
+    betmgm: "betmgm",
+    mgm: "betmgm",
+    caesars: "caesars",
+    williamhill: "caesars",
+    bet365: "bet365",
+    espnbet: "espnbet",
+    espn: "espnbet",
+    hardrock: "hardrock",
+    hardrockbet: "hardrock",
+    sleeper: "sleeper",
+    prizepicks: "prizepicks",
+    underdog: "underdog",
+    underdogfantasy: "underdog",
+    pinnacle: "pinnacle",
+    consensus: "consensus",
+    best: "consensus",
+    all: "consensus",
+  };
+  return alias[compact] || compact || "consensus";
+}
 
 interface SportsbookOdds {
   sportsbook: string;
@@ -472,7 +514,7 @@ export function PlayerPropCard3D({
                       <div className="flex h-5 w-5 items-center justify-center rounded bg-black/40">
                         {(() => {
                           const bookKey = String(prop.sportsbookSource || "all").toLowerCase();
-                          const src = sportsbookMonoLogo[bookKey];
+                          const src = sportsbookMonoLogo[normalizeBookKey(bookKey)];
                           if (!src)
                             return <span className="text-[10px] font-extrabold text-white">★</span>;
                           return <img src={src} alt={bookKey} className="h-4 w-4 opacity-95" />;
@@ -491,7 +533,7 @@ export function PlayerPropCard3D({
                       <div className="flex h-5 w-5 items-center justify-center rounded bg-black/40">
                         {(() => {
                           const bookKey = String(prop.sportsbookSource || "all").toLowerCase();
-                          const src = sportsbookMonoLogo[bookKey];
+                          const src = sportsbookMonoLogo[normalizeBookKey(bookKey)];
                           if (!src)
                             return <span className="text-[10px] font-extrabold text-white">★</span>;
                           return <img src={src} alt={bookKey} className="h-4 w-4 opacity-95" />;

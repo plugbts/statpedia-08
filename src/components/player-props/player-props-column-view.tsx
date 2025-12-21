@@ -50,6 +50,11 @@ import logoBetmgmMono from "@/assets/logos/mono/betmgm.svg";
 import logoCaesarsMono from "@/assets/logos/mono/caesars.svg";
 import logoBet365Mono from "@/assets/logos/mono/bet365.svg";
 import logoEspnbetMono from "@/assets/logos/mono/espnbet.svg";
+import logoHardrockMono from "@/assets/logos/mono/hardrock.svg";
+import logoSleeperMono from "@/assets/logos/mono/sleeper.svg";
+import logoPrizepicksMono from "@/assets/logos/mono/prizepicks.svg";
+import logoUnderdogMono from "@/assets/logos/mono/underdog.svg";
+import logoPinnacleMono from "@/assets/logos/mono/pinnacle.svg";
 
 const sportsbookMonoLogo: Record<string, string> = {
   fanduel: logoFanduelMono,
@@ -58,7 +63,47 @@ const sportsbookMonoLogo: Record<string, string> = {
   caesars: logoCaesarsMono,
   bet365: logoBet365Mono,
   espnbet: logoEspnbetMono,
+  hardrock: logoHardrockMono,
+  hardrockbet: logoHardrockMono,
+  sleeper: logoSleeperMono,
+  prizepicks: logoPrizepicksMono,
+  underdog: logoUnderdogMono,
+  pinnacle: logoPinnacleMono,
 };
+
+function normalizeBookKey(raw: string): string {
+  const s = String(raw || "")
+    .toLowerCase()
+    .trim();
+  const compact = s.replace(/[^a-z0-9]/g, "");
+  const alias: Record<string, string> = {
+    // common variations
+    fanduel: "fanduel",
+    fanduelsportsbook: "fanduel",
+    draftkings: "draftkings",
+    draftking: "draftkings",
+    draftkingssportsbook: "draftkings",
+    betmgm: "betmgm",
+    mgm: "betmgm",
+    caesars: "caesars",
+    williamhill: "caesars",
+    bet365: "bet365",
+    espnbet: "espnbet",
+    espn: "espnbet",
+    hardrock: "hardrock",
+    hardrockbet: "hardrock",
+    hardrockbetting: "hardrock",
+    sleeper: "sleeper",
+    prizepicks: "prizepicks",
+    underdog: "underdog",
+    underdogfantasy: "underdog",
+    pinnacle: "pinnacle",
+    consensus: "consensus",
+    best: "consensus",
+    all: "consensus",
+  };
+  return alias[compact] || compact || "consensus";
+}
 
 // Using shared utility functions from prop-type-formatter.ts
 
@@ -1402,7 +1447,7 @@ export function PlayerPropsColumnView({
                               prop.best_over_book ||
                               prop.best_under_book ||
                               "all") + "";
-                          const bookKey = String(book).toLowerCase();
+                          const bookKey = normalizeBookKey(book);
                           const oddsText = toAmericanOdds(oddsValue);
                           const color = getOddsDisplayClass(prop, overUnderFilter);
                           const logoSrc = sportsbookMonoLogo[bookKey];
