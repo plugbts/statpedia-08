@@ -952,6 +952,15 @@ async function enrichPropsWithAnalytics(
         });
         const seasonsNeeded = Array.from(new Set(seasonByIdx)).filter(Boolean);
 
+        if (debugMatchup) {
+          console.log("[matchup] starting computation", {
+            sport,
+            propTypesLower: propTypesLower.length,
+            seasonsNeeded,
+            shouldCompute: shouldComputeDefenseRank,
+          });
+        }
+
         // Only compute for prop types we actually need and can rank meaningfully.
         // (We can expand later; keep it focused to core offensive markets.)
         const rankable = new Set([
@@ -978,6 +987,13 @@ async function enrichPropsWithAnalytics(
             ),
           ),
         );
+
+        if (debugMatchup) {
+          console.log("[matchup] prop types to rank", {
+            propTypesToRank,
+            propTypesLower: propTypesLower.slice(0, 5),
+          });
+        }
 
         // Try to read precomputed ranks from public.defense_ranks first (fast path).
         // If table is empty/not populated, we will compute from logs (slow path).
@@ -1088,6 +1104,33 @@ async function enrichPropsWithAnalytics(
           const pre = defenseRankByPropType.get(`${season}|${ptLower}`);
           if (pre && pre.size > 0) continue;
 
+          if (debugMatchup) {
+            console.log("[matchup] computing ranks", { season, ptLower, cacheKey });
+            // Quick diagnostic: check if we have any logs with opponent_id for this prop type
+            const diag = (await client.unsafe(
+              `
+              SELECT 
+                COUNT(*)::int AS total_logs,
+                COUNT(pgl.opponent_id)::int AS logs_with_opponent,
+                COUNT(DISTINCT pgl.opponent_id)::int AS unique_opponents
+              FROM public.player_game_logs pgl
+              JOIN public.teams t ON t.id = pgl.opponent_id
+              JOIN public.leagues l ON l.id = t.league_id
+              WHERE pgl.season = $1
+                AND LOWER(TRIM(pgl.prop_type)) = $2
+                AND (UPPER(l.code) = 'NFL' OR UPPER(COALESCE(l.abbreviation, l.code)) = 'NFL')
+            `,
+              [season, ptLower],
+            )) as Array<{
+              total_logs: number;
+              logs_with_opponent: number;
+              unique_opponents: number;
+            }>;
+            if (diag.length > 0) {
+              console.log("[matchup] diagnostic", { season, ptLower, ...diag[0] });
+            }
+          }
+
           const rows = (await client.unsafe(
             `
               WITH per_game AS (
@@ -1101,6 +1144,7 @@ async function enrichPropsWithAnalytics(
                 WHERE pgl.season = $1
                   AND LOWER(TRIM(pgl.prop_type)) = $2
                   AND (UPPER(l.code) = 'NFL' OR UPPER(COALESCE(l.abbreviation, l.code)) = 'NFL')
+                  AND pgl.opponent_id IS NOT NULL
                 GROUP BY pgl.opponent_id, pgl.game_id
               ),
               per_team AS (
@@ -1130,6 +1174,19 @@ async function enrichPropsWithAnalytics(
             allowed_per_game: string | number;
           }>;
 
+          if (debugMatchup) {
+            console.log("[matchup] computed ranks result", {
+              season,
+              ptLower,
+              rowCount: rows.length,
+              sample: rows.slice(0, 3).map((r) => ({
+                team_id: r.team_id,
+                rank: r.rank,
+                games: r.games_tracked,
+              })),
+            });
+          }
+
           const byTeamId = new Map<
             string,
             { rank: number; games: number; allowedPerGame: number }
@@ -1143,6 +1200,14 @@ async function enrichPropsWithAnalytics(
               rank: Number(r.rank) || 0,
               games: Number(r.games_tracked) || 0,
               allowedPerGame: Number.isFinite(apg) ? apg : 0,
+            });
+          }
+
+          if (debugMatchup && byTeamId.size === 0) {
+            console.warn("[matchup] computed ranks but map is empty", {
+              season,
+              ptLower,
+              rowsReturned: rows.length,
             });
           }
 
