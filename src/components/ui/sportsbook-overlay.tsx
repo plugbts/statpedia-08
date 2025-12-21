@@ -153,11 +153,13 @@ export const SportsbookOverlay: React.FC<SportsbookOverlayProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 border-slate-700 shadow-2xl">
+      <DialogContent className="max-w-md bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border-slate-600 shadow-2xl">
         <DialogHeader className="relative pb-4">
           <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 via-purple-600/10 to-emerald-600/10 rounded-t-lg" />
           <div className="relative z-10 flex items-center justify-between">
-            <DialogTitle className="text-lg font-bold text-white">Prop Overlay</DialogTitle>
+            <DialogTitle className="text-lg font-bold text-white">
+              Available Sportsbooks
+            </DialogTitle>
             <Button
               variant="ghost"
               size="sm"
@@ -167,160 +169,137 @@ export const SportsbookOverlay: React.FC<SportsbookOverlayProps> = ({
               <X className="w-4 h-4" />
             </Button>
           </div>
-          <div className="relative z-10 mt-2 flex flex-col gap-2">
-            <div className="text-sm text-slate-200 font-semibold">
-              {String(activeProp?.playerName || activeProp?.player_name || "Unknown Player")}
-              <span className="text-slate-400 font-normal">
-                {" "}
-                ({String(activeProp?.position || "").toUpperCase() || "—"})
-              </span>
-            </div>
-            <div className="text-xs text-slate-400">
-              {String(activeProp?.team || "—")} vs {String(activeProp?.opponent || "—")}
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-72">
-                <Select value={activePropId} onValueChange={setActivePropId}>
-                  <SelectTrigger className="bg-slate-900/60 border-slate-700 text-slate-200">
-                    <SelectValue placeholder="Select prop" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-950 border-slate-700">
-                    {propsForSelect.map((p) => {
-                      const id = String(p?.id || "");
-                      const label = `${String(p?.propType || "")} ${String(p?.line ?? "")}`;
-                      return (
-                        <SelectItem key={id} value={id} className="text-slate-100">
-                          {label}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
+          {activeProp && (
+            <div className="relative z-10 text-sm text-slate-300 mt-2">
+              <div className="font-medium">
+                {String(activeProp?.playerName || activeProp?.player_name || "Unknown Player")}
               </div>
-              <div className="text-xs text-slate-400">
-                Current prop:{" "}
-                <span className="text-slate-200">{String(activeProp?.propType || "")}</span>{" "}
-                <span className="text-slate-200">{String(activeProp?.line ?? "")}</span>
+              <div className="text-slate-400">
+                {String(activeProp?.propType || "")} {String(activeProp?.line ?? "")}
               </div>
+              {propsForSelect.length > 1 && (
+                <div className="mt-2">
+                  <Select value={activePropId} onValueChange={setActivePropId}>
+                    <SelectTrigger className="bg-slate-800/60 border-slate-700 text-slate-200 h-9">
+                      <SelectValue placeholder="Select prop" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-slate-700">
+                      {propsForSelect.map((p) => {
+                        const id = String(p?.id || "");
+                        const label = `${String(p?.propType || "")} ${String(p?.line ?? "")}`;
+                        return (
+                          <SelectItem key={id} value={id} className="text-slate-100">
+                            {label}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
-          </div>
+          )}
         </DialogHeader>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Left: key analytics */}
-          <div className="lg:col-span-2 space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-700/60">
-                <div className="text-xs text-slate-400">AI & Model Confidence</div>
-                <div className="text-lg font-bold text-white">
-                  {modelConfidencePct !== null ? `${modelConfidencePct}%` : "—"}
+        <div className="space-y-3">
+          <div className="text-sm text-slate-400 mb-4">
+            This prop is available on the following sportsbooks:
+          </div>
+
+          <div className="grid grid-cols-1 gap-2">
+            {availableBooks.map((book) => {
+              const displayName =
+                (SportsbookNames as any)[book as keyof typeof SportsbookNames] ||
+                book.charAt(0).toUpperCase() + book.slice(1);
+              const o = offers.find((x) => x.book === book);
+              const overOdds = o?.overOdds;
+              const underOdds = o?.underOdds;
+
+              return (
+                <div
+                  key={book}
+                  className="flex items-center space-x-3 p-3 bg-slate-800/50 rounded-lg border border-slate-700/50 hover:bg-slate-700/50 transition-colors"
+                >
+                  <SportsbookIcon sportsbookKey={book} />
+                  <div className="flex-1">
+                    <div className="font-medium text-white text-sm">{displayName}</div>
+                    <div className="text-xs text-slate-400">
+                      Live odds available
+                      {overOdds != null || underOdds != null
+                        ? ` • O ${overOdds ?? "—"} / U ${underOdds ?? "—"}`
+                        : ""}
+                    </div>
+                  </div>
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" title="Live" />
                 </div>
-              </div>
-              <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-700/60">
-                <div className="text-xs text-slate-400">Prediction Confidence</div>
-                <div className="text-lg font-bold text-white">
+              );
+            })}
+          </div>
+
+          {availableBooks.length === 0 && (
+            <div className="text-center py-8 text-slate-400">
+              <div className="text-sm">No sportsbooks available for this prop</div>
+            </div>
+          )}
+
+          {/* Keep appearance simple: add data as a small text block (no layout overhaul) */}
+          {activeProp && (
+            <div className="pt-4 border-t border-slate-700/50 space-y-2">
+              <div className="text-sm text-slate-300 font-medium">Analysis</div>
+              <div className="text-xs text-slate-400">
+                Confidence:{" "}
+                <span className="text-slate-200">
                   {modelConfidencePct !== null ? `${modelConfidencePct}%` : "—"}
-                </div>
-              </div>
-              <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-700/60">
-                <div className="text-xs text-slate-400">Consistency</div>
-                <div className={`text-lg font-bold ${getPctColor(consistencyPct)}`}>
+                </span>
+                {" • "}
+                Consistency:{" "}
+                <span className={getPctColor(consistencyPct)}>
                   {consistencyPct !== null ? `${consistencyPct}%` : "—"}
-                </div>
-              </div>
-              <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-700/60">
-                <div className="text-xs text-slate-400">Current Streak</div>
-                <div className="text-lg font-bold text-white">
+                </span>
+                {" • "}
+                Streak:{" "}
+                <span className="text-slate-200">
                   {streakVal !== null ? (streakVal > 0 ? `+${streakVal}` : `${streakVal}`) : "—"}
-                </div>
+                </span>
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-700/60">
-                <div className="text-xs text-slate-400">L5</div>
-                <div className={`text-base font-bold ${getPctColor(hitRates.l5)}`}>
+              <div className="text-xs text-slate-400">
+                L5:{" "}
+                <span className={getPctColor(hitRates.l5)}>
                   {hitRates.l5 !== null ? `${Math.round(hitRates.l5)}%` : "—"}
-                </div>
-              </div>
-              <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-700/60">
-                <div className="text-xs text-slate-400">L10</div>
-                <div className={`text-base font-bold ${getPctColor(hitRates.l10)}`}>
+                </span>
+                {" • "}
+                L10:{" "}
+                <span className={getPctColor(hitRates.l10)}>
                   {hitRates.l10 !== null ? `${Math.round(hitRates.l10)}%` : "—"}
-                </div>
-              </div>
-              <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-700/60">
-                <div className="text-xs text-slate-400">L20</div>
-                <div className={`text-base font-bold ${getPctColor(hitRates.l20)}`}>
+                </span>
+                {" • "}
+                L20:{" "}
+                <span className={getPctColor(hitRates.l20)}>
                   {hitRates.l20 !== null ? `${Math.round(hitRates.l20)}%` : "—"}
-                </div>
+                </span>
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-700/60">
-                <div className="text-xs text-slate-400">Matchup Rank</div>
-                <div className="text-base font-bold text-white">
-                  {matchupRank ? `#${matchupRank}` : "—"}
-                </div>
-              </div>
-              <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-700/60">
-                <div className="text-xs text-slate-400">Season Avg</div>
-                <div className="text-base font-bold text-white">
+              <div className="text-xs text-slate-400">
+                Matchup:{" "}
+                <span className="text-slate-200">{matchupRank ? `#${matchupRank}` : "—"}</span>
+                {" • "}
+                Season avg:{" "}
+                <span className="text-slate-200">
                   {activeProp?.season_avg !== null && activeProp?.season_avg !== undefined
                     ? Number(activeProp.season_avg).toFixed(1)
                     : "—"}
-                </div>
-              </div>
-              <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-700/60">
-                <div className="text-xs text-slate-400">EV%</div>
-                <div className="text-base font-bold text-white">
+                </span>
+                {" • "}
+                EV%:{" "}
+                <span className="text-slate-200">
                   {evPercent !== null ? `${evPercent.toFixed(1)}%` : "—"}
-                </div>
+                </span>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Right: sportsbooks + odds */}
-          <div className="space-y-3">
-            <div className="text-sm text-slate-300 font-semibold">Sportsbooks</div>
-
-            <div className="grid grid-cols-1 gap-2">
-              {availableBooks.map((book) => {
-                const displayName =
-                  (SportsbookNames as any)[book as keyof typeof SportsbookNames] ||
-                  book.charAt(0).toUpperCase() + book.slice(1);
-                const o = offers.find((x) => x.book === book);
-                const overOdds = o?.overOdds;
-                const underOdds = o?.underOdds;
-                return (
-                  <div
-                    key={book}
-                    className="flex items-center gap-3 p-3 bg-slate-900/60 rounded-lg border border-slate-700/60"
-                  >
-                    <SportsbookIcon sportsbookKey={book} />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-white text-sm truncate">{displayName}</div>
-                      <div className="text-xs text-slate-400 truncate">
-                        O {overOdds ?? "—"} / U {underOdds ?? "—"}
-                      </div>
-                    </div>
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" title="Live" />
-                  </div>
-                );
-              })}
-            </div>
-
-            {availableBooks.length === 0 && (
-              <div className="text-center py-8 text-slate-400">
-                <div className="text-sm">No sportsbooks available for this prop</div>
-              </div>
-            )}
-
-            <div className="pt-2 border-t border-slate-800/60">
-              <div className="text-xs text-slate-500 text-center">
-                Odds and availability may vary by location and time
-              </div>
+          <div className="pt-4 border-t border-slate-700/50">
+            <div className="text-xs text-slate-500 text-center">
+              Odds and availability may vary by location and time
             </div>
           </div>
         </div>
