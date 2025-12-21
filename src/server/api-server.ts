@@ -83,6 +83,8 @@ type NormalizedProp = {
   startTime?: string;
   playerId?: string;
   playerName?: string;
+  // Internal resolved UUID for analytics/log lookups
+  player_uuid?: string;
   position?: string | null;
   team?: string;
   opponent?: string;
@@ -1521,6 +1523,7 @@ async function enrichPropsWithAnalytics(
 
         let out: NormalizedProp = {
           ...p,
+          player_uuid: pid,
           position: finalPos,
           l5: r ? toNumberOrNull(r.l5) : (p.l5 ?? null),
           l10: r ? toNumberOrNull(r.l10) : (p.l10 ?? null),
@@ -1803,6 +1806,108 @@ app.get("/api/props/best", async (req, res) => {
   } catch (e) {
     console.error("GET /api/props/best error:", e);
     res.status(500).json({ success: false, error: "Failed to fetch best props" });
+  }
+});
+
+// Player game logs for a specific player UUID + prop type (used by analytics overlay charts)
+app.get("/api/player-game-logs", async (req, res) => {
+  try {
+    const playerUuid = String(
+      (req.query.player_uuid || req.query.playerUuid || "") as string,
+    ).trim();
+    const propType = String((req.query.propType || req.query.prop_type || "") as string).trim();
+    const limit = Math.min(50, Math.max(1, Number(req.query.limit || 20)));
+    if (!playerUuid || !propType) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing required params: player_uuid and propType",
+      });
+    }
+
+    const postgres = (await import("postgres")).default;
+    const candidates = [
+      process.env.SUPABASE_DATABASE_URL,
+      process.env.NEON_DATABASE_URL,
+      process.env.DATABASE_URL,
+    ].filter(Boolean) as string[];
+    if (candidates.length === 0) {
+      return res.status(500).json({ success: false, error: "No DB URL configured" });
+    }
+
+    // Pick a working DB URL (Supabase DNS can fail in some environments)
+    let connectionString: string | null = null;
+    for (const url of candidates) {
+      const probe = postgres(url, { prepare: false, max: 1 });
+      try {
+        await probe`select 1 as ok`;
+        await probe.end({ timeout: 1 });
+        connectionString = url;
+        break;
+      } catch {
+        try {
+          await probe.end({ timeout: 1 });
+        } catch {
+          // ignore
+        }
+      }
+    }
+    if (!connectionString) {
+      return res.status(500).json({ success: false, error: "All DB URL candidates failed" });
+    }
+
+    const client = postgres(connectionString, { prepare: false });
+    try {
+      const rows = (await client.unsafe(
+        `
+        SELECT
+          pgl.game_date,
+          pgl.actual_value::numeric AS actual_value,
+          pgl.opponent_id,
+          COALESCE(UPPER(t.abbreviation), '') AS opponent_abbr
+        FROM public.player_game_logs pgl
+        LEFT JOIN public.teams t ON t.id = pgl.opponent_id
+        WHERE pgl.player_id = $1::uuid
+          AND LOWER(TRIM(pgl.prop_type)) = LOWER(TRIM($2))
+        ORDER BY pgl.game_date DESC
+        LIMIT $3::int
+      `,
+        [playerUuid, propType, limit],
+      )) as Array<{
+        game_date: string;
+        actual_value: string | number;
+        opponent_id: string | null;
+        opponent_abbr: string;
+      }>;
+
+      const values = rows.map((r) => Number(r.actual_value)).filter((n) => Number.isFinite(n));
+      let consistency: number | null = null;
+      if (values.length >= 5) {
+        const mean = values.reduce((a, b) => a + b, 0) / values.length;
+        const variance = values.reduce((a, b) => a + (b - mean) ** 2, 0) / values.length;
+        const sd = Math.sqrt(variance);
+        const cv = mean === 0 ? sd : sd / Math.abs(mean);
+        // Convert to a 0..100 score (lower variability => higher consistency)
+        consistency = Math.max(0, Math.min(100, Math.round(100 - cv * 100)));
+      }
+
+      return res.json({
+        success: true,
+        count: rows.length,
+        propType,
+        player_uuid: playerUuid,
+        consistency,
+        items: rows.map((r) => ({
+          game_date: r.game_date,
+          opponent_abbr: r.opponent_abbr || null,
+          actual_value: Number(r.actual_value),
+        })),
+      });
+    } finally {
+      await client.end({ timeout: 2 });
+    }
+  } catch (e: any) {
+    console.error("GET /api/player-game-logs error:", e);
+    return res.status(500).json({ success: false, error: "Failed to fetch player game logs" });
   }
 });
 
