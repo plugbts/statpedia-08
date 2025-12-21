@@ -1492,15 +1492,30 @@ export function PlayerPropsColumnView({
                       <div className="w-20 text-center px-2">
                         <div
                           className={`text-xs font-bold group-hover:opacity-80 transition-all duration-300 relative animate-pulse ${(() => {
-                            // Use REAL streak data only - no mock data
-                            const actualStreak = hasGameLogs ? Math.abs(streak.current) : 0;
-                            const streakType = hasGameLogs ? (streak.current > 0 ? "W" : "L") : "N";
+                            // Use direct API streak value (from player_analytics) even without gameLogs
+                            const actualStreak =
+                              streakValue !== 0
+                                ? Math.abs(streakValue)
+                                : hasGameLogs
+                                  ? Math.abs(streak.current)
+                                  : 0;
+                            const streakType =
+                              streakValue !== 0
+                                ? streakValue > 0
+                                  ? "W"
+                                  : "L"
+                                : hasGameLogs
+                                  ? streak.current > 0
+                                    ? "W"
+                                    : "L"
+                                  : "N";
 
                             // Determine streak type and styling
+                            // 2+ wins = red, 2+ losses = light blue
                             if (streakType === "W" && actualStreak >= 2) {
                               return "text-red-500 streak-hot";
                             } else if (streakType === "L" && actualStreak >= 2) {
-                              return "text-sky-300 streak-cold";
+                              return "text-blue-300 streak-cold";
                             } else {
                               return "text-white streak-neutral";
                             }
