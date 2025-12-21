@@ -1333,9 +1333,23 @@ export function PlayerPropsColumnView({
                 hasDirectAnalytics && prop.matchup_rank !== null && prop.matchup_rank !== undefined
                   ? Number(prop.matchup_rank)
                   : analytics?.matchupRank?.rank || 0;
+
+              // Color coding: Red (1-10) = UNFAVORABLE, Yellow (11-22) = neutral, Green (23-32) = FAVORABLE
+              let matchupRankColor = "";
+              if (matchupRankValue > 0) {
+                if (matchupRankValue <= 10) {
+                  matchupRankColor = "text-red-500"; // Best defense = UNFAVORABLE for offense
+                } else if (matchupRankValue <= 22) {
+                  matchupRankColor = "text-yellow-500"; // Neutral/mid
+                } else {
+                  matchupRankColor = "text-green-500"; // Worst defense = FAVORABLE for offense
+                }
+              }
+
               const defensiveRank = {
                 rank: matchupRankValue,
                 display: matchupRankValue ? `#${matchupRankValue}` : "—",
+                color: matchupRankColor,
               };
 
               return (
@@ -1706,8 +1720,17 @@ export function PlayerPropsColumnView({
                                 : defensiveRank?.rank || null;
 
                             if (rankValue && rankValue > 0) {
+                              // Color coding: Red (1-10) = UNFAVORABLE, Yellow (11-22) = neutral, Green (23-32) = FAVORABLE
+                              let colorClass = "";
+                              if (rankValue <= 10) {
+                                colorClass = "text-red-500"; // Best defense = UNFAVORABLE for offense
+                              } else if (rankValue <= 22) {
+                                colorClass = "text-yellow-500"; // Neutral/mid
+                              } else {
+                                colorClass = "text-green-500"; // Worst defense = FAVORABLE for offense
+                              }
                               // Compact format: just "#10" instead of "Ranked 10th"
-                              return `#${rankValue}`;
+                              return <span className={colorClass}>#{rankValue}</span>;
                             }
 
                             return "—";

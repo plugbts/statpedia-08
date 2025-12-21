@@ -1,13 +1,13 @@
-import React, { useMemo } from 'react';
-import { FixedSizeList as List } from 'react-window';
-import { PlayerProp } from '@/types/player-prop';
-import { useMemoizedAnalytics } from '@/hooks/use-memoized-analytics';
+import React, { useMemo } from "react";
+import { FixedSizeList as List } from "react-window";
+import { PlayerProp } from "@/types/player-prop";
+import { useMemoizedAnalytics } from "@/hooks/use-memoized-analytics";
 
 interface VirtualizedPlayerPropsProps {
   props: PlayerProp[];
   onPropClick?: (prop: PlayerProp) => void;
   isLoading?: boolean;
-  overUnderFilter?: 'over' | 'under' | 'both';
+  overUnderFilter?: "over" | "under" | "both";
   selectedSport?: string;
 }
 
@@ -17,7 +17,7 @@ interface RowProps {
   data: {
     props: PlayerProp[];
     onPropClick?: (prop: PlayerProp) => void;
-    overUnderFilter: 'over' | 'under' | 'both';
+    overUnderFilter: "over" | "under" | "both";
     getAnalytics: (playerId: string, propType: string, line: number, direction: string) => any;
   };
 }
@@ -29,10 +29,10 @@ const PlayerPropRow: React.FC<RowProps> = ({ index, style, data }) => {
   if (!prop) return null;
 
   const analytics = getAnalytics(
-    prop.playerId || prop.player_id || '',
+    prop.playerId || prop.player_id || "",
     prop.propType,
     prop.line || 0,
-    overUnderFilter
+    overUnderFilter,
   );
 
   return (
@@ -42,20 +42,20 @@ const PlayerPropRow: React.FC<RowProps> = ({ index, style, data }) => {
           <div className="flex items-center space-x-4">
             <div className="flex-shrink-0">
               <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                {prop.playerName?.charAt(0) || '?'}
+                {prop.playerName?.charAt(0) || "?"}
               </div>
             </div>
-            
+
             <div className="flex-1 min-w-0">
               <div className="flex items-center space-x-2">
                 <h3 className="text-sm font-medium text-gray-900 truncate">
-                  {prop.playerName || 'Unknown Player'}
+                  {prop.playerName || "Unknown Player"}
                 </h3>
                 <span className="text-xs text-gray-500">
                   {prop.team} vs {prop.opponent}
                 </span>
               </div>
-              
+
               <div className="mt-1 flex items-center space-x-4">
                 <span className="text-sm text-gray-600">{prop.propType}</span>
                 <span className="text-sm font-medium text-gray-900">
@@ -79,28 +79,36 @@ const PlayerPropRow: React.FC<RowProps> = ({ index, style, data }) => {
                   ({Math.round(analytics.season.pct * 100)}%)
                 </div>
               </div>
-              
+
               <div className="text-center">
                 <div className="text-xs text-gray-500">L5</div>
                 <div className="font-medium">
                   {analytics.l5.hits}/{analytics.l5.total}
                 </div>
-                <div className="text-xs text-gray-500">
-                  ({Math.round(analytics.l5.pct * 100)}%)
-                </div>
+                <div className="text-xs text-gray-500">({Math.round(analytics.l5.pct * 100)}%)</div>
               </div>
-              
+
               <div className="text-center">
                 <div className="text-xs text-gray-500">Streak</div>
                 <div className="font-medium">{analytics.streak.current}</div>
-                <div className="text-xs text-gray-500">
-                  ({analytics.streak.longest} max)
-                </div>
+                <div className="text-xs text-gray-500">({analytics.streak.longest} max)</div>
               </div>
-              
+
               <div className="text-center">
                 <div className="text-xs text-gray-500">Rank</div>
-                <div className="font-medium">{analytics.matchupRank.display}</div>
+                <div
+                  className={`font-medium ${
+                    analytics.matchupRank.rank > 0
+                      ? analytics.matchupRank.rank <= 10
+                        ? "text-red-500" // Best defense = UNFAVORABLE
+                        : analytics.matchupRank.rank <= 22
+                          ? "text-yellow-500" // Neutral
+                          : "text-green-500" // Worst defense = FAVORABLE
+                      : ""
+                  }`}
+                >
+                  {analytics.matchupRank.display}
+                </div>
               </div>
             </div>
           ) : (
@@ -123,42 +131,50 @@ export function VirtualizedPlayerProps({
   props,
   onPropClick,
   isLoading = false,
-  overUnderFilter = 'both',
-  selectedSport = 'nfl'
+  overUnderFilter = "both",
+  selectedSport = "nfl",
 }: VirtualizedPlayerPropsProps) {
-  const { calculateAnalytics, getAnalytics, isLoading: analyticsLoading, progress } = useMemoizedAnalytics();
+  const {
+    calculateAnalytics,
+    getAnalytics,
+    isLoading: analyticsLoading,
+    progress,
+  } = useMemoizedAnalytics();
 
   // Filter props based on overUnderFilter
   const filteredProps = useMemo(() => {
-    if (overUnderFilter === 'both') return props;
-    return props.filter(prop => prop.direction === overUnderFilter);
+    if (overUnderFilter === "both") return props;
+    return props.filter((prop) => prop.direction === overUnderFilter);
   }, [props, overUnderFilter]);
 
   // Calculate analytics when props change
   React.useEffect(() => {
     if (filteredProps.length > 0) {
-      const propsToCalculate = filteredProps.slice(0, 50).map(prop => ({
-        playerId: prop.playerId || prop.player_id || '',
-        playerName: prop.playerName || 'Unknown Player',
+      const propsToCalculate = filteredProps.slice(0, 50).map((prop) => ({
+        playerId: prop.playerId || prop.player_id || "",
+        playerName: prop.playerName || "Unknown Player",
         propType: prop.propType,
         line: prop.line || 0,
-        direction: overUnderFilter as 'over' | 'under',
-        team: prop.team || 'UNK',
-        opponent: prop.opponent || 'UNK',
-        position: prop.position || 'QB',
-        sport: prop.sport || selectedSport
+        direction: overUnderFilter as "over" | "under",
+        team: prop.team || "UNK",
+        opponent: prop.opponent || "UNK",
+        position: prop.position || "QB",
+        sport: prop.sport || selectedSport,
       }));
 
       calculateAnalytics(propsToCalculate);
     }
   }, [filteredProps, overUnderFilter, selectedSport, calculateAnalytics]);
 
-  const rowData = useMemo(() => ({
-    props: filteredProps,
-    onPropClick,
-    overUnderFilter,
-    getAnalytics
-  }), [filteredProps, onPropClick, overUnderFilter, getAnalytics]);
+  const rowData = useMemo(
+    () => ({
+      props: filteredProps,
+      onPropClick,
+      overUnderFilter,
+      getAnalytics,
+    }),
+    [filteredProps, onPropClick, overUnderFilter, getAnalytics],
+  );
 
   if (isLoading) {
     return (
@@ -177,9 +193,7 @@ export function VirtualizedPlayerProps({
       {analyticsLoading && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-blue-900">
-              Calculating Analytics
-            </span>
+            <span className="text-sm font-medium text-blue-900">Calculating Analytics</span>
             <span className="text-sm text-blue-700">
               {progress.completed}/{progress.total}
             </span>
