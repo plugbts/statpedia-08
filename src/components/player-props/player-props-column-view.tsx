@@ -1500,7 +1500,7 @@ export function PlayerPropsColumnView({
                             if (streakType === "W" && actualStreak >= 2) {
                               return "text-red-500 streak-hot";
                             } else if (streakType === "L" && actualStreak >= 2) {
-                              return "text-blue-400 streak-cold";
+                              return "text-sky-300 streak-cold";
                             } else {
                               return "text-white streak-neutral";
                             }
