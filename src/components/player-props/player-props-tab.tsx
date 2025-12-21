@@ -577,6 +577,8 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
   const [showSelection, setShowSelection] = useState(false);
   const [viewMode, setViewMode] = useState<"column" | "cards">("column");
   const [overUnderFilter, setOverUnderFilter] = useState<"over" | "under" | "both">("over");
+  // Filter: only show actual lines available in sportsbooks (hide alternative lines by default)
+  const [showAlternativeLines, setShowAlternativeLines] = useState(false);
 
   // Handle view parameter from URL
   useEffect(() => {
@@ -922,6 +924,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
         setMinOdds(filters.minOdds || -175);
         setMaxOdds(filters.maxOdds || 500);
         setUseOddsFilter(filters.useOddsFilter !== undefined ? filters.useOddsFilter : true);
+        setShowAlternativeLines(filters.showAlternativeLines || false);
         logInfo("PlayerPropsTab", "Loaded saved filter preferences");
       } catch (error) {
         logError("PlayerPropsTab", "Failed to load saved filters:", error);
@@ -946,6 +949,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
       minOdds,
       maxOdds,
       useOddsFilter,
+      showAlternativeLines,
     };
     localStorage.setItem(`player-props-filters-${sportFilter}`, JSON.stringify(filters));
     logInfo("PlayerPropsTab", "Saved filter preferences");
@@ -968,6 +972,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
     setMinOdds(-175);
     setMaxOdds(500);
     setUseOddsFilter(false);
+    setShowAlternativeLines(false);
     localStorage.removeItem(`player-props-filters-${sportFilter}`);
     toast({
       title: "Filters Reset",
@@ -993,6 +998,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
     setMinOdds(-175);
     setMaxOdds(500);
     setUseOddsFilter(false);
+    setShowAlternativeLines(false);
     localStorage.removeItem(`player-props-filters-${sport}`);
   };
 
@@ -1058,6 +1064,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
     minOdds,
     maxOdds,
     useOddsFilter,
+    showAlternativeLines,
   ]);
 
   // Update sport filter when selectedSport changes (debounced one-shot)
@@ -1199,6 +1206,82 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
     ...computeDualRatings(prop),
   }));
 
+  // Group props by player+propType+gameId to identify alternative lines and determine main lines
+  const mainLineIds = useMemo(() => {
+    if (showAlternativeLines) {
+      // If showing alternative lines, all props with offers are "main"
+      return new Set<string>();
+    }
+
+    // Group props by player+propType+gameId
+    const groups = new Map<string, any[]>();
+    propsWithRatings.forEach((prop) => {
+      const key = `${prop.playerId || prop.playerName}-${prop.propType}-${prop.gameId}`;
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+      groups.get(key)!.push(prop);
+    });
+
+    // For each group, find the "best" line (most offers, or best odds if tied)
+    const mainIds = new Set<string>();
+    groups.forEach((group) => {
+      if (group.length <= 1) {
+        // Only one line, always show if it has offers
+        const prop = group[0];
+        const hasOffers =
+          (prop.offers && Array.isArray(prop.offers) && prop.offers.length > 0) ||
+          (prop.allSportsbookOdds &&
+            Array.isArray(prop.allSportsbookOdds) &&
+            prop.allSportsbookOdds.length > 0) ||
+          (prop.availableSportsbooks &&
+            Array.isArray(prop.availableSportsbooks) &&
+            prop.availableSportsbooks.length > 0) ||
+          (prop.overOdds != null && prop.overOdds !== 0) ||
+          (prop.underOdds != null && prop.underOdds !== 0);
+        if (hasOffers) {
+          mainIds.add(prop.id);
+        }
+        return;
+      }
+
+      // Find the "best" line in the group
+      const bestProp = group.reduce((best, p) => {
+        const bestOffers =
+          (best.offers?.length || 0) +
+          (best.allSportsbookOdds?.length || 0) +
+          (best.availableSportsbooks?.length || 0);
+        const pOffers =
+          (p.offers?.length || 0) +
+          (p.allSportsbookOdds?.length || 0) +
+          (p.availableSportsbooks?.length || 0);
+        if (pOffers > bestOffers) return p;
+        if (pOffers < bestOffers) return best;
+        // If tied on offers, prefer better odds (lower absolute value = better)
+        const bestOdds = Math.max(Math.abs(best.overOdds || 0), Math.abs(best.underOdds || 0));
+        const pOdds = Math.max(Math.abs(p.overOdds || 0), Math.abs(p.underOdds || 0));
+        return pOdds < bestOdds ? p : best;
+      });
+
+      // Only add if the best prop has offers
+      const hasOffers =
+        (bestProp.offers && Array.isArray(bestProp.offers) && bestProp.offers.length > 0) ||
+        (bestProp.allSportsbookOdds &&
+          Array.isArray(bestProp.allSportsbookOdds) &&
+          bestProp.allSportsbookOdds.length > 0) ||
+        (bestProp.availableSportsbooks &&
+          Array.isArray(bestProp.availableSportsbooks) &&
+          bestProp.availableSportsbooks.length > 0) ||
+        (bestProp.overOdds != null && bestProp.overOdds !== 0) ||
+        (bestProp.underOdds != null && bestProp.underOdds !== 0);
+      if (hasOffers) {
+        mainIds.add(bestProp.id);
+      }
+    });
+
+    return mainIds;
+  }, [propsWithRatings, showAlternativeLines]);
+
   // Simplified filtering - much less restrictive
   const filteredProps = propsWithRatings.filter((prop) => {
     const matchesSearch =
@@ -1241,6 +1324,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
     }
     // If overUnderFilter === 'both', matchesOverUnder stays true (shows all props)
 
+    // Alternative lines filter: only show main lines unless filter is enabled
+    const matchesAlternativeLines =
+      showAlternativeLines || mainLineIds.size === 0 || mainLineIds.has(prop.id);
+
     const passes =
       matchesSearch &&
       matchesPropType &&
@@ -1250,12 +1337,13 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
       matchesAnalytics &&
       matchesLine &&
       matchesOddsRange &&
-      matchesOverUnder;
+      matchesOverUnder &&
+      matchesAlternativeLines;
 
     if (!passes && realProps.length < 10) {
       logFilter(
         "PlayerPropsTab",
-        `Prop ${prop.playerName} filtered out: search=${matchesSearch}, type=${matchesPropType}, confidence=${matchesConfidence}, ev=${matchesEV}, positiveEV=${matchesPositiveEV}, line=${matchesLine}`,
+        `Prop ${prop.playerName} filtered out: search=${matchesSearch}, type=${matchesPropType}, confidence=${matchesConfidence}, ev=${matchesEV}, positiveEV=${matchesPositiveEV}, line=${matchesLine}, alternativeLines=${matchesAlternativeLines}`,
       );
     }
 
@@ -2059,6 +2147,22 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
                       </div>
                     )}
 
+                    {/* Alternative Lines Toggle */}
+                    <div className="flex items-center space-x-3 p-3 bg-muted/30 rounded-lg">
+                      <Checkbox
+                        id="alternativeLines"
+                        checked={showAlternativeLines}
+                        onCheckedChange={(checked) => setShowAlternativeLines(checked as boolean)}
+                        className="border-primary/30 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                      />
+                      <label
+                        htmlFor="alternativeLines"
+                        className="text-sm font-medium cursor-pointer"
+                      >
+                        Show alternative lines (o/u 0.5, 1.5, 2.5, etc.)
+                      </label>
+                    </div>
+
                     {/* Filter Summary */}
                     <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
                       <h4 className="text-sm font-medium text-primary mb-2">
@@ -2079,6 +2183,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
                         {sportFilter.toLowerCase() === "nfl" && (
                           <div>Analytics Only: {showOnlyAnalytics ? "Yes" : "No"}</div>
                         )}
+                        <div>Alternative Lines: {showAlternativeLines ? "Yes" : "No"}</div>
                         <div>
                           Prop Type: {propTypeFilter === "all" ? "All Types" : propTypeFilter}
                         </div>
