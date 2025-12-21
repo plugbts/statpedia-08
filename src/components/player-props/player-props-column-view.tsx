@@ -1091,53 +1091,53 @@ export function PlayerPropsColumnView({
         <div className="flex-none">
           {/* Fixed Header */}
           <div className="flex bg-gradient-card border-b border-border/50">
-            <div className="w-56 px-3 py-2 text-[10px] font-semibold text-foreground flex items-center justify-center gap-1">
-              <Users className="w-3 h-3" />
+            <div className="w-64 px-4 py-3 text-xs font-semibold text-foreground flex items-center justify-center gap-2">
+              <Users className="w-4 h-4" />
               Player
             </div>
-            <div className="w-16 flex items-center justify-center px-1 py-2 text-[10px] font-semibold text-foreground">
+            <div className="w-24 flex items-center justify-center px-3 py-3 text-xs font-semibold text-foreground">
               Team
             </div>
-            <div className="w-28 flex items-center justify-center px-1 py-2 text-[10px] font-semibold text-foreground">
+            <div className="w-40 flex items-center justify-center px-3 py-3 text-xs font-semibold text-foreground">
               Prop
             </div>
-            <div className="w-16 flex items-center justify-center px-1 py-2 text-[10px] font-semibold text-foreground">
+            <div className="w-24 flex items-center justify-center px-3 py-3 text-xs font-semibold text-foreground">
               Line
             </div>
-            <div className="w-16 flex items-center justify-center px-1 py-2 text-[10px] font-semibold text-foreground">
+            <div className="w-28 flex items-center justify-center px-3 py-3 text-xs font-semibold text-foreground">
               Odds
             </div>
-            <div className="w-16 flex items-center justify-center px-1 py-2 text-[10px] font-semibold text-foreground">
+            <div className="w-24 flex items-center justify-center px-3 py-3 text-xs font-semibold text-foreground">
               EV%
             </div>
-            <div className="w-16 flex items-center justify-center px-1 py-2 text-[10px] font-semibold text-foreground">
+            <div className="w-24 flex items-center justify-center px-3 py-3 text-xs font-semibold text-foreground">
               Streak
             </div>
-            <div className="w-16 flex items-center justify-center px-1 py-2 text-[10px] font-semibold text-foreground">
+            <div className="w-24 flex items-center justify-center px-3 py-3 text-xs font-semibold text-foreground">
               Rating
             </div>
-            <div className="w-20 flex items-center justify-center px-1 py-2 text-[10px] font-semibold text-foreground">
+            <div className="w-32 flex items-center justify-center px-3 py-3 text-xs font-semibold text-foreground">
               Matchup
             </div>
-            <div className="w-20 flex items-center justify-center px-1 py-2 text-[10px] font-semibold text-foreground">
+            <div className="w-28 flex items-center justify-center px-3 py-3 text-xs font-semibold text-foreground">
               H2H
             </div>
-            <div className="w-20 flex items-center justify-center px-1 py-2 text-[10px] font-semibold text-foreground">
+            <div className="w-28 flex items-center justify-center px-3 py-3 text-xs font-semibold text-foreground">
               2025
             </div>
-            <div className="w-20 flex items-center justify-center px-1 py-2 text-[10px] font-semibold text-foreground">
+            <div className="w-28 flex items-center justify-center px-3 py-3 text-xs font-semibold text-foreground">
               L5
             </div>
-            <div className="w-20 flex items-center justify-center px-1 py-2 text-[10px] font-semibold text-foreground">
+            <div className="w-28 flex items-center justify-center px-3 py-3 text-xs font-semibold text-foreground">
               L10
             </div>
-            <div className="w-20 flex items-center justify-center px-1 py-2 text-[10px] font-semibold text-foreground">
+            <div className="w-28 flex items-center justify-center px-3 py-3 text-xs font-semibold text-foreground">
               L20
             </div>
           </div>
 
           {/* Fixed Data Rows */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             {filteredAndSortedProps.map((prop, index) => {
               // Debug logging for prop inputs
               console.debug("[PROP INPUT]", {
@@ -1344,11 +1344,11 @@ export function PlayerPropsColumnView({
                   className="bg-gradient-card border-border/50 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 cursor-pointer group hover:scale-[1.02] hover:bg-gradient-to-br hover:from-card/90 hover:to-card/70"
                   onClick={() => handlePropClick(prop)}
                 >
-                  <CardContent className="p-2">
+                  <CardContent className="p-4">
                     <div className="flex items-center">
                       {/* Player Info */}
-                      <div className="w-56 flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 flex items-center justify-center text-foreground font-bold text-xs overflow-hidden flex-shrink-0">
+                      <div className="w-64 flex items-center gap-3 px-4 py-3">
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 flex items-center justify-center text-foreground font-bold text-sm overflow-hidden flex-shrink-0">
                           {(() => {
                             const knownHeadshotUrl = getKnownPlayerHeadshot(
                               prop.playerName,
@@ -1381,10 +1381,10 @@ export function PlayerPropsColumnView({
                           })()}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="font-bold text-foreground text-xs group-hover:text-primary transition-colors duration-200 truncate leading-tight">
+                          <div className="font-bold text-foreground text-sm group-hover:text-primary transition-colors duration-200 truncate leading-tight">
                             {prop.playerName || "Unknown Player"}
                           </div>
-                          <div className="text-[10px] text-purple-400 font-semibold leading-tight truncate">
+                          <div className="text-xs text-purple-400 font-semibold leading-tight truncate">
                             {(() => {
                               const fromData = normalizePosition(prop.position || "").toUpperCase();
                               if (fromData) return fromData;
@@ -1398,19 +1398,19 @@ export function PlayerPropsColumnView({
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="w-8 h-8 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors duration-200"
+                          className="w-10 h-10 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors duration-200"
                           onClick={(e) => {
                             e.stopPropagation();
                             // TODO: Add to My Picks functionality
                             console.log("Add to My Picks:", prop);
                           }}
                         >
-                          <Star className="h-4 w-4" />
+                          <Star className="h-5 w-5" />
                         </Button>
                       </div>
 
                       {/* Team */}
-                      <div className="w-16 flex items-center justify-center px-1">
+                      <div className="w-24 flex items-center justify-center px-3 py-3">
                         <TeamLogo
                           team={prop.team || ""}
                           teamAbbr={prop.teamAbbr || (prop as any).team_abbr || prop.team || "—"}
@@ -1425,9 +1425,9 @@ export function PlayerPropsColumnView({
                       </div>
 
                       {/* Prop Type */}
-                      <div className="w-28 flex items-center justify-center px-1">
+                      <div className="w-40 flex items-center justify-center px-3 py-3">
                         <div
-                          className="text-xs font-medium text-white group-hover:text-white transition-all duration-300 transform group-hover:scale-105 truncate animate-pulse"
+                          className="text-sm font-medium text-white group-hover:text-white transition-all duration-300 transform group-hover:scale-105 truncate animate-pulse"
                           style={{ animationDuration: "3s" }}
                         >
                           {prop.propType}
@@ -1435,14 +1435,14 @@ export function PlayerPropsColumnView({
                       </div>
 
                       {/* Line */}
-                      <div className="w-16 flex items-center justify-center px-1">
-                        <div className="text-xs font-bold text-foreground group-hover:text-primary transition-colors duration-200">
+                      <div className="w-24 flex items-center justify-center px-3 py-3">
+                        <div className="text-sm font-bold text-foreground group-hover:text-primary transition-colors duration-200">
                           {formatNumber(prop.line, 1)}
                         </div>
                       </div>
 
                       {/* Odds */}
-                      <div className="w-16 flex items-center justify-center px-1">
+                      <div className="w-28 flex items-center justify-center px-3 py-3">
                         {(() => {
                           const oddsValue =
                             overUnderFilter === "under" ? prop.underOdds : prop.overOdds;
@@ -1458,40 +1458,40 @@ export function PlayerPropsColumnView({
 
                           // PropFinder-style: boxed odds + small book badge
                           return (
-                            <div className="inline-flex items-center gap-1 rounded-md border border-slate-700/60 bg-slate-900/60 px-2 py-1">
-                              <div className="flex h-4 w-4 items-center justify-center rounded bg-black/40">
+                            <div className="inline-flex items-center gap-2 rounded-md border border-slate-700/60 bg-slate-900/60 px-3 py-2">
+                              <div className="flex h-5 w-5 items-center justify-center rounded bg-black/40">
                                 {logoSrc ? (
-                                  <img src={logoSrc} alt={bookKey} className="h-3 w-3 opacity-95" />
+                                  <img src={logoSrc} alt={bookKey} className="h-4 w-4 opacity-95" />
                                 ) : (
-                                  <span className="text-[9px] font-extrabold text-white">
+                                  <span className="text-[10px] font-extrabold text-white">
                                     {bookKey === "all" ? "★" : bookKey.slice(0, 2).toUpperCase()}
                                   </span>
                                 )}
                               </div>
-                              <span className={`text-xs font-semibold ${color}`}>{oddsText}</span>
+                              <span className={`text-sm font-semibold ${color}`}>{oddsText}</span>
                             </div>
                           );
                         })()}
                       </div>
 
                       {/* EV% */}
-                      <div className="w-16 flex items-center justify-center px-1">
+                      <div className="w-24 flex items-center justify-center px-3 py-3">
                         {prop.expectedValue ? (
-                          <span className="text-xs font-bold text-blue-500 group-hover:text-blue-400 transition-colors duration-200">
+                          <span className="text-sm font-bold text-blue-500 group-hover:text-blue-400 transition-colors duration-200">
                             {prop.expectedValue > 0 ? "+" : ""}
                             {prop.expectedValue.toFixed(1)}%
                           </span>
                         ) : (
-                          <span className="text-xs text-muted-foreground group-hover:text-foreground/70 transition-colors duration-200">
+                          <span className="text-sm text-muted-foreground group-hover:text-foreground/70 transition-colors duration-200">
                             N/A
                           </span>
                         )}
                       </div>
 
                       {/* Streak */}
-                      <div className="w-16 flex items-center justify-center px-1">
+                      <div className="w-24 flex items-center justify-center px-3 py-3">
                         <div
-                          className={`text-xs font-bold group-hover:opacity-80 transition-all duration-300 relative animate-pulse ${(() => {
+                          className={`text-sm font-bold group-hover:opacity-80 transition-all duration-300 relative animate-pulse ${(() => {
                             // Use direct API streak value (from player_analytics) even without gameLogs
                             const actualStreak =
                               streakValue !== 0
@@ -1594,7 +1594,7 @@ export function PlayerPropsColumnView({
                       </div>
 
                       {/* Rating */}
-                      <div className="w-16 flex items-center justify-center px-1 bg-transparent group-hover:opacity-80 transition-colors duration-200">
+                      <div className="w-24 flex items-center justify-center px-3 py-3 bg-transparent group-hover:opacity-80 transition-colors duration-200">
                         {(() => {
                           const propFinderRating =
                             overUnderFilter === "over"
@@ -1629,9 +1629,9 @@ export function PlayerPropsColumnView({
 
                           return (
                             <div className="flex flex-col items-center group/rating bg-transparent">
-                              <div className="relative w-8 h-8 bg-transparent">
+                              <div className="relative w-10 h-10 bg-transparent">
                                 <svg
-                                  className="w-8 h-8 transform -rotate-90 transition-all duration-300 group-hover:scale-110"
+                                  className="w-10 h-10 transform -rotate-90 transition-all duration-300 group-hover:scale-110"
                                   viewBox="0 0 36 36"
                                 >
                                   {/* Only the filled progress circle with AI prediction glow */}
@@ -1678,8 +1678,8 @@ export function PlayerPropsColumnView({
 
                       {/* Analytics Columns - Now inline with the prop row */}
                       {/* Matchup */}
-                      <div className="w-20 flex flex-col items-center justify-center px-1 py-1">
-                        <div className="text-xs font-medium text-foreground mb-1">
+                      <div className="w-32 flex flex-col items-center justify-center px-3 py-3">
+                        <div className="text-sm font-medium text-foreground mb-1">
                           {(() => {
                             // Check multiple possible field names for opponent abbreviation
                             const opponentAbbr =
@@ -1697,7 +1697,7 @@ export function PlayerPropsColumnView({
                             return finalOpponentAbbr !== "UNK" ? finalOpponentAbbr : "—";
                           })()}
                         </div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-sm text-muted-foreground">
                           {(() => {
                             // Generate defensive ranking based on prop type
                             const propType = (prop.propType || "").toLowerCase();
@@ -1735,8 +1735,8 @@ export function PlayerPropsColumnView({
                       </div>
 
                       {/* H2H */}
-                      <div className="w-20 flex flex-col items-center justify-center px-1 py-1">
-                        <div className="text-xs font-medium text-foreground">
+                      <div className="w-28 flex flex-col items-center justify-center px-3 py-3">
+                        <div className="text-sm font-medium text-foreground">
                           {(() => {
                             // Prefer direct avg from API when available (player_analytics.h2h_avg)
                             if (h2hAvg !== null && Number.isFinite(h2hAvg))
@@ -1746,7 +1746,7 @@ export function PlayerPropsColumnView({
                             return "—";
                           })()}
                         </div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-sm text-muted-foreground">
                           {(() => {
                             if (h2hAvg !== null && Number.isFinite(h2hAvg)) return "avg";
                             if (h2h?.total > 0) return `${h2h.hits}/${h2h.total}`;
@@ -1756,8 +1756,8 @@ export function PlayerPropsColumnView({
                       </div>
 
                       {/* 2025 */}
-                      <div className="w-20 flex flex-col items-center justify-center px-1 py-1">
-                        <div className="text-xs font-medium text-foreground">
+                      <div className="w-28 flex flex-col items-center justify-center px-3 py-3">
+                        <div className="text-sm font-medium text-foreground">
                           {(() => {
                             // Prefer direct avg from API when available (player_analytics.season_avg)
                             if (seasonAvg !== null && Number.isFinite(seasonAvg)) {
@@ -1770,7 +1770,7 @@ export function PlayerPropsColumnView({
                             return "N/A";
                           })()}
                         </div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-sm text-muted-foreground">
                           {(() => {
                             if (seasonAvg !== null && Number.isFinite(seasonAvg)) return "avg";
                             if (season?.total > 0) return `${season.hits}/${season.total}`;
@@ -1780,14 +1780,14 @@ export function PlayerPropsColumnView({
                       </div>
 
                       {/* L5 */}
-                      <div className="w-20 flex flex-col items-center justify-center px-1 py-1">
-                        <div className="text-xs font-medium text-foreground">
+                      <div className="w-28 flex flex-col items-center justify-center px-3 py-3">
+                        <div className="text-sm font-medium text-foreground">
                           {(() => {
                             if (l5) return `${l5.pct.toFixed(0)}%`;
                             return "N/A";
                           })()}
                         </div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-sm text-muted-foreground">
                           {(() => {
                             if (l5) return `${l5.hits}/${l5.total}`;
                             return "N/A";
@@ -1796,14 +1796,14 @@ export function PlayerPropsColumnView({
                       </div>
 
                       {/* L10 */}
-                      <div className="w-20 flex flex-col items-center justify-center px-1 py-1">
-                        <div className="text-xs font-medium text-foreground">
+                      <div className="w-28 flex flex-col items-center justify-center px-3 py-3">
+                        <div className="text-sm font-medium text-foreground">
                           {(() => {
                             if (l10) return `${l10.pct.toFixed(0)}%`;
                             return "N/A";
                           })()}
                         </div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-sm text-muted-foreground">
                           {(() => {
                             if (l10) return `${l10.hits}/${l10.total}`;
                             return "N/A";
@@ -1812,14 +1812,14 @@ export function PlayerPropsColumnView({
                       </div>
 
                       {/* L20 */}
-                      <div className="w-20 flex flex-col items-center justify-center px-1 py-1">
-                        <div className="text-xs font-medium text-foreground">
+                      <div className="w-28 flex flex-col items-center justify-center px-3 py-3">
+                        <div className="text-sm font-medium text-foreground">
                           {(() => {
                             if (l20) return `${l20.pct.toFixed(0)}%`;
                             return "N/A";
                           })()}
                         </div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-sm text-muted-foreground">
                           {(() => {
                             if (l20) return `${l20.hits}/${l20.total}`;
                             return "N/A";
