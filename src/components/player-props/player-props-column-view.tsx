@@ -44,6 +44,21 @@ import { normalizeOpponent, normalizePosition, normalizeTeam } from "@/utils/nor
 import { useSimpleAnalytics } from "@/hooks/use-simple-analytics";
 import { getOrdinalSuffix, getTeamAbbreviation } from "@/utils/prop-type-formatter";
 import "@/styles/streak-animations.css";
+import logoFanduelMono from "@/assets/logos/mono/fanduel.svg";
+import logoDraftkingsMono from "@/assets/logos/mono/draftkings.svg";
+import logoBetmgmMono from "@/assets/logos/mono/betmgm.svg";
+import logoCaesarsMono from "@/assets/logos/mono/caesars.svg";
+import logoBet365Mono from "@/assets/logos/mono/bet365.svg";
+import logoEspnbetMono from "@/assets/logos/mono/espnbet.svg";
+
+const sportsbookMonoLogo: Record<string, string> = {
+  fanduel: logoFanduelMono,
+  draftkings: logoDraftkingsMono,
+  betmgm: logoBetmgmMono,
+  caesars: logoCaesarsMono,
+  bet365: logoBet365Mono,
+  espnbet: logoEspnbetMono,
+};
 
 // Using shared utility functions from prop-type-formatter.ts
 
@@ -1390,32 +1405,19 @@ export function PlayerPropsColumnView({
                           const bookKey = String(book).toLowerCase();
                           const oddsText = toAmericanOdds(oddsValue);
                           const color = getOddsDisplayClass(prop, overUnderFilter);
+                          const logoSrc = sportsbookMonoLogo[bookKey];
 
                           // PropFinder-style: boxed odds + small book badge
                           return (
                             <div className="inline-flex items-center gap-1 rounded-md border border-slate-700/60 bg-slate-900/60 px-2 py-1">
-                              <div className="flex h-4 min-w-4 items-center justify-center rounded bg-black/40 px-1 text-[9px] font-extrabold text-white">
-                                {bookKey === "fanduel"
-                                  ? "FD"
-                                  : bookKey === "draftkings"
-                                    ? "DK"
-                                    : bookKey === "betmgm"
-                                      ? "MGM"
-                                      : bookKey === "caesars"
-                                        ? "CZR"
-                                        : bookKey === "bet365"
-                                          ? "365"
-                                          : bookKey === "espnbet"
-                                            ? "ESPN"
-                                            : bookKey === "pointsbet"
-                                              ? "PB"
-                                              : bookKey === "betrivers"
-                                                ? "BR"
-                                                : bookKey === "hardrock"
-                                                  ? "HR"
-                                                  : bookKey === "all"
-                                                    ? "BEST"
-                                                    : bookKey.slice(0, 3).toUpperCase()}
+                              <div className="flex h-4 w-4 items-center justify-center rounded bg-black/40">
+                                {logoSrc ? (
+                                  <img src={logoSrc} alt={bookKey} className="h-3 w-3 opacity-95" />
+                                ) : (
+                                  <span className="text-[9px] font-extrabold text-white">
+                                    {bookKey === "all" ? "★" : bookKey.slice(0, 2).toUpperCase()}
+                                  </span>
+                                )}
                               </div>
                               <span className={`text-xs font-semibold ${color}`}>{oddsText}</span>
                             </div>
