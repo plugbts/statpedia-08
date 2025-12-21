@@ -623,6 +623,7 @@ async function enrichPropsWithAnalytics(
 
       const byName = new Map<string, Array<{ player_id: string; team_abbr: string }>>();
       const byInitialLastTeam = new Map<string, Array<{ player_id: string; team_abbr: string }>>();
+      const byLastTeam = new Map<string, Array<{ player_id: string; team_abbr: string }>>();
 
       function initialLastKey(name: string): string {
         const norm = normalizeHumanNameForMatch(name);
@@ -634,6 +635,14 @@ async function enrichPropsWithAnalytics(
         const initial = first?.[0];
         if (!initial || !last) return "";
         return `${initial} ${last}`; // e.g. "c ward", "j mccarthy"
+      }
+
+      function lastName(name: string): string {
+        const norm = normalizeHumanNameForMatch(name);
+        if (!norm) return "";
+        const parts = norm.split(" ").filter(Boolean);
+        if (parts.length < 2) return "";
+        return parts[parts.length - 1] || "";
       }
 
       for (const r of playersRows) {
@@ -653,6 +662,16 @@ async function enrichPropsWithAnalytics(
           const arr2 = byInitialLastTeam.get(k2) || [];
           arr2.push({ player_id: String(r.player_id), team_abbr: team });
           byInitialLastTeam.set(k2, arr2);
+        }
+
+        // Extra fallback: last-name + team match (handles common nickname differences like Andrew/Drew).
+        const ln = lastName(r.player_name);
+        if (ln) {
+          const team = String(r.team_abbr || "").toUpperCase();
+          const k3 = `${ln}|${team}`;
+          const arr3 = byLastTeam.get(k3) || [];
+          arr3.push({ player_id: String(r.player_id), team_abbr: team });
+          byLastTeam.set(k3, arr3);
         }
       }
 
@@ -693,6 +712,15 @@ async function enrichPropsWithAnalytics(
           const team = String(p.team || "").toUpperCase();
           if (il && team) {
             nameCandidates = byInitialLastTeam.get(`${il}|${team}`);
+          }
+        }
+
+        // Fallback: last-name + team (e.g. Andrew vs Drew, Robert vs Bob, etc.)
+        if ((!nameCandidates || nameCandidates.length === 0) && p.playerName) {
+          const ln = lastName(p.playerName);
+          const team = String(p.team || "").toUpperCase();
+          if (ln && team) {
+            nameCandidates = byLastTeam.get(`${ln}|${team}`);
           }
         }
         if (!nameCandidates || nameCandidates.length === 0) continue;
@@ -763,6 +791,19 @@ async function enrichPropsWithAnalytics(
         analyticsByKey.set(`${r.player_id}:${String(r.prop_type).trim().toLowerCase()}`, r);
       }
 
+      // Pull player positions from DB to enforce role-based prop hiding (e.g., TE shouldn't show passing markets).
+      const posRows = (await client.unsafe(
+        `
+        SELECT p.id AS player_id, UPPER(COALESCE(p.position, '')) AS position
+        FROM public.players p
+        WHERE p.id = ANY($1::uuid[])
+      `,
+        [playerIds],
+      )) as Array<{ player_id: string; position: string }>;
+      const posByPlayerId = new Map<string, string>();
+      for (const r of posRows)
+        posByPlayerId.set(String(r.player_id), String(r.position || "").trim());
+
       // NFL team abbreviation aliasing (SGO sometimes uses older/alternate abbreviations).
       const nflAbbrAlias = (abbr: string): string => {
         const a = String(abbr || "")
@@ -786,20 +827,21 @@ async function enrichPropsWithAnalytics(
         `
         SELECT pgl.player_id,
                LOWER(TRIM(pgl.prop_type)) AS prop_type,
-               COUNT(*)::int AS c
+               COUNT(*) FILTER (WHERE COALESCE(pgl.actual_value, 0)::numeric > 0)::int AS c_pos,
+               COUNT(*)::int AS c_total
         FROM public.player_game_logs pgl
         WHERE pgl.player_id = ANY($1::uuid[])
-          AND LOWER(TRIM(pgl.prop_type)) IN ('passing yards','rushing attempts','receptions')
+          AND LOWER(TRIM(pgl.prop_type)) IN ('passing yards','passing attempts','rushing attempts','receptions')
         GROUP BY pgl.player_id, LOWER(TRIM(pgl.prop_type))
       `,
         [playerIds],
-      )) as Array<{ player_id: string; prop_type: string; c: number }>;
-      const countsByPlayer = new Map<string, Map<string, number>>();
+      )) as Array<{ player_id: string; prop_type: string; c_pos: number; c_total: number }>;
+      const posCountsByPlayer = new Map<string, Map<string, number>>();
       for (const r of roleCountRows) {
         const pid = String(r.player_id);
-        const m = countsByPlayer.get(pid) || new Map<string, number>();
-        m.set(String(r.prop_type), Number(r.c) || 0);
-        countsByPlayer.set(pid, m);
+        const m = posCountsByPlayer.get(pid) || new Map<string, number>();
+        m.set(String(r.prop_type), Number(r.c_pos) || 0);
+        posCountsByPlayer.set(pid, m);
       }
 
       // Map opponent team abbreviation -> team_id for the current sport/league
@@ -896,6 +938,92 @@ async function enrichPropsWithAnalytics(
         logsByKeyOpp.set(key, arr2);
       }
 
+      // H2H needs opponent-specific windows. The last 20 overall games might not include the last H2H matchup.
+      // Fetch last 20 games *vs each opponent* for the slate.
+      const oppIdsNeeded = Array.from(
+        new Set(
+          props
+            .map((p) =>
+              nflAbbrAlias(
+                String(p.opponent || "")
+                  .trim()
+                  .toUpperCase(),
+              ),
+            )
+            .map((abbr) => teamIdByAbbr.get(abbr))
+            .filter(Boolean) as string[],
+        ),
+      );
+      const h2hRows =
+        oppIdsNeeded.length > 0
+          ? ((await client.unsafe(
+              `
+        SELECT player_id,
+               prop_type,
+               opponent_id,
+               actual_value::numeric AS actual_value,
+               game_date
+        FROM (
+          SELECT
+            pgl.player_id,
+            TRIM(pgl.prop_type) AS prop_type,
+            pgl.opponent_id,
+            pgl.actual_value,
+            pgl.game_date,
+            ROW_NUMBER() OVER (
+              PARTITION BY pgl.player_id, TRIM(pgl.prop_type), pgl.opponent_id
+              ORDER BY pgl.game_date DESC
+            ) AS rn
+          FROM public.player_game_logs pgl
+          WHERE pgl.player_id = ANY($1::uuid[])
+            AND LOWER(TRIM(pgl.prop_type)) = ANY($2::text[])
+            AND pgl.opponent_id = ANY($3::uuid[])
+        ) t
+        WHERE t.rn <= 20
+        ORDER BY t.player_id, t.prop_type, t.opponent_id, t.game_date DESC;
+      `,
+              [playerIds, propTypesLower, oppIdsNeeded],
+            )) as Array<{
+              player_id: string;
+              prop_type: string;
+              opponent_id: string | null;
+              actual_value: unknown;
+              game_date: string;
+            }>)
+          : [];
+      const h2hByKey = new Map<string, number[]>();
+      for (const r of h2hRows) {
+        const key = `${r.player_id}:${String(r.prop_type).trim().toLowerCase()}:${r.opponent_id || ""}`;
+        const v =
+          typeof r.actual_value === "number" ? r.actual_value : Number(String(r.actual_value));
+        if (!Number.isFinite(v)) continue;
+        const arr = h2hByKey.get(key) || [];
+        arr.push(v);
+        h2hByKey.set(key, arr);
+      }
+
+      // Build slate category map per resolved player for fallback role decisions (when we have no positive log signal).
+      const slateCatsByPlayer = new Map<
+        string,
+        { passing: boolean; rushing: boolean; receiving: boolean }
+      >();
+      for (let i = 0; i < props.length; i++) {
+        const pid = resolvedPlayerIdByIdx.get(i);
+        if (!pid) continue;
+        const pt = String(props[i]?.propType || "")
+          .toLowerCase()
+          .trim();
+        const cat = slateCatsByPlayer.get(pid) || {
+          passing: false,
+          rushing: false,
+          receiving: false,
+        };
+        if (pt.startsWith("passing ")) cat.passing = true;
+        if (pt.startsWith("rushing ")) cat.rushing = true;
+        if (pt.startsWith("receiving ") || pt === "receptions") cat.receiving = true;
+        slateCatsByPlayer.set(pid, cat);
+      }
+
       const enriched = props.map((p, idx) => {
         const pid = resolvedPlayerIdByIdx.get(idx);
         if (!pid) return p;
@@ -980,11 +1108,8 @@ async function enrichPropsWithAnalytics(
         );
         const oppId = oppAbbr ? teamIdByAbbr.get(oppAbbr) : undefined;
         if (oppId) {
-          const rows = logsByKeyOpp.get(`${pid}:${propTypeKey}`) || [];
-          const vs = rows.filter((x) => x.opponent_id === oppId).map((x) => x.v);
-          if (vs.length > 0) {
-            out = { ...out, h2h_avg: vs.reduce((a, b) => a + b, 0) / vs.length };
-          }
+          const vs = h2hByKey.get(`${pid}:${propTypeKey}:${oppId}`) || [];
+          if (vs.length > 0) out = { ...out, h2h_avg: vs.reduce((a, b) => a + b, 0) / vs.length };
         }
 
         return out;
@@ -996,12 +1121,12 @@ async function enrichPropsWithAnalytics(
           ? enriched.filter((p, idx) => {
               const pid = resolvedPlayerIdByIdx.get(idx);
               if (!pid) return true; // keep unresolved (rookies / missing logs)
-              const m = countsByPlayer.get(pid) || new Map<string, number>();
-              const pass = m.get("passing yards") || 0;
-              const rush = m.get("rushing attempts") || 0;
-              const rec = m.get("receptions") || 0;
-              const signal = pass + rush + rec;
-              if (signal < 3) return true; // not enough evidence; don't hide
+              const m = posCountsByPlayer.get(pid) || new Map<string, number>();
+              const passYPos = m.get("passing yards") || 0;
+              const passAttPos = m.get("passing attempts") || 0;
+              const rushPos = m.get("rushing attempts") || 0;
+              const recPos = m.get("receptions") || 0;
+              const signal = passYPos + passAttPos + rushPos + recPos;
 
               const pt = String(p.propType || "")
                 .toLowerCase()
@@ -1017,19 +1142,39 @@ async function enrichPropsWithAnalytics(
               const isRushing =
                 pt === "rushing yards" || pt === "rushing attempts" || pt === "rushing tds";
 
-              const isQB = pass >= 3;
+              // If we know the player's position from DB, enforce it strictly for passing props.
+              const pos = posByPlayerId.get(pid);
+              if (isPassing && pos) {
+                // Only QBs should show passing markets in the UI.
+                if (pos !== "QB") return false;
+              }
+
+              // QB detection MUST be based on non-zero passing usage (we store 0-filled passing logs for everyone).
+              const isQB = passAttPos >= 2 || passYPos >= 2;
               if (isQB) {
                 // QBs: show passing + rushing; only show receiving if they've ever had receptions
-                if (isReceiving) return rec > 0;
+                if (isReceiving) return recPos > 0;
                 return true;
               }
 
-              // Non-QB: hide passing markets entirely
+              // If we have no positive signal yet (rookies/unknown), apply a conservative slate-based rule:
+              // Hide passing props when the slate also has receiving props (almost always non-QB trick markets),
+              // but keep if the slate is primarily passing/rushing (likely QB).
+              if (signal < 1) {
+                if (isPassing) {
+                  const cats = slateCatsByPlayer.get(pid);
+                  if (cats?.receiving) return false;
+                  return true;
+                }
+                return true;
+              }
+
+              // Non-QB (with evidence): hide passing markets entirely
               if (isPassing) return false;
 
               // WR/TE: hide rushing markets unless they've rushed before
-              const isReceiver = rec >= 3;
-              if (isReceiver && isRushing) return rush > 0;
+              const isReceiver = recPos >= 2;
+              if (isReceiver && isRushing) return rushPos > 0;
 
               return true;
             })
