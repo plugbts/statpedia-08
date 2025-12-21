@@ -122,14 +122,8 @@ const getOddsDisplayClass = (
   // Use the odds color class utility for consistent coloring
   const colorClass = getOddsColorClass(oddsValue);
 
-  // Override with filter-specific colors if needed
-  if (overUnderFilter === "over" && colorClass.includes("green")) {
-    return "text-green-500 group-hover:text-green-400";
-  } else if (overUnderFilter === "under" && colorClass.includes("red")) {
-    return "text-red-500 group-hover:text-red-400";
-  }
-
-  return `${colorClass} group-hover:opacity-80`;
+  // UX request: odds should always be green, so no filter-specific red override.
+  return `${colorClass} group-hover:text-green-400`;
 };
 
 // Team logo component with better fallback handling

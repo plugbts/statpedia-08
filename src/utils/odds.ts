@@ -8,20 +8,20 @@
  * @returns American odds string (e.g., "+150", "-200")
  */
 export function toAmericanOdds(val: number | string | null | undefined): string {
-  if (val === null || val === undefined || val === '') {
-    return '—';
+  if (val === null || val === undefined || val === "") {
+    return "—";
   }
 
-  const raw = typeof val === 'string' ? val.trim() : val;
-  const num = typeof raw === 'string' ? parseFloat(raw) : (raw as number);
-  
+  const raw = typeof val === "string" ? val.trim() : val;
+  const num = typeof raw === "string" ? parseFloat(raw) : (raw as number);
+
   if (isNaN(num)) {
-    return '—';
+    return "—";
   }
 
   // 1) If the string already looks like American odds "+123" or "-110"
-  if (typeof raw === 'string' && /^[-+]\d+$/.test(raw)) {
-    return raw.startsWith('+') ? raw : `${num >= 0 ? '+' : ''}${Math.trunc(num)}`;
+  if (typeof raw === "string" && /^[-+]\d+$/.test(raw)) {
+    return raw.startsWith("+") ? raw : `${num >= 0 ? "+" : ""}${Math.trunc(num)}`;
   }
 
   // 2) If numeric american odds (absolute value >= 100)
@@ -42,7 +42,7 @@ export function toAmericanOdds(val: number | string | null | undefined): string 
   }
 
   if (decimalOdds === null) {
-    return '—';
+    return "—";
   }
 
   // Convert decimal odds to American odds (rounded to integer as sportsbooks do)
@@ -62,8 +62,8 @@ export function toAmericanOdds(val: number | string | null | undefined): string 
  */
 export function formatOdds(val: number | string | null | undefined): string {
   const americanOdds = toAmericanOdds(val);
-  
-  if (americanOdds === '—') {
+
+  if (americanOdds === "—") {
     return americanOdds;
   }
 
@@ -77,11 +77,11 @@ export function formatOdds(val: number | string | null | undefined): string {
  */
 export function getOddsColorClass(val: number | string | null | undefined): string {
   const americanOdds = toAmericanOdds(val);
-  
-  if (americanOdds === '—') {
-    return 'text-muted-foreground';
+
+  if (americanOdds === "—") {
+    return "text-muted-foreground";
   }
 
-  const isPositive = americanOdds.startsWith('+');
-  return isPositive ? 'text-green-600' : 'text-red-600';
+  // UX request: always render odds in green (PropFinder-style), regardless of +/- sign.
+  return "text-green-600";
 }
