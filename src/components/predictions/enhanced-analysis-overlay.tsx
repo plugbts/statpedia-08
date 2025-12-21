@@ -1149,7 +1149,14 @@ const EnhancedLineChart = React.memo(
                 stroke="#f59e0b"
                 strokeDasharray="5 5"
                 strokeWidth={2}
-                label={{ value: `Line: ${line}`, position: "top", fill: "#f59e0b" }}
+                ifOverflow="extendDomain"
+                label={{
+                  value: `Line: ${line}`,
+                  position: "insideTopLeft",
+                  fill: "#fbbf24",
+                  fontSize: 12,
+                  dy: -8,
+                }}
               />
 
               {/* Performance line */}
@@ -1266,7 +1273,14 @@ const EnhancedBarChart = React.memo(
                 stroke="#f59e0b"
                 strokeDasharray="5 5"
                 strokeWidth={2}
-                label={{ value: `Line: ${line}`, position: "top", fill: "#f59e0b" }}
+                ifOverflow="extendDomain"
+                label={{
+                  value: `Line: ${line}`,
+                  position: "insideTopLeft",
+                  fill: "#fbbf24",
+                  fontSize: 12,
+                  dy: -8,
+                }}
               />
 
               {/* Performance bars with color coding */}
@@ -1326,7 +1340,8 @@ export function EnhancedAnalysisOverlay({
 
   // Fetch all props for the current player
   const fetchPlayerProps = useCallback(async () => {
-    if (!prediction?.playerId || !prediction?.sport) return;
+    // If parent supplies playerProps (current slate), we don't need prediction.playerId.
+    if (!prediction?.sport) return;
 
     setIsLoadingProps(true);
     try {
@@ -1885,7 +1900,11 @@ export function EnhancedAnalysisOverlay({
         underOdds: newUnderOdds,
         expectedValue: newExpectedValue,
         confidence: newConfidence,
-        aiPrediction: newAIPrediction,
+        // Keep AI + model confidence aligned
+        aiPrediction: {
+          ...(newAIPrediction as any),
+          confidence: newConfidence,
+        },
         riskLevel: newRiskLevel,
       };
 
