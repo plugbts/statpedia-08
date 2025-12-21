@@ -34,7 +34,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SportsbookIconsList } from "@/components/ui/sportsbook-icons";
-import { SportsbookOverlay } from "@/components/ui/sportsbook-overlay";
+// Sportsbook overlay is shown from odds UI elsewhere; analytics overlay is handled by parent (PlayerPropsTab)
 import { statpediaRatingService, StatpediaRating } from "@/services/statpedia-rating-service";
 import { toAmericanOdds, getOddsColorClass } from "@/utils/odds";
 import { getPlayerHeadshot, getPlayerInitials, getKnownPlayerHeadshot } from "@/utils/headshots";
@@ -425,9 +425,6 @@ export function PlayerPropsColumnView({
   const [sortBy, setSortBy] = useState("api");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [filterBy, setFilterBy] = useState("all");
-  const [showSportsbookOverlay, setShowSportsbookOverlay] = useState(false);
-  const [selectedOverlayProp, setSelectedOverlayProp] = useState<PlayerProp | null>(null);
-  const [overlayPlayerProps, setOverlayPlayerProps] = useState<PlayerProp[]>([]);
   const [selectedGame, setSelectedGame] = useState("all");
   const [showAlternativeLines, setShowAlternativeLines] = useState(false);
   // Use simple analytics hook
@@ -918,13 +915,8 @@ export function PlayerPropsColumnView({
         });
 
   const handlePropClick = (prop: PlayerProp) => {
-    const pid = prop.playerId || prop.player_id || "";
-    const samePlayer = normalizedProps.filter((p) => (p.playerId || p.player_id || "") === pid);
-    setSelectedOverlayProp(prop);
-    setOverlayPlayerProps(samePlayer);
-    setShowSportsbookOverlay(true);
-
-    // Keep existing parent callback (if any) but overlay is now handled here.
+    // Analytics overlay is already implemented in PlayerPropsTab (EnhancedAnalysisOverlay).
+    // Clicking a prop should open that overlay via the parent callback.
     if (onAnalysisClick) onAnalysisClick(prop);
   };
 
@@ -1858,13 +1850,6 @@ export function PlayerPropsColumnView({
       )}
 
       {/* Analysis Overlay - Removed: Parent component now handles the EnhancedAnalysisOverlay */}
-      {/* Sportsbook Overlay */}
-      <SportsbookOverlay
-        isOpen={showSportsbookOverlay}
-        onClose={() => setShowSportsbookOverlay(false)}
-        selectedProp={selectedOverlayProp}
-        playerProps={overlayPlayerProps}
-      />
     </div>
   );
 }
