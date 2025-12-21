@@ -282,6 +282,12 @@ interface PlayerProp {
   l5?: number | null;
   l10?: number | null;
   l20?: number | null;
+  l5_hits?: number | null;
+  l5_total?: number | null;
+  l10_hits?: number | null;
+  l10_total?: number | null;
+  l20_hits?: number | null;
+  l20_total?: number | null;
   h2h_avg?: number | null;
   season_avg?: number | null;
   current_streak?: number | null;
@@ -1162,33 +1168,70 @@ export function PlayerPropsColumnView({
               const l20Pct = directL20 ?? hookL20;
 
               // Convert percentages to hits/total format (only when pct is present)
-              const l5Total = 5;
-              const l10Total = 10;
-              const l20Total = 20;
+              const l5Total =
+                prop.l5_total !== null && prop.l5_total !== undefined ? Number(prop.l5_total) : 5;
+              const l10Total =
+                prop.l10_total !== null && prop.l10_total !== undefined
+                  ? Number(prop.l10_total)
+                  : 10;
+              const l20Total =
+                prop.l20_total !== null && prop.l20_total !== undefined
+                  ? Number(prop.l20_total)
+                  : 20;
               const l5Hits =
-                l5Pct !== null && Number.isFinite(l5Pct)
-                  ? Math.round((l5Pct / 100) * l5Total)
-                  : null;
+                prop.l5_hits !== null && prop.l5_hits !== undefined
+                  ? Number(prop.l5_hits)
+                  : l5Pct !== null && Number.isFinite(l5Pct)
+                    ? Math.round((l5Pct / 100) * l5Total)
+                    : null;
               const l10Hits =
-                l10Pct !== null && Number.isFinite(l10Pct)
-                  ? Math.round((l10Pct / 100) * l10Total)
-                  : null;
+                prop.l10_hits !== null && prop.l10_hits !== undefined
+                  ? Number(prop.l10_hits)
+                  : l10Pct !== null && Number.isFinite(l10Pct)
+                    ? Math.round((l10Pct / 100) * l10Total)
+                    : null;
               const l20Hits =
-                l20Pct !== null && Number.isFinite(l20Pct)
-                  ? Math.round((l20Pct / 100) * l20Total)
-                  : null;
+                prop.l20_hits !== null && prop.l20_hits !== undefined
+                  ? Number(prop.l20_hits)
+                  : l20Pct !== null && Number.isFinite(l20Pct)
+                    ? Math.round((l20Pct / 100) * l20Total)
+                    : null;
+              const l5HitsFinal = l5Hits !== null && Number.isFinite(l5Hits) ? l5Hits : null;
+              const l10HitsFinal = l10Hits !== null && Number.isFinite(l10Hits) ? l10Hits : null;
+              const l20HitsFinal = l20Hits !== null && Number.isFinite(l20Hits) ? l20Hits : null;
 
+              const l5TotalFinal = Number.isFinite(l5Total) && l5Total > 0 ? l5Total : 5;
+              const l10TotalFinal = Number.isFinite(l10Total) && l10Total > 0 ? l10Total : 10;
+              const l20TotalFinal = Number.isFinite(l20Total) && l20Total > 0 ? l20Total : 20;
+
+              // Recompute pct from hits/total when we have explicit hits/total to avoid rounding mismatch
+              const l5PctFinal = l5HitsFinal !== null ? (l5HitsFinal / l5TotalFinal) * 100 : l5Pct;
+              const l10PctFinal =
+                l10HitsFinal !== null ? (l10HitsFinal / l10TotalFinal) * 100 : l10Pct;
+              const l20PctFinal =
+                l20HitsFinal !== null ? (l20HitsFinal / l20TotalFinal) * 100 : l20Pct;
+
+              // Create analytics objects - allow 0 values (0% is valid)
               const l5 =
-                l5Pct !== null && l5Hits !== null
-                  ? { hits: l5Hits, total: l5Total, pct: l5Pct }
+                l5PctFinal !== null &&
+                Number.isFinite(l5PctFinal) &&
+                l5HitsFinal !== null &&
+                Number.isFinite(l5HitsFinal)
+                  ? { hits: l5HitsFinal, total: l5TotalFinal, pct: l5PctFinal }
                   : null;
               const l10 =
-                l10Pct !== null && l10Hits !== null
-                  ? { hits: l10Hits, total: l10Total, pct: l10Pct }
+                l10PctFinal !== null &&
+                Number.isFinite(l10PctFinal) &&
+                l10HitsFinal !== null &&
+                Number.isFinite(l10HitsFinal)
+                  ? { hits: l10HitsFinal, total: l10TotalFinal, pct: l10PctFinal }
                   : null;
               const l20 =
-                l20Pct !== null && l20Hits !== null
-                  ? { hits: l20Hits, total: l20Total, pct: l20Pct }
+                l20PctFinal !== null &&
+                Number.isFinite(l20PctFinal) &&
+                l20HitsFinal !== null &&
+                Number.isFinite(l20HitsFinal)
+                  ? { hits: l20HitsFinal, total: l20TotalFinal, pct: l20PctFinal }
                   : null;
 
               // Streak - use direct field or fallback
@@ -1354,8 +1397,8 @@ export function PlayerPropsColumnView({
                         <div
                           className={`text-xs font-bold group-hover:opacity-80 transition-all duration-300 relative animate-pulse ${(() => {
                             // Use REAL streak data only - no mock data
-                            const actualStreak = hasGameLogs ? Math.abs(streak) : 0;
-                            const streakType = hasGameLogs ? (streak > 0 ? "W" : "L") : "N";
+                            const actualStreak = hasGameLogs ? Math.abs(streak.current) : 0;
+                            const streakType = hasGameLogs ? (streak.current > 0 ? "W" : "L") : "N";
 
                             // Determine streak type and styling
                             if (streakType === "W" && actualStreak >= 2) {
@@ -1370,8 +1413,8 @@ export function PlayerPropsColumnView({
                         >
                           {/* Lava ONLY for hot streaks (2W+) */}
                           {(() => {
-                            const actualStreak = hasGameLogs ? Math.abs(streak) : 0;
-                            const streakType = hasGameLogs ? (streak > 0 ? "W" : "L") : "N";
+                            const actualStreak = hasGameLogs ? Math.abs(streak.current) : 0;
+                            const streakType = hasGameLogs ? (streak.current > 0 ? "W" : "L") : "N";
 
                             return streakType === "W" && actualStreak >= 2 ? (
                               <>
@@ -1392,8 +1435,23 @@ export function PlayerPropsColumnView({
 
                           {/* Snow ONLY for cold streaks (2L+) */}
                           {(() => {
-                            const actualStreak = hasGameLogs ? Math.abs(streak) : 0;
-                            const streakType = hasGameLogs ? (streak > 0 ? "W" : "L") : "N";
+                            // Use direct API streak value (from player_analytics) even without gameLogs
+                            const actualStreak =
+                              streakValue !== 0
+                                ? Math.abs(streakValue)
+                                : hasGameLogs
+                                  ? Math.abs(streak.current)
+                                  : 0;
+                            const streakType =
+                              streakValue !== 0
+                                ? streakValue > 0
+                                  ? "W"
+                                  : "L"
+                                : hasGameLogs
+                                  ? streak.current > 0
+                                    ? "W"
+                                    : "L"
+                                  : "N";
 
                             return streakType === "L" && actualStreak >= 2 ? (
                               <>
@@ -1413,10 +1471,13 @@ export function PlayerPropsColumnView({
                           })()}
 
                           {(() => {
-                            if (hasGameLogs && streak !== 0) {
-                              return `${Math.abs(streak)}${streak > 0 ? "W" : "L"}`;
+                            // Use direct API streak value (from player_analytics) even without gameLogs
+                            const displayStreak =
+                              streakValue !== 0 ? streakValue : hasGameLogs ? streak.current : 0;
+                            if (displayStreak !== 0) {
+                              return `${Math.abs(displayStreak)}${displayStreak > 0 ? "W" : "L"}`;
                             }
-                            return "—";
+                            return "0";
                           })()}
                         </div>
                       </div>
@@ -1588,8 +1649,11 @@ export function PlayerPropsColumnView({
                         <div className="text-xs font-medium text-foreground">
                           {(() => {
                             // Prefer direct avg from API when available (player_analytics.season_avg)
-                            if (seasonAvg !== null && Number.isFinite(seasonAvg))
-                              return seasonAvg.toFixed(1);
+                            if (seasonAvg !== null && Number.isFinite(seasonAvg)) {
+                              const pt = String(prop.propType || "").toLowerCase();
+                              const digits = pt.includes("td") ? 2 : 1;
+                              return seasonAvg.toFixed(digits);
+                            }
                             // Fallback to hook (hit-rate style)
                             if (season?.total > 0) return `${season.pct.toFixed(0)}%`;
                             return "N/A";

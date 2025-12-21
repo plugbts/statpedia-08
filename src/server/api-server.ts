@@ -85,6 +85,8 @@ type NormalizedProp = {
   playerName?: string;
   team?: string;
   opponent?: string;
+  // Raw SGO stat identifier (useful for debugging propType mismatches)
+  statId?: string;
   propType: string;
   line: number;
   period?: string;
@@ -107,6 +109,13 @@ type NormalizedProp = {
   l5?: number | null;
   l10?: number | null;
   l20?: number | null;
+  // Optional window metadata to avoid misleading "4/20" when only 4 games exist
+  l5_hits?: number | null;
+  l5_total?: number | null;
+  l10_hits?: number | null;
+  l10_total?: number | null;
+  l20_hits?: number | null;
+  l20_total?: number | null;
   h2h_avg?: number | null;
   season_avg?: number | null;
   matchup_rank?: number | null;
@@ -210,9 +219,13 @@ function normalizeStatId(statId?: string | null): string {
     .replace(/[\s-]+/g, "_");
   const map: Record<string, string> = {
     passing_yards: "Passing Yards",
+    passing_attempts: "Passing Attempts",
+    passing_completions: "Passing Completions",
+    passing_interceptions: "Passing Interceptions",
     rushing_yards: "Rushing Yards",
     receiving_yards: "Receiving Yards",
     receiving_receptions: "Receptions",
+    receiving_targets: "Receiving Targets",
     receiving_longestreception: "Longest Reception",
     rushing_longestrush: "Longest Rush",
     passing_longestcompletion: "Longest Completion",
@@ -397,6 +410,7 @@ async function fetchNormalizedPlayerProps(sport: string, limit = 200): Promise<N
             // Prefer derived abbreviations so the frontend can render logos reliably
             team: derivedTeam || playerTeamRaw || undefined,
             opponent: inferredOpp,
+            statId: String(statId),
             propType,
             line: lineNum,
             period,
@@ -453,21 +467,10 @@ async function fetchNormalizedPlayerProps(sport: string, limit = 200): Promise<N
     const sl = s.toLowerCase();
     const p = prop.toLowerCase();
     if (sl === "nfl") {
-      // Common offensive markets
-      const allow = [
-        "passing yards",
-        "passing tds",
-        "longest completion",
-        "rushing yards",
-        "rushing attempts",
-        "longest rush",
-        "rushing tds",
-        "receiving yards",
-        "receptions",
-        "longest reception",
-        "receiving tds",
-      ];
-      return allow.includes(p);
+      // Do not filter NFL markets here.
+      // We want to display the full SGO slate and rely on analytics enrichment + UI filtering
+      // (e.g. "Only show props with analytics") rather than silently hiding markets.
+      return true;
     }
     if (sl === "nba") {
       const allow = ["points", "assists", "rebounds"];
@@ -489,7 +492,21 @@ function normalizeHumanNameForMatch(name: string): string {
       // Remove diacritics (e.g., Ş -> S)
       .replace(/\p{Diacritic}/gu, "")
       .toLowerCase()
+      // Remove apostrophes WITHOUT adding space (e.g., "Cor'Dale" -> "cordale", "O'Brien" -> "obrien")
+      .replace(/'/g, "")
+      // Remove hyphens WITHOUT adding space (e.g., "Kool-Aid" -> "koolaid", "Smith-Jones" -> "smithjones")
+      // This handles compound names where SGO sends them without hyphens
+      .replace(/-/g, "")
+      // Normalize initials: "j.j." -> "jj", "tj" -> "tj", "j j" -> "jj"
+      .replace(/\b([a-z])\s*\.\s*([a-z])\b/g, "$1$2") // "j.j." -> "jj"
+      .replace(/\b([a-z])\s+([a-z])\b/g, (m, a, b) => {
+        // If both are single letters, treat as initials (no space)
+        if (m.length === 3 && m[1] === " ") return a + b;
+        return m;
+      })
+      // Remove all non-alphanumeric except spaces
       .replace(/[^a-z0-9\s]/g, " ")
+      // Collapse multiple spaces
       .replace(/\s+/g, " ")
       .trim()
   );
@@ -512,8 +529,6 @@ async function enrichPropsWithAnalytics(
 ): Promise<NormalizedProp[]> {
   if (!Array.isArray(props) || props.length === 0) return props;
 
-  const leagueCode = mapSportToLeagueId(sport) || String(sport || "").toUpperCase();
-
   const candidatesRaw = [
     process.env.SUPABASE_DATABASE_URL,
     process.env.NEON_DATABASE_URL,
@@ -527,18 +542,50 @@ async function enrichPropsWithAnalytics(
   for (const connectionString of candidates) {
     const client = postgres(connectionString, { prepare: false });
     try {
-      // Load player id + name + team abbrev for this league once
+      // Build the set of prop types we want analytics for (from the SGO slate)
+      const propTypes = Array.from(
+        new Set(props.map((p) => String(p.propType || "").trim()).filter(Boolean)),
+      );
+      if (propTypes.length === 0) return props;
+      const propTypesLower = propTypes.map((p) => p.toLowerCase());
+
+      /**
+       * Key fix:
+       * A lot of `players` rows are missing `team_id` (or are not linked cleanly into leagues),
+       * so filtering players by `leagues.code` drops a huge portion of valid analytics.
+       *
+       * Even more important: many players have multiple UUIDs. Some UUIDs have analytics rows but
+       * ZERO game logs (or vice versa). For *frontend hit rates*, we need the UUID that actually
+       * has `player_game_logs`.
+       *
+       * So: build the player-name map from `player_game_logs` for the current propTypes.
+       */
+      // Build player map from ALL core propTypes, not just the ones being checked
+      // This ensures we can match players even if they don't have logs for a specific propType yet
+      const corePropTypesLower = [
+        "passing yards",
+        "rushing yards",
+        "rushing attempts",
+        "passing tds",
+        "rushing tds",
+        "receiving yards",
+        "receptions",
+        "receiving tds",
+        "passing attempts",
+        "passing completions",
+      ];
       const playersRows = (await client.unsafe(
         `
-      SELECT p.id AS player_id,
-             p.name AS player_name,
-             COALESCE(t.abbreviation, '') AS team_abbr
-      FROM public.players p
-      LEFT JOIN public.teams t ON t.id = p.team_id
-      LEFT JOIN public.leagues l ON l.id = t.league_id
-      WHERE l.code = $1
-    `,
-        [leagueCode],
+        SELECT DISTINCT
+          pgl.player_id,
+          p.name AS player_name,
+          COALESCE(t.abbreviation, '') AS team_abbr
+        FROM public.player_game_logs pgl
+        JOIN public.players p ON p.id = pgl.player_id
+        LEFT JOIN public.teams t ON t.id = p.team_id
+        WHERE LOWER(TRIM(pgl.prop_type)) = ANY($1::text[])
+      `,
+        [corePropTypesLower],
       )) as Array<{ player_id: string; player_name: string; team_abbr: string }>;
 
       const byName = new Map<string, Array<{ player_id: string; team_abbr: string }>>();
@@ -555,6 +602,30 @@ async function enrichPropsWithAnalytics(
 
       // Resolve each prop -> player_id uuid (prefer matching team abbrev)
       const resolvedPlayerIdByIdx = new Map<number, string>();
+      const logCountCache = new Map<string, Map<string, number>>();
+      async function getLogCountsForCandidates(
+        candidateIds: string[],
+        propTypeLower: string,
+      ): Promise<Map<string, number>> {
+        const ids = Array.from(new Set(candidateIds)).sort();
+        const cacheKey = `${propTypeLower}:${ids.join(",")}`;
+        const cached = logCountCache.get(cacheKey);
+        if (cached) return cached;
+        const rows = (await client.unsafe(
+          `
+          SELECT pgl.player_id, COUNT(*)::int AS c
+          FROM public.player_game_logs pgl
+          WHERE pgl.player_id = ANY($1::uuid[])
+            AND LOWER(TRIM(pgl.prop_type)) = $2
+          GROUP BY pgl.player_id
+        `,
+          [ids, propTypeLower],
+        )) as Array<{ player_id: string; c: number }>;
+        const m = new Map<string, number>();
+        for (const r of rows) m.set(String(r.player_id), Number(r.c) || 0);
+        logCountCache.set(cacheKey, m);
+        return m;
+      }
       for (let i = 0; i < props.length; i++) {
         const p = props[i];
         const key = normalizeHumanNameForMatch(p.playerName || "");
@@ -565,14 +636,33 @@ async function enrichPropsWithAnalytics(
           continue;
         }
         const teamAbbr = String(p.team || "").toUpperCase();
-        const match = teamAbbr ? nameCandidates.find((c) => c.team_abbr === teamAbbr) : undefined;
-        resolvedPlayerIdByIdx.set(i, (match || nameCandidates[0]).player_id);
+        const propTypeLowerKey = String(p.propType || "")
+          .trim()
+          .toLowerCase();
+        const teamMatches = teamAbbr ? nameCandidates.filter((c) => c.team_abbr === teamAbbr) : [];
+        const pool = teamMatches.length > 0 ? teamMatches : nameCandidates;
+        if (pool.length === 1) {
+          resolvedPlayerIdByIdx.set(i, pool[0].player_id);
+          continue;
+        }
+        // Disambiguate by which candidate actually has game logs for this prop_type.
+        const counts = await getLogCountsForCandidates(
+          pool.map((c) => c.player_id),
+          propTypeLowerKey,
+        );
+        let best = pool[0];
+        let bestCount = counts.get(best.player_id) || 0;
+        for (const c of pool) {
+          const ct = counts.get(c.player_id) || 0;
+          if (ct > bestCount) {
+            best = c;
+            bestCount = ct;
+          }
+        }
+        resolvedPlayerIdByIdx.set(i, best.player_id);
       }
 
       const playerIds = Array.from(new Set(Array.from(resolvedPlayerIdByIdx.values())));
-      const propTypes = Array.from(
-        new Set(props.map((p) => String(p.propType || "").trim()).filter(Boolean)),
-      );
       if (playerIds.length === 0 || propTypes.length === 0) return props;
 
       const analyticsRows = (await client.unsafe(
@@ -592,7 +682,7 @@ async function enrichPropsWithAnalytics(
         pa.last_updated
       FROM public.player_analytics pa
       WHERE pa.player_id = ANY($1::uuid[])
-        AND pa.prop_type = ANY($2::text[])
+        AND LOWER(TRIM(pa.prop_type)) = ANY($2::text[])
         AND (pa.sport IS NULL OR LOWER(pa.sport) = LOWER($3))
       ORDER BY
         pa.player_id,
@@ -600,33 +690,196 @@ async function enrichPropsWithAnalytics(
         NULLIF(regexp_replace(pa.season, '\\\\D', '', 'g'), '')::int DESC NULLS LAST,
         pa.last_updated DESC NULLS LAST
     `,
-        [playerIds, propTypes, sport],
+        [playerIds, propTypesLower, sport],
       )) as Array<any>;
 
       const analyticsByKey = new Map<string, any>();
       for (const r of analyticsRows) {
-        analyticsByKey.set(`${r.player_id}:${String(r.prop_type).trim()}`, r);
+        analyticsByKey.set(`${r.player_id}:${String(r.prop_type).trim().toLowerCase()}`, r);
+      }
+
+      // Map opponent team abbreviation -> team_id for the current sport/league
+      const leagueCode = String(mapSportToLeagueId(sport) || sport || "").toUpperCase();
+      const opponentAbbrs = Array.from(
+        new Set(
+          props
+            .map((p) =>
+              String(p.opponent || "")
+                .trim()
+                .toUpperCase(),
+            )
+            .filter((v) => v.length > 0 && v !== "UNK"),
+        ),
+      );
+      const teamIdByAbbr = new Map<string, string>();
+      if (opponentAbbrs.length > 0) {
+        try {
+          const teamRows = (await client.unsafe(
+            `
+            SELECT t.id, UPPER(t.abbreviation) AS abbr
+            FROM public.teams t
+            JOIN public.leagues l ON l.id = t.league_id
+            WHERE UPPER(t.abbreviation) = ANY($1::text[])
+              AND (
+                UPPER(l.code) = $2 OR UPPER(COALESCE(l.abbreviation, l.code)) = $2
+              )
+          `,
+            [opponentAbbrs, leagueCode],
+          )) as Array<{ id: string; abbr: string }>;
+          for (const tr of teamRows) teamIdByAbbr.set(String(tr.abbr), String(tr.id));
+        } catch {
+          // optional; h2h calc will fall back to DB value or null
+        }
+      }
+
+      /**
+       * Critical fix:
+       * `player_game_logs.hit` and `player_game_logs.line` are not reliable in this dataset
+       * (we've observed line=0 and hit=false even when actual_value > 0).
+       *
+       * For frontend L5/L10/L20 + streak, compute directly from game log `actual_value`
+       * compared against the CURRENT prop line from the SGO slate (over-side).
+       */
+      const gameLogRows = (await client.unsafe(
+        `
+        SELECT player_id,
+               prop_type,
+               opponent_id,
+               actual_value::numeric AS actual_value,
+               game_date
+        FROM (
+          SELECT
+            pgl.player_id,
+            TRIM(pgl.prop_type) AS prop_type,
+            pgl.opponent_id,
+            pgl.actual_value,
+            pgl.game_date,
+            ROW_NUMBER() OVER (
+              PARTITION BY pgl.player_id, TRIM(pgl.prop_type)
+              ORDER BY pgl.game_date DESC
+            ) AS rn
+          FROM public.player_game_logs pgl
+          WHERE pgl.player_id = ANY($1::uuid[])
+            AND LOWER(TRIM(pgl.prop_type)) = ANY($2::text[])
+        ) t
+        WHERE t.rn <= 20
+        ORDER BY t.player_id, t.prop_type, t.game_date DESC;
+      `,
+        [playerIds, propTypesLower],
+      )) as Array<{
+        player_id: string;
+        prop_type: string;
+        opponent_id: string | null;
+        actual_value: unknown;
+        game_date: string;
+      }>;
+
+      const logsByKey = new Map<string, number[]>();
+      const logsByKeyOpp = new Map<string, Array<{ opponent_id: string | null; v: number }>>();
+      for (const r of gameLogRows) {
+        const key = `${r.player_id}:${String(r.prop_type).trim().toLowerCase()}`;
+        const v =
+          typeof r.actual_value === "number" ? r.actual_value : Number(String(r.actual_value));
+        if (!Number.isFinite(v)) continue;
+        const arr = logsByKey.get(key) || [];
+        arr.push(v);
+        logsByKey.set(key, arr);
+
+        const arr2 = logsByKeyOpp.get(key) || [];
+        arr2.push({ opponent_id: r.opponent_id ?? null, v });
+        logsByKeyOpp.set(key, arr2);
       }
 
       const enriched = props.map((p, idx) => {
         const pid = resolvedPlayerIdByIdx.get(idx);
         if (!pid) return p;
-        const r = analyticsByKey.get(`${pid}:${String(p.propType || "").trim()}`);
-        if (!r) return p;
-        const currentStreak = toNumberOrNull(r.current_streak);
-        return {
+        const propTypeKey = String(p.propType || "")
+          .trim()
+          .toLowerCase();
+        const r = analyticsByKey.get(`${pid}:${propTypeKey}`);
+
+        // Start with DB analytics when present (fallback to existing values otherwise)
+        let out: NormalizedProp = {
           ...p,
-          l5: toNumberOrNull(r.l5),
-          l10: toNumberOrNull(r.l10),
-          l20: toNumberOrNull(r.l20),
-          h2h_avg: toNumberOrNull(r.h2h_avg),
-          season_avg: toNumberOrNull(r.season_avg),
-          matchup_rank: toNumberOrNull(r.matchup_rank),
-          ev_percent: toNumberOrNull(r.ev_percent),
-          current_streak: currentStreak,
-          streak_l5: currentStreak,
+          l5: r ? toNumberOrNull(r.l5) : (p.l5 ?? null),
+          l10: r ? toNumberOrNull(r.l10) : (p.l10 ?? null),
+          l20: r ? toNumberOrNull(r.l20) : (p.l20 ?? null),
+          h2h_avg: r ? toNumberOrNull(r.h2h_avg) : (p.h2h_avg ?? null),
+          season_avg: r ? toNumberOrNull(r.season_avg) : (p.season_avg ?? null),
+          matchup_rank: r ? toNumberOrNull(r.matchup_rank) : (p.matchup_rank ?? null),
+          ev_percent: r ? toNumberOrNull(r.ev_percent) : (p.ev_percent ?? null),
+          current_streak: r ? toNumberOrNull(r.current_streak) : (p.current_streak ?? null),
+          streak_l5: r ? toNumberOrNull(r.current_streak) : (p.streak_l5 ?? null),
           rating: null,
         };
+
+        // Compute hit rates from game logs vs CURRENT line (over)
+        const line = toNumberOrNull((p as any).line);
+        const values = logsByKey.get(`${pid}:${propTypeKey}`) || [];
+        if (line != null && Number.isFinite(line) && values.length > 0) {
+          const hits = values.map((v) => (v > line ? 1 : 0));
+          const sumFirst = (n: number) => hits.slice(0, n).reduce((a, b) => a + b, 0);
+          const window = (n: number) => Math.min(n, hits.length);
+          const pct = (n: number) => {
+            const w = window(n);
+            if (w <= 0) return null;
+            return (sumFirst(w) / w) * 100;
+          };
+
+          const w5 = window(5);
+          const w10 = window(10);
+          const w20 = window(20);
+          const h5 = w5 ? sumFirst(w5) : null;
+          const h10 = w10 ? sumFirst(w10) : null;
+          const h20 = w20 ? sumFirst(w20) : null;
+
+          const l5 = pct(5);
+          const l10 = pct(10);
+          const l20 = pct(20);
+
+          // Current streak: consecutive same result from most recent game
+          const first = hits[0];
+          let streak = 0;
+          for (const h of hits) {
+            if (h === first) streak += 1;
+            else break;
+          }
+          const current_streak = first === 1 ? streak : -streak;
+
+          out = {
+            ...out,
+            l5: Number.isFinite(l5) ? l5 : out.l5,
+            l10: Number.isFinite(l10) ? l10 : out.l10,
+            l20: Number.isFinite(l20) ? l20 : out.l20,
+            l5_hits: h5,
+            l5_total: w5 || null,
+            l10_hits: h10,
+            l10_total: w10 || null,
+            l20_hits: h20,
+            l20_total: w20 || null,
+            current_streak,
+            streak_l5: current_streak,
+            season_avg:
+              out.season_avg == null
+                ? values.reduce((a, b) => a + b, 0) / values.length
+                : out.season_avg,
+          };
+        }
+
+        // Compute H2H avg vs current opponent if possible (fallback keeps DB value)
+        const oppAbbr = String(p.opponent || "")
+          .trim()
+          .toUpperCase();
+        const oppId = oppAbbr ? teamIdByAbbr.get(oppAbbr) : undefined;
+        if (oppId) {
+          const rows = logsByKeyOpp.get(`${pid}:${propTypeKey}`) || [];
+          const vs = rows.filter((x) => x.opponent_id === oppId).map((x) => x.v);
+          if (vs.length > 0) {
+            out = { ...out, h2h_avg: vs.reduce((a, b) => a + b, 0) / vs.length };
+          }
+        }
+
+        return out;
       });
 
       // Success on this DB connection

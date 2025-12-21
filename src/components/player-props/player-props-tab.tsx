@@ -570,6 +570,8 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
   const [minConfidence, setMinConfidence] = useState(0);
   const [minEV, setMinEV] = useState(0);
   const [showOnlyPositiveEV, setShowOnlyPositiveEV] = useState(false);
+  // NFL-only: hide props that have no analytics attached (prevents endless N/A)
+  const [showOnlyAnalytics, setShowOnlyAnalytics] = useState(false);
   const [minLine, setMinLine] = useState(0);
   const [maxLine, setMaxLine] = useState(1000);
   const [showSelection, setShowSelection] = useState(false);
@@ -807,6 +809,12 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
               l5: (prop as any).l5 ?? null,
               l10: (prop as any).l10 ?? null,
               l20: (prop as any).l20 ?? null,
+              l5_hits: (prop as any).l5_hits ?? null,
+              l5_total: (prop as any).l5_total ?? null,
+              l10_hits: (prop as any).l10_hits ?? null,
+              l10_total: (prop as any).l10_total ?? null,
+              l20_hits: (prop as any).l20_hits ?? null,
+              l20_total: (prop as any).l20_total ?? null,
               h2h_avg: (prop as any).h2h_avg ?? null,
               season_avg: (prop as any).season_avg ?? null,
               current_streak: (prop as any).current_streak ?? (prop as any).streak_l5 ?? null,
@@ -819,9 +827,24 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
           });
 
           // Sort by original index to preserve API order
-          const sortedPropsWithEV = transformedProps.sort(
-            (a, b) => (a.originalIndex || 0) - (b.originalIndex || 0),
-          );
+          // For NFL, prioritize rows that already have analytics so the UI "lights up" immediately.
+          const hasAnalytics = (p: any) =>
+            p.l5 != null ||
+            p.l10 != null ||
+            p.l20 != null ||
+            p.h2h_avg != null ||
+            p.season_avg != null ||
+            p.current_streak != null;
+
+          const sortedPropsWithEV = transformedProps.sort((a: any, b: any) => {
+            const sportKey = String(sport || "").toLowerCase();
+            if (sportKey === "nfl") {
+              const da = hasAnalytics(a) ? 1 : 0;
+              const db = hasAnalytics(b) ? 1 : 0;
+              if (da !== db) return db - da;
+            }
+            return (a.originalIndex || 0) - (b.originalIndex || 0);
+          });
 
           // Debug: Log the first 10 props to verify order
           console.log("🎯 PRIORITY ORDER DEBUG - First 10 props after EV calculation:");
@@ -888,6 +911,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
         setMinConfidence(filters.minConfidence || 0);
         setMinEV(filters.minEV || 0);
         setShowOnlyPositiveEV(filters.showOnlyPositiveEV || false);
+        setShowOnlyAnalytics(filters.showOnlyAnalytics || false);
         setMinLine(filters.minLine || 0);
         setMaxLine(filters.maxLine || getMaxLineForSport(sportFilter));
         setPropTypeFilter(filters.propTypeFilter || "all");
@@ -911,6 +935,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
       minConfidence,
       minEV,
       showOnlyPositiveEV,
+      showOnlyAnalytics,
       minLine,
       maxLine,
       propTypeFilter,
@@ -931,6 +956,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
     setMinConfidence(0);
     setMinEV(0);
     setShowOnlyPositiveEV(false);
+    setShowOnlyAnalytics(false);
     setMinLine(0);
     setMaxLine(getMaxLineForSport(sportFilter));
     setPropTypeFilter("all");
@@ -955,6 +981,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
     setMinConfidence(0);
     setMinEV(0);
     setShowOnlyPositiveEV(false);
+    setShowOnlyAnalytics(false);
     setMinLine(0);
     setMaxLine(getMaxLineForSport(sport));
     setPropTypeFilter("all");
@@ -1186,6 +1213,16 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
     const matchesEV = (prop.expectedValue || 0) >= minEV / 100;
     const matchesPositiveEV = !showOnlyPositiveEV || (prop.expectedValue || 0) >= 0;
     const matchesLine = prop.line >= minLine && prop.line <= maxLine;
+    const hasAnyAnalytics =
+      (prop as any).l5 != null ||
+      (prop as any).l10 != null ||
+      (prop as any).l20 != null ||
+      (prop as any).h2h_avg != null ||
+      (prop as any).season_avg != null ||
+      (prop as any).current_streak != null ||
+      (prop as any).streak_l5 != null;
+    const matchesAnalytics =
+      !showOnlyAnalytics || sportFilter.toLowerCase() !== "nfl" || hasAnyAnalytics;
 
     // Odds range filter (default: -175 to +500)
     const overOdds = prop.overOdds || 0;
@@ -1210,6 +1247,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
       matchesConfidence &&
       matchesEV &&
       matchesPositiveEV &&
+      matchesAnalytics &&
       matchesLine &&
       matchesOddsRange &&
       matchesOverUnder;
@@ -2003,6 +2041,24 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
                       </label>
                     </div>
 
+                    {/* NFL: Analytics Only Toggle */}
+                    {sportFilter.toLowerCase() === "nfl" && (
+                      <div className="flex items-center space-x-3 p-3 bg-muted/30 rounded-lg">
+                        <Checkbox
+                          id="analyticsOnly"
+                          checked={showOnlyAnalytics}
+                          onCheckedChange={(checked) => setShowOnlyAnalytics(checked as boolean)}
+                          className="border-primary/30 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                        />
+                        <label
+                          htmlFor="analyticsOnly"
+                          className="text-sm font-medium cursor-pointer"
+                        >
+                          Only show props with analytics (removes N/A rows)
+                        </label>
+                      </div>
+                    )}
+
                     {/* Filter Summary */}
                     <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
                       <h4 className="text-sm font-medium text-primary mb-2">
@@ -2020,6 +2076,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
                           </div>
                         )}
                         <div>Positive EV Only: {showOnlyPositiveEV ? "Yes" : "No"}</div>
+                        {sportFilter.toLowerCase() === "nfl" && (
+                          <div>Analytics Only: {showOnlyAnalytics ? "Yes" : "No"}</div>
+                        )}
                         <div>
                           Prop Type: {propTypeFilter === "all" ? "All Types" : propTypeFilter}
                         </div>

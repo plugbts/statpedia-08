@@ -9,8 +9,40 @@ import { randomUUID } from "crypto";
 
 config({ path: ".env.local" });
 
-const conn = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
-if (!conn) throw new Error("DATABASE_URL/NEON_DATABASE_URL missing");
+async function pickWorkingDbUrl(): Promise<string> {
+  const candidates = [
+    process.env.SUPABASE_DATABASE_URL,
+    process.env.NEON_DATABASE_URL,
+    process.env.DATABASE_URL,
+  ].filter(Boolean) as string[];
+
+  if (!candidates.length) {
+    throw new Error(
+      "No DB URL found (SUPABASE_DATABASE_URL/NEON_DATABASE_URL/DATABASE_URL missing)",
+    );
+  }
+
+  for (const url of candidates) {
+    const probe = postgres(url, { prepare: false, max: 1 });
+    try {
+      await probe`select 1 as ok`;
+      await probe.end({ timeout: 1 });
+      return url;
+    } catch (e: any) {
+      const msg = e?.message || String(e);
+      console.warn(`[ingest-official-game-logs] DB candidate failed, trying next: ${msg}`);
+      try {
+        await probe.end({ timeout: 1 });
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  throw new Error("All DB URL candidates failed");
+}
+
+const conn = await pickWorkingDbUrl();
 const sqlc = postgres(conn, { prepare: false });
 const db = drizzle(sqlc, { schema: { games, players, teams, player_game_logs } });
 
@@ -108,8 +140,9 @@ async function fetchSchedule(
   }
   if (league === "NFL") {
     try {
+      const yyyymmdd = dateStr.replace(/-/g, "");
       const res = await fetchWithTimeout(
-        `https://site.api.espn.com/apis/v2/sports/football/nfl/scoreboard?dates=${dateStr}`,
+        `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${yyyymmdd}`,
       );
       if (!res.ok) return [];
       const data: any = await res.json();
@@ -200,10 +233,19 @@ async function fetchGameBoxscoreRaw(league: League, gameId: string): Promise<any
 
 // 3) Save raw and normalize records
 async function saveRaw(league: League, gameId: string, payload: any, season?: string) {
+  const force = String(process.env.FORCE || "").toLowerCase() === "1";
+  const conflictClause = force
+    ? `DO UPDATE SET
+        season = EXCLUDED.season,
+        payload = EXCLUDED.payload,
+        fetched_at = now(),
+        normalized = false`
+    : `DO NOTHING`;
+
   await sqlc.unsafe(
     `INSERT INTO public.player_game_logs_raw (league, season, game_external_id, payload)
      VALUES ($1,$2,$3,$4::jsonb)
-     ON CONFLICT (league, game_external_id, source) DO NOTHING`,
+     ON CONFLICT (league, game_external_id, source) ${conflictClause}`,
     [league, season || null, gameId, JSON.stringify(payload)],
   );
 }
@@ -214,14 +256,38 @@ function seasonFromDate(dateStr: string, league: League) {
   const m = d.getMonth() + 1;
   if (league === "MLB") return m >= 3 ? String(y) : String(y - 1);
   if (league === "NBA" || league === "WNBA") return m >= 10 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
-  if (league === "NFL") return String(y);
+  // NFL regular season spans Sep-Jan; Jan/Feb games belong to prior season year
+  if (league === "NFL") return m <= 2 ? String(y - 1) : String(y);
   return String(y);
+}
+
+function parseNumericStat(rawValue: unknown): number {
+  if (rawValue === undefined || rawValue === null) return 0;
+  if (typeof rawValue === "number") return Number(rawValue) || 0;
+  const s = String(rawValue).trim();
+  if (!s) return 0;
+  // Handle "C/ATT" like "24/36" and "FG" like "1-2"
+  if (s.includes("/")) return Number(s.split("/")[0]) || 0;
+  if (s.includes("-")) return Number(s.split("-")[0]) || 0;
+  return Number(s) || 0;
+}
+
+function parseSlashPair(rawValue: unknown): { left: number; right: number } | null {
+  if (rawValue === undefined || rawValue === null) return null;
+  const s = String(rawValue).trim();
+  if (!s || !s.includes("/")) return null;
+  const [a, b] = s.split("/", 2).map((x) => Number(String(x).trim()));
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+  return { left: a, right: b };
 }
 
 async function normalizeAndInsert(league: League, gameId: string, dateStr: string) {
   // Very lightweight extractors; production logic would handle full mapping per league
+  const force = String(process.env.FORCE || "").toLowerCase() === "1";
   const rows = (await db.execute(
-    sql`SELECT payload FROM public.player_game_logs_raw WHERE league=${league} AND game_external_id=${gameId} AND normalized=false LIMIT 1`,
+    force
+      ? sql`SELECT payload FROM public.player_game_logs_raw WHERE league=${league} AND game_external_id=${gameId} ORDER BY fetched_at DESC LIMIT 1`
+      : sql`SELECT payload FROM public.player_game_logs_raw WHERE league=${league} AND game_external_id=${gameId} AND normalized=false LIMIT 1`,
   )) as Array<{ payload: any }>;
   if (!rows[0]) return 0;
   const payload = rows[0].payload;
@@ -314,20 +380,169 @@ async function normalizeAndInsert(league: League, gameId: string, dateStr: strin
       }
     }
   } else if (league === "NFL") {
+    // ESPN summary -> payload.boxscore.players[].statistics[] format
+    // See scripts/test-single-game-extraction.ts for the mapping used here.
     const teamsData = payload?.boxscore?.players || [];
+
+    const propTypeMapping: Record<string, Record<string, string>> = {
+      passing: {
+        YDS: "Passing Yards",
+        TD: "Passing TDs",
+        INT: "Passing Interceptions",
+        // C/ATT needs special handling below (we derive both completions and attempts)
+      },
+      rushing: {
+        CAR: "Rushing Attempts",
+        YDS: "Rushing Yards",
+        TD: "Rushing TDs",
+      },
+      receiving: {
+        REC: "Receptions",
+        YDS: "Receiving Yards",
+        TD: "Receiving TDs",
+        TGTS: "Receiving Targets",
+      },
+      defensive: {
+        TOT: "Total Tackles",
+        SOLO: "Solo Tackles",
+        SACKS: "Sacks",
+        INT: "Interceptions",
+      },
+      kicking: {
+        FG: "Field Goals Made",
+        XP: "Extra Points Made",
+        PTS: "Kicking Points",
+      },
+    };
+
+    const teamAbbrs = Array.from(
+      new Set(
+        (teamsData as any[])
+          .map((t) => String(t?.team?.abbreviation || t?.team?.abbrev || "").toUpperCase())
+          .filter(Boolean),
+      ),
+    );
+
+    // Track which propTypes we saw per player so we can optionally backfill missing core stats as 0.
+    const seenByPlayer = new Map<string, Set<string>>();
+
+    function opponentFor(teamAbbr: string): string {
+      const t = String(teamAbbr || "").toUpperCase();
+      return teamAbbrs.find((x) => x && x !== t) || "";
+    }
+
+    function pushNormRow(args: {
+      playerExt: string;
+      playerName?: string;
+      teamAbbr: string;
+      opponentAbbr: string;
+      propType: string;
+      value: number;
+    }) {
+      const key = `${args.playerExt}:${String(args.teamAbbr || "").toUpperCase()}`;
+      const set = seenByPlayer.get(key) || new Set<string>();
+      set.add(String(args.propType));
+      seenByPlayer.set(key, set);
+      norm.push({
+        player_ext: String(args.playerExt),
+        team_abbrev: String(args.teamAbbr),
+        opponent_abbrev: String(args.opponentAbbr || ""),
+        prop_type: String(args.propType),
+        value: Number(args.value ?? 0),
+        player_name: args.playerName,
+      });
+    }
+
     for (const team of teamsData) {
-      const teamAbbr = team?.team?.abbrev;
-      for (const g of team?.groups || []) {
-        for (const a of g?.athletes || []) {
-          norm.push({
-            player_ext: String(a?.athlete?.id),
-            team_abbrev: String(teamAbbr || ""),
-            opponent_abbrev: "",
-            prop_type: "Yards",
-            value: Number(a?.stats?.[0]?.value || 0),
-            player_name: a?.athlete?.displayName || a?.athlete?.shortName || undefined,
+      const teamAbbr = String(team?.team?.abbreviation || team?.team?.abbrev || "").toUpperCase();
+      const opponentAbbr = opponentFor(teamAbbr);
+      const statGroups = team?.statistics || [];
+      for (const statGroup of statGroups) {
+        const category = String(statGroup?.name || "").toLowerCase();
+        const labels: string[] = statGroup?.labels || [];
+        const athletes = statGroup?.athletes || [];
+        const mapping = propTypeMapping[category];
+        if (!mapping) continue;
+
+        for (const athlete of athletes) {
+          const playerExt = athlete?.athlete?.id;
+          const playerName =
+            athlete?.athlete?.displayName || athlete?.athlete?.shortName || undefined;
+          const stats: any[] = athlete?.stats || [];
+          if (!playerExt) continue;
+
+          labels.forEach((label, idx) => {
+            // Special case: C/ATT includes TWO stats. We ingest both.
+            if (label === "C/ATT") {
+              const pair = parseSlashPair(stats[idx]);
+              if (pair) {
+                const completions = pair.left;
+                const attempts = pair.right;
+                // completions
+                pushNormRow({
+                  playerExt: String(playerExt),
+                  playerName,
+                  teamAbbr,
+                  opponentAbbr,
+                  propType: "Passing Completions",
+                  value: completions,
+                });
+                // attempts
+                pushNormRow({
+                  playerExt: String(playerExt),
+                  playerName,
+                  teamAbbr,
+                  opponentAbbr,
+                  propType: "Passing Attempts",
+                  value: attempts,
+                });
+              }
+              return;
+            }
+            const propType = mapping[label];
+            if (!propType) return;
+            const rawValue = stats[idx];
+            const value = parseNumericStat(rawValue);
+            // keep zeros too; they matter for averages/streaks/hit rates
+            pushNormRow({
+              playerExt: String(playerExt),
+              playerName,
+              teamAbbr,
+              opponentAbbr,
+              propType,
+              value,
+            });
           });
         }
+      }
+    }
+
+    // Optional: backfill missing core offensive stats as 0 for any player who recorded *any* stat.
+    // This increases coverage for props like "QB receiving yards" where ESPN won't list the player
+    // under the receiving category unless they had a target/catch.
+    const CORE = [
+      "Passing Yards",
+      "Passing TDs",
+      "Passing Attempts",
+      "Passing Completions",
+      "Rushing Yards",
+      "Rushing Attempts",
+      "Receiving Yards",
+      "Receptions",
+    ];
+    for (const [key, set] of seenByPlayer.entries()) {
+      const [playerExt, teamAbbr] = key.split(":");
+      const opponentAbbr = opponentFor(teamAbbr);
+      for (const propType of CORE) {
+        if (set.has(propType)) continue;
+        pushNormRow({
+          playerExt,
+          playerName: undefined,
+          teamAbbr,
+          opponentAbbr,
+          propType,
+          value: 0,
+        });
       }
     }
   } else if (league === "NHL") {
@@ -463,6 +678,12 @@ async function normalizeAndInsert(league: League, gameId: string, dateStr: strin
     inserted++;
   }
   if (logsToInsert.length) {
+    // Make ingestion idempotent per game: delete existing logs for this game + these prop types, then insert.
+    const propTypesToReplace = Array.from(new Set(logsToInsert.map((r) => r.prop_type)));
+    await sqlc.unsafe(
+      `DELETE FROM public.player_game_logs WHERE game_id = $1 AND prop_type = ANY($2::text[])`,
+      [gameUuid, propTypesToReplace],
+    );
     await db.insert(player_game_logs).values(logsToInsert as any);
   }
 
@@ -475,103 +696,149 @@ async function normalizeAndInsert(league: League, gameId: string, dateStr: strin
 
 async function ingestRange(league: League, start: Date, end: Date) {
   let totalGames = 0,
-    totalPlayers = 0;
+    totalPlayers = 0,
+    totalDays = 0,
+    totalDaysWithGames = 0;
+  const startStr = start.toISOString().slice(0, 10);
+  const endStr = end.toISOString().slice(0, 10);
+  console.log(`[${league}] ingestRange start=${startStr} end=${endStr}`);
+  // Count inclusive days for progress display
+  const totalPlannedDays =
+    Math.floor((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)) + 1;
   const iter = new Date(start);
   while (iter <= end) {
+    totalDays += 1;
     const dateStr = iter.toISOString().slice(0, 10);
     const schedule = await fetchSchedule(league, dateStr);
-    if (schedule.length) console.log(`[${league}] ${dateStr}: ${schedule.length} games`);
-    for (const g of schedule) {
-      // For MLB/NHL, schedule may not include team abbreviations; derive from boxscore payload after fetch.
-      let homeCode = g?.home;
-      let awayCode = g?.away;
+    if (schedule.length) totalDaysWithGames += 1;
+    console.log(
+      `[${league}] day ${totalDays}/${totalPlannedDays}: ${dateStr} (${schedule.length} games)`,
+    );
+    // Process games in parallel batches (10 at a time to avoid overwhelming APIs)
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < schedule.length; i += BATCH_SIZE) {
+      const batch = schedule.slice(i, i + BATCH_SIZE);
+      const batchResults = await Promise.all(
+        batch.map(async (g) => {
+          // For MLB/NHL, schedule may not include team abbreviations; derive from boxscore payload after fetch.
+          let homeCode = g?.home;
+          let awayCode = g?.away;
 
-      // fetch raw first so we can derive team codes if needed
-      let raw: any | undefined;
-      try {
-        raw = await fetchGameBoxscoreRaw(league, g.gameId);
-      } catch (e: any) {
-        console.error(`[${league}] failed to fetch raw ${g.gameId}:`, e?.message || e);
-        continue;
-      }
+          // fetch raw first so we can derive team codes if needed
+          let raw: any | undefined;
+          try {
+            raw = await fetchGameBoxscoreRaw(league, g.gameId);
+          } catch (e: any) {
+            console.error(`[${league}] failed to fetch raw ${g.gameId}:`, e?.message || e);
+            return { inserted: 0, gameId: g.gameId };
+          }
 
-      if ((!homeCode || !awayCode) && (league === "MLB" || league === "NHL")) {
-        homeCode =
-          raw?.gameData?.teams?.home?.abbreviation ||
-          raw?.gameData?.teams?.home?.triCode ||
-          homeCode;
-        awayCode =
-          raw?.gameData?.teams?.away?.abbreviation ||
-          raw?.gameData?.teams?.away?.triCode ||
-          awayCode;
-        if (!homeCode || !awayCode) {
-          console.warn(`[${league}] still missing team codes after raw fetch:`, {
-            gameId: g.gameId,
-            home: homeCode,
-            away: awayCode,
-          });
-          continue;
+          if ((!homeCode || !awayCode) && (league === "MLB" || league === "NHL")) {
+            homeCode =
+              raw?.gameData?.teams?.home?.abbreviation ||
+              raw?.gameData?.teams?.home?.triCode ||
+              homeCode;
+            awayCode =
+              raw?.gameData?.teams?.away?.abbreviation ||
+              raw?.gameData?.teams?.away?.triCode ||
+              awayCode;
+            if (!homeCode || !awayCode) {
+              console.warn(`[${league}] still missing team codes after raw fetch:`, {
+                gameId: g.gameId,
+                home: homeCode,
+                away: awayCode,
+              });
+              return { inserted: 0, gameId: g.gameId };
+            }
+          }
+
+          // For non-MLB leagues, require schedule to provide codes
+          if (!homeCode || !awayCode) {
+            console.warn(`[${league}] skip game with missing team codes:`, {
+              gameId: g.gameId,
+              home: homeCode,
+              away: awayCode,
+            });
+            return { inserted: 0, gameId: g.gameId };
+          }
+
+          // Ensure game exists
+          const exists = (await db.execute(
+            sql`SELECT id FROM games WHERE api_game_id=${g.gameId} LIMIT 1`,
+          )) as Array<{ id: string }>;
+          if (!exists[0]) {
+            // get or create teams directly by abbreviation, avoiding hard dependency on team_abbrev_map
+            const leagueId = await getLeagueId(league);
+            const homeTeamId = await getOrCreateTeam(league, String(homeCode));
+            const awayTeamId = await getOrCreateTeam(league, String(awayCode));
+            if (leagueId && homeTeamId && awayTeamId) {
+              await db
+                .insert(games)
+                .values({
+                  league_id: leagueId,
+                  home_team_id: homeTeamId,
+                  away_team_id: awayTeamId,
+                  game_date: dateStr,
+                  season: seasonFromDate(dateStr, league),
+                  season_type: "regular",
+                  status: "completed",
+                  api_game_id: g.gameId,
+                })
+                .onConflictDoNothing();
+            } else {
+              console.warn(`[${league}] missing mapping for ${awayCode} @ ${homeCode} ${dateStr}`);
+              return { inserted: 0, gameId: g.gameId };
+            }
+          }
+
+          // save raw, normalize
+          try {
+            await saveRaw(league, g.gameId, raw, seasonFromDate(dateStr, league));
+            const inserted = await normalizeAndInsert(league, g.gameId, dateStr);
+            console.log(
+              `[${league}] game (date ${dateStr}) ${awayCode} @ ${homeCode} api_game_id=${g.gameId} → ${inserted} logs`,
+            );
+            return { inserted, gameId: g.gameId };
+          } catch (e: any) {
+            console.error(`[${league}] failed ${g.gameId}:`, e?.message || e);
+            return { inserted: 0, gameId: g.gameId };
+          }
+        }),
+      );
+      // Aggregate batch results
+      for (const result of batchResults) {
+        if (result) {
+          totalPlayers += result.inserted;
+          totalGames++;
         }
       }
-
-      // For non-MLB leagues, require schedule to provide codes
-      if (!homeCode || !awayCode) {
-        console.warn(`[${league}] skip game with missing team codes:`, {
-          gameId: g.gameId,
-          home: homeCode,
-          away: awayCode,
-        });
-        continue;
-      }
-
-      // Ensure game exists
-      const exists = (await db.execute(
-        sql`SELECT id FROM games WHERE api_game_id=${g.gameId} LIMIT 1`,
-      )) as Array<{ id: string }>;
-      if (!exists[0]) {
-        // get or create teams directly by abbreviation, avoiding hard dependency on team_abbrev_map
-        const leagueId = await getLeagueId(league);
-        const homeTeamId = await getOrCreateTeam(league, String(homeCode));
-        const awayTeamId = await getOrCreateTeam(league, String(awayCode));
-        if (leagueId && homeTeamId && awayTeamId) {
-          await db
-            .insert(games)
-            .values({
-              league_id: leagueId,
-              home_team_id: homeTeamId,
-              away_team_id: awayTeamId,
-              game_date: dateStr,
-              season: seasonFromDate(dateStr, league),
-              season_type: "regular",
-              status: "completed",
-              api_game_id: g.gameId,
-            })
-            .onConflictDoNothing();
-        } else {
-          console.warn(`[${league}] missing mapping for ${awayCode} @ ${homeCode} ${dateStr}`);
-          continue;
-        }
-      }
-
-      // save raw, normalize
-      try {
-        await saveRaw(league, g.gameId, raw, seasonFromDate(dateStr, league));
-        const inserted = await normalizeAndInsert(league, g.gameId, dateStr);
-        totalPlayers += inserted;
-        totalGames++;
-      } catch (e: any) {
-        console.error(`[${league}] failed ${g.gameId}:`, e?.message || e);
-      }
+      console.log(
+        `[${league}] batch complete: cumulative logs=${totalPlayers}, games=${totalGames}`,
+      );
     }
     iter.setDate(iter.getDate() + 1);
-    await new Promise((r) => setTimeout(r, 400));
+    // Reduced delay from 400ms to 50ms since we're batching
+    await new Promise((r) => setTimeout(r, 50));
   }
-  console.log(`[${league}] done. games: ${totalGames}, player logs: ${totalPlayers}`);
+  console.log(
+    `[${league}] done. days=${totalDays} (daysWithGames=${totalDaysWithGames}) games=${totalGames} player_logs=${totalPlayers}`,
+  );
 }
 
 async function main() {
   const league = (process.argv[2] || "NBA").toUpperCase() as League;
-  const days = Number(process.argv[3] || 60);
+  // Usage:
+  //   tsx scripts/ingest-official-game-logs.ts NFL 90
+  //   tsx scripts/ingest-official-game-logs.ts NFL --start=2025-09-01 --end=2025-12-21
+  const args = process.argv.slice(3);
+  const startArg = args.find((a) => a.startsWith("--start="))?.split("=")[1];
+  const endArg = args.find((a) => a.startsWith("--end="))?.split("=")[1];
+  if (startArg && endArg) {
+    await ingestRange(league, new Date(startArg), new Date(endArg));
+    return;
+  }
+
+  const days = Number(args[0] || 60);
   const end = new Date();
   const start = new Date();
   start.setDate(end.getDate() - days);

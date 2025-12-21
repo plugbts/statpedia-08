@@ -108,6 +108,7 @@
     "ingest:official:wnba": "tsx scripts/ingest-official-game-logs.ts WNBA 60",
     "ingest:official:nhl": "tsx scripts/ingest-official-game-logs.ts NHL 60",
     "ingest:official:all": "concurrently -n NBA,NFL,MLB,WNBA,NHL \"npm:ingest:official:nba\" \"npm:ingest:official:nfl\" \"npm:ingest:official:mlb\" \"npm:ingest:official:wnba\" \"npm:ingest:official:nhl\"",
+    "backfill:nfl:seasons": "tsx scripts/backfill-nfl-seasons.ts 2024 2025",
     "player-logs:test": "tsx scripts/test-player-logs-ingestion.ts",
     "player-logs:debug": "tsx scripts/nba-wnba-player-logs-ingestion.ts debug",
     "player-logs:batch": "tsx scripts/nba-wnba-player-logs-ingestion.ts batch",
