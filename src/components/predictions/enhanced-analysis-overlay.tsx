@@ -1819,6 +1819,17 @@ export function EnhancedAnalysisOverlay({
   // Use updated data if available, otherwise use original enhanced data
   const currentData = finalEnhancedData;
 
+  // Get player headshot URL (must be after currentData is defined)
+  const playerHeadshotUrl = useMemo(() => {
+    if (!currentData) return null;
+    const playerId = String(
+      (currentData as any)?.playerId || (currentData as any)?.id || "",
+    ).trim();
+    const sport = String((currentData as any)?.sport || "nfl").toLowerCase();
+    if (!playerId) return null;
+    return getPlayerHeadshot(sport, playerId);
+  }, [(currentData as any)?.playerId, (currentData as any)?.sport]);
+
   // Load super-advanced model prediction for this exact prop (NFL only for now)
   useEffect(() => {
     const run = async () => {
