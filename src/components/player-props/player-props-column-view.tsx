@@ -464,7 +464,7 @@ export function PlayerPropsColumnView({
         direction: overUnderFilter as "over" | "under",
         team: prop.team || "UNK",
         opponent: prop.opponent || "UNK",
-        position: prop.position || "QB",
+        position: prop.position || undefined,
         sport: prop.sport || selectedSport,
       }));
 
@@ -1097,47 +1097,47 @@ export function PlayerPropsColumnView({
         <div className="flex-none">
           {/* Fixed Header */}
           <div className="flex bg-gradient-card border-b border-border/50">
-            <div className="w-64 px-4 py-3 text-xs font-semibold text-foreground flex items-center justify-center gap-1">
+            <div className="w-56 px-3 py-2 text-[10px] font-semibold text-foreground flex items-center justify-center gap-1">
               <Users className="w-3 h-3" />
               Player
             </div>
-            <div className="w-20 flex items-center justify-center px-2 py-3 text-xs font-semibold text-foreground">
+            <div className="w-16 flex items-center justify-center px-1 py-2 text-[10px] font-semibold text-foreground">
               Team
             </div>
-            <div className="w-32 flex items-center justify-center px-2 py-3 text-xs font-semibold text-foreground">
+            <div className="w-28 flex items-center justify-center px-1 py-2 text-[10px] font-semibold text-foreground">
               Prop
             </div>
-            <div className="w-20 flex items-center justify-center px-2 py-3 text-xs font-semibold text-foreground">
+            <div className="w-16 flex items-center justify-center px-1 py-2 text-[10px] font-semibold text-foreground">
               Line
             </div>
-            <div className="w-20 flex items-center justify-center px-2 py-3 text-xs font-semibold text-foreground">
+            <div className="w-16 flex items-center justify-center px-1 py-2 text-[10px] font-semibold text-foreground">
               Odds
             </div>
-            <div className="w-20 flex items-center justify-center px-2 py-3 text-xs font-semibold text-foreground">
+            <div className="w-16 flex items-center justify-center px-1 py-2 text-[10px] font-semibold text-foreground">
               EV%
             </div>
-            <div className="w-20 flex items-center justify-center px-2 py-3 text-xs font-semibold text-foreground">
+            <div className="w-16 flex items-center justify-center px-1 py-2 text-[10px] font-semibold text-foreground">
               Streak
             </div>
-            <div className="w-20 flex items-center justify-center px-2 py-3 text-xs font-semibold text-foreground">
+            <div className="w-16 flex items-center justify-center px-1 py-2 text-[10px] font-semibold text-foreground">
               Rating
             </div>
-            <div className="w-24 flex items-center justify-center px-1 py-3 text-xs font-semibold text-foreground">
+            <div className="w-20 flex items-center justify-center px-1 py-2 text-[10px] font-semibold text-foreground">
               Matchup
             </div>
-            <div className="w-24 flex items-center justify-center px-1 py-3 text-xs font-semibold text-foreground">
+            <div className="w-20 flex items-center justify-center px-1 py-2 text-[10px] font-semibold text-foreground">
               H2H
             </div>
-            <div className="w-24 flex items-center justify-center px-1 py-3 text-xs font-semibold text-foreground">
+            <div className="w-20 flex items-center justify-center px-1 py-2 text-[10px] font-semibold text-foreground">
               2025
             </div>
-            <div className="w-24 flex items-center justify-center px-1 py-3 text-xs font-semibold text-foreground">
+            <div className="w-20 flex items-center justify-center px-1 py-2 text-[10px] font-semibold text-foreground">
               L5
             </div>
-            <div className="w-24 flex items-center justify-center px-1 py-3 text-xs font-semibold text-foreground">
+            <div className="w-20 flex items-center justify-center px-1 py-2 text-[10px] font-semibold text-foreground">
               L10
             </div>
-            <div className="w-24 flex items-center justify-center px-1 py-3 text-xs font-semibold text-foreground">
+            <div className="w-20 flex items-center justify-center px-1 py-2 text-[10px] font-semibold text-foreground">
               L20
             </div>
           </div>
@@ -1350,11 +1350,11 @@ export function PlayerPropsColumnView({
                   className="bg-gradient-card border-border/50 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 cursor-pointer group hover:scale-[1.02] hover:bg-gradient-to-br hover:from-card/90 hover:to-card/70"
                   onClick={() => handlePropClick(prop)}
                 >
-                  <CardContent className="p-3">
+                  <CardContent className="p-2">
                     <div className="flex items-center">
                       {/* Player Info */}
-                      <div className="w-64 flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 flex items-center justify-center text-foreground font-bold text-sm overflow-hidden flex-shrink-0">
+                      <div className="w-56 flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 flex items-center justify-center text-foreground font-bold text-xs overflow-hidden flex-shrink-0">
                           {(() => {
                             const knownHeadshotUrl = getKnownPlayerHeadshot(
                               prop.playerName,
@@ -1387,8 +1387,18 @@ export function PlayerPropsColumnView({
                           })()}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="font-bold text-foreground text-sm group-hover:text-primary transition-colors duration-200 truncate">
+                          <div className="font-bold text-foreground text-xs group-hover:text-primary transition-colors duration-200 truncate leading-tight">
                             {prop.playerName || "Unknown Player"}
+                          </div>
+                          <div className="text-[10px] text-purple-400 font-semibold leading-tight truncate">
+                            {(() => {
+                              const fromData = normalizePosition(prop.position || "").toUpperCase();
+                              if (fromData) return fromData;
+                              const derived = getPositionFromPropType(
+                                String(prop.propType || ""),
+                              ).toUpperCase();
+                              return derived && derived !== "N/A" ? derived : "—";
+                            })()}
                           </div>
                         </div>
                         <Button

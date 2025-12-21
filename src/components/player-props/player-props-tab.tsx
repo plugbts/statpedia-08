@@ -625,31 +625,12 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
   // Load available sportsbooks for the selected sport
   const loadAvailableSportsbooks = useCallback(async (sport: string) => {
     try {
-      // Create list of real sportsbooks using official SportsGameOdds API bookmaker IDs
+      // Only show the supported American sportsbooks in the UI (PropFinder-style)
       const sportsbooks = [
         { key: "all", title: "All Sportsbooks", lastUpdate: new Date().toISOString() },
         { key: "fanduel", title: "FanDuel", lastUpdate: new Date().toISOString() },
         { key: "draftkings", title: "Draft Kings", lastUpdate: new Date().toISOString() },
-        { key: "betmgm", title: "BetMGM", lastUpdate: new Date().toISOString() },
-        { key: "caesars", title: "Caesars", lastUpdate: new Date().toISOString() },
-        { key: "pointsbet", title: "PointsBet", lastUpdate: new Date().toISOString() },
-        { key: "betrivers", title: "BetRivers", lastUpdate: new Date().toISOString() },
-        { key: "foxbet", title: "FOX Bet", lastUpdate: new Date().toISOString() },
         { key: "bet365", title: "bet365", lastUpdate: new Date().toISOString() },
-        { key: "williamhill", title: "William Hill", lastUpdate: new Date().toISOString() },
-        { key: "pinnacle", title: "Pinnacle", lastUpdate: new Date().toISOString() },
-        { key: "bovada", title: "Bovada", lastUpdate: new Date().toISOString() },
-        { key: "betonline", title: "BetOnline", lastUpdate: new Date().toISOString() },
-        { key: "betway", title: "Betway", lastUpdate: new Date().toISOString() },
-        { key: "unibet", title: "Unibet", lastUpdate: new Date().toISOString() },
-        { key: "ladbrokes", title: "Ladbrokes", lastUpdate: new Date().toISOString() },
-        { key: "coral", title: "Coral", lastUpdate: new Date().toISOString() },
-        { key: "paddypower", title: "Paddy Power", lastUpdate: new Date().toISOString() },
-        { key: "skybet", title: "Sky Bet", lastUpdate: new Date().toISOString() },
-        { key: "boylesports", title: "BoyleSports", lastUpdate: new Date().toISOString() },
-        { key: "betfair", title: "Betfair", lastUpdate: new Date().toISOString() },
-        { key: "betvictor", title: "Bet Victor", lastUpdate: new Date().toISOString() },
-        { key: "betfred", title: "Betfred", lastUpdate: new Date().toISOString() },
       ];
       setAvailableSportsbooks(sportsbooks);
       logSuccess(
@@ -762,11 +743,34 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
           };
 
           const transformedProps = result.map((prop, index) => {
-            const offers = prop.offers || [];
+            const allowedBooks = new Set(["fanduel", "draftkings", "bet365"]);
+            const offersAll = prop.offers || [];
+            const offers = offersAll.filter((o) =>
+              allowedBooks.has(String(o.book || "").toLowerCase()),
+            );
+
+            const toDecimal = (american: number): number =>
+              american > 0 ? 1 + american / 100 : 1 + 100 / Math.abs(american);
+            const bestFromOffers = (side: "over" | "under") => {
+              let best: any = null;
+              for (const o of offers) {
+                const odds = side === "over" ? o.overOdds : o.underOdds;
+                if (typeof odds !== "number" || !Number.isFinite(odds) || odds === 0) continue;
+                const dec = toDecimal(odds);
+                if (!best || dec > best.dec)
+                  best = { book: o.book, odds, dec, deeplink: o.deeplink };
+              }
+              return best;
+            };
+
+            const bestOverOffer = bestFromOffers("over");
+            const bestUnderOffer = bestFromOffers("under");
             const overOdds =
+              bestOverOffer?.odds ??
               prop.best_over?.odds ??
               offers.reduce((acc, o) => (o.overOdds != null ? o.overOdds : acc), 0);
             const underOdds =
+              bestUnderOffer?.odds ??
               prop.best_under?.odds ??
               offers.reduce((acc, o) => (o.underOdds != null ? o.underOdds : acc), 0);
             const edgeOver =
@@ -793,12 +797,12 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
               gameDate: prop.startTime || new Date().toISOString(),
               gameTime: prop.startTime || new Date().toISOString(),
               // expose best book odds for UI rendering
-              best_over: prop.best_over?.odds,
-              best_under: prop.best_under?.odds,
-              best_over_book: prop.best_over?.book,
-              best_under_book: prop.best_under?.book,
-              best_over_deeplink: prop.best_over?.deeplink,
-              best_under_deeplink: prop.best_under?.deeplink,
+              best_over: bestOverOffer?.odds ?? prop.best_over?.odds,
+              best_under: bestUnderOffer?.odds ?? prop.best_under?.odds,
+              best_over_book: bestOverOffer?.book ?? prop.best_over?.book,
+              best_under_book: bestUnderOffer?.book ?? prop.best_under?.book,
+              best_over_deeplink: bestOverOffer?.deeplink ?? prop.best_over?.deeplink,
+              best_under_deeplink: bestUnderOffer?.deeplink ?? prop.best_under?.deeplink,
               // basic EV proxy from best edge vs average price; convert % to 0-1
               expectedValue: Number.isFinite(bestEdgePct)
                 ? Math.max(-1, Math.min(1, bestEdgePct / 100))
@@ -814,6 +818,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
                 underOdds: o.underOdds,
                 deeplink: o.deeplink,
               })),
+              position: (prop as any).position ?? null,
               // Analytics fields - pass through if present in prop (from /api/props-list)
               l5: (prop as any).l5 ?? null,
               l10: (prop as any).l10 ?? null,
@@ -1556,6 +1561,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
   // Without this, we may show the "best" odds across all books (often + odds) even if FanDuel is -113.
   const displayedProps = React.useMemo(() => {
     const book = String(selectedSportsbook || "all").toLowerCase();
+    const allowed = new Set(["fanduel", "draftkings", "bet365"]);
     if (book === "all") {
       return orderedProps.map((p: any) => ({
         ...p,

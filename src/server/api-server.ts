@@ -83,6 +83,7 @@ type NormalizedProp = {
   startTime?: string;
   playerId?: string;
   playerName?: string;
+  position?: string | null;
   team?: string;
   opponent?: string;
   // Raw SGO stat identifier (useful for debugging propType mismatches)
@@ -1035,6 +1036,7 @@ async function enrichPropsWithAnalytics(
         // Start with DB analytics when present (fallback to existing values otherwise)
         let out: NormalizedProp = {
           ...p,
+          position: posByPlayerId.get(pid) || null,
           l5: r ? toNumberOrNull(r.l5) : (p.l5 ?? null),
           l10: r ? toNumberOrNull(r.l10) : (p.l10 ?? null),
           l20: r ? toNumberOrNull(r.l20) : (p.l20 ?? null),
