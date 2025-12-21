@@ -1289,11 +1289,38 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
           (p.offers?.length || 0) +
           (p.allSportsbookOdds?.length || 0) +
           (p.availableSportsbooks?.length || 0);
+        const bestOver = Number(best.overOdds || 0);
+        const bestUnder = Number(best.underOdds || 0);
+        const pOver = Number(p.overOdds || 0);
+        const pUnder = Number(p.underOdds || 0);
+
+        const bestTwoSided =
+          Number.isFinite(bestOver) &&
+          Number.isFinite(bestUnder) &&
+          bestOver !== 0 &&
+          bestUnder !== 0;
+        const pTwoSided =
+          Number.isFinite(pOver) && Number.isFinite(pUnder) && pOver !== 0 && pUnder !== 0;
+
+        const oddsDistance = (ov: number, un: number) =>
+          Math.abs(Math.abs(ov) - 110) + Math.abs(Math.abs(un) - 110);
+        const bestDist = bestTwoSided
+          ? oddsDistance(bestOver, bestUnder)
+          : Number.POSITIVE_INFINITY;
+        const pDist = pTwoSided ? oddsDistance(pOver, pUnder) : Number.POSITIVE_INFINITY;
+
+        // Prefer "main market"-looking lines first: two-sided odds near -110.
+        if (pTwoSided && !bestTwoSided) return p;
+        if (!pTwoSided && bestTwoSided) return best;
+        if (pDist !== bestDist) return pDist < bestDist ? p : best;
+
+        // Next: prefer more books offering the line.
         if (pOffers > bestOffers) return p;
         if (pOffers < bestOffers) return best;
-        // If tied on offers, prefer better odds (lower absolute value = better)
-        const bestOdds = Math.max(Math.abs(best.overOdds || 0), Math.abs(best.underOdds || 0));
-        const pOdds = Math.max(Math.abs(p.overOdds || 0), Math.abs(p.underOdds || 0));
+
+        // Final tie-breaker: prefer the more "balanced" side (closer max abs odds)
+        const bestOdds = Math.max(Math.abs(bestOver || 0), Math.abs(bestUnder || 0));
+        const pOdds = Math.max(Math.abs(pOver || 0), Math.abs(pUnder || 0));
         return pOdds < bestOdds ? p : best;
       });
 
@@ -1616,23 +1643,26 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
             : (p as any).best_over_deeplink || (p as any).best_under_deeplink,
       }));
     }
-    return orderedProps.map((p: any) => {
-      const books = Array.isArray((p as any).allSportsbookOdds) ? (p as any).allSportsbookOdds : [];
-      const match = books.find((o: any) => normalizeBookKey(String(o?.sportsbook || "")) === book);
-      if (!match) {
-        // If this prop doesn't exist on the selected book, don't show misleading odds.
-        return { ...p, overOdds: 0, underOdds: 0, sportsbookSource: book };
-      }
-      const over = typeof match.overOdds === "number" ? match.overOdds : p.overOdds;
-      const under = typeof match.underOdds === "number" ? match.underOdds : p.underOdds;
-      return {
-        ...p,
-        overOdds: over,
-        underOdds: under,
-        sportsbookSource: book,
-        sportsbookDeeplink: match.deeplink,
-      };
-    });
+    return orderedProps
+      .map((p: any) => {
+        const books = Array.isArray((p as any).allSportsbookOdds)
+          ? (p as any).allSportsbookOdds
+          : [];
+        const match = books.find(
+          (o: any) => normalizeBookKey(String(o?.sportsbook || "")) === book,
+        );
+        if (!match) return null; // hide props not offered on selected book
+        const over = typeof match.overOdds === "number" ? match.overOdds : p.overOdds;
+        const under = typeof match.underOdds === "number" ? match.underOdds : p.underOdds;
+        return {
+          ...p,
+          overOdds: over,
+          underOdds: under,
+          sportsbookSource: book,
+          sportsbookDeeplink: match.deeplink,
+        };
+      })
+      .filter(Boolean) as any[];
   }, [orderedProps, selectedSportsbook, overUnderFilter]);
 
   logFilter("PlayerPropsTab", `Final filteredProps length: ${filteredProps.length}`);

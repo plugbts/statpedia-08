@@ -1633,14 +1633,10 @@ export function EnhancedAnalysisOverlay({
     }
 
     // Expected value: prefer backend ev_percent (already computed) else fallback
-    let calculatedExpectedValue: any = (prediction as any).ev_percent ?? prediction.expectedValue;
-    if (typeof calculatedExpectedValue === "number" && Number.isFinite(calculatedExpectedValue)) {
-      // If it's in 0..1 range, convert to percent
-      if (calculatedExpectedValue >= -1 && calculatedExpectedValue <= 1)
-        calculatedExpectedValue = calculatedExpectedValue * 100;
-    } else {
-      calculatedExpectedValue = 0;
-    }
+    // EV% is already expressed in percent points in our API (e.g. 1.9 means +1.9%).
+    const rawEv = (prediction as any).ev_percent ?? prediction.expectedValue;
+    const calculatedExpectedValue: number =
+      typeof rawEv === "number" && Number.isFinite(rawEv) ? rawEv : 0;
 
     // Override current streak + recent form + consistency from real analytics fields
     const streakFromApiRaw =
@@ -1786,35 +1782,36 @@ export function EnhancedAnalysisOverlay({
       if (!prediction?.playerName) return;
 
       try {
-        // Check if we have injury data in the prediction object
-        const hasInjuryData = prediction.injuryStatus || prediction.injuryImpact;
-
-        if (hasInjuryData) {
-          // Use actual injury data if available
-          const status = prediction.injuryStatus || "Unknown";
-          setInjuryStatus(status);
-          setIsQuestionable(
-            status.toLowerCase().includes("questionable") ||
-              status.toLowerCase().includes("doubtful"),
-          );
-        } else {
-          // No injury data available - show as healthy by default
-          setInjuryStatus("Healthy");
+        const teamAbbr = String(
+          (prediction as any).teamAbbr || (prediction as any).team || "",
+        ).trim();
+        if (!teamAbbr) {
+          setInjuryStatus("Unknown");
           setIsQuestionable(false);
+          return;
         }
-
-        console.log(
-          `🔍 Injury Status for ${prediction.playerName}: ${hasInjuryData ? "Using provided data" : "Healthy (no injury data available)"}`,
+        const base = `${window.location.protocol}//${window.location.hostname}:3001`;
+        const qs = new URLSearchParams({
+          team: teamAbbr.toUpperCase(),
+          player: String(prediction.playerName || ""),
+        });
+        const resp = await fetch(`${base}/api/nfl/injury-status?${qs.toString()}`);
+        const json = await resp.json();
+        const status = String(json?.status || "Unknown");
+        setInjuryStatus(status);
+        const s = status.toLowerCase();
+        setIsQuestionable(
+          s.includes("questionable") || s.includes("doubtful") || s.includes("out"),
         );
       } catch (error) {
         console.error("Error checking injury status:", error);
-        setInjuryStatus("Healthy"); // Default to healthy instead of unknown
+        setInjuryStatus("Unknown");
         setIsQuestionable(false);
       }
     };
 
     checkInjuryStatus();
-  }, [prediction?.playerName, prediction?.injuryStatus, prediction?.injuryImpact]);
+  }, [prediction?.playerName, (prediction as any)?.teamAbbr, (prediction as any)?.team]);
 
   if (!prediction || !enhancedData) {
     console.log(

@@ -1911,6 +1911,170 @@ app.get("/api/player-game-logs", async (req, res) => {
   }
 });
 
+// Real NFL injury lookup (ESPN public endpoint) - used by analytics overlay
+// Usage: /api/nfl/injury-status?team=BUF&player=Dawson%20Knox
+const nflEspnTeamIdByAbbr: Record<string, string> = {
+  ARI: "22",
+  ATL: "1",
+  BAL: "33",
+  BUF: "2",
+  CAR: "29",
+  CHI: "3",
+  CIN: "4",
+  CLE: "5",
+  DAL: "6",
+  DEN: "7",
+  DET: "8",
+  GB: "9",
+  HOU: "34",
+  IND: "11",
+  JAX: "30",
+  KC: "12",
+  LV: "13",
+  LAC: "24",
+  LAR: "14",
+  MIA: "15",
+  MIN: "16",
+  NE: "17",
+  NO: "18",
+  NYG: "19",
+  NYJ: "20",
+  PHI: "21",
+  PIT: "23",
+  SF: "25",
+  SEA: "26",
+  TB: "27",
+  TEN: "10",
+  WAS: "28",
+};
+
+function normalizeHumanNameLoose(name: string) {
+  return String(name || "")
+    .toLowerCase()
+    .replace(/['.]/g, "")
+    .replace(/-/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function findInjuriesArray(obj: any): any[] | null {
+  if (!obj || typeof obj !== "object") return null;
+  if (Array.isArray((obj as any).injuries)) return (obj as any).injuries;
+  for (const k of Object.keys(obj)) {
+    const v = (obj as any)[k];
+    if (v && typeof v === "object") {
+      const found = findInjuriesArray(v);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+app.get("/api/nfl/injury-status", async (req, res) => {
+  try {
+    const team = String((req.query.team || "") as string)
+      .trim()
+      .toUpperCase();
+    const player = String((req.query.player || "") as string).trim();
+    if (!team || !player) {
+      return res.status(400).json({ success: false, error: "Missing team and player params" });
+    }
+    const teamId = nflEspnTeamIdByAbbr[team] || "";
+    if (!teamId) {
+      return res.status(400).json({ success: false, error: `Unknown NFL team abbr: ${team}` });
+    }
+
+    // Cache for 10 minutes (in-memory)
+    const cacheKey = `espn-injuries:${teamId}`;
+    (globalThis as any).__espnInjuryCache = (globalThis as any).__espnInjuryCache || new Map();
+    const cache: Map<string, { ts: number; data: any }> = (globalThis as any).__espnInjuryCache;
+    const now = Date.now();
+    const cached = cache.get(cacheKey);
+    if (!cached || now - cached.ts > 10 * 60 * 1000) {
+      const urls = [
+        `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${teamId}?enable=injuries`,
+        `https://site.web.api.espn.com/apis/v2/sports/football/nfl/teams/${teamId}?enable=injuries`,
+        `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${teamId}/injuries`,
+      ];
+      let payload: any = null;
+      let lastErr: any = null;
+      for (const u of urls) {
+        try {
+          const r = await fetch(u, { headers: { accept: "application/json" } as any });
+          if (!r.ok) {
+            lastErr = new Error(`HTTP ${r.status}`);
+            continue;
+          }
+          payload = await r.json();
+          break;
+        } catch (e) {
+          lastErr = e;
+        }
+      }
+      if (!payload) {
+        return res.status(502).json({ success: false, error: "Failed to fetch ESPN injuries" });
+      }
+      cache.set(cacheKey, { ts: now, data: payload });
+    }
+
+    const data = (cache.get(cacheKey) || {}).data;
+    const injuries = findInjuriesArray(data) || [];
+    const target = normalizeHumanNameLoose(player);
+
+    let match: any = null;
+    for (const it of injuries) {
+      const athlete =
+        it?.athlete || it?.player || it?.person || it?.athlete?.displayName ? it?.athlete : null;
+      const name = athlete?.displayName || athlete?.fullName || it?.name || it?.displayName || "";
+      if (!name) continue;
+      const n = normalizeHumanNameLoose(name);
+      if (n === target) {
+        match = it;
+        break;
+      }
+    }
+
+    if (!match) {
+      return res.json({
+        success: true,
+        team,
+        player,
+        status: "Healthy",
+        source: "espn",
+        updated_at: new Date((cache.get(cacheKey) || {}).ts || now).toISOString(),
+      });
+    }
+
+    const statusText =
+      match?.status?.name ||
+      match?.status?.type ||
+      match?.status ||
+      match?.injuryStatus ||
+      "Unknown";
+    const details =
+      match?.type?.description ||
+      match?.type?.name ||
+      match?.injury?.description ||
+      match?.injury ||
+      null;
+    const returnDate = match?.returnDate || match?.date || match?.injury?.date || null;
+
+    return res.json({
+      success: true,
+      team,
+      player,
+      status: String(statusText),
+      details,
+      returnDate,
+      source: "espn",
+      updated_at: new Date((cache.get(cacheKey) || {}).ts || now).toISOString(),
+    });
+  } catch (e) {
+    console.error("GET /api/nfl/injury-status error:", e);
+    return res.status(500).json({ success: false, error: "Failed to fetch injury status" });
+  }
+});
+
 // Props list route (served directly from this API server)
 app.get("/api/props-list", async (req, res) => {
   try {
