@@ -1119,77 +1119,79 @@ const EnhancedLineChart = React.memo(
 
     return (
       <ChartContainer config={enhancedChartConfig} className={cn("w-full", className)}>
-        <div>
+        <div className="w-full">
           <div className="h-6 mb-4">
             <h3 className="text-lg font-bold text-slate-200">Performance Trend</h3>
             <p className="text-sm text-slate-400">Last 10 games vs opponents</p>
           </div>
-          <ResponsiveContainer width="100%" height={height}>
-            <RechartsLineChart
-              data={chartData}
-              margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-            >
-              <defs>
-                <linearGradient id="performanceGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.2)" />
-              <XAxis
-                dataKey="gameLabel"
-                tick={{ fill: "#94a3b8", fontSize: 12 }}
-                axisLine={{ stroke: "#475569" }}
-              />
-              <YAxis
-                tick={{ fill: "#94a3b8", fontSize: 12 }}
-                axisLine={{ stroke: "#475569" }}
-                domain={["dataMin - 2", "dataMax + 2"]}
-              />
-              <ChartTooltip content={<CustomTooltip />} />
-
-              {/* Reference line for the betting line */}
-              <ReferenceLine
-                y={line}
-                stroke="#fbbf24"
-                strokeDasharray="4 4"
-                strokeWidth={4}
-                ifOverflow="extendDomain"
-                label={{
-                  value: `Line: ${line}`,
-                  position: "insideTopLeft",
-                  fill: "#fbbf24",
-                  fontSize: 14,
-                  fontWeight: "bold",
-                  dy: -10,
-                  backgroundColor: "rgba(0, 0, 0, 0.7)",
-                  padding: 4,
-                }}
-              />
-
-              {/* Performance line */}
-              <Line
-                type="monotone"
-                dataKey="performance"
-                stroke="#60a5fa"
-                strokeWidth={5}
-                dot={{ r: 4, fill: "#60a5fa", stroke: "#3b82f6", strokeWidth: 2 }}
-                activeDot={{ r: 8, fill: "#60a5fa", stroke: "#3b82f6", strokeWidth: 3 }}
-              />
-
-              {/* Over/Under indicators */}
-              {chartData.map((entry, index) => (
-                <ReferenceArea
-                  key={index}
-                  x1={entry.gameLabel}
-                  x2={entry.gameLabel}
-                  y1={entry.hit ? entry.performance : line}
-                  y2={entry.hit ? line : entry.performance}
-                  fill={entry.hit ? "rgba(16, 185, 129, 0.2)" : "rgba(239, 68, 68, 0.2)"}
+          <div className="w-full" style={{ height: `${height}px`, minHeight: `${height}px` }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <RechartsLineChart
+                data={chartData}
+                margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+              >
+                <defs>
+                  <linearGradient id="performanceGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.2)" />
+                <XAxis
+                  dataKey="gameLabel"
+                  tick={{ fill: "#94a3b8", fontSize: 12 }}
+                  axisLine={{ stroke: "#475569" }}
                 />
-              ))}
-            </RechartsLineChart>
-          </ResponsiveContainer>
+                <YAxis
+                  tick={{ fill: "#94a3b8", fontSize: 12 }}
+                  axisLine={{ stroke: "#475569" }}
+                  domain={["dataMin - 2", "dataMax + 2"]}
+                />
+                <ChartTooltip content={<CustomTooltip />} />
+
+                {/* Reference line for the betting line */}
+                <ReferenceLine
+                  y={line}
+                  stroke="#fbbf24"
+                  strokeDasharray="4 4"
+                  strokeWidth={4}
+                  ifOverflow="extendDomain"
+                  label={{
+                    value: `Line: ${line}`,
+                    position: "insideTopLeft",
+                    fill: "#fbbf24",
+                    fontSize: 14,
+                    fontWeight: "bold",
+                    dy: -10,
+                    backgroundColor: "rgba(0, 0, 0, 0.7)",
+                    padding: 4,
+                  }}
+                />
+
+                {/* Performance line */}
+                <Line
+                  type="monotone"
+                  dataKey="performance"
+                  stroke="#60a5fa"
+                  strokeWidth={5}
+                  dot={{ r: 4, fill: "#60a5fa", stroke: "#3b82f6", strokeWidth: 2 }}
+                  activeDot={{ r: 8, fill: "#60a5fa", stroke: "#3b82f6", strokeWidth: 3 }}
+                />
+
+                {/* Over/Under indicators */}
+                {chartData.map((entry, index) => (
+                  <ReferenceArea
+                    key={index}
+                    x1={entry.gameLabel}
+                    x2={entry.gameLabel}
+                    y1={entry.hit ? entry.performance : line}
+                    y2={entry.hit ? line : entry.performance}
+                    fill={entry.hit ? "rgba(16, 185, 129, 0.2)" : "rgba(239, 68, 68, 0.2)"}
+                  />
+                ))}
+              </RechartsLineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </ChartContainer>
     );
@@ -1252,59 +1254,70 @@ const EnhancedBarChart = React.memo(
 
     return (
       <ChartContainer config={enhancedChartConfig} className={cn("w-full", className)}>
-        <div>
+        <div className="w-full">
           <div className="h-6 mb-4">
             <h3 className="text-lg font-bold text-slate-200">Performance by Game</h3>
             <p className="text-sm text-slate-400">Bar chart showing performance vs line</p>
           </div>
-          <ResponsiveContainer width="100%" height={height}>
-            <RechartsBarChart
-              data={chartData}
-              margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.2)" />
-              <XAxis
-                dataKey="gameLabel"
-                tick={{ fill: "#94a3b8", fontSize: 12 }}
-                axisLine={{ stroke: "#475569" }}
-              />
-              <YAxis
-                tick={{ fill: "#94a3b8", fontSize: 12 }}
-                axisLine={{ stroke: "#475569" }}
-                domain={["dataMin - 2", "dataMax + 2"]}
-              />
-              <ChartTooltip content={<CustomTooltip />} />
+          <div className="w-full" style={{ height: `${height}px`, minHeight: `${height}px` }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <RechartsBarChart
+                data={chartData}
+                margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.2)" />
+                <XAxis
+                  dataKey="gameLabel"
+                  tick={{ fill: "#94a3b8", fontSize: 12 }}
+                  axisLine={{ stroke: "#475569" }}
+                />
+                <YAxis
+                  tick={{ fill: "#94a3b8", fontSize: 12 }}
+                  axisLine={{ stroke: "#475569" }}
+                  domain={[
+                    (dataMin: number) => {
+                      const min = Math.min(dataMin, line);
+                      return Math.max(0, min - Math.max(2, min * 0.1));
+                    },
+                    (dataMax: number) => {
+                      const max = Math.max(dataMax, line);
+                      return max + Math.max(2, max * 0.1);
+                    },
+                  ]}
+                />
+                <ChartTooltip content={<CustomTooltip />} />
 
-              {/* Reference line for the betting line */}
-              <ReferenceLine
-                y={line}
-                stroke="#fbbf24"
-                strokeDasharray="4 4"
-                strokeWidth={4}
-                ifOverflow="extendDomain"
-                label={{
-                  value: `Line: ${line}`,
-                  position: "insideTopLeft",
-                  fill: "#fbbf24",
-                  fontSize: 14,
-                  fontWeight: "bold",
-                  dy: -10,
-                  backgroundColor: "rgba(0, 0, 0, 0.7)",
-                  padding: 4,
-                }}
-              />
+                {/* Reference line for the betting line */}
+                <ReferenceLine
+                  y={line}
+                  stroke="#fbbf24"
+                  strokeDasharray="4 4"
+                  strokeWidth={4}
+                  ifOverflow="extendDomain"
+                  label={{
+                    value: `Line: ${line}`,
+                    position: "insideTopLeft",
+                    fill: "#fbbf24",
+                    fontSize: 14,
+                    fontWeight: "bold",
+                    dy: -10,
+                    backgroundColor: "rgba(0, 0, 0, 0.7)",
+                    padding: 4,
+                  }}
+                />
 
-              {/* Performance bars with color coding */}
-              <Bar dataKey="performance" radius={[4, 4, 0, 0]} stroke="#60a5fa" strokeWidth={2}>
-                {chartData.map((entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={entry.performance > line ? "#10b981" : "#ef4444"}
-                  />
-                ))}
-              </Bar>
-            </RechartsBarChart>
-          </ResponsiveContainer>
+                {/* Performance bars with color coding */}
+                <Bar dataKey="performance" radius={[4, 4, 0, 0]} stroke="#60a5fa" strokeWidth={2}>
+                  {chartData.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={entry.performance > line ? "#10b981" : "#ef4444"}
+                    />
+                  ))}
+                </Bar>
+              </RechartsBarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </ChartContainer>
     );
@@ -2249,7 +2262,7 @@ export function EnhancedAnalysisOverlay({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl max-h-[85vh] bg-slate-900 border border-slate-700 overflow-y-auto shadow-xl flex flex-col">
+      <DialogContent className="max-w-5xl max-h-[85vh] bg-gradient-to-br from-gray-900 via-black to-gray-900 border-2 border-slate-700/50 overflow-y-auto shadow-2xl shadow-purple-500/20 flex flex-col">
         {/* Compact Header */}
         <DialogHeader className="pb-3">
           <div className="flex items-center space-x-3">
