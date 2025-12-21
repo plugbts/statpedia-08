@@ -1163,17 +1163,17 @@ const EnhancedLineChart = React.memo(
                   y={line}
                   stroke="#fbbf24"
                   strokeDasharray="4 4"
-                  strokeWidth={4}
-                  ifOverflow="extendDomain"
+                  strokeWidth={3}
+                  ifOverflow="visible"
                   label={{
                     value: String(line),
                     position: "insideTopLeft",
                     fill: "#fbbf24",
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: "bold",
-                    dy: -8,
-                    backgroundColor: "rgba(0, 0, 0, 0.8)",
-                    padding: 2,
+                    dy: -6,
+                    backgroundColor: "rgba(0, 0, 0, 0.85)",
+                    padding: 3,
                   }}
                 />
 
@@ -1301,17 +1301,17 @@ const EnhancedBarChart = React.memo(
                   y={line}
                   stroke="#fbbf24"
                   strokeDasharray="4 4"
-                  strokeWidth={4}
-                  ifOverflow="extendDomain"
+                  strokeWidth={3}
+                  ifOverflow="visible"
                   label={{
                     value: String(line),
                     position: "insideTopLeft",
                     fill: "#fbbf24",
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: "bold",
-                    dy: -8,
-                    backgroundColor: "rgba(0, 0, 0, 0.8)",
-                    padding: 2,
+                    dy: -6,
+                    backgroundColor: "rgba(0, 0, 0, 0.85)",
+                    padding: 3,
                   }}
                 />
 
