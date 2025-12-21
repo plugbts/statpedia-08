@@ -44,6 +44,14 @@ import { normalizeOpponent, normalizePosition, normalizeTeam } from "@/utils/nor
 import { useSimpleAnalytics } from "@/hooks/use-simple-analytics";
 import { getOrdinalSuffix, getTeamAbbreviation } from "@/utils/prop-type-formatter";
 import "@/styles/streak-animations.css";
+
+// Helper function to get color class for hit rate percentage
+function getHitRateColor(pct: number | null | undefined): string {
+  if (pct === null || pct === undefined || !Number.isFinite(pct)) return "";
+  if (pct > 70) return "text-green-500"; // Over 70% = green (favorable)
+  if (pct >= 50) return "text-yellow-500"; // 50-70% = yellow (neutral)
+  return "text-red-500"; // Below 50% = red (unfavorable)
+}
 import logoFanduelMono from "@/assets/logos/mono/fanduel.svg";
 import logoDraftkingsMono from "@/assets/logos/mono/draftkings.svg";
 import logoBetmgmMono from "@/assets/logos/mono/betmgm.svg";
@@ -1783,7 +1791,7 @@ export function PlayerPropsColumnView({
 
                       {/* L5 */}
                       <div className="w-20 flex flex-col items-center justify-center px-1 py-1">
-                        <div className="text-xs font-medium text-foreground">
+                        <div className={`text-xs font-medium ${getHitRateColor(l5?.pct)}`}>
                           {(() => {
                             if (l5) return `${l5.pct.toFixed(0)}%`;
                             return "N/A";
@@ -1799,7 +1807,7 @@ export function PlayerPropsColumnView({
 
                       {/* L10 */}
                       <div className="w-20 flex flex-col items-center justify-center px-1 py-1">
-                        <div className="text-xs font-medium text-foreground">
+                        <div className={`text-xs font-medium ${getHitRateColor(l10?.pct)}`}>
                           {(() => {
                             if (l10) return `${l10.pct.toFixed(0)}%`;
                             return "N/A";
@@ -1815,7 +1823,7 @@ export function PlayerPropsColumnView({
 
                       {/* L20 */}
                       <div className="w-20 flex flex-col items-center justify-center px-1 py-1">
-                        <div className="text-xs font-medium text-foreground">
+                        <div className={`text-xs font-medium ${getHitRateColor(l20?.pct)}`}>
                           {(() => {
                             if (l20) return `${l20.pct.toFixed(0)}%`;
                             return "N/A";
