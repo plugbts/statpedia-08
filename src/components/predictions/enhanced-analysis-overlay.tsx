@@ -65,6 +65,8 @@ import {
   type PredictionRequest,
 } from "@/services/advanced-prediction-service";
 import { useToast } from "@/hooks/use-toast";
+import { getPlayerHeadshot } from "@/utils/headshots";
+import { Heart, Edit } from "lucide-react";
 import {
   LineChart as RechartsLineChart,
   Line,
@@ -1588,6 +1590,23 @@ export function EnhancedAnalysisOverlay({
     [availableProps, prediction],
   );
 
+  // Helper function to get team logo URL
+  const getTeamLogoUrl = (teamAbbr: string, sport: string) => {
+    const sportLower = sport.toLowerCase();
+    const teamLower = teamAbbr.toLowerCase();
+    return `https://a.espncdn.com/i/teamlogos/${sportLower}/500/${teamLower}.png`;
+  };
+
+  // Get player headshot URL
+  const playerHeadshotUrl = useMemo(() => {
+    const playerId = String(
+      (currentData as any)?.playerId || (currentData as any)?.id || "",
+    ).trim();
+    const sport = String((currentData as any)?.sport || "nfl").toLowerCase();
+    if (!playerId) return null;
+    return getPlayerHeadshot(sport, playerId);
+  }, [(currentData as any)?.playerId, (currentData as any)?.sport]);
+
   // Format American odds with proper NaN and null handling
   const formatAmericanOdds = (odds: number | string | undefined | null): string => {
     // Handle non-numeric values
@@ -2390,455 +2409,349 @@ export function EnhancedAnalysisOverlay({
             </TabsTrigger>
           </TabsList>
 
-          {/* Overview Tab */}
+          {/* Overview Tab - PropFinder Style */}
           <TabsContent value="overview" className="space-y-4 mt-2">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {/* Key Metrics */}
-              <Card className="bg-slate-800/50 border-slate-700">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-slate-100 flex items-center gap-2 text-sm font-semibold">
-                    <Target className="w-4 h-4 text-slate-400" />
-                    Key Metrics
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="flex justify-between items-center p-2 bg-slate-700/50 rounded border border-slate-600">
-                    <span className="text-slate-300 text-xs font-medium">Confidence</span>
-                    <Badge className="bg-slate-600 text-white border-0 text-xs px-2 py-0.5">
-                      {Math.round(currentData.confidence * 100)}%
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between items-center p-2 bg-slate-700/50 rounded border border-slate-600">
-                    <span className="text-slate-300 text-xs font-medium">Expected Value</span>
-                    <Badge
-                      className={cn(
-                        "border-0 text-xs px-2 py-0.5",
-                        currentData.expectedValue > 0
-                          ? "bg-green-600 text-white"
-                          : "bg-red-600 text-white",
-                      )}
-                    >
-                      {currentData.expectedValue > 0 ? "+" : ""}
-                      {Math.round(currentData.expectedValue)}%
-                    </Badge>
-                  </div>
-
-                  {/* Prop Selector */}
-                  <div className="p-2 bg-slate-700/50 rounded border border-slate-600">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-gray-300 text-sm font-medium">Current Prop</span>
-                      <span className="text-xs text-gray-400">({availableProps.length} props)</span>
-                    </div>
-                    <Select
-                      value={selectedPropId || prediction.id || ""}
-                      onValueChange={handlePropChange}
-                      disabled={isLoadingProps}
-                    >
-                      <SelectTrigger className="w-full bg-slate-700 border border-slate-600 text-slate-100 text-xs">
-                        <SelectValue
-                          placeholder={
-                            isLoadingProps
-                              ? "Loading props..."
-                              : availableProps.length === 0
-                                ? "No props available"
-                                : "Choose a prop"
-                          }
-                        >
-                          {currentData.propType}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border border-slate-700 max-h-60">
-                        {availableProps.map((prop) => (
-                          <SelectItem
-                            key={prop.id}
-                            value={prop.id}
-                            className="text-slate-100 hover:bg-slate-700 focus:bg-slate-700 cursor-pointer"
-                          >
-                            <div className="flex flex-col">
-                              <span className="font-medium bg-gradient-to-r from-white to-gray-200 bg-clip-text text-transparent animate-pulse">
-                                {prop.propType}
-                              </span>
-                              <span className="text-sm text-gray-300">
-                                Over: {formatAmericanOdds(prop.overOdds)} • Under:{" "}
-                                {formatAmericanOdds(prop.underOdds)}
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Line Adjustment Interface */}
-                  <div className="pt-2 border-t border-slate-600">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-slate-300 text-xs font-medium">Adjust Line</span>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            const currentLine =
-                              adjustedLine !== null ? adjustedLine : currentData.line;
-                            handleLineAdjustment(currentLine - 0.5);
-                          }}
-                          disabled={isUpdatingOdds}
-                          className="text-slate-400 border-slate-600 hover:bg-slate-700 hover:border-slate-500 h-6 w-6 p-0"
-                        >
-                          <Minus className="w-2 h-2" />
-                        </Button>
-                        <span className="text-slate-100 font-bold min-w-[50px] text-center bg-slate-700 px-2 py-1 rounded text-xs border border-slate-600">
-                          {adjustedLine !== null ? adjustedLine : currentData.line}
-                        </span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            const currentLine =
-                              adjustedLine !== null ? adjustedLine : currentData.line;
-                            handleLineAdjustment(currentLine + 0.5);
-                          }}
-                          disabled={isUpdatingOdds}
-                          className="text-slate-400 border-slate-600 hover:bg-slate-700 hover:border-slate-500 h-6 w-6 p-0"
-                        >
-                          <Plus className="w-2 h-2" />
-                        </Button>
-                        {adjustedLine !== null && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={resetLineAdjustment}
-                            className="text-purple-400 hover:text-white hover:bg-purple-600/20 transition-all duration-300 h-6 w-6 p-0"
-                          >
-                            <RotateCcw className="w-2 h-2" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-
-                    {adjustedOdds && (
-                      <div className="grid grid-cols-2 gap-1 text-xs">
-                        <div className="bg-gradient-to-r from-emerald-600/10 to-green-600/10 rounded p-2 border border-emerald-500/20">
-                          <div className="text-gray-300 text-xs">Over</div>
-                          <div className="text-emerald-400 font-bold text-sm">
-                            {formatAmericanOdds(adjustedOdds.over)}
-                          </div>
-                        </div>
-                        <div className="bg-gradient-to-r from-red-600/10 to-rose-600/10 rounded p-2 border border-red-500/20">
-                          <div className="text-gray-300 text-xs">Under</div>
-                          <div className="text-red-400 font-bold text-sm">
-                            {formatAmericanOdds(adjustedOdds.under)}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {isUpdatingOdds && (
-                      <div className="text-center text-purple-400 text-xs mt-1 flex items-center justify-center gap-1">
-                        <RotateCcw className="w-2 h-2 animate-spin" />
-                        Updating odds...
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex justify-between items-center p-2 bg-gradient-to-r from-orange-600/10 to-yellow-600/10 rounded-lg border border-orange-500/20">
-                    <span className="text-gray-300 text-sm font-medium">Risk Level</span>
-                    <Badge
-                      className={cn(
-                        "border-0 shadow-lg transition-all duration-300 text-xs px-2 py-1",
-                        currentData.riskLevel === "low"
-                          ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-emerald-500/50"
-                          : currentData.riskLevel === "medium"
-                            ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-yellow-500/50"
-                            : "bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-red-500/50",
-                      )}
-                      style={{ animation: "pulse 3s ease-in-out infinite" }}
-                    >
-                      {currentData.riskLevel?.toUpperCase() || "UNKNOWN"}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Performance Summary */}
-              <Card className="bg-gradient-to-br from-gray-800/80 to-black/80 border-2 border-emerald-500/30 shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all duration-300">
-                <CardHeader>
-                  <CardTitle className="text-white flex items-center gap-2 text-lg font-bold">
-                    <Activity className="w-6 h-6 text-emerald-400 animate-pulse" />
-                    Performance
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex justify-between items-center p-2 bg-gradient-to-r from-emerald-600/10 to-green-600/10 rounded-lg border border-emerald-500/20">
-                    <span className="text-gray-300 text-sm font-medium">Current Streak</span>
-                    <span className="text-white font-bold text-sm bg-gradient-to-r from-emerald-500 to-green-500 bg-clip-text text-transparent">
-                      {enhancedData.performanceMetrics?.currentStreak || 0}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center p-2 bg-gradient-to-r from-blue-600/10 to-cyan-600/10 rounded-lg border border-blue-500/20">
-                    <span className="text-gray-300 text-sm font-medium">Recent Form</span>
-                    <Badge
-                      className={cn(
-                        "border-0 shadow-lg transition-all duration-300 text-xs px-2 py-1",
-                        enhancedData.performanceMetrics?.recentForm === "hot"
-                          ? "bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-red-500/50 animate-pulse"
-                          : enhancedData.performanceMetrics?.recentForm === "cold"
-                            ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-blue-500/50 animate-pulse"
-                            : "bg-gradient-to-r from-gray-500 to-slate-500 text-white shadow-gray-500/50",
-                      )}
-                    >
-                      {enhancedData.performanceMetrics?.recentForm?.toUpperCase() || "AVERAGE"}
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between items-center p-2 bg-gradient-to-r from-purple-600/10 to-pink-600/10 rounded-lg border border-purple-500/20">
-                    <span className="text-gray-300 text-sm font-medium">Consistency</span>
-                    <div className="flex items-center gap-2">
-                      <Progress
-                        value={(enhancedData.performanceMetrics?.consistency || 0) * 100}
-                        className="w-16 h-2 bg-gray-700"
-                      />
-                      <span className="text-white font-bold text-xs">
-                        {Math.round((enhancedData.performanceMetrics?.consistency || 0) * 100)}%
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* AI Prediction */}
-              <Card className="bg-gradient-to-br from-gray-800/80 to-black/80 border-2 border-purple-500/30 shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 transition-all duration-300">
-                <CardHeader>
-                  <CardTitle className="text-white flex items-center gap-2 text-lg font-bold">
-                    <Brain className="w-6 h-6 text-purple-400 animate-pulse" />
-                    AI Prediction
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center justify-center">
-                    {(() => {
-                      // Preferred: super-advanced model (ensemble over/under probability)
-                      const ensemble = Number(
-                        (advancedModelPrediction as any)?.modelConsensus?.ensemble,
-                      );
-                      if (advancedModelPrediction && Number.isFinite(ensemble)) {
-                        const overProbPct = Math.round(Math.max(0, Math.min(1, ensemble)) * 100);
-                        const underProbPct = 100 - overProbPct;
-                        const recommended: "over" | "under" = ensemble >= 0.5 ? "over" : "under";
-                        const confidencePct = recommended === "over" ? overProbPct : underProbPct;
-
-                        return (
-                          <Badge
-                            className={cn(
-                              "text-lg px-4 py-2 border-0 shadow-lg transition-all duration-300 animate-pulse",
-                              recommended === "over"
-                                ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-emerald-500/50"
-                                : "bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-red-500/50",
-                            )}
-                          >
-                            {recommended === "over" ? (
-                              <ArrowUp className="w-4 h-4 mr-2" />
-                            ) : (
-                              <ArrowDown className="w-4 h-4 mr-2" />
-                            )}
-                            {recommended === "over" ? "OVER" : "UNDER"} AI PREDICTION
-                            <span className="ml-3 text-xs opacity-90">
-                              (O {overProbPct}% / U {underProbPct}%)
-                            </span>
-                          </Badge>
-                        );
-                      }
-
-                      // Calculate ratings for both over and under
-                      const overRating = statpediaRatingService.calculateRating(
-                        currentData,
-                        "over",
-                      );
-                      const underRating = statpediaRatingService.calculateRating(
-                        currentData,
-                        "under",
-                      );
-
-                      // Determine recommendation based on current filter and ratings
-                      let recommended: "over" | "under";
-                      if (currentFilter === "over") {
-                        // When over filter is selected:
-                        // - If over rating is high (80+), use over
-                        // - If over rating is low but under rating is high (80+), use under
-                        if (overRating.overall >= 80) {
-                          recommended = "over";
-                        } else if (underRating.overall >= 80) {
-                          recommended = "under";
-                        } else {
-                          recommended = "over"; // Default to over when filter is over
-                        }
-                      } else if (currentFilter === "under") {
-                        // When under filter is selected:
-                        // - If under rating is high (80+), use under
-                        // - If under rating is low but over rating is high (80+), use over
-                        if (underRating.overall >= 80) {
-                          recommended = "under";
-                        } else if (overRating.overall >= 80) {
-                          recommended = "over";
-                        } else {
-                          recommended = "under"; // Default to under when filter is under
-                        }
-                      } else {
-                        // For 'both' or default, use the higher rating
-                        recommended = overRating.overall > underRating.overall ? "over" : "under";
-                      }
-                      // Confidence shown here is a real, line-specific hit probability derived from gameHistory.
-                      // This can differ from the rating grade (which is a composite score).
-                      const totalGames = Array.isArray(currentData.gameHistory)
-                        ? currentData.gameHistory.length
-                        : 0;
-                      const overHits = totalGames
-                        ? currentData.gameHistory.filter((g: any) => !!g?.hit).length
-                        : 0;
-                      const overProb = totalGames ? overHits / totalGames : 0.5;
-                      const confidencePct =
-                        recommended === "over"
-                          ? Math.round(overProb * 100)
-                          : Math.round((1 - overProb) * 100);
-
-                      return (
-                        <Badge
-                          className={cn(
-                            "text-lg px-4 py-2 border-0 shadow-lg transition-all duration-300 animate-pulse",
-                            recommended === "over"
-                              ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-emerald-500/50"
-                              : "bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-red-500/50",
-                          )}
-                        >
-                          {recommended === "over" ? (
-                            <ArrowUp className="w-4 h-4 mr-2" />
-                          ) : (
-                            <ArrowDown className="w-4 h-4 mr-2" />
-                          )}
-                          {recommended === "over" ? "OVER" : "UNDER"} AI PREDICTION
-                        </Badge>
-                      );
-                    })()}
-                  </div>
-                  <div className="text-center p-3 bg-gradient-to-r from-purple-600/10 to-pink-600/10 rounded-lg border border-purple-500/20">
-                    <p className="text-gray-300 text-xs font-medium mb-1">Confidence</p>
-                    <p className="text-white font-bold text-xl bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                      {(() => {
-                        const ensemble = Number(
-                          (advancedModelPrediction as any)?.modelConsensus?.ensemble,
-                        );
-                        if (advancedModelPrediction && Number.isFinite(ensemble)) {
-                          const overProbPct = Math.round(Math.max(0, Math.min(1, ensemble)) * 100);
-                          const underProbPct = 100 - overProbPct;
-                          const recommended: "over" | "under" = ensemble >= 0.5 ? "over" : "under";
-                          return recommended === "over" ? overProbPct : underProbPct;
-                        }
-
-                        const totalGames = Array.isArray(currentData.gameHistory)
-                          ? currentData.gameHistory.length
-                          : 0;
-                        const overHits = totalGames
-                          ? currentData.gameHistory.filter((g: any) => !!g?.hit).length
-                          : 0;
-                        const overProb = totalGames ? overHits / totalGames : 0.5;
-                        // Determine recommended again (mirrors badge logic above)
-                        const overRating = statpediaRatingService.calculateRating(
-                          currentData,
-                          "over",
-                        );
-                        const underRating = statpediaRatingService.calculateRating(
-                          currentData,
-                          "under",
-                        );
-                        const recommended =
-                          currentFilter === "over"
-                            ? overRating.overall >= 80
-                              ? "over"
-                              : underRating.overall >= 80
-                                ? "under"
-                                : "over"
-                            : currentFilter === "under"
-                              ? underRating.overall >= 80
-                                ? "under"
-                                : overRating.overall >= 80
-                                  ? "over"
-                                  : "under"
-                              : overRating.overall > underRating.overall
-                                ? "over"
-                                : "under";
-                        const confidencePct =
-                          recommended === "over"
-                            ? Math.round(overProb * 100)
-                            : Math.round((1 - overProb) * 100);
-                        return confidencePct;
-                      })()}
-                      %
-                    </p>
-                    <p className="text-slate-400 text-[10px] mt-1">
-                      {advancedModelPrediction
-                        ? "Advanced model (ensemble probability)"
-                        : `Based on last ${
-                            Array.isArray(currentData.gameHistory)
-                              ? currentData.gameHistory.length
-                              : 0
-                          } games vs line`}
-                    </p>
-                  </div>
-                  {isLoadingAdvancedModel && (
-                    <div className="text-center text-xs text-slate-400">
-                      Loading advanced model…
+            {/* Top Header: Player Info, Headshot, Team Logo, Position, Ratings */}
+            <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  {/* Player Headshot */}
+                  {playerHeadshotUrl ? (
+                    <img
+                      src={playerHeadshotUrl}
+                      alt={currentData.playerName}
+                      className="w-16 h-16 rounded-full border-2 border-slate-600"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-full bg-slate-700 border-2 border-slate-600 flex items-center justify-center text-white font-bold text-lg">
+                      {currentData.playerName
+                        ?.split(" ")
+                        .map((n) => n[0])
+                        .join("")
+                        .slice(0, 2)
+                        .toUpperCase() || "?"}
                     </div>
                   )}
-
-                  {/* Confidence Factors */}
-                  {currentData.confidenceFactors && currentData.confidenceFactors.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-slate-400 text-xs font-semibold">Confidence Factors:</p>
-                      <div className="space-y-1 max-h-32 overflow-y-auto">
-                        {currentData.confidenceFactors.map((factor, index) => (
-                          <div
-                            key={index}
-                            className="flex items-center justify-between text-xs bg-slate-700/30 rounded px-2 py-1"
-                          >
-                            <div className="flex items-center gap-2">
-                              <div
-                                className={cn(
-                                  "w-2 h-2 rounded-full",
-                                  factor.impact === "positive"
-                                    ? "bg-emerald-400"
-                                    : factor.impact === "negative"
-                                      ? "bg-red-400"
-                                      : "bg-slate-400",
-                                )}
-                              />
-                              <span className="text-slate-300">{factor.factor}</span>
-                            </div>
-                            <span className="text-slate-400">
-                              {Math.round(factor.weight * 100)}%
-                            </span>
-                          </div>
-                        ))}
+                  <div className="flex items-center gap-3">
+                    {/* Team Logo */}
+                    <img
+                      src={getTeamLogoUrl(
+                        currentData.teamAbbr || currentData.team || "",
+                        currentData.sport || "nfl",
+                      )}
+                      alt={currentData.teamAbbr || currentData.team || ""}
+                      className="w-8 h-8"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                    <div>
+                      <div className="text-white font-bold text-xl">{currentData.playerName}</div>
+                      <div className="flex items-center gap-2">
+                        <Select value={String(currentData.position || "").toUpperCase()} disabled>
+                          <SelectTrigger className="w-16 h-6 text-xs bg-slate-700 border-slate-600 text-purple-400">
+                            <SelectValue>
+                              {String(currentData.position || "").toUpperCase() || "N/A"}
+                            </SelectValue>
+                          </SelectTrigger>
+                        </Select>
                       </div>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
+                  </div>
+                </div>
+                {/* Ratings */}
+                <div className="flex items-center gap-6">
+                  <div className="text-center">
+                    <div className="text-slate-400 text-xs">PF RATING</div>
+                    <div className="text-green-400 font-bold text-lg">
+                      {Math.round(
+                        statpediaRatingService.calculateRating(currentData, "over").overall,
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-slate-400 text-xs">GRAPH AVG</div>
+                    <div className="text-green-400 font-bold text-lg">
+                      {currentData.season_avg
+                        ? currentData.season_avg.toFixed(1)
+                        : currentData.gameHistory && currentData.gameHistory.length > 0
+                          ? (
+                              currentData.gameHistory.reduce(
+                                (sum: number, g: any) => sum + (g.performance || 0),
+                                0,
+                              ) / currentData.gameHistory.length
+                            ).toFixed(1)
+                          : "0.0"}
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-slate-400 text-xs">AVG MIN</div>
+                    <div className="text-purple-400 font-bold text-lg">32.8</div>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* Quick Performance Chart */}
-            <Card className="bg-slate-800/50 border-slate-700">
-              <CardHeader>
-                <CardTitle className="text-slate-200 flex items-center gap-2">
-                  <LineChart className="w-5 h-5 text-blue-400" />
-                  Quick Performance Overview
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <EnhancedLineChart
-                  data={currentData.gameHistory}
-                  line={currentData.line}
-                  height={250}
-                />
-              </CardContent>
-            </Card>
+            {/* Stat Type Navigation Tabs */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-2">
+              {[
+                "POINTS",
+                "REBOUNDS",
+                "ASSISTS",
+                "THREE POINTERS",
+                "STEALS",
+                "BLOCKS",
+                "TURNOVERS",
+              ].map((stat) => (
+                <Button
+                  key={stat}
+                  variant={stat === currentData.propType?.toUpperCase() ? "default" : "outline"}
+                  className={cn(
+                    "text-xs px-3 py-1",
+                    stat === currentData.propType?.toUpperCase()
+                      ? "bg-purple-600 text-white border-purple-500"
+                      : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700",
+                  )}
+                >
+                  {stat}
+                </Button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {/* Main Content Area - Left Section */}
+              <div className="lg:col-span-2 space-y-4">
+                {/* Prop Bet Display */}
+                <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="bg-green-600 text-white border-green-500 hover:bg-green-700 text-xs px-3 py-1"
+                      >
+                        OVER {currentData.line} {currentData.propType}
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                        <Edit className="w-4 h-4 text-slate-400" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                        <Heart className="w-4 h-4 text-slate-400" />
+                      </Button>
+                    </div>
+                    <div className="text-slate-400 text-sm">
+                      Next: {currentData.opponentAbbr || currentData.opponent || "TBD"}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Performance Graph */}
+                <Card className="bg-slate-800/50 border-slate-700">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-slate-200 text-sm">Performance Graph</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="bg-purple-600 text-white border-purple-500 text-xs px-2 py-1"
+                        >
+                          Full Game
+                        </Button>
+                        {["Q1", "Q2", "Q3", "Q4"].map((q) => (
+                          <Button
+                            key={q}
+                            variant="outline"
+                            size="sm"
+                            className="bg-slate-700 text-slate-300 border-slate-600 text-xs px-2 py-1"
+                          >
+                            {q}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <EnhancedBarChart
+                      data={currentData.gameHistory}
+                      line={currentData.line}
+                      height={300}
+                    />
+                  </CardContent>
+                </Card>
+
+                {/* Summary Stats Boxes */}
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {[
+                    {
+                      label: "L5",
+                      value: currentData.l5
+                        ? `${Math.round((currentData.l5 / 100) * 5)}/5 (${Math.round(currentData.l5)}%)`
+                        : "N/A",
+                      color:
+                        currentData.l5 && currentData.l5 >= 60
+                          ? "green"
+                          : currentData.l5 && currentData.l5 >= 50
+                            ? "yellow"
+                            : "red",
+                    },
+                    {
+                      label: "L10",
+                      value: currentData.l10
+                        ? `${Math.round((currentData.l10 / 100) * 10)}/10 (${Math.round(currentData.l10)}%)`
+                        : "N/A",
+                      color:
+                        currentData.l10 && currentData.l10 >= 60
+                          ? "green"
+                          : currentData.l10 && currentData.l10 >= 50
+                            ? "yellow"
+                            : "red",
+                    },
+                    {
+                      label: "L20",
+                      value: currentData.l20
+                        ? `${Math.round((currentData.l20 / 100) * 20)}/20 (${Math.round(currentData.l20)}%)`
+                        : "N/A",
+                      color:
+                        currentData.l20 && currentData.l20 >= 60
+                          ? "green"
+                          : currentData.l20 && currentData.l20 >= 50
+                            ? "yellow"
+                            : "red",
+                    },
+                    {
+                      label: "H2H",
+                      value: currentData.h2h_avg ? currentData.h2h_avg.toFixed(1) : "N/A",
+                      color: "slate",
+                    },
+                    {
+                      label: "Season",
+                      value: currentData.season_avg ? currentData.season_avg.toFixed(1) : "N/A",
+                      color: "slate",
+                    },
+                  ].map((stat) => (
+                    <div
+                      key={stat.label}
+                      className={cn(
+                        "bg-slate-800/50 border rounded-lg p-3 text-center",
+                        stat.color === "green"
+                          ? "border-green-500/30 bg-green-900/10"
+                          : stat.color === "yellow"
+                            ? "border-yellow-500/30 bg-yellow-900/10"
+                            : stat.color === "red"
+                              ? "border-red-500/30 bg-red-900/10"
+                              : "border-slate-700",
+                      )}
+                    >
+                      <div className="text-slate-400 text-xs mb-1">{stat.label}</div>
+                      <div
+                        className={cn(
+                          "font-bold text-sm",
+                          stat.color === "green"
+                            ? "text-green-400"
+                            : stat.color === "yellow"
+                              ? "text-yellow-400"
+                              : stat.color === "red"
+                                ? "text-red-400"
+                                : "text-slate-200",
+                        )}
+                      >
+                        {stat.value}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Right Sidebar */}
+              <div className="space-y-4">
+                {/* Matchup Section */}
+                <Card className="bg-slate-800/50 border-slate-700">
+                  <CardHeader>
+                    <CardTitle className="text-slate-200 text-sm">Matchup</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-slate-400 text-xs">
+                      Defense vs {currentData.position || "Player"}
+                    </div>
+                    <div className="mt-2 space-y-2">
+                      <div className="flex justify-between items-center p-2 bg-slate-700/30 rounded">
+                        <span className="text-slate-300 text-xs">Rank</span>
+                        <span className="text-slate-200 font-semibold text-xs">
+                          #{currentData.matchup_rank || "N/A"}
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Season Averages */}
+                <Card className="bg-slate-800/50 border-slate-700">
+                  <CardHeader>
+                    <CardTitle className="text-slate-200 text-sm">
+                      {currentData.playerName} {new Date().getFullYear()}-
+                      {new Date().getFullYear() + 1} Season Average
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-400 text-xs">Avg</span>
+                        <span className="text-slate-200 font-semibold text-xs">
+                          {currentData.season_avg ? currentData.season_avg.toFixed(1) : "N/A"}
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Depth Chart (already implemented) */}
+                <Card className="bg-slate-800/50 border-slate-700">
+                  <CardHeader>
+                    <CardTitle className="text-slate-200 text-sm">Depth Chart</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {isLoadingDepthChart ? (
+                      <div className="text-slate-400 text-xs">Loading...</div>
+                    ) : Object.keys(depthChart).length > 0 ? (
+                      <div className="space-y-2">
+                        {Object.entries(depthChart)
+                          .slice(0, 3)
+                          .map(([position, players]) => (
+                            <div key={position} className="p-2 bg-slate-700/30 rounded">
+                              <div className="text-slate-300 font-semibold text-xs mb-1">
+                                {position}
+                              </div>
+                              <div className="text-slate-400 text-xs">
+                                {players.slice(0, 2).map((p, idx) => (
+                                  <div key={idx}>
+                                    {idx === 0 ? "STARTER" : "2ND"}: {p.name}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    ) : (
+                      <div className="text-slate-400 text-xs">No depth chart data</div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Splits Section */}
+                <Card className="bg-slate-800/50 border-slate-700">
+                  <CardHeader>
+                    <CardTitle className="text-slate-200 text-sm">Splits</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-slate-400 text-xs">Splits data coming soon</div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
           </TabsContent>
 
           {/* Performance Tab */}
