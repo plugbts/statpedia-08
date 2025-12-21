@@ -2411,347 +2411,364 @@ export function EnhancedAnalysisOverlay({
 
           {/* Overview Tab - PropFinder Style */}
           <TabsContent value="overview" className="space-y-4 mt-2">
-            {/* Top Header: Player Info, Headshot, Team Logo, Position, Ratings */}
-            <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  {/* Player Headshot */}
-                  {playerHeadshotUrl ? (
-                    <img
-                      src={playerHeadshotUrl}
-                      alt={currentData.playerName}
-                      className="w-16 h-16 rounded-full border-2 border-slate-600"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = "none";
-                      }}
-                    />
-                  ) : (
-                    <div className="w-16 h-16 rounded-full bg-slate-700 border-2 border-slate-600 flex items-center justify-center text-white font-bold text-lg">
-                      {currentData.playerName
-                        ?.split(" ")
-                        .map((n) => n[0])
-                        .join("")
-                        .slice(0, 2)
-                        .toUpperCase() || "?"}
-                    </div>
-                  )}
-                  <div className="flex items-center gap-3">
-                    {/* Team Logo */}
-                    <img
-                      src={getTeamLogoUrl(
-                        currentData.teamAbbr || currentData.team || "",
-                        currentData.sport || "nfl",
-                      )}
-                      alt={currentData.teamAbbr || currentData.team || ""}
-                      className="w-8 h-8"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = "none";
-                      }}
-                    />
-                    <div>
-                      <div className="text-white font-bold text-xl">{currentData.playerName}</div>
-                      <div className="flex items-center gap-2">
-                        <Select value={String(currentData.position || "").toUpperCase()} disabled>
-                          <SelectTrigger className="w-16 h-6 text-xs bg-slate-700 border-slate-600 text-purple-400">
-                            <SelectValue>
-                              {String(currentData.position || "").toUpperCase() || "N/A"}
-                            </SelectValue>
-                          </SelectTrigger>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                {/* Ratings */}
-                <div className="flex items-center gap-6">
-                  <div className="text-center">
-                    <div className="text-slate-400 text-xs">PF RATING</div>
-                    <div className="text-green-400 font-bold text-lg">
-                      {Math.round(
-                        statpediaRatingService.calculateRating(currentData, "over").overall,
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-slate-400 text-xs">GRAPH AVG</div>
-                    <div className="text-green-400 font-bold text-lg">
-                      {currentData.season_avg
-                        ? currentData.season_avg.toFixed(1)
-                        : currentData.gameHistory && currentData.gameHistory.length > 0
-                          ? (
-                              currentData.gameHistory.reduce(
-                                (sum: number, g: any) => sum + (g.performance || 0),
-                                0,
-                              ) / currentData.gameHistory.length
-                            ).toFixed(1)
-                          : "0.0"}
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-slate-400 text-xs">AVG MIN</div>
-                    <div className="text-purple-400 font-bold text-lg">32.8</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Stat Type Navigation Tabs */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-2">
-              {[
-                "POINTS",
-                "REBOUNDS",
-                "ASSISTS",
-                "THREE POINTERS",
-                "STEALS",
-                "BLOCKS",
-                "TURNOVERS",
-              ].map((stat) => (
-                <Button
-                  key={stat}
-                  variant={stat === currentData.propType?.toUpperCase() ? "default" : "outline"}
-                  className={cn(
-                    "text-xs px-3 py-1",
-                    stat === currentData.propType?.toUpperCase()
-                      ? "bg-purple-600 text-white border-purple-500"
-                      : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700",
-                  )}
-                >
-                  {stat}
-                </Button>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {/* Main Content Area - Left Section */}
-              <div className="lg:col-span-2 space-y-4">
-                {/* Prop Bet Display */}
+            {!currentData ? (
+              <div className="text-center text-slate-400 py-8">Loading player data...</div>
+            ) : (
+              <>
+                {/* Top Header: Player Info, Headshot, Team Logo, Position, Ratings */}
                 <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="bg-green-600 text-white border-green-500 hover:bg-green-700 text-xs px-3 py-1"
-                      >
-                        OVER {currentData.line} {currentData.propType}
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                        <Edit className="w-4 h-4 text-slate-400" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                        <Heart className="w-4 h-4 text-slate-400" />
-                      </Button>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      {/* Player Headshot */}
+                      {playerHeadshotUrl ? (
+                        <img
+                          src={playerHeadshotUrl}
+                          alt={currentData.playerName || "Player"}
+                          className="w-16 h-16 rounded-full border-2 border-slate-600"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = "none";
+                          }}
+                        />
+                      ) : (
+                        <div className="w-16 h-16 rounded-full bg-slate-700 border-2 border-slate-600 flex items-center justify-center text-white font-bold text-lg">
+                          {currentData.playerName
+                            ?.split(" ")
+                            .map((n) => n[0])
+                            .join("")
+                            .slice(0, 2)
+                            .toUpperCase() || "?"}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-3">
+                        {/* Team Logo */}
+                        <img
+                          src={getTeamLogoUrl(
+                            currentData.teamAbbr || currentData.team || "",
+                            currentData.sport || "nfl",
+                          )}
+                          alt={currentData.teamAbbr || currentData.team || ""}
+                          className="w-8 h-8"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = "none";
+                          }}
+                        />
+                        <div>
+                          <div className="text-white font-bold text-xl">
+                            {currentData.playerName || "Unknown Player"}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Select
+                              value={String(currentData.position || "").toUpperCase()}
+                              disabled
+                            >
+                              <SelectTrigger className="w-16 h-6 text-xs bg-slate-700 border-slate-600 text-purple-400">
+                                <SelectValue>
+                                  {String(currentData.position || "").toUpperCase() || "N/A"}
+                                </SelectValue>
+                              </SelectTrigger>
+                            </Select>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-slate-400 text-sm">
-                      Next: {currentData.opponentAbbr || currentData.opponent || "TBD"}
+                    {/* Ratings */}
+                    <div className="flex items-center gap-6">
+                      <div className="text-center">
+                        <div className="text-slate-400 text-xs">PF RATING</div>
+                        <div className="text-green-400 font-bold text-lg">
+                          {currentData
+                            ? Math.round(
+                                statpediaRatingService.calculateRating(currentData, "over").overall,
+                              )
+                            : "—"}
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-slate-400 text-xs">GRAPH AVG</div>
+                        <div className="text-green-400 font-bold text-lg">
+                          {currentData.season_avg
+                            ? currentData.season_avg.toFixed(1)
+                            : currentData.gameHistory &&
+                                Array.isArray(currentData.gameHistory) &&
+                                currentData.gameHistory.length > 0
+                              ? (
+                                  currentData.gameHistory.reduce(
+                                    (sum: number, g: any) => sum + (g.performance || 0),
+                                    0,
+                                  ) / currentData.gameHistory.length
+                                ).toFixed(1)
+                              : "0.0"}
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-slate-400 text-xs">AVG MIN</div>
+                        <div className="text-purple-400 font-bold text-lg">32.8</div>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Performance Graph */}
-                <Card className="bg-slate-800/50 border-slate-700">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-slate-200 text-sm">Performance Graph</CardTitle>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="bg-purple-600 text-white border-purple-500 text-xs px-2 py-1"
-                        >
-                          Full Game
-                        </Button>
-                        {["Q1", "Q2", "Q3", "Q4"].map((q) => (
-                          <Button
-                            key={q}
-                            variant="outline"
-                            size="sm"
-                            className="bg-slate-700 text-slate-300 border-slate-600 text-xs px-2 py-1"
-                          >
-                            {q}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <EnhancedBarChart
-                      data={currentData.gameHistory}
-                      line={currentData.line}
-                      height={300}
-                    />
-                  </CardContent>
-                </Card>
-
-                {/* Summary Stats Boxes */}
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {/* Stat Type Navigation Tabs */}
+                <div className="flex items-center gap-2 overflow-x-auto pb-2">
                   {[
-                    {
-                      label: "L5",
-                      value: currentData.l5
-                        ? `${Math.round((currentData.l5 / 100) * 5)}/5 (${Math.round(currentData.l5)}%)`
-                        : "N/A",
-                      color:
-                        currentData.l5 && currentData.l5 >= 60
-                          ? "green"
-                          : currentData.l5 && currentData.l5 >= 50
-                            ? "yellow"
-                            : "red",
-                    },
-                    {
-                      label: "L10",
-                      value: currentData.l10
-                        ? `${Math.round((currentData.l10 / 100) * 10)}/10 (${Math.round(currentData.l10)}%)`
-                        : "N/A",
-                      color:
-                        currentData.l10 && currentData.l10 >= 60
-                          ? "green"
-                          : currentData.l10 && currentData.l10 >= 50
-                            ? "yellow"
-                            : "red",
-                    },
-                    {
-                      label: "L20",
-                      value: currentData.l20
-                        ? `${Math.round((currentData.l20 / 100) * 20)}/20 (${Math.round(currentData.l20)}%)`
-                        : "N/A",
-                      color:
-                        currentData.l20 && currentData.l20 >= 60
-                          ? "green"
-                          : currentData.l20 && currentData.l20 >= 50
-                            ? "yellow"
-                            : "red",
-                    },
-                    {
-                      label: "H2H",
-                      value: currentData.h2h_avg ? currentData.h2h_avg.toFixed(1) : "N/A",
-                      color: "slate",
-                    },
-                    {
-                      label: "Season",
-                      value: currentData.season_avg ? currentData.season_avg.toFixed(1) : "N/A",
-                      color: "slate",
-                    },
+                    "POINTS",
+                    "REBOUNDS",
+                    "ASSISTS",
+                    "THREE POINTERS",
+                    "STEALS",
+                    "BLOCKS",
+                    "TURNOVERS",
                   ].map((stat) => (
-                    <div
-                      key={stat.label}
+                    <Button
+                      key={stat}
+                      variant={stat === currentData.propType?.toUpperCase() ? "default" : "outline"}
                       className={cn(
-                        "bg-slate-800/50 border rounded-lg p-3 text-center",
-                        stat.color === "green"
-                          ? "border-green-500/30 bg-green-900/10"
-                          : stat.color === "yellow"
-                            ? "border-yellow-500/30 bg-yellow-900/10"
-                            : stat.color === "red"
-                              ? "border-red-500/30 bg-red-900/10"
-                              : "border-slate-700",
+                        "text-xs px-3 py-1",
+                        stat === currentData.propType?.toUpperCase()
+                          ? "bg-purple-600 text-white border-purple-500"
+                          : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700",
                       )}
                     >
-                      <div className="text-slate-400 text-xs mb-1">{stat.label}</div>
-                      <div
-                        className={cn(
-                          "font-bold text-sm",
-                          stat.color === "green"
-                            ? "text-green-400"
-                            : stat.color === "yellow"
-                              ? "text-yellow-400"
-                              : stat.color === "red"
-                                ? "text-red-400"
-                                : "text-slate-200",
-                        )}
-                      >
-                        {stat.value}
-                      </div>
-                    </div>
+                      {stat}
+                    </Button>
                   ))}
                 </div>
-              </div>
 
-              {/* Right Sidebar */}
-              <div className="space-y-4">
-                {/* Matchup Section */}
-                <Card className="bg-slate-800/50 border-slate-700">
-                  <CardHeader>
-                    <CardTitle className="text-slate-200 text-sm">Matchup</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-slate-400 text-xs">
-                      Defense vs {currentData.position || "Player"}
-                    </div>
-                    <div className="mt-2 space-y-2">
-                      <div className="flex justify-between items-center p-2 bg-slate-700/30 rounded">
-                        <span className="text-slate-300 text-xs">Rank</span>
-                        <span className="text-slate-200 font-semibold text-xs">
-                          #{currentData.matchup_rank || "N/A"}
-                        </span>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  {/* Main Content Area - Left Section */}
+                  <div className="lg:col-span-2 space-y-4">
+                    {/* Prop Bet Display */}
+                    <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="bg-green-600 text-white border-green-500 hover:bg-green-700 text-xs px-3 py-1"
+                          >
+                            OVER {currentData.line} {currentData.propType}
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                            <Edit className="w-4 h-4 text-slate-400" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                            <Heart className="w-4 h-4 text-slate-400" />
+                          </Button>
+                        </div>
+                        <div className="text-slate-400 text-sm">
+                          Next: {currentData.opponentAbbr || currentData.opponent || "TBD"}
+                        </div>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
 
-                {/* Season Averages */}
-                <Card className="bg-slate-800/50 border-slate-700">
-                  <CardHeader>
-                    <CardTitle className="text-slate-200 text-sm">
-                      {currentData.playerName} {new Date().getFullYear()}-
-                      {new Date().getFullYear() + 1} Season Average
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-400 text-xs">Avg</span>
-                        <span className="text-slate-200 font-semibold text-xs">
-                          {currentData.season_avg ? currentData.season_avg.toFixed(1) : "N/A"}
-                        </span>
-                      </div>
+                    {/* Performance Graph */}
+                    <Card className="bg-slate-800/50 border-slate-700">
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-slate-200 text-sm">
+                            Performance Graph
+                          </CardTitle>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="bg-purple-600 text-white border-purple-500 text-xs px-2 py-1"
+                            >
+                              Full Game
+                            </Button>
+                            {["Q1", "Q2", "Q3", "Q4"].map((q) => (
+                              <Button
+                                key={q}
+                                variant="outline"
+                                size="sm"
+                                className="bg-slate-700 text-slate-300 border-slate-600 text-xs px-2 py-1"
+                              >
+                                {q}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <EnhancedBarChart
+                          data={currentData.gameHistory}
+                          line={currentData.line}
+                          height={300}
+                        />
+                      </CardContent>
+                    </Card>
+
+                    {/* Summary Stats Boxes */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {[
+                        {
+                          label: "L5",
+                          value: currentData.l5
+                            ? `${Math.round((currentData.l5 / 100) * 5)}/5 (${Math.round(currentData.l5)}%)`
+                            : "N/A",
+                          color:
+                            currentData.l5 && currentData.l5 >= 60
+                              ? "green"
+                              : currentData.l5 && currentData.l5 >= 50
+                                ? "yellow"
+                                : "red",
+                        },
+                        {
+                          label: "L10",
+                          value: currentData.l10
+                            ? `${Math.round((currentData.l10 / 100) * 10)}/10 (${Math.round(currentData.l10)}%)`
+                            : "N/A",
+                          color:
+                            currentData.l10 && currentData.l10 >= 60
+                              ? "green"
+                              : currentData.l10 && currentData.l10 >= 50
+                                ? "yellow"
+                                : "red",
+                        },
+                        {
+                          label: "L20",
+                          value: currentData.l20
+                            ? `${Math.round((currentData.l20 / 100) * 20)}/20 (${Math.round(currentData.l20)}%)`
+                            : "N/A",
+                          color:
+                            currentData.l20 && currentData.l20 >= 60
+                              ? "green"
+                              : currentData.l20 && currentData.l20 >= 50
+                                ? "yellow"
+                                : "red",
+                        },
+                        {
+                          label: "H2H",
+                          value: currentData.h2h_avg ? currentData.h2h_avg.toFixed(1) : "N/A",
+                          color: "slate",
+                        },
+                        {
+                          label: "Season",
+                          value: currentData.season_avg ? currentData.season_avg.toFixed(1) : "N/A",
+                          color: "slate",
+                        },
+                      ].map((stat) => (
+                        <div
+                          key={stat.label}
+                          className={cn(
+                            "bg-slate-800/50 border rounded-lg p-3 text-center",
+                            stat.color === "green"
+                              ? "border-green-500/30 bg-green-900/10"
+                              : stat.color === "yellow"
+                                ? "border-yellow-500/30 bg-yellow-900/10"
+                                : stat.color === "red"
+                                  ? "border-red-500/30 bg-red-900/10"
+                                  : "border-slate-700",
+                          )}
+                        >
+                          <div className="text-slate-400 text-xs mb-1">{stat.label}</div>
+                          <div
+                            className={cn(
+                              "font-bold text-sm",
+                              stat.color === "green"
+                                ? "text-green-400"
+                                : stat.color === "yellow"
+                                  ? "text-yellow-400"
+                                  : stat.color === "red"
+                                    ? "text-red-400"
+                                    : "text-slate-200",
+                            )}
+                          >
+                            {stat.value}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
 
-                {/* Depth Chart (already implemented) */}
-                <Card className="bg-slate-800/50 border-slate-700">
-                  <CardHeader>
-                    <CardTitle className="text-slate-200 text-sm">Depth Chart</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {isLoadingDepthChart ? (
-                      <div className="text-slate-400 text-xs">Loading...</div>
-                    ) : Object.keys(depthChart).length > 0 ? (
-                      <div className="space-y-2">
-                        {Object.entries(depthChart)
-                          .slice(0, 3)
-                          .map(([position, players]) => (
-                            <div key={position} className="p-2 bg-slate-700/30 rounded">
-                              <div className="text-slate-300 font-semibold text-xs mb-1">
-                                {position}
-                              </div>
-                              <div className="text-slate-400 text-xs">
-                                {players.slice(0, 2).map((p, idx) => (
-                                  <div key={idx}>
-                                    {idx === 0 ? "STARTER" : "2ND"}: {p.name}
+                  {/* Right Sidebar */}
+                  <div className="space-y-4">
+                    {/* Matchup Section */}
+                    <Card className="bg-slate-800/50 border-slate-700">
+                      <CardHeader>
+                        <CardTitle className="text-slate-200 text-sm">Matchup</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-slate-400 text-xs">
+                          Defense vs {currentData.position || "Player"}
+                        </div>
+                        <div className="mt-2 space-y-2">
+                          <div className="flex justify-between items-center p-2 bg-slate-700/30 rounded">
+                            <span className="text-slate-300 text-xs">Rank</span>
+                            <span className="text-slate-200 font-semibold text-xs">
+                              #{currentData.matchup_rank || "N/A"}
+                            </span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Season Averages */}
+                    <Card className="bg-slate-800/50 border-slate-700">
+                      <CardHeader>
+                        <CardTitle className="text-slate-200 text-sm">
+                          {currentData.playerName} {new Date().getFullYear()}-
+                          {new Date().getFullYear() + 1} Season Average
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-400 text-xs">Avg</span>
+                            <span className="text-slate-200 font-semibold text-xs">
+                              {currentData.season_avg ? currentData.season_avg.toFixed(1) : "N/A"}
+                            </span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Depth Chart (already implemented) */}
+                    <Card className="bg-slate-800/50 border-slate-700">
+                      <CardHeader>
+                        <CardTitle className="text-slate-200 text-sm">Depth Chart</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {isLoadingDepthChart ? (
+                          <div className="text-slate-400 text-xs">Loading...</div>
+                        ) : Object.keys(depthChart).length > 0 ? (
+                          <div className="space-y-2">
+                            {Object.entries(depthChart)
+                              .slice(0, 3)
+                              .map(([position, players]) => (
+                                <div key={position} className="p-2 bg-slate-700/30 rounded">
+                                  <div className="text-slate-300 font-semibold text-xs mb-1">
+                                    {position}
                                   </div>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                      </div>
-                    ) : (
-                      <div className="text-slate-400 text-xs">No depth chart data</div>
-                    )}
-                  </CardContent>
-                </Card>
+                                  <div className="text-slate-400 text-xs">
+                                    {players.slice(0, 2).map((p, idx) => (
+                                      <div key={idx}>
+                                        {idx === 0 ? "STARTER" : "2ND"}: {p.name}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        ) : (
+                          <div className="text-slate-400 text-xs">No depth chart data</div>
+                        )}
+                      </CardContent>
+                    </Card>
 
-                {/* Splits Section */}
-                <Card className="bg-slate-800/50 border-slate-700">
-                  <CardHeader>
-                    <CardTitle className="text-slate-200 text-sm">Splits</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-slate-400 text-xs">Splits data coming soon</div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
+                    {/* Splits Section */}
+                    <Card className="bg-slate-800/50 border-slate-700">
+                      <CardHeader>
+                        <CardTitle className="text-slate-200 text-sm">Splits</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-slate-400 text-xs">Splits data coming soon</div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              </>
+            )}
           </TabsContent>
 
           {/* Performance Tab */}
