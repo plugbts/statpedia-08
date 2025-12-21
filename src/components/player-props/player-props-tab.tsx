@@ -558,6 +558,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
   const [showMyPicks, setShowMyPicks] = useState(false);
   const [selectedPropForEnhancedAnalysis, setSelectedPropForEnhancedAnalysis] =
     useState<PlayerProp | null>(null);
+  const [playerPropsForEnhancedAnalysis, setPlayerPropsForEnhancedAnalysis] = useState<any[]>([]);
   const [showEnhancedAnalysis, setShowEnhancedAnalysis] = useState(false);
   const [selectedPropForAdvancedAnalysis, setSelectedPropForAdvancedAnalysis] =
     useState<PlayerProp | null>(null);
@@ -1667,6 +1668,11 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
       hasExpectedValue: "expectedValue" in prop,
     });
     setSelectedPropForEnhancedAnalysis(prop);
+    const pid = (prop as any).player_uuid || prop.playerId || prop.player_id || prop.id;
+    const samePlayer = (displayedProps as any[]).filter(
+      (p: any) => ((p as any).player_uuid || p.playerId || p.player_id || p.id) === pid,
+    );
+    setPlayerPropsForEnhancedAnalysis(samePlayer);
     setShowEnhancedAnalysis(true);
   };
 
@@ -2418,11 +2424,13 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
         {/* Enhanced Analysis Overlay */}
         <EnhancedAnalysisOverlay
           prediction={selectedPropForEnhancedAnalysis as any}
+          playerProps={playerPropsForEnhancedAnalysis as any}
           isOpen={showEnhancedAnalysis}
           currentFilter={overUnderFilter}
           onClose={() => {
             setShowEnhancedAnalysis(false);
             setSelectedPropForEnhancedAnalysis(null);
+            setPlayerPropsForEnhancedAnalysis([]);
           }}
         />
 
