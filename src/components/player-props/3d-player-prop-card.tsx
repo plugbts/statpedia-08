@@ -511,13 +511,30 @@ export function PlayerPropCard3D({
                   <div className="text-center bg-slate-800/30 rounded p-2">
                     <div className="text-xs text-slate-500 uppercase font-semibold">Over</div>
                     <div className="mt-1 flex items-center justify-center gap-1">
-                      <div className="flex h-5 w-5 items-center justify-center rounded bg-black/40">
+                      <div
+                        className={`flex h-5 items-center justify-center rounded bg-black/40 ${
+                          normalizeBookKey(String(prop.sportsbookSource || "all")) === "bet365"
+                            ? "w-10 px-1"
+                            : "w-5"
+                        }`}
+                      >
                         {(() => {
                           const bookKey = String(prop.sportsbookSource || "all").toLowerCase();
                           const src = sportsbookMonoLogo[normalizeBookKey(bookKey)];
                           if (!src)
                             return <span className="text-[10px] font-extrabold text-white">★</span>;
-                          return <img src={src} alt={bookKey} className="h-4 w-4 opacity-95" />;
+                          const nk = normalizeBookKey(bookKey);
+                          return (
+                            <img
+                              src={src}
+                              alt={bookKey}
+                              className={
+                                nk === "bet365"
+                                  ? "h-4 w-9 object-contain opacity-95"
+                                  : "h-4 w-4 opacity-95"
+                              }
+                            />
+                          );
                         })()}
                       </div>
                       <div className={`text-sm font-bold ${getOddsColorClass(prop.overOdds)}`}>
@@ -530,13 +547,30 @@ export function PlayerPropCard3D({
                   <div className="text-center bg-slate-800/30 rounded p-2">
                     <div className="text-xs text-slate-500 uppercase font-semibold">Under</div>
                     <div className="mt-1 flex items-center justify-center gap-1">
-                      <div className="flex h-5 w-5 items-center justify-center rounded bg-black/40">
+                      <div
+                        className={`flex h-5 items-center justify-center rounded bg-black/40 ${
+                          normalizeBookKey(String(prop.sportsbookSource || "all")) === "bet365"
+                            ? "w-10 px-1"
+                            : "w-5"
+                        }`}
+                      >
                         {(() => {
                           const bookKey = String(prop.sportsbookSource || "all").toLowerCase();
                           const src = sportsbookMonoLogo[normalizeBookKey(bookKey)];
                           if (!src)
                             return <span className="text-[10px] font-extrabold text-white">★</span>;
-                          return <img src={src} alt={bookKey} className="h-4 w-4 opacity-95" />;
+                          const nk = normalizeBookKey(bookKey);
+                          return (
+                            <img
+                              src={src}
+                              alt={bookKey}
+                              className={
+                                nk === "bet365"
+                                  ? "h-4 w-9 object-contain opacity-95"
+                                  : "h-4 w-4 opacity-95"
+                              }
+                            />
+                          );
                         })()}
                       </div>
                       <div className={`text-sm font-bold ${getOddsColorClass(prop.underOdds)}`}>

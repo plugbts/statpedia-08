@@ -861,41 +861,63 @@ async function enrichPropsWithAnalytics(
         posCountsByPlayer.set(pid, m);
       }
 
-      // Map opponent team abbreviation -> team_id for the current sport/league
+      // Resolve opponent -> team_id for the current sport/league.
+      // IMPORTANT: SGO sometimes provides abbreviations (ARI), sometimes names; support both.
       const leagueCode = String(mapSportToLeagueId(sport) || sport || "").toUpperCase();
+      const opponentRaw = props
+        .map((p) => String(p.opponent || "").trim())
+        .filter((v) => v.length > 0 && v.toUpperCase() !== "UNK" && v.toUpperCase() !== "TBD");
       const opponentAbbrs = Array.from(
         new Set(
-          props
-            .map((p) =>
-              nflAbbrAlias(
-                String(p.opponent || "")
-                  .trim()
-                  .toUpperCase(),
-              ),
-            )
+          opponentRaw
+            .map((v) => nflAbbrAlias(v.toUpperCase()))
             .filter((v) => v.length > 0 && v !== "UNK"),
         ),
       );
-      const teamIdByAbbr = new Map<string, string>();
-      if (opponentAbbrs.length > 0) {
+      const opponentNamesLower = Array.from(new Set(opponentRaw.map((v) => v.toLowerCase())));
+
+      const teamIdByKey = new Map<string, string>();
+      if (opponentAbbrs.length > 0 || opponentNamesLower.length > 0) {
         try {
           const teamRows = (await client.unsafe(
             `
-            SELECT t.id, UPPER(t.abbreviation) AS abbr
+            SELECT
+              t.id,
+              UPPER(t.abbreviation) AS abbr,
+              LOWER(t.name) AS name,
+              LOWER(t.full_name) AS full_name
             FROM public.teams t
             JOIN public.leagues l ON l.id = t.league_id
-            WHERE UPPER(t.abbreviation) = ANY($1::text[])
+            WHERE (
+              (CARDINALITY($1::text[]) > 0 AND UPPER(t.abbreviation) = ANY($1::text[]))
+              OR (CARDINALITY($2::text[]) > 0 AND (LOWER(t.name) = ANY($2::text[]) OR LOWER(t.full_name) = ANY($2::text[])))
+            )
               AND (
-                UPPER(l.code) = $2 OR UPPER(COALESCE(l.abbreviation, l.code)) = $2
+                UPPER(l.code) = $3 OR UPPER(COALESCE(l.abbreviation, l.code)) = $3
               )
           `,
-            [opponentAbbrs, leagueCode],
-          )) as Array<{ id: string; abbr: string }>;
-          for (const tr of teamRows) teamIdByAbbr.set(String(tr.abbr), String(tr.id));
+            [opponentAbbrs, opponentNamesLower, leagueCode],
+          )) as Array<{ id: string; abbr: string; name: string; full_name: string }>;
+          for (const tr of teamRows) {
+            teamIdByKey.set(String(tr.abbr), String(tr.id));
+            if (tr.name) teamIdByKey.set(String(tr.name), String(tr.id));
+            if (tr.full_name) teamIdByKey.set(String(tr.full_name), String(tr.id));
+          }
         } catch {
-          // optional; h2h calc will fall back to DB value or null
+          // optional; h2h/matchup ranks will fall back to DB value or null
         }
       }
+
+      const resolveOpponentTeamId = (raw: string): string | undefined => {
+        const s = String(raw || "").trim();
+        if (!s) return undefined;
+        const upper = nflAbbrAlias(s.toUpperCase());
+        const fromAbbr = teamIdByKey.get(upper);
+        if (fromAbbr) return fromAbbr;
+        const fromName = teamIdByKey.get(s.toLowerCase());
+        if (fromName) return fromName;
+        return undefined;
+      };
 
       /**
        * NFL Matchup Rank (Defense vs Prop Type)
@@ -918,7 +940,14 @@ async function enrichPropsWithAnalytics(
       >();
 
       if (shouldComputeDefenseRank && propTypesLower.length > 0) {
-        const season = nflSeasonForDate(new Date());
+        const seasonDefault = nflSeasonForDate(new Date());
+        const seasonByIdx = props.map((p) => {
+          const raw = (p as any).startTime || (p as any).start_time || (p as any).game_date;
+          const ts = raw ? Date.parse(String(raw)) : NaN;
+          if (Number.isFinite(ts)) return nflSeasonForDate(new Date(ts));
+          return seasonDefault;
+        });
+        const seasonsNeeded = Array.from(new Set(seasonByIdx)).filter(Boolean);
 
         // Only compute for prop types we actually need and can rank meaningfully.
         // (We can expand later; keep it focused to core offensive markets.)
@@ -947,16 +976,46 @@ async function enrichPropsWithAnalytics(
           ),
         );
 
+        // Fallback: if the current season isn't fully ingested, use the latest season with logs for each prop type.
+        const latestSeasonByProp = new Map<string, string>();
         for (const ptLower of propTypesToRank) {
+          try {
+            const ms = (await client.unsafe(
+              `
+              SELECT MAX(NULLIF(regexp_replace(pgl.season, '\\\\D', '', 'g'), '')::int) AS max_season
+              FROM public.player_game_logs pgl
+              JOIN public.teams t ON t.id = pgl.opponent_id
+              JOIN public.leagues l ON l.id = t.league_id
+              WHERE LOWER(TRIM(pgl.prop_type)) = $1
+                AND (UPPER(l.code) = 'NFL' OR UPPER(COALESCE(l.abbreviation, l.code)) = 'NFL')
+            `,
+              [ptLower],
+            )) as Array<{ max_season: number | null }>;
+            const maxSeason = ms?.[0]?.max_season;
+            if (maxSeason && Number.isFinite(maxSeason))
+              latestSeasonByProp.set(ptLower, String(maxSeason));
+          } catch {
+            // ignore; no fallback for this prop type
+          }
+        }
+
+        const pairs = new Set<string>();
+        for (const ptLower of propTypesToRank) {
+          for (const s of seasonsNeeded) pairs.add(`${s}|${ptLower}`);
+          const fallback = latestSeasonByProp.get(ptLower);
+          if (fallback) pairs.add(`${fallback}|${ptLower}`);
+        }
+
+        for (const pair of pairs) {
+          const [season, ptLower] = pair.split("|");
+          if (!season || !ptLower) continue;
           const cacheKey = `${String(sport).toLowerCase()}|${season}|${ptLower}`;
           const cached = defenseRankCache.get(cacheKey);
           if (cached && Date.now() - cached.ts < cacheTtlMs) {
-            defenseRankByPropType.set(ptLower, cached.byTeamId);
+            defenseRankByPropType.set(`${season}|${ptLower}`, cached.byTeamId);
             continue;
           }
 
-          // Compute defense ranks from logs for this prop_type + season.
-          // Note: join teams/leagues so we only rank NFL defenses.
           const rows = (await client.unsafe(
             `
               WITH per_game AS (
@@ -1016,7 +1075,7 @@ async function enrichPropsWithAnalytics(
           }
 
           defenseRankCache.set(cacheKey, { ts: Date.now(), byTeamId });
-          defenseRankByPropType.set(ptLower, byTeamId);
+          defenseRankByPropType.set(`${season}|${ptLower}`, byTeamId);
         }
       }
 
@@ -1083,14 +1142,7 @@ async function enrichPropsWithAnalytics(
       const oppIdsNeeded = Array.from(
         new Set(
           props
-            .map((p) =>
-              nflAbbrAlias(
-                String(p.opponent || "")
-                  .trim()
-                  .toUpperCase(),
-              ),
-            )
-            .map((abbr) => teamIdByAbbr.get(abbr))
+            .map((p) => resolveOpponentTeamId(String(p.opponent || "")))
             .filter(Boolean) as string[],
         ),
       );
@@ -1173,15 +1225,17 @@ async function enrichPropsWithAnalytics(
         const r = analyticsByKey.get(`${pid}:${propTypeKey}`);
 
         // Compute opponent defense rank for this prop type (NFL only).
-        const oppAbbrForRank = nflAbbrAlias(
-          String(p.opponent || "")
-            .trim()
-            .toUpperCase(),
-        );
-        const oppIdForRank = oppAbbrForRank ? teamIdByAbbr.get(oppAbbrForRank) : undefined;
+        // Use the prop's startTime when present to pick the correct season; fallback to current-season heuristic.
+        const rawStart = (p as any).startTime || (p as any).start_time || (p as any).game_date;
+        const ts = rawStart ? Date.parse(String(rawStart)) : NaN;
+        const seasonForProp = Number.isFinite(ts)
+          ? nflSeasonForDate(new Date(ts))
+          : nflSeasonForDate(new Date());
+
+        const oppIdForRank = resolveOpponentTeamId(String(p.opponent || ""));
         const defenseRankRow =
-          oppIdForRank && defenseRankByPropType.get(propTypeKey)
-            ? defenseRankByPropType.get(propTypeKey)!.get(oppIdForRank)
+          oppIdForRank && defenseRankByPropType.get(`${seasonForProp}|${propTypeKey}`)
+            ? defenseRankByPropType.get(`${seasonForProp}|${propTypeKey}`)!.get(oppIdForRank)
             : undefined;
         const computedMatchupRank =
           defenseRankRow && defenseRankRow.rank > 0 ? defenseRankRow.rank : null;
@@ -1258,12 +1312,7 @@ async function enrichPropsWithAnalytics(
         }
 
         // Compute H2H avg vs current opponent if possible (fallback keeps DB value)
-        const oppAbbr = nflAbbrAlias(
-          String(p.opponent || "")
-            .trim()
-            .toUpperCase(),
-        );
-        const oppId = oppAbbr ? teamIdByAbbr.get(oppAbbr) : undefined;
+        const oppId = resolveOpponentTeamId(String(p.opponent || ""));
         if (oppId) {
           const vs = h2hByKey.get(`${pid}:${propTypeKey}:${oppId}`) || [];
           if (vs.length > 0) out = { ...out, h2h_avg: vs.reduce((a, b) => a + b, 0) / vs.length };

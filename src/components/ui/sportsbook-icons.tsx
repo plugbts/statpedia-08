@@ -59,6 +59,10 @@ const MonoIcon = ({ sportsbookKey }: { sportsbookKey: string }) => {
   const key = normalizeBookKey(sportsbookKey);
   const src = MONO[key];
   if (!src) return null;
+  // bet365 is a wordmark (wide), so don't force it into a square.
+  if (key === "bet365") {
+    return <img src={src} alt={key} className="h-4 w-10 object-contain opacity-95" />;
+  }
   return <img src={src} alt={key} className="h-4 w-4 opacity-95" />;
 };
 
@@ -85,7 +89,7 @@ export const SportsbookIcons = {
     </div>
   ),
   bet365: () => (
-    <div className="w-5 h-5 rounded-sm flex items-center justify-center bg-black/40 border border-white/10">
+    <div className="w-10 h-5 rounded-sm flex items-center justify-center bg-black/40 border border-white/10 px-1">
       <MonoIcon sportsbookKey="bet365" />
     </div>
   ),
