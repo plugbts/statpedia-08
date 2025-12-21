@@ -2263,11 +2263,12 @@ export function EnhancedAnalysisOverlay({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-5xl max-h-[85vh] bg-gradient-to-br from-gray-900 via-black to-gray-900 border-2 border-slate-700/50 overflow-y-auto shadow-2xl shadow-purple-500/20 flex flex-col">
-        {/* Compact Header */}
-        <DialogHeader className="pb-3">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-slate-700 rounded-lg flex items-center justify-center">
-              <Zap className="w-5 h-5 text-slate-200" />
+        {/* Header with glow */}
+        <DialogHeader className="pb-4 relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-600/10 via-pink-600/10 to-blue-600/10 rounded-lg blur-xl"></div>
+          <div className="flex items-center space-x-3 relative z-10">
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-lg flex items-center justify-center border border-purple-500/30 shadow-lg shadow-purple-500/20">
+              <Zap className="w-5 h-5 text-purple-300" />
             </div>
             <div>
               <DialogTitle className="text-xl font-bold text-slate-100">Analysis</DialogTitle>
