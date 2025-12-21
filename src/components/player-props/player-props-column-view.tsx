@@ -426,10 +426,8 @@ export function PlayerPropsColumnView({
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [filterBy, setFilterBy] = useState("all");
   const [showSportsbookOverlay, setShowSportsbookOverlay] = useState(false);
-  const [selectedPropSportsbooks, setSelectedPropSportsbooks] = useState<{
-    sportsbooks: string[];
-    propInfo: any;
-  }>({ sportsbooks: [], propInfo: null });
+  const [selectedOverlayProp, setSelectedOverlayProp] = useState<PlayerProp | null>(null);
+  const [overlayPlayerProps, setOverlayPlayerProps] = useState<PlayerProp[]>([]);
   const [selectedGame, setSelectedGame] = useState("all");
   const [showAlternativeLines, setShowAlternativeLines] = useState(false);
   // Use simple analytics hook
@@ -920,10 +918,14 @@ export function PlayerPropsColumnView({
         });
 
   const handlePropClick = (prop: PlayerProp) => {
-    // Parent component handles the overlay
-    if (onAnalysisClick) {
-      onAnalysisClick(prop);
-    }
+    const pid = prop.playerId || prop.player_id || "";
+    const samePlayer = normalizedProps.filter((p) => (p.playerId || p.player_id || "") === pid);
+    setSelectedOverlayProp(prop);
+    setOverlayPlayerProps(samePlayer);
+    setShowSportsbookOverlay(true);
+
+    // Keep existing parent callback (if any) but overlay is now handled here.
+    if (onAnalysisClick) onAnalysisClick(prop);
   };
 
   const getConfidenceColor = (confidence: number) => {
@@ -1860,8 +1862,8 @@ export function PlayerPropsColumnView({
       <SportsbookOverlay
         isOpen={showSportsbookOverlay}
         onClose={() => setShowSportsbookOverlay(false)}
-        sportsbooks={selectedPropSportsbooks.sportsbooks}
-        propInfo={selectedPropSportsbooks.propInfo}
+        selectedProp={selectedOverlayProp}
+        playerProps={overlayPlayerProps}
       />
     </div>
   );

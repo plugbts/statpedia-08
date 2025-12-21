@@ -726,11 +726,8 @@ export function PlayerPropCard3D({
         isOpen={showSportsbookOverlay}
         onClose={() => setShowSportsbookOverlay(false)}
         sportsbooks={prop.availableSportsbooks || []}
-        propInfo={{
-          playerName: prop.playerName,
-          propType: prop.propType,
-          line: prop.line,
-        }}
+        selectedProp={prop as any}
+        playerProps={[prop as any]}
       />
     </div>
   );
