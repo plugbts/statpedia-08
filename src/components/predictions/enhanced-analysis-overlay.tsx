@@ -1151,16 +1151,19 @@ const EnhancedLineChart = React.memo(
               {/* Reference line for the betting line */}
               <ReferenceLine
                 y={line}
-                stroke="#f59e0b"
-                strokeDasharray="5 5"
-                strokeWidth={2}
+                stroke="#fbbf24"
+                strokeDasharray="4 4"
+                strokeWidth={4}
                 ifOverflow="extendDomain"
                 label={{
                   value: `Line: ${line}`,
                   position: "insideTopLeft",
                   fill: "#fbbf24",
-                  fontSize: 12,
-                  dy: -8,
+                  fontSize: 14,
+                  fontWeight: "bold",
+                  dy: -10,
+                  backgroundColor: "rgba(0, 0, 0, 0.7)",
+                  padding: 4,
                 }}
               />
 
@@ -1168,10 +1171,10 @@ const EnhancedLineChart = React.memo(
               <Line
                 type="monotone"
                 dataKey="performance"
-                stroke="#3b82f6"
-                strokeWidth={3}
-                dot={false}
-                activeDot={{ r: 6, fill: "#3b82f6", stroke: "#1e40af", strokeWidth: 2 }}
+                stroke="#60a5fa"
+                strokeWidth={5}
+                dot={{ r: 4, fill: "#60a5fa", stroke: "#3b82f6", strokeWidth: 2 }}
+                activeDot={{ r: 8, fill: "#60a5fa", stroke: "#3b82f6", strokeWidth: 3 }}
               />
 
               {/* Over/Under indicators */}
@@ -1275,21 +1278,24 @@ const EnhancedBarChart = React.memo(
               {/* Reference line for the betting line */}
               <ReferenceLine
                 y={line}
-                stroke="#f59e0b"
-                strokeDasharray="5 5"
-                strokeWidth={2}
+                stroke="#fbbf24"
+                strokeDasharray="4 4"
+                strokeWidth={4}
                 ifOverflow="extendDomain"
                 label={{
                   value: `Line: ${line}`,
                   position: "insideTopLeft",
                   fill: "#fbbf24",
-                  fontSize: 12,
-                  dy: -8,
+                  fontSize: 14,
+                  fontWeight: "bold",
+                  dy: -10,
+                  backgroundColor: "rgba(0, 0, 0, 0.7)",
+                  padding: 4,
                 }}
               />
 
               {/* Performance bars with color coding */}
-              <Bar dataKey="performance" radius={[4, 4, 0, 0]}>
+              <Bar dataKey="performance" radius={[4, 4, 0, 0]} stroke="#60a5fa" strokeWidth={2}>
                 {chartData.map((entry, index) => (
                   <Cell
                     key={`cell-${index}`}
@@ -2243,25 +2249,17 @@ export function EnhancedAnalysisOverlay({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-7xl max-h-[90vh] bg-gradient-to-br from-gray-900 via-black to-gray-900 border-2 border-purple-500/30 overflow-y-auto shadow-2xl shadow-purple-500/20 flex flex-col">
-        {/* Energetic Header with Soul */}
-        <DialogHeader className="pb-6 relative">
-          {/* Animated background glow */}
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-600/10 via-pink-600/10 to-blue-600/10 rounded-lg blur-xl animate-pulse"></div>
-
-          <div className="flex items-center space-x-4 relative z-10">
-            <div className="w-16 h-16 bg-gradient-to-br from-purple-500 via-pink-500 to-blue-500 rounded-full flex items-center justify-center shadow-lg shadow-purple-500/50 animate-bounce">
-              <Zap className="w-8 h-8 text-white animate-pulse" />
+      <DialogContent className="max-w-5xl max-h-[85vh] bg-slate-900 border border-slate-700 overflow-y-auto shadow-xl flex flex-col">
+        {/* Compact Header */}
+        <DialogHeader className="pb-3">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-slate-700 rounded-lg flex items-center justify-center">
+              <Zap className="w-5 h-5 text-slate-200" />
             </div>
             <div>
-              <DialogTitle className="text-3xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent animate-pulse">
-                Deep Dive Analysis
-              </DialogTitle>
-              <p className="text-gray-300 text-lg font-medium">
+              <DialogTitle className="text-xl font-bold text-slate-100">Analysis</DialogTitle>
+              <p className="text-slate-400 text-sm">
                 {currentData.playerName} • {currentData.teamAbbr} vs {currentData.opponentAbbr}
-              </p>
-              <p className="text-purple-400 text-sm font-semibold animate-pulse">
-                Powered by AI • Real-time insights • Game-changing data
               </p>
             </div>
           </div>
@@ -2270,46 +2268,46 @@ export function EnhancedAnalysisOverlay({
         {/* Energetic Tabs with Soul */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 mt-4">
           <TabsList
-            className={`grid w-full ${currentData.sport === "mlb" ? "grid-cols-8" : "grid-cols-7"} bg-gradient-to-r from-gray-800/80 via-black/80 to-gray-800/80 border-2 border-purple-500/30 rounded-xl p-2 shadow-lg shadow-purple-500/20 mb-4 mx-auto max-w-4xl`}
+            className={`grid w-full ${currentData.sport === "mlb" ? "grid-cols-8" : "grid-cols-7"} bg-slate-800 border border-slate-700 rounded-lg p-1 mb-3`}
           >
             <TabsTrigger
               value="overview"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/50 transition-all duration-300 hover:scale-105 text-xs px-2 py-1"
+              className="data-[state=active]:bg-slate-700 data-[state=active]:text-white text-xs px-2 py-1"
             >
               <Eye className="w-3 h-3 mr-1" />
               Overview
             </TabsTrigger>
             <TabsTrigger
               value="performance"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-cyan-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/50 transition-all duration-300 hover:scale-105 text-xs px-2 py-1"
+              className="data-[state=active]:bg-slate-700 data-[state=active]:text-white text-xs px-2 py-1"
             >
               <LineChart className="w-3 h-3 mr-1" />
               Performance
             </TabsTrigger>
             <TabsTrigger
               value="trends"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-600 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-green-500/50 transition-all duration-300 hover:scale-105 text-xs px-2 py-1"
+              className="data-[state=active]:bg-slate-700 data-[state=active]:text-white text-xs px-2 py-1"
             >
               <TrendingUp className="w-3 h-3 mr-1" />
               Trends
             </TabsTrigger>
             <TabsTrigger
               value="vote"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-600 data-[state=active]:to-red-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-orange-500/50 transition-all duration-300 hover:scale-105 text-xs px-2 py-1"
+              className="data-[state=active]:bg-slate-700 data-[state=active]:text-white text-xs px-2 py-1"
             >
               <Target className="w-3 h-3 mr-1" />
               Vote
             </TabsTrigger>
             <TabsTrigger
               value="advanced"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-500/50 transition-all duration-300 hover:scale-105 text-xs px-2 py-1"
+              className="data-[state=active]:bg-slate-700 data-[state=active]:text-white text-xs px-2 py-1"
             >
               <Brain className="w-3 h-3 mr-1" />
               Advanced
             </TabsTrigger>
             <TabsTrigger
               value="features"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-pink-600 data-[state=active]:to-rose-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-pink-500/50 transition-all duration-300 hover:scale-105 text-xs px-2 py-1"
+              className="data-[state=active]:bg-slate-700 data-[state=active]:text-white text-xs px-2 py-1"
             >
               <Settings className="w-3 h-3 mr-1" />
               Play Type
@@ -2317,7 +2315,7 @@ export function EnhancedAnalysisOverlay({
             {currentData.sport === "mlb" && (
               <TabsTrigger
                 value="pitchers"
-                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-yellow-600 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-yellow-500/50 transition-all duration-300 hover:scale-105 text-xs px-2 py-1"
+                className="data-[state=active]:bg-slate-700 data-[state=active]:text-white text-xs px-2 py-1"
               >
                 <Circle className="w-3 h-3 mr-1" />
                 Pitchers
@@ -2325,7 +2323,7 @@ export function EnhancedAnalysisOverlay({
             )}
             <TabsTrigger
               value="ask-statpedia"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-600 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-cyan-500/50 transition-all duration-300 hover:scale-105 text-xs px-2 py-1"
+              className="data-[state=active]:bg-slate-700 data-[state=active]:text-white text-xs px-2 py-1"
             >
               <BrainCircuit className="w-3 h-3 mr-1" />
               Ask AI
@@ -2351,28 +2349,28 @@ export function EnhancedAnalysisOverlay({
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* Key Metrics */}
-              <Card className="bg-gradient-to-br from-gray-800/80 to-black/80 border-2 border-purple-500/30 shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 transition-all duration-300">
-                <CardHeader>
-                  <CardTitle className="text-white flex items-center gap-2 text-lg font-bold">
-                    <Target className="w-6 h-6 text-purple-400 animate-pulse" />
+              <Card className="bg-slate-800 border border-slate-700">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-slate-100 flex items-center gap-2 text-sm font-semibold">
+                    <Target className="w-4 h-4 text-slate-400" />
                     Key Metrics
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex justify-between items-center p-2 bg-gradient-to-r from-purple-600/10 to-pink-600/10 rounded-lg border border-purple-500/20">
-                    <span className="text-gray-300 text-sm font-medium">Confidence</span>
-                    <Badge className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-0 shadow-lg shadow-blue-500/50 animate-pulse text-xs px-2 py-1">
+                <CardContent className="space-y-2">
+                  <div className="flex justify-between items-center p-2 bg-slate-700/50 rounded border border-slate-600">
+                    <span className="text-slate-300 text-xs font-medium">Confidence</span>
+                    <Badge className="bg-slate-600 text-white border-0 text-xs px-2 py-0.5">
                       {Math.round(currentData.confidence * 100)}%
                     </Badge>
                   </div>
-                  <div className="flex justify-between items-center p-2 bg-gradient-to-r from-green-600/10 to-emerald-600/10 rounded-lg border border-green-500/20">
-                    <span className="text-gray-300 text-sm font-medium">Expected Value</span>
+                  <div className="flex justify-between items-center p-2 bg-slate-700/50 rounded border border-slate-600">
+                    <span className="text-slate-300 text-xs font-medium">Expected Value</span>
                     <Badge
                       className={cn(
-                        "border-0 shadow-lg text-xs px-2 py-1",
+                        "border-0 text-xs px-2 py-0.5",
                         currentData.expectedValue > 0
-                          ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-emerald-500/50"
-                          : "bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-red-500/50",
+                          ? "bg-green-600 text-white"
+                          : "bg-red-600 text-white",
                       )}
                     >
                       {currentData.expectedValue > 0 ? "+" : ""}
@@ -2381,7 +2379,7 @@ export function EnhancedAnalysisOverlay({
                   </div>
 
                   {/* Prop Selector */}
-                  <div className="p-2 bg-gradient-to-r from-blue-600/10 to-cyan-600/10 rounded-lg border border-blue-500/20">
+                  <div className="p-2 bg-slate-700/50 rounded border border-slate-600">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-gray-300 text-sm font-medium">Current Prop</span>
                       <span className="text-xs text-gray-400">({availableProps.length} props)</span>
@@ -2391,7 +2389,7 @@ export function EnhancedAnalysisOverlay({
                       onValueChange={handlePropChange}
                       disabled={isLoadingProps}
                     >
-                      <SelectTrigger className="w-full bg-gradient-to-r from-gray-700/50 to-gray-800/50 border border-purple-500/30 text-white hover:border-purple-400/50 hover:shadow-lg hover:shadow-purple-500/20 transition-all duration-300 hover:scale-[1.02] cursor-pointer">
+                      <SelectTrigger className="w-full bg-slate-700 border border-slate-600 text-slate-100 text-xs">
                         <SelectValue
                           placeholder={
                             isLoadingProps
@@ -2404,12 +2402,12 @@ export function EnhancedAnalysisOverlay({
                           {currentData.propType}
                         </SelectValue>
                       </SelectTrigger>
-                      <SelectContent className="bg-gradient-to-br from-gray-800 to-black border border-purple-500/30 max-h-60 shadow-2xl shadow-purple-500/20 animate-in slide-in-from-top-2 duration-200">
+                      <SelectContent className="bg-slate-800 border border-slate-700 max-h-60">
                         {availableProps.map((prop) => (
                           <SelectItem
                             key={prop.id}
                             value={prop.id}
-                            className="text-white hover:bg-purple-600/20 focus:bg-purple-600/20 transition-all duration-300 hover:scale-[1.02] cursor-pointer"
+                            className="text-slate-100 hover:bg-slate-700 focus:bg-slate-700 cursor-pointer"
                           >
                             <div className="flex flex-col">
                               <span className="font-medium bg-gradient-to-r from-white to-gray-200 bg-clip-text text-transparent animate-pulse">
@@ -2440,7 +2438,7 @@ export function EnhancedAnalysisOverlay({
                             handleLineAdjustment(currentLine - 0.5);
                           }}
                           disabled={isUpdatingOdds}
-                          className="text-purple-400 border-purple-500/50 hover:bg-purple-600/20 hover:border-purple-400 transition-all duration-300 h-6 w-6 p-0"
+                          className="text-slate-400 border-slate-600 hover:bg-slate-700 hover:border-slate-500 h-6 w-6 p-0"
                         >
                           <Minus className="w-2 h-2" />
                         </Button>
@@ -2456,7 +2454,7 @@ export function EnhancedAnalysisOverlay({
                             handleLineAdjustment(currentLine + 0.5);
                           }}
                           disabled={isUpdatingOdds}
-                          className="text-purple-400 border-purple-500/50 hover:bg-purple-600/20 hover:border-purple-400 transition-all duration-300 h-6 w-6 p-0"
+                          className="text-slate-400 border-slate-600 hover:bg-slate-700 hover:border-slate-500 h-6 w-6 p-0"
                         >
                           <Plus className="w-2 h-2" />
                         </Button>
