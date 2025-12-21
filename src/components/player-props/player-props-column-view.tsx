@@ -1511,10 +1511,10 @@ export function PlayerPropsColumnView({
                                   : "N";
 
                             // Determine streak type and styling
-                            // 2+ wins = red, 2+ losses = light blue
-                            if (streakType === "W" && actualStreak >= 2) {
-                              return "text-red-500 streak-hot";
-                            } else if (streakType === "L" && actualStreak >= 2) {
+                            // 1+ wins = green, 1+ losses = light blue
+                            if (streakType === "W" && actualStreak >= 1) {
+                              return "text-green-500 streak-hot";
+                            } else if (streakType === "L" && actualStreak >= 1) {
                               return "text-blue-300 streak-cold";
                             } else {
                               return "text-white streak-neutral";
