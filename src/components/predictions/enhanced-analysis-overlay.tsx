@@ -1597,16 +1597,6 @@ export function EnhancedAnalysisOverlay({
     return `https://a.espncdn.com/i/teamlogos/${sportLower}/500/${teamLower}.png`;
   };
 
-  // Get player headshot URL
-  const playerHeadshotUrl = useMemo(() => {
-    const playerId = String(
-      (currentData as any)?.playerId || (currentData as any)?.id || "",
-    ).trim();
-    const sport = String((currentData as any)?.sport || "nfl").toLowerCase();
-    if (!playerId) return null;
-    return getPlayerHeadshot(sport, playerId);
-  }, [(currentData as any)?.playerId, (currentData as any)?.sport]);
-
   // Format American odds with proper NaN and null handling
   const formatAmericanOdds = (odds: number | string | undefined | null): string => {
     // Handle non-numeric values
