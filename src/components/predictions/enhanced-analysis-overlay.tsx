@@ -1145,7 +1145,16 @@ const EnhancedLineChart = React.memo(
                 <YAxis
                   tick={{ fill: "#94a3b8", fontSize: 12 }}
                   axisLine={{ stroke: "#475569" }}
-                  domain={["dataMin - 2", "dataMax + 2"]}
+                  domain={[
+                    (dataMin: number) => {
+                      const min = Math.min(dataMin, line);
+                      return Math.max(0, min - Math.max(2, min * 0.1));
+                    },
+                    (dataMax: number) => {
+                      const max = Math.max(dataMax, line);
+                      return max + Math.max(2, max * 0.1);
+                    },
+                  ]}
                 />
                 <ChartTooltip content={<CustomTooltip />} />
 
@@ -1157,14 +1166,14 @@ const EnhancedLineChart = React.memo(
                   strokeWidth={4}
                   ifOverflow="extendDomain"
                   label={{
-                    value: `Line: ${line}`,
+                    value: String(line),
                     position: "insideTopLeft",
                     fill: "#fbbf24",
-                    fontSize: 14,
+                    fontSize: 12,
                     fontWeight: "bold",
-                    dy: -10,
-                    backgroundColor: "rgba(0, 0, 0, 0.7)",
-                    padding: 4,
+                    dy: -8,
+                    backgroundColor: "rgba(0, 0, 0, 0.8)",
+                    padding: 2,
                   }}
                 />
 
@@ -1295,14 +1304,14 @@ const EnhancedBarChart = React.memo(
                   strokeWidth={4}
                   ifOverflow="extendDomain"
                   label={{
-                    value: `Line: ${line}`,
+                    value: String(line),
                     position: "insideTopLeft",
                     fill: "#fbbf24",
-                    fontSize: 14,
+                    fontSize: 12,
                     fontWeight: "bold",
-                    dy: -10,
-                    backgroundColor: "rgba(0, 0, 0, 0.7)",
-                    padding: 4,
+                    dy: -8,
+                    backgroundColor: "rgba(0, 0, 0, 0.8)",
+                    padding: 2,
                   }}
                 />
 
@@ -2346,24 +2355,9 @@ export function EnhancedAnalysisOverlay({
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-4 mt-2">
-            {/* Main Prop Display - Animated and Cool */}
-            <div className="space-y-3 animate-fade-in">
-              <h3 className="text-3xl font-bold text-white bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent animate-pulse text-center">
-                {currentData.playerName}
-              </h3>
-              <div className="bg-gradient-to-r from-gray-800/50 to-gray-700/50 rounded-lg p-6 border border-gray-600/30 shadow-lg text-center">
-                <p className="text-2xl font-semibold text-white mb-2 animate-pulse">
-                  {currentData.propType}
-                </p>
-                <p className="text-3xl font-bold text-blue-400 animate-bounce">
-                  Line: {currentData.line}
-                </p>
-              </div>
-            </div>
-
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* Key Metrics */}
-              <Card className="bg-slate-800 border border-slate-700">
+              <Card className="bg-slate-800/50 border-slate-700">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-slate-100 flex items-center gap-2 text-sm font-semibold">
                     <Target className="w-4 h-4 text-slate-400" />
@@ -2795,7 +2789,10 @@ export function EnhancedAnalysisOverlay({
             {/* Quick Performance Chart */}
             <Card className="bg-slate-800/50 border-slate-700">
               <CardHeader>
-                <CardTitle className="text-slate-200">Quick Performance Overview</CardTitle>
+                <CardTitle className="text-slate-200 flex items-center gap-2">
+                  <LineChart className="w-5 h-5 text-blue-400" />
+                  Quick Performance Overview
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <EnhancedLineChart
@@ -3074,34 +3071,63 @@ export function EnhancedAnalysisOverlay({
                 </CardContent>
               </Card>
 
-              {/* Key Factors */}
+              {/* Injury Report & Depth Chart */}
               <Card className="bg-slate-800/50 border-slate-700">
                 <CardHeader>
                   <CardTitle className="text-slate-200 flex items-center gap-2">
-                    <Target className="w-5 h-5 text-blue-400" />
-                    Key Factors
+                    <Activity className="w-5 h-5 text-blue-400" />
+                    Injury Report & Depth Chart
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 gap-3">
-                    {enhancedData.factors?.map((factor, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center gap-3 p-3 bg-slate-700/30 rounded-lg"
-                      >
-                        <div className="w-2 h-2 bg-blue-400 rounded-full" />
-                        <span className="text-slate-300 text-sm">{factor}</span>
-                      </div>
-                    )) ||
-                      generateRealKeyFactors(enhancedData).map((factor, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center gap-3 p-3 bg-slate-700/30 rounded-lg"
-                        >
-                          <div className="w-2 h-2 bg-blue-400 rounded-full" />
-                          <span className="text-slate-300 text-sm">{factor}</span>
+                  {/* Injury Report Section */}
+                  <div>
+                    <h4 className="text-slate-300 font-semibold mb-2 text-sm">Injury Status</h4>
+                    {isQuestionable ? (
+                      <div className="p-3 bg-orange-900/20 border border-orange-500/30 rounded-lg">
+                        <div className="flex items-center gap-2 mb-1">
+                          <AlertTriangle className="w-4 h-4 text-orange-400" />
+                          <span className="text-orange-300 font-semibold text-sm">
+                            {injuryStatus}
+                          </span>
                         </div>
-                      ))}
+                        {injuryDetails && (
+                          <p className="text-slate-400 text-xs mt-1">{injuryDetails}</p>
+                        )}
+                        {injuryReturnDate && (
+                          <p className="text-slate-500 text-xs mt-1">
+                            Expected return: {injuryReturnDate}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-green-900/20 border border-green-500/30 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-green-400" />
+                          <span className="text-green-300 font-semibold text-sm">Healthy</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Depth Chart Section */}
+                  <div>
+                    <h4 className="text-slate-300 font-semibold mb-2 text-sm">Team Depth Chart</h4>
+                    <div className="text-slate-400 text-xs">
+                      Depth chart data coming soon. This will show the starting lineup and backups
+                      for each position.
+                    </div>
+                  </div>
+
+                  {/* Performance When Teammates Out */}
+                  <div>
+                    <h4 className="text-slate-300 font-semibold mb-2 text-sm">
+                      Performance When Teammates Out
+                    </h4>
+                    <div className="text-slate-400 text-xs">
+                      Analysis of how this player performs when key teammates are injured/out coming
+                      soon.
+                    </div>
                   </div>
                 </CardContent>
               </Card>
