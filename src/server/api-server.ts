@@ -968,6 +968,7 @@ async function enrichPropsWithAnalytics(
           "passing attempts",
           "passing completions",
           "passing tds",
+          "passing interceptions",
           "rushing yards",
           "rushing attempts",
           "rushing tds",
@@ -1234,6 +1235,17 @@ async function enrichPropsWithAnalytics(
 
           defenseRankCache.set(cacheKey, { ts: Date.now(), byTeamId });
           defenseRankByPropType.set(`${season}|${ptLower}`, byTeamId);
+
+          // Always log when ranks are computed (not just in debug mode)
+          if (byTeamId.size > 0) {
+            console.log(
+              `[matchup] ✅ Computed ${byTeamId.size} defense ranks for ${season}|${ptLower}`,
+            );
+          } else {
+            console.warn(
+              `[matchup] ⚠️  Computed ranks for ${season}|${ptLower} but map is empty (0 teams)`,
+            );
+          }
         }
       }
 
