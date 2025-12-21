@@ -1402,10 +1402,8 @@ export function PlayerPropsColumnView({
                             {(() => {
                               const fromData = normalizePosition(prop.position || "").toUpperCase();
                               if (fromData) return fromData;
-                              const derived = getPositionFromPropType(
-                                String(prop.propType || ""),
-                              ).toUpperCase();
-                              return derived && derived !== "N/A" ? derived : "—";
+                              // Never guess position from prop type (it mislabels QBs as RBs on rushing markets, etc.)
+                              return "—";
                             })()}
                           </div>
                         </div>

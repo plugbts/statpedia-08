@@ -126,6 +126,30 @@ type NormalizedProp = {
   rating?: number | null;
 };
 
+function normalizeNflPosition(raw: any): string | null {
+  const s = String(raw || "").trim();
+  if (!s) return null;
+  const up = s.toUpperCase();
+  // Already abbreviated
+  if (["QB", "RB", "WR", "TE", "K", "DST", "DEF", "FB"].includes(up))
+    return up === "DEF" ? "DST" : up;
+  const map: Record<string, string> = {
+    QUARTERBACK: "QB",
+    RUNNINGBACK: "RB",
+    "RUNNING BACK": "RB",
+    WIDERECEIVER: "WR",
+    "WIDE RECEIVER": "WR",
+    TIGHTEND: "TE",
+    "TIGHT END": "TE",
+    KICKER: "K",
+    DEFENSE: "DST",
+    "D/ST": "DST",
+    DST: "DST",
+    FULLBACK: "FB",
+  };
+  return map[up.replace(/\./g, "").replace(/\s+/g, " ").trim()] || null;
+}
+
 // Title-case a player's name robustly (handles spaces, hyphens, and apostrophes)
 function formatName(raw: string): string {
   if (!raw) return raw;
@@ -376,6 +400,16 @@ async function fetchNormalizedPlayerProps(sport: string, limit = 200): Promise<N
       const key2 = `${playerId}:${gameId}:${propType}:${lineNum}:${period}`;
       // SGO v2/events provides the player's team via event.players[playerID].teamID (not on the odd)
       const playerTeamId = ev?.players?.[playerId]?.teamID;
+      const playerPosRaw =
+        ev?.players?.[playerId]?.position ||
+        ev?.players?.[playerId]?.pos ||
+        ev?.players?.[playerId]?.positionName ||
+        ev?.players?.[playerId]?.positionAbbr ||
+        ev?.players?.[playerId]?.position_abbr;
+      const playerPos =
+        sport === "nfl"
+          ? normalizeNflPosition(playerPosRaw)
+          : String(playerPosRaw || "").trim() || null;
       const home = (homeAbbr || "").toString().toUpperCase();
       const away = (awayAbbr || "").toString().toUpperCase();
 
@@ -408,6 +442,7 @@ async function fetchNormalizedPlayerProps(sport: string, limit = 200): Promise<N
             startTime: gameTime,
             playerId,
             playerName,
+            position: playerPos,
             // Prefer derived abbreviations so the frontend can render logos reliably
             team: derivedTeam || playerTeamRaw || undefined,
             opponent: inferredOpp,
@@ -1455,9 +1490,19 @@ async function enrichPropsWithAnalytics(
           defenseRankRow && defenseRankRow.rank > 0 ? defenseRankRow.rank : null;
 
         // Start with DB analytics when present (fallback to existing values otherwise)
+        const sgoPos =
+          String(p.position || "")
+            .trim()
+            .toUpperCase() || null;
+        const dbPos =
+          String(posByPlayerId.get(pid) || "")
+            .trim()
+            .toUpperCase() || null;
+        const finalPos = sgoPos || dbPos || null;
+
         let out: NormalizedProp = {
           ...p,
-          position: posByPlayerId.get(pid) || null,
+          position: finalPos,
           l5: r ? toNumberOrNull(r.l5) : (p.l5 ?? null),
           l10: r ? toNumberOrNull(r.l10) : (p.l10 ?? null),
           l20: r ? toNumberOrNull(r.l20) : (p.l20 ?? null),
