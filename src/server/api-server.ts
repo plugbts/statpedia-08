@@ -992,7 +992,15 @@ async function enrichPropsWithAnalytics(
           console.log("[matchup] prop types to rank", {
             propTypesToRank,
             propTypesLower: propTypesLower.slice(0, 5),
+            rankable: Array.from(rankable),
           });
+        }
+
+        // If no prop types to rank, skip computation
+        if (propTypesToRank.length === 0) {
+          if (debugMatchup) {
+            console.warn("[matchup] No prop types to rank - skipping computation");
+          }
         }
 
         // Try to read precomputed ranks from public.defense_ranks first (fast path).
@@ -1090,9 +1098,22 @@ async function enrichPropsWithAnalytics(
           if (fallback) pairs.add(`${fallback}|${ptLower}`);
         }
 
+        if (debugMatchup) {
+          console.log("[matchup] pairs to compute", {
+            pairs: Array.from(pairs),
+            seasonsNeeded,
+            propTypesToRank,
+          });
+        }
+
         for (const pair of pairs) {
           const [season, ptLower] = pair.split("|");
-          if (!season || !ptLower) continue;
+          if (!season || !ptLower) {
+            if (debugMatchup) {
+              console.warn("[matchup] Invalid pair format", { pair });
+            }
+            continue;
+          }
           const cacheKey = `${String(sport).toLowerCase()}|${season}|${ptLower}`;
           const cached = defenseRankCache.get(cacheKey);
           if (cached && Date.now() - cached.ts < cacheTtlMs) {
@@ -1378,27 +1399,45 @@ async function enrichPropsWithAnalytics(
           });
         }
         // Lookup rank: try the prop season first; if no ranks exist for that season, fallback to latest season with logs.
+        const lookupKey = `${seasonForProp}|${propTypeKey}`;
         let rankMap =
-          oppIdForRank && defenseRankByPropType.get(`${seasonForProp}|${propTypeKey}`)
-            ? defenseRankByPropType.get(`${seasonForProp}|${propTypeKey}`)!
+          oppIdForRank && defenseRankByPropType.get(lookupKey)
+            ? defenseRankByPropType.get(lookupKey)!
             : undefined;
         if (!rankMap || rankMap.size === 0) {
           const fbSeason = latestSeasonByProp.get(propTypeKey);
           if (fbSeason) {
-            const fbMap = defenseRankByPropType.get(`${fbSeason}|${propTypeKey}`);
+            const fbKey = `${fbSeason}|${propTypeKey}`;
+            const fbMap = defenseRankByPropType.get(fbKey);
             if (fbMap && fbMap.size > 0) rankMap = fbMap;
           }
         }
         const defenseRankRow = oppIdForRank && rankMap ? rankMap.get(oppIdForRank) : undefined;
-        if (debugMatchup && oppIdForRank && (!rankMap || rankMap.size === 0 || !defenseRankRow)) {
-          console.warn("[matchup] rank missing", {
-            opponent: p.opponent,
-            opponent_id: oppIdForRank,
-            propType: p.propType,
-            seasonForProp,
-            fbSeason: latestSeasonByProp.get(propTypeKey) || null,
-            haveRankMap: rankMap ? rankMap.size : 0,
-          });
+        if (debugMatchup) {
+          if (!oppIdForRank) {
+            console.warn("[matchup] opponent ID not resolved", {
+              opponent: p.opponent,
+              propType: p.propType,
+            });
+          } else if (!rankMap || rankMap.size === 0) {
+            console.warn("[matchup] rank map missing", {
+              opponent: p.opponent,
+              opponent_id: oppIdForRank,
+              propType: p.propType,
+              lookupKey,
+              seasonForProp,
+              fbSeason: latestSeasonByProp.get(propTypeKey) || null,
+              availableKeys: Array.from(defenseRankByPropType.keys()),
+            });
+          } else if (!defenseRankRow) {
+            console.warn("[matchup] rank row missing for opponent", {
+              opponent: p.opponent,
+              opponent_id: oppIdForRank,
+              propType: p.propType,
+              rankMapSize: rankMap.size,
+              sampleTeamIds: Array.from(rankMap.keys()).slice(0, 3),
+            });
+          }
         }
         const computedMatchupRank =
           defenseRankRow && defenseRankRow.rank > 0 ? defenseRankRow.rank : null;
