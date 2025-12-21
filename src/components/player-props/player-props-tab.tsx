@@ -770,6 +770,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
               }))
               .filter((o: any) => allowedBooks.has(String(o.book || "").toLowerCase()));
 
+            // If this prop has zero FanDuel/DK/bet365 offers, do not show it at all.
+            // This prevents rows where the line/odds come from non-US books or missing books.
+            if (!offers || offers.length === 0) return null;
+
             const toDecimal = (american: number): number =>
               american > 0 ? 1 + american / 100 : 1 + 100 / Math.abs(american);
             const bestFromOffers = (side: "over" | "under") => {
@@ -862,6 +866,8 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
             } as any;
           });
 
+          const transformedPropsFiltered = transformedProps.filter(Boolean) as any[];
+
           // Sort by original index to preserve API order
           // For NFL, prioritize rows that already have analytics so the UI "lights up" immediately.
           const hasAnalytics = (p: any) =>
@@ -872,7 +878,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
             p.season_avg != null ||
             p.current_streak != null;
 
-          const sortedPropsWithEV = transformedProps.sort((a: any, b: any) => {
+          const sortedPropsWithEV = transformedPropsFiltered.sort((a: any, b: any) => {
             const sportKey = String(sport || "").toLowerCase();
             if (sportKey === "nfl") {
               const da = hasAnalytics(a) ? 1 : 0;
@@ -904,7 +910,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
           // Log success to console (visible in dev console)
           logSuccess(
             "PlayerPropsTab",
-            `Player Props Loaded: Found ${result.length} server-side cached props for ${sport.toUpperCase()} with exact sportsbook odds`,
+            `Player Props Loaded: Found ${sortedPropsWithEV.length} props for ${sport.toUpperCase()} with FanDuel/DK/bet365 odds`,
           );
         } else {
           logWarning("PlayerPropsTab", "Backend API returned no valid props", result);
@@ -1386,8 +1392,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
     // If overUnderFilter === 'both', matchesOverUnder stays true (shows all props)
 
     // Alternative lines filter: only show main lines unless filter is enabled
-    const matchesAlternativeLines =
-      showAlternativeLines || mainLineIds.size === 0 || mainLineIds.has(prop.id);
+    const matchesAlternativeLines = showAlternativeLines ? true : mainLineIds.has(prop.id);
 
     const passes =
       matchesSearch &&

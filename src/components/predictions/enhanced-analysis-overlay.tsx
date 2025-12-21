@@ -3139,45 +3139,42 @@ export function EnhancedAnalysisOverlay({
                       <span className="text-slate-400">Injury Status</span>
                       <Badge
                         className={cn(
-                          enhancedData.injuryStatus === "injured"
-                            ? "bg-red-600/20 text-red-300 border-red-500/30"
-                            : enhancedData.injuryStatus === "questionable"
-                              ? "bg-orange-600/20 text-orange-300 border-orange-500/30"
+                          isQuestionable
+                            ? "bg-orange-600/20 text-orange-300 border-orange-500/30"
+                            : injuryStatus.toLowerCase().includes("out") ||
+                                injuryStatus.toLowerCase().includes("injured")
+                              ? "bg-red-600/20 text-red-300 border-red-500/30"
                               : "bg-green-600/20 text-green-300 border-green-500/30",
                         )}
                       >
-                        {enhancedData.injuryStatus === "injured"
-                          ? "INJURED"
-                          : enhancedData.injuryStatus === "questionable"
-                            ? "QUESTIONABLE"
+                        {isQuestionable
+                          ? "QUESTIONABLE"
+                          : injuryStatus.toLowerCase().includes("out") ||
+                              injuryStatus.toLowerCase().includes("injured")
+                            ? "INJURED"
                             : "HEALTHY"}
                       </Badge>
                     </div>
-                    {enhancedData.injuryStatus === "injured" ||
-                    enhancedData.injuryStatus === "questionable" ? (
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-400">Games Since Return</span>
-                        <span className="text-slate-300">
-                          {enhancedData.injuryStatus === "injured" ? "0" : "Returning"}
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-400">Availability</span>
-                        <span className="text-green-300 font-semibold">Full Availability</span>
-                      </div>
-                    )}
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Availability</span>
+                      <span
+                        className={cn(
+                          "font-semibold",
+                          isQuestionable ? "text-orange-300" : "text-green-300",
+                        )}
+                      >
+                        {isQuestionable ? "Monitor Status" : "Full Availability"}
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Post-Injury Stats - Only show if player has recent injury history */}
-                  {enhancedData.injuryStatus !== "healthy" && (
+                  {/* Only show warning when the player is actually questionable/out */}
+                  {isQuestionable && (
                     <div className="space-y-3">
                       <h4 className="text-slate-300 font-semibold">Recovery Status</h4>
                       <div className="bg-slate-700/30 p-4 rounded-lg">
                         <div className="text-slate-400 text-sm mb-2">
-                          {enhancedData.injuryStatus === "injured"
-                            ? "Player is currently dealing with an injury. Monitor injury reports for updates."
-                            : "Player is listed as questionable. Check status before game time."}
+                          Player is listed as {injuryStatus}. Check status before game time.
                         </div>
                         <div className="flex items-center gap-2 text-orange-300">
                           <AlertTriangle className="w-4 h-4" />
