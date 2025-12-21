@@ -2425,9 +2425,9 @@ export function EnhancedAnalysisOverlay({
                   </div>
 
                   {/* Line Adjustment Interface */}
-                  <div className="pt-3 border-t border-purple-500/30">
+                  <div className="pt-2 border-t border-slate-600">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-gray-300 text-xs font-medium">Adjust Line</span>
+                      <span className="text-slate-300 text-xs font-medium">Adjust Line</span>
                       <div className="flex items-center gap-1">
                         <Button
                           size="sm"
@@ -2442,7 +2442,7 @@ export function EnhancedAnalysisOverlay({
                         >
                           <Minus className="w-2 h-2" />
                         </Button>
-                        <span className="text-white font-bold min-w-[50px] text-center bg-gradient-to-r from-purple-600/20 to-pink-600/20 px-2 py-1 rounded text-xs border border-purple-500/30">
+                        <span className="text-slate-100 font-bold min-w-[50px] text-center bg-slate-700 px-2 py-1 rounded text-xs border border-slate-600">
                           {adjustedLine !== null ? adjustedLine : currentData.line}
                         </span>
                         <Button
