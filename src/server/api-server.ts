@@ -1320,18 +1320,27 @@ async function enrichPropsWithAnalytics(
                game_date
         FROM (
           SELECT
-            pgl.player_id,
-            TRIM(pgl.prop_type) AS prop_type,
-            pgl.opponent_id,
-            pgl.actual_value,
-            pgl.game_date,
+            t.player_id,
+            t.prop_type,
+            t.opponent_id,
+            t.actual_value,
+            t.game_date,
             ROW_NUMBER() OVER (
-              PARTITION BY pgl.player_id, TRIM(pgl.prop_type)
-              ORDER BY pgl.game_date DESC
+              PARTITION BY t.player_id, t.prop_type
+              ORDER BY t.game_date DESC
             ) AS rn
-          FROM public.player_game_logs pgl
-          WHERE pgl.player_id = ANY($1::uuid[])
-            AND LOWER(TRIM(pgl.prop_type)) = ANY($2::text[])
+          FROM (
+            SELECT DISTINCT ON (pgl.player_id, TRIM(pgl.prop_type), pgl.game_id)
+              pgl.player_id,
+              TRIM(pgl.prop_type) AS prop_type,
+              pgl.opponent_id,
+              pgl.actual_value,
+              pgl.game_date
+            FROM public.player_game_logs pgl
+            WHERE pgl.player_id = ANY($1::uuid[])
+              AND LOWER(TRIM(pgl.prop_type)) = ANY($2::text[])
+            ORDER BY pgl.player_id, TRIM(pgl.prop_type), pgl.game_id, pgl.game_date DESC
+          ) t
         ) t
         WHERE t.rn <= 20
         ORDER BY t.player_id, t.prop_type, t.game_date DESC;
@@ -1381,19 +1390,28 @@ async function enrichPropsWithAnalytics(
                game_date
         FROM (
           SELECT
-            pgl.player_id,
-            TRIM(pgl.prop_type) AS prop_type,
-            pgl.opponent_id,
-            pgl.actual_value,
-            pgl.game_date,
+            t.player_id,
+            t.prop_type,
+            t.opponent_id,
+            t.actual_value,
+            t.game_date,
             ROW_NUMBER() OVER (
-              PARTITION BY pgl.player_id, TRIM(pgl.prop_type), pgl.opponent_id
-              ORDER BY pgl.game_date DESC
+              PARTITION BY t.player_id, t.prop_type, t.opponent_id
+              ORDER BY t.game_date DESC
             ) AS rn
-          FROM public.player_game_logs pgl
-          WHERE pgl.player_id = ANY($1::uuid[])
-            AND LOWER(TRIM(pgl.prop_type)) = ANY($2::text[])
-            AND pgl.opponent_id = ANY($3::uuid[])
+          FROM (
+            SELECT DISTINCT ON (pgl.player_id, TRIM(pgl.prop_type), pgl.opponent_id, pgl.game_id)
+              pgl.player_id,
+              TRIM(pgl.prop_type) AS prop_type,
+              pgl.opponent_id,
+              pgl.actual_value,
+              pgl.game_date
+            FROM public.player_game_logs pgl
+            WHERE pgl.player_id = ANY($1::uuid[])
+              AND LOWER(TRIM(pgl.prop_type)) = ANY($2::text[])
+              AND pgl.opponent_id = ANY($3::uuid[])
+            ORDER BY pgl.player_id, TRIM(pgl.prop_type), pgl.opponent_id, pgl.game_id, pgl.game_date DESC
+          ) t
         ) t
         WHERE t.rn <= 20
         ORDER BY t.player_id, t.prop_type, t.opponent_id, t.game_date DESC;
@@ -1859,7 +1877,7 @@ app.get("/api/player-game-logs", async (req, res) => {
     try {
       const rows = (await client.unsafe(
         `
-        SELECT
+        SELECT DISTINCT ON (pgl.game_id)
           pgl.game_date,
           pgl.actual_value::numeric AS actual_value,
           pgl.opponent_id,
@@ -1868,7 +1886,7 @@ app.get("/api/player-game-logs", async (req, res) => {
         LEFT JOIN public.teams t ON t.id = pgl.opponent_id
         WHERE pgl.player_id = $1::uuid
           AND LOWER(TRIM(pgl.prop_type)) = LOWER(TRIM($2))
-        ORDER BY pgl.game_date DESC
+        ORDER BY pgl.game_id, pgl.game_date DESC
         LIMIT $3::int
       `,
         [playerUuid, propType, limit],
