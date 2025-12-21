@@ -1455,26 +1455,13 @@ export function PlayerPropsColumnView({
                           const oddsText = toAmericanOdds(oddsValue);
                           const color = getOddsDisplayClass(prop, overUnderFilter);
                           const logoSrc = sportsbookMonoLogo[bookKey];
-                          const isBet365 = bookKey === "bet365";
 
                           // PropFinder-style: boxed odds + small book badge
                           return (
                             <div className="inline-flex items-center gap-1 rounded-md border border-slate-700/60 bg-slate-900/60 px-2 py-1">
-                              <div
-                                className={`flex items-center justify-center rounded ${
-                                  isBet365 ? "h-4 w-12" : "h-4 w-4"
-                                }`}
-                              >
+                              <div className="flex h-4 w-4 items-center justify-center rounded">
                                 {logoSrc ? (
-                                  <img
-                                    src={logoSrc}
-                                    alt={bookKey}
-                                    className={
-                                      isBet365
-                                        ? "h-4 w-12 object-contain opacity-95"
-                                        : "h-3 w-3 opacity-95"
-                                    }
-                                  />
+                                  <img src={logoSrc} alt={bookKey} className="h-3 w-3 opacity-95" />
                                 ) : (
                                   <span className="text-[9px] font-extrabold text-white">
                                     {bookKey === "all" ? "★" : bookKey.slice(0, 2).toUpperCase()}
