@@ -61,7 +61,7 @@ const MonoIcon = ({ sportsbookKey }: { sportsbookKey: string }) => {
   if (!src) return null;
   // bet365 is a wordmark (wide), so don't force it into a square.
   if (key === "bet365") {
-    return <img src={src} alt={key} className="h-4 w-10 object-contain opacity-95" />;
+    return <img src={src} alt={key} className="h-4 w-12 object-contain opacity-95" />;
   }
   return <img src={src} alt={key} className="h-4 w-4 opacity-95" />;
 };
@@ -69,63 +69,63 @@ const MonoIcon = ({ sportsbookKey }: { sportsbookKey: string }) => {
 // Professional sportsbook icon components (PropFinder-style: white mono mark in a dark tile)
 export const SportsbookIcons = {
   draftkings: () => (
-    <div className="w-5 h-5 rounded-sm flex items-center justify-center bg-black/40 border border-white/10">
+    <div className="w-5 h-5 rounded-sm flex items-center justify-center">
       <MonoIcon sportsbookKey="draftkings" />
     </div>
   ),
   fanduel: () => (
-    <div className="w-5 h-5 rounded-sm flex items-center justify-center bg-black/40 border border-white/10">
+    <div className="w-5 h-5 rounded-sm flex items-center justify-center">
       <MonoIcon sportsbookKey="fanduel" />
     </div>
   ),
   betmgm: () => (
-    <div className="w-5 h-5 rounded-sm flex items-center justify-center bg-black/40 border border-white/10">
+    <div className="w-5 h-5 rounded-sm flex items-center justify-center">
       <MonoIcon sportsbookKey="betmgm" />
     </div>
   ),
   caesars: () => (
-    <div className="w-5 h-5 rounded-sm flex items-center justify-center bg-black/40 border border-white/10">
+    <div className="w-5 h-5 rounded-sm flex items-center justify-center">
       <MonoIcon sportsbookKey="caesars" />
     </div>
   ),
   bet365: () => (
-    <div className="w-10 h-5 rounded-sm flex items-center justify-center bg-black/40 border border-white/10 px-1">
+    <div className="w-12 h-5 rounded-sm flex items-center justify-center">
       <MonoIcon sportsbookKey="bet365" />
     </div>
   ),
   espnbet: () => (
-    <div className="w-5 h-5 rounded-sm flex items-center justify-center bg-black/40 border border-white/10">
+    <div className="w-5 h-5 rounded-sm flex items-center justify-center">
       <MonoIcon sportsbookKey="espnbet" />
     </div>
   ),
   hardrock: () => (
-    <div className="w-5 h-5 rounded-sm flex items-center justify-center bg-black/40 border border-white/10">
+    <div className="w-5 h-5 rounded-sm flex items-center justify-center">
       <MonoIcon sportsbookKey="hardrock" />
     </div>
   ),
   sleeper: () => (
-    <div className="w-5 h-5 rounded-sm flex items-center justify-center bg-black/40 border border-white/10">
+    <div className="w-5 h-5 rounded-sm flex items-center justify-center">
       <MonoIcon sportsbookKey="sleeper" />
     </div>
   ),
   prizepicks: () => (
-    <div className="w-5 h-5 rounded-sm flex items-center justify-center bg-black/40 border border-white/10">
+    <div className="w-5 h-5 rounded-sm flex items-center justify-center">
       <MonoIcon sportsbookKey="prizepicks" />
     </div>
   ),
   underdog: () => (
-    <div className="w-5 h-5 rounded-sm flex items-center justify-center bg-black/40 border border-white/10">
+    <div className="w-5 h-5 rounded-sm flex items-center justify-center">
       <MonoIcon sportsbookKey="underdog" />
     </div>
   ),
   pinnacle: () => (
-    <div className="w-5 h-5 rounded-sm flex items-center justify-center bg-black/40 border border-white/10">
+    <div className="w-5 h-5 rounded-sm flex items-center justify-center">
       <MonoIcon sportsbookKey="pinnacle" />
     </div>
   ),
   // Generic fallback for unknown sportsbooks: show a star (better than PI/FA/CO text)
   generic: () => (
-    <div className="w-5 h-5 rounded-sm flex items-center justify-center bg-black/40 border border-white/10 text-white text-[10px] font-extrabold">
+    <div className="w-5 h-5 rounded-sm flex items-center justify-center text-white text-[10px] font-extrabold">
       ★
     </div>
   ),

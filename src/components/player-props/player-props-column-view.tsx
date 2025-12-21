@@ -1461,8 +1461,8 @@ export function PlayerPropsColumnView({
                           return (
                             <div className="inline-flex items-center gap-1 rounded-md border border-slate-700/60 bg-slate-900/60 px-2 py-1">
                               <div
-                                className={`flex items-center justify-center rounded bg-black/40 ${
-                                  isBet365 ? "h-4 w-10 px-1" : "h-4 w-4"
+                                className={`flex items-center justify-center rounded ${
+                                  isBet365 ? "h-4 w-12" : "h-4 w-4"
                                 }`}
                               >
                                 {logoSrc ? (
@@ -1471,7 +1471,7 @@ export function PlayerPropsColumnView({
                                     alt={bookKey}
                                     className={
                                       isBet365
-                                        ? "h-3 w-9 object-contain opacity-95"
+                                        ? "h-4 w-12 object-contain opacity-95"
                                         : "h-3 w-3 opacity-95"
                                     }
                                   />

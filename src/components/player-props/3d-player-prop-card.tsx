@@ -512,9 +512,9 @@ export function PlayerPropCard3D({
                     <div className="text-xs text-slate-500 uppercase font-semibold">Over</div>
                     <div className="mt-1 flex items-center justify-center gap-1">
                       <div
-                        className={`flex h-5 items-center justify-center rounded bg-black/40 ${
+                        className={`flex h-5 items-center justify-center rounded ${
                           normalizeBookKey(String(prop.sportsbookSource || "all")) === "bet365"
-                            ? "w-10 px-1"
+                            ? "w-12"
                             : "w-5"
                         }`}
                       >
@@ -530,7 +530,7 @@ export function PlayerPropCard3D({
                               alt={bookKey}
                               className={
                                 nk === "bet365"
-                                  ? "h-4 w-9 object-contain opacity-95"
+                                  ? "h-4 w-12 object-contain opacity-95"
                                   : "h-4 w-4 opacity-95"
                               }
                             />
@@ -548,9 +548,9 @@ export function PlayerPropCard3D({
                     <div className="text-xs text-slate-500 uppercase font-semibold">Under</div>
                     <div className="mt-1 flex items-center justify-center gap-1">
                       <div
-                        className={`flex h-5 items-center justify-center rounded bg-black/40 ${
+                        className={`flex h-5 items-center justify-center rounded ${
                           normalizeBookKey(String(prop.sportsbookSource || "all")) === "bet365"
-                            ? "w-10 px-1"
+                            ? "w-12"
                             : "w-5"
                         }`}
                       >
@@ -566,7 +566,7 @@ export function PlayerPropCard3D({
                               alt={bookKey}
                               className={
                                 nk === "bet365"
-                                  ? "h-4 w-9 object-contain opacity-95"
+                                  ? "h-4 w-12 object-contain opacity-95"
                                   : "h-4 w-4 opacity-95"
                               }
                             />

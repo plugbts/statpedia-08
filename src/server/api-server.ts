@@ -938,6 +938,8 @@ async function enrichPropsWithAnalytics(
         string,
         Map<string, { rank: number; games: number; allowedPerGame: number }>
       >();
+      // Used at lookup-time when the prop's season has no ranks yet (e.g., logs not ingested).
+      const latestSeasonByProp = new Map<string, string>();
 
       if (shouldComputeDefenseRank && propTypesLower.length > 0) {
         const seasonDefault = nflSeasonForDate(new Date());
@@ -977,7 +979,6 @@ async function enrichPropsWithAnalytics(
         );
 
         // Fallback: if the current season isn't fully ingested, use the latest season with logs for each prop type.
-        const latestSeasonByProp = new Map<string, string>();
         for (const ptLower of propTypesToRank) {
           try {
             const ms = (await client.unsafe(
@@ -1233,10 +1234,19 @@ async function enrichPropsWithAnalytics(
           : nflSeasonForDate(new Date());
 
         const oppIdForRank = resolveOpponentTeamId(String(p.opponent || ""));
-        const defenseRankRow =
+        // Lookup rank: try the prop season first; if no ranks exist for that season, fallback to latest season with logs.
+        let rankMap =
           oppIdForRank && defenseRankByPropType.get(`${seasonForProp}|${propTypeKey}`)
-            ? defenseRankByPropType.get(`${seasonForProp}|${propTypeKey}`)!.get(oppIdForRank)
+            ? defenseRankByPropType.get(`${seasonForProp}|${propTypeKey}`)!
             : undefined;
+        if (!rankMap || rankMap.size === 0) {
+          const fbSeason = latestSeasonByProp.get(propTypeKey);
+          if (fbSeason) {
+            const fbMap = defenseRankByPropType.get(`${fbSeason}|${propTypeKey}`);
+            if (fbMap && fbMap.size > 0) rankMap = fbMap;
+          }
+        }
+        const defenseRankRow = oppIdForRank && rankMap ? rankMap.get(oppIdForRank) : undefined;
         const computedMatchupRank =
           defenseRankRow && defenseRankRow.rank > 0 ? defenseRankRow.rank : null;
 
