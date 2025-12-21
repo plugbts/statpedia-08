@@ -59,6 +59,11 @@ import { AskStatpedia } from "./ask-statpedia";
 import { consistentPropsService } from "@/services/consistent-props-service";
 import { StreakService } from "@/services/streak-service";
 import { statpediaRatingService } from "@/services/statpedia-rating-service";
+import {
+  advancedPredictionService,
+  type ComprehensivePrediction,
+  type PredictionRequest,
+} from "@/services/advanced-prediction-service";
 import { useToast } from "@/hooks/use-toast";
 import {
   LineChart as RechartsLineChart,
@@ -1320,6 +1325,11 @@ export function EnhancedAnalysisOverlay({
   const [featureData, setFeatureData] = useState<any>(null);
   const [updatedEnhancedData, setUpdatedEnhancedData] = useState<EnhancedPrediction | null>(null);
 
+  // Super-advanced AI model output (existing in codebase)
+  const [advancedModelPrediction, setAdvancedModelPrediction] =
+    useState<ComprehensivePrediction | null>(null);
+  const [isLoadingAdvancedModel, setIsLoadingAdvancedModel] = useState(false);
+
   // Custom alerts state
   const [customAlerts, setCustomAlerts] = useState([
     { id: 1, type: "Line Movement", active: true, threshold: "±0.5", editable: false },
@@ -1771,6 +1781,79 @@ export function EnhancedAnalysisOverlay({
 
   // Use updated data if available, otherwise use original enhanced data
   const currentData = finalEnhancedData;
+
+  // Load super-advanced model prediction for this exact prop (NFL only for now)
+  useEffect(() => {
+    const run = async () => {
+      try {
+        if (!isOpen || !currentData) return;
+        const sport = String((currentData as any).sport || "").toLowerCase();
+        if (sport !== "nfl") {
+          setAdvancedModelPrediction(null);
+          return;
+        }
+
+        const playerId = String(
+          (currentData as any).playerId || (currentData as any).id || "",
+        ).trim();
+        const playerName = String((currentData as any).playerName || "").trim();
+        const propType = String((currentData as any).propType || "").trim();
+        const line = Number((currentData as any).line);
+        const gameId = String((currentData as any).gameId || "").trim();
+        const team = String(
+          (currentData as any).teamAbbr || (currentData as any).team || "",
+        ).trim();
+        const opponent = String(
+          (currentData as any).opponentAbbr || (currentData as any).opponent || "",
+        ).trim();
+        const gameDate = String((currentData as any).gameDate || new Date().toISOString());
+        const over = Number((currentData as any).overOdds ?? -110);
+        const under = Number((currentData as any).underOdds ?? -110);
+
+        if (!playerId || !playerName || !propType || !Number.isFinite(line) || !team || !opponent) {
+          setAdvancedModelPrediction(null);
+          return;
+        }
+
+        const req: PredictionRequest = {
+          playerId,
+          playerName,
+          propType,
+          line,
+          gameId: gameId || `game_${team}_${opponent}`,
+          team,
+          opponent,
+          gameDate,
+          odds: {
+            over: Number.isFinite(over) && over !== 0 ? over : -110,
+            under: Number.isFinite(under) && under !== 0 ? under : -110,
+          },
+        };
+
+        setIsLoadingAdvancedModel(true);
+        const pred = await advancedPredictionService.generateComprehensivePrediction(req);
+        setAdvancedModelPrediction(pred);
+      } catch (e) {
+        setAdvancedModelPrediction(null);
+      } finally {
+        setIsLoadingAdvancedModel(false);
+      }
+    };
+
+    run();
+    // Only refetch when the selected prop meaningfully changes
+  }, [
+    isOpen,
+    (currentData as any)?.sport,
+    (currentData as any)?.playerId,
+    (currentData as any)?.propType,
+    (currentData as any)?.line,
+    (currentData as any)?.gameId,
+    (currentData as any)?.teamAbbr,
+    (currentData as any)?.opponentAbbr,
+    (currentData as any)?.overOdds,
+    (currentData as any)?.underOdds,
+  ]);
 
   // Check injury status
   const [injuryStatus, setInjuryStatus] = useState<string>("Unknown");
@@ -2489,6 +2572,38 @@ export function EnhancedAnalysisOverlay({
                 <CardContent className="space-y-3">
                   <div className="flex items-center justify-center">
                     {(() => {
+                      // Preferred: super-advanced model (ensemble over/under probability)
+                      const ensemble = Number(
+                        (advancedModelPrediction as any)?.modelConsensus?.ensemble,
+                      );
+                      if (advancedModelPrediction && Number.isFinite(ensemble)) {
+                        const overProbPct = Math.round(Math.max(0, Math.min(1, ensemble)) * 100);
+                        const underProbPct = 100 - overProbPct;
+                        const recommended: "over" | "under" = ensemble >= 0.5 ? "over" : "under";
+                        const confidencePct = recommended === "over" ? overProbPct : underProbPct;
+
+                        return (
+                          <Badge
+                            className={cn(
+                              "text-lg px-4 py-2 border-0 shadow-lg transition-all duration-300 animate-pulse",
+                              recommended === "over"
+                                ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-emerald-500/50"
+                                : "bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-red-500/50",
+                            )}
+                          >
+                            {recommended === "over" ? (
+                              <ArrowUp className="w-4 h-4 mr-2" />
+                            ) : (
+                              <ArrowDown className="w-4 h-4 mr-2" />
+                            )}
+                            {recommended === "over" ? "OVER" : "UNDER"} AI PREDICTION
+                            <span className="ml-3 text-xs opacity-90">
+                              (O {overProbPct}% / U {underProbPct}%)
+                            </span>
+                          </Badge>
+                        );
+                      }
+
                       // Calculate ratings for both over and under
                       const overRating = statpediaRatingService.calculateRating(
                         currentData,
@@ -2564,6 +2679,16 @@ export function EnhancedAnalysisOverlay({
                     <p className="text-gray-300 text-xs font-medium mb-1">Confidence</p>
                     <p className="text-white font-bold text-xl bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
                       {(() => {
+                        const ensemble = Number(
+                          (advancedModelPrediction as any)?.modelConsensus?.ensemble,
+                        );
+                        if (advancedModelPrediction && Number.isFinite(ensemble)) {
+                          const overProbPct = Math.round(Math.max(0, Math.min(1, ensemble)) * 100);
+                          const underProbPct = 100 - overProbPct;
+                          const recommended: "over" | "under" = ensemble >= 0.5 ? "over" : "under";
+                          return recommended === "over" ? overProbPct : underProbPct;
+                        }
+
                         const totalGames = Array.isArray(currentData.gameHistory)
                           ? currentData.gameHistory.length
                           : 0;
@@ -2605,11 +2730,20 @@ export function EnhancedAnalysisOverlay({
                       %
                     </p>
                     <p className="text-slate-400 text-[10px] mt-1">
-                      Based on last{" "}
-                      {Array.isArray(currentData.gameHistory) ? currentData.gameHistory.length : 0}{" "}
-                      games vs line
+                      {advancedModelPrediction
+                        ? "Advanced model (ensemble probability)"
+                        : `Based on last ${
+                            Array.isArray(currentData.gameHistory)
+                              ? currentData.gameHistory.length
+                              : 0
+                          } games vs line`}
                     </p>
                   </div>
+                  {isLoadingAdvancedModel && (
+                    <div className="text-center text-xs text-slate-400">
+                      Loading advanced model…
+                    </div>
+                  )}
 
                   {/* Confidence Factors */}
                   {currentData.confidenceFactors && currentData.confidenceFactors.length > 0 && (
@@ -2889,8 +3023,10 @@ export function EnhancedAnalysisOverlay({
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <p className="text-slate-300 text-sm leading-relaxed">
-                    {enhancedData.advancedReasoning ||
-                      `Based on ${enhancedData.playerName}'s recent performance and matchup against ${enhancedData.opponentAbbr}, our AI model has identified several key factors that influence this ${enhancedData.propType} prediction. The analysis considers historical performance, current form, and situational factors to provide the most accurate assessment.`}
+                    {advancedModelPrediction?.keyInsights?.length
+                      ? advancedModelPrediction.keyInsights.join(" • ")
+                      : enhancedData.advancedReasoning ||
+                        `Based on ${enhancedData.playerName}'s recent performance and matchup against ${enhancedData.opponentAbbr}, our AI model has identified several key factors that influence this ${enhancedData.propType} prediction.`}
                   </p>
 
                   {/* Confidence Breakdown */}
@@ -2968,8 +3104,25 @@ export function EnhancedAnalysisOverlay({
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <p className="text-slate-300 text-sm leading-relaxed">
-                    {enhancedData.matchupAnalysis || generateRealMatchupAnalysis(enhancedData)}
+                    {advancedModelPrediction?.keyInsights?.length
+                      ? advancedModelPrediction.keyInsights.join(" • ")
+                      : enhancedData.matchupAnalysis || generateRealMatchupAnalysis(enhancedData)}
                   </p>
+                  {advancedModelPrediction?.riskFactors?.length ? (
+                    <div className="pt-2 border-t border-slate-700/50">
+                      <div className="text-slate-400 text-xs font-semibold mb-2">Risk Factors</div>
+                      <ul className="space-y-1">
+                        {advancedModelPrediction.riskFactors
+                          .slice(0, 6)
+                          .map((r: string, idx: number) => (
+                            <li key={idx} className="text-slate-300 text-xs flex items-start gap-2">
+                              <span className="text-orange-400 mt-0.5">•</span>
+                              <span>{r}</span>
+                            </li>
+                          ))}
+                      </ul>
+                    </div>
+                  ) : null}
 
                   {/* Historical Performance */}
                   <div className="space-y-3">
