@@ -896,6 +896,23 @@ async function enrichPropsWithAnalytics(
         posCountsByPlayer.set(pid, m);
       }
 
+      function inferNflPositionFromLogs(playerId: string): string | null {
+        const m = posCountsByPlayer.get(playerId);
+        if (!m) return null;
+        const passY = Number(m.get("passing yards") || 0);
+        const passA = Number(m.get("passing attempts") || 0);
+        const rushA = Number(m.get("rushing attempts") || 0);
+        const rec = Number(m.get("receptions") || 0);
+
+        // If a player has any positive passing volume, treat as QB.
+        if (passA > 0 || passY > 0) return "QB";
+        // If primarily rushing and not catching, treat as RB.
+        if (rushA > 0 && rec === 0) return "RB";
+        // If catching, default to WR (TE vs WR requires roster data we don't have here).
+        if (rec > 0) return "WR";
+        return null;
+      }
+
       // Resolve opponent -> team_id for the current sport/league.
       // IMPORTANT: SGO sometimes provides abbreviations (ARI), sometimes names; support both.
       const leagueCode = String(mapSportToLeagueId(sport) || sport || "").toUpperCase();
@@ -1498,7 +1515,9 @@ async function enrichPropsWithAnalytics(
           String(posByPlayerId.get(pid) || "")
             .trim()
             .toUpperCase() || null;
-        const finalPos = sgoPos || dbPos || null;
+        const inferredPos =
+          String(sport || "").toLowerCase() === "nfl" ? inferNflPositionFromLogs(pid) : null;
+        const finalPos = sgoPos || dbPos || inferredPos || null;
 
         let out: NormalizedProp = {
           ...p,
