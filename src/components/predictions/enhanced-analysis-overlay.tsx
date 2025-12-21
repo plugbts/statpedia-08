@@ -1889,6 +1889,12 @@ export function EnhancedAnalysisOverlay({
   const [injuryDetails, setInjuryDetails] = useState<string | null>(null);
   const [injuryReturnDate, setInjuryReturnDate] = useState<string | null>(null);
 
+  // Depth chart state
+  const [depthChart, setDepthChart] = useState<
+    Record<string, Array<{ name: string; position: string; jersey: string }>>
+  >({});
+  const [isLoadingDepthChart, setIsLoadingDepthChart] = useState<boolean>(false);
+
   useEffect(() => {
     // Check if player is questionable or injured
     const checkInjuryStatus = async () => {
@@ -1929,6 +1935,37 @@ export function EnhancedAnalysisOverlay({
 
     checkInjuryStatus();
   }, [prediction?.playerName, (prediction as any)?.teamAbbr, (prediction as any)?.team]);
+
+  // Fetch depth chart
+  useEffect(() => {
+    const fetchDepthChart = async () => {
+      const teamAbbr = String(
+        (prediction as any)?.teamAbbr || (prediction as any)?.team || "",
+      ).trim();
+      if (!teamAbbr || String((prediction as any)?.sport || "").toLowerCase() !== "nfl") {
+        return;
+      }
+
+      setIsLoadingDepthChart(true);
+      try {
+        const base = `${window.location.protocol}//${window.location.hostname}:3001`;
+        const qs = new URLSearchParams({
+          team: teamAbbr.toUpperCase(),
+        });
+        const resp = await fetch(`${base}/api/nfl/depth-chart?${qs.toString()}`);
+        const json = await resp.json();
+        if (json.success && json.depthChart) {
+          setDepthChart(json.depthChart);
+        }
+      } catch (error) {
+        console.error("Error fetching depth chart:", error);
+      } finally {
+        setIsLoadingDepthChart(false);
+      }
+    };
+
+    fetchDepthChart();
+  }, [(prediction as any)?.teamAbbr, (prediction as any)?.team, (prediction as any)?.sport]);
 
   if (!prediction || !enhancedData) {
     console.log(
@@ -3113,10 +3150,65 @@ export function EnhancedAnalysisOverlay({
                   {/* Depth Chart Section */}
                   <div>
                     <h4 className="text-slate-300 font-semibold mb-2 text-sm">Team Depth Chart</h4>
-                    <div className="text-slate-400 text-xs">
-                      Depth chart data coming soon. This will show the starting lineup and backups
-                      for each position.
-                    </div>
+                    {isLoadingDepthChart ? (
+                      <div className="text-slate-400 text-xs">Loading depth chart...</div>
+                    ) : Object.keys(depthChart).length > 0 ? (
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {Object.entries(depthChart)
+                          .sort(([a], [b]) => {
+                            // Sort positions: QB, RB, WR, TE, OL, DL, LB, DB, K, P
+                            const order = [
+                              "QB",
+                              "RB",
+                              "WR",
+                              "TE",
+                              "OL",
+                              "DL",
+                              "LB",
+                              "DB",
+                              "K",
+                              "P",
+                            ];
+                            const aIdx = order.indexOf(a);
+                            const bIdx = order.indexOf(b);
+                            if (aIdx === -1 && bIdx === -1) return a.localeCompare(b);
+                            if (aIdx === -1) return 1;
+                            if (bIdx === -1) return -1;
+                            return aIdx - bIdx;
+                          })
+                          .slice(0, 8)
+                          .map(([position, players]) => (
+                            <div
+                              key={position}
+                              className="p-2 bg-slate-700/30 rounded border border-slate-600"
+                            >
+                              <div className="text-slate-300 font-semibold text-xs mb-1">
+                                {position}
+                              </div>
+                              <div className="space-y-1">
+                                {players.slice(0, 3).map((player, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="flex items-center justify-between text-xs"
+                                  >
+                                    <span className="text-slate-400">
+                                      {idx === 0 ? "1st" : idx === 1 ? "2nd" : "3rd"}:{" "}
+                                      <span className="text-slate-200">{player.name}</span>
+                                    </span>
+                                    {player.jersey && (
+                                      <span className="text-slate-500">#{player.jersey}</span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    ) : (
+                      <div className="text-slate-400 text-xs">
+                        Depth chart data not available for this team.
+                      </div>
+                    )}
                   </div>
 
                   {/* Performance When Teammates Out */}

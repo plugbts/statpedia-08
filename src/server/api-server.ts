@@ -2201,6 +2201,87 @@ app.get("/api/nfl/player-position", async (req, res) => {
   }
 });
 
+// Real NFL depth chart lookup (ESPN public endpoint)
+// Usage: /api/nfl/depth-chart?team=BUF
+app.get("/api/nfl/depth-chart", async (req, res) => {
+  try {
+    const team = String((req.query.team || "") as string)
+      .trim()
+      .toUpperCase();
+    if (!team) {
+      return res.status(400).json({ success: false, error: "Missing team param" });
+    }
+    const teamId = nflEspnTeamIdByAbbr[team] || "";
+    if (!teamId) {
+      return res.status(400).json({ success: false, error: `Unknown NFL team abbr: ${team}` });
+    }
+
+    // Cache for 1 hour (in-memory)
+    const cacheKey = `espn-depth-chart:${teamId}`;
+    (globalThis as any).__espnDepthChartCache =
+      (globalThis as any).__espnDepthChartCache || new Map();
+    const cache: Map<string, { ts: number; data: any }> = (globalThis as any).__espnDepthChartCache;
+    const now = Date.now();
+    const cached = cache.get(cacheKey);
+    if (cached && now - cached.ts < 60 * 60 * 1000) {
+      return res.json(cached.data);
+    }
+
+    const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${teamId}/roster`;
+    const espnRes = await fetch(url);
+    if (!espnRes.ok) {
+      throw new Error(`ESPN API error ${espnRes.status}`);
+    }
+    const espnJson = await espnRes.json();
+
+    const athletes = espnJson.athletes || [];
+    const depthChart: Record<
+      string,
+      Array<{ name: string; position: string; jersey: string }>
+    > = {};
+
+    // Group by position
+    for (const athlete of athletes) {
+      const pos = String(athlete.position?.abbreviation || athlete.position?.name || "")
+        .trim()
+        .toUpperCase();
+      if (!pos) continue;
+
+      if (!depthChart[pos]) {
+        depthChart[pos] = [];
+      }
+
+      depthChart[pos].push({
+        name: String(athlete.fullName || "").trim(),
+        position: pos,
+        jersey: String(athlete.jersey || "").trim(),
+      });
+    }
+
+    // Sort each position group (typically by jersey number or name)
+    for (const pos in depthChart) {
+      depthChart[pos].sort((a, b) => {
+        const aNum = Number(a.jersey) || 999;
+        const bNum = Number(b.jersey) || 999;
+        return aNum - bNum;
+      });
+    }
+
+    const result = {
+      success: true,
+      team,
+      depthChart,
+      source: "espn",
+      updated_at: new Date(now).toISOString(),
+    };
+    cache.set(cacheKey, { data: result, ts: now });
+    res.json(result);
+  } catch (e) {
+    console.error("GET /api/nfl/depth-chart error:", e);
+    return res.status(500).json({ success: false, error: "Failed to fetch depth chart" });
+  }
+});
+
 // Helper function to fetch ESPN position (used by enrichment)
 async function fetchEspnPosition(teamAbbr: string, playerName: string): Promise<string | null> {
   try {
