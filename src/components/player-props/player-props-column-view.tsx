@@ -1699,34 +1699,15 @@ export function PlayerPropsColumnView({
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {(() => {
-                            // Generate defensive ranking based on prop type
-                            const propType = (prop.propType || "").toLowerCase();
-                            const opponentAbbr =
-                              prop.opponentAbbr ||
-                              (prop as any).opponent_abbr ||
-                              (prop as any).opponentAbbr;
-                            const opponent = prop.opponent || (prop as any).opponent;
-                            const finalOpponentAbbr = getTeamAbbreviation(
-                              opponent || "",
-                              opponentAbbr || "",
-                            );
+                            // Use actual matchup_rank from prop data if available
+                            const rankValue =
+                              prop.matchup_rank !== null && prop.matchup_rank !== undefined
+                                ? Number(prop.matchup_rank)
+                                : defensiveRank?.rank || null;
 
-                            if (finalOpponentAbbr === "UNK" || finalOpponentAbbr === "—") {
-                              return "—";
-                            }
-
-                            if (propType.includes("pass") || propType.includes("passing")) {
-                              const rank = Math.floor(Math.random() * 10) + 1; // Random rank 1-10
-                              return `Ranked ${rank}${getOrdinalSuffix(rank)}`;
-                            } else if (propType.includes("rush") || propType.includes("rushing")) {
-                              const rank = Math.floor(Math.random() * 10) + 1; // Random rank 1-10
-                              return `Ranked ${rank}${getOrdinalSuffix(rank)}`;
-                            } else if (propType.includes("rec") || propType.includes("receiving")) {
-                              const rank = Math.floor(Math.random() * 10) + 1; // Random rank 1-10
-                              return `Ranked ${rank}${getOrdinalSuffix(rank)}`;
-                            } else if (propType.includes("td") || propType.includes("touchdown")) {
-                              const rank = Math.floor(Math.random() * 10) + 1; // Random rank 1-10
-                              return `Ranked ${rank}${getOrdinalSuffix(rank)}`;
+                            if (rankValue && rankValue > 0) {
+                              // Compact format: just "#10" instead of "Ranked 10th"
+                              return `#${rankValue}`;
                             }
 
                             return "—";
