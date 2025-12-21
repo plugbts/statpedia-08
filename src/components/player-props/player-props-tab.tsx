@@ -478,6 +478,9 @@ interface PlayerProp {
   // Additional properties from API
   availableSportsbooks?: string[];
   allSportsbookOdds?: any[];
+  // Which sportsbook the displayed odds are coming from (e.g., selectedSportsbook or best book)
+  sportsbookSource?: string;
+  sportsbookDeeplink?: string;
   available?: boolean;
   awayTeam?: string;
   homeTeam?: string;
@@ -792,6 +795,10 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
               // expose best book odds for UI rendering
               best_over: prop.best_over?.odds,
               best_under: prop.best_under?.odds,
+              best_over_book: prop.best_over?.book,
+              best_under_book: prop.best_under?.book,
+              best_over_deeplink: prop.best_over?.deeplink,
+              best_under_deeplink: prop.best_under?.deeplink,
               // basic EV proxy from best edge vs average price; convert % to 0-1
               expectedValue: Number.isFinite(bestEdgePct)
                 ? Math.max(-1, Math.min(1, bestEdgePct / 100))
@@ -1545,6 +1552,33 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
     return leagueProps;
   }, [mixedProps, sportFilter]);
 
+  // Apply sportsbook selection to odds so the UI shows the *actual* odds for that book.
+  // Without this, we may show the "best" odds across all books (often + odds) even if FanDuel is -113.
+  const displayedProps = React.useMemo(() => {
+    const book = String(selectedSportsbook || "all").toLowerCase();
+    if (book === "all") {
+      return orderedProps.map((p: any) => ({
+        ...p,
+        sportsbookSource: (p as any).best_over_book || (p as any).best_under_book || "best",
+        sportsbookDeeplink: (p as any).best_over_deeplink || (p as any).best_under_deeplink,
+      }));
+    }
+    return orderedProps.map((p: any) => {
+      const books = Array.isArray((p as any).allSportsbookOdds) ? (p as any).allSportsbookOdds : [];
+      const match = books.find((o: any) => String(o?.sportsbook || "").toLowerCase() === book);
+      if (!match) return { ...p, sportsbookSource: book };
+      const over = typeof match.overOdds === "number" ? match.overOdds : p.overOdds;
+      const under = typeof match.underOdds === "number" ? match.underOdds : p.underOdds;
+      return {
+        ...p,
+        overOdds: over,
+        underOdds: under,
+        sportsbookSource: book,
+        sportsbookDeeplink: match.deeplink,
+      };
+    });
+  }, [orderedProps, selectedSportsbook]);
+
   logFilter("PlayerPropsTab", `Final filteredProps length: ${filteredProps.length}`);
   logFilter("PlayerPropsTab", `Props length: ${mixedProps.length}`);
 
@@ -2248,7 +2282,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
           <>
             {viewMode === "column" ? (
               <PlayerPropsColumnView
-                props={orderedProps as any}
+                props={displayedProps as any}
                 selectedSport={sportFilter}
                 onAnalysisClick={handleEnhancedAnalysis as any}
                 isLoading={isLoadingData}
@@ -2256,7 +2290,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
               />
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                {orderedProps.map((prop, index) => {
+                {displayedProps.map((prop, index) => {
                   // Construct event title from team names and logos
                   const eventTitle =
                     prop.homeTeam && prop.awayTeam

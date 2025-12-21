@@ -54,10 +54,10 @@ const getOddsDisplayClass = (
 ): string => {
   const oddsValue =
     overUnderFilter === "over"
-      ? prop.best_over || prop.overOdds
+      ? prop.overOdds
       : overUnderFilter === "under"
-        ? prop.best_under || prop.underOdds
-        : prop.best_over || prop.overOdds;
+        ? prop.underOdds
+        : prop.overOdds;
 
   // Use the odds color class utility for consistent coloring
   const colorClass = getOddsColorClass(oddsValue);
@@ -238,6 +238,10 @@ interface PlayerProp {
   underOdds: number;
   best_over?: string;
   best_under?: string;
+  best_over_book?: string;
+  best_under_book?: string;
+  best_over_deeplink?: string;
+  best_under_deeplink?: string;
   position?: string;
   gameDate: string;
   gameTime: string;
@@ -266,6 +270,14 @@ interface PlayerProp {
   matchupAnalysis?: string;
   // NEW: Available sportsbooks for this prop
   availableSportsbooks?: string[];
+  allSportsbookOdds?: Array<{
+    sportsbook: string;
+    overOdds?: number;
+    underOdds?: number;
+    deeplink?: string;
+  }>;
+  sportsbookSource?: string;
+  sportsbookDeeplink?: string;
   // Team logos
   homeTeamLogo?: string;
   awayTeamLogo?: string;
@@ -1367,15 +1379,48 @@ export function PlayerPropsColumnView({
 
                       {/* Odds */}
                       <div className="w-20 text-center px-2">
-                        <div
-                          className={`text-xs font-semibold transition-colors duration-200 ${getOddsDisplayClass(prop, overUnderFilter)}`}
-                        >
-                          {overUnderFilter === "over"
-                            ? toAmericanOdds(prop.best_over || prop.overOdds)
-                            : overUnderFilter === "under"
-                              ? toAmericanOdds(prop.best_under || prop.underOdds)
-                              : toAmericanOdds(prop.best_over || prop.overOdds)}
-                        </div>
+                        {(() => {
+                          const oddsValue =
+                            overUnderFilter === "under" ? prop.underOdds : prop.overOdds;
+                          const book =
+                            (prop.sportsbookSource ||
+                              prop.best_over_book ||
+                              prop.best_under_book ||
+                              "all") + "";
+                          const bookKey = String(book).toLowerCase();
+                          const oddsText = toAmericanOdds(oddsValue);
+                          const color = getOddsDisplayClass(prop, overUnderFilter);
+
+                          // PropFinder-style: boxed odds + small book badge
+                          return (
+                            <div className="inline-flex items-center gap-1 rounded-md border border-slate-700/60 bg-slate-900/60 px-2 py-1">
+                              <div className="flex h-4 min-w-4 items-center justify-center rounded bg-black/40 px-1 text-[9px] font-extrabold text-white">
+                                {bookKey === "fanduel"
+                                  ? "FD"
+                                  : bookKey === "draftkings"
+                                    ? "DK"
+                                    : bookKey === "betmgm"
+                                      ? "MGM"
+                                      : bookKey === "caesars"
+                                        ? "CZR"
+                                        : bookKey === "bet365"
+                                          ? "365"
+                                          : bookKey === "espnbet"
+                                            ? "ESPN"
+                                            : bookKey === "pointsbet"
+                                              ? "PB"
+                                              : bookKey === "betrivers"
+                                                ? "BR"
+                                                : bookKey === "hardrock"
+                                                  ? "HR"
+                                                  : bookKey === "all"
+                                                    ? "BEST"
+                                                    : bookKey.slice(0, 3).toUpperCase()}
+                              </div>
+                              <span className={`text-xs font-semibold ${color}`}>{oddsText}</span>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {/* EV% */}
@@ -1632,14 +1677,14 @@ export function PlayerPropsColumnView({
                               return h2hAvg.toFixed(1);
                             // Fallback to hook (hit-rate style)
                             if (h2h?.total > 0) return `${h2h.pct.toFixed(0)}%`;
-                            return "N/A";
+                            return "—";
                           })()}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {(() => {
                             if (h2hAvg !== null && Number.isFinite(h2hAvg)) return "avg";
                             if (h2h?.total > 0) return `${h2h.hits}/${h2h.total}`;
-                            return "N/A";
+                            return "—";
                           })()}
                         </div>
                       </div>
