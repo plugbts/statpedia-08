@@ -744,11 +744,31 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
           };
 
           const transformedProps = result.map((prop, index) => {
+            const normalizeBookKey = (raw: any): string => {
+              const s = String(raw || "")
+                .toLowerCase()
+                .trim();
+              const compact = s.replace(/[^a-z0-9]/g, "");
+              const alias: Record<string, string> = {
+                fanduel: "fanduel",
+                fanduelsportsbook: "fanduel",
+                dk: "draftkings",
+                draftkings: "draftkings",
+                draftking: "draftkings",
+                draftkingssportsbook: "draftkings",
+                bet365: "bet365",
+              };
+              return alias[compact] || compact || "unknown";
+            };
+
             const allowedBooks = new Set(["fanduel", "draftkings", "bet365"]);
             const offersAll = prop.offers || [];
-            const offers = offersAll.filter((o) =>
-              allowedBooks.has(String(o.book || "").toLowerCase()),
-            );
+            const offers = offersAll
+              .map((o: any) => ({
+                ...o,
+                book: normalizeBookKey(o.book),
+              }))
+              .filter((o: any) => allowedBooks.has(String(o.book || "").toLowerCase()));
 
             const toDecimal = (american: number): number =>
               american > 0 ? 1 + american / 100 : 1 + 100 / Math.abs(american);
@@ -783,6 +803,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
               id: prop.id,
               playerId: prop.playerId || "",
               player_id: prop.playerId || "",
+              player_uuid: (prop as any).player_uuid || (prop as any).playerUuid || null,
               playerName: prop.playerName || "Unknown Player",
               player_name: prop.playerName || "Unknown Player",
               team: prop.team || "UNK",
@@ -812,9 +833,9 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
                 ? Math.max(0, Math.min(1, (bestEdgePct + 20) / 120))
                 : 0.5,
               // books display
-              availableSportsbooks: offers.map((o) => o.book),
+              availableSportsbooks: offers.map((o) => normalizeBookKey(o.book)),
               allSportsbookOdds: offers.map((o) => ({
-                sportsbook: o.book,
+                sportsbook: normalizeBookKey(o.book),
                 overOdds: o.overOdds,
                 underOdds: o.underOdds,
                 deeplink: o.deeplink,
@@ -1566,8 +1587,16 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
     if (book === "all") {
       return orderedProps.map((p: any) => ({
         ...p,
-        sportsbookSource: (p as any).best_over_book || (p as any).best_under_book || "best",
-        sportsbookDeeplink: (p as any).best_over_deeplink || (p as any).best_under_deeplink,
+        // In "all" mode we show the best odds across allowed books.
+        // Pick the correct book for the current side so the icon matches the odds shown.
+        sportsbookSource:
+          overUnderFilter === "under"
+            ? (p as any).best_under_book || (p as any).best_over_book || "best"
+            : (p as any).best_over_book || (p as any).best_under_book || "best",
+        sportsbookDeeplink:
+          overUnderFilter === "under"
+            ? (p as any).best_under_deeplink || (p as any).best_over_deeplink
+            : (p as any).best_over_deeplink || (p as any).best_under_deeplink,
       }));
     }
     return orderedProps.map((p: any) => {
@@ -1584,7 +1613,7 @@ export const PlayerPropsTab: React.FC<PlayerPropsTabProps> = ({ selectedSport })
         sportsbookDeeplink: match.deeplink,
       };
     });
-  }, [orderedProps, selectedSportsbook]);
+  }, [orderedProps, selectedSportsbook, overUnderFilter]);
 
   logFilter("PlayerPropsTab", `Final filteredProps length: ${filteredProps.length}`);
   logFilter("PlayerPropsTab", `Props length: ${mixedProps.length}`);
