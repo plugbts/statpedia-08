@@ -462,15 +462,44 @@ async function fetchNormalizedPlayerProps(sport: string, limit = 200): Promise<N
     normalized.push({ ...g.base, offers, best_over: bestOver, best_under: bestUnder });
   }
 
-  // For NFL/NBA, filter to offensive markets only
+  // For NFL/NBA, filter to relevant markets (reduce clutter)
+  function isRelevantNflMarket(propType: string, statId?: string): boolean {
+    const p = String(propType || "")
+      .toLowerCase()
+      .trim();
+    const sid = String(statId || "")
+      .toLowerCase()
+      .trim();
+
+    // Hide defensive props, fantasy score, novelty/longest markets, and combined markets for now
+    if (p.startsWith("defense ") || sid.startsWith("defense_")) return false;
+    if (p.includes("fantasy") || sid.includes("fantasy")) return false;
+    if (p.startsWith("longest ") || sid.includes("longest")) return false;
+    if (p.includes("+") || sid.includes("+")) return false;
+
+    // Core offensive markets we support end-to-end
+    const allow = new Set([
+      "passing yards",
+      "passing attempts",
+      "passing completions",
+      "passing tds",
+      "passing interceptions",
+      "rushing yards",
+      "rushing attempts",
+      "rushing tds",
+      "receiving yards",
+      "receptions",
+      "receiving tds",
+    ]);
+    return allow.has(p);
+  }
+
+  // Back-compat helper (other sports)
   function isOffensiveProp(s: string, prop: string): boolean {
     const sl = s.toLowerCase();
     const p = prop.toLowerCase();
     if (sl === "nfl") {
-      // Do not filter NFL markets here.
-      // We want to display the full SGO slate and rely on analytics enrichment + UI filtering
-      // (e.g. "Only show props with analytics") rather than silently hiding markets.
-      return true;
+      return isRelevantNflMarket(prop, undefined);
     }
     if (sl === "nba") {
       const allow = ["points", "assists", "rebounds"];
@@ -479,7 +508,11 @@ async function fetchNormalizedPlayerProps(sport: string, limit = 200): Promise<N
     return true; // other sports unchanged
   }
 
-  const filtered = normalized.filter((np) => isOffensiveProp(sport, np.propType));
+  const filtered = normalized.filter((np) => {
+    if (String(sport || "").toLowerCase() === "nfl")
+      return isRelevantNflMarket(np.propType, np.statId);
+    return isOffensiveProp(sport, np.propType);
+  });
 
   sgoCache.set(key, { data: filtered, ts: now });
   return filtered;
@@ -589,6 +622,20 @@ async function enrichPropsWithAnalytics(
       )) as Array<{ player_id: string; player_name: string; team_abbr: string }>;
 
       const byName = new Map<string, Array<{ player_id: string; team_abbr: string }>>();
+      const byInitialLastTeam = new Map<string, Array<{ player_id: string; team_abbr: string }>>();
+
+      function initialLastKey(name: string): string {
+        const norm = normalizeHumanNameForMatch(name);
+        if (!norm) return "";
+        const parts = norm.split(" ").filter(Boolean);
+        if (parts.length < 2) return "";
+        const first = parts[0];
+        const last = parts[parts.length - 1];
+        const initial = first?.[0];
+        if (!initial || !last) return "";
+        return `${initial} ${last}`; // e.g. "c ward", "j mccarthy"
+      }
+
       for (const r of playersRows) {
         const key = normalizeHumanNameForMatch(r.player_name);
         if (!key) continue;
@@ -598,6 +645,15 @@ async function enrichPropsWithAnalytics(
           team_abbr: String(r.team_abbr || "").toUpperCase(),
         });
         byName.set(key, arr);
+
+        const il = initialLastKey(r.player_name);
+        if (il) {
+          const team = String(r.team_abbr || "").toUpperCase();
+          const k2 = `${il}|${team}`;
+          const arr2 = byInitialLastTeam.get(k2) || [];
+          arr2.push({ player_id: String(r.player_id), team_abbr: team });
+          byInitialLastTeam.set(k2, arr2);
+        }
       }
 
       // Resolve each prop -> player_id uuid (prefer matching team abbrev)
@@ -629,7 +685,16 @@ async function enrichPropsWithAnalytics(
       for (let i = 0; i < props.length; i++) {
         const p = props[i];
         const key = normalizeHumanNameForMatch(p.playerName || "");
-        const nameCandidates = byName.get(key);
+        let nameCandidates = byName.get(key);
+
+        // Fallback: match by first-initial + last-name + team (handles Cam vs Cameron, etc.)
+        if ((!nameCandidates || nameCandidates.length === 0) && p.playerName) {
+          const il = initialLastKey(p.playerName);
+          const team = String(p.team || "").toUpperCase();
+          if (il && team) {
+            nameCandidates = byInitialLastTeam.get(`${il}|${team}`);
+          }
+        }
         if (!nameCandidates || nameCandidates.length === 0) continue;
         if (nameCandidates.length === 1) {
           resolvedPlayerIdByIdx.set(i, nameCandidates[0].player_id);
@@ -698,15 +763,56 @@ async function enrichPropsWithAnalytics(
         analyticsByKey.set(`${r.player_id}:${String(r.prop_type).trim().toLowerCase()}`, r);
       }
 
+      // NFL team abbreviation aliasing (SGO sometimes uses older/alternate abbreviations).
+      const nflAbbrAlias = (abbr: string): string => {
+        const a = String(abbr || "")
+          .trim()
+          .toUpperCase();
+        const map: Record<string, string> = {
+          WAS: "WSH",
+          WFT: "WSH",
+          JAC: "JAX",
+          OAK: "LV",
+          SD: "LAC",
+          STL: "LAR",
+          LA: "LAR",
+        };
+        return map[a] || a;
+      };
+
+      // Infer player role from logs (QB vs non-QB) so we can hide irrelevant markets.
+      // Only applied when we have enough evidence (so rookies still show).
+      const roleCountRows = (await client.unsafe(
+        `
+        SELECT pgl.player_id,
+               LOWER(TRIM(pgl.prop_type)) AS prop_type,
+               COUNT(*)::int AS c
+        FROM public.player_game_logs pgl
+        WHERE pgl.player_id = ANY($1::uuid[])
+          AND LOWER(TRIM(pgl.prop_type)) IN ('passing yards','rushing attempts','receptions')
+        GROUP BY pgl.player_id, LOWER(TRIM(pgl.prop_type))
+      `,
+        [playerIds],
+      )) as Array<{ player_id: string; prop_type: string; c: number }>;
+      const countsByPlayer = new Map<string, Map<string, number>>();
+      for (const r of roleCountRows) {
+        const pid = String(r.player_id);
+        const m = countsByPlayer.get(pid) || new Map<string, number>();
+        m.set(String(r.prop_type), Number(r.c) || 0);
+        countsByPlayer.set(pid, m);
+      }
+
       // Map opponent team abbreviation -> team_id for the current sport/league
       const leagueCode = String(mapSportToLeagueId(sport) || sport || "").toUpperCase();
       const opponentAbbrs = Array.from(
         new Set(
           props
             .map((p) =>
-              String(p.opponent || "")
-                .trim()
-                .toUpperCase(),
+              nflAbbrAlias(
+                String(p.opponent || "")
+                  .trim()
+                  .toUpperCase(),
+              ),
             )
             .filter((v) => v.length > 0 && v !== "UNK"),
         ),
@@ -867,9 +973,11 @@ async function enrichPropsWithAnalytics(
         }
 
         // Compute H2H avg vs current opponent if possible (fallback keeps DB value)
-        const oppAbbr = String(p.opponent || "")
-          .trim()
-          .toUpperCase();
+        const oppAbbr = nflAbbrAlias(
+          String(p.opponent || "")
+            .trim()
+            .toUpperCase(),
+        );
         const oppId = oppAbbr ? teamIdByAbbr.get(oppAbbr) : undefined;
         if (oppId) {
           const rows = logsByKeyOpp.get(`${pid}:${propTypeKey}`) || [];
@@ -882,8 +990,53 @@ async function enrichPropsWithAnalytics(
         return out;
       });
 
+      // NFL-only: hide irrelevant markets like RB Passing Completions, but keep rookies/unknowns.
+      const filteredByRole =
+        String(sport || "").toLowerCase() === "nfl"
+          ? enriched.filter((p, idx) => {
+              const pid = resolvedPlayerIdByIdx.get(idx);
+              if (!pid) return true; // keep unresolved (rookies / missing logs)
+              const m = countsByPlayer.get(pid) || new Map<string, number>();
+              const pass = m.get("passing yards") || 0;
+              const rush = m.get("rushing attempts") || 0;
+              const rec = m.get("receptions") || 0;
+              const signal = pass + rush + rec;
+              if (signal < 3) return true; // not enough evidence; don't hide
+
+              const pt = String(p.propType || "")
+                .toLowerCase()
+                .trim();
+              const isPassing =
+                pt.startsWith("passing ") ||
+                pt === "passing attempts" ||
+                pt === "passing completions" ||
+                pt === "passing tds" ||
+                pt === "passing interceptions";
+              const isReceiving =
+                pt === "receiving yards" || pt === "receptions" || pt === "receiving tds";
+              const isRushing =
+                pt === "rushing yards" || pt === "rushing attempts" || pt === "rushing tds";
+
+              const isQB = pass >= 3;
+              if (isQB) {
+                // QBs: show passing + rushing; only show receiving if they've ever had receptions
+                if (isReceiving) return rec > 0;
+                return true;
+              }
+
+              // Non-QB: hide passing markets entirely
+              if (isPassing) return false;
+
+              // WR/TE: hide rushing markets unless they've rushed before
+              const isReceiver = rec >= 3;
+              if (isReceiver && isRushing) return rush > 0;
+
+              return true;
+            })
+          : enriched;
+
       // Success on this DB connection
-      return enriched;
+      return filteredByRole;
     } catch (e) {
       const msg = (e as Error)?.message || String(e);
       console.warn("[API] analytics enrichment DB attempt failed:", msg);
