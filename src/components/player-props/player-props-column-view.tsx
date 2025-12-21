@@ -1410,7 +1410,7 @@ export function PlayerPropsColumnView({
                       </div>
 
                       {/* Team */}
-                      <div className="w-20 text-center px-2">
+                      <div className="w-16 flex items-center justify-center px-1">
                         <TeamLogo
                           team={prop.team || ""}
                           teamAbbr={prop.teamAbbr || (prop as any).team_abbr || prop.team || "—"}
@@ -1425,7 +1425,7 @@ export function PlayerPropsColumnView({
                       </div>
 
                       {/* Prop Type */}
-                      <div className="w-32 text-center px-2">
+                      <div className="w-28 flex items-center justify-center px-1">
                         <div
                           className="text-xs font-medium text-white group-hover:text-white transition-all duration-300 transform group-hover:scale-105 truncate animate-pulse"
                           style={{ animationDuration: "3s" }}
@@ -1435,14 +1435,14 @@ export function PlayerPropsColumnView({
                       </div>
 
                       {/* Line */}
-                      <div className="w-20 text-center px-2">
+                      <div className="w-16 flex items-center justify-center px-1">
                         <div className="text-xs font-bold text-foreground group-hover:text-primary transition-colors duration-200">
                           {formatNumber(prop.line, 1)}
                         </div>
                       </div>
 
                       {/* Odds */}
-                      <div className="w-20 text-center px-2">
+                      <div className="w-16 flex items-center justify-center px-1">
                         {(() => {
                           const oddsValue =
                             overUnderFilter === "under" ? prop.underOdds : prop.overOdds;
@@ -1475,7 +1475,7 @@ export function PlayerPropsColumnView({
                       </div>
 
                       {/* EV% */}
-                      <div className="w-20 text-center px-2">
+                      <div className="w-16 flex items-center justify-center px-1">
                         {prop.expectedValue ? (
                           <span className="text-xs font-bold text-blue-500 group-hover:text-blue-400 transition-colors duration-200">
                             {prop.expectedValue > 0 ? "+" : ""}
@@ -1489,7 +1489,7 @@ export function PlayerPropsColumnView({
                       </div>
 
                       {/* Streak */}
-                      <div className="w-20 text-center px-2">
+                      <div className="w-16 flex items-center justify-center px-1">
                         <div
                           className={`text-xs font-bold group-hover:opacity-80 transition-all duration-300 relative animate-pulse ${(() => {
                             // Use direct API streak value (from player_analytics) even without gameLogs
@@ -1594,7 +1594,7 @@ export function PlayerPropsColumnView({
                       </div>
 
                       {/* Rating */}
-                      <div className="w-20 text-center px-2 bg-transparent group-hover:opacity-80 transition-colors duration-200">
+                      <div className="w-16 flex items-center justify-center px-1 bg-transparent group-hover:opacity-80 transition-colors duration-200">
                         {(() => {
                           const propFinderRating =
                             overUnderFilter === "over"
@@ -1678,7 +1678,7 @@ export function PlayerPropsColumnView({
 
                       {/* Analytics Columns - Now inline with the prop row */}
                       {/* Matchup */}
-                      <div className="w-24 text-center px-1 py-3">
+                      <div className="w-20 flex flex-col items-center justify-center px-1 py-1">
                         <div className="text-xs font-medium text-foreground mb-1">
                           {(() => {
                             // Check multiple possible field names for opponent abbreviation
@@ -1735,7 +1735,7 @@ export function PlayerPropsColumnView({
                       </div>
 
                       {/* H2H */}
-                      <div className="w-24 text-center px-1 py-3">
+                      <div className="w-20 flex flex-col items-center justify-center px-1 py-1">
                         <div className="text-xs font-medium text-foreground">
                           {(() => {
                             // Prefer direct avg from API when available (player_analytics.h2h_avg)
@@ -1756,7 +1756,7 @@ export function PlayerPropsColumnView({
                       </div>
 
                       {/* 2025 */}
-                      <div className="w-24 text-center px-1 py-3">
+                      <div className="w-20 flex flex-col items-center justify-center px-1 py-1">
                         <div className="text-xs font-medium text-foreground">
                           {(() => {
                             // Prefer direct avg from API when available (player_analytics.season_avg)
@@ -1780,7 +1780,7 @@ export function PlayerPropsColumnView({
                       </div>
 
                       {/* L5 */}
-                      <div className="w-24 text-center px-1 py-3">
+                      <div className="w-20 flex flex-col items-center justify-center px-1 py-1">
                         <div className="text-xs font-medium text-foreground">
                           {(() => {
                             if (l5) return `${l5.pct.toFixed(0)}%`;
@@ -1796,7 +1796,7 @@ export function PlayerPropsColumnView({
                       </div>
 
                       {/* L10 */}
-                      <div className="w-24 text-center px-1 py-3">
+                      <div className="w-20 flex flex-col items-center justify-center px-1 py-1">
                         <div className="text-xs font-medium text-foreground">
                           {(() => {
                             if (l10) return `${l10.pct.toFixed(0)}%`;
@@ -1812,7 +1812,7 @@ export function PlayerPropsColumnView({
                       </div>
 
                       {/* L20 */}
-                      <div className="w-24 text-center px-1 py-3">
+                      <div className="w-20 flex flex-col items-center justify-center px-1 py-1">
                         <div className="text-xs font-medium text-foreground">
                           {(() => {
                             if (l20) return `${l20.pct.toFixed(0)}%`;
