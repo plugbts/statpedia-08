@@ -1125,31 +1125,71 @@ export function PlayerPropsColumnView({
               const hasGameLogs = prop.gameLogs && prop.gameLogs.length > 0;
               const hasDefenseStats = prop.defenseStats && prop.defenseStats.length > 0;
 
-              // Extract analytics - prioritize direct fields from prop
-              const l5Pct =
+              // Extract analytics (NFL focus): show direct API analytics even when gameLogs are absent.
+              // IMPORTANT: player_analytics.l5/l10/l20 are stored as percentages (0-100).
+              const directL5 =
                 hasDirectAnalytics && prop.l5 !== null && prop.l5 !== undefined
                   ? Number(prop.l5)
-                  : analytics?.l5?.pct || 0;
-              const l10Pct =
+                  : null;
+              const directL10 =
                 hasDirectAnalytics && prop.l10 !== null && prop.l10 !== undefined
                   ? Number(prop.l10)
-                  : analytics?.l10?.pct || 0;
-              const l20Pct =
+                  : null;
+              const directL20 =
                 hasDirectAnalytics && prop.l20 !== null && prop.l20 !== undefined
                   ? Number(prop.l20)
-                  : analytics?.l20?.pct || 0;
+                  : null;
 
-              // Convert percentages to hits/total format
+              const hookL5 =
+                directL5 === null && analytics?.l5?.pct !== null && analytics?.l5?.pct !== undefined
+                  ? Number(analytics.l5.pct)
+                  : null;
+              const hookL10 =
+                directL10 === null &&
+                analytics?.l10?.pct !== null &&
+                analytics?.l10?.pct !== undefined
+                  ? Number(analytics.l10.pct)
+                  : null;
+              const hookL20 =
+                directL20 === null &&
+                analytics?.l20?.pct !== null &&
+                analytics?.l20?.pct !== undefined
+                  ? Number(analytics.l20.pct)
+                  : null;
+
+              const l5Pct = directL5 ?? hookL5;
+              const l10Pct = directL10 ?? hookL10;
+              const l20Pct = directL20 ?? hookL20;
+
+              // Convert percentages to hits/total format (only when pct is present)
               const l5Total = 5;
               const l10Total = 10;
               const l20Total = 20;
-              const l5Hits = Number.isFinite(l5Pct) ? Math.round((l5Pct / 100) * l5Total) : 0;
-              const l10Hits = Number.isFinite(l10Pct) ? Math.round((l10Pct / 100) * l10Total) : 0;
-              const l20Hits = Number.isFinite(l20Pct) ? Math.round((l20Pct / 100) * l20Total) : 0;
+              const l5Hits =
+                l5Pct !== null && Number.isFinite(l5Pct)
+                  ? Math.round((l5Pct / 100) * l5Total)
+                  : null;
+              const l10Hits =
+                l10Pct !== null && Number.isFinite(l10Pct)
+                  ? Math.round((l10Pct / 100) * l10Total)
+                  : null;
+              const l20Hits =
+                l20Pct !== null && Number.isFinite(l20Pct)
+                  ? Math.round((l20Pct / 100) * l20Total)
+                  : null;
 
-              const l5 = { hits: l5Hits, total: l5Total, pct: l5Pct };
-              const l10 = { hits: l10Hits, total: l10Total, pct: l10Pct };
-              const l20 = { hits: l20Hits, total: l20Total, pct: l20Pct };
+              const l5 =
+                l5Pct !== null && l5Hits !== null
+                  ? { hits: l5Hits, total: l5Total, pct: l5Pct }
+                  : null;
+              const l10 =
+                l10Pct !== null && l10Hits !== null
+                  ? { hits: l10Hits, total: l10Total, pct: l10Pct }
+                  : null;
+              const l20 =
+                l20Pct !== null && l20Hits !== null
+                  ? { hits: l20Hits, total: l20Total, pct: l20Pct }
+                  : null;
 
               // Streak - use direct field or fallback
               const streakValue = hasDirectAnalytics
@@ -1526,15 +1566,18 @@ export function PlayerPropsColumnView({
                       <div className="w-24 text-center px-1 py-3">
                         <div className="text-xs font-medium text-foreground">
                           {(() => {
-                            if (hasGameLogs && h2h.total > 0) return `${h2h.pct.toFixed(0)}%`;
-                            // Use real data only - no mock data
+                            // Prefer direct avg from API when available (player_analytics.h2h_avg)
+                            if (h2hAvg !== null && Number.isFinite(h2hAvg))
+                              return h2hAvg.toFixed(1);
+                            // Fallback to hook (hit-rate style)
+                            if (h2h?.total > 0) return `${h2h.pct.toFixed(0)}%`;
                             return "N/A";
                           })()}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {(() => {
-                            if (hasGameLogs && h2h.total > 0) return `${h2h.hits}/${h2h.total}`;
-                            // Use real data only - no mock data
+                            if (h2hAvg !== null && Number.isFinite(h2hAvg)) return "avg";
+                            if (h2h?.total > 0) return `${h2h.hits}/${h2h.total}`;
                             return "N/A";
                           })()}
                         </div>
@@ -1544,16 +1587,18 @@ export function PlayerPropsColumnView({
                       <div className="w-24 text-center px-1 py-3">
                         <div className="text-xs font-medium text-foreground">
                           {(() => {
-                            if (hasGameLogs && season.total > 0) return `${season.pct.toFixed(0)}%`;
-                            // Use real data only - no mock data
+                            // Prefer direct avg from API when available (player_analytics.season_avg)
+                            if (seasonAvg !== null && Number.isFinite(seasonAvg))
+                              return seasonAvg.toFixed(1);
+                            // Fallback to hook (hit-rate style)
+                            if (season?.total > 0) return `${season.pct.toFixed(0)}%`;
                             return "N/A";
                           })()}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {(() => {
-                            if (hasGameLogs && season.total > 0)
-                              return `${season.hits}/${season.total}`;
-                            // Use real data only - no mock data
+                            if (seasonAvg !== null && Number.isFinite(seasonAvg)) return "avg";
+                            if (season?.total > 0) return `${season.hits}/${season.total}`;
                             return "N/A";
                           })()}
                         </div>
@@ -1563,15 +1608,13 @@ export function PlayerPropsColumnView({
                       <div className="w-24 text-center px-1 py-3">
                         <div className="text-xs font-medium text-foreground">
                           {(() => {
-                            if (hasGameLogs && l5.total > 0) return `${l5.pct.toFixed(0)}%`;
-                            // Use real data only - no mock data
+                            if (l5) return `${l5.pct.toFixed(0)}%`;
                             return "N/A";
                           })()}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {(() => {
-                            if (hasGameLogs && l5.total > 0) return `${l5.hits}/${l5.total}`;
-                            // Use real data only - no mock data
+                            if (l5) return `${l5.hits}/${l5.total}`;
                             return "N/A";
                           })()}
                         </div>
@@ -1581,15 +1624,13 @@ export function PlayerPropsColumnView({
                       <div className="w-24 text-center px-1 py-3">
                         <div className="text-xs font-medium text-foreground">
                           {(() => {
-                            if (hasGameLogs && l10.total > 0) return `${l10.pct.toFixed(0)}%`;
-                            // Use real data only - no mock data
+                            if (l10) return `${l10.pct.toFixed(0)}%`;
                             return "N/A";
                           })()}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {(() => {
-                            if (hasGameLogs && l10.total > 0) return `${l10.hits}/${l10.total}`;
-                            // Use real data only - no mock data
+                            if (l10) return `${l10.hits}/${l10.total}`;
                             return "N/A";
                           })()}
                         </div>
@@ -1599,15 +1640,13 @@ export function PlayerPropsColumnView({
                       <div className="w-24 text-center px-1 py-3">
                         <div className="text-xs font-medium text-foreground">
                           {(() => {
-                            if (hasGameLogs && l20.total > 0) return `${l20.pct.toFixed(0)}%`;
-                            // Use real data only - no mock data
+                            if (l20) return `${l20.pct.toFixed(0)}%`;
                             return "N/A";
                           })()}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {(() => {
-                            if (hasGameLogs && l20.total > 0) return `${l20.hits}/${l20.total}`;
-                            // Use real data only - no mock data
+                            if (l20) return `${l20.hits}/${l20.total}`;
                             return "N/A";
                           })()}
                         </div>

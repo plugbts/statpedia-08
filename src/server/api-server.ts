@@ -103,6 +103,17 @@ type NormalizedProp = {
     edgePct?: number;
     deeplink?: string;
   } | null;
+  // Analytics fields (optional; enriched from DB when available)
+  l5?: number | null;
+  l10?: number | null;
+  l20?: number | null;
+  h2h_avg?: number | null;
+  season_avg?: number | null;
+  matchup_rank?: number | null;
+  ev_percent?: number | null;
+  current_streak?: number | null;
+  streak_l5?: number | null;
+  rating?: number | null;
 };
 
 // Title-case a player's name robustly (handles spaces, hyphens, and apostrophes)
@@ -471,6 +482,168 @@ async function fetchNormalizedPlayerProps(sport: string, limit = 200): Promise<N
   return filtered;
 }
 
+function normalizeHumanNameForMatch(name: string): string {
+  return (
+    String(name || "")
+      .normalize("NFD")
+      // Remove diacritics (e.g., Ş -> S)
+      .replace(/\p{Diacritic}/gu, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+  );
+}
+
+function toNumberOrNull(v: unknown): number | null {
+  if (v == null) return null;
+  const n = typeof v === "number" ? v : Number(String(v));
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Enrich normalized props with analytics from public.player_analytics.
+ * We select the latest season per (player_id, prop_type) and attach:
+ * l5/l10/l20/h2h_avg/season_avg/current_streak/matchup_rank/ev_percent
+ */
+async function enrichPropsWithAnalytics(
+  sport: string,
+  props: NormalizedProp[],
+): Promise<NormalizedProp[]> {
+  if (!Array.isArray(props) || props.length === 0) return props;
+
+  const leagueCode = mapSportToLeagueId(sport) || String(sport || "").toUpperCase();
+
+  const candidatesRaw = [
+    process.env.SUPABASE_DATABASE_URL,
+    process.env.NEON_DATABASE_URL,
+    process.env.DATABASE_URL,
+  ].filter(Boolean) as string[];
+  const candidates = Array.from(new Set(candidatesRaw));
+  if (candidates.length === 0) return props;
+
+  const postgres = (await import("postgres")).default;
+
+  for (const connectionString of candidates) {
+    const client = postgres(connectionString, { prepare: false });
+    try {
+      // Load player id + name + team abbrev for this league once
+      const playersRows = (await client.unsafe(
+        `
+      SELECT p.id AS player_id,
+             p.name AS player_name,
+             COALESCE(t.abbreviation, '') AS team_abbr
+      FROM public.players p
+      LEFT JOIN public.teams t ON t.id = p.team_id
+      LEFT JOIN public.leagues l ON l.id = t.league_id
+      WHERE l.code = $1
+    `,
+        [leagueCode],
+      )) as Array<{ player_id: string; player_name: string; team_abbr: string }>;
+
+      const byName = new Map<string, Array<{ player_id: string; team_abbr: string }>>();
+      for (const r of playersRows) {
+        const key = normalizeHumanNameForMatch(r.player_name);
+        if (!key) continue;
+        const arr = byName.get(key) || [];
+        arr.push({
+          player_id: String(r.player_id),
+          team_abbr: String(r.team_abbr || "").toUpperCase(),
+        });
+        byName.set(key, arr);
+      }
+
+      // Resolve each prop -> player_id uuid (prefer matching team abbrev)
+      const resolvedPlayerIdByIdx = new Map<number, string>();
+      for (let i = 0; i < props.length; i++) {
+        const p = props[i];
+        const key = normalizeHumanNameForMatch(p.playerName || "");
+        const nameCandidates = byName.get(key);
+        if (!nameCandidates || nameCandidates.length === 0) continue;
+        if (nameCandidates.length === 1) {
+          resolvedPlayerIdByIdx.set(i, nameCandidates[0].player_id);
+          continue;
+        }
+        const teamAbbr = String(p.team || "").toUpperCase();
+        const match = teamAbbr ? nameCandidates.find((c) => c.team_abbr === teamAbbr) : undefined;
+        resolvedPlayerIdByIdx.set(i, (match || nameCandidates[0]).player_id);
+      }
+
+      const playerIds = Array.from(new Set(Array.from(resolvedPlayerIdByIdx.values())));
+      const propTypes = Array.from(
+        new Set(props.map((p) => String(p.propType || "").trim()).filter(Boolean)),
+      );
+      if (playerIds.length === 0 || propTypes.length === 0) return props;
+
+      const analyticsRows = (await client.unsafe(
+        `
+      SELECT DISTINCT ON (pa.player_id, pa.prop_type)
+        pa.player_id,
+        pa.prop_type,
+        pa.season,
+        pa.l5,
+        pa.l10,
+        pa.l20,
+        pa.current_streak,
+        pa.h2h_avg,
+        pa.season_avg,
+        pa.matchup_rank,
+        pa.ev_percent,
+        pa.last_updated
+      FROM public.player_analytics pa
+      WHERE pa.player_id = ANY($1::uuid[])
+        AND pa.prop_type = ANY($2::text[])
+        AND (pa.sport IS NULL OR LOWER(pa.sport) = LOWER($3))
+      ORDER BY
+        pa.player_id,
+        pa.prop_type,
+        NULLIF(regexp_replace(pa.season, '\\\\D', '', 'g'), '')::int DESC NULLS LAST,
+        pa.last_updated DESC NULLS LAST
+    `,
+        [playerIds, propTypes, sport],
+      )) as Array<any>;
+
+      const analyticsByKey = new Map<string, any>();
+      for (const r of analyticsRows) {
+        analyticsByKey.set(`${r.player_id}:${String(r.prop_type).trim()}`, r);
+      }
+
+      const enriched = props.map((p, idx) => {
+        const pid = resolvedPlayerIdByIdx.get(idx);
+        if (!pid) return p;
+        const r = analyticsByKey.get(`${pid}:${String(p.propType || "").trim()}`);
+        if (!r) return p;
+        const currentStreak = toNumberOrNull(r.current_streak);
+        return {
+          ...p,
+          l5: toNumberOrNull(r.l5),
+          l10: toNumberOrNull(r.l10),
+          l20: toNumberOrNull(r.l20),
+          h2h_avg: toNumberOrNull(r.h2h_avg),
+          season_avg: toNumberOrNull(r.season_avg),
+          matchup_rank: toNumberOrNull(r.matchup_rank),
+          ev_percent: toNumberOrNull(r.ev_percent),
+          current_streak: currentStreak,
+          streak_l5: currentStreak,
+          rating: null,
+        };
+      });
+
+      // Success on this DB connection
+      return enriched;
+    } catch (e) {
+      const msg = (e as Error)?.message || String(e);
+      console.warn("[API] analytics enrichment DB attempt failed:", msg);
+      // try next connectionString
+    } finally {
+      await client.end({ timeout: 1 });
+    }
+  }
+
+  // All DB attempts failed
+  return props;
+}
+
 function generateFakeProps(sport: string, limit: number): NormalizedProp[] {
   const books = ["fanduel", "draftkings", "caesars", "mgm"];
   const players = [
@@ -568,7 +741,8 @@ app.get("/api/props", async (req, res) => {
   try {
     const sport = (req.query.sport as string) || "nfl";
     const limit = Number(req.query.limit || 200);
-    const data = await fetchNormalizedPlayerProps(sport, Math.min(Math.max(1, limit), 500));
+    const base = await fetchNormalizedPlayerProps(sport, Math.min(Math.max(1, limit), 500));
+    const data = await enrichPropsWithAnalytics(sport, base);
     res.json({ success: true, count: data.length, items: data });
   } catch (e) {
     console.error("GET /api/props error:", e);
