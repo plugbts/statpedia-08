@@ -1775,6 +1775,8 @@ export function EnhancedAnalysisOverlay({
   // Check injury status
   const [injuryStatus, setInjuryStatus] = useState<string>("Unknown");
   const [isQuestionable, setIsQuestionable] = useState<boolean>(false);
+  const [injuryDetails, setInjuryDetails] = useState<string | null>(null);
+  const [injuryReturnDate, setInjuryReturnDate] = useState<string | null>(null);
 
   useEffect(() => {
     // Check if player is questionable or injured
@@ -1799,6 +1801,8 @@ export function EnhancedAnalysisOverlay({
         const json = await resp.json();
         const status = String(json?.status || "Unknown");
         setInjuryStatus(status);
+        setInjuryDetails(json?.details ? String(json.details) : null);
+        setInjuryReturnDate(json?.returnDate ? String(json.returnDate) : null);
         const s = status.toLowerCase();
         setIsQuestionable(
           s.includes("questionable") || s.includes("doubtful") || s.includes("out"),
@@ -1807,6 +1811,8 @@ export function EnhancedAnalysisOverlay({
         console.error("Error checking injury status:", error);
         setInjuryStatus("Unknown");
         setIsQuestionable(false);
+        setInjuryDetails(null);
+        setInjuryReturnDate(null);
       }
     };
 
@@ -2223,7 +2229,7 @@ export function EnhancedAnalysisOverlay({
               className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-pink-600 data-[state=active]:to-rose-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-pink-500/50 transition-all duration-300 hover:scale-105 text-xs px-2 py-1"
             >
               <Settings className="w-3 h-3 mr-1" />
-              Features
+              Play Type
             </TabsTrigger>
             {currentData.sport === "mlb" && (
               <TabsTrigger
@@ -2521,7 +2527,19 @@ export function EnhancedAnalysisOverlay({
                         // For 'both' or default, use the higher rating
                         recommended = overRating.overall > underRating.overall ? "over" : "under";
                       }
-                      const confidence = Math.max(overRating.overall, underRating.overall);
+                      // Confidence shown here is a real, line-specific hit probability derived from gameHistory.
+                      // This can differ from the rating grade (which is a composite score).
+                      const totalGames = Array.isArray(currentData.gameHistory)
+                        ? currentData.gameHistory.length
+                        : 0;
+                      const overHits = totalGames
+                        ? currentData.gameHistory.filter((g: any) => !!g?.hit).length
+                        : 0;
+                      const overProb = totalGames ? overHits / totalGames : 0.5;
+                      const confidencePct =
+                        recommended === "over"
+                          ? Math.round(overProb * 100)
+                          : Math.round((1 - overProb) * 100);
 
                       return (
                         <Badge
@@ -2546,6 +2564,14 @@ export function EnhancedAnalysisOverlay({
                     <p className="text-gray-300 text-xs font-medium mb-1">Confidence</p>
                     <p className="text-white font-bold text-xl bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
                       {(() => {
+                        const totalGames = Array.isArray(currentData.gameHistory)
+                          ? currentData.gameHistory.length
+                          : 0;
+                        const overHits = totalGames
+                          ? currentData.gameHistory.filter((g: any) => !!g?.hit).length
+                          : 0;
+                        const overProb = totalGames ? overHits / totalGames : 0.5;
+                        // Determine recommended again (mirrors badge logic above)
                         const overRating = statpediaRatingService.calculateRating(
                           currentData,
                           "over",
@@ -2554,10 +2580,34 @@ export function EnhancedAnalysisOverlay({
                           currentData,
                           "under",
                         );
-                        const confidence = Math.max(overRating.overall, underRating.overall);
-                        return Math.round(confidence);
+                        const recommended =
+                          currentFilter === "over"
+                            ? overRating.overall >= 80
+                              ? "over"
+                              : underRating.overall >= 80
+                                ? "under"
+                                : "over"
+                            : currentFilter === "under"
+                              ? underRating.overall >= 80
+                                ? "under"
+                                : overRating.overall >= 80
+                                  ? "over"
+                                  : "under"
+                              : overRating.overall > underRating.overall
+                                ? "over"
+                                : "under";
+                        const confidencePct =
+                          recommended === "over"
+                            ? Math.round(overProb * 100)
+                            : Math.round((1 - overProb) * 100);
+                        return confidencePct;
                       })()}
                       %
+                    </p>
+                    <p className="text-slate-400 text-[10px] mt-1">
+                      Based on last{" "}
+                      {Array.isArray(currentData.gameHistory) ? currentData.gameHistory.length : 0}{" "}
+                      games vs line
                     </p>
                   </div>
 
@@ -2765,10 +2815,12 @@ export function EnhancedAnalysisOverlay({
                       <div>
                         <span className="text-slate-400">Home:</span>
                         <span className="text-white ml-2">
-                          {(
-                            (enhancedData.advancedStats?.homeAwaySplit?.home?.hitRate || 0) * 100
-                          ).toFixed(1)}
-                          %
+                          {enhancedData.advancedStats?.homeAwaySplit?.home?.games
+                            ? `${(
+                                (enhancedData.advancedStats?.homeAwaySplit?.home?.hitRate || 0) *
+                                100
+                              ).toFixed(1)}%`
+                            : "—"}
                         </span>
                         <span className="text-slate-500 text-xs ml-1">
                           ({enhancedData.advancedStats?.homeAwaySplit?.home?.games || 0} games)
@@ -2777,10 +2829,12 @@ export function EnhancedAnalysisOverlay({
                       <div>
                         <span className="text-slate-400">Away:</span>
                         <span className="text-white ml-2">
-                          {(
-                            (enhancedData.advancedStats?.homeAwaySplit?.away?.hitRate || 0) * 100
-                          ).toFixed(1)}
-                          %
+                          {enhancedData.advancedStats?.homeAwaySplit?.away?.games
+                            ? `${(
+                                (enhancedData.advancedStats?.homeAwaySplit?.away?.hitRate || 0) *
+                                100
+                              ).toFixed(1)}%`
+                            : "—"}
                         </span>
                         <span className="text-slate-500 text-xs ml-1">
                           ({enhancedData.advancedStats?.homeAwaySplit?.away?.games || 0} games)
@@ -2790,27 +2844,27 @@ export function EnhancedAnalysisOverlay({
                   </div>
                   <div>
                     <h4 className="text-slate-300 font-semibold mb-2">Opponent Strength</h4>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="text-slate-400">Strong:</span>
-                        <span className="text-white ml-2">
-                          {(
-                            (enhancedData.advancedStats?.opponentStrength?.strong?.hitRate || 0) *
-                            100
-                          ).toFixed(1)}
-                          %
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-slate-400">Weak:</span>
-                        <span className="text-white ml-2">
-                          {(
-                            (enhancedData.advancedStats?.opponentStrength?.weak?.hitRate || 0) * 100
-                          ).toFixed(1)}
-                          %
-                        </span>
-                      </div>
-                    </div>
+                    {(() => {
+                      const rank = Number(
+                        (currentData as any).matchup_rank ?? (currentData as any).matchupRank ?? 0,
+                      );
+                      if (!Number.isFinite(rank) || rank <= 0) {
+                        return <div className="text-slate-400 text-xs">—</div>;
+                      }
+                      const label =
+                        rank <= 10
+                          ? "Strong defense (unfavorable)"
+                          : rank <= 22
+                            ? "Neutral"
+                            : "Weak defense (favorable)";
+                      return (
+                        <div className="text-sm">
+                          <span className="text-slate-400">Defense vs prop:</span>
+                          <span className="text-white ml-2">#{rank}</span>
+                          <span className="text-slate-500 text-xs ml-2">{label}</span>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </CardContent>
               </Card>
@@ -3213,315 +3267,341 @@ export function EnhancedAnalysisOverlay({
                     </div>
                   )}
 
-                  {/* Recovery Timeline */}
-                  <div className="space-y-3">
-                    <h4 className="text-slate-300 font-semibold">Recovery Timeline</h4>
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-3">
-                        <div className="w-2 h-2 bg-green-400 rounded-full" />
-                        <span className="text-slate-300 text-sm">
-                          Week 1: Limited minutes, easing back
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="w-2 h-2 bg-yellow-400 rounded-full" />
-                        <span className="text-slate-300 text-sm">
-                          Week 2: Increased workload, building confidence
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="w-2 h-2 bg-green-400 rounded-full" />
-                        <span className="text-slate-300 text-sm">
-                          Week 3: Full minutes, back to form
-                        </span>
+                  {/* Injury details (real ESPN fields when available) */}
+                  {isQuestionable && (
+                    <div className="space-y-3">
+                      <h4 className="text-slate-300 font-semibold">Injury Details</h4>
+                      <div className="bg-slate-700/30 p-3 rounded-lg text-sm text-slate-300">
+                        <div>
+                          <span className="text-slate-400">Status:</span>{" "}
+                          <span className="text-slate-200">{injuryStatus}</span>
+                        </div>
+                        {injuryDetails && (
+                          <div className="mt-1">
+                            <span className="text-slate-400">Detail:</span>{" "}
+                            <span className="text-slate-200">{injuryDetails}</span>
+                          </div>
+                        )}
+                        {injuryReturnDate && (
+                          <div className="mt-1">
+                            <span className="text-slate-400">Return:</span>{" "}
+                            <span className="text-slate-200">{injuryReturnDate}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
           </TabsContent>
 
-          {/* Features Tab */}
+          {/* Play Type Analysis Tab */}
           <TabsContent value="features" className="space-y-4 mt-2">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Feature Buttons */}
-              <Card className="bg-slate-800/50 border-slate-700">
-                <CardHeader>
-                  <CardTitle className="text-slate-200 flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-purple-400" />
-                    Advanced Features
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 gap-4">
-                    <Button
-                      onClick={() => handleFeatureClick("ai-insights")}
-                      className={`bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 transition-all duration-200 ${
-                        activeFeature === "ai-insights" ? "ring-2 ring-blue-400/50" : ""
-                      }`}
-                    >
-                      <Brain className="w-4 h-4 mr-2" />
-                      AI Insights
-                    </Button>
-                    <Button
-                      onClick={() => handleFeatureClick("value-finder")}
-                      className={`bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-300 transition-all duration-200 ${
-                        activeFeature === "value-finder" ? "ring-2 ring-purple-400/50" : ""
-                      }`}
-                    >
-                      <Target className="w-4 h-4 mr-2" />
-                      Value Finder
-                    </Button>
-                    <Button
-                      onClick={() => handleFeatureClick("trend-analysis")}
-                      className={`bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-emerald-300 transition-all duration-200 ${
-                        activeFeature === "trend-analysis" ? "ring-2 ring-emerald-400/50" : ""
-                      }`}
-                    >
-                      <TrendingUp className="w-4 h-4 mr-2" />
-                      Trend Analysis
-                    </Button>
-                    <Button
-                      onClick={() => handleFeatureClick("custom-alerts")}
-                      className={`bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/30 text-amber-300 transition-all duration-200 ${
-                        activeFeature === "custom-alerts" ? "ring-2 ring-amber-400/50" : ""
-                      }`}
-                    >
-                      <Settings className="w-4 h-4 mr-2" />
-                      Custom Alerts
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+            <Card className="bg-slate-800/50 border-slate-700">
+              <CardHeader>
+                <CardTitle className="text-slate-200 flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-pink-400" />
+                  Play Type Analysis
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-slate-300 text-sm space-y-2">
+                <div>
+                  Coming next: team play-type usage (e.g., A-gap runs, screens, slants), player
+                  efficiency vs each play type, and league-wide defense performance vs each play
+                  type.
+                </div>
+                <div className="text-slate-400 text-xs">
+                  This requires a play-by-play data source + ingestion. Tell me which provider you
+                  want (SportsRadar / PFF / nflfastR) and we’ll wire it in league-by-league.
+                </div>
+              </CardContent>
+            </Card>
 
-              {/* Feature Results */}
-              <Card className="bg-slate-800/50 border-slate-700">
-                <CardHeader>
-                  <CardTitle className="text-slate-200 flex items-center gap-2">
-                    {activeFeature === "ai-insights" && <Brain className="w-5 h-5 text-blue-400" />}
-                    {activeFeature === "value-finder" && (
-                      <Target className="w-5 h-5 text-purple-400" />
-                    )}
-                    {activeFeature === "trend-analysis" && (
-                      <TrendingUp className="w-5 h-5 text-emerald-400" />
-                    )}
-                    {activeFeature === "custom-alerts" && (
-                      <Settings className="w-5 h-5 text-amber-400" />
-                    )}
-                    {activeFeature
-                      ? activeFeature
-                          .split("-")
-                          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-                          .join(" ")
-                      : "Select a Feature"}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {!activeFeature ? (
-                    <p className="text-slate-400 text-center py-8">
-                      Click on a feature button to see detailed analysis
-                    </p>
-                  ) : (
-                    <>
-                      {activeFeature === "ai-insights" && featureData && (
-                        <div className="space-y-3">
-                          <h4 className="text-slate-300 font-semibold">AI-Generated Insights</h4>
-                          <div className="space-y-2">
-                            {featureData.insights.map((insight: string, index: number) => (
-                              <div
-                                key={index}
-                                className="flex items-start gap-3 p-3 bg-slate-700/30 rounded-lg"
-                              >
-                                <div className="w-2 h-2 bg-blue-400 rounded-full mt-2" />
-                                <span className="text-slate-300 text-sm">{insight}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
+            {false && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Feature Buttons */}
+                <Card className="bg-slate-800/50 border-slate-700">
+                  <CardHeader>
+                    <CardTitle className="text-slate-200 flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-purple-400" />
+                      Advanced Features
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 gap-4">
+                      <Button
+                        onClick={() => handleFeatureClick("ai-insights")}
+                        className={`bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 transition-all duration-200 ${
+                          activeFeature === "ai-insights" ? "ring-2 ring-blue-400/50" : ""
+                        }`}
+                      >
+                        <Brain className="w-4 h-4 mr-2" />
+                        AI Insights
+                      </Button>
+                      <Button
+                        onClick={() => handleFeatureClick("value-finder")}
+                        className={`bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-300 transition-all duration-200 ${
+                          activeFeature === "value-finder" ? "ring-2 ring-purple-400/50" : ""
+                        }`}
+                      >
+                        <Target className="w-4 h-4 mr-2" />
+                        Value Finder
+                      </Button>
+                      <Button
+                        onClick={() => handleFeatureClick("trend-analysis")}
+                        className={`bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-emerald-300 transition-all duration-200 ${
+                          activeFeature === "trend-analysis" ? "ring-2 ring-emerald-400/50" : ""
+                        }`}
+                      >
+                        <TrendingUp className="w-4 h-4 mr-2" />
+                        Trend Analysis
+                      </Button>
+                      <Button
+                        onClick={() => handleFeatureClick("custom-alerts")}
+                        className={`bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/30 text-amber-300 transition-all duration-200 ${
+                          activeFeature === "custom-alerts" ? "ring-2 ring-amber-400/50" : ""
+                        }`}
+                      >
+                        <Settings className="w-4 h-4 mr-2" />
+                        Custom Alerts
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Feature Results */}
+                <Card className="bg-slate-800/50 border-slate-700">
+                  <CardHeader>
+                    <CardTitle className="text-slate-200 flex items-center gap-2">
+                      {activeFeature === "ai-insights" && (
+                        <Brain className="w-5 h-5 text-blue-400" />
                       )}
-
-                      {activeFeature === "value-finder" && featureData && (
-                        <div className="space-y-4">
-                          <h4 className="text-slate-300 font-semibold">Value Analysis</h4>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-slate-700/30 p-3 rounded-lg">
-                              <div className="text-slate-400 text-sm">Current Odds</div>
-                              <div className="text-white font-semibold">
-                                {formatAmericanOdds(featureData.value.currentOdds)}
-                              </div>
-                            </div>
-                            <div className="bg-slate-700/30 p-3 rounded-lg">
-                              <div className="text-slate-400 text-sm">Fair Odds</div>
-                              <div className="text-white font-semibold">
-                                {formatAmericanOdds(featureData.value.fairOdds)}
-                              </div>
-                            </div>
-                            <div className="bg-slate-700/30 p-3 rounded-lg">
-                              <div className="text-slate-400 text-sm">Edge</div>
-                              <div
-                                className={`font-semibold ${featureData.value.edge >= 0 ? "text-emerald-400" : "text-red-400"}`}
-                              >
-                                {featureData.value.edge >= 0 ? "+" : ""}
-                                {featureData.value.edge}%
-                              </div>
-                            </div>
-                            <div className="bg-slate-700/30 p-3 rounded-lg">
-                              <div className="text-slate-400 text-sm">Recommendation</div>
-                              <Badge
-                                className={`${
-                                  featureData.value.recommendation.includes("STRONG")
-                                    ? "bg-emerald-600/20 text-emerald-300 border-emerald-500/30"
-                                    : featureData.value.recommendation.includes("GOOD")
-                                      ? "bg-blue-600/20 text-blue-300 border-blue-500/30"
-                                      : "bg-slate-600/20 text-slate-300 border-slate-500/30"
-                                }`}
-                              >
-                                {featureData.value.recommendation}
-                              </Badge>
-                            </div>
-                          </div>
-
-                          {/* Additional EV details */}
-                          <div className="grid grid-cols-3 gap-4 mt-4">
-                            <div className="bg-slate-700/30 p-3 rounded-lg">
-                              <div className="text-slate-400 text-sm">EV Percentage</div>
-                              <div
-                                className={`font-semibold ${featureData.value.evPercentage >= 0 ? "text-emerald-400" : "text-red-400"}`}
-                              >
-                                {featureData.value.evPercentage >= 0 ? "+" : ""}
-                                {featureData.value.evPercentage.toFixed(1)}%
-                              </div>
-                            </div>
-                            <div className="bg-slate-700/30 p-3 rounded-lg">
-                              <div className="text-slate-400 text-sm">Confidence</div>
-                              <div className="text-white font-semibold">
-                                {featureData.value.confidence.toFixed(0)}%
-                              </div>
-                            </div>
-                            <div className="bg-slate-700/30 p-3 rounded-lg">
-                              <div className="text-slate-400 text-sm">AI Rating</div>
-                              <div className="text-yellow-400 font-semibold">
-                                {"★".repeat(featureData.value.aiRating)}
-                                {"☆".repeat(5 - featureData.value.aiRating)}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
+                      {activeFeature === "value-finder" && (
+                        <Target className="w-5 h-5 text-purple-400" />
                       )}
-
-                      {activeFeature === "trend-analysis" && featureData && (
-                        <div className="space-y-4">
-                          <h4 className="text-slate-300 font-semibold">Trend Analysis</h4>
+                      {activeFeature === "trend-analysis" && (
+                        <TrendingUp className="w-5 h-5 text-emerald-400" />
+                      )}
+                      {activeFeature === "custom-alerts" && (
+                        <Settings className="w-5 h-5 text-amber-400" />
+                      )}
+                      {activeFeature
+                        ? activeFeature
+                            .split("-")
+                            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                            .join(" ")
+                        : "Select a Feature"}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {!activeFeature ? (
+                      <p className="text-slate-400 text-center py-8">
+                        Click on a feature button to see detailed analysis
+                      </p>
+                    ) : (
+                      <>
+                        {activeFeature === "ai-insights" && featureData && (
                           <div className="space-y-3">
-                            {featureData.trends.map((trend: any, index: number) => (
-                              <div
-                                key={index}
-                                className="flex justify-between items-center p-3 bg-slate-700/30 rounded-lg"
-                              >
-                                <div>
-                                  <div className="text-slate-300 font-medium">{trend.period}</div>
-                                  <div className="text-slate-400 text-sm">{trend.trend}</div>
-                                  <div className="text-slate-500 text-xs">Avg: {trend.average}</div>
-                                </div>
+                            <h4 className="text-slate-300 font-semibold">AI-Generated Insights</h4>
+                            <div className="space-y-2">
+                              {featureData.insights.map((insight: string, index: number) => (
                                 <div
-                                  className={`font-semibold ${
-                                    trend.change.startsWith("+")
-                                      ? "text-emerald-400"
-                                      : trend.change.startsWith("-")
-                                        ? "text-red-400"
-                                        : "text-slate-400"
+                                  key={index}
+                                  className="flex items-start gap-3 p-3 bg-slate-700/30 rounded-lg"
+                                >
+                                  <div className="w-2 h-2 bg-blue-400 rounded-full mt-2" />
+                                  <span className="text-slate-300 text-sm">{insight}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {activeFeature === "value-finder" && featureData && (
+                          <div className="space-y-4">
+                            <h4 className="text-slate-300 font-semibold">Value Analysis</h4>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="bg-slate-700/30 p-3 rounded-lg">
+                                <div className="text-slate-400 text-sm">Current Odds</div>
+                                <div className="text-white font-semibold">
+                                  {formatAmericanOdds(featureData.value.currentOdds)}
+                                </div>
+                              </div>
+                              <div className="bg-slate-700/30 p-3 rounded-lg">
+                                <div className="text-slate-400 text-sm">Fair Odds</div>
+                                <div className="text-white font-semibold">
+                                  {formatAmericanOdds(featureData.value.fairOdds)}
+                                </div>
+                              </div>
+                              <div className="bg-slate-700/30 p-3 rounded-lg">
+                                <div className="text-slate-400 text-sm">Edge</div>
+                                <div
+                                  className={`font-semibold ${featureData.value.edge >= 0 ? "text-emerald-400" : "text-red-400"}`}
+                                >
+                                  {featureData.value.edge >= 0 ? "+" : ""}
+                                  {featureData.value.edge}%
+                                </div>
+                              </div>
+                              <div className="bg-slate-700/30 p-3 rounded-lg">
+                                <div className="text-slate-400 text-sm">Recommendation</div>
+                                <Badge
+                                  className={`${
+                                    featureData.value.recommendation.includes("STRONG")
+                                      ? "bg-emerald-600/20 text-emerald-300 border-emerald-500/30"
+                                      : featureData.value.recommendation.includes("GOOD")
+                                        ? "bg-blue-600/20 text-blue-300 border-blue-500/30"
+                                        : "bg-slate-600/20 text-slate-300 border-slate-500/30"
                                   }`}
                                 >
-                                  {trend.change}
+                                  {featureData.value.recommendation}
+                                </Badge>
+                              </div>
+                            </div>
+
+                            {/* Additional EV details */}
+                            <div className="grid grid-cols-3 gap-4 mt-4">
+                              <div className="bg-slate-700/30 p-3 rounded-lg">
+                                <div className="text-slate-400 text-sm">EV Percentage</div>
+                                <div
+                                  className={`font-semibold ${featureData.value.evPercentage >= 0 ? "text-emerald-400" : "text-red-400"}`}
+                                >
+                                  {featureData.value.evPercentage >= 0 ? "+" : ""}
+                                  {featureData.value.evPercentage.toFixed(1)}%
                                 </div>
                               </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {activeFeature === "custom-alerts" && featureData && (
-                        <div className="space-y-3">
-                          <div className="flex justify-between items-center">
-                            <h4 className="text-slate-300 font-semibold">Alert Settings</h4>
-                            <Button
-                              onClick={addNewAlert}
-                              className="bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 text-xs px-2 py-1 h-7"
-                            >
-                              + Add
-                            </Button>
-                          </div>
-                          <div className="space-y-2">
-                            {featureData.alerts.map((alert: any, index: number) => (
-                              <div
-                                key={alert.id}
-                                className="flex items-center justify-between p-2 bg-slate-700/30 rounded-lg"
-                              >
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-slate-300 font-medium text-sm truncate">
-                                    {alert.type}
-                                  </div>
-                                  <div className="text-slate-400 text-xs flex items-center gap-1">
-                                    Threshold:
-                                    {alert.editable ? (
-                                      <input
-                                        type="text"
-                                        value={alert.threshold}
-                                        onChange={(e) =>
-                                          updateAlertThreshold(alert.id, e.target.value)
-                                        }
-                                        className="bg-slate-600/50 border border-slate-500/30 rounded px-1 py-0.5 text-slate-300 text-xs w-16"
-                                        onBlur={() => toggleAlertEdit(alert.id)}
-                                        onKeyDown={(e) =>
-                                          e.key === "Enter" && toggleAlertEdit(alert.id)
-                                        }
-                                        autoFocus
-                                      />
-                                    ) : (
-                                      <span
-                                        className="cursor-pointer hover:text-slate-300"
-                                        onClick={() => toggleAlertEdit(alert.id)}
-                                      >
-                                        {alert.threshold}
-                                      </span>
-                                    )}
-                                  </div>
+                              <div className="bg-slate-700/30 p-3 rounded-lg">
+                                <div className="text-slate-400 text-sm">Confidence</div>
+                                <div className="text-white font-semibold">
+                                  {featureData.value.confidence.toFixed(0)}%
                                 </div>
-                                <div className="flex items-center gap-1 ml-2">
-                                  <Button
-                                    onClick={() => toggleAlertActive(alert.id)}
-                                    className={`text-xs px-2 py-1 h-6 ${
-                                      alert.active
-                                        ? "bg-emerald-600/20 text-emerald-300 border-emerald-500/30 hover:bg-emerald-600/30"
-                                        : "bg-slate-600/20 text-slate-300 border-slate-500/30 hover:bg-slate-600/30"
+                              </div>
+                              <div className="bg-slate-700/30 p-3 rounded-lg">
+                                <div className="text-slate-400 text-sm">AI Rating</div>
+                                <div className="text-yellow-400 font-semibold">
+                                  {"★".repeat(featureData.value.aiRating)}
+                                  {"☆".repeat(5 - featureData.value.aiRating)}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {activeFeature === "trend-analysis" && featureData && (
+                          <div className="space-y-4">
+                            <h4 className="text-slate-300 font-semibold">Trend Analysis</h4>
+                            <div className="space-y-3">
+                              {featureData.trends.map((trend: any, index: number) => (
+                                <div
+                                  key={index}
+                                  className="flex justify-between items-center p-3 bg-slate-700/30 rounded-lg"
+                                >
+                                  <div>
+                                    <div className="text-slate-300 font-medium">{trend.period}</div>
+                                    <div className="text-slate-400 text-sm">{trend.trend}</div>
+                                    <div className="text-slate-500 text-xs">
+                                      Avg: {trend.average}
+                                    </div>
+                                  </div>
+                                  <div
+                                    className={`font-semibold ${
+                                      trend.change.startsWith("+")
+                                        ? "text-emerald-400"
+                                        : trend.change.startsWith("-")
+                                          ? "text-red-400"
+                                          : "text-slate-400"
                                     }`}
                                   >
-                                    {alert.active ? "ON" : "OFF"}
-                                  </Button>
-                                  <Button
-                                    onClick={() => toggleAlertEdit(alert.id)}
-                                    className="text-xs px-2 py-1 h-6 bg-blue-600/20 text-blue-300 border-blue-500/30 hover:bg-blue-600/30"
-                                  >
-                                    {alert.editable ? "✓" : "✎"}
-                                  </Button>
-                                  <Button
-                                    onClick={() => removeAlert(alert.id)}
-                                    className="text-xs px-2 py-1 h-6 bg-red-600/20 text-red-300 border-red-500/30 hover:bg-red-600/30"
-                                  >
-                                    ×
-                                  </Button>
+                                    {trend.change}
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+                        )}
+
+                        {activeFeature === "custom-alerts" && featureData && (
+                          <div className="space-y-3">
+                            <div className="flex justify-between items-center">
+                              <h4 className="text-slate-300 font-semibold">Alert Settings</h4>
+                              <Button
+                                onClick={addNewAlert}
+                                className="bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 text-xs px-2 py-1 h-7"
+                              >
+                                + Add
+                              </Button>
+                            </div>
+                            <div className="space-y-2">
+                              {featureData.alerts.map((alert: any, index: number) => (
+                                <div
+                                  key={alert.id}
+                                  className="flex items-center justify-between p-2 bg-slate-700/30 rounded-lg"
+                                >
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-slate-300 font-medium text-sm truncate">
+                                      {alert.type}
+                                    </div>
+                                    <div className="text-slate-400 text-xs flex items-center gap-1">
+                                      Threshold:
+                                      {alert.editable ? (
+                                        <input
+                                          type="text"
+                                          value={alert.threshold}
+                                          onChange={(e) =>
+                                            updateAlertThreshold(alert.id, e.target.value)
+                                          }
+                                          className="bg-slate-600/50 border border-slate-500/30 rounded px-1 py-0.5 text-slate-300 text-xs w-16"
+                                          onBlur={() => toggleAlertEdit(alert.id)}
+                                          onKeyDown={(e) =>
+                                            e.key === "Enter" && toggleAlertEdit(alert.id)
+                                          }
+                                          autoFocus
+                                        />
+                                      ) : (
+                                        <span
+                                          className="cursor-pointer hover:text-slate-300"
+                                          onClick={() => toggleAlertEdit(alert.id)}
+                                        >
+                                          {alert.threshold}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-1 ml-2">
+                                    <Button
+                                      onClick={() => toggleAlertActive(alert.id)}
+                                      className={`text-xs px-2 py-1 h-6 ${
+                                        alert.active
+                                          ? "bg-emerald-600/20 text-emerald-300 border-emerald-500/30 hover:bg-emerald-600/30"
+                                          : "bg-slate-600/20 text-slate-300 border-slate-500/30 hover:bg-slate-600/30"
+                                      }`}
+                                    >
+                                      {alert.active ? "ON" : "OFF"}
+                                    </Button>
+                                    <Button
+                                      onClick={() => toggleAlertEdit(alert.id)}
+                                      className="text-xs px-2 py-1 h-6 bg-blue-600/20 text-blue-300 border-blue-500/30 hover:bg-blue-600/30"
+                                    >
+                                      {alert.editable ? "✓" : "✎"}
+                                    </Button>
+                                    <Button
+                                      onClick={() => removeAlert(alert.id)}
+                                      className="text-xs px-2 py-1 h-6 bg-red-600/20 text-red-300 border-red-500/30 hover:bg-red-600/30"
+                                    >
+                                      ×
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
           </TabsContent>
 
           {/* Pitchers Tab - Baseball Only */}
