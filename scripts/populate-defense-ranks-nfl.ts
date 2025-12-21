@@ -53,15 +53,26 @@ async function main() {
     process.exit(1);
   }
 
-  const connectionString =
-    process.env.SUPABASE_DATABASE_URL || process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
-  if (!connectionString) {
-    console.error(
-      "Missing database connection string (SUPABASE_DATABASE_URL/NEON_DATABASE_URL/DATABASE_URL).",
-    );
-    process.exit(1);
+  async function getSupabaseConnection(): Promise<string> {
+    const supabaseUrl = process.env.SUPABASE_DATABASE_URL;
+    if (!supabaseUrl) {
+      throw new Error("SUPABASE_DATABASE_URL is required for matchup database");
+    }
+
+    const postgres = (await import("postgres")).default;
+    const probe = postgres(supabaseUrl, { prepare: false, max: 1 });
+    try {
+      await probe`select 1 as ok`;
+      await probe.end({ timeout: 1 });
+      console.log("[defense-ranks:nfl] ✅ Supabase connection verified");
+      return supabaseUrl;
+    } catch (e: any) {
+      await probe.end({ timeout: 1 }).catch(() => {});
+      throw new Error(`Failed to connect to Supabase: ${e?.message || e}`);
+    }
   }
 
+  const connectionString = await getSupabaseConnection();
   const postgres = (await import("postgres")).default;
   const client = postgres(connectionString, { prepare: false });
 
