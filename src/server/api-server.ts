@@ -940,6 +940,7 @@ async function enrichPropsWithAnalytics(
       >();
       // Used at lookup-time when the prop's season has no ranks yet (e.g., logs not ingested).
       const latestSeasonByProp = new Map<string, string>();
+      const debugMatchup = String(process.env.DEBUG_MATCHUP || "") === "1";
 
       if (shouldComputeDefenseRank && propTypesLower.length > 0) {
         const seasonDefault = nflSeasonForDate(new Date());
@@ -977,6 +978,72 @@ async function enrichPropsWithAnalytics(
             ),
           ),
         );
+
+        // Try to read precomputed ranks from public.defense_ranks first (fast path).
+        // If table is empty/not populated, we will compute from logs (slow path).
+        try {
+          const leagueRows = (await client.unsafe(
+            `
+            SELECT id
+            FROM public.leagues
+            WHERE UPPER(code) = 'NFL' OR UPPER(COALESCE(abbreviation, code)) = 'NFL'
+            LIMIT 1
+          `,
+          )) as Array<{ id: string }>;
+          const nflLeagueId = leagueRows?.[0]?.id;
+          if (nflLeagueId && seasonsNeeded.length > 0 && propTypesToRank.length > 0) {
+            const dr = (await client.unsafe(
+              `
+              SELECT
+                dr.team_id,
+                dr.season,
+                LOWER(TRIM(dr.prop_type)) AS prop_type,
+                dr.rank::int AS rank,
+                COALESCE(dr.games_tracked, 0)::int AS games_tracked,
+                COALESCE(dr.rank_percentile, 0)::numeric AS rank_percentile
+              FROM public.defense_ranks dr
+              WHERE dr.league_id = $1
+                AND dr.season = ANY($2::text[])
+                AND LOWER(TRIM(dr.prop_type)) = ANY($3::text[])
+            `,
+              [nflLeagueId, seasonsNeeded, propTypesToRank],
+            )) as Array<{
+              team_id: string;
+              season: string;
+              prop_type: string;
+              rank: number;
+              games_tracked: number;
+              rank_percentile: unknown;
+            }>;
+
+            for (const r of dr) {
+              const key = `${String(r.season)}|${String(r.prop_type)}`;
+              const m = defenseRankByPropType.get(key) || new Map();
+              m.set(String(r.team_id), {
+                rank: Number(r.rank) || 0,
+                games: Number(r.games_tracked) || 0,
+                allowedPerGame: 0, // not stored in table currently
+              });
+              defenseRankByPropType.set(key, m);
+            }
+
+            if (debugMatchup) {
+              console.log("[matchup] defense_ranks preload", {
+                seasonsNeeded,
+                propTypesToRank: propTypesToRank.length,
+                rows: dr.length,
+                keys: defenseRankByPropType.size,
+              });
+            }
+          }
+        } catch (e) {
+          if (debugMatchup) {
+            console.warn(
+              "[matchup] defense_ranks preload failed (will compute from logs):",
+              (e as Error)?.message || e,
+            );
+          }
+        }
 
         // Fallback: if the current season isn't fully ingested, use the latest season with logs for each prop type.
         for (const ptLower of propTypesToRank) {
@@ -1016,6 +1083,10 @@ async function enrichPropsWithAnalytics(
             defenseRankByPropType.set(`${season}|${ptLower}`, cached.byTeamId);
             continue;
           }
+
+          // If precomputed table already gave us ranks for this season+propType, skip compute.
+          const pre = defenseRankByPropType.get(`${season}|${ptLower}`);
+          if (pre && pre.size > 0) continue;
 
           const rows = (await client.unsafe(
             `
@@ -1234,6 +1305,13 @@ async function enrichPropsWithAnalytics(
           : nflSeasonForDate(new Date());
 
         const oppIdForRank = resolveOpponentTeamId(String(p.opponent || ""));
+        if (debugMatchup && !oppIdForRank) {
+          console.warn("[matchup] opponent mapping missing", {
+            opponent: p.opponent,
+            team: p.team,
+            propType: p.propType,
+          });
+        }
         // Lookup rank: try the prop season first; if no ranks exist for that season, fallback to latest season with logs.
         let rankMap =
           oppIdForRank && defenseRankByPropType.get(`${seasonForProp}|${propTypeKey}`)
@@ -1247,6 +1325,16 @@ async function enrichPropsWithAnalytics(
           }
         }
         const defenseRankRow = oppIdForRank && rankMap ? rankMap.get(oppIdForRank) : undefined;
+        if (debugMatchup && oppIdForRank && (!rankMap || rankMap.size === 0 || !defenseRankRow)) {
+          console.warn("[matchup] rank missing", {
+            opponent: p.opponent,
+            opponent_id: oppIdForRank,
+            propType: p.propType,
+            seasonForProp,
+            fbSeason: latestSeasonByProp.get(propTypeKey) || null,
+            haveRankMap: rankMap ? rankMap.size : 0,
+          });
+        }
         const computedMatchupRank =
           defenseRankRow && defenseRankRow.rank > 0 ? defenseRankRow.rank : null;
 
