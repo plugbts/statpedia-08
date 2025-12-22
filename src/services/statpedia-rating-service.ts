@@ -515,12 +515,24 @@ export class StatpediaRatingService {
 
     if (!currentLine || !historicalAvg) return 50;
 
+    // Special handling for very low lines (e.g., o0.5 yards) - these should be very favorable for OVER
+    if (currentLine < 1 && historicalAvg > currentLine) {
+      // For lines below 1, if historical average is higher, this is extremely favorable for OVER
+      const ratio = historicalAvg / Math.max(0.1, currentLine); // Avoid division by zero
+      const boost = Math.min(50, Math.log10(ratio) * 15); // Logarithmic boost, capped at +50
+      return Math.max(0, Math.min(100, 50 + boost));
+    }
+
     const difference = currentLine - historicalAvg;
-    const percentDiff = (difference / historicalAvg) * 100;
+    const percentDiff = historicalAvg > 0 ? (difference / historicalAvg) * 100 : 0;
 
     // Favor lines that are lower than historical (easier to hit over)
     let score = 50;
-    if (percentDiff < -10)
+    if (percentDiff < -50)
+      score += 40; // Line extremely lower (e.g., 0.5 vs 10 = -95%)
+    else if (percentDiff < -20)
+      score += 30; // Line very significantly lower
+    else if (percentDiff < -10)
       score += 20; // Line significantly lower
     else if (percentDiff < -5)
       score += 10; // Line moderately lower
