@@ -426,6 +426,14 @@ export class StatpediaRatingService {
     // Convert to 0-100 scale
     let score = weightedHitRate * 100;
 
+    // Special boost for very high hit rates (almost guaranteed hits)
+    // If hit rate is > 80%, this is a very favorable prop
+    if (weightedHitRate >= 0.9)
+      score = Math.min(100, score + 15); // 90%+ hit rate = +15 boost
+    else if (weightedHitRate >= 0.8)
+      score = Math.min(100, score + 10); // 80%+ hit rate = +10 boost
+    else if (weightedHitRate >= 0.7) score = Math.min(100, score + 5); // 70%+ hit rate = +5 boost
+
     // Bonus for consistency across timeframes
     const variance = Math.abs(l2g - l20);
     if (variance < 0.1)
