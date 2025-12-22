@@ -18,6 +18,15 @@ config({ path: ".env.local" });
 // Import auth service
 import { authService } from "../lib/auth/auth-service";
 import { canAccessFeature } from "../lib/auth/access";
+import { fetchIcuraUnifiedNhlDay } from "../services/icura/unified/unified-icura-nhl";
+import { buildEarlyGameFeatureRow } from "../services/icura/early-goal/dataset";
+import { runEarlyGoalEngineAsync } from "../services/icura/early-goal/engine";
+import {
+  fetchSgoGamesWithMarkets,
+  extractCoreMarkets,
+} from "../services/icura/market/sportsgameodds-server";
+import { getIcuraSql } from "../services/icura/db/postgres";
+import { computeEdgeFromAmericanYesOdds } from "../services/icura/early-goal/engine";
 
 const app = express();
 const PORT = process.env.API_PORT || 3001;
@@ -48,6 +57,285 @@ app.use(express.json());
 // Health check
 app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+// =========================
+// Icura Unified NHL System
+// =========================
+// Single unified endpoint combining:
+// - NHL API (schedule + play-by-play + boxscore)
+// - MoneyPuck (xG/predictive layer)
+// - NHL Edge (tracking layer, standby)
+//
+// Usage: /api/icura/nhl/unified?date=YYYY-MM-DD
+app.get("/api/icura/nhl/unified", async (req, res) => {
+  try {
+    const date = String(req.query.date || new Date().toISOString().slice(0, 10));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ success: false, error: "Invalid date. Use YYYY-MM-DD" });
+    }
+
+    const items = await fetchIcuraUnifiedNhlDay(date);
+    return res.json({
+      success: true,
+      date,
+      count: items.length,
+      items,
+    });
+  } catch (e: any) {
+    console.error("GET /api/icura/nhl/unified error:", e);
+    return res
+      .status(500)
+      .json({ success: false, error: e?.message || "Icura unified fetch failed" });
+  }
+});
+
+// =========================
+// Icura Early-Goal Engine (G1F5 / G1F10)
+// =========================
+// Usage:
+// - /api/icura/nhl/early-goal?date=YYYY-MM-DD
+// Returns feature rows + predictions (no DB persistence yet; this is the compute path).
+app.get("/api/icura/nhl/early-goal", async (req, res) => {
+  try {
+    const date = String(req.query.date || new Date().toISOString().slice(0, 10));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ success: false, error: "Invalid date. Use YYYY-MM-DD" });
+    }
+
+    // For now: we compute using unified packages for the same date.
+    // Next: we’ll load prior 20 games from DB-backed packages.
+    const pkgs = await fetchIcuraUnifiedNhlDay(date);
+
+    const items = await Promise.all(
+      pkgs.map(async (pkg) => {
+        // TODO: provide real last20 history by fetching prior dates and filtering by team.
+        const featureRow = await buildEarlyGameFeatureRow(pkg, []);
+        const pred = await runEarlyGoalEngineAsync(featureRow);
+
+        // Attach edges if early-goal market YES odds exist (by game external id if present)
+        let edge10: number | null = null;
+        let edge5: number | null = null;
+        try {
+          const sql = getIcuraSql();
+          try {
+            const rows = await sql`
+            SELECT market_g1f5_yes_odds, market_g1f10_yes_odds
+            FROM public.icura_nhl_market_early_goal
+            WHERE game_external_id = ${pkg.game.gameId}
+            LIMIT 1
+          `;
+            const r: any = rows?.[0];
+            if (r?.market_g1f10_yes_odds !== null && r?.market_g1f10_yes_odds !== undefined) {
+              edge10 = computeEdgeFromAmericanYesOdds(
+                pred.p_g1f10,
+                Number(r.market_g1f10_yes_odds),
+              );
+            }
+            if (r?.market_g1f5_yes_odds !== null && r?.market_g1f5_yes_odds !== undefined) {
+              edge5 = computeEdgeFromAmericanYesOdds(pred.p_g1f5, Number(r.market_g1f5_yes_odds));
+            }
+          } finally {
+            await sql.end({ timeout: 2 });
+          }
+        } catch {
+          // ignore if DB not configured
+        }
+
+        // Persist dataset + prediction (best-effort). This requires DB URL configured.
+        try {
+          const sql = getIcuraSql();
+          try {
+            // dataset row (partial columns for now; will expand as we compute more features)
+            await sql`
+            INSERT INTO public.icura_nhl_early_game_dataset (
+              game_id,
+              game_external_id,
+              date_iso,
+              home_team_id,
+              away_team_id,
+              goal_in_first_5,
+              goal_in_first_10,
+              home_team_xgf_first10_last20,
+              home_team_xga_first10_last20,
+              home_team_rush_chances_first10_last20,
+              home_team_high_danger_first10_last20,
+              home_team_shot_attempts_first10,
+              away_team_xgf_first10_last20,
+              away_team_xga_first10_last20,
+              away_team_rush_chances_first10_last20,
+              away_team_high_danger_first10_last20,
+              away_team_shot_attempts_first10,
+              updated_at
+            )
+            VALUES (
+              (SELECT id FROM public.games WHERE api_game_id = ${pkg.game.gameId} OR external_id = ${pkg.game.gameId} LIMIT 1),
+              ${pkg.game.gameId},
+              ${pkg.game.dateISO},
+              (SELECT home_team_id FROM public.games WHERE api_game_id = ${pkg.game.gameId} OR external_id = ${pkg.game.gameId} LIMIT 1),
+              (SELECT away_team_id FROM public.games WHERE api_game_id = ${pkg.game.gameId} OR external_id = ${pkg.game.gameId} LIMIT 1),
+              ${featureRow.targets.goal_in_first_5},
+              ${featureRow.targets.goal_in_first_10},
+              ${featureRow.home_team_xgf_first10_last20 ?? null},
+              ${featureRow.home_team_xga_first10_last20 ?? null},
+              ${featureRow.home_team_rush_chances_first10_last20 ?? null},
+              ${featureRow.home_team_high_danger_first10_last20 ?? null},
+              ${featureRow.home_team_shot_attempts_first10 ?? null},
+              ${featureRow.away_team_xgf_first10_last20 ?? null},
+              ${featureRow.away_team_xga_first10_last20 ?? null},
+              ${featureRow.away_team_rush_chances_first10_last20 ?? null},
+              ${featureRow.away_team_high_danger_first10_last20 ?? null},
+              ${featureRow.away_team_shot_attempts_first10 ?? null},
+              now()
+            )
+            ON CONFLICT (game_external_id)
+            DO UPDATE SET
+              goal_in_first_5 = EXCLUDED.goal_in_first_5,
+              goal_in_first_10 = EXCLUDED.goal_in_first_10,
+              home_team_xgf_first10_last20 = EXCLUDED.home_team_xgf_first10_last20,
+              home_team_xga_first10_last20 = EXCLUDED.home_team_xga_first10_last20,
+              home_team_rush_chances_first10_last20 = EXCLUDED.home_team_rush_chances_first10_last20,
+              home_team_high_danger_first10_last20 = EXCLUDED.home_team_high_danger_first10_last20,
+              home_team_shot_attempts_first10 = EXCLUDED.home_team_shot_attempts_first10,
+              away_team_xgf_first10_last20 = EXCLUDED.away_team_xgf_first10_last20,
+              away_team_xga_first10_last20 = EXCLUDED.away_team_xga_first10_last20,
+              away_team_rush_chances_first10_last20 = EXCLUDED.away_team_rush_chances_first10_last20,
+              away_team_high_danger_first10_last20 = EXCLUDED.away_team_high_danger_first10_last20,
+              away_team_shot_attempts_first10 = EXCLUDED.away_team_shot_attempts_first10,
+              updated_at = now()
+          `;
+
+            await sql`
+            INSERT INTO public.icura_nhl_early_predictions (
+              game_id,
+              game_external_id,
+              date_iso,
+              icura_version,
+              p_g1f5,
+              p_g1f10,
+              fair_odds_g1f5,
+              fair_odds_g1f10,
+              edge_g1f5,
+              edge_g1f10,
+              model_poisson_p10,
+              model_ml_p10,
+              reasons,
+              debug
+            )
+            VALUES (
+              (SELECT id FROM public.games WHERE api_game_id = ${pkg.game.gameId} OR external_id = ${pkg.game.gameId} LIMIT 1),
+              ${pkg.game.gameId},
+              ${pkg.game.dateISO},
+              ${pred.icuraVersion},
+              ${pred.p_g1f5},
+              ${pred.p_g1f10},
+              ${pred.fair_odds_g1f5},
+              ${pred.fair_odds_g1f10},
+              ${edge5},
+              ${edge10},
+              ${pred.poisson_p10},
+              ${pred.ml_p10},
+              ${sql.json((pred.reasons || []).map((t) => String(t)))},
+              ${sql.json(pred.debug ? (pred.debug as any) : {})}
+            )
+            ON CONFLICT (game_external_id, icura_version)
+            DO UPDATE SET
+              p_g1f5 = EXCLUDED.p_g1f5,
+              p_g1f10 = EXCLUDED.p_g1f10,
+              fair_odds_g1f5 = EXCLUDED.fair_odds_g1f5,
+              fair_odds_g1f10 = EXCLUDED.fair_odds_g1f10,
+              edge_g1f5 = EXCLUDED.edge_g1f5,
+              edge_g1f10 = EXCLUDED.edge_g1f10,
+              model_poisson_p10 = EXCLUDED.model_poisson_p10,
+              model_ml_p10 = EXCLUDED.model_ml_p10,
+              reasons = EXCLUDED.reasons,
+              debug = EXCLUDED.debug,
+              updated_at = now()
+          `;
+          } finally {
+            await sql.end({ timeout: 2 });
+          }
+        } catch {
+          // ignore persistence failures (DB not configured)
+        }
+
+        return {
+          game: pkg.game,
+          targets: featureRow.targets,
+          features: featureRow,
+          prediction: { ...pred, edge_g1f10: edge10, edge_g1f5: edge5 },
+        };
+      }),
+    );
+
+    return res.json({ success: true, date, count: items.length, items });
+  } catch (e: any) {
+    console.error("GET /api/icura/nhl/early-goal error:", e);
+    return res.status(500).json({ success: false, error: e?.message || "Icura early-goal failed" });
+  }
+});
+
+// =========================
+// Icura Market Ingestion (NHL)
+// =========================
+// Best-effort ingestion from SportsGameOdds into:
+// - icura_nhl_market_closing (totals/1P/ML)
+// - icura_nhl_market_early_goal (G1F5/G1F10 yes/no if available)
+//
+// Usage: /api/icura/nhl/market/ingest
+app.get("/api/icura/nhl/market/ingest", async (req, res) => {
+  try {
+    const games = await fetchSgoGamesWithMarkets("nhl");
+    const mapped = games.map((g) => ({
+      id: g.id,
+      homeTeam: g.homeTeam,
+      awayTeam: g.awayTeam,
+      ...extractCoreMarkets(g),
+    }));
+    // Persist best-effort by external game id (SGO game id often differs from NHL id; we store raw with that id).
+    // If your SGO payload exposes NHL game ids, update mapping to set game_external_id to the NHL id.
+    try {
+      const sql = getIcuraSql();
+      try {
+        for (const g of mapped) {
+          const gameExternalId = String(g.id);
+          await sql`
+            INSERT INTO public.icura_nhl_market_early_goal (
+              game_id, game_external_id, date_iso,
+              market_g1f5_yes_odds, market_g1f5_no_odds,
+              market_g1f10_yes_odds, market_g1f10_no_odds,
+              source, raw
+            )
+            VALUES (
+              (SELECT id FROM public.games WHERE api_game_id = ${gameExternalId} OR external_id = ${gameExternalId} LIMIT 1),
+              ${gameExternalId},
+              ${new Date().toISOString().slice(0, 10)},
+              ${g.g1f5_yes ?? null}, ${g.g1f5_no ?? null},
+              ${g.g1f10_yes ?? null}, ${g.g1f10_no ?? null},
+              'sportsgameodds',
+              ${sql.json({ ...(g.debug || {}) })}
+            )
+            ON CONFLICT (game_external_id)
+            DO UPDATE SET
+              market_g1f5_yes_odds = EXCLUDED.market_g1f5_yes_odds,
+              market_g1f5_no_odds = EXCLUDED.market_g1f5_no_odds,
+              market_g1f10_yes_odds = EXCLUDED.market_g1f10_yes_odds,
+              market_g1f10_no_odds = EXCLUDED.market_g1f10_no_odds,
+              updated_at = now(),
+              raw = EXCLUDED.raw
+          `;
+        }
+      } finally {
+        await sql.end({ timeout: 2 });
+      }
+    } catch {
+      // soft-fail: endpoint still returns parsed markets
+    }
+    return res.json({ success: true, count: mapped.length, items: mapped });
+  } catch (e: any) {
+    console.error("GET /api/icura/nhl/market/ingest error:", e);
+    return res.status(500).json({ success: false, error: e?.message || "market ingest failed" });
+  }
 });
 
 // Lightweight diagnostics: preview normalized props from SGO
@@ -1878,12 +2166,19 @@ app.get("/api/player-game-logs", async (req, res) => {
     ).trim();
     const propType = String((req.query.propType || req.query.prop_type || "") as string).trim();
     const limit = Math.min(50, Math.max(1, Number(req.query.limit || 20)));
+    const quarter = String((req.query.quarter || "") as string)
+      .trim()
+      .toLowerCase();
     if (!playerUuid || !propType) {
       return res.status(400).json({
         success: false,
         error: "Missing required params: player_uuid and propType",
       });
     }
+
+    // Note: Quarter filtering is accepted but not yet implemented in the database query
+    // The database schema doesn't currently have quarter-specific columns
+    // This parameter is accepted for future implementation
 
     const postgres = (await import("postgres")).default;
     const candidates = [

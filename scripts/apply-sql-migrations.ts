@@ -4,9 +4,10 @@ import fs from "fs/promises";
 import path from "path";
 
 async function run() {
-  const conn = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+  const conn =
+    process.env.SUPABASE_DATABASE_URL || process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
   if (!conn) {
-    console.error("DATABASE_URL/NEON_DATABASE_URL is not set");
+    console.error("SUPABASE_DATABASE_URL/DATABASE_URL/NEON_DATABASE_URL is not set");
     process.exit(1);
   }
   const sql = postgres(conn, { prepare: false, max: 1 });

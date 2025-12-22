@@ -29,6 +29,7 @@ import { MostLikely } from "@/components/mlb/most-likely";
 import { PredictionsTab } from "@/components/predictions/predictions-tab";
 import { ParlayGen } from "@/components/parlay/parlay-gen";
 import { AnalyticsTab } from "@/components/analytics/analytics-tab";
+import { GIF5Tab } from "@/components/gif5/gif5-tab";
 import {
   HeaderBannerAd,
   InFeedAd,
@@ -954,6 +955,7 @@ const Index = () => {
         {activeTab === "most-likely" && <MostLikely />}
         {activeTab === "parlay-gen" && <ParlayGen />}
         {activeTab === "analytics" && <AnalyticsTab />}
+        {activeTab === "gif5" && <GIF5Tab />}
         {activeTab === "sync-test" && renderSyncTest()}
         {activeTab !== "dashboard" &&
           activeTab !== "predictions" &&
@@ -965,6 +967,7 @@ const Index = () => {
           activeTab !== "most-likely" &&
           activeTab !== "parlay-gen" &&
           activeTab !== "analytics" &&
+          activeTab !== "gif5" &&
           activeTab !== "sync-test" && (
             <div className="text-center py-16">
               <h2 className="text-2xl font-bold text-foreground mb-4">

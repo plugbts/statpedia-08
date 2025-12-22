@@ -83,6 +83,7 @@ import {
   ReferenceLine,
   ReferenceArea,
 } from "recharts";
+import { runIcuraNhlModel, type IcuraNhlModelOutput } from "@/services/icura-nhl-model";
 
 interface EnhancedPrediction {
   id: string;
@@ -1360,6 +1361,8 @@ export function EnhancedAnalysisOverlay({
   const [activeFeature, setActiveFeature] = useState<string | null>(null);
   const [featureData, setFeatureData] = useState<any>(null);
   const [updatedEnhancedData, setUpdatedEnhancedData] = useState<EnhancedPrediction | null>(null);
+  const [extraFeaturesTab, setExtraFeaturesTab] = useState<"insights" | "playtype">("insights");
+  const [icuraOutput, setIcuraOutput] = useState<IcuraNhlModelOutput | null>(null);
 
   // Super-advanced AI model output (existing in codebase)
   const [advancedModelPrediction, setAdvancedModelPrediction] =
@@ -1503,7 +1506,7 @@ export function EnhancedAnalysisOverlay({
   ]);
 
   // Fetch real player logs for the selected prop (for performance trend + consistency)
-  const fetchPlayerLogs = useCallback(async (p: any) => {
+  const fetchPlayerLogs = useCallback(async (p: any, quarter: string = "full") => {
     const playerUuid = String(p?.player_uuid || p?.playerUuid || "").trim();
     const propType = String(p?.propType || p?.prop_type || "").trim();
     const line = Number(p?.line);
@@ -1519,6 +1522,7 @@ export function EnhancedAnalysisOverlay({
         player_uuid: playerUuid,
         propType,
         limit: "10",
+        ...(quarter && quarter !== "full" ? { quarter } : {}),
       });
       const res = await fetch(`${base}/api/player-game-logs?${qs.toString()}`);
       const json = await res.json();
@@ -2967,6 +2971,11 @@ export function EnhancedAnalysisOverlay({
                         <div className="flex items-center justify-between">
                           <CardTitle className="text-slate-200 text-sm">
                             Performance Graph
+                            {selectedQuarter !== "full" && (
+                              <span className="ml-2 text-xs text-blue-400">
+                                ({selectedQuarter.toUpperCase()})
+                              </span>
+                            )}
                           </CardTitle>
                           <div className="flex items-center gap-2">
                             <Button
@@ -4070,314 +4079,144 @@ export function EnhancedAnalysisOverlay({
                 </CardContent>
               </Card>
             </div>
+
+            {/* Icura — NHL only (standby) */}
+            {String(currentData?.sport || "").toLowerCase() === "nhl" && (
+              <Card className="bg-slate-800/50 border-slate-700">
+                <CardHeader>
+                  <CardTitle className="text-slate-200 flex items-center gap-2">
+                    <BrainCircuit className="w-5 h-5 text-cyan-300" />
+                    Icura (NHL) — Super Advanced Model
+                    <Badge className="ml-2 bg-cyan-600/20 text-cyan-200 border-cyan-500/30">
+                      Standby
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="text-slate-400 text-sm">
+                    Wired and ready. Next you’ll tell me the exact factors + weighting and we’ll
+                    evolve this into a real model.
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={async () => {
+                        if (!currentData) return;
+                        const out = await runIcuraNhlModel({
+                          playerName: currentData.playerName,
+                          teamAbbr: currentData.teamAbbr || currentData.team,
+                          opponentAbbr: currentData.opponentAbbr || currentData.opponent,
+                          propType: currentData.propType,
+                          line: Number(currentData.line),
+                          gameDateISO: (currentData as any).gameDate,
+                        } as any);
+                        setIcuraOutput(out as any);
+                      }}
+                      className="bg-cyan-600/20 hover:bg-cyan-600/30 border border-cyan-500/30 text-cyan-200"
+                    >
+                      Run Icura (Preview)
+                    </Button>
+                    <span className="text-slate-500 text-xs">Preview output is placeholder.</span>
+                  </div>
+
+                  {icuraOutput && (
+                    <div className="bg-slate-700/30 border border-slate-600/40 rounded-lg p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="text-slate-200 text-sm font-semibold">
+                          {icuraOutput.model} v{icuraOutput.version}
+                        </div>
+                        <Badge
+                          className={cn(
+                            "border",
+                            icuraOutput.recommended === "over"
+                              ? "bg-emerald-600/20 text-emerald-200 border-emerald-500/30"
+                              : "bg-red-600/20 text-red-200 border-red-500/30",
+                          )}
+                        >
+                          {icuraOutput.recommended.toUpperCase()} •{" "}
+                          {Math.round(icuraOutput.confidence * 100)}%
+                        </Badge>
+                      </div>
+                      <div className="space-y-1">
+                        {icuraOutput.keyInsights.map((t, idx) => (
+                          <div key={idx} className="text-slate-300 text-sm">
+                            • {t}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
-          {/* Play Type Analysis Tab */}
+          {/* Extra Features Tab */}
           <TabsContent value="features" className="space-y-4 mt-2">
             <Card className="bg-slate-800/50 border-slate-700">
-              <CardHeader>
-                <CardTitle className="text-slate-200 flex items-center gap-2">
-                  <Settings className="w-5 h-5 text-pink-400" />
-                  Play Type Analysis
-                </CardTitle>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-slate-200 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-pink-400" />
+                    Extra Features
+                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    {(["insights", "playtype"] as const).map((k) => (
+                      <Button
+                        key={k}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setExtraFeaturesTab(k)}
+                        className={cn(
+                          "text-xs px-2 py-1 bg-slate-700/40 border-slate-600 text-slate-200 hover:bg-slate-700/60",
+                          extraFeaturesTab === k &&
+                            "bg-blue-600/30 border-blue-500/40 text-blue-200",
+                        )}
+                      >
+                        {k === "insights" ? "Insights" : "Play Type"}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
               </CardHeader>
-              <CardContent className="text-slate-300 text-sm space-y-2">
-                <div>
-                  Coming next: team play-type usage (e.g., A-gap runs, screens, slants), player
-                  efficiency vs each play type, and league-wide defense performance vs each play
-                  type.
-                </div>
-                <div className="text-slate-400 text-xs">
-                  This requires a play-by-play data source + ingestion. Tell me which provider you
-                  want (SportsRadar / PFF / nflfastR) and we’ll wire it in league-by-league.
-                </div>
+
+              <CardContent className="space-y-4">
+                {/* INSIGHTS */}
+                {extraFeaturesTab === "insights" && (
+                  <div className="space-y-3">
+                    <div className="text-slate-400 text-xs">
+                      Quick-hit insights, styled to match the rest of the overlay.
+                    </div>
+                    <div className="space-y-2">
+                      {generateRealAIInsights(enhancedData).map((insight, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-start gap-3 p-3 bg-slate-700/30 rounded-lg border border-slate-600/40"
+                        >
+                          <div className="w-2 h-2 bg-blue-400 rounded-full mt-2" />
+                          <span className="text-slate-200 text-sm leading-relaxed">{insight}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* PLAY TYPE */}
+                {extraFeaturesTab === "playtype" && (
+                  <div className="space-y-2">
+                    <div className="text-slate-200 font-semibold">Play Type Analysis</div>
+                    <div className="text-slate-300 text-sm">
+                      Coming next: team play-type usage (e.g., A-gap runs, screens, slants), player
+                      efficiency vs each play type, and league-wide defense performance vs each play
+                      type.
+                    </div>
+                    <div className="text-slate-400 text-xs">
+                      This requires a play-by-play data source + ingestion. Tell me which provider
+                      you want (SportsRadar / PFF / nflfastR) and we’ll wire it in league-by-league.
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
-
-            {false && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Feature Buttons */}
-                <Card className="bg-slate-800/50 border-slate-700">
-                  <CardHeader>
-                    <CardTitle className="text-slate-200 flex items-center gap-2">
-                      <Sparkles className="w-5 h-5 text-blue-400" />
-                      Advanced Features
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 gap-4">
-                      <Button
-                        onClick={() => handleFeatureClick("ai-insights")}
-                        className={`bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 transition-all duration-200 ${
-                          activeFeature === "ai-insights" ? "ring-2 ring-blue-400/50" : ""
-                        }`}
-                      >
-                        <Brain className="w-4 h-4 mr-2" />
-                        AI Insights
-                      </Button>
-                      <Button
-                        onClick={() => handleFeatureClick("value-finder")}
-                        className={`bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 transition-all duration-200 ${
-                          activeFeature === "value-finder" ? "ring-2 ring-blue-400/50" : ""
-                        }`}
-                      >
-                        <Target className="w-4 h-4 mr-2" />
-                        Value Finder
-                      </Button>
-                      <Button
-                        onClick={() => handleFeatureClick("trend-analysis")}
-                        className={`bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-emerald-300 transition-all duration-200 ${
-                          activeFeature === "trend-analysis" ? "ring-2 ring-emerald-400/50" : ""
-                        }`}
-                      >
-                        <TrendingUp className="w-4 h-4 mr-2" />
-                        Trend Analysis
-                      </Button>
-                      <Button
-                        onClick={() => handleFeatureClick("custom-alerts")}
-                        className={`bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/30 text-amber-300 transition-all duration-200 ${
-                          activeFeature === "custom-alerts" ? "ring-2 ring-amber-400/50" : ""
-                        }`}
-                      >
-                        <Settings className="w-4 h-4 mr-2" />
-                        Custom Alerts
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Feature Results */}
-                <Card className="bg-slate-800/50 border-slate-700">
-                  <CardHeader>
-                    <CardTitle className="text-slate-200 flex items-center gap-2">
-                      {activeFeature === "ai-insights" && (
-                        <Brain className="w-5 h-5 text-blue-400" />
-                      )}
-                      {activeFeature === "value-finder" && (
-                        <Target className="w-5 h-5 text-blue-400" />
-                      )}
-                      {activeFeature === "trend-analysis" && (
-                        <TrendingUp className="w-5 h-5 text-emerald-400" />
-                      )}
-                      {activeFeature === "custom-alerts" && (
-                        <Settings className="w-5 h-5 text-amber-400" />
-                      )}
-                      {activeFeature
-                        ? activeFeature
-                            .split("-")
-                            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-                            .join(" ")
-                        : "Select a Feature"}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {!activeFeature ? (
-                      <p className="text-slate-400 text-center py-8">
-                        Click on a feature button to see detailed analysis
-                      </p>
-                    ) : (
-                      <>
-                        {activeFeature === "ai-insights" && featureData && (
-                          <div className="space-y-3">
-                            <h4 className="text-slate-300 font-semibold">AI-Generated Insights</h4>
-                            <div className="space-y-2">
-                              {featureData.insights.map((insight: string, index: number) => (
-                                <div
-                                  key={index}
-                                  className="flex items-start gap-3 p-3 bg-slate-700/30 rounded-lg"
-                                >
-                                  <div className="w-2 h-2 bg-blue-400 rounded-full mt-2" />
-                                  <span className="text-slate-300 text-sm">{insight}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {activeFeature === "value-finder" && featureData && (
-                          <div className="space-y-4">
-                            <h4 className="text-slate-300 font-semibold">Value Analysis</h4>
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="bg-slate-700/30 p-3 rounded-lg">
-                                <div className="text-slate-400 text-sm">Current Odds</div>
-                                <div className="text-white font-semibold">
-                                  {formatAmericanOdds(featureData.value.currentOdds)}
-                                </div>
-                              </div>
-                              <div className="bg-slate-700/30 p-3 rounded-lg">
-                                <div className="text-slate-400 text-sm">Fair Odds</div>
-                                <div className="text-white font-semibold">
-                                  {formatAmericanOdds(featureData.value.fairOdds)}
-                                </div>
-                              </div>
-                              <div className="bg-slate-700/30 p-3 rounded-lg">
-                                <div className="text-slate-400 text-sm">Edge</div>
-                                <div
-                                  className={`font-semibold ${featureData.value.edge >= 0 ? "text-emerald-400" : "text-red-400"}`}
-                                >
-                                  {featureData.value.edge >= 0 ? "+" : ""}
-                                  {featureData.value.edge}%
-                                </div>
-                              </div>
-                              <div className="bg-slate-700/30 p-3 rounded-lg">
-                                <div className="text-slate-400 text-sm">Recommendation</div>
-                                <Badge
-                                  className={`${
-                                    featureData.value.recommendation.includes("STRONG")
-                                      ? "bg-emerald-600/20 text-emerald-300 border-emerald-500/30"
-                                      : featureData.value.recommendation.includes("GOOD")
-                                        ? "bg-blue-600/20 text-blue-300 border-blue-500/30"
-                                        : "bg-slate-600/20 text-slate-300 border-slate-500/30"
-                                  }`}
-                                >
-                                  {featureData.value.recommendation}
-                                </Badge>
-                              </div>
-                            </div>
-
-                            {/* Additional EV details */}
-                            <div className="grid grid-cols-3 gap-4 mt-4">
-                              <div className="bg-slate-700/30 p-3 rounded-lg">
-                                <div className="text-slate-400 text-sm">EV Percentage</div>
-                                <div
-                                  className={`font-semibold ${featureData.value.evPercentage >= 0 ? "text-emerald-400" : "text-red-400"}`}
-                                >
-                                  {featureData.value.evPercentage >= 0 ? "+" : ""}
-                                  {featureData.value.evPercentage.toFixed(1)}%
-                                </div>
-                              </div>
-                              <div className="bg-slate-700/30 p-3 rounded-lg">
-                                <div className="text-slate-400 text-sm">Confidence</div>
-                                <div className="text-white font-semibold">
-                                  {featureData.value.confidence.toFixed(0)}%
-                                </div>
-                              </div>
-                              <div className="bg-slate-700/30 p-3 rounded-lg">
-                                <div className="text-slate-400 text-sm">AI Rating</div>
-                                <div className="text-yellow-400 font-semibold">
-                                  {"★".repeat(featureData.value.aiRating)}
-                                  {"☆".repeat(5 - featureData.value.aiRating)}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {activeFeature === "trend-analysis" && featureData && (
-                          <div className="space-y-4">
-                            <h4 className="text-slate-300 font-semibold">Trend Analysis</h4>
-                            <div className="space-y-3">
-                              {featureData.trends.map((trend: any, index: number) => (
-                                <div
-                                  key={index}
-                                  className="flex justify-between items-center p-3 bg-slate-700/30 rounded-lg"
-                                >
-                                  <div>
-                                    <div className="text-slate-300 font-medium">{trend.period}</div>
-                                    <div className="text-slate-400 text-sm">{trend.trend}</div>
-                                    <div className="text-slate-500 text-xs">
-                                      Avg: {trend.average}
-                                    </div>
-                                  </div>
-                                  <div
-                                    className={`font-semibold ${
-                                      trend.change.startsWith("+")
-                                        ? "text-emerald-400"
-                                        : trend.change.startsWith("-")
-                                          ? "text-red-400"
-                                          : "text-slate-400"
-                                    }`}
-                                  >
-                                    {trend.change}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {activeFeature === "custom-alerts" && featureData && (
-                          <div className="space-y-3">
-                            <div className="flex justify-between items-center">
-                              <h4 className="text-slate-300 font-semibold">Alert Settings</h4>
-                              <Button
-                                onClick={addNewAlert}
-                                className="bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 text-xs px-2 py-1 h-7"
-                              >
-                                + Add
-                              </Button>
-                            </div>
-                            <div className="space-y-2">
-                              {featureData.alerts.map((alert: any, index: number) => (
-                                <div
-                                  key={alert.id}
-                                  className="flex items-center justify-between p-2 bg-slate-700/30 rounded-lg"
-                                >
-                                  <div className="flex-1 min-w-0">
-                                    <div className="text-slate-300 font-medium text-sm truncate">
-                                      {alert.type}
-                                    </div>
-                                    <div className="text-slate-400 text-xs flex items-center gap-1">
-                                      Threshold:
-                                      {alert.editable ? (
-                                        <input
-                                          type="text"
-                                          value={alert.threshold}
-                                          onChange={(e) =>
-                                            updateAlertThreshold(alert.id, e.target.value)
-                                          }
-                                          className="bg-slate-600/50 border border-slate-500/30 rounded px-1 py-0.5 text-slate-300 text-xs w-16"
-                                          onBlur={() => toggleAlertEdit(alert.id)}
-                                          onKeyDown={(e) =>
-                                            e.key === "Enter" && toggleAlertEdit(alert.id)
-                                          }
-                                          autoFocus
-                                        />
-                                      ) : (
-                                        <span
-                                          className="cursor-pointer hover:text-slate-300"
-                                          onClick={() => toggleAlertEdit(alert.id)}
-                                        >
-                                          {alert.threshold}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-1 ml-2">
-                                    <Button
-                                      onClick={() => toggleAlertActive(alert.id)}
-                                      className={`text-xs px-2 py-1 h-6 ${
-                                        alert.active
-                                          ? "bg-emerald-600/20 text-emerald-300 border-emerald-500/30 hover:bg-emerald-600/30"
-                                          : "bg-slate-600/20 text-slate-300 border-slate-500/30 hover:bg-slate-600/30"
-                                      }`}
-                                    >
-                                      {alert.active ? "ON" : "OFF"}
-                                    </Button>
-                                    <Button
-                                      onClick={() => toggleAlertEdit(alert.id)}
-                                      className="text-xs px-2 py-1 h-6 bg-blue-600/20 text-blue-300 border-blue-500/30 hover:bg-blue-600/30"
-                                    >
-                                      {alert.editable ? "✓" : "✎"}
-                                    </Button>
-                                    <Button
-                                      onClick={() => removeAlert(alert.id)}
-                                      className="text-xs px-2 py-1 h-6 bg-red-600/20 text-red-300 border-red-500/30 hover:bg-red-600/30"
-                                    >
-                                      ×
-                                    </Button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            )}
           </TabsContent>
 
           {/* Pitchers Tab - Baseball Only */}

@@ -8,9 +8,10 @@ async function main() {
     console.error("Usage: tsx scripts/apply-sql-file.ts <path-to-sql>");
     process.exit(1);
   }
-  const conn = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+  const conn =
+    process.env.SUPABASE_DATABASE_URL || process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
   if (!conn) {
-    console.error("No DATABASE_URL/NEON_DATABASE_URL");
+    console.error("No SUPABASE_DATABASE_URL/DATABASE_URL/NEON_DATABASE_URL");
     process.exit(1);
   }
   const sql = postgres(conn, { prepare: false });

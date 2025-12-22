@@ -222,6 +222,12 @@ export const Navigation = ({
       },
       { id: "analytics", label: "Analytics", icon: <TrendingUp className="w-4 h-4" /> },
       { id: "backtest", label: "Backtest", icon: <Calendar className="w-4 h-4" /> },
+      {
+        id: "gif5",
+        label: "GIF5",
+        icon: <Sparkles className="w-4 h-4" />,
+        badge: "NEW",
+      },
     ];
 
     // Admin panel only visible to mod, admin, and owner
