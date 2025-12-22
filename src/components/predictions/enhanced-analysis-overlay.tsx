@@ -2047,12 +2047,28 @@ export function EnhancedAnalysisOverlay({
     return rating.overall;
   }, [displayData]);
 
-  // Determine OVER/UNDER prediction based on rating
+  // Determine OVER/UNDER prediction based on advanced NFL model
   const aiPrediction = useMemo(() => {
-    if (!spRating || !displayData) return null;
-    // If rating > 50, predict OVER, else UNDER
-    return spRating > 50 ? "OVER" : "UNDER";
-  }, [spRating, displayData]);
+    // First, try to use the advanced model prediction (NFL only)
+    if (advancedModelPrediction && advancedModelPrediction.prediction) {
+      return advancedModelPrediction.prediction.toUpperCase(); // 'over' or 'under' -> 'OVER' or 'UNDER'
+    }
+
+    // Fallback: use model consensus ensemble probabilities if available
+    if (advancedModelPrediction?.modelConsensus?.ensemble) {
+      const ensembleProb = advancedModelPrediction.modelConsensus.ensemble;
+      // ensemble is typically a probability (0-1) for over
+      // If > 0.5, predict OVER, else UNDER
+      return ensembleProb > 0.5 ? "OVER" : "UNDER";
+    }
+
+    // Final fallback: use rating (but this shouldn't be the primary method)
+    if (spRating && displayData) {
+      return spRating > 50 ? "OVER" : "UNDER";
+    }
+
+    return null;
+  }, [advancedModelPrediction, spRating, displayData]);
 
   // Get player headshot URL (must be after currentData is defined)
   const playerHeadshotUrl = useMemo(() => {
