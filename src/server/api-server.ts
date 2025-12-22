@@ -1920,16 +1920,21 @@ app.get("/api/player-game-logs", async (req, res) => {
     try {
       const rows = (await client.unsafe(
         `
-        SELECT DISTINCT ON (pgl.game_id)
-          pgl.game_date,
-          pgl.actual_value::numeric AS actual_value,
-          pgl.opponent_id,
-          COALESCE(UPPER(t.abbreviation), '') AS opponent_abbr
-        FROM public.player_game_logs pgl
-        LEFT JOIN public.teams t ON t.id = pgl.opponent_id
-        WHERE pgl.player_id = $1::uuid
-          AND LOWER(TRIM(pgl.prop_type)) = LOWER(TRIM($2))
-        ORDER BY pgl.game_id, pgl.game_date DESC
+        WITH latest_per_game AS (
+          SELECT DISTINCT ON (pgl.game_id)
+            pgl.game_date,
+            pgl.actual_value::numeric AS actual_value,
+            pgl.opponent_id,
+            COALESCE(UPPER(t.abbreviation), '') AS opponent_abbr
+          FROM public.player_game_logs pgl
+          LEFT JOIN public.teams t ON t.id = pgl.opponent_id
+          WHERE pgl.player_id = $1::uuid
+            AND LOWER(TRIM(pgl.prop_type)) = LOWER(TRIM($2))
+          ORDER BY pgl.game_id, pgl.game_date DESC
+        )
+        SELECT *
+        FROM latest_per_game
+        ORDER BY game_date DESC
         LIMIT $3::int
       `,
         [playerUuid, propType, limit],
