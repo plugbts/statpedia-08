@@ -1120,13 +1120,16 @@ const EnhancedLineChart = React.memo(
     }, []);
 
     return (
-      <ChartContainer config={enhancedChartConfig} className={cn("w-full", className)}>
-        <div className="w-full">
-          <div className="h-6 mb-4">
+      <ChartContainer config={enhancedChartConfig} className={cn("w-full h-full", className)}>
+        <div className="w-full h-full flex flex-col">
+          <div className="h-6 mb-4 flex-shrink-0">
             <h3 className="text-lg font-bold text-slate-200">Performance Trend</h3>
             <p className="text-sm text-slate-400">Last 10 games vs opponents</p>
           </div>
-          <div className="w-full" style={{ height: `${height}px`, minHeight: `${height}px` }}>
+          <div
+            className="w-full flex-1 overflow-hidden"
+            style={{ height: `${height}px`, minHeight: `${height}px`, maxHeight: `${height}px` }}
+          >
             <ResponsiveContainer width="100%" height="100%">
               <RechartsLineChart
                 data={chartData}
@@ -1264,13 +1267,16 @@ const EnhancedBarChart = React.memo(
     }, []);
 
     return (
-      <ChartContainer config={enhancedChartConfig} className={cn("w-full", className)}>
-        <div className="w-full">
-          <div className="h-6 mb-4">
+      <ChartContainer config={enhancedChartConfig} className={cn("w-full h-full", className)}>
+        <div className="w-full h-full flex flex-col">
+          <div className="h-6 mb-4 flex-shrink-0">
             <h3 className="text-lg font-bold text-slate-200">Performance by Game</h3>
             <p className="text-sm text-slate-400">Bar chart showing performance vs line</p>
           </div>
-          <div className="w-full" style={{ height: `${height}px`, minHeight: `${height}px` }}>
+          <div
+            className="w-full flex-1"
+            style={{ height: `${height}px`, minHeight: `${height}px`, maxHeight: `${height}px` }}
+          >
             <ResponsiveContainer width="100%" height="100%">
               <RechartsBarChart
                 data={chartData}
@@ -1564,12 +1570,12 @@ export function EnhancedAnalysisOverlay({
     }
   }, [isOpen, prediction, fetchPlayerProps]);
 
-  // Load real logs when overlay opens or prop changes
+  // Load real logs when overlay opens, prop changes, or line/quarter changes
   useEffect(() => {
     if (!isOpen || !prediction) return;
     const active = (updatedEnhancedData as any) || prediction;
-    fetchPlayerLogs(active);
-  }, [isOpen, prediction, updatedEnhancedData, fetchPlayerLogs]);
+    fetchPlayerLogs(active, selectedQuarter);
+  }, [isOpen, prediction, updatedEnhancedData, selectedQuarter, fetchPlayerLogs]);
 
   // Fetch filtered game logs when teammate is selected
   const fetchFilteredLogs = useCallback(async (teammateName: string, p: any) => {
@@ -2641,12 +2647,22 @@ export function EnhancedAnalysisOverlay({
                     <div className="flex items-center gap-6">
                       <div className="text-center">
                         <div className="text-slate-400 text-xs">SP RATING</div>
-                        <div className="text-green-400 font-bold text-lg">
-                          {currentData
-                            ? Math.round(
-                                statpediaRatingService.calculateRating(currentData, "over").overall,
-                              )
-                            : "—"}
+                        <div className="flex items-center gap-2">
+                          <div className="text-green-400 font-bold text-lg">
+                            {spRating ? Math.round(spRating) : "—"}
+                          </div>
+                          {aiPrediction && (
+                            <div
+                              className={cn(
+                                "text-xs font-semibold px-2 py-0.5 rounded",
+                                aiPrediction === "OVER"
+                                  ? "bg-green-500/20 text-green-400"
+                                  : "bg-red-500/20 text-red-400",
+                              )}
+                            >
+                              {aiPrediction}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="text-center">
@@ -2716,7 +2732,7 @@ export function EnhancedAnalysisOverlay({
                             (p: any) => p.propType?.toUpperCase() === stat,
                           );
                           if (matchingProp) {
-                            setSelectedPropId(matchingProp.id || matchingProp.playerId);
+                            handlePropChange(matchingProp.id || matchingProp.playerId);
                           }
                         }}
                       >
@@ -2832,12 +2848,14 @@ export function EnhancedAnalysisOverlay({
                           </div>
                         </div>
                       </CardHeader>
-                      <CardContent>
-                        <EnhancedBarChart
-                          data={currentData.gameHistory}
-                          line={currentData.line}
-                          height={300}
-                        />
+                      <CardContent className="p-4">
+                        <div className="w-full" style={{ height: "300px", minHeight: "300px" }}>
+                          <EnhancedBarChart
+                            data={realGameHistory || currentData.gameHistory || []}
+                            line={currentData.line}
+                            height={300}
+                          />
+                        </div>
                       </CardContent>
                     </Card>
 
@@ -2846,37 +2864,40 @@ export function EnhancedAnalysisOverlay({
                       {[
                         {
                           label: "L5",
-                          value: currentData.l5
-                            ? `${Math.round((currentData.l5 / 100) * 5)}/5 (${Math.round(currentData.l5)}%)`
-                            : "N/A",
+                          value:
+                            displayData?.l5 !== null && displayData?.l5 !== undefined
+                              ? `${Math.round((displayData.l5 / 100) * Math.min(5, realGameHistory?.length || 5))}/${Math.min(5, realGameHistory?.length || 5)} (${Math.round(displayData.l5)}%)`
+                              : "N/A",
                           color:
-                            currentData.l5 && currentData.l5 >= 60
+                            displayData?.l5 && displayData.l5 >= 60
                               ? "green"
-                              : currentData.l5 && currentData.l5 >= 50
+                              : displayData?.l5 && displayData.l5 >= 50
                                 ? "yellow"
                                 : "red",
                         },
                         {
                           label: "L10",
-                          value: currentData.l10
-                            ? `${Math.round((currentData.l10 / 100) * 10)}/10 (${Math.round(currentData.l10)}%)`
-                            : "N/A",
+                          value:
+                            displayData?.l10 !== null && displayData?.l10 !== undefined
+                              ? `${Math.round((displayData.l10 / 100) * Math.min(10, realGameHistory?.length || 10))}/${Math.min(10, realGameHistory?.length || 10)} (${Math.round(displayData.l10)}%)`
+                              : "N/A",
                           color:
-                            currentData.l10 && currentData.l10 >= 60
+                            displayData?.l10 && displayData.l10 >= 60
                               ? "green"
-                              : currentData.l10 && currentData.l10 >= 50
+                              : displayData?.l10 && displayData.l10 >= 50
                                 ? "yellow"
                                 : "red",
                         },
                         {
                           label: "L20",
-                          value: currentData.l20
-                            ? `${Math.round((currentData.l20 / 100) * 20)}/20 (${Math.round(currentData.l20)}%)`
-                            : "N/A",
+                          value:
+                            displayData?.l20 !== null && displayData?.l20 !== undefined
+                              ? `${Math.round((displayData.l20 / 100) * Math.min(20, realGameHistory?.length || 20))}/${Math.min(20, realGameHistory?.length || 20)} (${Math.round(displayData.l20)}%)`
+                              : "N/A",
                           color:
-                            currentData.l20 && currentData.l20 >= 60
+                            displayData?.l20 && displayData.l20 >= 60
                               ? "green"
-                              : currentData.l20 && currentData.l20 >= 50
+                              : displayData?.l20 && displayData.l20 >= 50
                                 ? "yellow"
                                 : "red",
                         },
