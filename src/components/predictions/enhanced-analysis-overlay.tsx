@@ -2082,6 +2082,8 @@ export function EnhancedAnalysisOverlay({
       };
       // Also add the full advanced model prediction for the rating service to use
       enhancedData.advancedModelPrediction = advancedModelPrediction;
+      // Also add as advancedPrediction (alternative key)
+      enhancedData.advancedPrediction = advancedModelPrediction;
     }
 
     const rating = statpediaRatingService.calculateRating(enhancedData, "over");
