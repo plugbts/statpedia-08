@@ -1990,6 +1990,70 @@ export function EnhancedAnalysisOverlay({
   // Use updated data if available, otherwise use original enhanced data
   const currentData = finalEnhancedData;
 
+  // Recalculate analytics from realGameHistory with current line
+  const recalculatedAnalytics = useMemo(() => {
+    if (!realGameHistory || realGameHistory.length === 0 || !currentData) return null;
+    const line = Number(currentData.line);
+    if (!Number.isFinite(line)) return null;
+
+    const hits = realGameHistory.map((g: any) => (g.performance > line ? 1 : 0));
+    const calcPct = (n: number) => {
+      const slice = hits.slice(0, n);
+      if (slice.length === 0) return null;
+      return (slice.reduce((a, b) => a + b, 0) / slice.length) * 100;
+    };
+
+    const l5 = calcPct(5);
+    const l10 = calcPct(10);
+    const l20 = calcPct(20);
+    const season_avg =
+      realGameHistory.reduce((sum: number, g: any) => sum + g.performance, 0) /
+      realGameHistory.length;
+
+    // Calculate streak
+    let streak = 0;
+    if (hits.length > 0) {
+      const first = hits[0];
+      for (const h of hits) {
+        if (h === first) streak += 1;
+        else break;
+      }
+      streak = first === 1 ? streak : -streak;
+    }
+
+    return { l5, l10, l20, season_avg, current_streak: streak };
+  }, [realGameHistory, currentData?.line]);
+
+  // Use recalculated analytics if available, otherwise fall back to currentData
+  const displayData = useMemo(() => {
+    if (!currentData) return null;
+    if (recalculatedAnalytics) {
+      return {
+        ...currentData,
+        l5: recalculatedAnalytics.l5,
+        l10: recalculatedAnalytics.l10,
+        l20: recalculatedAnalytics.l20,
+        season_avg: recalculatedAnalytics.season_avg,
+        current_streak: recalculatedAnalytics.current_streak,
+      };
+    }
+    return currentData;
+  }, [currentData, recalculatedAnalytics]);
+
+  // Calculate SP rating using the same service as player props tab
+  const spRating = useMemo(() => {
+    if (!displayData) return null;
+    const rating = statpediaRatingService.calculateRating(displayData, "over");
+    return rating.overall;
+  }, [displayData]);
+
+  // Determine OVER/UNDER prediction based on rating
+  const aiPrediction = useMemo(() => {
+    if (!spRating || !displayData) return null;
+    // If rating > 50, predict OVER, else UNDER
+    return spRating > 50 ? "OVER" : "UNDER";
+  }, [spRating, displayData]);
+
   // Get player headshot URL (must be after currentData is defined)
   const playerHeadshotUrl = useMemo(() => {
     if (!currentData) return null;
