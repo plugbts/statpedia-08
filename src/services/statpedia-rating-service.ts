@@ -527,15 +527,18 @@ export class StatpediaRatingService {
     const percentDiff = historicalAvg > 0 ? (difference / historicalAvg) * 100 : 0;
 
     // Favor lines that are lower than historical (easier to hit over)
+    // For favorable lines (line < historical avg), give significant boost
     let score = 50;
     if (percentDiff < -50)
-      score += 40; // Line extremely lower (e.g., 0.5 vs 10 = -95%)
+      score += 50; // Line extremely lower (e.g., 60 vs 100 = -40%) - MAX boost
+    else if (percentDiff < -30)
+      score += 40; // Line very significantly lower (e.g., 60 vs 85 = -29%)
     else if (percentDiff < -20)
-      score += 30; // Line very significantly lower
+      score += 35; // Line very significantly lower
     else if (percentDiff < -10)
-      score += 20; // Line significantly lower
+      score += 25; // Line significantly lower
     else if (percentDiff < -5)
-      score += 10; // Line moderately lower
+      score += 15; // Line moderately lower
     else if (percentDiff > 10)
       score -= 20; // Line significantly higher
     else if (percentDiff > 5) score -= 10; // Line moderately higher

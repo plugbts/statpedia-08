@@ -2065,12 +2065,28 @@ export function EnhancedAnalysisOverlay({
     return currentData;
   }, [currentData, recalculatedAnalytics]);
 
-  // Calculate SP rating using the same service as player props tab
+  // Calculate SP rating using the same service as player props tab, but enhanced with advanced model data
   const spRating = useMemo(() => {
     if (!displayData) return null;
-    const rating = statpediaRatingService.calculateRating(displayData, "over");
+
+    // Enhance displayData with advanced model prediction if available
+    const enhancedData = { ...displayData };
+    if (advancedModelPrediction) {
+      // Inject the advanced model's prediction into the prop data for rating calculation
+      enhancedData.aiPrediction = {
+        confidence: advancedModelPrediction.confidence / 100, // Convert 0-100 to 0-1
+        recommended: advancedModelPrediction.prediction, // 'over' or 'under'
+        probability:
+          advancedModelPrediction.modelConsensus?.ensemble ||
+          (advancedModelPrediction.prediction === "over" ? 0.6 : 0.4), // Default probability
+      };
+      // Also add the full advanced model prediction for the rating service to use
+      enhancedData.advancedModelPrediction = advancedModelPrediction;
+    }
+
+    const rating = statpediaRatingService.calculateRating(enhancedData, "over");
     return rating.overall;
-  }, [displayData]);
+  }, [displayData, advancedModelPrediction]);
 
   // Determine OVER/UNDER prediction based on advanced NFL model
   const aiPrediction = useMemo(() => {
