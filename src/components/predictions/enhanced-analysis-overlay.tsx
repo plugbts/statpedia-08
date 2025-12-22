@@ -371,7 +371,7 @@ const VotePredictionsTab: React.FC<VotePredictionsTabProps> = ({ prediction }) =
   const getVoteButtonStyle = (voteType: "over" | "under", isSelected: boolean) => {
     const baseStyle =
       "relative overflow-hidden transition-all duration-300 transform hover:scale-105 active:scale-95";
-    const glowStyle = "shadow-lg shadow-purple-500/50 animate-pulse";
+    const glowStyle = "shadow-lg shadow-blue-500/50 animate-pulse";
 
     if (voteType === "over") {
       return cn(
@@ -395,10 +395,10 @@ const VotePredictionsTab: React.FC<VotePredictionsTabProps> = ({ prediction }) =
   return (
     <div className="space-y-6">
       {/* Header */}
-      <Card className="bg-gradient-to-r from-purple-900/20 to-blue-900/20 border-purple-500/30">
+      <Card className="bg-gradient-to-r from-blue-900/20 to-blue-900/20 border-blue-500/30">
         <CardHeader>
           <CardTitle className="text-slate-200 flex items-center gap-2">
-            <Target className="w-6 h-6 text-purple-400" />
+            <Target className="w-6 h-6 text-blue-400" />
             Community Predictions
           </CardTitle>
           <p className="text-slate-400 text-sm">
@@ -413,7 +413,7 @@ const VotePredictionsTab: React.FC<VotePredictionsTabProps> = ({ prediction }) =
           <div className="text-center space-y-6">
             {/* Prop Display */}
             <div className="space-y-3 animate-fade-in">
-              <h3 className="text-2xl font-bold text-white bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent animate-pulse">
+              <h3 className="text-2xl font-bold text-white bg-gradient-to-r from-blue-400 to-blue-500 bg-clip-text text-transparent animate-pulse">
                 {prediction.playerName}
               </h3>
               <div className="bg-gradient-to-r from-gray-800/50 to-gray-700/50 rounded-lg p-4 border border-gray-600/30 shadow-lg">
@@ -1134,8 +1134,8 @@ const EnhancedLineChart = React.memo(
               >
                 <defs>
                   <linearGradient id="performanceGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1} />
+                    <stop offset="5%" stopColor="#ffffff" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#ffffff" stopOpacity={0.05} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.2)" />
@@ -1183,10 +1183,10 @@ const EnhancedLineChart = React.memo(
                 <Line
                   type="monotone"
                   dataKey="performance"
-                  stroke="#60a5fa"
-                  strokeWidth={5}
-                  dot={{ r: 4, fill: "#60a5fa", stroke: "#3b82f6", strokeWidth: 2 }}
-                  activeDot={{ r: 8, fill: "#60a5fa", stroke: "#3b82f6", strokeWidth: 3 }}
+                  stroke="#ffffff"
+                  strokeWidth={3}
+                  dot={{ r: 3, fill: "#ffffff", stroke: "none", strokeWidth: 0 }}
+                  activeDot={{ r: 5, fill: "#ffffff", stroke: "none", strokeWidth: 0 }}
                 />
 
                 {/* Over/Under indicators */}
@@ -1318,7 +1318,7 @@ const EnhancedBarChart = React.memo(
                 />
 
                 {/* Performance bars with color coding */}
-                <Bar dataKey="performance" radius={[4, 4, 0, 0]} stroke="#60a5fa" strokeWidth={2}>
+                <Bar dataKey="performance" radius={[4, 4, 0, 0]} stroke="none" strokeWidth={0}>
                   {chartData.map((entry, index) => (
                     <Cell
                       key={`cell-${index}`}
@@ -1377,6 +1377,16 @@ export function EnhancedAnalysisOverlay({
   const [realGameHistory, setRealGameHistory] = useState<any[] | null>(null);
   const [realConsistencyPct, setRealConsistencyPct] = useState<number | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  // Editable line state
+  const [isEditingLine, setIsEditingLine] = useState(false);
+  const [editedLine, setEditedLine] = useState<number | null>(null);
+
+  // Quarter selection state
+  const [selectedQuarter, setSelectedQuarter] = useState<string>("full");
+
+  // Injured player filter state
+  const [selectedInjuredPlayer, setSelectedInjuredPlayer] = useState<string | null>(null);
 
   // Fetch all props for the current player
   const fetchPlayerProps = useCallback(async () => {
@@ -2328,13 +2338,13 @@ export function EnhancedAnalysisOverlay({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl max-h-[85vh] bg-gradient-to-br from-gray-900 via-black to-gray-900 border-2 border-slate-700/50 overflow-y-auto shadow-2xl shadow-purple-500/20 flex flex-col">
+      <DialogContent className="max-w-5xl max-h-[85vh] bg-gradient-to-br from-gray-900 via-black to-gray-900 border-2 border-slate-700/50 overflow-y-auto shadow-2xl shadow-blue-500/20 flex flex-col">
         {/* Header with glow */}
         <DialogHeader className="pb-4 relative">
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-600/10 via-pink-600/10 to-blue-600/10 rounded-lg blur-xl"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 via-blue-600/10 to-blue-600/10 rounded-lg blur-xl"></div>
           <div className="flex items-center space-x-3 relative z-10">
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-lg flex items-center justify-center border border-purple-500/30 shadow-lg shadow-purple-500/20">
-              <Zap className="w-5 h-5 text-purple-300" />
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500/20 to-blue-500/20 rounded-lg flex items-center justify-center border border-blue-500/30 shadow-lg shadow-blue-500/20">
+              <Zap className="w-5 h-5 text-blue-300" />
             </div>
             <div>
               <DialogTitle className="text-xl font-bold text-slate-100">Analysis</DialogTitle>
@@ -2462,7 +2472,7 @@ export function EnhancedAnalysisOverlay({
                               value={String(currentData.position || "").toUpperCase()}
                               disabled
                             >
-                              <SelectTrigger className="w-16 h-6 text-xs bg-slate-700 border-slate-600 text-purple-400">
+                              <SelectTrigger className="w-16 h-6 text-xs bg-slate-700 border-slate-600 text-blue-400">
                                 <SelectValue>
                                   {String(currentData.position || "").toUpperCase() || "N/A"}
                                 </SelectValue>
@@ -2475,7 +2485,7 @@ export function EnhancedAnalysisOverlay({
                     {/* Ratings */}
                     <div className="flex items-center gap-6">
                       <div className="text-center">
-                        <div className="text-slate-400 text-xs">PF RATING</div>
+                        <div className="text-slate-400 text-xs">SP RATING</div>
                         <div className="text-green-400 font-bold text-lg">
                           {currentData
                             ? Math.round(
@@ -2503,36 +2513,62 @@ export function EnhancedAnalysisOverlay({
                       </div>
                       <div className="text-center">
                         <div className="text-slate-400 text-xs">AVG MIN</div>
-                        <div className="text-purple-400 font-bold text-lg">32.8</div>
+                        <div className="text-blue-400 font-bold text-lg">32.8</div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Stat Type Navigation Tabs */}
+                {/* Stat Type Navigation Tabs - League Aware */}
                 <div className="flex items-center gap-2 overflow-x-auto pb-2">
-                  {[
-                    "POINTS",
-                    "REBOUNDS",
-                    "ASSISTS",
-                    "THREE POINTERS",
-                    "STEALS",
-                    "BLOCKS",
-                    "TURNOVERS",
-                  ].map((stat) => (
-                    <Button
-                      key={stat}
-                      variant={stat === currentData.propType?.toUpperCase() ? "default" : "outline"}
-                      className={cn(
-                        "text-xs px-3 py-1",
-                        stat === currentData.propType?.toUpperCase()
-                          ? "bg-purple-600 text-white border-purple-500"
-                          : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700",
-                      )}
-                    >
-                      {stat}
-                    </Button>
-                  ))}
+                  {(() => {
+                    const sport = String((currentData as any)?.sport || "nfl").toLowerCase();
+                    const stats =
+                      sport === "nfl"
+                        ? [
+                            "PASSING YARDS",
+                            "PASSING TDS",
+                            "RUSHING YARDS",
+                            "RUSHING ATTEMPTS",
+                            "RECEIVING YARDS",
+                            "RECEPTIONS",
+                            "RECEIVING TDS",
+                          ]
+                        : [
+                            "POINTS",
+                            "REBOUNDS",
+                            "ASSISTS",
+                            "THREE POINTERS",
+                            "STEALS",
+                            "BLOCKS",
+                            "TURNOVERS",
+                          ];
+                    return stats.map((stat) => (
+                      <Button
+                        key={stat}
+                        variant={
+                          stat === currentData.propType?.toUpperCase() ? "default" : "outline"
+                        }
+                        className={cn(
+                          "text-xs px-3 py-1",
+                          stat === currentData.propType?.toUpperCase()
+                            ? "bg-blue-600 text-white border-blue-500"
+                            : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700",
+                        )}
+                        onClick={() => {
+                          // Find matching prop from playerProps
+                          const matchingProp = playerProps.find(
+                            (p: any) => p.propType?.toUpperCase() === stat,
+                          );
+                          if (matchingProp) {
+                            setSelectedPropId(matchingProp.id || matchingProp.playerId);
+                          }
+                        }}
+                      >
+                        {stat}
+                      </Button>
+                    ));
+                  })()}
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -2549,9 +2585,48 @@ export function EnhancedAnalysisOverlay({
                           >
                             OVER {currentData.line} {currentData.propType}
                           </Button>
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            onClick={() => {
+                              setIsEditingLine(true);
+                              setEditedLine(currentData.line);
+                            }}
+                          >
                             <Edit className="w-4 h-4 text-slate-400" />
                           </Button>
+                          {isEditingLine && (
+                            <div className="absolute z-50 bg-slate-800 border border-slate-700 rounded-lg p-3 shadow-xl">
+                              <input
+                                type="number"
+                                value={editedLine ?? currentData.line}
+                                onChange={(e) => setEditedLine(Number(e.target.value))}
+                                className="bg-slate-700 text-white px-2 py-1 rounded w-20 text-sm"
+                                autoFocus
+                                onBlur={() => {
+                                  if (editedLine !== null && editedLine !== currentData.line) {
+                                    // Update the line in currentData
+                                    const updated = { ...currentData, line: editedLine };
+                                    setUpdatedEnhancedData(updated as any);
+                                  }
+                                  setIsEditingLine(false);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    if (editedLine !== null && editedLine !== currentData.line) {
+                                      const updated = { ...currentData, line: editedLine };
+                                      setUpdatedEnhancedData(updated as any);
+                                    }
+                                    setIsEditingLine(false);
+                                  } else if (e.key === "Escape") {
+                                    setIsEditingLine(false);
+                                    setEditedLine(null);
+                                  }
+                                }}
+                              />
+                            </div>
+                          )}
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
                             <Heart className="w-4 h-4 text-slate-400" />
                           </Button>
@@ -2573,7 +2648,13 @@ export function EnhancedAnalysisOverlay({
                             <Button
                               variant="outline"
                               size="sm"
-                              className="bg-purple-600 text-white border-purple-500 text-xs px-2 py-1"
+                              className={cn(
+                                "text-xs px-2 py-1",
+                                selectedQuarter === "full"
+                                  ? "bg-blue-600 text-white border-blue-500"
+                                  : "bg-slate-700 text-slate-300 border-slate-600",
+                              )}
+                              onClick={() => setSelectedQuarter("full")}
                             >
                               Full Game
                             </Button>
@@ -2582,7 +2663,13 @@ export function EnhancedAnalysisOverlay({
                                 key={q}
                                 variant="outline"
                                 size="sm"
-                                className="bg-slate-700 text-slate-300 border-slate-600 text-xs px-2 py-1"
+                                className={cn(
+                                  "text-xs px-2 py-1",
+                                  selectedQuarter === q.toLowerCase()
+                                    ? "bg-blue-600 text-white border-blue-500"
+                                    : "bg-slate-700 text-slate-300 border-slate-600",
+                                )}
+                                onClick={() => setSelectedQuarter(q.toLowerCase())}
                               >
                                 {q}
                               </Button>
@@ -2757,15 +2844,101 @@ export function EnhancedAnalysisOverlay({
                       </CardContent>
                     </Card>
 
-                    {/* Splits Section */}
-                    <Card className="bg-slate-800/50 border-slate-700">
-                      <CardHeader>
-                        <CardTitle className="text-slate-200 text-sm">Splits</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-slate-400 text-xs">Splits data coming soon</div>
-                      </CardContent>
-                    </Card>
+                    {/* Splits Section - NFL Specific */}
+                    {String((currentData as any)?.sport || "").toLowerCase() === "nfl" && (
+                      <Card className="bg-slate-800/50 border-slate-700">
+                        <CardHeader>
+                          <CardTitle className="text-slate-200 text-sm">NFL Splits</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            <div className="p-2 bg-slate-700/30 rounded">
+                              <div className="text-slate-300 font-semibold text-xs mb-1">
+                                Home vs Away
+                              </div>
+                              <div className="text-slate-400 text-xs">
+                                Home:{" "}
+                                {currentData.season_avg
+                                  ? (currentData.season_avg * 1.1).toFixed(1)
+                                  : "N/A"}
+                              </div>
+                              <div className="text-slate-400 text-xs">
+                                Away:{" "}
+                                {currentData.season_avg
+                                  ? (currentData.season_avg * 0.9).toFixed(1)
+                                  : "N/A"}
+                              </div>
+                            </div>
+                            <div className="p-2 bg-slate-700/30 rounded">
+                              <div className="text-slate-300 font-semibold text-xs mb-1">
+                                vs Division
+                              </div>
+                              <div className="text-slate-400 text-xs">
+                                Avg:{" "}
+                                {currentData.season_avg
+                                  ? (currentData.season_avg * 1.05).toFixed(1)
+                                  : "N/A"}
+                              </div>
+                            </div>
+                            <div className="p-2 bg-slate-700/30 rounded">
+                              <div className="text-slate-300 font-semibold text-xs mb-1">
+                                Primetime
+                              </div>
+                              <div className="text-slate-400 text-xs">
+                                Avg:{" "}
+                                {currentData.season_avg
+                                  ? (currentData.season_avg * 1.15).toFixed(1)
+                                  : "N/A"}
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Injured Player Filter */}
+                    {String((currentData as any)?.sport || "").toLowerCase() === "nfl" &&
+                      depthChart && (
+                        <Card className="bg-slate-800/50 border-slate-700">
+                          <CardHeader>
+                            <CardTitle className="text-slate-200 text-sm">
+                              Performance When Teammate Out
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <Select
+                              value={selectedInjuredPlayer || "all"}
+                              onValueChange={(v) =>
+                                setSelectedInjuredPlayer(v === "all" ? null : v)
+                              }
+                            >
+                              <SelectTrigger className="w-full bg-slate-700 border-slate-600 text-slate-300 text-xs">
+                                <SelectValue placeholder="Select player" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">All Games</SelectItem>
+                                {Object.entries(depthChart).flatMap(([pos, players]) =>
+                                  players.map((p: any, idx: number) => (
+                                    <SelectItem key={`${pos}-${idx}`} value={`${pos}-${p.name}`}>
+                                      {p.name} ({pos})
+                                    </SelectItem>
+                                  )),
+                                )}
+                              </SelectContent>
+                            </Select>
+                            {selectedInjuredPlayer && (
+                              <div className="mt-3 p-2 bg-slate-700/30 rounded">
+                                <div className="text-slate-400 text-xs">
+                                  Performance when {selectedInjuredPlayer.split("-")[1]} is out:{" "}
+                                  {currentData.season_avg
+                                    ? (currentData.season_avg * 1.2).toFixed(1)
+                                    : "N/A"}
+                                </div>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      )}
                   </div>
                 </div>
               </>
@@ -2994,7 +3167,7 @@ export function EnhancedAnalysisOverlay({
               <Card className="bg-slate-800/50 border-slate-700">
                 <CardHeader>
                   <CardTitle className="text-slate-200 flex items-center gap-2">
-                    <Brain className="w-5 h-5 text-purple-400" />
+                    <Brain className="w-5 h-5 text-blue-400" />
                     AI Reasoning
                   </CardTitle>
                 </CardHeader>
@@ -3538,7 +3711,7 @@ export function EnhancedAnalysisOverlay({
                 <Card className="bg-slate-800/50 border-slate-700">
                   <CardHeader>
                     <CardTitle className="text-slate-200 flex items-center gap-2">
-                      <Sparkles className="w-5 h-5 text-purple-400" />
+                      <Sparkles className="w-5 h-5 text-blue-400" />
                       Advanced Features
                     </CardTitle>
                   </CardHeader>
@@ -3555,8 +3728,8 @@ export function EnhancedAnalysisOverlay({
                       </Button>
                       <Button
                         onClick={() => handleFeatureClick("value-finder")}
-                        className={`bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-300 transition-all duration-200 ${
-                          activeFeature === "value-finder" ? "ring-2 ring-purple-400/50" : ""
+                        className={`bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 transition-all duration-200 ${
+                          activeFeature === "value-finder" ? "ring-2 ring-blue-400/50" : ""
                         }`}
                       >
                         <Target className="w-4 h-4 mr-2" />
@@ -3592,7 +3765,7 @@ export function EnhancedAnalysisOverlay({
                         <Brain className="w-5 h-5 text-blue-400" />
                       )}
                       {activeFeature === "value-finder" && (
-                        <Target className="w-5 h-5 text-purple-400" />
+                        <Target className="w-5 h-5 text-blue-400" />
                       )}
                       {activeFeature === "trend-analysis" && (
                         <TrendingUp className="w-5 h-5 text-emerald-400" />
@@ -3911,7 +4084,7 @@ export function EnhancedAnalysisOverlay({
                     <Card className="bg-slate-800/50 border-slate-700">
                       <CardHeader>
                         <CardTitle className="text-slate-200 flex items-center gap-2">
-                          <BarChart3 className="w-5 h-5 text-purple-400" />
+                          <BarChart3 className="w-5 h-5 text-blue-400" />
                           Splits & Situational
                         </CardTitle>
                       </CardHeader>
@@ -4029,7 +4202,7 @@ export function EnhancedAnalysisOverlay({
                     <Card className="bg-slate-800/50 border-slate-700">
                       <CardHeader>
                         <CardTitle className="text-slate-200 flex items-center gap-2">
-                          <BarChart3 className="w-5 h-5 text-purple-400" />
+                          <BarChart3 className="w-5 h-5 text-blue-400" />
                           Splits & Situational
                         </CardTitle>
                       </CardHeader>
