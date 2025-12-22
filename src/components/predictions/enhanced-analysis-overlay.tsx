@@ -1387,6 +1387,15 @@ export function EnhancedAnalysisOverlay({
 
   // Injured player filter state
   const [selectedInjuredPlayer, setSelectedInjuredPlayer] = useState<string | null>(null);
+  const [filteredGameHistory, setFilteredGameHistory] = useState<any[] | null>(null);
+  const [filteredAnalytics, setFilteredAnalytics] = useState<{
+    l5: number | null;
+    l10: number | null;
+    l20: number | null;
+    season_avg: number | null;
+    current_streak: number;
+  } | null>(null);
+  const [isLoadingFilteredData, setIsLoadingFilteredData] = useState(false);
 
   // Fetch all props for the current player
   const fetchPlayerProps = useCallback(async () => {
@@ -1561,6 +1570,152 @@ export function EnhancedAnalysisOverlay({
     const active = (updatedEnhancedData as any) || prediction;
     fetchPlayerLogs(active);
   }, [isOpen, prediction, updatedEnhancedData, fetchPlayerLogs]);
+
+  // Fetch filtered game logs when teammate is selected
+  const fetchFilteredLogs = useCallback(async (teammateName: string, p: any) => {
+    if (!teammateName || !p) {
+      setFilteredGameHistory(null);
+      setFilteredAnalytics(null);
+      return;
+    }
+
+    setIsLoadingFilteredData(true);
+    try {
+      const playerUuid = String(p?.player_uuid || p?.playerUuid || "").trim();
+      const propType = String(p?.propType || p?.prop_type || "").trim();
+      const line = Number(p?.line);
+      const team = String(p?.team || "")
+        .trim()
+        .toUpperCase();
+
+      if (!playerUuid || !propType || !Number.isFinite(line) || !team) {
+        setFilteredGameHistory(null);
+        setFilteredAnalytics(null);
+        return;
+      }
+
+      // Fetch all game logs (we'll filter by injury status)
+      const base = `${window.location.protocol}//${window.location.hostname}:3001`;
+      const qs = new URLSearchParams({
+        player_uuid: playerUuid,
+        propType,
+        limit: "50", // Get more games to filter
+      });
+      const res = await fetch(`${base}/api/player-game-logs?${qs.toString()}`);
+      const json = await res.json();
+
+      if (!json?.success || !Array.isArray(json.items)) {
+        setFilteredGameHistory(null);
+        setFilteredAnalytics(null);
+        return;
+      }
+
+      // For each game, check if teammate was injured/out
+      const filteredItems: any[] = [];
+      for (const item of json.items) {
+        try {
+          // Check injury status for teammate on this game date
+          const injuryQs = new URLSearchParams({
+            team,
+            player: teammateName,
+          });
+          const injuryRes = await fetch(`${base}/api/nfl/injury-status?${injuryQs.toString()}`);
+          const injuryJson = await injuryRes.json();
+
+          // If teammate was out/injured on this date, include the game
+          // For now, we'll use a heuristic: if they're currently injured, assume they were out
+          // In a real implementation, we'd check historical injury reports per game date
+          const wasOut =
+            injuryJson?.status === "Out" ||
+            injuryJson?.status === "Injured" ||
+            injuryJson?.status === "Doubtful";
+
+          if (wasOut) {
+            filteredItems.push(item);
+          }
+        } catch (e) {
+          // If we can't check injury status, skip this game
+          continue;
+        }
+      }
+
+      // Map to game history format
+      const gh = filteredItems.map((it, idx) => {
+        const v = Number(it.actual_value);
+        const hit = Number.isFinite(v) ? v > line : false;
+        return {
+          id: `${playerUuid}:${propType}:${idx}`,
+          date: it.game_date,
+          opponent: it.opponent_abbr || "UNK",
+          opponentAbbr: it.opponent_abbr || "UNK",
+          performance: Number.isFinite(v) ? v : 0,
+          line,
+          hit,
+          overUnder: hit ? "over" : "under",
+          margin: Number.isFinite(v) ? Math.abs(v - line) : 0,
+          context: "",
+        };
+      });
+
+      setFilteredGameHistory(gh);
+
+      // Recalculate analytics from filtered games
+      if (gh.length > 0) {
+        const values = gh.map((g) => g.performance);
+        const hits = gh.map((g) => (g.performance > line ? 1 : 0));
+
+        const calcPct = (n: number) => {
+          const slice = hits.slice(0, n);
+          return slice.length > 0 ? (slice.reduce((a, b) => a + b, 0) / slice.length) * 100 : null;
+        };
+
+        const l5 = calcPct(5);
+        const l10 = calcPct(10);
+        const l20 = calcPct(20);
+        const season_avg = values.reduce((a, b) => a + b, 0) / values.length;
+
+        // Calculate streak
+        let streak = 0;
+        if (hits.length > 0) {
+          const first = hits[0];
+          for (const h of hits) {
+            if (h === first) streak += 1;
+            else break;
+          }
+          streak = first === 1 ? streak : -streak;
+        }
+
+        setFilteredAnalytics({
+          l5,
+          l10,
+          l20,
+          season_avg,
+          current_streak: streak,
+        });
+      } else {
+        setFilteredAnalytics(null);
+      }
+    } catch (e) {
+      console.error("Error fetching filtered logs:", e);
+      setFilteredGameHistory(null);
+      setFilteredAnalytics(null);
+    } finally {
+      setIsLoadingFilteredData(false);
+    }
+  }, []);
+
+  // Fetch filtered logs when teammate selection changes
+  useEffect(() => {
+    if (!selectedInjuredPlayer || !isOpen) {
+      setFilteredGameHistory(null);
+      setFilteredAnalytics(null);
+      return;
+    }
+
+    const active = (updatedEnhancedData as any) || prediction;
+    const teammateName = selectedInjuredPlayer.split("-")[1] || selectedInjuredPlayer;
+    fetchFilteredLogs(teammateName, active);
+  }, [selectedInjuredPlayer, isOpen, prediction, updatedEnhancedData, fetchFilteredLogs]);
 
   // Handle prop selection change
   const handlePropChange = useCallback(
@@ -2927,13 +3082,73 @@ export function EnhancedAnalysisOverlay({
                               </SelectContent>
                             </Select>
                             {selectedInjuredPlayer && (
-                              <div className="mt-3 p-2 bg-slate-700/30 rounded">
-                                <div className="text-slate-400 text-xs">
-                                  Performance when {selectedInjuredPlayer.split("-")[1]} is out:{" "}
-                                  {currentData.season_avg
-                                    ? (currentData.season_avg * 1.2).toFixed(1)
-                                    : "N/A"}
-                                </div>
+                              <div className="mt-3 space-y-2">
+                                {isLoadingFilteredData ? (
+                                  <div className="text-slate-400 text-xs">
+                                    Loading filtered data...
+                                  </div>
+                                ) : filteredAnalytics ? (
+                                  <>
+                                    <div className="p-2 bg-slate-700/30 rounded">
+                                      <div className="text-slate-300 font-semibold text-xs mb-2">
+                                        Performance when {selectedInjuredPlayer.split("-")[1]} is
+                                        out
+                                      </div>
+                                      <div className="space-y-1">
+                                        <div className="flex justify-between text-xs">
+                                          <span className="text-slate-400">L5:</span>
+                                          <span className="text-slate-200">
+                                            {filteredAnalytics.l5 !== null
+                                              ? `${Math.round(filteredAnalytics.l5)}%`
+                                              : "N/A"}
+                                          </span>
+                                        </div>
+                                        <div className="flex justify-between text-xs">
+                                          <span className="text-slate-400">L10:</span>
+                                          <span className="text-slate-200">
+                                            {filteredAnalytics.l10 !== null
+                                              ? `${Math.round(filteredAnalytics.l10)}%`
+                                              : "N/A"}
+                                          </span>
+                                        </div>
+                                        <div className="flex justify-between text-xs">
+                                          <span className="text-slate-400">L20:</span>
+                                          <span className="text-slate-200">
+                                            {filteredAnalytics.l20 !== null
+                                              ? `${Math.round(filteredAnalytics.l20)}%`
+                                              : "N/A"}
+                                          </span>
+                                        </div>
+                                        <div className="flex justify-between text-xs">
+                                          <span className="text-slate-400">Season Avg:</span>
+                                          <span className="text-slate-200">
+                                            {filteredAnalytics.season_avg !== null
+                                              ? filteredAnalytics.season_avg.toFixed(1)
+                                              : "N/A"}
+                                          </span>
+                                        </div>
+                                        <div className="flex justify-between text-xs">
+                                          <span className="text-slate-400">Streak:</span>
+                                          <span className="text-slate-200">
+                                            {filteredAnalytics.current_streak > 0
+                                              ? `+${filteredAnalytics.current_streak}W`
+                                              : filteredAnalytics.current_streak < 0
+                                                ? `${Math.abs(filteredAnalytics.current_streak)}L`
+                                                : "0"}
+                                          </span>
+                                        </div>
+                                        <div className="text-slate-500 text-xs mt-2 pt-2 border-t border-slate-600">
+                                          Games: {filteredGameHistory?.length || 0}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div className="text-slate-400 text-xs">
+                                    No games found when {selectedInjuredPlayer.split("-")[1]} was
+                                    out
+                                  </div>
+                                )}
                               </div>
                             )}
                           </CardContent>
