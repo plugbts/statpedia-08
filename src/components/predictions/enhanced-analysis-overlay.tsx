@@ -1726,13 +1726,26 @@ export function EnhancedAnalysisOverlay({
   // Handle prop selection change
   const handlePropChange = useCallback(
     (propId: string) => {
-      const selectedProp = availableProps.find((prop) => prop.id === propId);
+      // Search in both availableProps and playerProps
+      const selectedProp =
+        availableProps.find((prop) => prop.id === propId || prop.playerId === propId) ||
+        playerProps.find((prop: any) => prop.id === propId || prop.playerId === propId);
+
       if (selectedProp) {
+        console.log(`[handlePropChange] Switching to prop:`, {
+          propId,
+          propType: selectedProp.propType,
+          line: selectedProp.line,
+          foundIn: availableProps.find((p) => p.id === propId) ? "availableProps" : "playerProps",
+        });
+
         setSelectedPropId(propId);
-        // Update the prediction data with the new prop
+
+        // Update the prediction data with the new prop - use ALL fields from selectedProp
         const updatedPrediction = {
           ...prediction,
-          id: selectedProp.id,
+          ...selectedProp, // Spread all fields from selectedProp first
+          id: selectedProp.id || propId,
           propType: selectedProp.propType,
           line: selectedProp.line,
           overOdds: selectedProp.overOdds,
@@ -1754,11 +1767,23 @@ export function EnhancedAnalysisOverlay({
           confidence: selectedProp.confidence,
           aiPrediction: selectedProp.aiPrediction,
         };
+
         // This will trigger a re-render with the new prop data
         setUpdatedEnhancedData(updatedPrediction as EnhancedPrediction);
+
+        // Also clear any filtered data since we're switching props
+        setFilteredGameHistory(null);
+        setFilteredAnalytics(null);
+        setSelectedInjuredPlayer(null);
+      } else {
+        console.warn(`[handlePropChange] Prop not found:`, {
+          propId,
+          availablePropsIds: availableProps.map((p) => p.id),
+          playerPropsIds: playerProps.map((p: any) => p.id),
+        });
       }
     },
-    [availableProps, prediction],
+    [availableProps, playerProps, prediction],
   );
 
   // Helper function to get team logo URL
@@ -2806,13 +2831,43 @@ export function EnhancedAnalysisOverlay({
                             ? "bg-blue-600 text-white border-blue-500"
                             : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700",
                         )}
-                        onClick={() => {
-                          // Find matching prop from playerProps
-                          const matchingProp = playerProps.find(
-                            (p: any) => p.propType?.toUpperCase() === stat,
-                          );
+                        onClick={async () => {
+                          // Find matching prop from playerProps or availableProps
+                          const matchingProp =
+                            playerProps.find((p: any) => {
+                              const pType = String(p.propType || "")
+                                .toUpperCase()
+                                .trim();
+                              const statUpper = String(stat).toUpperCase().trim();
+                              return pType === statUpper;
+                            }) ||
+                            availableProps.find((p: any) => {
+                              const pType = String(p.propType || "")
+                                .toUpperCase()
+                                .trim();
+                              const statUpper = String(stat).toUpperCase().trim();
+                              return pType === statUpper;
+                            });
+
                           if (matchingProp) {
-                            handlePropChange(matchingProp.id || matchingProp.playerId);
+                            const propId =
+                              matchingProp.id || matchingProp.playerId || matchingProp.player_id;
+                            if (propId) {
+                              console.log(`[PropSwitch] Switching to ${stat} prop:`, matchingProp);
+                              handlePropChange(propId);
+                              // Also update selectedPropId to ensure state is in sync
+                              setSelectedPropId(propId);
+                            } else {
+                              console.warn(
+                                `[PropSwitch] Found matching prop but no ID:`,
+                                matchingProp,
+                              );
+                            }
+                          } else {
+                            console.warn(`[PropSwitch] No matching prop found for ${stat}`, {
+                              playerProps: playerProps.map((p: any) => p.propType),
+                              availableProps: availableProps.map((p: any) => p.propType),
+                            });
                           }
                         }}
                       >
