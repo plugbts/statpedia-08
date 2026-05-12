@@ -443,10 +443,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                   };
                   localStorage.setItem('auth_user', JSON.stringify(devUser));
                   localStorage.setItem('auth_tokens', JSON.stringify(devTokens));
-                  onAuthSuccess(devUser, 'free');
+                  // Hard reload so AuthProvider re-initializes from localStorage
+                  window.location.href = '/';
+                  window.location.reload();
                 }}
               >
-                Skip Login (Dev)
+                Skip Login (Dev) → Go to App
               </Button>
               <p className="text-xs text-muted-foreground text-center mt-2">
                 For development only — bypasses authentication
