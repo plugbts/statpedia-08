@@ -34,6 +34,8 @@ export interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshToken: () => Promise<boolean>;
+  /** Dev builds only: bypass login with a local mock session (no-op in production). */
+  signInAsDev: () => void;
 }
 
 // Default context value
@@ -47,6 +49,7 @@ const defaultContext: AuthContextType = {
   login: async () => {},
   logout: async () => {},
   refreshToken: async () => false,
+  signInAsDev: () => {},
 };
 
 // Create context
@@ -55,6 +58,14 @@ const AuthContext = createContext<AuthContextType>(defaultContext);
 // Storage keys
 const TOKEN_KEY = "auth_tokens";
 const USER_KEY = "auth_user";
+
+/** Local-only dev bypass: never sent to real refresh endpoint */
+const DEV_SKIP_REFRESH_TOKEN = "__statpedia_dev_skip__";
+const DEV_SKIP_TOKEN_TTL_MS = 365 * 24 * 60 * 60 * 1000;
+
+function isDevSkipRefreshToken(refreshToken: string | undefined): boolean {
+  return refreshToken === DEV_SKIP_REFRESH_TOKEN;
+}
 
 // Helper functions
 const saveTokens = (tokens: AuthTokens) => {
@@ -158,6 +169,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Attempt to hydrate subscription from stored user if present; else default
             const sub = storedUser.subscription_tier || "free";
             setUserSubscription(sub);
+          } else if (import.meta.env.DEV && isDevSkipRefreshToken(storedTokens.refreshToken)) {
+            const extended: AuthTokens = {
+              ...storedTokens,
+              expiresAt: Date.now() + DEV_SKIP_TOKEN_TTL_MS,
+            };
+            saveTokens(extended);
+            setTokens(extended);
+            const adjustedUser = { ...storedUser } as User;
+            const emailLc = (adjustedUser.email || "").toLowerCase();
+            if (OWNER_EMAILS.includes(emailLc)) {
+              adjustedUser.role = "owner";
+            }
+            setUser(adjustedUser);
+            setUserSubscription(storedUser.subscription_tier || "premium");
           } else {
             // Try to refresh token
             const refreshed = await refreshTokenSilently(storedTokens.refreshToken);
@@ -187,6 +212,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Silent token refresh
   const refreshTokenSilently = async (refreshToken: string): Promise<boolean> => {
+    if (import.meta.env.DEV && isDevSkipRefreshToken(refreshToken)) {
+      const current = getTokens();
+      if (!current) return false;
+      const newTokens: AuthTokens = {
+        ...current,
+        expiresAt: Date.now() + DEV_SKIP_TOKEN_TTL_MS,
+      };
+      setTokens(newTokens);
+      saveTokens(newTokens);
+      return true;
+    }
+
     try {
       const response = await apiRequest("/api/auth/refresh", {
         method: "POST",
@@ -236,6 +273,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error("Signup error:", error);
       throw error;
     }
+  }, []);
+
+  const signInAsDev = useCallback(() => {
+    if (!import.meta.env.DEV) return;
+
+    const now = new Date().toISOString();
+    const devUser: User = {
+      id: "00000000-0000-4000-8000-00000000da11",
+      email: "dev@local.statpedia",
+      email_verified: true,
+      display_name: "Dev (skipped login)",
+      username: "devlocal",
+      created_at: now,
+      updated_at: now,
+      disabled: false,
+      role: "owner",
+      subscription_tier: "premium",
+    };
+
+    const devTokens: AuthTokens = {
+      token: "dev-local-session",
+      refreshToken: DEV_SKIP_REFRESH_TOKEN,
+      expiresAt: Date.now() + DEV_SKIP_TOKEN_TTL_MS,
+    };
+
+    setTokens(devTokens);
+    saveTokens(devTokens);
+    setUser(devUser);
+    saveUser(devUser);
+    setUserSubscription("premium");
   }, []);
 
   // Login function
@@ -311,7 +378,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Logout function
   const logout = useCallback(async () => {
     try {
-      if (tokens?.refreshToken) {
+      if (tokens?.refreshToken && !isDevSkipRefreshToken(tokens.refreshToken)) {
         await apiRequest("/api/auth/logout", {
           method: "POST",
           body: JSON.stringify({ refreshToken: tokens.refreshToken }),
@@ -333,8 +400,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const refreshed = await refreshTokenSilently(tokens.refreshToken);
       if (refreshed) {
-        // Fetch updated user data
-        const newTokens = getTokens(); // Fetch updated user data (also updates subscription)
+        const newTokens = getTokens();
+        if (newTokens?.refreshToken && isDevSkipRefreshToken(newTokens.refreshToken)) {
+          return true;
+        }
         if (newTokens) {
           await fetchUserData(newTokens.token);
         }
@@ -375,6 +444,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     login,
     logout,
     refreshToken,
+    signInAsDev,
   };
 
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;

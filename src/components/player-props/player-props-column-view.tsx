@@ -115,19 +115,26 @@ function normalizeBookKey(raw: string): string {
 
 // Using shared utility functions from prop-type-formatter.ts
 
+/** Prefer legacy over/under American odds; fall back to nested `odds.dk` / `fd` / `pinny` (internal MLB API). */
+function resolvePrimaryAmericanOdds(prop: PlayerProp, filter: "over" | "under" | "both"): number {
+  const legacy =
+    filter === "under" ? prop.underOdds : filter === "over" ? prop.overOdds : prop.overOdds;
+  if (legacy != null && Number.isFinite(legacy) && legacy !== 0) return legacy;
+  const o = prop.odds;
+  if (o && typeof o === "object") {
+    if (o.dk != null && Number.isFinite(o.dk)) return o.dk;
+    if (o.fd != null && Number.isFinite(o.fd)) return o.fd;
+    if (o.pinny != null && Number.isFinite(o.pinny)) return o.pinny;
+  }
+  return legacy ?? 0;
+}
+
 // Helper function to get odds display class based on filter and odds value
 const getOddsDisplayClass = (
   prop: PlayerProp,
   overUnderFilter: "over" | "under" | "both",
 ): string => {
-  const oddsValue =
-    overUnderFilter === "over"
-      ? prop.overOdds
-      : overUnderFilter === "under"
-        ? prop.underOdds
-        : prop.overOdds;
-
-  // Use the odds color class utility for consistent coloring
+  const oddsValue = resolvePrimaryAmericanOdds(prop, overUnderFilter);
   const colorClass = getOddsColorClass(oddsValue);
 
   // UX request: odds should always be green, so no filter-specific red override.
@@ -338,6 +345,12 @@ interface PlayerProp {
     underOdds?: number;
     deeplink?: string;
   }>;
+  /** PropLine / Next MLB API shape: per-book American odds */
+  odds?: {
+    dk?: number;
+    fd?: number;
+    pinny?: number;
+  };
   sportsbookSource?: string;
   sportsbookDeeplink?: string;
   // Team logos
@@ -1458,8 +1471,7 @@ export function PlayerPropsColumnView({
                       {/* Odds */}
                       <div className="w-16 flex items-center justify-center px-1">
                         {(() => {
-                          const oddsValue =
-                            overUnderFilter === "under" ? prop.underOdds : prop.overOdds;
+                          const oddsValue = resolvePrimaryAmericanOdds(prop, overUnderFilter);
                           const book =
                             (prop.sportsbookSource ||
                               prop.best_over_book ||

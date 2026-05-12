@@ -7,6 +7,16 @@
  * - Blend 0.6 Poisson + 0.4 ML
  *
  * Output: P(goal in first 5), P(goal in first 10), fair odds, edge, reasons.
+ *
+ * NEW G1F10 FEATURES (v0.3.0):
+ * - Referee-level penalty rates (first period, first 10 min, bias metrics)
+ * - Shift-level matchup modeling (top-line xGF/xGA, rush/HD rates, top-pair suppression)
+ * - Penalty volatility features (team draw/take rates, volatility index, ref-team interactions)
+ * - Travel + fatigue interactions (B2B+travel, 3-in-4+travel, west-to-east, early start times)
+ * - Goalie-specific early-game tendencies (first-shot save %, first 3 shots, rebound rate, rush/screened save %)
+ *
+ * These features are designed to push accuracy from 62.9% → 70% by capturing
+ * the last layer of signal that most models miss.
  */
 
 import { predictMlP10FromRow, predictMlP5FromRow, getEarlyGoalMlArtifact } from "./ml-artifact";
@@ -63,6 +73,53 @@ export interface EarlyGameFeatureRow {
   injury_impact_away?: number | null;
   ref_penalty_rate?: number | null;
 
+  // NEW G1F10 FEATURES - Referee-level penalty rates
+  ref_penalties_first_period_avg?: number | null;
+  ref_penalties_first10_avg?: number | null;
+  ref_minors_vs_majors_ratio?: number | null;
+  ref_home_away_penalty_bias?: number | null; // -0.5 to 0.5
+
+  // NEW G1F10 FEATURES - Shift-level matchup modeling
+  home_top_line_xgf_first10_last20?: number | null;
+  home_top_line_xga_first10_last20?: number | null;
+  home_top_line_rush_rate_first10_last20?: number | null;
+  home_top_line_hd_rate_first10_last20?: number | null;
+  home_top_pair_xga_suppression_first10_last20?: number | null;
+  away_top_line_xgf_first10_last20?: number | null;
+  away_top_line_xga_first10_last20?: number | null;
+  away_top_line_rush_rate_first10_last20?: number | null;
+  away_top_line_hd_rate_first10_last20?: number | null;
+  away_top_pair_xga_suppression_first10_last20?: number | null;
+
+  // NEW G1F10 FEATURES - Penalty volatility
+  home_draw_penalty_rate_first10?: number | null;
+  home_take_penalty_rate_first10?: number | null;
+  away_draw_penalty_rate_first10?: number | null;
+  away_take_penalty_rate_first10?: number | null;
+  penalty_volatility_index?: number | null;
+  ref_team_interaction_home?: number | null;
+  ref_team_interaction_away?: number | null;
+
+  // NEW G1F10 FEATURES - Travel + fatigue interactions
+  home_b2b_travel?: boolean | null;
+  away_b2b_travel?: boolean | null;
+  home_3in4_travel?: boolean | null;
+  away_3in4_travel?: boolean | null;
+  west_to_east_travel?: boolean | null;
+  early_start_time?: boolean | null; // Game starts before 7pm local
+
+  // NEW G1F10 FEATURES - Goalie-specific early-game tendencies
+  home_goalie_first_shot_save_pct?: number | null;
+  home_goalie_first_3_shots_save_pct?: number | null;
+  home_goalie_rebound_rate_first10?: number | null;
+  home_goalie_rush_save_pct_first10?: number | null;
+  home_goalie_screened_save_pct_first10?: number | null;
+  away_goalie_first_shot_save_pct?: number | null;
+  away_goalie_first_3_shots_save_pct?: number | null;
+  away_goalie_rebound_rate_first10?: number | null;
+  away_goalie_rush_save_pct_first10?: number | null;
+  away_goalie_screened_save_pct_first10?: number | null;
+
   // Market
   closing_total?: number | null;
   closing_first_period_total?: number | null;
@@ -116,6 +173,7 @@ export function estimateEarlyXG10(row: EarlyGameFeatureRow): {
 } {
   const reasons: string[] = [];
 
+  // PREGAME PREDICTIONS: Use historical last20 features (what the model was trained on)
   const home_xgf = safeNum(row.home_team_xgf_first10_last20, 0.35);
   const home_xga = safeNum(row.home_team_xga_first10_last20, 0.35);
   const away_xgf = safeNum(row.away_team_xgf_first10_last20, 0.35);
@@ -168,13 +226,196 @@ export function estimateEarlyXG10(row: EarlyGameFeatureRow): {
     reasons.push("Travel fatigue");
   }
 
-  // Ref penalty rate (more chaos early)
-  const refRate = safeNum(row.ref_penalty_rate, 0);
-  if (refRate > 0) {
-    const adj = Math.max(0.95, Math.min(1.12, 1 + (refRate - 0.35) * 0.2));
-    home *= adj;
-    away *= adj;
-    if (adj > 1.03) reasons.push("High penalty environment");
+  // NEW: Referee-level penalty rates (first 10 minutes specifically)
+  const refPenaltiesFirst10 = safeNum(
+    row.ref_penalties_first10_avg,
+    safeNum(row.ref_penalty_rate, 0),
+  );
+  const refPenaltiesFirstPeriod = safeNum(row.ref_penalties_first_period_avg, refPenaltiesFirst10);
+  const refMinorsRatio = safeNum(row.ref_minors_vs_majors_ratio, 0.8); // Default: mostly minors
+  const refHomeBias = safeNum(row.ref_home_away_penalty_bias, 0);
+
+  // Referee penalty impact: first 10 minutes is critical
+  if (refPenaltiesFirst10 > 0) {
+    const refAdj = Math.max(0.95, Math.min(1.15, 1 + (refPenaltiesFirst10 - 0.3) * 0.25));
+    home *= refAdj;
+    away *= refAdj;
+    if (refAdj > 1.05) reasons.push("High penalty ref (first 10)");
+  }
+
+  // Referee home/away bias affects early scoring
+  if (Math.abs(refHomeBias) > 0.1) {
+    home *= 1 + refHomeBias * 0.08; // Home team gets more PPs = more xG
+    away *= 1 - refHomeBias * 0.08;
+    if (refHomeBias > 0.1) reasons.push("Ref favors home early");
+    if (refHomeBias < -0.1) reasons.push("Ref favors away early");
+  }
+
+  // NEW: Shift-level matchup modeling (top line vs top pair)
+  const homeTopLineXGF = safeNum(row.home_top_line_xgf_first10_last20, home_xgf * 0.4); // Top line ~40% of team xG
+  const homeTopLineXGA = safeNum(row.home_top_line_xga_first10_last20, home_xga * 0.4);
+  const awayTopPairSuppression = safeNum(row.away_top_pair_xga_suppression_first10_last20, 0);
+  const homeTopLineRush = safeNum(row.home_top_line_rush_rate_first10_last20, homeRush * 0.4);
+  const homeTopLineHD = safeNum(row.home_top_line_hd_rate_first10_last20, homeHD * 0.4);
+
+  const awayTopLineXGF = safeNum(row.away_top_line_xgf_first10_last20, away_xgf * 0.4);
+  const awayTopLineXGA = safeNum(row.away_top_line_xga_first10_last20, away_xga * 0.4);
+  const homeTopPairSuppression = safeNum(row.home_top_pair_xga_suppression_first10_last20, 0);
+  const awayTopLineRush = safeNum(row.away_top_line_rush_rate_first10_last20, awayRush * 0.4);
+  const awayTopLineHD = safeNum(row.away_top_line_hd_rate_first10_last20, awayHD * 0.4);
+
+  // Top line matchup boost: if top line is strong vs weak top pair
+  const homeMatchupBoost = Math.max(
+    0.95,
+    Math.min(1.12, 1 + (homeTopLineXGF - awayTopPairSuppression) * 0.15),
+  );
+  const awayMatchupBoost = Math.max(
+    0.95,
+    Math.min(1.12, 1 + (awayTopLineXGF - homeTopPairSuppression) * 0.15),
+  );
+  home *= homeMatchupBoost;
+  away *= awayMatchupBoost;
+  if (homeMatchupBoost > 1.05 || awayMatchupBoost > 1.05) reasons.push("Strong top-line matchup");
+
+  // Top line rush/HD rates (first 10 is dominated by top lines)
+  home += 0.04 * homeTopLineRush + 0.03 * homeTopLineHD;
+  away += 0.04 * awayTopLineRush + 0.03 * awayTopLineHD;
+
+  // NEW: Penalty volatility features
+  const homeDrawPenalty = safeNum(row.home_draw_penalty_rate_first10, 0);
+  const homeTakePenalty = safeNum(row.home_take_penalty_rate_first10, 0);
+  const awayDrawPenalty = safeNum(row.away_draw_penalty_rate_first10, 0);
+  const awayTakePenalty = safeNum(row.away_take_penalty_rate_first10, 0);
+  const penaltyVolatility = safeNum(
+    row.penalty_volatility_index,
+    (homeDrawPenalty + homeTakePenalty + awayDrawPenalty + awayTakePenalty) / 4,
+  );
+
+  // Penalty volatility = more power plays = more early goals
+  if (penaltyVolatility > 0.15) {
+    const volAdj = Math.max(1.0, Math.min(1.12, 1 + (penaltyVolatility - 0.15) * 0.3));
+    home *= volAdj;
+    away *= volAdj;
+    if (volAdj > 1.05) reasons.push("High penalty volatility");
+  }
+
+  // Ref-team interaction: ref's penalty rate × team's penalty tendency
+  const refTeamHome = safeNum(row.ref_team_interaction_home, refPenaltiesFirst10 * homeTakePenalty);
+  const refTeamAway = safeNum(row.ref_team_interaction_away, refPenaltiesFirst10 * awayTakePenalty);
+  if (refTeamHome > 0.1) {
+    away *= 1 + refTeamHome * 0.1; // Home takes penalties = away gets PPs
+  }
+  if (refTeamAway > 0.1) {
+    home *= 1 + refTeamAway * 0.1; // Away takes penalties = home gets PPs
+  }
+
+  // NEW: Travel + fatigue interactions
+  const homeB2BTravel = !!row.home_b2b_travel;
+  const awayB2BTravel = !!row.away_b2b_travel;
+  const home3in4Travel = !!row.home_3in4_travel;
+  const away3in4Travel = !!row.away_3in4_travel;
+  const westToEast = !!row.west_to_east_travel;
+  const earlyStart = !!row.early_start_time;
+
+  // B2B + travel is brutal
+  if (homeB2BTravel) {
+    home *= 0.92;
+    reasons.push("Home B2B + travel");
+  }
+  if (awayB2BTravel) {
+    away *= 0.92;
+    reasons.push("Away B2B + travel");
+  }
+
+  // 3-in-4 + travel is even worse
+  if (home3in4Travel) {
+    home *= 0.9;
+    reasons.push("Home 3-in-4 + travel");
+  }
+  if (away3in4Travel) {
+    away *= 0.9;
+    reasons.push("Away 3-in-4 + travel");
+  }
+
+  // West-to-east travel (time zone change)
+  if (westToEast) {
+    away *= 0.94;
+    reasons.push("West-to-east travel");
+  }
+
+  // Early start times (before 7pm local) = less energy
+  if (earlyStart) {
+    home *= 0.97;
+    away *= 0.97;
+    reasons.push("Early start time");
+  }
+
+  // Regular B2B (without travel) - smaller impact
+  if (homeB2B && !homeB2BTravel) home *= 0.97;
+  if (awayB2B && !awayB2BTravel) away *= 0.97;
+
+  // Regular travel (without B2B)
+  if (travel > 800 && !homeB2BTravel && !awayB2BTravel) {
+    home *= 0.98;
+    away *= 0.98;
+    if (travel > 1500) reasons.push("Long travel");
+  }
+
+  // NEW: Goalie-specific early-game tendencies
+  const homeGoalieFirstShotSave = safeNum(row.home_goalie_first_shot_save_pct, null);
+  const homeGoalieFirst3Save = safeNum(row.home_goalie_first_3_shots_save_pct, null);
+  const homeGoalieReboundRate = safeNum(row.home_goalie_rebound_rate_first10, null);
+  const homeGoalieRushSave = safeNum(row.home_goalie_rush_save_pct_first10, null);
+  const homeGoalieScreenedSave = safeNum(row.home_goalie_screened_save_pct_first10, null);
+
+  const awayGoalieFirstShotSave = safeNum(row.away_goalie_first_shot_save_pct, null);
+  const awayGoalieFirst3Save = safeNum(row.away_goalie_first_3_shots_save_pct, null);
+  const awayGoalieReboundRate = safeNum(row.away_goalie_rebound_rate_first10, null);
+  const awayGoalieRushSave = safeNum(row.away_goalie_rush_save_pct_first10, null);
+  const awayGoalieScreenedSave = safeNum(row.away_goalie_screened_save_pct_first10, null);
+
+  // Goalie cold start: first shot save % is critical
+  if (homeGoalieFirstShotSave !== null && homeGoalieFirstShotSave < 0.7) {
+    away *= 1.15; // Goalie allows first shot often = opponent scores early
+    reasons.push("Home goalie cold first shot");
+  }
+  if (awayGoalieFirstShotSave !== null && awayGoalieFirstShotSave < 0.7) {
+    home *= 1.15;
+    reasons.push("Away goalie cold first shot");
+  }
+
+  // First 3 shots save % (early game stability)
+  if (homeGoalieFirst3Save !== null && homeGoalieFirst3Save < 0.75) {
+    away *= 1.1;
+  }
+  if (awayGoalieFirst3Save !== null && awayGoalieFirst3Save < 0.75) {
+    home *= 1.1;
+  }
+
+  // Rebound rate (high = more second chances = more goals)
+  if (homeGoalieReboundRate !== null && homeGoalieReboundRate > 0.25) {
+    away *= 1.08;
+  }
+  if (awayGoalieReboundRate !== null && awayGoalieReboundRate > 0.25) {
+    home *= 1.08;
+  }
+
+  // Rush save % (rush chances are high-danger in first 10)
+  if (homeGoalieRushSave !== null && homeGoalieRushSave < 0.8) {
+    away *= 1.12;
+    if (awayRush > 0.5) reasons.push("Home goalie weak on rushes");
+  }
+  if (awayGoalieRushSave !== null && awayGoalieRushSave < 0.8) {
+    home *= 1.12;
+    if (homeRush > 0.5) reasons.push("Away goalie weak on rushes");
+  }
+
+  // Screened shot save % (screens are common early)
+  if (homeGoalieScreenedSave !== null && homeGoalieScreenedSave < 0.75) {
+    away *= 1.08;
+  }
+  if (awayGoalieScreenedSave !== null && awayGoalieScreenedSave < 0.75) {
+    home *= 1.08;
   }
 
   return {
@@ -195,23 +436,27 @@ export function estimateEarlyXG5(row: EarlyGameFeatureRow): {
 } {
   const reasons: string[] = [];
 
-  // Use first-5 features if available, otherwise scale from first-10
-  const home_xgf = safeNum(
-    row.home_team_xgf_first5_last20,
-    safeNum(row.home_team_xgf_first10_last20, 0.35) * 0.5,
-  );
-  const home_xga = safeNum(
-    row.home_team_xga_first5_last20,
-    safeNum(row.home_team_xga_first10_last20, 0.35) * 0.5,
-  );
-  const away_xgf = safeNum(
-    row.away_team_xgf_first5_last20,
-    safeNum(row.away_team_xgf_first10_last20, 0.35) * 0.5,
-  );
-  const away_xga = safeNum(
-    row.away_team_xga_first5_last20,
-    safeNum(row.away_team_xga_first10_last20, 0.35) * 0.5,
-  );
+  // PREGAME PREDICTIONS: Use historical last20 features (what the model was trained on)
+  // Do NOT use in-game features (current_game.*) for pregame predictions
+  const home_xgf_5_hist = safeNum(row.home_team_xgf_first5_last20, 0);
+  const home_xga_5_hist = safeNum(row.home_team_xga_first5_last20, 0);
+  const away_xgf_5_hist = safeNum(row.away_team_xgf_first5_last20, 0);
+  const away_xga_5_hist = safeNum(row.away_team_xga_first5_last20, 0);
+
+  const home_xgf_10_hist = safeNum(row.home_team_xgf_first10_last20, 0);
+  const home_xga_10_hist = safeNum(row.home_team_xga_first10_last20, 0);
+  const away_xgf_10_hist = safeNum(row.away_team_xgf_first10_last20, 0);
+  const away_xga_10_hist = safeNum(row.away_team_xga_first10_last20, 0);
+
+  // Use historical first5 if available, otherwise scale from first10, otherwise league-average default
+  const home_xgf =
+    home_xgf_5_hist > 0 ? home_xgf_5_hist : home_xgf_10_hist > 0 ? home_xgf_10_hist * 0.5 : 0.2;
+  const home_xga =
+    home_xga_5_hist > 0 ? home_xga_5_hist : home_xga_10_hist > 0 ? home_xga_10_hist * 0.5 : 0.2;
+  const away_xgf =
+    away_xgf_5_hist > 0 ? away_xgf_5_hist : away_xgf_10_hist > 0 ? away_xgf_10_hist * 0.5 : 0.2;
+  const away_xga =
+    away_xga_5_hist > 0 ? away_xga_5_hist : away_xga_10_hist > 0 ? away_xga_10_hist * 0.5 : 0.2;
 
   // Base: blend team offense vs opponent defense
   let home = 0.55 * home_xgf + 0.45 * away_xga;
@@ -395,6 +640,11 @@ export async function runEarlyGoalEngineAsync(
     ml_p10,
     p_g1f10,
     p_g1f5,
+    // Include raw probabilities for debugging
+    p_g1f10_raw: p_g1f10_raw,
+    p_g1f5_raw: p_g1f5_raw,
+    poisson_p5,
+    ml_p5,
     fair_odds_g1f10,
     fair_odds_g1f5,
     edge_g1f10: null,

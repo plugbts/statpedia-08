@@ -40,7 +40,7 @@ const displayNameSchema = z
   .max(100, "Display name too long");
 
 export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
-  const { user, isAuthenticated, isLoading, login, signup, logout } = useAuth();
+  const { user, isAuthenticated, isLoading, login, signup, logout, signInAsDev } = useAuth();
   const [authMode, setAuthMode] = useState<"login" | "signup" | "plans">("login");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
@@ -418,6 +418,18 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                   ? "Sign In"
                   : "Create Account"}
             </Button>
+
+            {import.meta.env.DEV && authMode === "login" && (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full border-dashed text-muted-foreground"
+                disabled={isSubmitting || isLoading}
+                onClick={() => signInAsDev()}
+              >
+                Skip sign-in (local dev)
+              </Button>
+            )}
           </CardContent>
         </Card>
 

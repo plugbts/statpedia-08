@@ -1,5 +1,8 @@
 // Centralized API client for routing all app requests
 // Dev -> local API server; Prod -> Cloudflare Worker (VITE_AUTH_ENDPOINT)
+//
+// MLB PropLine-style JSON (Next `/api/odds/:id`, etc.) uses `src/lib/public-api-base.ts` +
+// `NEXT_PUBLIC_API_BASE` — not this Express base.
 
 export function getApiBaseUrl(): string {
   // In dev, always use the local API server

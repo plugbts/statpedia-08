@@ -21,7 +21,7 @@ type Args = {
   batchSize?: number;
 };
 
-const BATCH_SIZE = 2000; // Insert 2000 rows at a time for speed
+const BATCH_SIZE = 10000; // Insert 10000 rows at a time for maximum speed
 
 function parseArgs(): Args {
   const out: Args = {};
@@ -127,14 +127,16 @@ async function insertBatch(
   const startTime = Date.now();
 
   try {
-    // Use individual inserts in parallel chunks
-    // Process in smaller chunks to avoid overwhelming the connection
-    const chunkSize = 100;
+    // Use parallel individual inserts for maximum speed
+    // Process in chunks to avoid overwhelming the connection
+    const chunkSize = 500; // Optimized chunk size for parallel processing
     let inserted = 0;
     let errors = 0;
 
     for (let i = 0; i < batch.length; i += chunkSize) {
       const chunk = batch.slice(i, i + chunkSize);
+
+      // Parallel inserts - all at once for maximum speed
       const inserts = chunk.map((row) =>
         sql`
           INSERT INTO public.moneypuck_shots (
@@ -154,9 +156,9 @@ async function insertBatch(
             ${row.shot_speed}, ${row.strength_state}, ${sql.json(row.raw || {})}
           )
           ON CONFLICT DO NOTHING
-        `.catch((err) => {
+        `.catch(() => {
           errors++;
-          return null; // Continue on error
+          return null;
         }),
       );
 
@@ -164,7 +166,7 @@ async function insertBatch(
       inserted += chunk.length;
 
       // Log progress for large batches
-      if (i % 500 === 0 && i > 0) {
+      if (i % 2000 === 0 && i > 0) {
         process.stdout.write(
           `   Processing chunk ${Math.floor(i / chunkSize) + 1}/${Math.ceil(batch.length / chunkSize)}...\r`,
         );
@@ -243,9 +245,12 @@ async function main() {
   // Increase connection pool and timeout for large batches
   const sql = postgres(conn, {
     prepare: false,
-    max: 10, // Allow more concurrent connections
-    idle_timeout: 30,
-    connect_timeout: 10,
+    max: 20, // Increased from 10 for more parallelization
+    idle_timeout: 60,
+    connect_timeout: 30,
+    transform: {
+      undefined: null, // Convert undefined to null for SQL
+    },
   });
   const startTime = Date.now();
 
@@ -262,6 +267,10 @@ async function main() {
   let iGame = -1,
     iTeam = -1,
     iOpp = -1,
+    iTeamCode = -1,
+    iHomeCode = -1,
+    iAwayCode = -1,
+    iIsHome = -1,
     iPeriod = -1,
     iTime = -1;
   let iX = -1,
@@ -295,6 +304,10 @@ async function main() {
       iGame = idxOf(headers, ["gameid", "game_id", "gamepk", "nhl_game_id"]);
       iTeam = idxOf(headers, ["team", "teammnemonic", "teamabbr", "team_abbr"]);
       iOpp = idxOf(headers, ["opponent", "opponentmnemonic", "oppabbr", "opponent_abbr"]);
+      iTeamCode = idxOf(headers, ["teamcode", "team_code", "teamCode"]);
+      iHomeCode = idxOf(headers, ["hometeamcode", "home_team_code", "homeTeamCode"]);
+      iAwayCode = idxOf(headers, ["awayteamcode", "away_team_code", "awayTeamCode"]);
+      iIsHome = idxOf(headers, ["ishometeam", "is_home_team", "isHomeTeam", "isHome"]);
       iPeriod = idxOf(headers, ["period"]);
       iTime = idxOf(headers, [
         "time",
@@ -317,7 +330,14 @@ async function main() {
       iReb = idxOf(headers, ["isrebound", "rebound"]);
       iGoal = idxOf(headers, ["isgoal", "goal"]);
       iShooter = idxOf(headers, ["shootername", "shooter", "playername", "player"]);
-      iGoalie = idxOf(headers, ["goaliename", "goalie"]);
+      iGoalie = idxOf(headers, [
+        "goaliename",
+        "goalie",
+        "goalienameforshot",
+        "goalieNameForShot",
+        "goalieidforshot",
+        "goalieIdForShot",
+      ]);
       iShotType = idxOf(headers, ["shottype", "shot_type"]);
       iStrength = idxOf(headers, ["strength", "strengthstate", "strength_state"]);
       iShotSpeed = idxOf(headers, ["shotspeed", "shot_speed_mph", "shot_speed"]);
@@ -329,7 +349,15 @@ async function main() {
       console.log(`   xG: column ${iXg >= 0 ? iXg : "NOT FOUND"}`);
       console.log(`   Rush: column ${iRush >= 0 ? iRush : "NOT FOUND"}`);
       console.log(`   High Danger: column ${iHD >= 0 ? iHD : "NOT FOUND"}`);
+      console.log(`   Goalie: column ${iGoalie >= 0 ? iGoalie : "NOT FOUND"}`);
       console.log("\n🚀 Starting batch ingestion...\n");
+
+      // Delete existing rows for this season to avoid conflicts
+      if (season) {
+        console.log(`🗑️  Deleting existing rows for season ${season}...`);
+        await sql`DELETE FROM public.moneypuck_shots WHERE season = ${season}`;
+        console.log(`✅ Deleted existing rows\n`);
+      }
       continue;
     }
 
@@ -343,8 +371,37 @@ async function main() {
       continue; // Skip rows without game ID
     }
 
-    const teamAbbr = iTeam >= 0 ? cols[iTeam] : null;
-    const oppAbbr = iOpp >= 0 ? cols[iOpp] : null;
+    const teamAbbrRaw = iTeam >= 0 ? cols[iTeam] : null;
+    const oppAbbrRaw = iOpp >= 0 ? cols[iOpp] : null;
+    const teamCode = iTeamCode >= 0 ? cols[iTeamCode] : null;
+    const homeCode = iHomeCode >= 0 ? cols[iHomeCode] : null;
+    const awayCode = iAwayCode >= 0 ? cols[iAwayCode] : null;
+    const isHome = iIsHome >= 0 ? toBool(cols[iIsHome]) : null;
+
+    // Derive team_abbr/opponent_abbr: prefer explicit team/opponent, otherwise use home/away codes
+    const teamAbbrRawNorm = teamAbbrRaw?.toUpperCase();
+    const oppAbbrRawNorm = oppAbbrRaw?.toUpperCase();
+
+    let teamAbbr: string | null = teamAbbrRaw || null;
+    let oppAbbr: string | null = oppAbbrRaw || null;
+
+    const isHomeMarker = teamAbbrRawNorm === "HOME";
+    const isAwayMarker = teamAbbrRawNorm === "AWAY";
+
+    // If team column is HOME/AWAY or missing, derive from codes
+    if (!teamAbbr || isHomeMarker || isAwayMarker) {
+      if (isHome === true && homeCode) teamAbbr = homeCode;
+      else if (isHome === false && awayCode) teamAbbr = awayCode;
+      else if (teamCode) teamAbbr = teamCode;
+    }
+
+    // Opponent: if missing or HOME/AWAY, derive from the opposite code
+    const oppIsHomeMarker = oppAbbrRawNorm === "HOME";
+    const oppIsAwayMarker = oppAbbrRawNorm === "AWAY";
+    if (!oppAbbr || oppIsHomeMarker || oppIsAwayMarker) {
+      if (isHome === true && awayCode) oppAbbr = awayCode;
+      else if (isHome === false && homeCode) oppAbbr = homeCode;
+    }
     const period = iPeriod >= 0 ? toNum(cols[iPeriod]) : null;
 
     const periodTimeSeconds = (() => {
@@ -369,8 +426,8 @@ async function main() {
     const isRebound = iReb >= 0 ? toBool(cols[iReb]) : null;
     const isGoal = iGoal >= 0 ? toBool(cols[iGoal]) : null;
 
-    const shooter = iShooter >= 0 ? cols[iShooter] : null;
-    const goalie = iGoalie >= 0 ? cols[iGoalie] : null;
+    const shooter = iShooter >= 0 ? cols[iShooter]?.trim() || null : null;
+    const goalie = iGoalie >= 0 ? cols[iGoalie]?.trim() || null : null;
     const shotType = iShotType >= 0 ? cols[iShotType] : null;
     const strength = iStrength >= 0 ? cols[iStrength] : null;
     const shotSpeed = iShotSpeed >= 0 ? toNum(cols[iShotSpeed]) : null;

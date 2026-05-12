@@ -24,13 +24,15 @@ export async function fetchMoneyPuckShotsForGameFromDb(
         game_time_seconds,
         team_abbr,
         shooter_name,
+        goalie_name,
         x_coord,
         y_coord,
         xg,
         is_goal,
         is_rush,
         is_high_danger,
-        is_rebound
+        is_rebound,
+        shot_speed
       FROM public.moneypuck_shots
       WHERE game_external_id = ${gameExternalId}
       ORDER BY game_time_seconds NULLS LAST, period, period_time_seconds
@@ -41,6 +43,7 @@ export async function fetchMoneyPuckShotsForGameFromDb(
       game_time_seconds: r.game_time_seconds ?? null,
       team_abbr: r.team_abbr ?? null,
       shooter_name: r.shooter_name ?? null,
+      goalie_name: r.goalie_name ?? null,
       x_coord: r.x_coord !== null && r.x_coord !== undefined ? Number(r.x_coord) : null,
       y_coord: r.y_coord !== null && r.y_coord !== undefined ? Number(r.y_coord) : null,
       xg: r.xg !== null && r.xg !== undefined ? Number(r.xg) : null,
@@ -48,6 +51,7 @@ export async function fetchMoneyPuckShotsForGameFromDb(
       is_rush: r.is_rush ?? null,
       is_high_danger: r.is_high_danger ?? null,
       is_rebound: r.is_rebound ?? null,
+      shot_speed: r.shot_speed !== null && r.shot_speed !== undefined ? Number(r.shot_speed) : null,
     }));
   } finally {
     await sql.end({ timeout: 2 });

@@ -19,8 +19,15 @@ config({ path: ".env.local" });
 import { authService } from "../lib/auth/auth-service";
 import { canAccessFeature } from "../lib/auth/access";
 import { fetchIcuraUnifiedNhlDay } from "../services/icura/unified/unified-icura-nhl";
-import { buildEarlyGameFeatureRow } from "../services/icura/early-goal/dataset";
-import { runEarlyGoalEngineAsync } from "../services/icura/early-goal/engine";
+import {
+  buildEarlyGameFeatureRow,
+  buildEarlyGameFeatureRowFromDbHistory,
+} from "../services/icura/early-goal/dataset";
+import {
+  runEarlyGoalEngineAsync,
+  americanOddsToImpliedProb,
+} from "../services/icura/early-goal/engine";
+import { computeQualityRating } from "../services/icura/early-goal/quality-rating";
 import {
   fetchSgoGamesWithMarkets,
   extractCoreMarkets,
@@ -119,10 +126,12 @@ app.get("/api/icura/nhl/early-goal", async (req, res) => {
         try {
           const sql = getIcuraSql();
           try {
+            // Match by game_external_id (NHL gamecenter ID or SGO game ID)
             const rows = await sql`
             SELECT market_g1f5_yes_odds, market_g1f10_yes_odds
             FROM public.icura_nhl_market_early_goal
             WHERE game_external_id = ${pkg.game.gameId}
+               OR date_iso = ${pkg.game.dateISO}::date
             LIMIT 1
           `;
             const r: any = rows?.[0];
@@ -138,8 +147,9 @@ app.get("/api/icura/nhl/early-goal", async (req, res) => {
           } finally {
             await sql.end({ timeout: 2 });
           }
-        } catch {
-          // ignore if DB not configured
+        } catch (err) {
+          // Log error for debugging but don't fail the request
+          console.error("Error fetching market odds:", err);
         }
 
         // Persist dataset + prediction (best-effort). This requires DB URL configured.
@@ -272,6 +282,466 @@ app.get("/api/icura/nhl/early-goal", async (req, res) => {
   } catch (e: any) {
     console.error("GET /api/icura/nhl/early-goal error:", e);
     return res.status(500).json({ success: false, error: e?.message || "Icura early-goal failed" });
+  }
+});
+
+// =========================
+// GIF5 Predictions Endpoint
+// =========================
+// Usage: /api/gif5-predictions?date=YYYY-MM-DD
+// Returns predictions for G1F5 and G1F10 with Statpedia ratings and team records
+app.get("/api/gif5-predictions", async (req, res) => {
+  try {
+    const date = String(req.query.date || new Date().toISOString().slice(0, 10));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ success: false, error: "Invalid date. Use YYYY-MM-DD" });
+    }
+
+    // Import postgres for team resolution and records
+    const postgres = (await import("postgres")).default;
+    const conn = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+    if (!conn) {
+      return res.status(500).json({ success: false, error: "Database connection not configured" });
+    }
+
+    // Helper: Resolve team abbreviation to UUID
+    const resolveTeamId = async (teamAbbr: string): Promise<string | null> => {
+      try {
+        const sql = postgres(conn, { prepare: false });
+        const result = await sql`
+          SELECT t.id
+          FROM public.teams t
+          JOIN public.leagues l ON t.league_id = l.id
+          WHERE UPPER(t.abbreviation) = UPPER(${teamAbbr})
+            AND UPPER(l.code) = 'NHL'
+          LIMIT 1
+        `;
+        await sql.end({ timeout: 2 });
+        return result[0]?.id || null;
+      } catch (error) {
+        console.error("Error resolving team ID:", error);
+        return null;
+      }
+    };
+
+    // Quality-based rating (replaces market-based rating)
+    // Uses AI prediction quality factors: goalie quality, start speed, offense/defense, etc.
+
+    // Helper: Get team records for GIF5/GIF10 this season
+    const getTeamRecords = async (teamAbbr: string): Promise<{ g1f5: string; g1f10: string }> => {
+      try {
+        const sql = postgres(conn, { prepare: false });
+        const currentSeason = "2024-2025";
+
+        const records = await sql`
+          SELECT 
+            COUNT(*) FILTER (WHERE goal_in_first_5 = true) as g1f5_yes,
+            COUNT(*) FILTER (WHERE goal_in_first_5 = false) as g1f5_no,
+            COUNT(*) FILTER (WHERE goal_in_first_10 = true) as g1f10_yes,
+            COUNT(*) FILTER (WHERE goal_in_first_10 = false) as g1f10_no
+          FROM public.icura_nhl_early_game_dataset d
+          JOIN public.games g ON d.game_id = g.id
+          JOIN public.teams t ON (g.home_team_id = t.id OR g.away_team_id = t.id)
+          WHERE d.season = ${currentSeason}
+            AND UPPER(t.abbreviation) = UPPER(${teamAbbr})
+          LIMIT 1
+        `;
+
+        await sql.end({ timeout: 2 });
+
+        const r = records[0];
+        if (r) {
+          return {
+            g1f5: `${r.g1f5_yes || 0}-${r.g1f5_no || 0}`,
+            g1f10: `${r.g1f10_yes || 0}-${r.g1f10_no || 0}`,
+          };
+        }
+      } catch (error) {
+        console.error("Error fetching team records:", error);
+      }
+
+      return { g1f5: "N/A", g1f10: "N/A" };
+    };
+
+    // Helper: Calculate Statpedia rating
+    const calculateStatpediaRating = (
+      probability: number,
+      confidence: number,
+      recommendation: "YES" | "NO",
+    ): {
+      overall: number;
+      grade: string;
+      color: "green" | "yellow" | "red";
+      confidence: "High" | "Medium" | "Low";
+    } => {
+      const probScore = probability * 100;
+      const confMultiplier = 0.8 + confidence * 0.4;
+      let overall = probScore * confMultiplier;
+
+      if (
+        (recommendation === "YES" && probability > 0.6) ||
+        (recommendation === "NO" && probability < 0.4)
+      ) {
+        overall += 5;
+      }
+
+      overall = Math.max(40, Math.min(95, overall));
+
+      const getGrade = (score: number): string => {
+        if (score >= 90) return "A+";
+        if (score >= 85) return "A";
+        if (score >= 80) return "A-";
+        if (score >= 75) return "B+";
+        if (score >= 70) return "B";
+        if (score >= 65) return "B-";
+        if (score >= 60) return "C+";
+        if (score >= 55) return "C";
+        if (score >= 50) return "C-";
+        if (score >= 45) return "D+";
+        if (score >= 40) return "D";
+        return "D-";
+      };
+
+      const getColor = (score: number): "green" | "yellow" | "red" => {
+        if (score >= 75) return "green";
+        if (score >= 55) return "yellow";
+        return "red";
+      };
+
+      const getConfidenceLevel = (conf: number): "High" | "Medium" | "Low" => {
+        if (conf >= 0.7) return "High";
+        if (conf >= 0.4) return "Medium";
+        return "Low";
+      };
+
+      return {
+        overall: Math.round(overall),
+        grade: getGrade(overall),
+        color: getColor(overall),
+        confidence: getConfidenceLevel(confidence),
+      };
+    };
+
+    // Fetch unified game packages for the date
+    const gamePackages = await fetchIcuraUnifiedNhlDay(date);
+
+    if (!gamePackages || gamePackages.length === 0) {
+      return res.json({ success: true, data: [] });
+    }
+
+    // Generate predictions for each game
+    const predictions = await Promise.all(
+      gamePackages.map(async (pkg, index) => {
+        try {
+          // Resolve team abbreviations to UUIDs
+          const [homeTeamId, awayTeamId] = await Promise.all([
+            resolveTeamId(pkg.game.homeTeamAbbr),
+            resolveTeamId(pkg.game.awayTeamAbbr),
+          ]);
+
+          if (!homeTeamId || !awayTeamId) {
+            console.warn(
+              `Could not resolve team IDs for ${pkg.game.homeTeamAbbr}/${pkg.game.awayTeamAbbr}`,
+            );
+            // Return placeholder
+            return {
+              id: `gif5-${pkg.game.gameId || index}`,
+              gameId: pkg.game.gameId,
+              homeTeam: pkg.game.homeTeamAbbr,
+              awayTeam: pkg.game.awayTeamAbbr,
+              homeTeamAbbr: pkg.game.homeTeamAbbr,
+              awayTeamAbbr: pkg.game.awayTeamAbbr,
+              gameTime: pkg.game.startTimeISO || pkg.game.dateISO,
+              g1f5YesProbability: 0.5,
+              g1f5NoProbability: 0.5,
+              g1f5Recommendation: "NO",
+              g1f5Confidence: 0,
+              g1f5MarketProb: null,
+              g1f5Edge: null,
+              g1f5EdgePct: null,
+              g1f5Rating: null,
+              g1f5RatingLabel: "Meh",
+              g1f10YesProbability: 0.5,
+              g1f10NoProbability: 0.5,
+              g1f10Recommendation: "NO",
+              g1f10Confidence: 0,
+              g1f10MarketProb: null,
+              g1f10Edge: null,
+              g1f10EdgePct: null,
+              g1f10Rating: null,
+              g1f10RatingLabel: "Meh",
+              homeG1F5Record: "N/A",
+              homeG1F10Record: "N/A",
+              awayG1F5Record: "N/A",
+              awayG1F10Record: "N/A",
+            };
+          }
+
+          // Build feature row and get prediction
+          const featureRow = await buildEarlyGameFeatureRowFromDbHistory({
+            gamePkg: pkg,
+            homeTeamId,
+            awayTeamId,
+          });
+
+          const prediction = await runEarlyGoalEngineAsync(featureRow);
+
+          // DEBUG: Log full feature row and probabilities for first game
+          if (index === 0) {
+            console.log("\n=== FULL GAME DATA (First Game) ===");
+            console.log(
+              `Game: ${pkg.game.homeTeamAbbr} vs ${pkg.game.awayTeamAbbr} (${pkg.game.gameId})`,
+            );
+            console.log("\n--- FEATURES (PREGAME - Historical Last20) ---");
+            console.log(
+              JSON.stringify(
+                {
+                  // PREGAME FEATURES (historical last20) - These are what the model was trained on
+                  "G1F5 - First 5 minutes (historical)": {
+                    home_xgf_first5_last20: featureRow.home_team_xgf_first5_last20,
+                    home_xga_first5_last20: featureRow.home_team_xga_first5_last20,
+                    home_rush_first5_last20: featureRow.home_team_rush_chances_first5_last20,
+                    home_hd_first5_last20: featureRow.home_team_high_danger_first5_last20,
+                    away_xgf_first5_last20: featureRow.away_team_xgf_first5_last20,
+                    away_xga_first5_last20: featureRow.away_team_xga_first5_last20,
+                    away_rush_first5_last20: featureRow.away_team_rush_chances_first5_last20,
+                    away_hd_first5_last20: featureRow.away_team_high_danger_first5_last20,
+                  },
+                  "G1F10 - First 10 minutes (historical)": {
+                    home_xgf_first10_last20: featureRow.home_team_xgf_first10_last20,
+                    home_xga_first10_last20: featureRow.home_team_xga_first10_last20,
+                    home_rush_first10_last20: featureRow.home_team_rush_chances_first10_last20,
+                    home_hd_first10_last20: featureRow.home_team_high_danger_first10_last20,
+                    home_shot_attempts_first10: featureRow.home_team_shot_attempts_first10,
+                    away_xgf_first10_last20: featureRow.away_team_xgf_first10_last20,
+                    away_xga_first10_last20: featureRow.away_team_xga_first10_last20,
+                    away_rush_first10_last20: featureRow.away_team_rush_chances_first10_last20,
+                    away_hd_first10_last20: featureRow.away_team_high_danger_first10_last20,
+                    away_shot_attempts_first10: featureRow.away_team_shot_attempts_first10,
+                  },
+                },
+                null,
+                2,
+              ),
+            );
+            console.log("\n--- PROBABILITIES ---");
+            console.log(
+              JSON.stringify(
+                {
+                  g1f5: {
+                    poisson_p5: prediction.poisson_p5,
+                    ml_p5: prediction.ml_p5,
+                    raw_prob: prediction.p_g1f5_raw,
+                    calibrated_prob: prediction.p_g1f5,
+                  },
+                  g1f10: {
+                    poisson_p10: prediction.poisson_p10,
+                    ml_p10: prediction.ml_p10,
+                    raw_prob: prediction.p_g1f10_raw,
+                    calibrated_prob: prediction.p_g1f10,
+                  },
+                },
+                null,
+                2,
+              ),
+            );
+            console.log("========================\n");
+          }
+
+          // Market odds (if available)
+          let marketG1F5Yes: number | null = null;
+          let marketG1F10Yes: number | null = null;
+          try {
+            const sql = postgres(conn, { prepare: false });
+            // Try to match by game_external_id first (NHL gamecenter ID)
+            // If that fails and we have team IDs, try matching by date and teams via games table
+            let rows: any[];
+            // Try multiple matching strategies:
+            // 1. Match by NHL gamecenter ID (game_external_id)
+            // 2. Match by date + teams via games table
+            // 3. Match by date only (fallback if only one game that day)
+            if (homeTeamId && awayTeamId) {
+              rows = await sql`
+                SELECT m.market_g1f5_yes_odds, m.market_g1f10_yes_odds
+                FROM public.icura_nhl_market_early_goal m
+                WHERE m.game_external_id = ${pkg.game.gameId}
+                   OR m.date_iso = ${pkg.game.dateISO}::date
+                   OR (
+                     m.game_id IN (
+                       SELECT g.id
+                       FROM public.games g
+                       WHERE g.game_date = ${pkg.game.dateISO}::date
+                         AND (
+                           (g.home_team_id = ${homeTeamId} AND g.away_team_id = ${awayTeamId})
+                           OR (g.home_team_id = ${awayTeamId} AND g.away_team_id = ${homeTeamId})
+                         )
+                       LIMIT 1
+                     )
+                   )
+                ORDER BY 
+                  CASE WHEN m.game_external_id = ${pkg.game.gameId} THEN 1 ELSE 2 END,
+                  CASE WHEN m.date_iso = ${pkg.game.dateISO}::date THEN 1 ELSE 2 END
+                LIMIT 1
+              `;
+            } else {
+              // Fallback: match by game_external_id or date
+              rows = await sql`
+                SELECT market_g1f5_yes_odds, market_g1f10_yes_odds
+                FROM public.icura_nhl_market_early_goal
+                WHERE game_external_id = ${pkg.game.gameId}
+                   OR date_iso = ${pkg.game.dateISO}::date
+                ORDER BY 
+                  CASE WHEN game_external_id = ${pkg.game.gameId} THEN 1 ELSE 2 END
+                LIMIT 1
+              `;
+            }
+            await sql.end({ timeout: 2 });
+            const r: any = rows?.[0];
+            if (r) {
+              if (r.market_g1f5_yes_odds !== null && r.market_g1f5_yes_odds !== undefined) {
+                marketG1F5Yes = Number(r.market_g1f5_yes_odds);
+              }
+              if (r.market_g1f10_yes_odds !== null && r.market_g1f10_yes_odds !== undefined) {
+                marketG1F10Yes = Number(r.market_g1f10_yes_odds);
+              }
+            } else if (index === 0) {
+              // Debug: log why no market odds found for first game
+              console.log(
+                `[Market Odds Debug] No market odds found for game ${pkg.game.gameId} (${pkg.game.homeTeamAbbr} vs ${pkg.game.awayTeamAbbr}) on ${pkg.game.dateISO}`,
+              );
+              console.log(`  - homeTeamId: ${homeTeamId}, awayTeamId: ${awayTeamId}`);
+            }
+          } catch (err) {
+            console.error("Error fetching market odds:", err);
+            if (index === 0) {
+              console.error(
+                `[Market Odds Error] Failed to fetch for game ${pkg.game.gameId}:`,
+                err,
+              );
+            }
+          }
+
+          // Compute quality-based ratings (based on AI prediction quality factors)
+          let qualityRating5, qualityRating10;
+          try {
+            qualityRating5 = computeQualityRating(featureRow, prediction.p_g1f5, true);
+            qualityRating10 = computeQualityRating(featureRow, prediction.p_g1f10, false);
+          } catch (err) {
+            console.error(`Error computing quality ratings for game ${pkg.game.gameId}:`, err);
+            // Fallback to basic rating
+            const fallbackRating = (prob: number) => {
+              const conf = Math.abs(prob - 0.5) * 2;
+              const rating = Math.round(50 + conf * 30);
+              return {
+                rating: Math.max(0, Math.min(100, rating)),
+                label:
+                  rating >= 60
+                    ? "Good"
+                    : rating >= 45
+                      ? "Meh"
+                      : ("Bad" as "High" | "Good" | "Meh" | "Bad"),
+                analysis: {
+                  factors: [],
+                  summary: "Analysis unavailable due to missing feature data.",
+                  strengths: [],
+                  weaknesses: [],
+                },
+              };
+            };
+            qualityRating5 = fallbackRating(prediction.p_g1f5);
+            qualityRating10 = fallbackRating(prediction.p_g1f10);
+          }
+
+          // G1F5 predictions
+          const g1f5YesProb = prediction.p_g1f5;
+          const g1f5NoProb = 1 - g1f5YesProb;
+          const g1f5Rec = g1f5YesProb > 0.5 ? "YES" : "NO";
+          const g1f5Conf = Math.abs(g1f5YesProb - 0.5) * 2;
+
+          // G1F10 predictions
+          const g1f10YesProb = prediction.p_g1f10;
+          const g1f10NoProb = 1 - g1f10YesProb;
+          const g1f10Rec = g1f10YesProb > 0.5 ? "YES" : "NO";
+          const g1f10Conf = Math.abs(g1f10YesProb - 0.5) * 2;
+
+          // Get team records
+          const [homeRecords, awayRecords] = await Promise.all([
+            getTeamRecords(pkg.game.homeTeamAbbr),
+            getTeamRecords(pkg.game.awayTeamAbbr),
+          ]);
+
+          return {
+            id: `gif5-${pkg.game.gameId || index}`,
+            gameId: pkg.game.gameId,
+            homeTeam: pkg.game.homeTeamAbbr,
+            awayTeam: pkg.game.awayTeamAbbr,
+            homeTeamAbbr: pkg.game.homeTeamAbbr,
+            awayTeamAbbr: pkg.game.awayTeamAbbr,
+            gameTime: pkg.game.startTimeISO || pkg.game.dateISO,
+            g1f5YesProbability: g1f5YesProb,
+            g1f5NoProbability: g1f5NoProb,
+            g1f5Recommendation: g1f5Rec,
+            g1f5Confidence: g1f5Conf,
+            g1f5Rating: qualityRating5.rating,
+            g1f5RatingLabel: qualityRating5.label,
+            g1f5Analysis: qualityRating5.analysis,
+            g1f10YesProbability: g1f10YesProb,
+            g1f10NoProbability: g1f10NoProb,
+            g1f10Recommendation: g1f10Rec,
+            g1f10Confidence: g1f10Conf,
+            g1f10Rating: qualityRating10.rating,
+            g1f10RatingLabel: qualityRating10.label,
+            g1f10Analysis: qualityRating10.analysis,
+            homeG1F5Record: homeRecords.g1f5,
+            homeG1F10Record: homeRecords.g1f10,
+            awayG1F5Record: awayRecords.g1f5,
+            awayG1F10Record: awayRecords.g1f10,
+          };
+        } catch (error) {
+          console.error(`Error generating prediction for game ${pkg.game.gameId}:`, error);
+          // Return placeholder on error
+          return {
+            id: `gif5-${pkg.game.gameId || index}`,
+            gameId: pkg.game.gameId,
+            homeTeam: pkg.game.homeTeamAbbr,
+            awayTeam: pkg.game.awayTeamAbbr,
+            homeTeamAbbr: pkg.game.homeTeamAbbr,
+            awayTeamAbbr: pkg.game.awayTeamAbbr,
+            gameTime: pkg.game.startTimeISO || pkg.game.dateISO,
+            g1f5YesProbability: 0.5,
+            g1f5NoProbability: 0.5,
+            g1f5Recommendation: "NO",
+            g1f5Confidence: 0,
+            g1f5MarketProb: null,
+            g1f5Edge: null,
+            g1f5EdgePct: null,
+            g1f5Rating: null,
+            g1f5RatingLabel: "Meh",
+            g1f10YesProbability: 0.5,
+            g1f10NoProbability: 0.5,
+            g1f10Recommendation: "NO",
+            g1f10Confidence: 0,
+            g1f10MarketProb: null,
+            g1f10Edge: null,
+            g1f10EdgePct: null,
+            g1f10Rating: null,
+            g1f10RatingLabel: "Meh",
+            homeG1F5Record: "N/A",
+            homeG1F10Record: "N/A",
+            awayG1F5Record: "N/A",
+            awayG1F10Record: "N/A",
+          };
+        }
+      }),
+    );
+
+    return res.json({ success: true, data: predictions });
+  } catch (error: any) {
+    console.error("GET /api/gif5-predictions error:", error);
+    return res.status(500).json({
+      success: false,
+      error: error?.message || "GIF5 predictions failed",
+    });
   }
 });
 

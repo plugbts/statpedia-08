@@ -12,6 +12,12 @@ import type { IcuraEvent, IcuraUnifiedGamePackage } from "../unified/types";
 import type { EarlyGameFeatureRow } from "./engine";
 import { fetchLast20EarlyDatasetAverages } from "./db-history";
 import { fetchMoneyPuckShotsForGameFromDb } from "../unified/providers/moneypuck-db";
+import {
+  extractGoalieEarlyTendencies,
+  extractRefereePenaltyRates,
+  extractTravelFatigueFeatures,
+  extractShiftLevelFeatures,
+} from "./feature-extractors";
 
 function isGoal(e: IcuraEvent): boolean {
   return e.eventType === "goal" || e.isGoal === true;
@@ -354,32 +360,172 @@ export async function buildEarlyGameFeatureRowFromDbHistory(params: {
   const { gamePkg, homeTeamId, awayTeamId } = params;
   const targets = deriveEarlyTargets(gamePkg);
 
-  // Get current game stats from MoneyPuck shots aggregation
-  const gameStats = await computeTeamEarlyStatsFromGame(gamePkg);
+  // For PREGAME predictions, we use historical features, NOT in-game stats
+  // In-game stats (current_game.*) should only be used for live in-play predictions
   const homeAbbr = gamePkg.game.homeTeamAbbr;
   const awayAbbr = gamePkg.game.awayTeamAbbr;
 
-  // Get historical averages from DB (which should also be aggregated from shots)
+  // Get historical averages from DB (last 20 games)
   const [homeHist, awayHist] = await Promise.all([
     fetchLast20EarlyDatasetAverages({ teamId: homeTeamId, beforeDateISO: gamePkg.game.dateISO }),
     fetchLast20EarlyDatasetAverages({ teamId: awayTeamId, beforeDateISO: gamePkg.game.dateISO }),
   ]);
 
+  // Extract penalty events for penalty volatility features
+  const events10 = gamePkg.events.filter((e) => withinSeconds(e, 600));
+  const penalties10 = events10.filter((e) => e.eventType === "penalty");
+  const homePenalties10 = penalties10.filter((e) => teamKey(e.teamAbbr) === homeAbbr).length;
+  const awayPenalties10 = penalties10.filter((e) => teamKey(e.teamAbbr) === awayAbbr).length;
+
+  // Calculate penalty rates (draw = power play received, take = penalty taken)
+  const homeDrawPenaltyRate = awayPenalties10 > 0 ? awayPenalties10 / 10 : null; // Away takes = home draws
+  const homeTakePenaltyRate = homePenalties10 > 0 ? homePenalties10 / 10 : null;
+  const awayDrawPenaltyRate = homePenalties10 > 0 ? homePenalties10 / 10 : null; // Home takes = away draws
+  const awayTakePenaltyRate = awayPenalties10 > 0 ? awayPenalties10 / 10 : null;
+  const penaltyVolatilityIndex =
+    homeDrawPenaltyRate !== null &&
+    homeTakePenaltyRate !== null &&
+    awayDrawPenaltyRate !== null &&
+    awayTakePenaltyRate !== null
+      ? (homeDrawPenaltyRate + homeTakePenaltyRate + awayDrawPenaltyRate + awayTakePenaltyRate) / 4
+      : null;
+
+  // Extract goalie early tendencies (extract goalie names from MoneyPuck shots)
+  const [homeGoalieTendencies, awayGoalieTendencies, refereeRates, travelFatigue, shiftFeatures] =
+    await Promise.all([
+      extractGoalieEarlyTendencies(gamePkg.game.gameId, null, homeAbbr, true),
+      extractGoalieEarlyTendencies(gamePkg.game.gameId, null, awayAbbr, false),
+      extractRefereePenaltyRates(gamePkg.game.gameId, null, gamePkg.game.season || "2024-2025"),
+      extractTravelFatigueFeatures(
+        homeTeamId,
+        awayTeamId,
+        gamePkg.game.dateISO,
+        gamePkg.game.startTime,
+      ),
+      extractShiftLevelFeatures(gamePkg.game.gameId, homeAbbr, awayAbbr),
+    ]);
+
   return {
     gameId: gamePkg.game.gameId,
     dateISO: gamePkg.game.dateISO,
 
-    home_team_xgf_first10_last20: homeHist.team_xgf_first10_last20,
-    home_team_xga_first10_last20: homeHist.team_xga_first10_last20,
-    home_team_rush_chances_first10_last20: homeHist.team_rush_chances_first10_last20,
-    home_team_high_danger_first10_last20: homeHist.team_high_danger_first10_last20,
-    home_team_shot_attempts_first10: gameStats[homeAbbr]?.shot_attempts_first10 ?? null,
+    // PREGAME FEATURES (historical last20 stats) - These are what the model was trained on
+    // First 10 minutes (historical)
+    home_team_xgf_first10_last20: homeHist.team_xgf_first10_last20 ?? 0,
+    home_team_xga_first10_last20: homeHist.team_xga_first10_last20 ?? 0,
+    home_team_rush_chances_first10_last20: homeHist.team_rush_chances_first10_last20 ?? 0,
+    home_team_high_danger_first10_last20: homeHist.team_high_danger_first10_last20 ?? 0,
+    home_team_shot_attempts_first10: homeHist.team_shot_attempts_first10_last20 ?? 0,
 
-    away_team_xgf_first10_last20: awayHist.team_xgf_first10_last20,
-    away_team_xga_first10_last20: awayHist.team_xga_first10_last20,
-    away_team_rush_chances_first10_last20: awayHist.team_rush_chances_first10_last20,
-    away_team_high_danger_first10_last20: awayHist.team_high_danger_first10_last20,
-    away_team_shot_attempts_first10: gameStats[awayAbbr]?.shot_attempts_first10 ?? null,
+    away_team_xgf_first10_last20: awayHist.team_xgf_first10_last20 ?? 0,
+    away_team_xga_first10_last20: awayHist.team_xga_first10_last20 ?? 0,
+    away_team_rush_chances_first10_last20: awayHist.team_rush_chances_first10_last20 ?? 0,
+    away_team_high_danger_first10_last20: awayHist.team_high_danger_first10_last20 ?? 0,
+    away_team_shot_attempts_first10: awayHist.team_shot_attempts_first10_last20 ?? 0,
+
+    // First 5 minutes (historical, scaled from first 10)
+    home_team_xgf_first5_last20: homeHist.team_xgf_first10_last20
+      ? homeHist.team_xgf_first10_last20 * 0.5
+      : 0,
+    home_team_xga_first5_last20: homeHist.team_xga_first10_last20
+      ? homeHist.team_xga_first10_last20 * 0.5
+      : 0,
+    home_team_rush_chances_first5_last20: homeHist.team_rush_chances_first10_last20
+      ? homeHist.team_rush_chances_first10_last20 * 0.5
+      : 0,
+    home_team_high_danger_first5_last20: homeHist.team_high_danger_first10_last20
+      ? homeHist.team_high_danger_first10_last20 * 0.5
+      : 0,
+    home_team_time_to_first_shot: null, // Not used in pregame model
+    home_team_time_to_first_hd: null,
+    home_team_time_to_first_rush: null,
+
+    away_team_xgf_first5_last20: awayHist.team_xgf_first10_last20
+      ? awayHist.team_xgf_first10_last20 * 0.5
+      : 0,
+    away_team_xga_first5_last20: awayHist.team_xga_first10_last20
+      ? awayHist.team_xga_first10_last20 * 0.5
+      : 0,
+    away_team_rush_chances_first5_last20: awayHist.team_rush_chances_first10_last20
+      ? awayHist.team_rush_chances_first10_last20 * 0.5
+      : 0,
+    away_team_high_danger_first5_last20: awayHist.team_high_danger_first10_last20
+      ? awayHist.team_high_danger_first10_last20 * 0.5
+      : 0,
+    away_team_time_to_first_shot: null, // Not used in pregame model
+    away_team_time_to_first_hd: null,
+    away_team_time_to_first_rush: null,
+
+    // Goalie features (existing)
+    home_goalie_gsax_first_period: null, // Will be populated from goalie stats
+    away_goalie_gsax_first_period: null,
+    home_goalie_save_pct_first5: null,
+    home_goalie_gsax_first5: null,
+    away_goalie_save_pct_first5: null,
+    away_goalie_gsax_first5: null,
+
+    // Context features (existing)
+    home_rest_days: null, // Will be calculated from schedule
+    away_rest_days: null,
+    home_back_to_back: null,
+    away_back_to_back: null,
+    travel_distance: null,
+    injury_impact_home: null,
+    injury_impact_away: null,
+    ref_penalty_rate: null, // Will be populated from referee data
+
+    // NEW G1F10 FEATURES - Referee-level penalty rates
+    ref_penalties_first_period_avg: refereeRates.penalties_first_period_avg,
+    ref_penalties_first10_avg: refereeRates.penalties_first10_avg,
+    ref_minors_vs_majors_ratio: refereeRates.minors_vs_majors_ratio,
+    ref_home_away_penalty_bias: refereeRates.home_away_penalty_bias,
+
+    // NEW G1F10 FEATURES - Shift-level matchup modeling
+    home_top_line_xgf_first10_last20: shiftFeatures.home_top_line_xgf,
+    home_top_line_xga_first10_last20: shiftFeatures.home_top_line_xga,
+    home_top_line_rush_rate_first10_last20: shiftFeatures.home_top_line_rush_rate,
+    home_top_line_hd_rate_first10_last20: shiftFeatures.home_top_line_hd_rate,
+    home_top_pair_xga_suppression_first10_last20: shiftFeatures.home_top_pair_xga_suppression,
+    away_top_line_xgf_first10_last20: shiftFeatures.away_top_line_xgf,
+    away_top_line_xga_first10_last20: shiftFeatures.away_top_line_xga,
+    away_top_line_rush_rate_first10_last20: shiftFeatures.away_top_line_rush_rate,
+    away_top_line_hd_rate_first10_last20: shiftFeatures.away_top_line_hd_rate,
+    away_top_pair_xga_suppression_first10_last20: shiftFeatures.away_top_pair_xga_suppression,
+
+    // NEW G1F10 FEATURES - Penalty volatility
+    home_draw_penalty_rate_first10: homeDrawPenaltyRate,
+    home_take_penalty_rate_first10: homeTakePenaltyRate,
+    away_draw_penalty_rate_first10: awayDrawPenaltyRate,
+    away_take_penalty_rate_first10: awayTakePenaltyRate,
+    penalty_volatility_index: penaltyVolatilityIndex,
+    ref_team_interaction_home:
+      refereeRates.penalties_first10_avg !== null && homeTakePenaltyRate !== null
+        ? refereeRates.penalties_first10_avg * homeTakePenaltyRate
+        : null,
+    ref_team_interaction_away:
+      refereeRates.penalties_first10_avg !== null && awayTakePenaltyRate !== null
+        ? refereeRates.penalties_first10_avg * awayTakePenaltyRate
+        : null,
+
+    // NEW G1F10 FEATURES - Travel + fatigue interactions
+    home_b2b_travel: travelFatigue.home.b2b_travel,
+    away_b2b_travel: travelFatigue.away.b2b_travel,
+    home_3in4_travel: travelFatigue.home.three_in_four_travel,
+    away_3in4_travel: travelFatigue.away.three_in_four_travel,
+    west_to_east_travel: travelFatigue.away.west_to_east_travel,
+    early_start_time: travelFatigue.home.early_start_time,
+
+    // NEW G1F10 FEATURES - Goalie-specific early-game tendencies
+    home_goalie_first_shot_save_pct: homeGoalieTendencies.first_shot_save_pct,
+    home_goalie_first_3_shots_save_pct: homeGoalieTendencies.first_3_shots_save_pct,
+    home_goalie_rebound_rate_first10: homeGoalieTendencies.rebound_rate_first10,
+    home_goalie_rush_save_pct_first10: homeGoalieTendencies.rush_save_pct_first10,
+    home_goalie_screened_save_pct_first10: homeGoalieTendencies.screened_save_pct_first10,
+    away_goalie_first_shot_save_pct: awayGoalieTendencies.first_shot_save_pct,
+    away_goalie_first_3_shots_save_pct: awayGoalieTendencies.first_3_shots_save_pct,
+    away_goalie_rebound_rate_first10: awayGoalieTendencies.rebound_rate_first10,
+    away_goalie_rush_save_pct_first10: awayGoalieTendencies.rush_save_pct_first10,
+    away_goalie_screened_save_pct_first10: awayGoalieTendencies.screened_save_pct_first10,
 
     targets,
   };

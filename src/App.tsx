@@ -25,6 +25,9 @@ import { SimpleHookTest } from "@/components/debug/simple-hook-test";
 import AuthTest from "./pages/AuthTest";
 import { ErrorBoundary } from "@/components/error-boundary";
 import DebugAuth from "@/pages/DebugAuth";
+import MlbSlateOverviewPage from "@/app/(main)/page";
+import MlbPlayerProfilePage from "@/app/players/[id]/page";
+import MlbPlayerPropsComparePage from "@/app/players/[id]/props/page";
 
 // Subscription wrapper component to handle navigation
 const SubscriptionWrapper: React.FC = () => {
@@ -169,6 +172,9 @@ const App = () => {
                   <Route path="/debug/auth" element={<DebugAuth />} />
                   <Route path="/auth-test" element={<AuthTest />} />
                   <Route path="/diagnostics" element={<Diagnostics />} />
+                  <Route path="/mlb" element={<MlbSlateOverviewPage />} />
+                  <Route path="/mlb/players/:id" element={<MlbPlayerProfilePage />} />
+                  <Route path="/mlb/players/:id/props" element={<MlbPlayerPropsComparePage />} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>

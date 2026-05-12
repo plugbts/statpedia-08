@@ -27,6 +27,7 @@ export type MoneyPuckShotRow = {
   game_time_seconds: number | null;
   team_abbr: string | null;
   shooter_name: string | null;
+  goalie_name: string | null;
   x_coord: number | null;
   y_coord: number | null;
   xg: number | null;
@@ -34,6 +35,7 @@ export type MoneyPuckShotRow = {
   is_rush: boolean | null;
   is_high_danger: boolean | null;
   is_rebound: boolean | null;
+  shot_speed: number | null;
 };
 
 function normName(s: string): string {
