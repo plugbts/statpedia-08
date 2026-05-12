@@ -176,6 +176,40 @@ export const LoginForm: React.FC = () => {
                 )}
               </Button>
             </form>
+
+            <div className="mt-4 pt-4 border-t border-dashed">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  const devUser = {
+                    id: 'dev-skip-user',
+                    email: 'dev@statpedia.local',
+                    email_verified: true,
+                    display_name: 'Dev User',
+                    username: 'dev',
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                    disabled: false,
+                    role: 'admin',
+                  };
+                  const devTokens = {
+                    token: 'dev-skip-token',
+                    refreshToken: 'dev-skip-refresh',
+                    expiresAt: Date.now() + 1000 * 60 * 60 * 24 * 365,
+                  };
+                  localStorage.setItem('auth_user', JSON.stringify(devUser));
+                  localStorage.setItem('auth_tokens', JSON.stringify(devTokens));
+                  window.location.reload();
+                }}
+              >
+                Skip Login (Dev)
+              </Button>
+              <p className="text-xs text-muted-foreground text-center mt-2">
+                For development only — bypasses authentication
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
